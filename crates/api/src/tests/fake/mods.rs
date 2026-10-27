@@ -52,6 +52,7 @@ impl Mods for FakeDaemon {
             layout: None,
             words: None,
             fleet: None,
+            commands: None,
         })
     }
 

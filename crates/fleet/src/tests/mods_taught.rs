@@ -348,7 +348,7 @@ fn a_blank_must_be_spelled_like_a_name_and_only_prompt_url_and_shell_take_one() 
     refused(&one("Linked", "chain = [\"nav:{repo}\"]"), "`Linked` takes no blanks in a chain");
     let braces = one("Awk", "shell = \"awk '{print $1} {a,b}' {pr}\"");
     assert_eq!(commands::problems(&braces), Vec::<String>::new(), "braces that hold no name are text");
-    assert_eq!(commands::read(&braces).expect("reads").command[0].blanks, ["print", "pr"]);
+    assert_eq!(commands::read(&braces).expect("reads").command[0].blanks, ["pr"]);
 }
 
 #[test]
@@ -360,6 +360,23 @@ fn a_chain_must_name_a_row_and_every_one_must_be_a_row_id() {
 #[test]
 fn two_commands_may_not_share_a_name() {
     refused(&format!("{}{}", one("Same", "shell = \"a\""), one("Same", "shell = \"b\"")), "`Same` is named twice");
+}
+
+#[test]
+fn an_alias_may_not_be_empty_or_belong_to_two_rows() {
+    refused(&one("Blank", "shell = \"a\"\naliases = [\"ok\", \" \"]"), "`Blank` has an empty alias");
+    let twice = format!("{}{}", one("First", "shell = \"a\"\naliases = [\"go\"]"), one("Second", "shell = \"b\"\naliases = [\"GO\"]"));
+    refused(&twice, "`Second` has the alias `GO`, which another alias already has");
+}
+
+#[test]
+fn an_address_is_http_or_https_with_a_host_that_holds_no_blank_and_a_problem_names_its_line() {
+    refused(&one("Script", "url = \"javascript:alert(1)\""), "`Script` has an address that is not http or https");
+    refused(&one("Local", "url = \"file:///etc/passwd\""), "an address that is not http or https");
+    refused(&one("Spaced", "url = \"https://x.example/a b\""), "an address with a space");
+    refused(&one("Hosted", "url = \"https://{host}/a\""), "a blank in the address's host");
+    let second = format!("{}{}", one("Fine", "shell = \"a\""), one("Bad", "shell = \"a\"\nurl = \"https://x.example\""));
+    refused(&second, "`Bad` does more than one of prompt, url, shell and chain on line 4");
 }
 
 #[test]

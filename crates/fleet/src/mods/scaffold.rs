@@ -55,12 +55,33 @@ const STARTER_FLEET: &str = "\
 # where = \"everywhere\"
 ";
 
-/// The starter Commands file: one row, since a file with none is refused.
+/// The starter Commands file: one row that passes, since a file with none is refused, and the other three acts commented.
 const STARTER_COMMANDS: &str = "\
-# Rows added to Bridge's command palette. Each does one of: prompt, url, shell or chain.
+# Rows added to Bridge's command palette. Each row does exactly one of prompt, url, shell or chain.
+# A {name} in a prompt, url or shell line is a blank the person fills in the palette.
+# aliases are searched and never drawn. hotkey is a chord as the registry spells one: ⌥⌘S.
+
+# Opens an address.
 [[command]]
 name = \"Open the docs\"
 url = \"https://example.com/docs\"
+
+# Starts a Job on a prompt.
+# [[command]]
+# name = \"Review a pull request for security\"
+# aliases = [\"sec\"]
+# hotkey = \"⌥⌘S\"
+# prompt = \"Review {pr} for security issues\"
+
+# Runs a line in the picked repository's checkout.
+# [[command]]
+# name = \"Audit dependencies\"
+# shell = \"pnpm audit\"
+
+# Runs other palette rows by id, in order.
+# [[command]]
+# name = \"Add a task\"
+# chain = [\"nav:projects\", \"act:add_task\"]
 ";
 
 /// The starter tweak: no declaration, so the chosen theme draws as it did.
