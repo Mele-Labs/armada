@@ -12,12 +12,19 @@ use tokio::sync::broadcast;
 /// How many messages a run's channel holds for a viewer not keeping up.
 pub const SESSION_RUN_BACKLOG: usize = 256;
 
+/// How a run ended. `code` is `None` where the process group was stopped or a signal ended it,
+/// and `stopped` tells those two apart: it is true where Stop was pressed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SessionRunEnd {
+    pub code: Option<i32>,
+    pub stopped: bool,
+}
+
 /// What a run says after a viewer has subscribed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SessionRunEvent {
     Output(String),
-    /// The run ended. `None` where a signal ended the process group.
-    Exited(Option<i32>),
+    Exited(SessionRunEnd),
 }
 
 /// What one viewer is answered with.
@@ -25,9 +32,9 @@ pub struct ObservedSessionRun {
     pub run_id: String,
     /// What the run printed before this viewer subscribed: the held tail.
     pub history: String,
-    /// `Some` where the run was still going: the end then arrives on it. `None` where it ended,
-    /// and `exited` is the code it ended with.
-    pub live: Result<broadcast::Receiver<SessionRunEvent>, Option<i32>>,
+    /// `Ok` where the run was still going: the end then arrives on it. `Err` where it ended,
+    /// and holds how.
+    pub live: Result<broadcast::Receiver<SessionRunEvent>, SessionRunEnd>,
 }
 
 pub(crate) async fn relay_session_run(mut socket: WebSocket, observed: ObservedSessionRun) {
@@ -44,14 +51,14 @@ pub(crate) async fn relay_session_run(mut socket: WebSocket, observed: ObservedS
         return;
     }
     match observed.live {
-        Err(code) => {
-            send(&mut socket, &SessionRunMessage::Exited { code }).await;
+        Err(end) => {
+            send(&mut socket, &exited(end)).await;
         }
         Ok(mut live) => loop {
             let message = match live.recv().await {
                 Ok(SessionRunEvent::Output(text)) => SessionRunMessage::Output { text },
-                Ok(SessionRunEvent::Exited(code)) => {
-                    send(&mut socket, &SessionRunMessage::Exited { code }).await;
+                Ok(SessionRunEvent::Exited(end)) => {
+                    send(&mut socket, &exited(end)).await;
                     break;
                 }
                 Err(broadcast::error::RecvError::Lagged(dropped)) => {
@@ -59,7 +66,7 @@ pub(crate) async fn relay_session_run(mut socket: WebSocket, observed: ObservedS
                 }
                 // The run's record went with no end sent: say so as a signal's.
                 Err(broadcast::error::RecvError::Closed) => {
-                    send(&mut socket, &SessionRunMessage::Exited { code: None }).await;
+                    send(&mut socket, &exited(SessionRunEnd { code: None, stopped: false })).await;
                     break;
                 }
             };
@@ -69,6 +76,10 @@ pub(crate) async fn relay_session_run(mut socket: WebSocket, observed: ObservedS
         },
     }
     let _ = socket.close().await;
+}
+
+fn exited(end: SessionRunEnd) -> SessionRunMessage {
+    SessionRunMessage::Exited { code: end.code, stopped: end.stopped }
 }
 
 async fn send<M: Serialize>(socket: &mut WebSocket, message: &M) -> bool {

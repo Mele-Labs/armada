@@ -34,7 +34,7 @@ pub(crate) async fn edit_manifest_proposal<D: Commands>(
     Query(scope): Query<InRepository>,
     body: Bytes,
 ) -> Response {
-    let edit: EditManifestProposal = match ipc::decode("an edit to a proposal", &body) {
+    let edit: EditManifestProposal = match ipc::decode_body("an edit to a proposal", &body) {
         Ok(edit) => edit,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -54,7 +54,7 @@ pub(crate) async fn write_manifest_proposal<D: Commands>(
     Query(scope): Query<InRepository>,
     body: Bytes,
 ) -> Response {
-    let write: WriteManifestProposal = match ipc::decode("a proposal to write", &body) {
+    let write: WriteManifestProposal = match ipc::decode_body("a proposal to write", &body) {
         Ok(write) => write,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

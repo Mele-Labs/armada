@@ -27,7 +27,7 @@ pub(crate) async fn edit_manifest<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let edit: EditManifest = match ipc::decode("a Manifest edit", &body) {
+    let edit: EditManifest = match ipc::decode_body("a Manifest edit", &body) {
         Ok(edit) => edit,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -107,6 +107,7 @@ fn read_object(existing: Option<&[u8]>) -> Result<Value, NotMerged> {
             NotMerged::Unreadable(Undecodable {
                 expected: "JSON document",
                 why: why.to_string(),
+                shape: None,
             })
         }),
     }

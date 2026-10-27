@@ -39,7 +39,7 @@ pub(crate) async fn get_run_memory_place<D: Queries>(
 
 /// Choose the place; answers with it.
 pub(crate) async fn set_run_memory_place<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let chosen: ipc::RunMemoryPlace = match ipc::decode("a place for a repository's runs", &body) {
+    let chosen: ipc::RunMemoryPlace = match ipc::decode_body("a place for a repository's runs", &body) {
         Ok(chosen) => chosen,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -51,7 +51,7 @@ pub(crate) async fn set_run_memory_place<D: Commands>(State(served): State<Serve
 
 /// Drop one fact for good; answers with what remains.
 pub(crate) async fn drop_run_fact<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let dropping: ipc::DropRunFact = match ipc::decode("a run to drop", &body) {
+    let dropping: ipc::DropRunFact = match ipc::decode_body("a run to drop", &body) {
         Ok(dropping) => dropping,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

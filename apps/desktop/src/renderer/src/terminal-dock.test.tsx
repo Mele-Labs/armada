@@ -2,7 +2,7 @@
 // carrying the terminal both ways: the size a run starts at, the keys typed, the size after a fit, a stop.
 // The pane is mounted over a runner of the test's own, so what reached it is what is asserted.
 
-import { DockedTerminal, Prose, ProseRunner, ProseTerminal, useCodeRun, useTerminalDock, type CodeRunEvent, type CodeRunner } from "@armada/components";
+import { DockedTerminal, Prose, ProseRunner, ProseTerminal, forgetKeptRuns, useCodeRun, useTerminalDock, type CodeRunEvent, type CodeRunner } from "@armada/components";
 import { createRoot, type Root } from "react-dom/client";
 import { useState } from "react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -17,6 +17,8 @@ afterEach(() => {
     root.unmount();
     host.remove();
   }
+  // The pane and its run are kept by the Job they are of, which every test here names alike.
+  forgetKeptRuns();
 });
 
 /** What the test's runner was asked, and the way to speak as the program on the other end of it. */
@@ -29,7 +31,7 @@ function program() {
   const runner: CodeRunner = (command, hear, size) => {
     started.push({ command, size });
     on = hear;
-    return { stop: () => (stops(), hear({ kind: "end", code: null })), write: written, resize: resized };
+    return { stop: () => (stops(), hear({ kind: "end", code: null, stopped: true })), write: written, resize: resized };
   };
   return { runner, started, stops, written, resized, prints: (text: string) => on({ kind: "out", text }), exits: (code: number) => on({ kind: "end", code }) };
 }
@@ -38,7 +40,7 @@ const SOURCE = "Check it:\n\n```sh\nmake test\n```";
 
 /** A Session's view in little: a thread with a block, the dock under it, and a box to leave focus in. */
 function View({ runner }: { runner: CodeRunner }) {
-  const dock = useTerminalDock(useCodeRun(runner), "s1");
+  const dock = useTerminalDock(useCodeRun(runner, "dock:s1"), "dock:s1");
   const [width, setWidth] = useState(720);
   return (
     <ProseTerminal.Provider value={{ dock }}>
@@ -63,6 +65,7 @@ function view(runner: CodeRunner) {
   const root = createRoot(host);
   roots.push({ root, host });
   root.render(<View runner={runner} />);
+  return { root, show: () => root.render(<View runner={runner} />), leave: () => root.render(<p>Another Job</p>) };
 }
 
 const pane = () => page.getByRole("group", { name: "Terminal", exact: true });
@@ -174,6 +177,42 @@ test("Close puts the pane away once the run has ended, and the block's mark brin
   await page.getByRole("button", { name: "Show terminal" }).click();
   await expect.element(pane()).toBeVisible();
   await expect.element(pane().getByText("kept")).toBeVisible();
+  await expect.element(pane().getByRole("img", { name: "Failed" })).toBeVisible();
+  expect(p.started).toHaveLength(1);
+});
+
+test("leaving the Job leaves the pane's run going, and coming back finds the pane with it still running", async () => {
+  const p = program();
+  const job = view(p.runner);
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.element(pane().getByRole("img", { name: "Running" })).toBeVisible();
+  p.prints("one-time code 4F2A\r\n");
+
+  job.leave();
+  await expect.element(page.getByText("Another Job")).toBeVisible();
+  expect(document.querySelector(".armada-terminal")).toBeNull();
+  expect(p.stops).not.toHaveBeenCalled();
+
+  job.show();
+  await expect.element(pane().getByRole("img", { name: "Running" })).toBeVisible();
+  await expect.poll(() => document.querySelector(".armada-xterm")?.textContent ?? "").toContain("one-time code 4F2A");
+  // The run is the one that was started: asked for once, and the keys reach it.
+  expect(p.started).toHaveLength(1);
+  await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+  await userEvent.keyboard("ls");
+  await expect.poll(() => p.written.mock.calls.map((call) => call[0]).join("")).toBe("ls");
+  expect(p.stops).not.toHaveBeenCalled();
+});
+
+test("a run that ended while its Job was left is found ended, with its exit", async () => {
+  const p = program();
+  const job = view(p.runner);
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.poll(() => p.started.length).toBe(1);
+  job.leave();
+  await expect.element(page.getByText("Another Job")).toBeVisible();
+  p.exits(1);
+  job.show();
   await expect.element(pane().getByRole("img", { name: "Failed" })).toBeVisible();
   expect(p.started).toHaveLength(1);
 });

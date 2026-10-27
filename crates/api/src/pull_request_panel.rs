@@ -61,7 +61,7 @@ pub(crate) async fn write_pull_request<D: PullRequestPanel>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let write: ipc::WritePullRequest = match ipc::decode("a write on a pull request", &body) {
+    let write: ipc::WritePullRequest = match ipc::decode_body("a write on a pull request", &body) {
         Ok(write) => write,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -89,7 +89,7 @@ pub(crate) async fn resolve_review_thread<D: PullRequestPanel>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let resolve: ipc::ResolvePullThread = match ipc::decode("a resolve on a review thread", &body) {
+    let resolve: ipc::ResolvePullThread = match ipc::decode_body("a resolve on a review thread", &body) {
         Ok(resolve) => resolve,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -119,7 +119,7 @@ pub(crate) async fn save_review_tool<D: PullRequestPanel>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let save: ipc::SaveReviewTool = match ipc::decode("a review tool to save", &body) {
+    let save: ipc::SaveReviewTool = match ipc::decode_body("a review tool to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -140,7 +140,7 @@ pub(crate) async fn start_review_run<D: PullRequestPanel>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartReviewRun = match ipc::decode("a review run to start", &body) {
+    let start: ipc::StartReviewRun = match ipc::decode_body("a review run to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

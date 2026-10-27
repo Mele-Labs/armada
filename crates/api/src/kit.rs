@@ -49,7 +49,7 @@ pub(crate) async fn save_flight_controls<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let controls: ipc::FlightControls = match ipc::decode("the flight controls to save", &body) {
+    let controls: ipc::FlightControls = match ipc::decode_body("the flight controls to save", &body) {
         Ok(controls) => controls,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -85,7 +85,7 @@ pub(crate) async fn save_repository_flight_controls<D: Commands>(
     body: Bytes,
 ) -> Response {
     let saving: ipc::SaveRepositoryFlightControls =
-        match ipc::decode("a repository's flight controls to save", &body) {
+        match ipc::decode_body("a repository's flight controls to save", &body) {
             Ok(saving) => saving,
             Err(why) => return undecodable(&why.to_string(), served.run_id()),
         };
@@ -100,7 +100,7 @@ pub(crate) async fn save_kit_manifest<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let saving: ipc::SaveKitManifest = match ipc::decode("an armada.yml to keep in Kit", &body) {
+    let saving: ipc::SaveKitManifest = match ipc::decode_body("an armada.yml to keep in Kit", &body) {
         Ok(saving) => saving,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -115,7 +115,7 @@ pub(crate) async fn approve_repository_tile<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let approving: ipc::ApproveRepositoryTile = match ipc::decode("a repository tile to approve", &body) {
+    let approving: ipc::ApproveRepositoryTile = match ipc::decode_body("a repository tile to approve", &body) {
         Ok(approving) => approving,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -130,7 +130,7 @@ pub(crate) async fn commit_to_repository<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::CommitToRepository = match ipc::decode("a piece to commit to a repository", &body) {
+    let asked: ipc::CommitToRepository = match ipc::decode_body("a piece to commit to a repository", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -157,7 +157,7 @@ pub(crate) async fn add_kit_server<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let adding: AddKitServer = match ipc::decode("a server to add to Kit", &body) {
+    let adding: AddKitServer = match ipc::decode_body("a server to add to Kit", &body) {
         Ok(adding) => adding,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -176,7 +176,7 @@ pub(crate) async fn forget_kit_server<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let forgetting: ForgetKitServer = match ipc::decode("a server to take out of Kit", &body) {
+    let forgetting: ForgetKitServer = match ipc::decode_body("a server to take out of Kit", &body) {
         Ok(forgetting) => forgetting,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -195,7 +195,7 @@ pub(crate) async fn set_kit_server_reach<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let setting: SetKitServerReach = match ipc::decode("Kit's own reach for a server", &body) {
+    let setting: SetKitServerReach = match ipc::decode_body("Kit's own reach for a server", &body) {
         Ok(setting) => setting,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -215,7 +215,7 @@ pub(crate) async fn set_manifest_server_reach<D: Commands>(
     body: Bytes,
 ) -> Response {
     let setting: SetManifestServerReach =
-        match ipc::decode("this Manifest's word about a server", &body) {
+        match ipc::decode_body("this Manifest's word about a server", &body) {
             Ok(setting) => setting,
             Err(why) => return undecodable(&why.to_string(), served.run_id()),
         };
@@ -237,7 +237,7 @@ pub(crate) async fn remove_kit_allowed_command<D: Commands>(
     body: Bytes,
 ) -> Response {
     let removing: RemoveKitAllowedCommand =
-        match ipc::decode("a command to take out of Kit's allowlist", &body) {
+        match ipc::decode_body("a command to take out of Kit's allowlist", &body) {
             Ok(removing) => removing,
             Err(why) => return undecodable(&why.to_string(), served.run_id()),
         };
@@ -249,7 +249,7 @@ pub(crate) async fn remove_kit_allowed_command<D: Commands>(
 
 /// What a pasted source is, before anything runs. **Machine-wide**, as the inventory is.
 pub(crate) async fn look_at_kit_source<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: LookAtKitSource = match ipc::decode("a source to look at", &body) {
+    let asked: LookAtKitSource = match ipc::decode_body("a source to look at", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -261,7 +261,7 @@ pub(crate) async fn look_at_kit_source<D: Commands>(State(served): State<Served<
 
 /// Install what a look found. A command that fails answers 200 with `failed`.
 pub(crate) async fn install_kit_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: InstallKitPiece = match ipc::decode("a plugin or skill to install", &body) {
+    let asked: InstallKitPiece = match ipc::decode_body("a plugin or skill to install", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -273,7 +273,7 @@ pub(crate) async fn install_kit_piece<D: Commands>(State(served): State<Served<D
 
 /// A skill of the person's own to the Trash, or a plugin uninstalled.
 pub(crate) async fn remove_kit_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: RemoveKitPiece = match ipc::decode("a plugin or skill to remove", &body) {
+    let asked: RemoveKitPiece = match ipc::decode_body("a plugin or skill to remove", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -285,7 +285,7 @@ pub(crate) async fn remove_kit_piece<D: Commands>(State(served): State<Served<D>
 
 /// A trashed skill back where it was, answered with the inventory.
 pub(crate) async fn restore_kit_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: RestoreKitPiece = match ipc::decode("a skill to put back", &body) {
+    let asked: RestoreKitPiece = match ipc::decode_body("a skill to put back", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
