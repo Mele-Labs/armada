@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Check, ChevronDown, CircleCheck, CircleX, Copy, Play, RotateCcw, Square, SquareTerminal } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { endedSaid } from "../TerminalPane/TerminalPane";
-import { DockedMark, ProseTerminal } from "./TerminalRun";
+import { DockedMark, InlineTerminal, ProseTerminal } from "./TerminalRun";
 import { plainOf } from "./plain";
 import { begin, change, entryFor, newEntry, subscribeTo, type RunEntry } from "./runs";
 
@@ -220,19 +220,21 @@ export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabe
   const own = useCodeRun(runner, keep);
   const terminal = useContext(ProseTerminal);
   const run = held ?? own;
-  // A docked pane holds one run for the view, and a block shows it only while it is of this command.
+  // The view's pane holds one run, and a block draws it under itself only while it is a run of this command that a block started.
   const dock = held === undefined && terminal !== null ? terminal.dock : null;
-  const docked = dock !== null && dock.command === command ? dock.run : null;
+  const block = useId();
+  useLayoutEffect(() => dock?.register(block, command), [dock?.register, block, command]);
+  const docked = dock !== null && dock.command === command && dock.claims(block) ? dock.run : null;
   const { phase } = dock === null ? run : (docked ?? { phase: { state: "idle" } as const });
   const running = phase.state === "running";
-  const start = () => (dock === null ? run.start(command) : dock.start(command));
+  const start = () => (dock === null ? run.start(command) : dock.start(command, block));
   const stop = dock === null ? run.stop : dock.run.stop;
 
   return (
     <div className="armada-prose__run" data-state={phase.state} data-docked={docked === null ? undefined : ""} role="group" aria-label={command.split("\n")[0]}>
       <div className="armada-prose__run-block">
         {children}
-        {dock !== null && docked !== null ? <DockedMark dock={dock} phase={phase} /> : null}
+        {dock !== null && docked !== null && !dock.shown ? <DockedMark dock={dock} phase={phase} /> : null}
         <span className="armada-prose__run-acts">
           {copy === undefined ? null : <CopyAct text={copy} {...(copyLabel === undefined ? {} : { label: copyLabel })} />}
           {running ? (
@@ -256,7 +258,7 @@ export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabe
           )}
         </span>
       </div>
-      {dock === null ? <RunOutput run={run} /> : null}
+      {dock === null ? <RunOutput run={run} /> : docked === null ? null : <InlineTerminal dock={dock} />}
     </div>
   );
 }

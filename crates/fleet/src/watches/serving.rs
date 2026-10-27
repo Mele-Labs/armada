@@ -102,7 +102,8 @@ where
     ) -> Result<Filled, Refusal> {
         let recipes = self.recipes_for(job).await;
         let Some(found) = recipes.named(recipe) else {
-            return Err(self.watch_unacceptable(RECIPE_UNKNOWN, unknown_recipe(recipe, &recipes)));
+            let folder = self.locating().machine_watch_folder();
+            return Err(self.watch_unacceptable(RECIPE_UNKNOWN, unknown_recipe(recipe, &recipes, folder.as_deref())));
         };
         let mut command = core_model::fill(&found.recipe.command, values)
             .map_err(|why| self.watch_unacceptable(VALUE_REFUSED, unfilled(recipe, &why)))?;
@@ -191,7 +192,9 @@ where
     }
 }
 
-fn unknown_recipe(named: &str, recipes: &config::WatchRecipes) -> String {
+/// **It names the folder this Mac's recipes are read from**, so a file kept anywhere else is seen
+/// to be in the wrong place (27 Oct 2026).
+fn unknown_recipe(named: &str, recipes: &config::WatchRecipes, machine: Option<&Path>) -> String {
     let there: Vec<&str> = recipes.recipes().iter().map(|one| one.recipe.name.as_str()).collect();
     let mut said = match there.is_empty() {
         true => format!("No watch recipe is named {named}, and none is there."),
@@ -201,6 +204,9 @@ fn unknown_recipe(named: &str, recipes: &config::WatchRecipes) -> String {
         said.push(' ');
         said.push_str(&left.to_string());
         said.push('.');
+    }
+    if let Some(folder) = machine {
+        said.push_str(&format!(" This Mac's recipes are read from {}.", folder.display()));
     }
     said
 }

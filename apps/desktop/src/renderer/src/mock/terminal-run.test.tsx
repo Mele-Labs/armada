@@ -1,6 +1,6 @@
-// A command a Session gave the person runs in a docked terminal in the Session's view, from the block in
-// its thread or from the item in Needs you: the same pane, one run at a time, and a pane put away comes
-// back from the block's mark. Through `App` on `session-run-in-terminal`, whose program is a fake
+// A command a Session gave the person runs in a terminal under the command, in place, from the block in
+// its thread or from the item in Needs you: one run at a time, drawn under the block that was pressed, and a pane put away comes
+// back from that block's mark. Through `App` on `session-run-in-terminal`, whose program is a fake
 // wrangler that reads the keys it is typed. The whole story is the walk `run-in-terminal-docked`.
 
 import { expect, test } from "vitest";
@@ -25,7 +25,7 @@ async function open() {
 
 const focused = () => document.activeElement?.getAttribute("aria-label");
 
-test("Run on the item in Needs you opens the pane above the message box, with the keys in it", async () => {
+test("Run on the item in Needs you opens the terminal under the command, with the keys in it", async () => {
   await open();
   await needsYou().getByRole("button", { name: /^Needs you/ }).click();
   expect(document.querySelector(".armada-terminal")).toBeNull();
@@ -35,9 +35,7 @@ test("Run on the item in Needs you opens the pane above the message box, with th
   expect(document.querySelectorAll(".armada-terminal")).toHaveLength(1);
   await expect.element(pane().getByText("Attempting to login via OAuth...")).toBeVisible();
   await expect.poll(focused).toBe("Terminal input");
-  const box = page.getByRole("textbox", { name: "Message" }).element().getBoundingClientRect();
-  const docked = pane().element().getBoundingClientRect();
-  expect(docked.bottom).toBeLessThanOrEqual(box.top);
+  expect(needsYou().getByRole("group", { name: COMMAND }).element().contains(pane().element())).toBe(true);
 
   // What is typed reaches the program: it asks at its first prompt, and echoes the key.
   await expect.element(pane().getByText("Would you like to register a workers.dev subdomain now?")).toBeVisible();
@@ -45,7 +43,7 @@ test("Run on the item in Needs you opens the pane above the message box, with th
   await expect.element(pane().getByText(/Would you like to register.*›.*\(Y\/n\).*n/)).toBeVisible();
 });
 
-test("Run on the block in the thread opens the same pane, Stop ends it, and Run again starts one afresh", async () => {
+test("Run on the block in the thread opens the terminal under the block, Stop ends it, and Run again starts one afresh", async () => {
   await open();
   await thread().getByRole("group", { name: COMMAND }).getByRole("button", { name: "Run", exact: true }).click();
   await expect.element(pane()).toBeVisible();

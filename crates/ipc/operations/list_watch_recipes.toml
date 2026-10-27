@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"
-description = "The watch recipes start_watch and try_watch may name for this Job: each one's name, the values it needs, its command, where it comes from (armada, shipped with Armada; repository, the repository's .armada/watches/; machine, this Mac's ~/.armada/machine/watches/), how often it runs, when it gives up, and the Requests environment it is given. Files that were left out are named with why"
+description = "The watch recipes start_watch and try_watch may name for this Job: each one's name, the values it needs, its command, where it comes from (armada, shipped with Armada; repository, the repository's .armada/watches/; machine, this Mac's ~/Library/Application Support/Armada/machine/watches/), how often it runs, when it gives up, and the Requests environment it is given. Files that were left out are named with why"
 notes = """
 `GET /watches/recipes?session_id=`. Answers 200 with `WatchRecipeList`: `recipes`, each `{ name, values[], command[], source, every_seconds, gives_up_after_seconds?, environment? }`, one per name in name order, the copy a start would run; and `left_out`, a sentence for each file set aside. `source` is `armada`, `repository` or `machine`; `gives_up_after_seconds` absent gives up after `timeouts.watchGiveUpMinutes`.
 
