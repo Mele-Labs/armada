@@ -25,11 +25,18 @@ export const adds = (kind: BarKind): kind is AddKind => kind === "task" || kind 
 export type PaletteStep = {
   /** What is being filed, said over the list while the step is up. */
   title: string;
+  /** The command the step is asking for, drawn at the start of the field with the title as its placeholder, so the person sees where a key or a chain has put them. */
+  of?: string;
   sections: readonly PaletteSection[];
   entries: readonly PaletteEntry[];
   /** What was searched, for the state where nothing matched. */
   searched: string;
-  onChoose: (entry: PaletteEntry) => void;
+  /** Filing the choice closes the palette. A step returned is asked next, in the palette, with the choice not yet filed. */
+  onChoose: (entry: PaletteEntry) => PaletteStep | void;
+  /** What ↵ does here, said in the footer: Next while more is asked, else the act's verb. Absent says Add. */
+  act?: string;
+  /** Takes what is typed: a row for the typed word is listed, with the id `word:` and the word as its label. */
+  word?: true;
 };
 
 export type PaletteDispatch = {
@@ -122,10 +129,10 @@ export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispa
 }
 
 /** The keys a second step answers, along the palette's foot. */
-export function StepKeys() {
+export function StepKeys({ act = "Add" }: { act?: string }) {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span>Add <KbdChord keys={["↵"]} /></span>
+      <span>{act} <KbdChord keys={["↵"]} /></span>
       <span>Back <KbdChord keys={["Esc"]} /></span>
     </div>
   );

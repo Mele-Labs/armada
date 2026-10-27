@@ -6,7 +6,7 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GitPullRequest, Puzzle } from "lucide-react";
 import { choiceOf, Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
 import { Dialog, parseChord, pressesChord, type PaletteDispatch, type PaletteStep } from "@armada/components";
@@ -18,7 +18,7 @@ import { usePaletteRows } from "./palette-fixtures";
 import { knownRows, setKnownRows } from "./palette-known";
 import { remember, rowOf, usePaletteMemory } from "./palette-memory";
 import { pageOf } from "./palette-page";
-import { carryOutRow } from "./palette-rows";
+import { carryOutRow, runModRow, type Filled } from "./palette-rows";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
 import { SETTINGS_PALETTE } from "@armada/settings";
@@ -29,9 +29,14 @@ import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
 import { askToCreateMod } from "./create-mod";
 import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette";
+import { displayOf, keysOf, useModRows, type ModRow } from "./mod-commands";
+import { firstStep } from "./palette-blanks";
+import { askToTell } from "./tell";
 
 export type PaletteMountProps = {
   open: boolean;
+  /** Opens the palette: a command run by its key that has a blank to ask for opens it on that step. */
+  onOpen?: () => void;
   onClose: () => void;
   /** The Studio open on its whiteboard, or nothing — by its name alone, which
       is all a title needs and all this should be able to read. */
@@ -68,6 +73,7 @@ export type PaletteMountProps = {
  */
 export function PaletteMount({
   open,
+  onOpen,
   onClose,
   shownStudio,
   surfaces,
@@ -90,9 +96,15 @@ export function PaletteMount({
   const draft = useSessionsDraft();
   const fixtures = usePaletteRows(open);
   const memory = usePaletteMemory();
+  // The rows of every Commands mod that is on. A scenario's own commands stand in for them, so a walk draws the same screen.
+  const modRows = useModRows();
+  const modKeys = useMemo(() => keysOf(modRows, memory.hotkeys), [modRows, memory.hotkeys]);
+  const commands = fixtures.commands.length > 0 ? fixtures.commands : modRows.map((row) => displayOf(row, modKeys[`cmd:${row.id}`]));
   const projects = useProjectsStore();
   const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
   const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
+  // The step the palette opens on, for a row run by its key that asks for something.
+  const [opening, setOpening] = useState<PaletteStep | undefined>(undefined);
   // A Job that asks to be stopped is confirmed over the palette, which stays up behind it.
   const [stopping, setStopping] = useState<string | null>(null);
   const stopped = stopping === null ? undefined : sessions.find((one) => one.id === stopping);
@@ -104,10 +116,21 @@ export function PaletteMount({
     openSession: askToOpenSession, compose: acts.compose, surface: acts.surface,
     openLink: (address: string) => linkRoutes.open(address),
     startJob: (words: string) => dispatch.onDispatch(words, "session"),
+    modRows, tell: askToTell, runRow: (id: string) => choosing.current(choiceOf(id)),
+    repositories, picked,
+    openAt: (row: ModRow) => {
+      setOpening(stepOfRow(row));
+      onOpen?.();
+    },
+    runShell: (command: string, dir: string, repository: string) => openInPanel({ kind: "run", command, dir, repository, at: Date.now() }),
   };
+  const blankWorld = { pulls: fixtures.pulls, issues: fixtures.issues, repositories, picked, run: (row: ModRow, filled: Filled) => runModRow(row, filled, world) };
+  const stepOfRow = (row: ModRow): PaletteStep | undefined => firstStep(row, blankWorld);
   // A command with a blank asks for it in the palette's second step, listing what can fill it.
-  const commandStep = (id: string): PaletteStep | undefined =>
-    id !== SECURITY_REVIEW
+  const commandStep = (id: string): PaletteStep | undefined => {
+    const mod = modRows.find((one) => one.id === id);
+    if (mod !== undefined) return stepOfRow(mod);
+    return id !== SECURITY_REVIEW
       ? undefined
       : {
           title: "Pull request to review",
@@ -119,6 +142,7 @@ export function PaletteMount({
             if (one !== undefined) dispatch.onDispatch(`Review #${one.number} ${one.title} for security`, "session");
           },
         };
+  };
   const choose = (choice: PaletteChoice): void => {
     const row = rowOf(choice);
     if (row !== undefined) remember(row);
@@ -129,7 +153,8 @@ export function PaletteMount({
   // capture phase so a terminal or a field does not keep it, and a key being recorded in Settings is left to the recorder.
   const choosing = useRef(choose);
   choosing.current = choose;
-  const hotkeys = memory.hotkeys;
+  // A key he recorded for a row wins over the one its mod's file names.
+  const hotkeys = useMemo(() => ({ ...modKeys, ...memory.hotkeys }), [modKeys, memory.hotkeys]);
   useEffect(() => {
     if (open) return;
     function fire(event: KeyboardEvent): void {
@@ -151,7 +176,8 @@ export function PaletteMount({
     <>
     <Palette
       open={open}
-      onClose={onClose}
+      onClose={() => (setOpening(undefined), onClose())}
+      opensOn={open ? opening : undefined}
       dispatch={dispatch}
       // A pasted pull request opens in Reviews and an issue in the side panel.
       link={{ kindOf: linkRoutes.kindOf, onOpen: (typed) => linkRoutes.open(typed) }}
@@ -193,7 +219,7 @@ export function PaletteMount({
       page={pageOf(showing ?? "", job)}
       pulls={fixtures.pulls}
       issues={fixtures.issues}
-      commands={fixtures.commands}
+      commands={commands}
       commandStep={commandStep}
       pinned={memory.pinned}
       recent={memory.recent}

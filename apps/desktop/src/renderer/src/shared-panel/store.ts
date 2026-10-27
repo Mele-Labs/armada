@@ -34,6 +34,8 @@ export type PanelItem =
   | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
   /** A Job's own shell, where `terminal.openJobTerminalIn` says the side panel. */
   | { kind: "terminal"; sessionId: string }
+  /** A command run in a repository's checkout with no Job behind it, started when the panel opens. `at` tells two runs of one line apart. */
+  | { kind: "run"; command: string; dir: string; repository: string; at: number }
   /** Teach, for something in this Session (`source` is what, `text` its text as it stands, `at` when the row was written): the repository it is in, by id, root and name. */
   | { kind: "teach"; sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string; source: TeachSourceKind; text: string; at?: string; /** What names the thing, as Fleet reads it: a notice's word, a panel's id. */ ids?: string[] };
 

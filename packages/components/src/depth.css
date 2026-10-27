@@ -454,10 +454,11 @@
 @keyframes armada-palette-in {
   from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); }
 }
+:root[data-look="new"] .armada-palette__field { border-bottom-color: var(--head-rule); }
+:root[data-look="new"] .armada-palette__of { margin-left: var(--space-4); }
 :root[data-look="new"] .armada-palette__input {
   height: var(--space-12);
   padding: 0 var(--space-4);
-  border-bottom-color: var(--head-rule);
   font-size: var(--text-lg);
 }
 :root[data-look="new"] .armada-palette__list { padding: var(--space-1) var(--space-2) var(--space-2); }
@@ -484,6 +485,12 @@
 :root[data-look="new"] .armada-palette__row--active:hover {
   background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
+/* A row nothing answers keeps its dimming under the cursor: the lighter fill a hover gives, and the glyph one step down with the text. */
+:root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active,
+:root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active:hover {
+  background: var(--bg-step);
+}
+:root[data-look="new"] .armada-palette__row--dormant .armada-palette__glyph { color: var(--fg-subtle); }
 :root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   :root[data-look="new"] .armada-palette { animation: none; }

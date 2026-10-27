@@ -740,7 +740,7 @@ export function App() {
         <TitleDispatchedStrip />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar} linkRoutes={linkRoutes} tasks={paletteTasks}
+          open={palette.open} onOpen={palette.onOpen} onClose={palette.onClose} dispatch={oneBar} linkRoutes={linkRoutes} tasks={paletteTasks}
           shownStudio={shownStudio}
           surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
           checkoutRunSheet={state.checkoutRunSheet}

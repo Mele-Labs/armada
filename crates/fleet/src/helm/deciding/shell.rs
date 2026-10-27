@@ -104,6 +104,7 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
     let in_a_slot = slots.iter().any(|directory| !crate::scratch::is_scratch(directory));
     let slot = (!slots.is_empty()).then(|| Slot {
         slots,
+        home: folders.map_or("", |folders| folders.home),
         relative: in_a_slot && segments.iter().all(|said| {
             // `(cd x && ...)` moves the subshell, so its `(` is not the program.
             let mut words = said.split_whitespace().map(|word| word.trim_start_matches(['(', '{'])).filter(|word| !word.is_empty());
@@ -209,12 +210,14 @@ pub(super) fn word_in(line: &str, word: &str) -> bool {
 #[derive(Clone, Copy)]
 pub(in crate::helm) struct Slot<'a> {
     pub(in crate::helm) slots: &'a [&'a str],
+    /// The owner's home, which `$HOME` names. Empty where it is not known.
+    pub(in crate::helm) home: &'a str,
     pub(in crate::helm) relative: bool,
 }
 
 impl Slot<'_> {
     pub(in crate::helm) fn holds(&self, word: &str) -> bool {
-        in_the_slot(word, self.slots, self.relative)
+        in_the_slot(word, self.slots, self.relative, self.home)
     }
 }
 

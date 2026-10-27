@@ -40,8 +40,8 @@ pub enum TriggerScope {
     /// `<repository>/.armada/triggers/`. **Fleet reads these from the base
     /// branch**, so a saved one runs once it is on `main`.
     Repository,
-    /// `~/.armada/machine/triggers/`: every repository on this machine, and
-    /// not Kit's, which travels.
+    /// `~/Library/Application Support/Armada/machine/triggers/`: every repository on this
+    /// machine, and not Kit's, which travels.
     Machine,
 }
 

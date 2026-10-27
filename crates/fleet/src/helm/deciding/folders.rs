@@ -285,14 +285,19 @@ pub(super) fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
 
 /// Whether `word`, a path a shell line removes or overwrites, is inside
 /// one of `slots`. **Removing a file in a slot it holds is the session's own work**
-/// (the owner, 8 Oct 2026); its root, a `..`, a `~` or a `$` is never read as
-/// inside, and a relative path only where the line has not moved with `cd`.
-pub(super) fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
+/// (the owner, 8 Oct 2026); its root, a `..`, a `~` or a `$` other than `$TMPDIR`,
+/// `$ARMADA_SCRATCH` and `$HOME` is never read as inside, and a relative path only where
+/// the line has not moved with `cd`.
+pub(super) fn in_the_slot(word: &str, slots: &[&str], relative: bool, home: &str) -> bool {
     let word = word.trim_matches(|c| c == '\'' || c == '"');
-    // `$TMPDIR` is scratch space spelled by variable, and the one `$` read as inside.
+    // `$TMPDIR` is scratch space spelled by variable, and read as inside wherever it leads.
     if let Some(under) = word.strip_prefix("$TMPDIR/").or_else(|| word.strip_prefix("${TMPDIR}/")) {
         return !under.is_empty() && !under.contains(['$', '~']) && !under.split('/').any(|part| part == "..");
     }
+    // **`$ARMADA_SCRATCH` and `$HOME` are read as the folders they name**, and then as any path
+    // is: the Job is told to reach its scratch folder by them (27 Oct 2026).
+    let spelled = spelled_out(word, slots, home);
+    let word = spelled.as_deref().unwrap_or(word);
     if word.is_empty() || word.contains('$') || word.starts_with('~') {
         return false;
     }
@@ -308,6 +313,18 @@ pub(super) fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
         return slots.iter().any(below);
     }
     relative && !matches!(word.trim_end_matches('/'), "" | "." | "*") && slots.iter().any(below)
+}
+
+/// `word` with a leading `$ARMADA_SCRATCH` read as the scratch folder among `slots`, and a leading
+/// `$HOME` as `home`, braced or not. `None` where it starts with neither, or the folder is not known.
+fn spelled_out(word: &str, slots: &[&str], home: &str) -> Option<String> {
+    let scratch = slots.iter().copied().find(|slot| crate::scratch::is_scratch(slot)).unwrap_or("");
+    [("$ARMADA_SCRATCH", scratch), ("${ARMADA_SCRATCH}", scratch), ("$HOME", home), ("${HOME}", home)]
+        .into_iter()
+        .find_map(|(name, folder)| {
+            let rest = word.strip_prefix(name).filter(|rest| rest.is_empty() || rest.starts_with('/'))?;
+            (!folder.is_empty()).then(|| format!("{}{rest}", folder.trim_end_matches('/')))
+        })
 }
 
 /// Whether a `cd` to `to` lands in one of `slots`, its root included: unlike a

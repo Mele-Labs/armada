@@ -65,7 +65,18 @@ export type PaletteTicket = { number: number; title: string; repo: string };
  * A row a Commands mod brings: opening a URL, running a shell line, a chain of palette steps, or a prompt that
  * waits on a blank. **A `prompt` with a blank asks for it in a second step** before it dispatches.
  */
-export type PaletteCommand = { id: string; label: string; kind: "url" | "shell" | "chain" | "prompt"; value?: string; alias?: string; hotkey?: string };
+export type PaletteCommand = {
+  id: string;
+  label: string;
+  kind: "url" | "shell" | "chain" | "prompt";
+  value?: string;
+  alias?: string;
+  /** Searched, never drawn: a mod row's own words. */
+  aliases?: readonly string[];
+  hotkey?: string;
+  /** Why the row cannot run, drawn as any dormant row's reason is. */
+  dormant?: string;
+};
 
 /** What the page showing offers: its title heads the block, and its rows are the acts of that page. */
 export type PalettePage = { title: string; rows: readonly (PaletteBoardRow & { shortcut?: string })[] };
@@ -257,6 +268,8 @@ export type PaletteProps = {
   commands?: readonly PaletteCommand[];
   /** The second step a command with a blank opens, or none. */
   commandStep?: (commandId: string) => PaletteStep | undefined;
+  /** Opens on this step: a command run by its key that has a blank to ask for. */
+  opensOn?: PaletteStep | undefined;
   /** What was pinned and what was opened last, as the palette drew them: `session:…`, `pull:…`. */
   pinned?: readonly string[];
   recent?: readonly string[];
@@ -354,6 +367,7 @@ export function Palette({
   tasks = [],
   commands = [],
   commandStep,
+  opensOn,
   pinned = [],
   recent = [],
   opens = "pinned",
@@ -446,7 +460,8 @@ export function Palette({
       icon: COMMAND_GLYPH[command.kind],
       ...(command.hotkey === undefined ? {} : { shortcut: command.hotkey }),
       ...(command.value === undefined ? {} : { value: command.value }),
-      ...(command.alias === undefined ? {} : { aliases: [command.alias] }),
+      ...(command.alias === undefined && command.aliases === undefined ? {} : { aliases: [...(command.alias === undefined ? [] : [command.alias]), ...(command.aliases ?? [])] }),
+      ...(command.dormant === undefined ? {} : { dormant: command.dormant }),
     })),
     ...runnables.map((runnable) => ({
       id: `run:${runnable.id}`,
@@ -520,6 +535,7 @@ export function Palette({
         return refused;
       }}
       stepOf={(entry) => (entry.id.startsWith("cmd:") ? commandStep?.(bare(entry.id)) : undefined)}
+      opensOn={opensOn}
       onAct={(entry, action) => onChoose({ of: "on", target: entry.id, action: action.id })}
       searched={searchedSentence({ sessions: sessions.length, settings: settings.length, runnables: runnables.length, repositories: repositories.length, tickets: pulls.length + issues.length + tasks.length, commands: commands.length })}
       onClose={onClose}

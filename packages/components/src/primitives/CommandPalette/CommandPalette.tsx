@@ -170,6 +170,8 @@ export type CommandPaletteProps = {
   onTake?: (entry: PaletteEntry, action: PaletteAction, value: string) => string | undefined;
   /** A row that is not done at once but asks for something first: the second step listing what it can be filled with. */
   stepOf?: (entry: PaletteEntry) => PaletteStep | undefined;
+  /** Opens already on this step, as a command opened by its key is with its first blank to fill. Esc goes back to an empty search. */
+  opensOn?: PaletteStep | undefined;
 };
 
 /** Whether the query matches, and where in the label it matched. */
@@ -215,6 +217,7 @@ export function CommandPalette({
   onAct,
   onTake,
   stepOf,
+  opensOn,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [at, setAt] = useState(0);
@@ -233,7 +236,7 @@ export function CommandPalette({
   // The act that is taking its answer in that field, in place of the search.
   const [taking, setTaking] = useState<PaletteTaking | null>(null);
   const bare = query.trim() === "";
-  const listed = stepping !== null ? stepping.step : home !== undefined && bare ? home : { entries, sections };
+  const listed = stepping !== null ? withWord(stepping.step, query) : home !== undefined && bare ? home : { entries, sections };
 
   // Grouped by section in the caller's order, and in the caller's order inside
   // each. Nothing is ranked: the contract fixes what comes first, and a
@@ -288,6 +291,12 @@ export function CommandPalette({
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
+  useEffect(() => {
+    if (open && opensOn !== undefined) {
+      setStepping({ words: "", step: opensOn });
+      setQuery("");
+    }
+  }, [open, opensOn]);
 
   // Esc closes the palette and stops there, wherever focus went. On `window` in the capture phase
   // for the reason `Popover` is: a field-only handler goes deaf once a click blurs the field, and
@@ -452,7 +461,12 @@ export function CommandPalette({
     // invented.
     if (held.entry.dormant !== undefined) return;
     if (stepping !== null) {
-      stepping.step.onChoose(held.entry);
+      const next = stepping.step.onChoose(held.entry);
+      if (next) {
+        setStepping({ words: stepping.words, step: next });
+        setQuery("");
+        return;
+      }
       onClose?.();
       return;
     }
@@ -566,6 +580,8 @@ export function CommandPalette({
         onPointerDown={place.onPointerDown}
         onDoubleClick={place.onDoubleClick}
       >
+        <div className="armada-palette__field">
+        {stepping?.step.of === undefined ? null : <span className="armada-palette__of">{stepping.step.of}</span>}
         <input
           ref={input}
           className="armada-palette__input"
@@ -575,19 +591,20 @@ export function CommandPalette({
           aria-controls="armada-palette-list"
           aria-activedescendant={acting !== null || current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={stepping?.step.title ?? placeholder}
-          placeholder={stepping === null ? placeholder : ""}
+          placeholder={stepping === null ? placeholder : stepping.step.of === undefined ? "" : stepping.step.title}
           value={query}
           readOnly={acting !== null}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}
         />
+        </div>
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
-          {stepping === null ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
+          {stepping === null || stepping.step.of !== undefined ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
           {typedKind === null ? null : <LinkRow kind={typedKind} link={query.trim()} active={current === "link"} ref={current === "link" ? active : undefined} onEnter={() => setAt(0)} onChoose={openLink} />}
           {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
           {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
           {leading ? sendRow : null}
-          {hits.length === 0 && typedPath === null && typedKind === null ? (
+          {hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
@@ -643,7 +660,7 @@ export function CommandPalette({
         ) : offered && dispatch !== undefined ? (
           <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
         ) : stepping !== null ? (
-          <StepKeys />
+          <StepKeys {...(stepping.step.act === undefined ? {} : { act: stepping.step.act })} />
         ) : underActions.length > 0 ? (
           <ResultKeys />
         ) : null}
@@ -651,6 +668,13 @@ export function CommandPalette({
     </div>
     </ShortcutRevealProvider>
   );
+}
+
+/** A step that takes a typed word lists it as a row once something is typed. */
+function withWord(step: PaletteStep, query: string): Pick<PaletteStep, "sections" | "entries"> {
+  const word = query.trim();
+  if (step.word !== true || word === "") return step;
+  return { sections: [...step.sections, { id: "word", title: "" }], entries: [...step.entries, { id: `word:${word}`, section: "word", label: word }] };
 }
 
 /** The dom id of a row, so `aria-activedescendant` can name it. */
