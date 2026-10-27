@@ -25,7 +25,7 @@ import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
 import { bandOf, isArtifactsKey, isLedgerKey, isWholeKey, pressBand, pressWhole } from "./story";
-import { flipLedgerView } from "./story-take";
+import { flipLedgerView } from "./ledger-view";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
 
@@ -89,11 +89,10 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       window.setTimeout(() => {
         const header = document.querySelector<HTMLElement>(`[data-area="${band.area}"] > .sv-panel__band`);
         if (header === null) return;
-        // Where the zones are one scrolling story, the zone comes to the top of it; elsewhere the focus brings it into view.
+        // The zones are one scrolling story: the zone comes to the top of it.
         const zone = header.parentElement;
-        const placed = zone !== null && zone.closest(".sv-spine") !== null;
-        header.focus({ preventScroll: placed });
-        if (placed) placeZone(zone, "smooth");
+        header.focus({ preventScroll: true });
+        if (zone !== null) placeZone(zone, "smooth");
       }, 0);
     };
     window.addEventListener("keydown", listen);

@@ -1,22 +1,9 @@
-// How the Job's story is drawn, and how its Completed zone is read. Both are a viewer's choice, not the Job's.
-//
-// The take is mock only, read from `?take=`: `spine` draws one timeline line with a NOW marker, Completed above it and Next below; `stacked` draws three
-// panels, Completed, Now and Next; `spine-steps` is the spine with the workflow's steps as nodes on its line in place of the step row at the head. Made once he has looked: the one picked stays and the other goes with this function.
-// The ledger view is kept per machine: `step` lists each finished group or step with what it made beneath it, `kind` lists Documents, Pull requests,
+// How Completed is read, kept per machine: `step` lists each finished group or step with what it made beneath it, `kind` lists Documents, Pull requests,
 // Issues and Artifacts, newest first.
 
 import { useCallback, useSyncExternalStore } from "react";
 
-export type StoryTake = "spine" | "spine-steps" | "stacked";
 export type LedgerView = "step" | "kind";
-
-const TAKES: readonly StoryTake[] = ["spine", "spine-steps", "stacked"];
-
-export function storyTake(): StoryTake {
-  if (typeof window === "undefined") return "spine";
-  const asked = new URLSearchParams(window.location.search).get("take");
-  return TAKES.find((one) => one === asked) ?? "spine";
-}
 
 const KEPT = "armada.bridge.job-ledger";
 const hear = new Set<() => void>();

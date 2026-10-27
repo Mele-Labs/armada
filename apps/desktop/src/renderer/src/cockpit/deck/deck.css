@@ -117,8 +117,8 @@
 /* A Cockpit panel has no name band. Its acts are a small chip in the top corner that comes on a hover or on focus inside, and the name is the panel's `aria-label` only.
    A folded panel, or one that is only a band, keeps its band. The chip's ground is the glass itself, so what is under it does not show through.
    An open Job's own panels keep their bands: each band is the panel's fold, and the panels stack open and folded under them. So do the Reviews, Issues and Projects pages,
-   which are drawn on the deck and were not part of the take. The mock's `?strip=always` draws the strip for good instead, for his walk. */
-:root:not([data-strip="always"]) .deck:not(.pr-surface, .issues-surface, .projects-surface) {
+   which are drawn on the deck and were not part of the take. */
+.deck:not(.pr-surface, .issues-surface, .projects-surface) {
   --deck-hole: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   & .deck-panel:not([data-collapsed], [data-band-only], .deck-autopilot) {
     position: relative;

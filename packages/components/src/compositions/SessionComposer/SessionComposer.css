@@ -91,16 +91,16 @@
   line-height: var(--leading-xs);
 }
 
-/* Take `?composer=ghost`: the bar's menus and icon buttons carry no ground or edge of their own, so they
-   sit on the box's. The ground the ghost button takes on hover is all that marks one, and focus keeps its ring. */
-:root[data-composer="ghost"] .armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])) {
+/* The bar's menus and icon buttons carry no ground or edge of their own, so they sit on the box's. The ground the
+   ghost button takes on hover is all that marks one, and focus keeps its ring. */
+.armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])) {
   border-color: transparent;
   background: transparent;
   color: var(--fg-muted);
 }
 
-:root[data-composer="ghost"] .armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])):hover:not(:disabled),
-:root[data-composer="ghost"] .armada-session-composer .armada-session-composer__bar .armada-select:focus-visible {
+.armada-session-composer .armada-session-composer__bar :is(.armada-select, .armada-button:not([type="submit"])):hover:not(:disabled),
+.armada-session-composer .armada-session-composer__bar .armada-select:focus-visible {
   background: var(--bg-hover);
   color: var(--fg-default);
 }

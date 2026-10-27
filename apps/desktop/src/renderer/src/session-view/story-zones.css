@@ -1,5 +1,4 @@
-/* The Job's story: Completed, Now and Next (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. Two takes of the one story: `stacked` is three panels in the
-   deck's right column, and `spine` is one scrolling timeline with the zones on a line. */
+/* The Job's story: Completed, Now and Next (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. The zones sit on one scrolling timeline, the spine. */
 
 /* ---- The rows --------------------------------------------------------------------------------------------- */
 
@@ -61,19 +60,10 @@
 .sv-workflow__name { display: inline-flex; flex: none; }
 .sv-panel__body > .sv-workflow { padding-block: var(--space-1); }
 
-/* ---- Take B: three panels ----------------------------------------------------------------------------------- */
-
-/* The three panels share the column 1 : 2 : 1, Now the larger, and each scrolls inside itself (`.sv-panel__body`). A panel never takes more than its own height, so one with little in it is
-   that little and the shares it leaves go to the others, which is why they are sized to their content and then grown by weight. A folded band keeps only its band (`story.css`). */
-.sv-side > .sv-panel[data-area="done"][data-area][data-area] { flex: 1 1 0; min-height: 0; max-height: max-content; }
-.sv-side > .sv-panel[data-area="now"][data-area][data-area][data-area] { flex: 2 1 0; min-height: 0; max-height: max-content; }
-.sv-side > .sv-panel[data-area="next"][data-area][data-area] { flex: 1 1 0; min-height: 0; max-height: max-content; }
-.sv-side > .sv-panel[data-area="done"]:has(> .sv-panel__body:empty),
-.sv-side > .sv-panel[data-area="next"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; }
 /* How Completed is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
 .sv-ledger-view { display: inline-flex; align-items: center; gap: var(--space-1); }
 
-/* ---- Take A: one line ----------------------------------------------------------------------------------------- */
+/* ---- The spine ------------------------------------------------------------------------------------------------ */
 
 /* The column is one scroll on a dim ground, flat, with no border, bezel or strip: not another panel, and enough mass to stand against the Jobs column. The zones are not panels any more: no frame, no fill, no shadow. The line runs down the left of every zone, solid for what is done,
    heavier through Now, and dashed for what is to come; each band is the marker on it. The selectors are doubled over the glass sheet's own. */
@@ -96,18 +86,6 @@
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
 .sv-spine .sv-panel[data-collapsed]::before { display: none; }
-
-/* `spine-steps`: a workflow step is a node on the line, the stepper's glyph in the stepper's hues, backed by the ground so the line does not run through it. Its name starts at the
-   body's left edge, where the spine's own rows start. What the step made or still owes stands under the name. */
-.sv-spine .sv-beat--node { position: relative; grid-template-columns: minmax(0, 1fr) auto; }
-.sv-spine .sv-beat__node { position: absolute; inset-block-start: calc((var(--h-row) - var(--space-4)) / 2); inset-inline-start: calc(var(--line) - var(--lead) - var(--space-2) + var(--border-width) / 2); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--ground); color: var(--fg-subtle); }
-.sv-spine .sv-beat--node[data-state="done"] .sv-beat__node { color: var(--step-advanced); }
-.sv-spine .sv-beat--node[data-state="now"] .sv-beat__node { color: var(--step-running); }
-.sv-spine .sv-beat--node[data-state="now"] .sv-rail__mark { background: color-mix(in srgb, var(--step-running) 22%, transparent); box-shadow: 0 0 0 var(--border-width) var(--step-running); }
-.sv-spine .sv-beat--node > .sv-beat__label { grid-column: 1; }
-.sv-spine .sv-beat--node > .sv-beat__made { grid-column: 1 / -1; }
-/* By kind keeps the finished steps as a short run of nodes ahead of its lists. */
-.sv-beats--steps { margin-block-end: var(--space-1); }
 
 /* The brief reads as prose, not as the panel's mono. */
 .sv-nav .sv-flight__brief { padding-inline: var(--space-2); font-family: var(--font-sans); }

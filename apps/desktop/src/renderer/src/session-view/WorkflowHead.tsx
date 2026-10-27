@@ -12,7 +12,7 @@ import { BAND_KEYS } from "./story";
 const NONE = "none";
 const KEY = BAND_KEYS.find((one) => one.area === "workflow")?.cap;
 
-export function WorkflowHead({ work, acts, id, manifestId, rail = true }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined; /** The steps as a row beside the name; the spine draws them on its line instead. */ rail?: boolean }) {
+export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined; }) {
   const proposal = work.proposal;
   const flow = work.workflow;
   const button = useRef<HTMLButtonElement | null>(null);
@@ -82,7 +82,7 @@ export function WorkflowHead({ work, acts, id, manifestId, rail = true }: { work
           </span>
         </Tooltip>
       )}
-      {flow === undefined || !rail ? null : <StepRail steps={flow.steps} at={flow.at} />}
+      {flow === undefined ? null : <StepRail steps={flow.steps} at={flow.at} />}
     </div>
   );
 }
