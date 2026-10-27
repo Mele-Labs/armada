@@ -23,6 +23,8 @@ fn watch(id: &str, session: &str) -> KeptWatch {
         changed_at: AT.into(),
         ended_at: None,
         unsaid: None,
+        in_terminal: None,
+        regex: false,
     }
 }
 
@@ -103,4 +105,44 @@ fn a_notice_is_kept_once_across_a_reopen() {
     let store = open(&dir);
     assert!(store.watch_notice_kept("w-1", "failed:deploy-api").unwrap());
     assert!(!store.watch_notice_kept("w-1", "passed").unwrap());
+}
+
+#[test]
+fn a_terminal_watch_keeps_what_it_waits_for() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut kept = watch("w-terminal", "job-1");
+    kept.command = Vec::new();
+    kept.in_terminal = Some(String::from("Listening on \\d+"));
+    kept.regex = true;
+    store.keep_watch(&kept).expect("kept");
+    drop(store);
+    let whole = open(&dir).watch_whole("w-terminal").expect("reads").expect("there");
+    assert_eq!(whole.watch, kept);
+}
+
+#[test]
+fn a_deleted_watch_takes_everything_kept_of_it_and_nothing_else() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    for id in ["w-1", "w-2"] {
+        store.keep_watch(&watch(id, "s1")).unwrap();
+        store.keep_watch_reading(id, &read(1)).unwrap();
+        let aside = KeptWatchSetAside { part: "deploy-api".into(), sentence: "Another team's.".into(), at: AT.into() };
+        store.keep_watch_set_aside(id, &aside).unwrap();
+        let verdict = KeptWatchVerdict { at: AT.into(), ours: true, sentence: "Mine.".into(), parts: Vec::new() };
+        store.keep_watch_verdict(id, &verdict).unwrap();
+        store.keep_watch_notice(id, "failed:", AT).unwrap();
+    }
+    assert!(store.delete_watch("w-1").unwrap());
+    assert!(!store.delete_watch("w-1").unwrap(), "nothing holds it now");
+    assert!(store.watch_whole("w-1").unwrap().is_none());
+    assert!(!store.watch_notice_kept("w-1", "failed:").unwrap());
+    let readings: i64 =
+        store.conn.query_row("SELECT COUNT(*) FROM watch_readings WHERE watch_id = 'w-1'", [], |row| row.get(0)).unwrap();
+    assert_eq!(readings, 0);
+
+    let kept = store.watch_whole("w-2").unwrap().expect("the other is kept");
+    assert_eq!((kept.readings.len(), kept.set_aside.len(), kept.verdicts.len()), (1, 1, 1));
+    assert!(store.watch_notice_kept("w-2", "failed:").unwrap());
 }

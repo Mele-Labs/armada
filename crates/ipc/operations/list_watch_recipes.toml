@@ -1,0 +1,13 @@
+[operations.list_watch_recipes]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The watch recipes start_watch and try_watch may name for this Job: each one's name, the values it needs, its command, where it comes from (armada, shipped with Armada; repository, the repository's .armada/watches/; machine, this Mac's ~/.armada/machine/watches/), how often it runs, when it gives up, and the Requests environment it is given. Files that were left out are named with why"
+notes = """
+`GET /watches/recipes?session_id=`. Answers 200 with `WatchRecipeList`: `recipes`, each `{ name, values[], command[], source, every_seconds, gives_up_after_seconds?, environment? }`, one per name in name order, the copy a start would run; and `left_out`, a sentence for each file set aside. `source` is `armada`, `repository` or `machine`; `gives_up_after_seconds` absent gives up after `timeouts.watchGiveUpMinutes`.
+
+**The Job** is the one the connection places when Fleet hosts it, else `session_id`, a 422 `fleet.no_such_session` where Fleet holds no such Job. With no Job placed, the shipped recipes and this machine's are listed.
+
+`agent_access` is `Yes`: an agent names a recipe at `start_watch` and has to know which there are.
+"""
+always_loaded = true

@@ -26,3 +26,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 22 Oct 2026 for the walk `session-loadout`, with Remove on a Kit skill's Loadout row. The person took off a skill of their own, which is the act the row reserves this glyph to. The row stays, marked, with Restore on its face while the Trash holds the folder. Tooltip `Removed`. --fg-muted."
+
+  [[icons.trash-2.usage]]
+    means = "Deleting a watch that ended, with all it kept, from a Job's Watching block"
+    group = "Watch"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 26 Oct 2026 for the walk `watchingTidy`. The watch is the agent's and the act is the person's, borrowed as the needs-me delete borrows it, since the registry holds no other glyph for a person taking a thing away. On ended rows only, in a column every row keeps, shown on Show ended. Tooltip `Delete`. The owner may rule otherwise."
