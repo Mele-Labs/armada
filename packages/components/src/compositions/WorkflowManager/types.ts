@@ -9,10 +9,10 @@ import {
   ListChecks,
   MessageCircleQuestion,
   MessageSquarePlus,
-  Wrench,
+  Cable,
   Shapes,
   Stamp,
-  Crosshair,
+  Microscope,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -25,9 +25,9 @@ export const STEP_GLYPHS = {
   discuss: MessageCircleQuestion,
   approve: Stamp,
   walk: Footprints,
-  fix: Wrench,
+  fix: Cable,
   deliver: GitPullRequest,
-  cause: Crosshair,
+  cause: Microscope,
   tests: ListChecks,
   draft: FilePenLine,
   sketch: Shapes,
