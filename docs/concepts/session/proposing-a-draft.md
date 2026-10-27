@@ -19,7 +19,10 @@ A pull request description, an issue or pull request comment, a message to someo
 | Approves it as written | A message to apply the draft as written |
 | Fixes the text in the card and approves | A message with the exact text to use |
 | Sends it back with a note | A message with the note, to rewrite the draft and propose it again |
-| Dismisses it, with or without a reason | `Withdrawn: <title>` and `Do not propose it again.`, with his reason on the next line when he gave one |
+| Withdraws it, with or without a reason | `Withdrawn: <title>` and `Do not propose it again.`, with his reason on the next line when he gave one |
+
+**Withdraw is a key at the footer's end, in the card's read and in its note mode, and not while he is editing.** In the note it sends what he typed as the reason; the Needs you item's Dismiss does the same with the reason it asks for.
+The card then reads Withdrawn, with the reason quoted under the text.
 
 **The job takes a draft back with `withdraw_draft`** (`draft`, the `draft:<row id>` its receipt gave, and `session_id`) when the draft no longer applies.
 The row settles `withdrawn` and the draft leaves the Needs you list; the job is sent nothing, since it withdrew it.
