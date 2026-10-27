@@ -719,7 +719,7 @@ function History({ rows, onOpen }: { rows: readonly RequestedRow[]; onOpen: (row
 
 type EnvironmentsProps = { api: RequestsApi; read: Requests; sessionId: string | undefined; repository: string | undefined; locked: boolean; onRead: (read: Requests) => void };
 
-function Environments({ api, read, sessionId, repository, locked, onRead }: EnvironmentsProps) {
+export function Environments({ api, read, sessionId, repository, locked, onRead }: EnvironmentsProps) {
   const [adding, setAdding] = useState(false);
   const editable = read.environments.filter((one) => one.place !== "server");
   const servers = read.environments.filter((one) => one.place === "server");
@@ -767,6 +767,7 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
       : environment.variables.map((one) => (one.secret ? { name: one.name, secret: true, value: "", set: one.set, replacing: false } : { name: one.name, secret: false, value: one.value, set: false, replacing: false })),
   );
   const [refused, setRefused] = useState<string | undefined>(undefined);
+  const [deleting, setDeleting] = useState(false);
   const edit = (at: number, patch: Partial<Line>) => setLines((now) => now.map((one, i) => (i === at ? { ...one, ...patch } : one)));
   const save = async () => {
     const variables: VariableWrite[] = lines
@@ -775,6 +776,13 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
     const answer = await api.saveRequestEnvironment({ name: name.trim(), variables }, sessionId, repository).catch(() => undefined);
     // A secret's value goes whether or not Fleet kept it: the field never holds one longer than a press.
     setLines((now) => now.map((one) => (one.secret ? { ...one, value: "" } : one)));
+    setRefused(said(answer));
+    if (answer?.ok === true) onSaved(answer.value);
+  };
+  const remove = async () => {
+    if (environment === undefined) return;
+    const answer = await api.deleteRequestEnvironment(environment.name, sessionId, repository).catch(() => undefined);
+    setDeleting(false);
     setRefused(said(answer));
     if (answer?.ok === true) onSaved(answer.value);
   };
@@ -804,12 +812,14 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
           <col className="side-table__name" />
           <col />
           <col className="side-table__act" />
+          <col className="side-table__act" />
         </colgroup>
         <TableHead>
           <TableRow>
             <TableHeaderCell>Name</TableHeaderCell>
             <TableHeaderCell>Value</TableHeaderCell>
             <TableHeaderCell>Secret</TableHeaderCell>
+            <TableHeaderCell />
           </TableRow>
         </TableHead>
         <TableBody>
@@ -840,6 +850,11 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
                   {null}
                 </Checkbox>
               </TableCell>
+              <TableCell>
+                <Button variant="ghost" size="sm" aria-label={`Remove variable ${at + 1}`} disabled={locked} onClick={() => setLines((now) => now.filter((_, i) => i !== at))}>
+                  Remove
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -851,6 +866,11 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
         <Button type="submit" variant="secondary" disabled={name.trim() === "" || locked}>
           Save
         </Button>
+        {environment?.place === "yours" ? (
+          <Button variant="ghost" size="sm" disabled={locked} onClick={() => (deleting ? void remove() : setDeleting(true))}>
+            {deleting ? "Press again to delete" : "Delete"}
+          </Button>
+        ) : null}
       </div>
       {refused === undefined ? null : <Alert tone="escalated">{refused}</Alert>}
     </form>
