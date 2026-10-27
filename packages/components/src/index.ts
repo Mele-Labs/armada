@@ -188,17 +188,6 @@ export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
 export { forRequestsOf, stepsOfDefinition, withWords } from "./compositions/WorkflowManager/definition";
 export type { DefinitionStep } from "./compositions/WorkflowManager/definition";
-export { EveryMark, LevelMark, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
-export type { TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
-export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
-export type {
-  TriggerDraft,
-  TriggerIdentity,
-  TriggerOpened,
-  TriggerRemovedAnswer,
-  TriggerSavedAnswer,
-  TriggersBinding,
-} from "./compositions/WorkflowTriggers/triggers";
 
 export * from "./compositions/ManifestNotice/ManifestNotice";
 export * from "./compositions/ManifestForm/ManifestForm";
@@ -315,10 +304,9 @@ export * from "./compositions/StudioPicked/StudioPicked";
 export * from "./compositions/StudioNode/StudioNode";
 export * from "./compositions/StudioFrame/StudioFrame";
 export * from "./compositions/StudioWhiteboard/StudioWhiteboard";
-// A Job's run as the workflow it froze — the canvas, the stacked alternative,
-// the card both draw, and the panel a step or group opens into. #1539.
+// A Job's run as the workflow it froze — the step card and the panel a step or
+// group opens into. #1539.
 export * from "./compositions/WorkflowStepCard/WorkflowStepCard";
-export * from "./compositions/WorkflowCanvas/WorkflowCanvas";
 // A label and its figure in one aligned column — Pulse and the Fleet panel.
 export * from "./compositions/FigureList/FigureList";
 // What the Job has changed, as its own panel beside the run. #1187.
