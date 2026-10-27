@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleDashed, CircleDot, Link, ListTree, MessageCircleQuestion, Ticket, Trash2, X, GitPullRequest, SquareTerminal, type LucideIcon } from "lucide-react";
-import { Button, Kbd, PullRequestChip, RepositoryChip, SelectMark, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Button, Kbd, PullRequestChip, Readout, RepositoryChip, SelectMark, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { NumberedHit } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -175,8 +175,8 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
         </Tooltip>
       )}
       <span className="projects-row__title">
-        {row.kind === "issue" ? <span className="projects-row__reference">{row.reference}</span> : null}
         {editing && row.kind === "task" ? <EditTitle row={row} manifestId={project.manifestId} /> : <span className="projects-row__words">{row.title}</span>}
+        {row.kind === "issue" ? <Readout fixed className="projects-row__reference">{row.reference}</Readout> : null}
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
       </span>
       {/* The done ask's answers, in a column of their own; a card with no ask leaves it to the title. */}
@@ -267,9 +267,9 @@ function IssueChips({ issues }: { issues: readonly Linked[] }) {
     <span className="projects-row__issues">
       {issues.map((one) => (
         <Tooltip key={one.reference} label={one.title === "" ? one.reference : one.title} asChild>
-          <span className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
+          <Readout className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
             {one.reference}
-          </span>
+          </Readout>
         </Tooltip>
       ))}
     </span>

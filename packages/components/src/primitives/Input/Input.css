@@ -133,6 +133,26 @@
   align-items: center;
 }
 
+/* The unit tag: a quiet mono figure in the field's right slot, one step under the figure typed. */
+.armada-input-field__unit {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  user-select: none;
+}
+
+/* An act inside the frame, such as a row's Save, is the small control height in a field of the default one:
+   the field's edge stays the instrument's, and the act sits a border's width off it at the inset curve. */
+.armada-input-field__well[data-trailing]:has(.armada-input-field__trailing .armada-button) {
+  padding-inline-end: var(--border-width);
+}
+
+.armada-input-field__trailing .armada-button {
+  border-radius: var(--radius-inset);
+}
+
 .armada-input::placeholder {
   color: var(--fg-subtle);
 }

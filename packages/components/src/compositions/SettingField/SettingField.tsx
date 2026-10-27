@@ -3,6 +3,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Readout } from "../../primitives/Readout/Readout";
 import { Select } from "../../primitives/Select/Select";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
@@ -111,17 +112,16 @@ export function SettingField({
   }
 
   const resetLabel = control.kind === "prompt" ? "Reset to shipped" : "Reset";
-  const meta = (
-    <div className="armada-setting-field__meta">
-      <code className="armada-setting-field__key">{name}</code>
-      {modified ? <span className="armada-setting-field__modified">Modified</span> : null}
-      {modified ? (
-        <Button variant="ghost" size="sm" disabled={off} aria-label={`${resetLabel}: ${title}`} onClick={onReset}>
-          {resetLabel}
-        </Button>
-      ) : null}
-    </div>
-  );
+  // The key is a readout at the right of the row: in the title's line, or in the marks' line where the title is a switch's.
+  const keyed = <Readout className="armada-setting-field__id">{name}</Readout>;
+  const marks = modified ? (
+    <>
+      <span className="armada-setting-field__modified">Modified</span>
+      <Button variant="ghost" size="sm" disabled={off} aria-label={`${resetLabel}: ${title}`} onClick={onReset}>
+        {resetLabel}
+      </Button>
+    </>
+  ) : null;
 
   const notes: ReactNode[] = [];
   if (restart) notes.push(<p key="restart" className="armada-setting-field__note">Restart Fleet to apply.</p>);
@@ -139,13 +139,32 @@ export function SettingField({
         <Switch checked={control.value} disabled={off} description={description} onChange={(event) => onSave(event.currentTarget.checked)}>
           {title}
         </Switch>
-        {meta}
+        <div className="armada-setting-field__meta">
+          {marks}
+          {keyed}
+        </div>
         {shipped === undefined ? null : <p className="armada-setting-field__ships">{`Ships ${shipped}.`}</p>}
         {notes}
         {refused === undefined ? null : <p className="armada-setting-field__refused" role="alert">{refused}</p>}
       </div>
     );
   }
+
+  // A figure or a line is saved from inside its own frame, so the field and Save share one height and one bezel.
+  const inFrame = control.kind === "number" || control.kind === "text";
+  const saveButton = (
+    <Button
+      variant="secondary"
+      size="sm"
+      ground="sunken"
+      pending={saving}
+      disabled={off || !dirty || !inRange}
+      aria-label={`Save ${title}`}
+      onClick={save}
+    >
+      {saving ? "Saving…" : "Save"}
+    </Button>
+  );
 
   const typedField =
     control.kind === "choice" ? (
@@ -182,7 +201,9 @@ export function SettingField({
         id={id}
         mono
         aria-describedby={meansId}
-        {...(control.kind === "number" ? { inputMode: "numeric" as const, trailing: control.seconds ? "s" : control.unit } : {})}
+        {...(control.kind === "number" ? { inputMode: "numeric" as const } : {})}
+        {...(control.kind === "number" && (control.seconds || control.unit !== undefined) ? { unit: control.seconds ? "s" : control.unit } : {})}
+        trailing={saveButton}
         value={field}
         disabled={off}
         invalid={(dirty && !inRange) || refused !== undefined}
@@ -197,10 +218,13 @@ export function SettingField({
 
   return (
     <div className="armada-setting-field" data-modified={modified || undefined}>
-      <label className="armada-setting-field__title" htmlFor={id}>
-        {title}
-      </label>
-      {meta}
+      <div className="armada-setting-field__head">
+        <label className="armada-setting-field__title" htmlFor={id}>
+          {title}
+        </label>
+        {keyed}
+      </div>
+      {marks === null ? null : <div className="armada-setting-field__meta">{marks}</div>}
       {described ? (
         <p className="armada-setting-field__means" id={meansId}>
           {description}
@@ -208,19 +232,7 @@ export function SettingField({
       ) : null}
       <div className="armada-setting-field__row" data-wide={control.kind === "prompt" || control.kind === "list" || undefined}>
         {typedField}
-        {control.kind === "choice" ? null : (
-          <Button
-            variant="secondary"
-            size="sm"
-            ground="sunken"
-            pending={saving}
-            disabled={off || !dirty || !inRange}
-            aria-label={`Save ${title}`}
-            onClick={save}
-          >
-            {saving ? "Saving…" : "Save"}
-          </Button>
-        )}
+        {control.kind === "choice" || inFrame ? null : saveButton}
       </div>
       {control.kind === "number" && control.seconds && inRange ? (
         <p className="armada-setting-field__ships">{inWords(asked)}</p>

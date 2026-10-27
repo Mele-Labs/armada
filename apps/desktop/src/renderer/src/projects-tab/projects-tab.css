@@ -170,10 +170,10 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__words { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .projects-row[data-state="done"] .projects-row__words,
 .projects-row[data-state="closed"] .projects-row__words { color: var(--fg-muted); }
-.projects-row__reference,
-.projects-row__issue { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
-.projects-row__issues { display: inline-flex; flex: none; gap: var(--space-1); }
-.projects-row__issue { padding: 0 var(--space-1); background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--border-default); color: var(--fg-muted); font-weight: var(--weight-medium); }
+/* A reference is a readout at the title's right edge: an issue row's in a fixed column, a task's linked issues as a group. */
+.projects-row__reference { margin-inline-start: auto; color: var(--fg-default); font-weight: var(--weight-heading); }
+.projects-row__issues { display: inline-flex; flex: none; gap: var(--space-1); margin-inline-start: auto; }
+.projects-row__issue { flex: none; }
 .projects-row__issue[data-state="closed"] { color: var(--fg-subtle); text-decoration: line-through; }
 
 /* The first line's right-hand columns: the done ask, then the acts flush to the card's right padding. The Job is the second line. */

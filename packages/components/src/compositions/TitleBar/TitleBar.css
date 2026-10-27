@@ -162,6 +162,24 @@
   align-items: center;
 }
 
+/* A faint tick in the gap between two places, as the detents of a rotary selector: 1px, `--border-default` (`--border-subtle` is the notch's own tone and draws nothing there), about
+   40% of a place's height, centred on the line. No tick sits beside the chosen place, whose pill is its own mark,
+   and there is no underline. The tab carries it, so a hidden place takes its tick away with it. */
+.armada-title-bar__places .armada-tabs__tab + .armada-tabs__tab::before {
+  content: "";
+  position: absolute;
+  inset-block: 30%;
+  inset-inline-start: calc(var(--space-1) * -0.5 - var(--border-width) / 2);
+  width: var(--border-width);
+  background: var(--border-default);
+  pointer-events: none;
+}
+
+.armada-title-bar__places .armada-tabs__tab--active::before,
+.armada-title-bar__places .armada-tabs__tab--active + .armada-tabs__tab::before {
+  display: none;
+}
+
 /* With places, the centre never gives way: it floors at its content, and the start is what yields, the repository's
  * name truncating first and the rest clipped. The places draw as glyphs before it comes to that (`usePlacesRoom`).
  * The first column's floor is measured, `--armada-title-start-floor`: the start's whole width where the row holds

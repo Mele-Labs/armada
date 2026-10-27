@@ -105,8 +105,8 @@
 }
 .issues-surface .issues-row {
   --lamp-hue: var(--fg-subtle);
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "reference . jobs" "title title title" "held held held" "fields fields fields";
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title reference" "held held" "fields fields";
   padding-inline-start: var(--lamp-gutter, var(--space-3));
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-inset, var(--radius-sm));
@@ -120,7 +120,7 @@
 @media (prefers-reduced-motion: reduce) { .issues-surface .issues-row[data-tone="ask"]::before { animation: none; } }
 .issues-surface .issues-row:hover { background: var(--chip-hover); }
 .issues-surface .issues-row[data-selected] { border-color: transparent; }
-.issues-surface .issues-row__reference { grid-area: reference; justify-self: start; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); line-height: var(--leading-xs); }
+.issues-surface .issues-row__reference { grid-area: reference; justify-self: end; align-self: start; color: var(--fg-default); font-weight: var(--weight-heading); }
 .issues-surface .issues-row__title { grid-area: title; display: -webkit-box; font-size: var(--text-xs); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .issues-surface .issues-row__jobs { display: none; }
 .issues-surface .issues-row__held { grid-area: held; }

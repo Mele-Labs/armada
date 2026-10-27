@@ -202,6 +202,37 @@
   background: color-mix(in srgb, var(--accent) 24%, var(--accent-muted));
 }
 
+/* An icon toggle is one thing in every place it appears: a ghost button that stays a ghost, and a 6px lamp
+   in its top-right corner while it is on. The lamp is --fg-default, never --accent, because a theme may put
+   the accent beside the needs-you amber. The fill and the border are not the state, so the pressed rules
+   above stop at it. */
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:not(:disabled):not([data-pending]) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-default);
+}
+
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:hover:not(:disabled):not([data-pending]),
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"][data-preview-hover] {
+  background: var(--bg-hover);
+}
+
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(var(--space-1) * 0.5);
+  inset-inline-end: calc(var(--space-1) * 0.5);
+  width: var(--lamp, var(--dot));
+  height: var(--lamp, var(--dot));
+  border-radius: 50%;
+  background: var(--fg-default);
+  pointer-events: none;
+}
+
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:disabled::before {
+  background: var(--fg-subtle);
+}
+
 /* Focus is a 2px --accent ring at 2px offset, no glow — a resting edge and a
  * focus ring differ in colour, width and position. */
 .armada-button:focus-visible,
@@ -220,6 +251,13 @@
   color: var(--fg-subtle);
   box-shadow: none;
   cursor: default;
+}
+
+/* An icon button that is off for want of anything to open stays a ghost: the glyph goes quiet and no box is drawn
+   round it, because a bordered, filled box beside four bare glyphs reads as the one that is on. */
+.armada-button[data-variant="ghost"][data-icon-only]:disabled {
+  background: transparent;
+  border-color: transparent;
 }
 
 /* Pending — the pressed control while Fleet has not answered. Every variant

@@ -117,8 +117,8 @@
 /* A Cockpit panel has no name band. Its acts are a small chip in the top corner that comes on a hover or on focus inside, and the name is the panel's `aria-label` only.
    A folded panel, or one that is only a band, keeps its band. The chip's ground is the glass itself, so what is under it does not show through.
    An open Job's own panels keep their bands: each band is the panel's fold, and the panels stack open and folded under them. So do the Reviews, Issues and Projects pages,
-   which are drawn on the deck and were not part of the take. */
-.deck:not(.pr-surface, .issues-surface, .projects-surface) {
+   which are drawn on the deck and were not part of the take. The mock's `?strip=always` draws the strip for good instead, for his walk. */
+:root:not([data-strip="always"]) .deck:not(.pr-surface, .issues-surface, .projects-surface) {
   --deck-hole: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   & .deck-panel:not([data-collapsed], [data-band-only], .deck-autopilot) {
     position: relative;
@@ -267,7 +267,6 @@
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }
-.deck-row__said { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
 /* What is open is told by its shape: a hairline frame in the text colour on a raised ground, and a firm title. No accent, so it reads in any theme and never as a state. */
 .deck-row[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
@@ -301,7 +300,6 @@
 .deck-row__chip,
 .deck-row__issue,
 .deck-row__flow { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.deck-row__chip { padding: 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); }
 .deck-row__flow { font-family: var(--font-sans); }
 .deck-row__says { grid-column: 1 / -1; grid-row: 2; min-height: var(--leading-head); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-head); }
 .deck-row__prs { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; }

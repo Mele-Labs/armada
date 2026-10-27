@@ -71,6 +71,7 @@
 }
 
 .armada-logbook__row {
+  --readout-chars: 7;
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);

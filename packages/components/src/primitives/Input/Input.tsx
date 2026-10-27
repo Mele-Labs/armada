@@ -42,6 +42,12 @@ export type InputProps = Omit<ComponentPropsWithRef<"input">, "size"> & {
    * round both. Nothing is reserved when it is absent.
    */
   trailing?: ReactNode;
+  /**
+   * What the figure is counted in, `%`, `GiB` or `min`, drawn mono and quiet in the field's own
+   * right slot, ahead of `trailing`. A unit names the figure, so it sits inside the box the
+   * figure is typed in and never beside it.
+   */
+  unit?: string;
 };
 
 export function Input({
@@ -50,6 +56,7 @@ export function Input({
   message,
   mono = false,
   trailing,
+  unit,
   id,
   ...rest
 }: InputProps) {
@@ -57,6 +64,7 @@ export function Input({
   const inputId = id ?? generated;
   const messageId = `${inputId}-message`;
   const showMessage = invalid && message !== undefined;
+  const slotted = trailing !== undefined || (unit !== undefined && unit !== "");
 
   return (
     <div className="armada-input-field">
@@ -67,7 +75,7 @@ export function Input({
       )}
       {/* `display: contents` unless something is trailing, so a field with no
           adornment renders exactly the box it always did. */}
-      <div className="armada-input-field__well" data-trailing={trailing !== undefined || undefined}>
+      <div className="armada-input-field__well" data-trailing={slotted || undefined}>
         <input
           {...rest}
           id={inputId}
@@ -76,6 +84,7 @@ export function Input({
           aria-invalid={invalid || undefined}
           aria-describedby={showMessage ? messageId : undefined}
         />
+        {unit === undefined || unit === "" ? null : <span className="armada-input-field__unit">{unit}</span>}
         {trailing === undefined ? null : (
           <span className="armada-input-field__trailing">{trailing}</span>
         )}

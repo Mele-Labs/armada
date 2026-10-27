@@ -36,6 +36,8 @@ export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
 export * from "./primitives/Stamp/Stamp";
+export * from "./primitives/Readout/Readout";
+export * from "./clip-title";
 export * from "./primitives/Inspect/Inspect";
 export * from "./primitives/SelectMark/SelectMark";
 

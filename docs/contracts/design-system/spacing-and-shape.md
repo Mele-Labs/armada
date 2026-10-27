@@ -53,6 +53,7 @@ A switch, a mark or an act that more than one row of a list can carry has a colu
 A row's controls share the centre line of its first line; anything a row adds under its title, such as a pull request or a Job, is a line of its own beneath and never moves them.
 Lay the row out as a grid with the trailing columns sized by `--h-control`, never as a flex row whose controls take the width they happen to need.
 Why: a flex row shifts its switch left by one control wherever a neighbour has one more mark, and the owner asked twice on 23 Oct 2026 for the Mods rows' controls to line up.
+A figure or an id the system reports takes the same column as a `Readout`, at the row's right.
 
 **A panel is a bezel.**
 Every panel draws its outer 1px `--border-default` at `--radius-lg`, and a second hairline one pixel inside it in `--border-subtle`, as an inset shadow (`--bezel`) and never a second element.

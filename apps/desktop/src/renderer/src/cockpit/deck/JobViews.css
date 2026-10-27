@@ -6,7 +6,7 @@
 .sv-views__rule { height: var(--space-4); align-self: center; }
 .armada-session-frame__head .armada-button[data-view] { position: relative; }
 .armada-session-frame__head .armada-button[data-view][data-lit] { color: var(--slot-stranded); }
-.sv-view__mark { position: absolute; inset-block-start: calc(var(--space-1) * -0.5); inset-inline-end: calc(var(--space-1) * -0.5); display: inline-flex; align-items: center; pointer-events: none; }
+.sv-view__mark { position: absolute; inset-block-end: calc(var(--space-1) * 0.5); inset-inline-end: calc(var(--space-1) * 0.5); display: inline-flex; align-items: center; pointer-events: none; }
 .sv-view__clash { display: inline-flex; color: var(--status-awaiting-review); }
 
 /* Running, on the glyph: the running hue and a pulse; still under reduced motion. */
