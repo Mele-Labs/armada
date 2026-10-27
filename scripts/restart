@@ -439,6 +439,9 @@ def live():
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+NO_BRANCH = "a branch not on origin/main"
+
+
 def branch_of(name):
     """The branch that added `name` to the build, where git can say."""
     sha = subprocess.run(["git", "-C", src, "log", "--diff-filter=A", "--format=%H", "--", DIR],
@@ -451,7 +454,7 @@ def branch_of(name):
         held = [b for b in held if b not in ("main", "preview")]
         if held:
             return held[0]
-    return "a branch not on origin/main"
+    return NO_BRANCH
 
 
 target = target_names()
@@ -483,8 +486,17 @@ unlanded = [(n, b) for n, b in target if n not in main_names_]
 fresh = [(n, b) for n, b in unlanded if n not in applied]
 breaking = [n for n, b in fresh if b]
 if breaking:
-    where = "; ".join(f"{n} from {branch_of(n)}" for n in breaking)
-    print(f"REFUSE {src} brings breaking migrations origin/main does not have, which would migrate the real database with unlanded work, and a build of main could not open it afterwards: {where}")
+    # The cause goes first: restart-build cuts the line it keeps to 200 characters.
+    owners = {n: branch_of(n) for n in breaking}
+    where = "; ".join(f"{n} from {b}" for n, b in owners.items())
+    print(f"REFUSE {where}: breaking and not on origin/main, so it would migrate the real database with unlanded work, and a build of main could not open it afterwards")
+    # One line per branch, for scripts/preview to leave it out and go again.
+    by_branch = {}
+    for n, b in owners.items():
+        if b != NO_BRANCH:
+            by_branch.setdefault(b, []).append(n)
+    for b, names in by_branch.items():
+        print(f"leave out {b}: breaking migration {', '.join(names)} is not on main")
     sys.exit(0)
 said = [f"{len(target)} migrations listed, {len(applied)} applied"]
 if fresh:
@@ -497,9 +509,14 @@ PY
 
 if [[ -n "$from" ]]; then
   guarded=$(migration_guard)
-  case "$guarded" in
-    OK\ *) say "Migration guard: ${guarded#OK }" ;;
-    REFUSE\ *) fail "refusing — ${guarded#REFUSE }" ;;
+  verdict=${guarded%%$'\n'*}
+  case "$verdict" in
+    OK\ *) say "Migration guard: ${verdict#OK }" ;;
+    REFUSE\ *)
+      while IFS= read -r line; do
+        [[ "$line" == "leave out "* ]] && echo "restart: $line" >&2
+      done <<< "$guarded"
+      fail "refusing — ${verdict#REFUSE }" ;;
     *) fail "refusing — the migration guard answered nothing readable" ;;
   esac
 fi

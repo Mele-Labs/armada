@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use super::repo::TempRepo;
-use crate::{branch_in_build, fetch_main, position_against_main, BranchInBuild};
+use crate::{branch_in_build, branch_tip, fetch_main, position_against_main, BranchInBuild};
 
 fn point_origin_main_at(repo: &TempRepo, commit: &str) {
     let opened = repo.open();
@@ -174,4 +174,13 @@ fn main_a_branch_with_nothing_of_its_own_and_one_that_is_not_there_say_nothing()
     branch_at(&repo, "armada/work", &child_of(&repo, &first, "work"));
     let missing = "0123456789abcdef0123456789abcdef01234567";
     assert_eq!(branch_in_build(&repo.root_str(), missing, "armada/work"), None, "a build the repository lacks");
+}
+
+#[test]
+fn a_branch_tip_is_the_local_branch_and_a_missing_branch_has_none() {
+    let (repo, first) = a_repository_at_main();
+    let work = child_of(&repo, &first, "work");
+    branch_at(&repo, "armada/work", &work);
+    assert_eq!(branch_tip(&repo.root_str(), "armada/work"), Some(work));
+    assert_eq!(branch_tip(&repo.root_str(), "armada/gone"), None);
 }

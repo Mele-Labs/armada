@@ -26,6 +26,17 @@ One run.
 **Fleet keeps a request cookie by running `security`**, one generic-password item per host under one service name, written over stdin as hex and read with `-w`.
 **No new dependency is added.**
 
+## What a long cookie showed
+
+Measured 27 Oct 2026, in a throwaway keychain under `/tmp`, after a browser cookie of several kB would not save.
+**`security -i` reads 4095 bytes a line, its newline included.**
+A 2000-byte value is a 4094-byte line and is kept.
+A 2010-byte value is cut: the rest of the line runs as a command, `security: unknown command "…"`, which echoes the hex.
+**A cut line loses its keychain argument**, so its first half is written to the default keychain.
+
+So a value is kept in parts of 1500 bytes, the first in the variable's own item and each after it under `armada-request-variable-part`.
+A failed write says what `security -i` printed after it, such as `add-generic-password: returned -128` with the Security framework's message.
+
 ## What was not measured
 
 - **The Security framework in Fleet's own process**, the `security-framework` crate.

@@ -171,7 +171,7 @@ mod worktree;
 mod tests;
 
 pub use annotations::annotation_places;
-pub use build_standing::{branch_in_build, fetch_branch, fetch_main, position_against_main, BranchInBuild};
+pub use build_standing::{branch_in_build, branch_tip, fetch_branch, fetch_main, position_against_main, BranchInBuild};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use conversing::{
