@@ -2,14 +2,23 @@
 
 use super::*;
 
-/// The owner's folder list, the folders this session was allowed until it ends, and the home a
-/// `~` or `$HOME` stands for.
+/// The owner's folder list, the folders and kinds of call this session was allowed until it ends,
+/// and the home a `~` or `$HOME` stands for.
 #[derive(Clone, Copy, Default)]
 pub struct Folders<'a> {
     pub allow: &'a [String],
     pub block: &'a [String],
     pub session: &'a [String],
+    pub kinds: &'a [KindAllowed],
     pub home: &'a str,
+}
+
+/// A kind of call the owner allowed for this session alone, narrowed to a folder where he chose
+/// one. In memory only, as the session's folders are.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KindAllowed {
+    pub kind: CallKind,
+    pub folder: Option<String>,
 }
 
 /// What the list says about one path.
@@ -27,7 +36,7 @@ impl Folders<'_> {
         let Some(path) = resolved(path, "/") else {
             return Listed::Unlisted;
         };
-        let holds = |entry: &String| resolved(entry, "/").is_some_and(|at| path.starts_with(&at));
+        let holds = |entry: &String| folder_holds(entry, &path);
         let deepest = |list: &[String]| {
             list.iter()
                 .filter_map(|entry| {
@@ -43,6 +52,20 @@ impl Folders<'_> {
             _ if self.session.iter().any(holds) => Listed::Allowed,
             _ => Listed::Unlisted,
         }
+    }
+
+    /// Whether a kind allowed for this session takes a reach into `path` by a segment of `kind`:
+    /// the same program, the same script where the entry names one, and inside its folder where it
+    /// has one. **Read only after [`Folders::listed`]**, so a block of the owner's still wins.
+    pub(super) fn kind_allowed(&self, kind: Option<&CallKind>, path: &str) -> bool {
+        let (Some(kind), Some(path)) = (kind, resolved(path, "/")) else {
+            return false;
+        };
+        self.kinds.iter().any(|allowed| {
+            allowed.kind.program == kind.program
+                && allowed.kind.script.as_ref().is_none_or(|script| kind.script.as_ref() == Some(script))
+                && allowed.folder.as_deref().is_none_or(|folder| folder_holds(folder, &path))
+        })
     }
 
     /// `word` as an absolute path, `~` and `$HOME` read as the home, with `.` and `..` folded.
@@ -74,6 +97,11 @@ impl Folders<'_> {
     }
 }
 
+/// Whether the folder `entry` holds `path`, both read where they land, a part at a time.
+fn folder_holds(entry: &str, path: &std::path::Path) -> bool {
+    resolved(entry, "/").is_some_and(|at| path.starts_with(&at))
+}
+
 /// [`because_in_a_session_owning`], and the owner's folder list read first: a path in a blocked
 /// folder is refused with no card, one in an allowed folder passes the reach, and anything else is
 /// put to him with the path it named.
@@ -84,7 +112,7 @@ pub fn guarded_in_a_session(
     folders: Folders,
 ) -> Option<Guarded> {
     let asked = |because: Because, reaching: Option<String>, to: ReachesTo| {
-        Some(Guarded::Because { because, reaching, to: Some(to) })
+        Some(Guarded::Because { because, reaching, to: Some(to), kind: None })
     };
     let tool = asking.tool_name.as_str();
     if WRITES_A_FILE.contains(&tool) {
@@ -101,7 +129,7 @@ pub fn guarded_in_a_session(
         // **Any write outside the slots and scratch is put to the owner** (16 Oct 2026), a new
         // file as much as an overwrite.
         let Some(reaching) = path.and_then(|path| folders.absolute(path)) else {
-            return because(asking).map(|because| Guarded::Because { because, reaching: None, to: None });
+            return because(asking).map(|because| Guarded::Because { because, reaching: None, to: None, kind: None });
         };
         return match folders.listed(&reaching) {
             Listed::Blocked(folder) => Some(Guarded::Blocked { folder }),
@@ -134,7 +162,7 @@ pub fn guarded_in_a_session(
             _ => return asked(Because::ReachesOutside, reaching, to),
         }
     }
-    because(asking).map(|because| Guarded::Because { because, reaching: None, to: None })
+    because(asking).map(|because| Guarded::Because { because, reaching: None, to: None, kind: None })
 }
 
 /// The web pages a shell line opens in the owner's own browser: `open`,
