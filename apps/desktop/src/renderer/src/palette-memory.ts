@@ -105,12 +105,6 @@ export const remember = (id: string): void => {
 /** What the empty query shows, chosen in Settings. */
 export const setOpens = (opens: PaletteOpens): void => set({ ...paletteMemory(), opens });
 
-/** The next of the three things the empty query can show. */
-export const nextOpens = (): void => {
-  const was = paletteMemory();
-  set({ ...was, opens: PALETTE_OPENS[(PALETTE_OPENS.findIndex((one) => one.id === was.opens) + 1) % PALETTE_OPENS.length]!.id });
-};
-
 const without = (from: Readonly<Record<string, string>>, id: string): Record<string, string> => Object.fromEntries(Object.entries(from).filter(([key]) => key !== id));
 
 /** The word that finds a row. Nothing, or only spaces, lets it go. */

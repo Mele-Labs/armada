@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { forgetPaletteMemory, nextOpens, paletteMemory, PALETTE_KEY, remember, rowOf, setAlias, setHotkey, togglePin } from "./palette-memory";
+import { forgetPaletteMemory, paletteMemory, PALETTE_KEY, remember, rowOf, setAlias, setHotkey, togglePin } from "./palette-memory";
 
 /** A window with a storage that remembers, and one that has been closed and opened again. */
 function windowWith(store = new Map<string, string>()) {
@@ -62,20 +62,6 @@ describe("recent", () => {
     expect(rowOf({ of: "on", target: "session:q1", action: "unpin" })).toBeUndefined();
     expect(rowOf({ of: "on", target: "session:q1", action: "pause" })).toBe("session:q1");
     expect(rowOf({ of: "pull", id: "armada:1899" })).toBe("pull:armada:1899");
-  });
-});
-
-describe("what the empty query shows", () => {
-  test("pinned and recent until it is changed, then each of the others in turn, and kept", () => {
-    expect(paletteMemory().opens).toBe("pinned");
-    nextOpens();
-    expect(paletteMemory().opens).toBe("page");
-    nextOpens();
-    expect(paletteMemory().opens).toBe("everything");
-    relaunch();
-    expect(paletteMemory().opens).toBe("everything");
-    nextOpens();
-    expect(paletteMemory().opens).toBe("pinned");
   });
 });
 
