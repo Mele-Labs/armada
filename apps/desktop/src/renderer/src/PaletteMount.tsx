@@ -16,7 +16,7 @@ import { useDeck } from "./cockpit/deck/store";
 import { jobRow } from "./palette-job-row";
 import { usePaletteRows } from "./palette-fixtures";
 import { knownRows, setKnownRows } from "./palette-known";
-import { nextOpens, opensLabel, remember, rowOf, usePaletteMemory } from "./palette-memory";
+import { remember, rowOf, usePaletteMemory } from "./palette-memory";
 import { pageOf } from "./palette-page";
 import { carryOutRow } from "./palette-rows";
 import type { BridgeState } from "../../shared/bridge";
@@ -120,7 +120,6 @@ export function PaletteMount({
           },
         };
   const choose = (choice: PaletteChoice): void => {
-    if (choice.of === "setting" && choice.id === PALETTE_OPENS_ROW) return nextOpens();
     const row = rowOf(choice);
     if (row !== undefined) remember(row);
     if (choice.of === "pull" || choice.of === "issue" || choice.of === "task" || choice.of === "command" || choice.of === "page" || choice.of === "on") return carryOutRow(choice, world);
@@ -190,7 +189,7 @@ export function PaletteMount({
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
-      settings={[...SETTINGS_PALETTE, { id: PALETTE_OPENS_ROW, label: "Palette opens with", value: opensLabel(memory.opens) }]}
+      settings={SETTINGS_PALETTE}
       page={pageOf(showing ?? "", job)}
       pulls={fixtures.pulls}
       issues={fixtures.issues}
@@ -224,9 +223,6 @@ export function PaletteMount({
     </>
   );
 }
-
-/** The row `Settings` carries for what the empty query shows, which cycles on a press until the setting has a page. */
-const PALETTE_OPENS_ROW = "palette-opens";
 
 /** The command whose blank is a pull request. */
 const SECURITY_REVIEW = "security-review";

@@ -420,13 +420,20 @@
   white-space: nowrap;
 }
 
-/* Why the answer given was refused, over the field it was given in. */
+/* Why the answer given was refused, at the right of the field it was given in, so the acts above keep their room. */
 .armada-palette__refused {
   flex: none;
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
+  padding-right: var(--space-3);
   color: var(--status-escalated);
   font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.armada-palette__actions-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 .armada-palette__rule {
@@ -436,11 +443,11 @@
 }
 
 .armada-palette__actions-field {
-  flex: none;
+  flex: 1;
+  min-width: 0;
   height: var(--h-menu-item);
   padding: 0 var(--space-3);
   border: 0;
-  border-top: var(--border-width) solid var(--border-subtle);
   background: transparent;
   color: var(--fg-default);
   font-family: var(--font-sans);

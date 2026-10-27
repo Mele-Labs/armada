@@ -126,8 +126,6 @@ export const setHotkey = (id: string, chord: string): void => {
   set({ ...was, hotkeys: chord === "" ? without(was.hotkeys, id) : { ...was.hotkeys, [id]: chord } });
 };
 
-export const opensLabel = (opens: PaletteOpens): string => PALETTE_OPENS.find((one) => one.id === opens)?.label ?? "";
-
 const PREFIX: Partial<Record<PaletteChoice["of"], string>> = { session: "session", pull: "pull", issue: "issue", task: "task", command: "cmd", surface: "nav", setting: "set" };
 
 /** The id of the row a choice was made on, for the kinds Recent keeps. */

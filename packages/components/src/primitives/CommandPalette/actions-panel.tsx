@@ -142,11 +142,7 @@ export function ActionsPanel({
         })}
         {actions.length === 0 ? <p className="armada-palette__empty">{`Nothing matches “${query}”.`}</p> : null}
       </div>
-      {taking?.refused == null ? null : (
-        <p className="armada-palette__refused" role="alert">
-          {taking.refused}
-        </p>
-      )}
+      <div className="armada-palette__actions-foot">
       <input
         ref={field}
         className="armada-palette__actions-field"
@@ -162,6 +158,12 @@ export function ActionsPanel({
         onChange={(event) => (taking === null ? onQuery(event.target.value) : onTakeWord(event.target.value))}
         onKeyDown={taking === null ? onKey : chord ? onChordKey : onWordKey}
       />
+      {taking?.refused == null ? null : (
+        <span className="armada-palette__refused" role="alert">
+          {taking.refused}
+        </span>
+      )}
+      </div>
     </div>
   );
 }
