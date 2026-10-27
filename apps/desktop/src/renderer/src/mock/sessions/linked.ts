@@ -1,6 +1,7 @@
 // A Session that split its work into linked Sessions it follows. The parent draws them on the Plan's groups and in a Ledger section called
 // Linked, and the children stand under it in Work. Three of the plan's four groups were handed to Sessions of
-// their own; each time a walk lets time pass one of them says something the parent is told. Mock only: Fleet carries no group on
+// their own, and one of those started a Job of its own, which stands under it a step further in; each time a walk lets time pass one of
+// them says something the parent is told. Mock only: Fleet carries no group on
 // `start_another_session` yet, and every field here is one it would owe (`packages/screens/src/draft/sessions.ts`).
 
 import type { RepositorySummary } from "@armada/protocol";
@@ -21,6 +22,7 @@ const NAMES = "linked-2";
 const ORDER = "linked-3";
 const RECORD = "linked-4";
 const OTHER = "linked-5";
+const SORT = "linked-6";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
@@ -93,7 +95,7 @@ const pull = (number: number, title: string, branch: string, rest: Partial<Extra
   ...rest,
 });
 
-const child = (id: string, title: string, group: string, slot: number, branch: string, brief: string, more: SessionAttachment[]): Session => ({
+const child = (id: string, title: string, group: string | undefined, slot: number, branch: string, brief: string, more: SessionAttachment[], by = PARENT): Session => ({
   id,
   title,
   manifestId: OWNER,
@@ -103,11 +105,14 @@ const child = (id: string, title: string, group: string, slot: number, branch: s
   lastTurnAt: ago(1),
   standing: "working",
   rows: [you(`${id}-1`, "13:42:31", brief), tool(`${id}-2`, "13:43:00", "Read crates/store/src/migrations.rs"), tool(`${id}-3`, "13:50:00", `Edit crates/store/src/${branch.split("/").at(-1)}.rs`)],
-  attachments: [{ kind: "started_by", id: PARENT, group }, { kind: "slot", slot }, { kind: "branch", name: branch, slot }, ...more],
+  attachments: [{ kind: "started_by", id: by, ...(group === undefined ? {} : { group }) }, { kind: "slot", slot }, { kind: "branch", name: branch, slot }, ...more],
 });
 
 const names = (): Session => child(NAMES, "Migrations get names", "g1", 3, "armada/migration-names", "Give each migration a name and record it with the version. Group: Name the migrations.", [pull(2412, "Name the migrations", "armada/migration-names", {})]);
-const order = (): Session => child(ORDER, "Migrations apply in order", "g2", 4, "armada/migration-order", "Apply the migrations sorted by name and stop at the first failure. Group: Apply them in order.", []);
+const order = (): Session =>
+  child(ORDER, "Migrations apply in order", "g2", 4, "armada/migration-order", "Apply the migrations sorted by name and stop at the first failure. Group: Apply them in order.", [{ kind: "started_to", id: SORT }]);
+/** A Job the second child started: a grandchild of the parent. */
+const sort = (): Session => child(SORT, "Sort names that share a prefix", undefined, 7, "armada/migration-sort", "Sort migration names that share a prefix by their number.", [], ORDER);
 const record = (): Session =>
   child(RECORD, "One row for each migration", "g3", 5, "armada/migration-record", "Write one row for each applied migration. Group: Record each once.", [pull(2409, "Record each migration once", "armada/migration-record", { state: "open", checks: { state: "passed" } })]);
 
@@ -137,7 +142,7 @@ const QUESTION = {
 const told = (id: string, at: string, session: string, title: string, event: "done" | "merged"): SessionRow => ({ id, at, kind: "linked", session: { id: session, title }, event });
 
 function sessions(): SessionsStore {
-  const base = sessionsStore([parent(), names(), order(), record(), other()]);
+  const base = sessionsStore([parent(), names(), order(), sort(), record(), other()]);
   let moment = 0;
   const handed: Session[] = [];
   let read: { from: readonly Session[]; made: number; out: readonly Session[] } | undefined;
