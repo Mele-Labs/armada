@@ -224,7 +224,7 @@ impl Locating for Locator {
             .map(|(path, text)| config::WatchRecipeWritten::by_armada(path, text))
             .collect();
         let machine = self.machine.join("machine").join("watches");
-        written.extend(crate::trigger_authoring::listed(&machine).into_iter().filter_map(|path| {
+        written.extend(listed(&machine).into_iter().filter_map(|path| {
             let text = std::fs::read_to_string(&path).ok()?;
             Some(config::WatchRecipeWritten::on_machine(path, text))
         }));
@@ -366,4 +366,23 @@ impl Locating for Locator {
         }
         watching::say(read, &file)
     }
+}
+
+/// The `.yml` and `.yaml` files in `dir`, sorted. Absent is none.
+fn listed(dir: &Path) -> Vec<PathBuf> {
+    let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && matches!(
+                    path.extension().and_then(|ext| ext.to_str()),
+                    Some("yml" | "yaml")
+                )
+        })
+        .collect();
+    found.sort();
+    found
 }

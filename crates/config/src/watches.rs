@@ -1,11 +1,10 @@
-//! Watch recipes: a command, how often to run it, and when to give up, kept where a Trigger is.
+//! Watch recipes: a command, how often to run it, and when to give up.
 //! `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`, *Recipes*.
 //!
 //! Three places, the most specific winning: Armada's, the repository's `.armada/watches/` and this
 //! machine's `~/Library/Application Support/Armada/machine/watches/`. Armada's name a provider, so
 //! their files are the adapters' to carry and arrive here as [`Written::by_armada`]. Two files
-//! naming one recipe are one recipe, and the specific copy replaces the other whole, as
-//! [`crate::TriggerCatalogue`] does. Text in, not directories: reading the repository's files from
+//! naming one recipe are one recipe, and the specific copy replaces the other whole. Text in, not directories: reading the repository's files from
 //! `main` only is the caller's.
 //!
 //! **The cadence floor and the give-up cap are not checked here.** They are settings a person

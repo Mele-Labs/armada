@@ -1,6 +1,5 @@
-//! A repository's `.armada/triggers/` and `.armada/watches/` as a branch holds
-//! them, never as the worktree or a Job's branch does. The decision record for
-//! Triggers has why, and a watch recipe is kept where a Trigger is.
+//! A repository's `.armada/watches/` as a branch holds it, never as the worktree or a Job's branch
+//! does.
 
 use std::path::{Path, PathBuf};
 
@@ -9,16 +8,14 @@ use git2::{ObjectType, Repository};
 const FOLDER: &str = ".armada/triggers";
 const WATCHES: &str = ".armada/watches";
 
-/// Every `.yml` or `.yaml` file in the folder at `base`, or at `HEAD` where the
-/// repository names no base, with its text. **Empty on any failure**: a
-/// repository whose files cannot be read has no Triggers, which is the same as
-/// one that never wrote any.
+/// Goes with the Trigger callers in the commit that removes them.
 pub fn triggers_on_base(root: &Path, base: Option<&str>) -> Vec<(PathBuf, String)> {
     read(root, base.unwrap_or("HEAD"), FOLDER).unwrap_or_default()
 }
 
-/// Every watch recipe in `.armada/watches/` at `base`, as [`triggers_on_base`]
-/// reads Triggers, and empty on any failure for the same reason.
+/// Every watch recipe in `.armada/watches/` at `base`, or at `HEAD` where the repository names no
+/// base, with its text. **Empty on any failure**: a repository whose files cannot be read has no
+/// recipes, which is the same as one that never wrote any.
 pub fn watch_recipes_on_base(root: &Path, base: Option<&str>) -> Vec<(PathBuf, String)> {
     read(root, base.unwrap_or("HEAD"), WATCHES).unwrap_or_default()
 }
