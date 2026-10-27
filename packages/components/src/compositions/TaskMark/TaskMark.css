@@ -52,3 +52,14 @@
   color: var(--fg-subtle);
   opacity: 0.8;
 }
+
+/* A task in progress that looks left behind: its hue pulled toward --fg-subtle, no new colour and no motion. */
+.armada-task-mark[data-stale] {
+  color: color-mix(in srgb, var(--step-running) 40%, var(--fg-subtle));
+}
+
+/* The tooltip's lines, one under the other. */
+.armada-task-mark__says {
+  display: flex;
+  flex-direction: column;
+}

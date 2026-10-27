@@ -531,13 +531,15 @@ export function updatedTask(list: Task[], input: Record<string, unknown>): Task[
 
 /**
  * A successful `git commit`, read from its output (`[branch 1a2b3c4] subject`) and not from the command alone: a
- * commit with nothing staged prints no such line. `branch` is absent on a detached head.
+ * commit with nothing staged prints no such line. `branch` is absent on a detached head. `commit` is the hash as
+ * printed and `subject` the line after it, which Fleet matches against the plan's tasks.
  */
-export function commitIn(command: string, output: string): { branch?: string } | undefined {
+export function commitIn(command: string, output: string): { branch?: string; commit: string; subject: string } | undefined {
   if (!/\bgit\b[^|;&\n]*\bcommit\b/.test(command)) return undefined
-  const made = /^\[(\S+)(?: [^\]]*)? [0-9a-f]{7,40}\]/m.exec(output)
+  const made = /^\[(\S+)(?: [^\]]*)? ([0-9a-f]{7,40})\] ?(.*)$/m.exec(output)
   if (made === null) return undefined
-  return made[1] === 'detached' ? {} : { branch: made[1] }
+  const said = { commit: made[2], subject: made[3].trim() }
+  return made[1] === 'detached' ? said : { branch: made[1], ...said }
 }
 
 /**

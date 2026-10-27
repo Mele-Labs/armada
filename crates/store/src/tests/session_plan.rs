@@ -6,7 +6,19 @@ use crate::tests::{open, TempDir};
 use crate::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 
 fn task(id: &str, text: &str) -> KeptPlanTask {
-    KeptPlanTask { id: id.to_string(), text: text.to_string(), listed: None, completed_at: None, edited: false, started_at: None }
+    KeptPlanTask {
+        id: id.to_string(),
+        text: text.to_string(),
+        listed: None,
+        completed_at: None,
+        edited: false,
+        started_at: None,
+        touched_at: None,
+        touched_call: 0,
+        marked: None,
+        marked_why: None,
+        told: false,
+    }
 }
 
 fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
@@ -21,6 +33,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         changes: (version > 1).then(|| vec![KeptPlanChange { kind: "added".into(), id: "t9".into(), other: String::new() }]),
         next_group: 2,
         next_task: 10,
+        calls: 0,
         groups: vec![KeptPlanGroup {
             id: "g1".to_string(),
             gives: Some("The page itself.".to_string()),
@@ -108,23 +121,41 @@ fn approval_holds_to_the_version_read_and_is_given_once() {
 }
 
 #[test]
-fn progress_and_an_edit_move_only_what_they_name() {
+fn progress_moves_only_what_it_names_with_fleets_marks_and_touches() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     store.keep_session_plan("s1", &plan(1, &[("t1", "One"), ("t2", "Two")])).unwrap();
-    store.keep_session_plan_edit("s1", &["g1".to_string()], &["t2".to_string()], "2026-10-16T09:30:00.000Z").unwrap();
-    let held = store.session_plan("s1").unwrap().unwrap();
-    assert_eq!(held.groups[0].worked_at.as_deref(), Some("2026-10-16T09:30:00.000Z"));
-    assert_eq!((held.groups[0].tasks[0].edited, held.groups[0].tasks[1].edited), (false, true));
-
-    let mut moved = held.clone();
+    let mut moved = store.session_plan("s1").unwrap().unwrap();
+    moved.groups[0].worked_at = Some("2026-10-16T09:30:00.000Z".to_string());
     moved.groups[0].tasks[0].listed = Some("completed".to_string());
     moved.groups[0].tasks[0].completed_at = Some("2026-10-16T09:40:00.000Z".to_string());
+    let two = &mut moved.groups[0].tasks[1];
+    two.edited = true;
+    two.marked = Some("in_progress".to_string());
+    two.marked_why = Some("edits in src/a.rs".to_string());
+    two.touched_at = Some("2026-10-16T09:30:00.000Z".to_string());
+    two.touched_call = 7;
+    two.told = true;
     store.keep_session_plan_progress("s1", &moved).unwrap();
+
     let held = store.session_plan("s1").unwrap().unwrap();
-    assert_eq!(held.groups[0].tasks[0].listed.as_deref(), Some("completed"));
-    assert_eq!(held.groups[0].tasks[0].completed_at.as_deref(), Some("2026-10-16T09:40:00.000Z"));
+    assert_eq!(held.groups, moved.groups);
     assert_eq!(held.version, 1, "the head is not touched");
+}
+
+#[test]
+fn calls_are_counted_only_for_a_job_with_a_plan_and_a_recording_keeps_the_count() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.count_session_calls("s1", 10).unwrap(), None, "no plan counts nothing");
+    store.keep_session_plan("s1", &plan(1, &[("t1", "One")])).unwrap();
+    assert_eq!(store.count_session_calls("s1", 10).unwrap(), Some(10));
+    assert_eq!(store.count_session_calls("s1", 3).unwrap(), Some(13));
+
+    let mut again = store.session_plan("s1").unwrap().unwrap();
+    again.version = 2;
+    store.keep_session_plan("s1", &again).unwrap();
+    assert_eq!(store.session_plan("s1").unwrap().unwrap().calls, 13);
 }
 
 #[test]

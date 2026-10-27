@@ -73,6 +73,8 @@ pub enum Notice {
     IssueLost,
     /// A sketch in a Job's document will not draw.
     DocumentSketch,
+    /// Fleet marked a task of the plan from what it saw, or saw one in progress go stale.
+    TaskMarked,
 }
 
 impl Notice {
@@ -111,6 +113,7 @@ impl Notice {
             Notice::Taught => "taught",
             Notice::IssueLost => "issue_lost",
             Notice::DocumentSketch => "document_sketch",
+            Notice::TaskMarked => "task_marked",
         }
     }
 }

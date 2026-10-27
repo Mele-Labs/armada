@@ -33,7 +33,8 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `ran` | `command`: the first line of a shell command, 300 characters at most | Counted for the timeline as `session.ran`, cut and with what looks like a secret in it hidden; nothing on the ledger changes. A command whose first word is `gh` is entered as `session.called` instead, as its subcommand words only |
 | `tasks` | `tasks`: the agent's whole list, each with `id`, `text` and `status` (`pending`, `in_progress` or `completed`) | Keeps the list and when each item was first seen completed (*The build record*). An empty list clears it |
 | `plan_left` | nothing | The agent left plan mode (*The build record*) |
-| `committed` | `branch?` | A `git commit` printed a commit made. Entered on the timeline as `session.committed` |
+| `committed` | `branch?`, `commit?`, `subject?` (since mod 0.3.46) | A `git commit` printed a commit made. Entered on the timeline as `session.committed`; a subject that says a plan task completes it (*The plan*) |
+| `calls` | `calls`: how many more calls the job's own agent made, ten at a time (since mod 0.3.46) | Counted on a terminal Job's plan toward a stale task (*The plan*); a hosted Job's own are counted from its process and these are not read |
 | `pushed` | `branch?` | A `git push` printed a ref updated. Entered on the timeline as `session.pushed` |
 | `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal job*) |
 

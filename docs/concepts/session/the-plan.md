@@ -69,6 +69,22 @@ Bridge draws it with the done check and a faint mark for no edit seen, tooltip `
 `failed` is not set by anything Fleet observes yet.
 An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
+**Fleet marks a task itself where it has proof, and tells the agent once** (owner, 27 Oct 2026; `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`).
+An audit of 70 Jobs found the agents' marks could not be trusted: half the finished tasks were never in progress, and a median of 44 calls went by with no task update.
+The proof is a commit whose first line says a task not yet completed (matched as a list item is), the task's group's pull request merged (the group of the task in progress when the pull request was first kept), or an edit under a group's own paths while nothing is in progress, which puts that group's first open task in progress.
+A mark Fleet set carries its proof as `marked` (`commit 1a2b3c4 names it`, `#12 merged`, `edits in <path>`), and Bridge draws the same mark with the proof in its tooltip.
+**Fleet's mark stands until the agent's list changes that task**: a list that still says what it said before leaves it, and one that moves it takes its place.
+A task in progress or completed carries `changed_at`, when it was put there by either.
+
+**A task in progress can be `stale`**, with `why` and `since`, the last time its mark moved or an edit landed under its own group's paths.
+In order: a newer task in progress leads and the older one is stale, unless a subagent edited the older one's group since it started, as two at work side by side do; edits landed in another group's files that has nothing in progress, where the task's own group names paths; or 40 of the agent's own calls went by without a touch.
+Stale is never done, and the state stays `working`.
+The calls are counted per plan and kept with it: a hosted Job's from its process, a terminal Job's from its mod (the `calls` fact, ten at a time, since mod 0.3.46), and a subagent's not at all.
+
+**Each task is told once**, marked or stale, in one `task_marked` notice listing every task not told yet, asking the agent to bring its list into line or change the task if Fleet has it wrong.
+A hosted Job hears it at its next tool call; a terminal Job's mod is handed it.
+A merge's tasks go in the merge's own message instead.
+
 **An adversarial review rides on the plan as `adversarial`.** The owner presses it on a plan waiting for approval, and it comes back as findings pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
 It advises and gates nothing, and recording the plan again marks it out of date rather than dropping it.
 [Adversarial review](../adversarial-review.md) owns the rest.
