@@ -474,7 +474,7 @@ shortcut = "/"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_search` on the Reviews tab: a different scope, so neither is the other's conflict."
+notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_filter` on the Reviews tab: a different scope, so neither is the other's conflict."
 
 [actions.deck_reorder]
 kind = "Action"
@@ -530,11 +530,23 @@ tier = "Contextual"
 verb = "Natural Search"
 icon = ""
 icon_absent = "undecided"
+shortcut = "N"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Puts up the box a Natural Search is written in, in place of the list. Sending it asks first, since a Drone looks across every repository. `N` for natural: the plain `/` went to the search bar, `review_filter`, on 27 Oct 2026, so the tabs that have a bar all answer `/` the same way."
+
+[actions.review_filter]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the pull requests"
+icon = ""
+icon_absent = "undecided"
 shortcut = "/"
 scope = "review"
 destructive = false
 confirms = false
-notes = "Puts up the box a Natural Search is written in, in place of the list. Sending it asks first, since a Drone looks across every repository."
+notes = "Moves focus to the search bar under the column's head. Typing narrows the rows of the list on show by title, `#number`, repository and author, on this Mac, with no Drone asked. Esc clears the words, and a second Esc leaves the bar. The same bar and key as System, Projects and Issues."
 
 [actions.review_quick]
 kind = "Action"
@@ -614,11 +626,23 @@ tier = "Contextual"
 verb = "Describe a query"
 icon = ""
 icon_absent = "undecided"
+shortcut = "D"
+scope = "issues"
+destructive = false
+confirms = false
+notes = "Puts up the box a query is described in, in place of the list. Sending it asks first, since a model writes the query in the tracker's own language. `D` for describe: the plain `/` went to the search bar, `issues_search`, on 27 Oct 2026. Reviews' `N` for Natural Search."
+
+[actions.issues_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the issues"
+icon = ""
+icon_absent = "undecided"
 shortcut = "/"
 scope = "issues"
 destructive = false
 confirms = false
-notes = "Puts up the box a query is described in, in place of the list. Sending it asks first, since a model writes the query in the tracker's own language. Reviews' `/` for Natural Search."
+notes = "Moves focus to the search bar under the column's head. Typing narrows the loaded rows, of one repository or of every repository on All, by title, number and labels, on this Mac, with no model asked. Esc clears the words, and a second Esc leaves the bar. The same bar and key as System, Projects and Reviews."
 
 [actions.issues_start]
 kind = "Action"
@@ -642,7 +666,7 @@ shortcut = "l r"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Moves focus to a part of the Projects tab: `l` the list of projects, `r` the rows of the project open. The Issues tab's letters for its own two parts, in the scope of the tab that has them. Mock-backed until projects are kept on the Mac."
+notes = "Moves focus to a part of the Projects tab: `l` the left column, `r` the cards of what is open. The Issues tab's letters for its own two parts, in the scope of the tab that has them. Mock-backed until projects are kept on the Mac."
 
 [actions.projects_new]
 kind = "Action"
@@ -654,7 +678,19 @@ shortcut = "N"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Puts up the name field of a new project in the repository picked. On All it asks which repository first, the one act on the tab that needs one. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
+notes = "Puts up the name field of a new project in the left column. A project is his and spans repositories, so it asks for none. The `+` beside the Projects label does the same. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
+
+[actions.projects_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the tasks"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves focus to the search field at the top of the left column. Typing shows every task and subtask, across all projects and repositories, whose title, notes or linked issue reference or title match, grouped by project as a view is; done tasks are included only while done is shown. Esc clears the search and returns to what was open. ↓ from the field moves to the first result. While a search is active the column marks no view, project or repository as open. `/` is the same search bar on the Issues and Reviews tabs and System, in their own scopes."
 
 [actions.projects_add_task]
 kind = "Action"
@@ -666,19 +702,7 @@ shortcut = "a"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Moves focus to the field under the open project's head, where a task is written and Enter adds it. The field keeps its draft across leaving the panel."
-
-[actions.projects_link]
-kind = "Action"
-tier = "Contextual"
-verb = "Link"
-icon = ""
-icon_absent = "undecided"
-shortcut = "i"
-scope = "projects"
-destructive = false
-confirms = false
-notes = "Opens one search of the repository under the open project's head: its open issues, as the Issues tab reads them, its live Jobs and its pull requests. Enter links the first found: an issue as a row, a Job or a pull request as a task by its title that it holds. Close, Esc or a press elsewhere puts the search away."
+notes = "Moves focus to the field under the pane's head, where a task is written and Enter adds it. The field keeps its draft across leaving the panel. It opens into a composer with a row of buttons for a Job, a file, an issue and a pull request, and two chips: the repository the task is in and its project."
 
 [actions.projects_add_subtask]
 kind = "Action"
@@ -752,18 +776,6 @@ destructive = false
 confirms = false
 notes = "Edits the focused project's name in its place in the list. Enter keeps it and Esc leaves it as it was."
 
-[actions.projects_link_task]
-kind = "Action"
-tier = "Contextual"
-verb = "Link to the task"
-icon = ""
-icon_absent = "undecided"
-shortcut = "I"
-scope = "projects"
-destructive = false
-confirms = false
-notes = "Opens the same search for the focused task. An issue joins the task's card as a chip; a Job holds the task as Dispatch would, replacing one that did; a pull request joins the card's second line. Each chip has its own Unlink."
-
 [actions.projects_delete]
 kind = "Action"
 tier = "Contextual"
@@ -798,7 +810,7 @@ shortcut = "Space / x"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Selects the focused row, or takes it out of the selection, as its box does. The rows selected go to one Job together on `s`."
+notes = "Selects the focused card, or takes it out of the selection, as a ⌘-click on it does. ⇧-click selects the range from the card last clicked. The cards selected go to one Job together on `s`."
 
 [actions.projects_tick]
 kind = "Action"
@@ -822,7 +834,31 @@ shortcut = "s"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Opens the dispatch sheet on the project's repository holding the rows selected, or the focused row where none is: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
+notes = "Opens the dispatch sheet holding the cards selected, one request for each repository they stand in, or the focused card where none is selected, as the Dispatch icon on a task's card does: tasks as lines and issues as tags. A subtask has the act too: it opens the sheet with the subtask as the work, and its parent's title, notes and issues as context; the Job holds only the subtask. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
+
+[actions.projects_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a view"
+icon = ""
+icon_absent = "undecided"
+shortcut = "1 2 3"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Shows every task (`1`), the tasks Fleet asks about as done (`2`), or the tasks a Job holds (`3`), each grouped by project with the tasks in no project first."
+
+[actions.projects_done]
+kind = "Action"
+tier = "Contextual"
+verb = "Show done"
+icon = ""
+icon_absent = "undecided"
+shortcut = "h"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Shows the done tasks, or hides them again. Done tasks are hidden in every list, a project's included; a task Fleet asks about is not done and stays."
 
 [actions.projects_mark_done]
 kind = "Action"

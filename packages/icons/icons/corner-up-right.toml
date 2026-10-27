@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "Course correction into a live drone. Survives as: redirected."
+
+  [[icons.corner-up-right.usage]]
+    means = "A watch, or a reading, whose only failures were parts set aside as not ours: it did not pass, and what broke is someone else's"
+    group = "Watch"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 26 Oct 2026 for the walk `watch-not-ours`. The run failed, and the failure points away from the change to whoever owns it, which is the arrow's claim. Never green: it draws in `--status-escalated`, as `gave_up` and `broken` do, since the person decides what follows. Refused: `check`, which is a pass and is what drew the false positive; `x`, which is a failure the change owns; `circle-x` and `shield-x`, reserved to Judge verdicts and Checks; `megaphone`, reserved to an escalated Job. Tooltip `Not ours: <parts> failed`."

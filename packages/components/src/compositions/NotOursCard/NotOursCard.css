@@ -1,0 +1,13 @@
+/* A watch that ended not ours: the question card's frame in the hue the watch's mark draws, never green. */
+.armada-not-ours { display: flex; flex-direction: column; gap: var(--space-2); border-color: var(--status-escalated); box-shadow: inset 0 0 0 var(--border-width) var(--status-escalated); }
+.armada-not-ours__band { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: var(--border-width) solid color-mix(in srgb, var(--status-escalated) 45%, transparent); }
+.armada-not-ours__mark { display: inline-flex; color: var(--status-escalated); }
+.armada-not-ours__watch { font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); color: var(--fg-default); }
+.armada-not-ours__link { margin-inline-start: auto; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--accent); }
+.armada-not-ours__parts { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-not-ours__part { display: flex; flex-direction: column; gap: var(--space-1); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-not-ours__name { font-family: var(--font-mono); font-weight: var(--weight-medium); color: var(--fg-default); }
+.armada-not-ours__sentence { color: var(--fg-muted); overflow-wrap: anywhere; }
+.armada-not-ours__answers { display: flex; align-items: center; gap: var(--space-2); }
+.armada-not-ours__summary { display: grid; grid-template-columns: minmax(0, 1fr) var(--h-control-sm); align-items: start; gap: var(--space-2); }
+.armada-not-ours__lines { margin: 0; padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); white-space: pre-wrap; overflow-wrap: anywhere; }

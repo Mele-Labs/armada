@@ -13,7 +13,7 @@ const issuesTab = walk("issues-tab", [
   { key: "L", on: list, say: "L opens the queries" },
   { press: role("menuitem", "Assigned to me"), say: "Assigned to me, in each tracker's own terms" },
   { press: inside(list, button(/^ABC-41 /)), say: "ABC-41 from Jira: every field it returned, and the Job working it, waiting on you" },
-  { key: "/", on: list, say: "/ describes a query" },
+  { key: "D", on: list, say: "D describes a query" },
   { type: "Open bugs nobody has picked up for this release\n", into: role("textbox", "Describe a query"), say: "The words, sent with Enter" },
   { press: inside(dialog("Describe a query"), button("Run")), say: "Asks before a model spends tokens" },
   { look: text(/priority in \(High, Highest\)/), say: "One query per tracker, in its own language, with the fields its rows show and what it matched" },

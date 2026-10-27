@@ -13,11 +13,8 @@ use ipc::{
 };
 use store::{AttachmentState, Holder};
 
+use super::projects::{new_issue, new_task};
 use super::pull_notices::{a_rig, Rig};
-
-fn task(title: &str) -> ProjectTask {
-    ProjectTask { title: title.to_string(), notes: String::new() }
-}
 
 pub(super) fn rows_of(projects: &ipc::Projects, project: usize) -> &[ProjectRow] {
     &projects.projects[project].rows
@@ -40,16 +37,12 @@ pub(super) fn held(row: &ProjectRow) -> (ProjectTaskState, Option<ProjectHolder>
 /// One project `Pocket launch` with a task per title, then a linked issue: its id and row ids.
 pub(super) async fn a_project(rig: &Rig, titles: &[&str]) -> (String, Vec<String>) {
     let at = ManifestId::carried(rig.manifest());
-    let projects = rig.fleet.add_project(at.clone(), NameProject { name: "Pocket launch".into() }).await.expect("added");
+    let projects = rig.fleet.add_project(NameProject { name: "Pocket launch".into() }).await.expect("added");
     let project = projects.projects.last().expect("the project").id.clone();
     for title in titles {
-        rig.fleet.add_project_task(at.clone(), project.clone(), task(title)).await.expect("added");
+        rig.fleet.add_project_task(new_task(at.clone(), Some(project.clone()), title)).await.expect("added");
     }
-    let read = rig
-        .fleet
-        .link_project_issue(at, project.clone(), ipc::LinkProjectIssue { issue: "ABC-12".into() })
-        .await
-        .expect("linked");
+    let read = rig.fleet.link_project_issue(new_issue(at, Some(project.clone()), "ABC-12")).await.expect("linked");
     (project, rows_of(&read, read.projects.len() - 1).iter().map(id_of).collect())
 }
 
@@ -69,23 +62,23 @@ pub(super) fn start(rig: &Rig, title: &str, rows: Vec<ProjectRowRef>) -> StartSe
     }
 }
 
-pub(super) fn row_ref(project: &str, row: &str) -> ProjectRowRef {
-    ProjectRowRef { project: project.to_string(), row: row.to_string() }
+pub(super) fn row_ref(row: &str) -> ProjectRowRef {
+    ProjectRowRef { row: row.to_string() }
 }
 
 #[tokio::test]
 async fn a_job_started_with_rows_holds_its_tasks_and_an_issue_row_keeps_no_state() {
     let rig = a_rig();
-    let (project, rows) = a_project(&rig, &["Sign the build", "Ship it"]).await;
+    let (_project, rows) = a_project(&rig, &["Sign the build", "Ship it"]).await;
     let (sign, ship, issue) = (&rows[0], &rows[1], &rows[2]);
 
     let job = rig
         .fleet
-        .start_session(start(&rig, "Sign the build", vec![row_ref(&project, sign), row_ref(&project, issue)]))
+        .start_session(start(&rig, "Sign the build", vec![row_ref(sign), row_ref(issue)]))
         .await
         .expect("started");
 
-    let read = rig.fleet.list_projects(ManifestId::carried(rig.manifest())).await.expect("listed");
+    let read = rig.fleet.list_projects().await.expect("listed");
     let rows = rows_of(&read, 0);
     assert_eq!(
         held(&rows[0]),
@@ -103,29 +96,39 @@ async fn a_job_started_with_rows_holds_its_tasks_and_an_issue_row_keeps_no_state
 #[tokio::test]
 async fn a_start_naming_a_row_of_another_repository_or_one_that_is_missing_is_refused_and_makes_no_job() {
     let rig = a_rig();
-    let (project, rows) = a_project(&rig, &["Sign the build"]).await;
+    let (_project, rows) = a_project(&rig, &["Sign the build"]).await;
     {
         let mut store = rig.fleet.store().lock().await;
-        store.add_project("some-other-repository", "foreign", "Theirs", "2026-10-26T10:00:00.000Z").unwrap();
+        let row = store::KeptProjectRow {
+            id: "foreign".into(),
+            manifest_id: "some-other-repository".into(),
+            item: store::KeptRowItem::Task {
+                title: "Theirs".into(),
+                notes: String::new(),
+                state: store::KeptTaskState::Open,
+                parent: None,
+                issues: Vec::new(),
+                pulls: Vec::new(),
+            },
+        };
+        store.add_project_row(store::LOOSE_PROJECT, &row).unwrap();
     }
     let jobs = || async { rig.fleet.store().lock().await.find_sessions(&Default::default()).unwrap().len() };
     let before = jobs().await;
 
-    let elsewhere = rig.fleet.start_session(start(&rig, "x", vec![row_ref("foreign", "anything")])).await.expect_err("refused");
+    let elsewhere = rig.fleet.start_session(start(&rig, "x", vec![row_ref("foreign")])).await.expect_err("refused");
     assert_eq!((elsewhere.status(), elsewhere.error().code.as_str()), (422, "fleet.project_row_other_repository"));
-    let no_project = rig.fleet.start_session(start(&rig, "x", vec![row_ref("nope", "r")])).await.expect_err("refused");
-    assert_eq!((no_project.status(), no_project.error().code.as_str()), (404, "fleet.no_such_project"));
-    let no_row = rig.fleet.start_session(start(&rig, "x", vec![row_ref(&project, "nope")])).await.expect_err("refused");
+    let no_row = rig.fleet.start_session(start(&rig, "x", vec![row_ref("nope")])).await.expect_err("refused");
     assert_eq!((no_row.status(), no_row.error().code.as_str()), (404, "fleet.no_such_project_row"));
     let half = rig
         .fleet
-        .start_session(start(&rig, "x", vec![row_ref(&project, &rows[0]), row_ref(&project, "nope")]))
+        .start_session(start(&rig, "x", vec![row_ref(&rows[0]), row_ref("nope")]))
         .await
         .expect_err("refused");
     assert_eq!(half.status(), 404);
 
     assert_eq!(jobs().await, before, "no Job was made");
-    let read = rig.fleet.list_projects(ManifestId::carried(rig.manifest())).await.expect("listed");
+    let read = rig.fleet.list_projects().await.expect("listed");
     assert_eq!(held(&rows_of(&read, 0)[0]), (ProjectTaskState::Open, None), "and the valid row was not held");
 }
 
@@ -141,7 +144,7 @@ fn states(projects: &ipc::Projects) -> Vec<(String, ProjectTaskState)> {
 }
 
 async fn read(rig: &Rig) -> ipc::Projects {
-    rig.fleet.list_projects(ManifestId::carried(rig.manifest())).await.expect("listed")
+    rig.fleet.list_projects().await.expect("listed")
 }
 
 /// The `task_done` items on the Job's list.
@@ -155,7 +158,7 @@ async fn a_job_holding_two(rig: &Rig) -> (String, Vec<String>, SessionId) {
     let (project, rows) = a_project(rig, &["Sign the build", "Ship it", "Rest"]).await;
     let job = rig
         .fleet
-        .start_session(start(rig, "Launch", vec![row_ref(&project, &rows[0]), row_ref(&project, &rows[1])]))
+        .start_session(start(rig, "Launch", vec![row_ref(&rows[0]), row_ref(&rows[1])]))
         .await
         .expect("started")
         .id;
@@ -266,15 +269,14 @@ async fn keep_open_opens_the_asked_tasks_again_and_lets_them_go() {
 #[tokio::test]
 async fn the_tick_route_settles_an_asked_row_and_the_item_names_what_is_left() {
     let rig = a_rig();
-    let (project, rows, job) = a_job_holding_two(&rig).await;
+    let (_project, rows, job) = a_job_holding_two(&rig).await;
     says_done(&rig, &job).await;
-    let at = ManifestId::carried(rig.manifest());
 
-    rig.fleet.tick_project_task(at.clone(), project.clone(), rows[0].clone(), TickProjectTask { done: true }).await.expect("ticked");
+    rig.fleet.tick_project_task(rows[0].clone(), TickProjectTask { done: true }).await.expect("ticked");
     let [ask] = asks(&rig, &job).await.try_into().expect("the other task is still asked");
     assert_eq!(ask.text, "Mark Ship it done?", "one task left, so it is named");
 
-    let read = rig.fleet.tick_project_task(at, project, rows[1].clone(), TickProjectTask { done: false }).await.expect("unticked");
+    let read = rig.fleet.tick_project_task(rows[1].clone(), TickProjectTask { done: false }).await.expect("unticked");
     assert_eq!(
         states(&read)[..2],
         [("Sign the build".to_string(), ProjectTaskState::Done), ("Ship it".to_string(), ProjectTaskState::Open)]
@@ -285,7 +287,7 @@ async fn the_tick_route_settles_an_asked_row_and_the_item_names_what_is_left() {
 #[tokio::test]
 async fn ending_a_job_that_asked_leaves_the_ask_on_the_rows_for_the_projects_tab() {
     let rig = a_rig();
-    let (project, rows, job) = a_job_holding_two(&rig).await;
+    let (_project, rows, job) = a_job_holding_two(&rig).await;
     says_done(&rig, &job).await;
 
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: job.clone() }).await.expect("ended");
@@ -296,8 +298,7 @@ async fn ending_a_job_that_asked_leaves_the_ask_on_the_rows_for_the_projects_tab
         "the ask outlived the Job"
     );
     assert!(asks(&rig, &job).await.is_empty(), "the ended Job lists nothing");
-    let at = ManifestId::carried(rig.manifest());
-    let read = rig.fleet.tick_project_task(at, project, rows[0].clone(), TickProjectTask { done: true }).await.expect("ticked");
+    let read = rig.fleet.tick_project_task(rows[0].clone(), TickProjectTask { done: true }).await.expect("ticked");
     assert_eq!(states(&read)[0].1, ProjectTaskState::Done, "and the tab can still answer it");
 }
 
@@ -317,18 +318,17 @@ async fn a_job_ended_without_merging_or_saying_done_frees_its_held_tasks_to_open
 #[tokio::test]
 async fn a_start_naming_a_parent_holds_its_subtasks_too_and_one_naming_a_subtask_holds_only_it() {
     let rig = a_rig();
-    let (project, rows) = a_project(&rig, &["Parent", "Other"]).await;
-    let at = ManifestId::carried(rig.manifest());
+    let (_project, rows) = a_project(&rig, &["Parent", "Other"]).await;
     for title in ["Sub one", "Sub two"] {
         rig.fleet
-            .add_project_subtask(at.clone(), project.clone(), rows[0].clone(), ProjectTask { title: title.into(), notes: String::new() })
+            .add_project_subtask(rows[0].clone(), ProjectTask { title: title.into(), notes: String::new() })
             .await
             .expect("added");
     }
     let listed = read(&rig).await;
     let sub_one = id_of(&rows_of(&listed, 0)[1]);
 
-    let first = rig.fleet.start_session(start(&rig, "One", vec![row_ref(&project, &sub_one)])).await.expect("started").id;
+    let first = rig.fleet.start_session(start(&rig, "One", vec![row_ref(&sub_one)])).await.expect("started").id;
     assert_eq!(
         states(&read(&rig).await),
         [
@@ -341,7 +341,7 @@ async fn a_start_naming_a_parent_holds_its_subtasks_too_and_one_naming_a_subtask
     );
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: first }).await.expect("ended");
 
-    let job = rig.fleet.start_session(start(&rig, "Two", vec![row_ref(&project, &rows[0])])).await.expect("started").id;
+    let job = rig.fleet.start_session(start(&rig, "Two", vec![row_ref(&rows[0])])).await.expect("started").id;
     assert_eq!(
         states(&read(&rig).await),
         [

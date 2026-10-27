@@ -63,7 +63,7 @@ async fn told(rig: &Rig, job: &SessionId, said: &str) -> usize {
 }
 
 #[tokio::test]
-async fn a_failed_part_tells_once_and_a_part_set_aside_lets_it_pass() {
+async fn a_failed_part_tells_once_and_a_part_set_aside_ends_it_not_ours() {
     let (rig, clock) = rig_held();
     let job = rig.start().await;
     line(&rig, "failed", false, &[("build", "passed"), ("deploy-api", "failed")]);
@@ -89,13 +89,13 @@ async fn a_failed_part_tells_once_and_a_part_set_aside_lets_it_pass() {
     );
     assert!(matches!(&again.last, Some(WatchReading::Read { count: 1, last_at: None, .. })), "the newest as taken");
 
-    let not_ours = WatchVerdict::NotOurs { sentence: "Another team's service.".into(), parts: vec!["deploy-api".into()] };
+    let not_ours = WatchVerdict::NotOurs { sentence: "Another team's service.".into(), parts: vec!["deploy-api".into()], evidence: ipc::WatchEvidence::default() };
     let weighed = rig
         .fleet
         .weigh_watch(None, WeighWatch { session_id: Some(job.clone()), watch: id.clone(), verdict: not_ours })
         .await
         .unwrap();
-    assert_eq!((weighed.state, weighed.live), (WatchState::Passed, true), "passed, and not finished");
+    assert_eq!((weighed.state, weighed.live), (WatchState::NotOurs, true), "never green, and not finished");
     assert_eq!(weighed.verdicts.len(), 1);
     assert_eq!(weighed.verdicts[0].sentence, "Another team's service.");
     assert_eq!(weighed.set_aside[0].part, "deploy-api");
@@ -104,8 +104,105 @@ async fn a_failed_part_tells_once_and_a_part_set_aside_lets_it_pass() {
     clock.on(31);
     pass(&rig).await;
     let ended = the_watch(&rig, &job).await;
-    assert_eq!((ended.state, ended.live), (WatchState::Passed, false), "counted passed and finished");
+    assert_eq!((ended.state, ended.live), (WatchState::NotOurs, false), "a set-aside part failed, so it did not pass");
+    assert!(
+        matches!(&ended.last, Some(WatchReading::Read { state: ipc::WatchReadingState::Failed, .. })),
+        "the reading keeps its real state: {:?}",
+        ended.last
+    );
+    let said = "QA deploy ended not ours: deploy-api failed. https://ci.example.com/runs/7\ndeploy-api, set aside: Another team's service.\nIt did not pass";
+    eventually(|| async { told(&rig, &job, said).await == 1 }).await;
+    assert_eq!(told(&rig, &job, "QA deploy passed.").await, 0);
+}
+
+#[tokio::test]
+async fn a_set_aside_part_that_passes_on_a_retry_lets_it_pass() {
+    let (rig, clock) = rig_held();
+    let job = rig.start().await;
+    line(&rig, "failed", false, &[("build", "passed"), ("provision", "failed")]);
+    let mut start = cat(&job, "line.json", None);
+    start.set_aside = vec![ipc::WatchSetAside { part: "provision".into(), sentence: "A cloud lookup outside this change.".into() }];
+    rig.fleet.start_watch(None, start).await.unwrap();
+    pass(&rig).await;
+    assert_eq!(the_watch(&rig, &job).await.state, WatchState::NotOurs);
+
+    line(&rig, "passed", true, &[("build", "passed"), ("provision", "passed")]);
+    clock.on(31);
+    pass(&rig).await;
+    let ended = the_watch(&rig, &job).await;
+    assert_eq!((ended.state, ended.live), (WatchState::Passed, false));
     eventually(|| async { told(&rig, &job, "QA deploy passed.").await == 1 }).await;
+}
+
+/// The QA deploy that read green: the agent set `provision` aside on a finished run, and the
+/// watch ended there. It ends not ours, the agent is told, and he is asked in Needs you.
+#[tokio::test]
+async fn a_weighing_that_ends_it_not_ours_tells_the_job_and_asks_the_person() {
+    let (rig, _clock) = rig_held();
+    let job = rig.start().await;
+    line(&rig, "failed", true, &[("build", "passed"), ("provision", "failed")]);
+    let id = rig.fleet.start_watch(None, cat(&job, "line.json", None)).await.unwrap().id;
+    pass(&rig).await;
+    assert_eq!(the_watch(&rig, &job).await.state, WatchState::Failed);
+
+    let evidence = ipc::WatchEvidence {
+        links: vec!["https://ci.example.com/runs/7".into(), "  ".into()],
+        logs: vec!["/scratch/provision.log".into()],
+        errors: vec!["Error: cloud lookup for region qa-east returned no account".into()],
+    };
+    let not_ours = WatchVerdict::NotOurs { sentence: "A cloud lookup outside this change.".into(), parts: vec!["provision".into()], evidence };
+    let weighed = rig.fleet.weigh_watch(None, WeighWatch { session_id: Some(job.clone()), watch: id.clone(), verdict: not_ours }).await.unwrap();
+    assert_eq!((weighed.state, weighed.live), (WatchState::NotOurs, false));
+    let kept = &weighed.verdicts[0].evidence;
+    assert_eq!(kept.links, ["https://ci.example.com/runs/7"], "a blank link is dropped");
+    assert_eq!((kept.logs.len(), kept.errors.len()), (1, 1));
+    let again = the_watch(&rig, &job).await;
+    assert_eq!(&again.verdicts[0].evidence, kept, "kept with the verdict");
+    rig.fleet.watches_told_when_due().await;
+    eventually(|| async { told(&rig, &job, "QA deploy ended not ours: provision failed.").await == 1 }).await;
+
+    let items = not_ours_items(&rig, &job).await;
+    assert_eq!(items.len(), 1, "{items:?}");
+    let item = &items[0];
+    assert_eq!(item.id, format!("watch_not_ours:{id}"));
+    assert_eq!(item.text, "QA deploy: provision failed");
+    assert_eq!(item.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((ipc::WaitingActKind::Answer, id.as_str())));
+    let labels: Vec<&str> = item.options.iter().map(|one| one.label.as_str()).collect();
+    assert_eq!(labels, ["Ignore", "Fix it"]);
+
+    let fixed = Arc::clone(&rig.fleet).answer_waiting(answer(&job, &item.id, 1)).await.expect("Fix it");
+    assert!(fixed.waiting_for.iter().all(|one| one.source != ipc::WaitingSource::WatchNotOurs), "settling it removes it");
+    let asked = "Fix provision in QA deploy. The person pressed Fix it on what you set aside as not ours.\nprovision, set aside: A cloud lookup outside this change.\nThe failing run: https://ci.example.com/runs/7";
+    assert_eq!(told(&rig, &job, asked).await, 1);
+    assert!(not_ours_items(&rig, &job).await.is_empty(), "a settled one does not return");
+}
+
+#[tokio::test]
+async fn ignore_settles_a_not_ours_ending_and_tells_the_agent_nothing() {
+    let (rig, _clock) = rig_held();
+    let job = rig.start().await;
+    line(&rig, "failed", true, &[("provision", "failed")]);
+    let mut start = cat(&job, "line.json", None);
+    start.set_aside = vec![ipc::WatchSetAside { part: "provision".into(), sentence: "A cloud lookup outside this change.".into() }];
+    rig.fleet.start_watch(None, start).await.unwrap();
+    pass(&rig).await;
+    assert_eq!(the_watch(&rig, &job).await.state, WatchState::NotOurs, "every part set aside is no pass");
+
+    let item = not_ours_items(&rig, &job).await.remove(0);
+    let before = rig.rows(&job).await.len();
+    Arc::clone(&rig.fleet).answer_waiting(answer(&job, &item.id, 0)).await.expect("Ignore");
+    assert!(not_ours_items(&rig, &job).await.is_empty());
+    let after: Vec<SessionRow> = rig.rows(&job).await.into_iter().skip(before).collect();
+    assert!(!after.iter().any(|row| matches!(row, SessionRow::Message { text, .. } if text.contains("Fix"))), "{after:?}");
+}
+
+fn answer(job: &SessionId, item: &str, choice: u32) -> ipc::AnswerWaiting {
+    ipc::AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
+}
+
+async fn not_ours_items(rig: &Rig, job: &SessionId) -> Vec<ipc::WaitingItem> {
+    let record = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session;
+    record.waiting_for.into_iter().filter(|one| one.source == ipc::WaitingSource::WatchNotOurs).collect()
 }
 
 #[tokio::test]
@@ -247,4 +344,50 @@ fn waiting_and_running_owe_nothing() {
         };
         assert_eq!(notice(&kept, &watch), None);
     }
+}
+
+fn log_of(reading: Option<&WatchReading>) -> Option<String> {
+    match reading? {
+        WatchReading::Read { log, .. } | WatchReading::Broken { log, .. } => log.clone(),
+    }
+}
+
+#[tokio::test]
+async fn a_failed_reading_keeps_its_whole_output_as_a_log_until_the_watch_goes() {
+    let (rig, clock) = rig_held();
+    let job = rig.start().await;
+    line(&rig, "running", false, &[("build", "running")]);
+    let id = rig.fleet.start_watch(None, cat(&job, "line.json", None)).await.unwrap().id;
+    pass(&rig).await;
+    assert_eq!(log_of(the_watch(&rig, &job).await.last.as_ref()), None, "a reading that did not fail keeps no log");
+
+    line(&rig, "running", false, &[("build", "passed"), ("provision", "failed")]);
+    clock.on(31);
+    pass(&rig).await;
+    let failed = log_of(the_watch(&rig, &job).await.last.as_ref()).expect("a failed part keeps its log");
+    let text = std::fs::read_to_string(&failed).expect("the log is a file");
+    assert!(text.starts_with("stdout:\ndeploying\n"), "{text}");
+    assert!(text.contains(r#""name":"provision","state":"failed""#), "{text}");
+    assert!(text.contains("\nstderr:\n"), "{text}");
+    let read = rig.fleet.read_watch_log(None, ipc::ReadWatchLog { watch: id.clone(), log: failed.clone() }).await.expect("Bridge reads it");
+    assert_eq!(read.text, text);
+    let other = rig.fleet.read_watch_log(None, ipc::ReadWatchLog { watch: id.clone(), log: String::from("/etc/hosts") }).await;
+    assert!(other.is_err_and(|refusal| refusal.error().code == "fleet.no_such_watch_log"), "a path no reading names is not read");
+
+    let mut broken = cat(&job, "missing.json", None);
+    broken.name = "Staging deploy".into();
+    let other = rig.fleet.start_watch(None, broken).await.unwrap().id;
+    pass(&rig).await;
+    let listed = rig.fleet.list_watches(None, Some(job.clone()), true).await.unwrap().watches;
+    let staging = listed.iter().find(|one| one.id == other).expect("listed");
+    let broke = log_of(staging.last.as_ref()).expect("a broken run keeps its log");
+    assert!(std::fs::read_to_string(&broke).unwrap().contains("missing.json"), "its stderr is kept");
+
+    rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: id.clone() }).await.unwrap();
+    rig.fleet.delete_watch(None, ipc::DeleteWatch { session_id: None, watch: id }).await.unwrap();
+    assert!(!std::path::Path::new(&failed).exists(), "deleting the watch deletes its logs");
+    assert!(std::path::Path::new(&broke).exists(), "another watch's log stays");
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: job.clone() }).await.expect("closed");
+    assert!(!std::path::Path::new(&broke).exists(), "the Job ending deletes the rest");
 }

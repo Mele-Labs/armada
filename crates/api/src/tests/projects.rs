@@ -1,5 +1,5 @@
-//! The project routes over the wire: each takes its path and body to the call it names, answers the
-//! repository's projects whole, and carries a refusal through as its status.
+//! The project routes over the wire: each takes its path and body to the call it names, answers
+//! his projects and the loose tasks whole, and carries a refusal through as its status.
 
 use std::sync::Arc;
 
@@ -41,7 +41,6 @@ async fn reached(method: &str, uri: &str, body: &str) -> (String, String) {
     let (status, answer) = call(method, uri, body).await;
     assert_eq!(status, StatusCode::OK, "{uri}: {}", String::from_utf8_lossy(&answer));
     let projects: Projects = ipc::decode("projects", &answer).expect("the projects whole");
-    assert_eq!(projects.manifest_id.as_str(), "armada");
     let project = projects.projects.into_iter().next().expect("one project");
     (project.name, project.id)
 }
@@ -53,84 +52,103 @@ async fn refused(method: &str, uri: &str, body: &str) -> (StatusCode, String) {
 
 #[tokio::test]
 async fn list_projects_answers_each_row_by_its_kind() {
-    let (status, answer) = call("GET", "/projects/armada", "").await;
+    let (status, answer) = call("GET", "/projects", "").await;
     assert_eq!(status, StatusCode::OK);
     let projects: Projects = ipc::decode("projects", &answer).expect("projects");
     let rows = &projects.projects[0].rows;
     assert!(matches!(&rows[0], ProjectRow::Task { title, .. } if title == "Write the page"));
-    assert!(matches!(&rows[1], ProjectRow::Issue { issue, state: Some(IssueState::Open), .. } if issue == "214"));
+    assert!(matches!(&rows[1], ProjectRow::Issue { issue, manifest_id, state: Some(IssueState::Open), .. } if issue == "214" && manifest_id.as_str() == "site"));
+    assert!(matches!(&rows[0], ProjectRow::Task { manifest_id, .. } if manifest_id.as_str() == "armada"), "a row names its repository");
+    assert!(matches!(&projects.loose[0], ProjectRow::Task { title, .. } if title == "Not in a project"), "and the loose tasks come beside the projects");
     let text = String::from_utf8_lossy(&answer);
     assert!(text.contains(r#""kind":"task""#) && text.contains(r#""kind":"issue""#), "{text}");
 }
 
 #[tokio::test]
 async fn add_project_takes_a_name_and_a_blank_one_is_a_422() {
-    assert_eq!(reached("POST", "/projects/armada", r#"{"name":"Launch"}"#).await.0, "add_project Launch");
-    let (status, text) = refused("POST", "/projects/armada", r#"{"name":"  "}"#).await;
+    assert_eq!(reached("POST", "/projects", r#"{"name":"Launch"}"#).await.0, "add_project Launch");
+    let (status, text) = refused("POST", "/projects", r#"{"name":"  "}"#).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text.contains("fleet.project_blank"), "{text}");
 }
 
 #[tokio::test]
 async fn rename_project_takes_the_project_and_a_name_and_a_missing_one_is_a_404() {
-    let (said, id) = reached("POST", "/projects/armada/p7/rename", r#"{"name":"Later"}"#).await;
+    let (said, id) = reached("POST", "/projects/project/p7/rename", r#"{"name":"Later"}"#).await;
     assert_eq!((said.as_str(), id.as_str()), ("rename_project Later", "p7"));
-    let (status, text) = refused("POST", "/projects/armada/nope/rename", r#"{"name":"Later"}"#).await;
+    let (status, text) = refused("POST", "/projects/project/nope/rename", r#"{"name":"Later"}"#).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(text.contains("fleet.no_such_project"), "{text}");
 }
 
 #[tokio::test]
 async fn delete_project_takes_the_project() {
-    let (said, id) = reached("POST", "/projects/armada/p7/delete", "").await;
+    let (said, id) = reached("POST", "/projects/project/p7/delete", "").await;
     assert_eq!((said.as_str(), id.as_str()), ("delete_project", "p7"));
 }
 
 #[tokio::test]
 async fn add_project_task_takes_a_title_and_notes_which_may_be_left_out() {
-    let body = r#"{"title":"Write the page","notes":"two lines"}"#;
-    assert_eq!(reached("POST", "/projects/armada/p7/tasks", body).await.0, "add_project_task Write the page / two lines");
-    let bare = r#"{"title":"Ship it"}"#;
-    assert_eq!(reached("POST", "/projects/armada/p7/tasks", bare).await.0, "add_project_task Ship it / ");
+    let body = r#"{"manifest_id":"armada","project":"p7","title":"Write the page","notes":"two lines"}"#;
+    assert_eq!(reached("POST", "/projects/tasks", body).await.0, "add_project_task armada p7 Write the page / two lines");
+    let bare = r#"{"manifest_id":"site","title":"Ship it"}"#;
+    assert_eq!(reached("POST", "/projects/tasks", bare).await.0, "add_project_task site - Ship it / ", "no project is a loose task");
+    let (status, _) = refused("POST", "/projects/tasks", r#"{"title":"No repository"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a task is in a repository");
+    let (status, text) = refused("POST", "/projects/tasks", r#"{"manifest_id":"armada","project":"nope","title":"x"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project"), "{text}");
 }
 
 #[tokio::test]
 async fn edit_project_task_takes_the_row_and_the_task_whole() {
     let body = r#"{"title":"Rewritten","notes":"n"}"#;
-    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/edit", body).await.0, "edit_project_task r1 Rewritten / n");
+    assert_eq!(reached("POST", "/projects/rows/r1/edit", body).await.0, "edit_project_task r1 Rewritten / n");
 }
 
 #[tokio::test]
 async fn link_project_issue_takes_the_reference() {
-    assert_eq!(reached("POST", "/projects/armada/p7/issues", r#"{"issue":"ABC-12"}"#).await.0, "link_project_issue ABC-12");
+    let body = r#"{"manifest_id":"site","project":"p7","issue":"ABC-12"}"#;
+    assert_eq!(reached("POST", "/projects/issues", body).await.0, "link_project_issue site p7 ABC-12");
+    assert_eq!(reached("POST", "/projects/issues", r#"{"manifest_id":"site","issue":"7"}"#).await.0, "link_project_issue site - 7");
 }
 
 #[tokio::test]
 async fn remove_project_row_takes_the_row() {
-    assert_eq!(reached("POST", "/projects/armada/p7/rows/r2/remove", "").await.0, "remove_project_row r2");
+    assert_eq!(reached("POST", "/projects/rows/r2/remove", "").await.0, "remove_project_row r2");
 }
 
 #[tokio::test]
 async fn move_project_row_takes_the_row_and_its_position_and_a_bad_body_is_a_400() {
-    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":3}"#).await.0, "move_project_row r1 3 -");
+    assert_eq!(reached("POST", "/projects/rows/r1/move", r#"{"position":3}"#).await.0, "move_project_row r1 - 3 -");
     assert_eq!(
-        reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":0,"parent":"r9"}"#).await.0,
-        "move_project_row r1 0 r9",
+        reached("POST", "/projects/rows/r1/move", r#"{"position":0,"parent":"r9"}"#).await.0,
+        "move_project_row r1 - 0 r9",
         "a parent to go under"
     );
     assert_eq!(
-        reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":0,"parent":""}"#).await.0,
-        "move_project_row r1 0 ",
+        reached("POST", "/projects/rows/r1/move", r#"{"position":0,"parent":""}"#).await.0,
+        "move_project_row r1 - 0 ",
         "and an empty one is the top level"
     );
-    let (status, _) = refused("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":-1}"#).await;
+    assert_eq!(
+        reached("POST", "/projects/rows/r1/move", r#"{"project":"p2","position":0}"#).await.0,
+        "move_project_row r1 p2 0 -",
+        "into another project"
+    );
+    assert_eq!(
+        reached("POST", "/projects/rows/r1/move", r#"{"project":"","position":2}"#).await.0,
+        "move_project_row r1  2 -",
+        "and an empty one is out of every project"
+    );
+    let (status, _) = refused("POST", "/projects/rows/r1/move", r#"{"position":-1}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
 async fn tick_project_task_takes_done_and_an_issue_row_is_a_422() {
-    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/tick", r#"{"done":true}"#).await.0, "tick_project_task r1 true");
-    let (status, text) = refused("POST", "/projects/armada/p7/rows/r2/tick", r#"{"done":true}"#).await;
+    assert_eq!(reached("POST", "/projects/rows/r1/tick", r#"{"done":true}"#).await.0, "tick_project_task r1 true");
+    let (status, text) = refused("POST", "/projects/rows/r2/tick", r#"{"done":true}"#).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text.contains("fleet.project_row_not_a_task"), "{text}");
 }
@@ -138,8 +156,8 @@ async fn tick_project_task_takes_done_and_an_issue_row_is_a_422() {
 #[tokio::test]
 async fn add_project_subtask_takes_the_parent_and_the_task_and_a_subtask_of_a_subtask_is_a_422() {
     let body = r#"{"title":"Sub","notes":"n"}"#;
-    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/subtasks", body).await.0, "add_project_subtask r1 Sub / n");
-    let (status, text) = refused("POST", "/projects/armada/p7/rows/r3/subtasks", body).await;
+    assert_eq!(reached("POST", "/projects/rows/r1/subtasks", body).await.0, "add_project_subtask r1 Sub / n");
+    let (status, text) = refused("POST", "/projects/rows/r3/subtasks", body).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text.contains("fleet.project_subtask_too_deep"), "{text}");
 }
@@ -147,18 +165,18 @@ async fn add_project_subtask_takes_the_parent_and_the_task_and_a_subtask_of_a_su
 #[tokio::test]
 async fn link_and_unlink_task_issue_take_the_task_and_the_reference() {
     assert_eq!(
-        reached("POST", "/projects/armada/p7/rows/r1/issues", r#"{"issue":"ABC-12"}"#).await.0,
+        reached("POST", "/projects/rows/r1/issues", r#"{"issue":"ABC-12"}"#).await.0,
         "link_task_issue r1 ABC-12"
     );
     assert_eq!(
-        reached("POST", "/projects/armada/p7/rows/r1/issues/unlink", r#"{"issue":"ABC-12"}"#).await.0,
+        reached("POST", "/projects/rows/r1/issues/unlink", r#"{"issue":"ABC-12"}"#).await.0,
         "unlink_task_issue r1 ABC-12"
     );
 }
 
 #[tokio::test]
 async fn link_and_unlink_task_job_and_pull_take_the_task_and_what_is_linked() {
-    let base = "/projects/armada/p7/rows/r1";
+    let base = "/projects/rows/r1";
     assert_eq!(reached("POST", &format!("{base}/job"), r#"{"session_id":"s9"}"#).await.0, "link_task_job r1 s9");
     assert_eq!(reached("POST", &format!("{base}/job/unlink"), "").await.0, "unlink_task_job r1");
     assert_eq!(reached("POST", &format!("{base}/pulls"), r#"{"number":42}"#).await.0, "link_task_pull r1 42");

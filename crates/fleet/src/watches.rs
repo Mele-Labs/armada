@@ -4,10 +4,13 @@
 //! **The store holds every watch**, its readings, set-asides, verdicts and what was told of it, so
 //! a restart carries on (`store::KeptWatch`). Memory holds only the commands running now.
 //! `serving` answers the four operations, `running` takes readings on a timer of its own, and
-//! `telling` tells the Job once per change and ends its watches with it.
+//! `telling` tells the Job once per change and ends its watches with it, and `needing` puts one that
+//! ended not ours on its Needs you list.
 
 pub(crate) mod environment;
 pub(crate) mod listening;
+mod logs;
+mod needing;
 mod running;
 mod serving;
 mod telling;
@@ -31,6 +34,7 @@ pub(crate) use environment::LoginEnvironment;
 pub use running::{keep_running_watches, EVERY};
 #[cfg(test)]
 pub(crate) use running::interval;
+pub(crate) use needing::{fix_it, not_ours_item, FIX_IT, IGNORE};
 pub(crate) use telling::owed;
 #[cfg(test)]
 pub(crate) use telling::notice;
@@ -51,6 +55,8 @@ pub(crate) const TOO_OFTEN: &str = "fleet.watch_too_often";
 pub(crate) const GIVES_UP_TOO_LATE: &str = "fleet.watch_gives_up_too_late";
 /// No watch by that id, or one another Job holds. A 404.
 pub(crate) const NO_SUCH_WATCH: &str = "fleet.no_such_watch";
+/// A log no kept reading of the watch carries, or a file no longer there. A 404.
+pub(crate) const NO_SUCH_WATCH_LOG: &str = "fleet.no_such_watch_log";
 /// A verdict on a watch that has ended. A 409.
 pub(crate) const ENDED: &str = "fleet.watch_ended";
 /// `delete_watch` on a watch still live. A 409.
@@ -235,7 +241,13 @@ pub(crate) fn domain(kept: &KeptWatchWhole) -> core_model::Watch {
             link: link.clone(),
             parts: parts
                 .iter()
-                .map(|(name, state)| core_model::Part { name: name.clone(), state: reading_state(state) })
+                .map(|part| core_model::Part {
+                    name: part.name.clone(),
+                    state: reading_state(&part.state),
+                    link: part.link.clone(),
+                    error: part.error.clone(),
+                    tail: part.tail.clone(),
+                })
                 .collect(),
         }),
         KeptWatchTaken::Broken { .. } => None,
@@ -269,11 +281,18 @@ fn wire_reading(one: &KeptWatchReading) -> WatchReading {
             link.clone(),
             parts
                 .iter()
-                .map(|(name, state)| WatchPart { name: name.clone(), state: wire_reading_state(state) })
+                .map(|part| WatchPart {
+                    name: part.name.clone(),
+                    state: wire_reading_state(&part.state),
+                    link: part.link.clone(),
+                    error: part.error.clone(),
+                    tail: part.tail.clone(),
+                })
                 .collect(),
         ),
         KeptWatchTaken::Broken { why, output } => WatchReading::broken(at, why.clone(), output.clone()),
     }
+    .logged(one.log.clone())
 }
 
 /// What `list_watches` and `watches.changed` say of one watch, and where its environment came from
@@ -310,6 +329,11 @@ pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -
                 verdict: if given.ours { WatchVerdictWord::Ours } else { WatchVerdictWord::NotOurs },
                 sentence: given.sentence.clone(),
                 parts: given.parts.clone(),
+                evidence: ipc::WatchEvidence {
+                    links: given.links.clone(),
+                    logs: given.logs.clone(),
+                    errors: given.errors.clone(),
+                },
             })
             .collect(),
         in_terminal: held.in_terminal.clone(),

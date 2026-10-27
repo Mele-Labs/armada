@@ -375,7 +375,7 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use projects::{
-    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Project, ProjectHolder, ProjectRow,
+    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, Project, ProjectHolder, ProjectRow,
     ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState, TickProjectTask,
 };
 pub use issues::{
@@ -659,7 +659,7 @@ pub use triggers::{
 pub use watches::{
     collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
     WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
-    WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+    ReadWatchLog, WatchEvidence, WatchLog, WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };
 pub use watch_tools::{
     SaveWatchRecipe, TryWatch, WatchRecipeList, WatchRecipeListed, WatchRecipeSaved,
