@@ -12,7 +12,7 @@ import type {
   TriggerSummary,
 } from "@armada/protocol";
 
-import { parse } from "../WorkflowCreator/json";
+import { parse } from "../../workflow-definition/json";
 
 /** The workflow a draft applies to where it names none: every one. */
 export const EVERY = "";

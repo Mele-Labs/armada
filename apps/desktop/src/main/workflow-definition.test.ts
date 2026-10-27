@@ -8,8 +8,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { refusalsOf } from "@armada/components/src/compositions/WorkflowCreator/def";
-import { entriesOf, parse as load, readDefinition, writeDefinition } from "@armada/components/src/compositions/WorkflowCreator/json";
+import { refusalsOf } from "@armada/components/src/workflow-definition/def";
+import { entriesOf, parse as load, readDefinition, writeDefinition } from "@armada/components/src/workflow-definition/json";
 
 const CARRIED = join(import.meta.dirname, "../../../../.armada/workflows");
 const files = readdirSync(CARRIED).map((name) => [name, readFileSync(join(CARRIED, name), "utf8")] as const);

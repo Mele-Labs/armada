@@ -94,7 +94,7 @@ import { useTellAsked } from "./tell";
 import { tellActFailures } from "./act-failed";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
-import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflow-creator"; import { WorkflowManagerSurface } from "./workflow-manager";
+import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { firstContactOf, machineOf } from "./settings-surface";

@@ -192,6 +192,10 @@
   flex: none;
   color: var(--status-completed-success);
 }
+/* Fleet's sentence for an act it refused, as it said it. */
+.armada-wm__said[data-refused] {
+  color: var(--status-completed-failed);
+}
 
 .armada-wm__steps {
   display: flex;

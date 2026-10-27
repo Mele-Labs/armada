@@ -180,10 +180,11 @@ export * from "./foundations/Tokens/Tokens";
 // the component: not-provably-safe is one word for four situations a person
 // answers differently, and each wants different facts in front of the decision.
 export * from "./compositions/PoolSlots/PoolSlots";
-export * from "./compositions/WorkflowCreator/WorkflowCreator";
-export * from "./compositions/WorkflowCreator/exports";
+export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
+export { forRequestsOf, stepsOfDefinition, withWords } from "./compositions/WorkflowManager/definition";
+export type { DefinitionStep } from "./compositions/WorkflowManager/definition";
 export { EveryMark, LevelMark, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export type { TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
