@@ -45,6 +45,7 @@ mod session_later;
 mod later_marks;
 mod claim_misreads;
 mod workflow_nudges;
+mod workflow_changes;
 mod notice_mutes;
 mod word_asks;
 mod job_renames;
