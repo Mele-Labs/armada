@@ -1,3 +1,18 @@
+/* The Files tab without a panel around it: the file tree beside the diffs, the tree held in view while they scroll. */
+.armada-pr-files {
+  display: grid;
+  grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.armada-pr-files__tree {
+  position: sticky;
+  top: 0;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
 /* The Files tab: every file's diff one under the other. Each file's header names it, so the diff
    drops its own well and its path row. */
 .armada-pr-patches {
