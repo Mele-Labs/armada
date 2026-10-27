@@ -348,7 +348,7 @@ where
     /// Lease a slot for the session and cut its branch. **One at a time**, so
     /// two writes in one turn lease one slot. Shared by the gate and by the grant
     /// that serves a queued session, which is why it answers a verdict and not a
-    /// [`GateAnswer`].
+    /// [`GateAnswer`]. **A paused session is refused**: no write or message lifts a pause.
     pub(super) async fn take_lease(&self, id: &str, served: &Served) -> Taken {
         self.lease_taken(id, served, false).await
     }
