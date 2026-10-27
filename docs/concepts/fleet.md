@@ -492,6 +492,7 @@ Nothing is said while `restart-build.status` says `running`.
 |---|---|
 | Waits on the person to run `scripts/preview --restart` or `scripts/restart --main`, and that is the build now running | The build, and for each branch it holds whether it is in it, as the answer to that wait, so it wakes once |
 | Holds a branch the build newly holds, holds newer commits of, or dropped after it was told it was in | The build, and those branches only |
+| Holds a branch the preview left out, named with why in `Armada/preview-left-out` for this commit | The build, and `<branch> is not in it: <why>.`, even when it was never told the branch was in |
 | Anything else: a branch where it was at the last notice, a branch git cannot place in this build, a wait for the other build | Nothing |
 
 **A rebuild that leaves a job's branches where they were says nothing.** Every branch-holder was told on every rebuild until 15 Oct 2026, and the notice arrives as input, so each job spent a turn answering "no action needed", in other repositories' jobs too.
@@ -504,6 +505,12 @@ A second wait for the same build is answered `Restarted: preview at 1234567`.
 
 **A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not.
 `main` and a branch with nothing of its own are not mentioned.
+
+**A left-out branch that moves refreshes the preview by itself.** On the same sweep, while the preview runs and no restart is under way, Fleet compares each branch in `Armada/preview-left-out` with the tip it was left out at.
+One that has moved starts the preview restart, without adopting a working Drone, as Refresh preview would.
+A branch left out for a breaking migration does not: it can only come back by landing on `main`.
+At most one such refresh runs every 10 minutes, and a set of moved tips is tried once, so a refresh that fails does not run again until a branch moves again.
+A refused restart waits for the next sweep.
 
 **Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, job).
 A job that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.
