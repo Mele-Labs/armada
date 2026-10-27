@@ -62,7 +62,7 @@ export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source">;
 export const keyOf = (one: WorkflowRef) => `${one.source}:${one.id}`;
 
 /** A Job Fleet nudged at a step. */
-export type DriftedJob = { job: string; what: string; when: string };
+export type DriftedJob = { id: string; job: string; what: string; when: string };
 
 /** The recent nudges, by workflow id and then step id. */
 export type Drift = Readonly<Record<string, Readonly<Record<string, readonly DriftedJob[]>>>>;
@@ -73,3 +73,9 @@ export type AgentState =
   | { phase: "working" }
   | { phase: "unchanged" }
   | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[] };
+
+/** New words for a step, and the nudged Jobs they were drawn from. */
+export type Suggestion = { words: string; from: readonly string[] };
+
+/** The suggested changes waiting on the owner, by workflow id and then step id. */
+export type Suggestions = Readonly<Record<string, Readonly<Record<string, Suggestion>>>>;

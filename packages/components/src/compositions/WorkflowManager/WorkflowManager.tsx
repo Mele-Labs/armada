@@ -1,4 +1,4 @@
-import { Check, Layers, LoaderCircle, Minus, PencilLine, Plus } from "lucide-react";
+import { Check, CornerUpRight, Layers, LoaderCircle, Minus, PencilLine, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -8,7 +8,7 @@ import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { STEP_GLYPHS, keyOf } from "./types";
-import type { AgentState, Drift, ManagedStep, ManagedWorkflow, WorkflowRef, WorkflowSource } from "./types";
+import type { AgentState, Drift, DriftedJob, ManagedStep, ManagedWorkflow, Suggestion, Suggestions, WorkflowRef, WorkflowSource } from "./types";
 
 /**
  * Workflows as a person manages them: a list grouped by where each comes from, and the picked one drawn
@@ -40,6 +40,14 @@ export type WorkflowManagerProps = {
   onAsk: (one: WorkflowRef, request: string) => void;
   onApprove: (one: WorkflowRef) => void;
   onSendBack: (one: WorkflowRef, notes: string) => void;
+  /** The suggested changes waiting, and the step one is being drawn up for (`workflow/step`). */
+  suggestions: Suggestions;
+  suggesting: string | null;
+  onOpenJob: (one: WorkflowRef, job: DriftedJob) => void;
+  onNotDrift: (one: WorkflowRef, stepId: string, driftId: string) => void;
+  onSuggest: (one: WorkflowRef, stepId: string) => void;
+  onApproveSuggestion: (one: WorkflowRef, stepId: string) => void;
+  onDismissSuggestion: (one: WorkflowRef, stepId: string) => void;
 };
 
 const SOURCES: readonly WorkflowSource[] = ["armada", "repository", "yours"];
@@ -178,7 +186,7 @@ type DetailProps = WorkflowManagerProps & {
   setDrafts: (next: (was: Readonly<Record<string, string>>) => Readonly<Record<string, string>>) => void;
 };
 
-function Detail({ workflow, armada, drafts, setDrafts, drift, agent, ...acts }: DetailProps) {
+function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions, suggesting, ...acts }: DetailProps) {
   const ref: WorkflowRef = { id: workflow.id, source: workflow.source };
   const key = keyOf(workflow);
   const editable = workflow.source !== "armada";
@@ -266,6 +274,14 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, ...acts }: 
             }
             onSave={(words) => acts.onSaveWords(ref, step.id, words)}
             drifted={drift[workflow.id]?.[step.id] ?? []}
+            suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
+            suggestible={editable}
+            suggesting={suggesting === `${workflow.id}/${step.id}`}
+            onOpenJob={(job) => acts.onOpenJob(ref, job)}
+            onNotDrift={(driftId) => acts.onNotDrift(ref, step.id, driftId)}
+            onSuggest={() => acts.onSuggest(ref, step.id)}
+            onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
+            onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
             versus={comparing && comparable ? { armada: armada!.steps.find((one) => one.id === step.id) } : undefined}
           />
         ))}
@@ -294,12 +310,40 @@ type StepProps = {
   draft: string | undefined;
   onDraft: (words: string | undefined) => void;
   onSave: (words: string) => void;
-  drifted: readonly { job: string; what: string; when: string }[];
+  drifted: readonly DriftedJob[];
+  suggestion: Suggestion | undefined;
+  /** A suggestion can be asked for and approved here: only a copy that is edited. */
+  suggestible: boolean;
+  suggesting: boolean;
+  onOpenJob: (job: DriftedJob) => void;
+  onNotDrift: (driftId: string) => void;
+  onSuggest: () => void;
+  onApproveSuggestion: () => void;
+  onDismissSuggestion: () => void;
   /** Set while comparing: Armada's step of the same id, or none where this copy added it. */
   versus: { armada: ManagedStep | undefined } | undefined;
 };
 
-function Step({ n, first, step, keep, editable, draft, onDraft, onSave, drifted, versus }: StepProps) {
+function Step({
+  n,
+  first,
+  step,
+  keep,
+  editable,
+  draft,
+  onDraft,
+  onSave,
+  drifted,
+  suggestion,
+  suggestible,
+  suggesting,
+  onOpenJob,
+  onNotDrift,
+  onSuggest,
+  onApproveSuggestion,
+  onDismissSuggestion,
+  versus,
+}: StepProps) {
   const card = useRef<HTMLDivElement>(null);
   const Glyph = STEP_GLYPHS[step.glyph];
   const changed = draft !== undefined && draft !== step.words;
@@ -404,17 +448,115 @@ function Step({ n, first, step, keep, editable, draft, onDraft, onSave, drifted,
         </dd>
       </dl>
 
+      {suggestion === undefined ? null : (
+        <section
+          role="group"
+          aria-label="Suggested change"
+          className="armada-wm-diff armada-wm-suggest"
+          data-nav-item=""
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              event.stopPropagation();
+              onDraft(undefined);
+              onApproveSuggestion();
+              card.current?.focus();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              onDismissSuggestion();
+              card.current?.focus();
+            }
+          }}
+        >
+          <div className="armada-wm-diff__band">Suggested change</div>
+          <div className="armada-wm-suggest__words">
+            <Compared against={step.words} words={suggestion.words} left="Before" right="After" label="Before and after" />
+          </div>
+          <div className="armada-wm-diff__acts">
+            <Button variant="secondary" size="sm" onClick={onDismissSuggestion}>
+              Dismiss
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                onDraft(undefined);
+                onApproveSuggestion();
+                card.current?.focus();
+              }}
+            >
+              Approve
+            </Button>
+          </div>
+        </section>
+      )}
+
       {drifted.length === 0 ? null : (
         <div className="armada-wm-drift">
-          <h4 className="armada-wm__caption">Drifted here</h4>
+          <div className="armada-wm-drift__head">
+            <h4 className="armada-wm__caption">Drifted here</h4>
+            {!suggestible || suggestion !== undefined ? null : suggesting ? (
+              <Tooltip label="The agent is working">
+                <span className="armada-wm-agent__working" role="img" aria-label="The agent is working">
+                  <LoaderCircle size={14} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={onSuggest}>
+                Suggest a change
+              </Button>
+            )}
+          </div>
           <ul className="armada-wm-drift__rows">
             {drifted.map((one) => (
-              <li key={one.job}>
-                <button type="button" className="armada-wm-drift__row">
+              <li key={one.id}>
+                <div
+                  role="group"
+                  aria-label={`${one.job}, ${one.what}`}
+                  className="armada-wm-drift__row"
+                  data-nav-item=""
+                  tabIndex={-1}
+                  onKeyDown={(event) => {
+                    if (event.metaKey || event.ctrlKey || event.altKey) return;
+                    const key = event.key.toLowerCase();
+                    if (key === "o") {
+                      event.preventDefault();
+                      onOpenJob(one);
+                    } else if (key === "n") {
+                      event.preventDefault();
+                      onNotDrift(one.id);
+                      card.current?.focus();
+                    }
+                  }}
+                >
                   <span className="armada-wm-drift__job">{one.job}</span>
                   <span className="armada-wm-drift__what">{one.what}</span>
                   <span className="armada-wm-drift__when">{one.when}</span>
-                </button>
+                  <span className="armada-wm-drift__mark">
+                    {suggestion?.from.includes(one.id) ? (
+                      <Tooltip label="In the suggested change">
+                        <span role="img" aria-label="In the suggested change">
+                          <CornerUpRight size={14} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => onOpenJob(one)}>
+                    Open Job
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      onNotDrift(one.id);
+                      card.current?.focus();
+                    }}
+                  >
+                    Not a drift
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -425,13 +567,25 @@ function Step({ n, first, step, keep, editable, draft, onDraft, onSave, drifted,
 }
 
 /** A step's words beside Armada's, a sentence marked where the two part. */
-function Compared({ against, words }: { against: string; words: string }) {
+function Compared({
+  against,
+  words,
+  left = "Armada's",
+  right = "This copy",
+  label = "Compared with Armada's",
+}: {
+  against: string;
+  words: string;
+  left?: string;
+  right?: string;
+  label?: string;
+}) {
   const theirs = sentencesOf(against);
   const ours = sentencesOf(words);
   return (
-    <div role="group" aria-label="Compared with Armada's" className="armada-wm-compare">
+    <div role="group" aria-label={label} className="armada-wm-compare">
       <div className="armada-wm-compare__side">
-        <span className="armada-wm__fact-label">Armada's</span>
+        <span className="armada-wm__fact-label">{left}</span>
         <p className="armada-wm-step__words">
           {theirs.map((one) => (
             <span key={one} data-mark={ours.includes(one) ? undefined : "removed"}>
@@ -441,7 +595,7 @@ function Compared({ against, words }: { against: string; words: string }) {
         </p>
       </div>
       <div className="armada-wm-compare__side">
-        <span className="armada-wm__fact-label">This copy</span>
+        <span className="armada-wm__fact-label">{right}</span>
         <p className="armada-wm-step__words">
           {ours.map((one) => (
             <span key={one} data-mark={theirs.includes(one) ? undefined : "added"}>

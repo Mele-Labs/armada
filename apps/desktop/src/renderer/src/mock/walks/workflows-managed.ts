@@ -1,7 +1,8 @@
 // Workflows, managed (27 Oct 2026): System › Kit › Workflows as a list grouped by where each comes from, and
 // the picked one as its steps, with the words the agent is told editable where they stand. Armada's rows
 // are read-only, a repository's copy compares with Armada's, and a change of shape is typed to an agent whose
-// diff waits on Approve. A mock, no Fleet behind it.
+// diff waits on Approve. Jobs Fleet nudged at a step are listed under it, each with Open Job and Not a drift, and
+// a suggested change for the step's words waits on Approve. A mock, no Fleet behind it.
 // `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
 
 import { button, inside, role, text, toSystemPage, walk } from "../walk";
@@ -20,7 +21,14 @@ export const workflowsManaged = walk("workflows", [
   { hover: role("img", "This repository's copy replaces Armada's"), say: "This repository's feature replaces Armada's" },
   { press: inside(REPOSITORY, button("feature", { exact: true })), say: "The repository's feature" },
   { look: inside(step("Walk"), text("you approve the walk")), say: "Walk ends when you approve the walk" },
-  { look: inside(step("Walk"), role("button", /Cockpit timeline rail/)), say: "Drifted here: a Job Fleet nudged at Walk" },
+  { look: inside(step("Walk"), role("group", /^Cockpit timeline rail/)), say: "Drifted here: a Job Fleet nudged at Walk, with Open Job and Not a drift" },
+  { look: inside(step("Walk"), role("group", "Suggested change")), say: "A suggested change drawn from the two Jobs, new words marked" },
+  { hover: inside(step("Walk"), role("img", "In the suggested change")), say: "Marks the Jobs the change came from" },
+  { press: inside(inside(step("Walk"), role("group", "Suggested change")), button("Approve", { exact: true })), say: "Approve applies the words" },
+  { look: inside(step("Walk"), role("textbox", "Words")), say: "Walk's words, with the new line" },
+  { press: inside(step("Approve plan"), button("Suggest a change")), say: "Suggest a change, asked for at Approve plan" },
+  { look: inside(step("Approve plan"), role("group", "Suggested change")), say: "A suggested change for Approve plan" },
+  { press: inside(step("Approve plan"), button("Not a drift")), say: "Not a drift takes the row, and the suggestion with it" },
   { press: inside(step("Propose"), role("textbox", "Words")), say: "Propose's words, edited in place" },
   {
     type: "Say in a few lines what you took the request to mean and a first idea. Read only what that needs. Name what you could not tell. Then stop and wait for the person's reply.",

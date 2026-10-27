@@ -2,7 +2,7 @@
 // and one of Yours. `feature` is the six steps the owner chose on 27 Oct 2026, in
 // `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
 
-import type { Drift, ManagedStep, ManagedWorkflow } from "@armada/components";
+import type { Drift, ManagedStep, ManagedWorkflow, Suggestions } from "@armada/components";
 
 const propose: ManagedStep = {
   id: "propose",
@@ -153,9 +153,28 @@ export const MANAGED_WORKFLOWS: readonly ManagedWorkflow[] = [
 /** The Jobs Fleet nudged, by workflow and step. */
 export const MANAGED_DRIFT: Drift = {
   feature: {
-    walk: [{ job: "Cockpit timeline rail", what: "a test before the walk was approved", when: "2h ago" }],
-    approve_plan: [{ job: "Pause and resume", what: "edited before the plan was approved", when: "yesterday" }],
+    walk: [
+      { id: "timeline-rail", job: "Cockpit timeline rail", what: "a test before the walk was approved", when: "2h ago" },
+      { id: "pause-mock", job: "Pause and resume", what: "a test file written with the mock", when: "3d ago" },
+    ],
+    approve_plan: [{ id: "pause-plan", job: "Pause and resume", what: "edited before the plan was approved", when: "yesterday" }],
   },
+};
+
+/** A suggested change already drawn up, waiting on the owner: new words for the repository's Walk. */
+export const MANAGED_SUGGESTIONS: Suggestions = {
+  feature: {
+    walk: {
+      words:
+        "Build the mock in the real Bridge on fixtures and show it as a walk. Write no tests until it is approved. Test files wait for the approval too, including fixtures for the mock. Notes come back as another take.",
+      from: ["timeline-rail", "pause-mock"],
+    },
+  },
+};
+
+/** What an agent adds to a step's words when asked for a suggestion there. */
+export const SUGGESTED_SENTENCE: Readonly<Record<string, string>> = {
+  approve_plan: "Edit nothing before approval, including the mock.",
 };
 
 /** What the agent comes back with for "split Refine into Wire and Tests". */
