@@ -198,6 +198,35 @@ export const PastedPicture: Story = {
   },
 };
 
+/** Words pasted: past 8 000 tokens, at four characters each, they wait as a text file and the box stays empty. */
+const pasteText = (box: HTMLElement, text: string) => {
+  const clipboard = new DataTransfer();
+  clipboard.setData("text/plain", text);
+  // Typing into the box needs focus, as it has for a person.
+  box.focus();
+  box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+};
+
+/** A paste too big to send as words waits as a text file, for the agent to read as it sees fit. */
+export const PastedHugeText: Story = {
+  play: async ({ canvas }) => {
+    const box = canvas.getByRole("textbox", { name: "Message" });
+    pasteText(box, "x".repeat(32_001));
+    await expect(await within(await canvas.findByRole("group", { name: "Attached" })).findByText("pasted-snippet-1.txt")).toBeInTheDocument();
+    await expect(box).toHaveTextContent("");
+  },
+};
+
+/** A paste at the limit is still words, and no file is made. */
+export const PastedLongText: Story = {
+  play: async ({ canvas }) => {
+    const box = canvas.getByRole("textbox", { name: "Message" });
+    pasteText(box, "x".repeat(32_000));
+    await expect(box).toHaveTextContent("x".repeat(32_000));
+    await expect(canvas.queryByText("pasted-snippet-1.txt")).toBeNull();
+  },
+};
+
 /** A sketch drawn for the message waits as a chip, and the glyph opens the pad. */
 export const DrawnSketch: Story = {
   args: { drawn: [{ id: "k1", title: "pin the clock" }] },

@@ -131,6 +131,7 @@ mod walk_rail;
 mod workflow_page;
 mod workflow_changes;
 mod auto_land;
+mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
 mod session_pause_work;

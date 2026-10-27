@@ -623,7 +623,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
             </span>
           </Inspect>
         ) : (
-          <PullRequestMenuOn manifestId={manifestOf(pr.root)} number={pr.number}>
+          <PullRequestMenuOn manifestId={manifestOf(pr.root)} number={pr.number} address={pr.url}>
             {(on) => (
               <Inspect card={chipPreview(dot, true, openJob)} name={dot.tip} pin={false}>
                 <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)} {...on}>

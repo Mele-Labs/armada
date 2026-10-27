@@ -28,6 +28,7 @@ No wrapper tag the CLI writes for itself reaches a row.
 `send_session_message` to a terminal job holds the text, and the `armada` mod in that job holds an ask for `take_held_messages` open (`wait_ms`, up to 25 seconds, one at a time), which Fleet answers the moment something is held, and submits each text as the person's own prompt, which starts a turn whether the job is idle or busy (spike 27).
 The ask is also how Fleet knows the job is listening: a send to one with no ask open that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once.
 A file or picture is saved by Fleet as for a hosted job and sent as `Attached file: <path>` in the text.
+A file over 32 KB, a picture aside, is sent with its size and a line to read it in parts, so a pasted response is not opened whole.
 The mod reports what the terminal runs on (`tuned`: its model, effort, permission mode and the commands it lists) and Bridge draws those in the composer.
 A model or effort chosen in Bridge is held as a command, and the mod runs it as `/model <x>` or `/effort <x>`; the engine refuses a slash command submitted as text, so it goes through the mods API's command call (spike 27).
 **The permission mode is shown and not set**: nothing in the mods API switches a live job's, and it is read from the settings-hook inputs at each turn, so it is stale between a change in the terminal and the next turn.

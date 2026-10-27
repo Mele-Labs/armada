@@ -73,7 +73,7 @@ export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: stri
 }
 
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
-  const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title);
+  const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title, pr.address);
   return (
     <li>
       <PullRequestChip number={pr.number} title={pr.title} state={pr.state} checks={{ state: checksOf(pr), said: checksSaid(pr.checks) }} onOpen={() => openPrPanel(pr)} {...on} />

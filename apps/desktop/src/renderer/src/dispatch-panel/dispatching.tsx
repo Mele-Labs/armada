@@ -15,7 +15,7 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProjectRowRef, RepositorySummary } from "@armada/protocol";
-import { forgetKept, isPressed, readKept, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
+import { forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
 import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
@@ -40,6 +40,9 @@ const AFTER = "dispatch:session-after";
 
 /** The model and effort picked for a Session. Absent is Auto. */
 type Tuning = { model?: string; effort?: string };
+
+/** What a Session is told when the person pasted a snippet and typed nothing. */
+const SNIPPET_ONLY = "The request is in the attached snippet.";
 
 /** The draft as it stands, for an act. */
 const wordsNow = () => readKept<string>(REQUEST) ?? "";
@@ -136,6 +139,10 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
   const tagged = useRef<ComposerTag[]>([]);
   // The rows of his projects the sheet was opened with, sent with the start.
   const rowed = useRef<readonly ProjectRowRef[]>([]);
+  // Pastes too big to send as words. They are files, so they are held here and not with the words, and go with the first message.
+  const [snippets, setSnippets] = useState<readonly File[]>([]);
+  const snippetsNow = useRef<readonly File[]>([]);
+  snippetsNow.current = snippets;
   // Bumped whenever the words change, so an answer to words no longer there is let go.
   const stamp = useRef(0);
 
@@ -155,6 +162,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     clearPicked();
     tagged.current = [];
     rowed.current = [];
+    setSnippets([]);
     setAsking(false);
     setWaiting(false);
     setSending(false);
@@ -183,7 +191,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
   function startSession(at: string) {
     if (draft === undefined) return;
-    const text = wordsNow().trim();
+    const kept = snippetsNow.current;
+    const text = wordsNow().trim() === "" && kept.length > 0 ? SNIPPET_ONLY : wordsNow().trim();
     recall(at);
     const hand = handNow();
     setSending(true);
@@ -209,7 +218,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       })
       .then(({ id, after, refers }) => {
         if (id === undefined) return setSending(false);
-        if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [...(refers === undefined ? [] : [refers]), ...tagged.current.filter((one) => text.includes(one.title))] });
+        const files = kept.map((file, number) => ({ id: `snippet-${number + 1}`, name: file.name, file }));
+        if (after === undefined || files.length > 0) draft.send(id, { text, files, sketches: [], tags: [...(refers === undefined ? [] : [refers]), ...tagged.current.filter((one) => text.includes(one.title))] });
         clearAll();
         openSession(id);
       });
@@ -328,7 +338,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
     /** Nothing starts without a repository: a reading still out is waited for, and none found asks. */
     const act = () => {
-      if (words.trim() === "") return;
+      if (words.trim() === "" && snippets.length === 0) return;
       if (root === undefined) return found.state === "detecting" ? setWaiting("start") : setAsking("send");
       proceed(root);
     };
@@ -386,7 +396,13 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
               onTune: (next: { model: string | null; effort: string | null }) =>
                 setTuned({ ...(next.model === null ? {} : { model: next.model }), ...(next.effort === null ? {} : { effort: next.effort }) }),
             },
-            ...(draft.queue === undefined ? {} : { onQueue: queue, queueing: waiting === "queue" }),
+            // A queued idea is words alone, so one with a snippet would lose it.
+            ...(draft.queue === undefined || snippets.length > 0 ? {} : { onQueue: queue, queueing: waiting === "queue" }),
+            snippets: {
+              files: snippets,
+              onPaste: (pasted: string) => setSnippets((was) => [...was, snippetOf(pasted, was.length + 1)]),
+              onRemove: (file: File) => setSnippets((was) => was.filter((one) => one !== file)),
+            },
           }
         : {}),
       // Offered to a Session's request, once the repository is known.
@@ -405,7 +421,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
           cycle();
         } else if (event.key === "Escape") {
           if (!sheetGrown) collapse();
-        } else if (event.key === "Enter" && kind === "session" && !event.shiftKey && words.trim() !== "") {
+        } else if (event.key === "Enter" && kind === "session" && !event.shiftKey && (words.trim() !== "" || snippets.length > 0)) {
           event.preventDefault();
           act();
         }
@@ -420,6 +436,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     stamp.current += 1;
     writeKept(REQUEST, "");
     rowed.current = [];
+    setSnippets([]);
     if (at !== undefined) pick(at);
     setLatest(undefined);
     setAsking(false);
@@ -454,6 +471,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       writeKept(REQUEST, next);
       if (tags !== undefined) tagged.current = [...tags];
       rowed.current = rows === undefined ? [] : [...rows];
+      setSnippets([]);
       if (at !== undefined) pick(at);
       setLatest(undefined);
       setAsking(false);

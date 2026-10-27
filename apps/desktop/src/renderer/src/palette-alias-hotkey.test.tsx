@@ -78,9 +78,9 @@ test("a word of two is refused in the field and not kept, and so is another row'
 test("a word typed whole puts its row first, ahead of a Job that matches by title", async () => {
   palette({ aliases: { "session:pk1": "cache" } });
   await userEvent.keyboard("cache");
-  const names = page.getByRole("option").elements().map((one) => one.textContent ?? "");
-  expect(names[0]).toContain("Migration notes");
-  expect(names[1]).toContain("Cache key");
+  // Retried: read at once, the rows can still be the ones a shorter query drew.
+  await expect.element(page.getByRole("option").nth(0)).toHaveTextContent("Migration notes");
+  await expect.element(page.getByRole("option").nth(1)).toHaveTextContent("Cache key");
 });
 
 test("a row that holds a word offers Remove alias, which hands it on", async () => {

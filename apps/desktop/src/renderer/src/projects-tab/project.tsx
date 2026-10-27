@@ -13,6 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
 import { JobMark } from "../issues-tab/marks";
+import { PullRequestMenuOn } from "../pull-request-menu";
 import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
@@ -235,7 +236,9 @@ function Card({ row, sub, repository, movable, adding, editing, state, sessions,
           {row.kind === "task"
             ? (row.pulls ?? []).map((one) => (
                 <span key={one.number} className="projects-row__linked">
-                  <PullRequestChip number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} />
+                  <PullRequestMenuOn manifestId={row.manifestId} number={one.number} title={one.title} {...(one.url === "" ? {} : { address: one.url })}>
+                    {(on) => <PullRequestChip number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} {...on} />}
+                  </PullRequestMenuOn>
                   <Unlink pull said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
                 </span>
               ))
