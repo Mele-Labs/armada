@@ -21,7 +21,8 @@ import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
 import { commandIn } from "./fix-command";
 import { useTerminalRun } from "./terminal-run";
-import { useLineNotes } from "./job-notes-lines";
+import { markSent, messageOf, useJobNotes } from "./job-notes";
+import { NotesBar, useLineNotes } from "./job-notes-lines";
 import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
 import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
@@ -151,6 +152,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   // Notes are kept for any pull request; only sending them needs a Job that holds it.
   const noteKey = `${item.repository ?? repositoryOfAddress(item.address) ?? read?.repository ?? ""}#${item.number}`;
   const lineNotes = useLineNotes(noteKey);
+  const unsent = useJobNotes(noteKey).filter((one) => !one.sent);
   const shownPatches = useMemo(
     () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lineNotes)),
     [readPatches, patches, lineNotes],
@@ -231,6 +233,15 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
     if (!openAddressInPanel(address)) void openLink(address);
   };
 
+  // The unsent notes go to the Job as one message the way its own composer sends one, and are marked sent once it took them.
+  const sendNotes = () => {
+    if (owner === undefined || draft === undefined || unsent.length === 0) return;
+    const ids = unsent.map((one) => one.id);
+    void Promise.resolve(draft.send(owner.id, { text: messageOf(facts.number, unsent), files: [], sketches: [], tags: [] })).then((went) => {
+      if (went !== false) markSent(noteKey, ids);
+    });
+  };
+
   const failing = failingOf(facts);
   const description = promptsOut(facts.body ?? page.body);
   const place = placeOf(reads.lines, facts);
@@ -270,6 +281,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       >
         {/* A press the Job made and Fleet refused is said here, where it was pressed; one nobody holds is a toast. */}
         {owner === undefined || refused === undefined || refused === "" ? null : <Alert tone="escalated">{refused}</Alert>}
+        {owner === undefined || unsent.length === 0 ? null : <NotesBar count={unsent.length} onSend={sendNotes} />}
       </PullRequestPanel>
     </PrOwnersOnTheWire>
   );

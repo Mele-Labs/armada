@@ -75,6 +75,18 @@ export function useLineNotes(key: string): Pick<UnifiedDiffProps, "onLine" | "un
   );
 }
 
+/** What waits to be sent, and the one press that sends it. Drawn only where a Job holds the pull request and a note is unsent. */
+export function NotesBar({ count, onSend }: { count: number; onSend: () => void }) {
+  return (
+    <div className="pr-notes-bar" role="group" aria-label="Notes for the job">
+      <span>{count === 1 ? "1 note kept for the job" : `${count} notes kept for the job`}</span>
+      <Button variant="secondary" size="sm" onClick={onSend}>
+        Send to job
+      </Button>
+    </div>
+  );
+}
+
 function NoteCard({ note, onRemove, onEdit }: { note: JobNote; onRemove: () => void; onEdit: (body: string) => void }) {
   const [editing, setEditing] = useState(false);
   if (editing)

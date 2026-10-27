@@ -5,8 +5,10 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { PullRequestPage, SessionRunMessage } from "@armada/protocol";
+import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import "../styles/index.css";
+import { SessionsFrom } from "../sessions-draft";
 import { fleetPanelReads } from "./fleet-reads";
 import type { FleetPanelApi, FleetPanelState } from "./fleet-reads";
 import { SharedPanelHost } from "./host";
@@ -400,4 +402,61 @@ test("a note is edited in place and removed, until it is sent", async () => {
   await act(async () => inFiles("Remove the note")!.click());
   expect(sections()[0]!.textContent).not.toContain("in seconds");
   expect(window.localStorage.getItem("armada:job-notes:harbor-labs/tidewater#418")).toBeNull();
+});
+
+/** A window holding one Job, which holds the pull request, and the messages it was sent. */
+function heldJob() {
+  const send = vi.fn(async (_id: string, _message: { text: string }) => true);
+  const session = { id: "job-1", attachments: [{ kind: "pull_request", number: 418, title: "Keep the tide tables a day", branch: "ines/tide-cache", address: ADDRESS, checks: { state: "passed" }, state: "open", auto: false }], waitingFor: [], rows: [] };
+  const sessions = [session];
+  const held = { get: () => sessions, subscribe: () => () => undefined, send } as unknown as SessionsDraft;
+  return { send, held };
+}
+async function mountHeld(reads: PanelReads, held: SessionsDraft | undefined) {
+  host = document.body.appendChild(document.createElement("div"));
+  root = createRoot(host);
+  await act(async () =>
+    root!.render(
+      <SessionsFrom held={held}>
+        <SharedPanelFrom reads={reads}>
+          <Watch />
+          <SharedPanelHost />
+        </SharedPanelFrom>
+      </SessionsFrom>,
+    ),
+  );
+  await act(async () => void openInPanel(ITEM));
+}
+const noteOn = async (line: string, words: string) => {
+  await act(async () => gutter(`Note for the job on ${line}`)!.click());
+  await type(filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!, words);
+  await act(async () => inFiles("Save note")!.click());
+};
+const sendButton = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent === "Send to job");
+
+test("Send to job sends one numbered message naming each note's file and line, and marks them sent", async () => {
+  window.localStorage.clear();
+  const job = heldJob();
+  await mountHeld({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES }, job.held);
+  await press("Files");
+  expect(sendButton()).toBeUndefined();
+  await noteOn("+let days = 2;", "Name the unit.");
+  await noteOn("+pub struct Cache;", "Why public?");
+  await act(async () => sendButton()!.click());
+  expect(job.send).toHaveBeenCalledTimes(1);
+  expect(job.send.mock.calls[0]![0]).toBe("job-1");
+  expect(job.send.mock.calls[0]![1].text).toBe(
+    "Notes on #418 from the owner, kept on his Mac and not posted to the pull request\n\n1. src/tide/tables.rs:1: Name the unit.\n2. src/tide/cache.rs:1: Why public?",
+  );
+  expect(sendButton()).toBeUndefined();
+  expect(sections()[0]!.querySelector('[aria-label="Note for the job"]')?.textContent).toContain("Name the unit.");
+  expect(JSON.parse(window.localStorage.getItem("armada:job-notes:harbor-labs/tidewater#418")!).every((one: { sent: boolean }) => one.sent)).toBe(true);
+});
+
+test("no Send to job is drawn where no Job holds the pull request", async () => {
+  window.localStorage.clear();
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
+  await press("Files");
+  await noteOn("+let days = 2;", "Name the unit.");
+  expect(sendButton()).toBeUndefined();
 });
