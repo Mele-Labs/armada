@@ -11,8 +11,22 @@ import type { AdversarialReview } from "./adversarial-review";
 /** Where one task stands. `handed_in` is done by the agent's word with no edit seen under its group's paths. */
 export type PlanTaskState = "open" | "working" | "handed_in" | "done" | "failed";
 
-/** One task of the plan. `seen`: an edit was seen under its group's paths. Absent when none was. */
-export type SessionPlanTask = { id: string; text: string; state: PlanTaskState; seen?: boolean };
+/**
+ * One task of the plan. `seen`: an edit was seen under its group's paths. Absent when none was. `marked`: Fleet set the
+ * state itself, and this is its proof ("commit 1a2b3c4 names it"); absent where the agent's own list set it. `stale`: in
+ * progress, and the work looks to be elsewhere; absent while it is not.
+ */
+export type SessionPlanTask = {
+  id: string;
+  text: string;
+  state: PlanTaskState;
+  seen?: boolean;
+  marked?: string;
+  stale?: TaskStale;
+};
+
+/** Why a task in progress looks left behind (`why`, one line), and `since` when it was last touched. */
+export type TaskStale = { why: string; since: string };
 
 /** One group of the plan: the tasks a single subagent takes. */
 export type SessionPlanGroup = {

@@ -251,6 +251,8 @@ fn pending_plan() -> ipc::SessionPlan {
                 text: "Rotate at midnight".to_string(),
                 state: ipc::PlanTaskState::Open,
                 seen: false,
+                marked: None,
+                stale: None,
             }],
             worked_at: None,
         }],

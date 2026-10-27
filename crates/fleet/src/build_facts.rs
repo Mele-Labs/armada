@@ -63,7 +63,7 @@ where
                 Observed::Tasks(labelled(tasks, &store.attachments_of(&Holder::session(&session.id))?))
             }
             SessionFact::PlanLeft => Observed::PlanLeft,
-            SessionFact::Committed { branch } => {
+            SessionFact::Committed { branch, .. } => {
                 self.road_noted(session, TimelineKind::SessionCommitted, "Committed", branch, now);
                 Observed::Committed
             }
