@@ -18,12 +18,16 @@ A row is a task he wrote or an issue he linked.
 
 | Piece | What it is |
 |---|---|
+| Own tasks | A repository's tasks that no project holds: one list per repository, shaped like a project, never listed among them, renamed or deleted |
 | Task | A card with a title and notes, written by him |
 | Subtask | A task under a task, one level deep |
 | Issue row | A tracker reference he linked to the project |
 | Linked issue | A tracker reference on a task, in the order linked |
 | Linked pull request | A pull request number on a task |
 | Held Job | The one running Job that holds a task |
+
+A repository's own tasks are made by its first task, and Bridge opens them from the repository's head in the Projects list.
+They work as a project does: the same field, cards, subtasks, ticks and Dispatch.
 
 A task is `open`, `held`, `asked` or `done`.
 A task has several issues and pull requests of its own, and at most one Job.
@@ -37,6 +41,8 @@ The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
 ## Dispatching tasks
 
 **Selecting cards and pressing Dispatch opens the Dispatch sheet, prefilled with them.**
+A ⌘-click selects a card and a ⇧-click selects the range from the card last clicked.
+The Dispatch icon on a task's card opens the sheet with that task and its subtasks alone.
 Starting sends the rows with the Job start, and the Job holds those tasks and their subtasks.
 An issue row among them is only named, so the Job's brief can carry it.
 
@@ -66,9 +72,9 @@ A task no Job holds is asked the same way when a linked pull request merges, on 
 | Surface | What it draws |
 |---|---|
 | The Projects tab | Sits beside Issues, and takes the next digit after it. The projects, then the cards of one with their subtasks |
-| A card | Its title, notes, linked issues and pull requests with their state from the tracker, and the Job holding it |
+| A card | Its title, notes, linked issues and pull requests with their state from the tracker, and the Job holding it. Its acts are Dispatch, add a subtask and delete |
 | An asked card | Mark done and Keep open |
-| The add fields | Take `#` for an issue or a pull request and `@` for a Job, as the composer does |
+| The add fields | Take `#` for an issue or a pull request and `@` for a Job or a file, as the composer does. They are how a task is linked. The task field grows into a composer with a button for each, and a file stays in the words as `@path` |
 | The command palette | Words typed in it can be added as a task or a project |
 
 The palette's rows and the keys on the tab are in [Keyboard and command palette](../contracts/design-system/keyboard-and-command-palette.md).
@@ -78,3 +84,4 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | Missing | Waiting on it |
 |---|---|
 | Sharing a project with teammates | Not built. Projects are in this Mac's store only |
+| A repository's own tasks in Fleet | Not built. Bridge reads them as the project with the id `own:<manifest id>` and the mock Fleet serves it; the Fleet side is a later step |

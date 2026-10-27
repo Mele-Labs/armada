@@ -67,7 +67,9 @@ test("Dispatch starts the Job with the rows that were selected, and Fleet then s
   const card = () => pocket().getByRole("group", { name: "Test on a small phone" });
   expect(card().getByRole("button", { name: /^Open / }).query()).toBeNull();
 
-  await userEvent.click(page.getByRole("checkbox", { name: "Select Test on a small phone" }));
+  await userEvent.keyboard("{Meta>}");
+  await userEvent.click(card());
+  await userEvent.keyboard("{/Meta}");
   await userEvent.click(pocket().getByRole("button", { name: "Dispatch", exact: true }));
   const request = page.getByRole("textbox", { name: "Request" });
   await expect.element(request).toBeVisible();

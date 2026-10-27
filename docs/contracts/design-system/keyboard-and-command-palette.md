@@ -114,15 +114,13 @@ l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
 /              describe a query   (issues only)
 s              start a Job on the issue   (issues only)
-l r            go to a part of Projects: the list, the project   (projects only)
-N              new project   (projects only)
+l r            go to a part of Projects: the list, the project or the repository's tasks   (projects only)
+N              new project, in the repository you are in   (projects only)
 a              add a task   (projects only)
 A              add a subtask   (projects only)
-i              link   (projects only)
-I              link to the task   (projects only)
 Backspace      delete or unlink   (projects only)
 ⌥↑ ⌥↓          move the row up or down   (projects only)
-Space / x      select the row   (projects only)
+Space / x      select the card   (projects only)
 Enter          edit the title   (projects only)
 o              open the Job   (projects only)
 u              unlink the Job   (projects only)
@@ -181,12 +179,13 @@ list does; `l r` go to the list and the reader, `L` opens the queries, `/` descr
 starts a Job on the open issue. They stand down in a text field and while a dialog is up.
 
 **The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through
-the list of projects and through the cards, subtasks included, and the search's results; `l r` go to the list and the
-cards. In the list, `Enter` opens a project, `N` names a new one, `e` renames the focused one and Backspace deletes it.
-On a card, Space or `x` selects it, `Enter` edits a task's title in place, `d` ticks a task, `a` goes to the field that
-adds a task and `A` opens one for a subtask inside the focused card, `i` links an issue, a Job or a pull request to the
-project and `I` to the focused task, `o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
-Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected,
+the repositories' heads, the projects under them and the cards, subtasks included; `l r` go to the list and the
+cards. In the list, `Enter` opens a project, or a repository's own tasks from its head, `N` names a new project in the
+repository you are in, `e` renames the focused project and Backspace deletes it. A ⌘-click on a card selects it and a
+⇧-click selects the range from the card last clicked. On a card, Space or `x` selects it, `Enter` edits a task's title in
+place, `d` ticks a task, `a` goes to the field that adds a task and `A` opens one for a subtask inside the focused card,
+`o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
+Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected or the focused one,
 and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
 field and while a dialog is up.
 
