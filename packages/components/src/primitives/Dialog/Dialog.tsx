@@ -120,7 +120,11 @@ export function Dialog({
   // Cancel holds initial focus. A destructive action is never one keystroke
   // from a focused row, so the safe control is the one under the cursor.
   useEffect(() => {
-    if (open && confirmLabel !== undefined) (initialFocus === "confirm" ? confirmRef : cancelRef).current?.focus();
+    if (!open || confirmLabel === undefined) return;
+    if (initialFocus === "cancel") return cancelRef.current?.focus();
+    // After the keystroke that opened the layer has finished: an `Enter` sent from a box must not reach the confirm it just opened.
+    const timer = window.setTimeout(() => confirmRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
   }, [open, confirmLabel, initialFocus]);
 
   // Whether the layer collects the confirmation in a field it draws.

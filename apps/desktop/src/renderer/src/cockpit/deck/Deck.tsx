@@ -283,7 +283,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     const state = (
       <>
         {one.handoff === "starting" ? <HandoffMark /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
-        <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />
+        {pausedIds.has(one.id) ? null : <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />}
       </>
     );
     return (

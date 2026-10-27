@@ -13,7 +13,7 @@ import { attachmentsOf, type Session, type SessionAttachment } from "@armada/scr
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
 import { accountNowOf } from "../../session-activity";
-import { beneathPause, stateOf } from "../../session-state";
+import { stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
 import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
@@ -144,11 +144,8 @@ const one = (text: string) => text.split("\n")[0]!.trim();
 
 function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
-  // A paused Job keeps the glyph of what it was doing beside its pause mark, drawn calm: nothing is asked of him.
-  if (state === "paused") {
-    const beneath = beneathPause(session);
-    return { Glyph: sessionGlyphOf(beneath.state), said: `Was ${beneath.said.toLowerCase()}`, tone: "calm" };
-  }
+  // A paused Job is calm and reads Paused: nothing is asked of him.
+  if (state === "paused") return { Glyph: sessionGlyphOf(state), said, tone: "calm" };
   const tone: Tone = state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
 }

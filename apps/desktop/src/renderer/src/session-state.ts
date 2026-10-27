@@ -21,11 +21,6 @@ export const holdsDelivery = (session: Session): boolean => owesOf(session).some
 /** Parked by him: nothing is asked of him, whatever it was waiting on, until he resumes it. An ended or unreachable Job reads as that. */
 export function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.paused === true && session.dead === undefined) return { state: "paused", said: "Paused" };
-  return beneathPause(session);
-}
-
-/** What the Session would read as were it not paused: the glyph its row keeps beside the pause mark. */
-export function beneathPause(session: Session): { state: SessionState; said: string } {
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.
