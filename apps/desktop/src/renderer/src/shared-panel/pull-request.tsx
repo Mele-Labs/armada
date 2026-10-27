@@ -234,10 +234,12 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   };
 
   // The unsent notes go to the Job as one message the way its own composer sends one, and are marked sent once it took them.
-  const sendNotes = () => {
-    if (owner === undefined || draft === undefined || unsent.length === 0) return;
+  const others = sessions.filter((one) => one.id !== owner?.id && one.dead === undefined && one.older === undefined && one.replacedBy === undefined).map((one) => ({ id: one.id, title: one.title ?? one.address ?? one.id }));
+  const sendNotes = (to?: string) => {
+    const target = to ?? owner?.id;
+    if (target === undefined || draft === undefined || unsent.length === 0) return;
     const ids = unsent.map((one) => one.id);
-    void Promise.resolve(draft.send(owner.id, { text: messageOf(facts.number, unsent), files: [], sketches: [], tags: [] })).then((went) => {
+    void Promise.resolve(draft.send(target, { text: messageOf(facts.number, unsent), files: [], sketches: [], tags: [] })).then((went) => {
       if (went !== false) markSent(noteKey, ids);
     });
   };
@@ -281,7 +283,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       >
         {/* A press the Job made and Fleet refused is said here, where it was pressed; one nobody holds is a toast. */}
         {owner === undefined || refused === undefined || refused === "" ? null : <Alert tone="escalated">{refused}</Alert>}
-        {owner === undefined || unsent.length === 0 ? null : <NotesBar count={unsent.length} onSend={sendNotes} />}
+        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : <NotesBar count={unsent.length} held={owner !== undefined} others={others} onSend={sendNotes} />}
       </PullRequestPanel>
     </PrOwnersOnTheWire>
   );

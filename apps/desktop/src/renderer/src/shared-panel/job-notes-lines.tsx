@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { Check, Notebook, Pencil, X } from "lucide-react";
-import { Button, Prose, PrMark, Tooltip } from "@armada/components";
+import { Button, Prose, PrMark, SplitButton, Tooltip } from "@armada/components";
 import type { DiffFile, DiffLine, UnifiedDiffProps } from "@armada/components";
 
 import { LineComposer } from "../pr-review/lines";
@@ -75,14 +75,20 @@ export function useLineNotes(key: string): Pick<UnifiedDiffProps, "onLine" | "un
   );
 }
 
-/** What waits to be sent, and the one press that sends it. Drawn only where a Job holds the pull request and a note is unsent. */
-export function NotesBar({ count, onSend }: { count: number; onSend: () => void }) {
+/** A running Job the notes can go to instead of the one that holds the pull request. */
+export type NoteTarget = { id: string; title: string };
+
+/**
+ * What waits to be sent, and where it goes. **The face sends to the Job that holds the pull request**, and the caret lists the other
+ * running Jobs. Where none holds it the face is off and the caret alone is live.
+ */
+export function NotesBar({ count, held, others, onSend }: { count: number; held: boolean; others: readonly NoteTarget[]; onSend: (to?: string) => void }) {
   return (
     <div className="pr-notes-bar" role="group" aria-label="Notes for the job">
       <span>{count === 1 ? "1 note kept for the job" : `${count} notes kept for the job`}</span>
-      <Button variant="secondary" size="sm" onClick={onSend}>
+      <SplitButton size="sm" menuLabel="Send to a job" faceDisabled={!held} onAction={() => onSend()} items={others.map((one) => ({ label: one.title, onSelect: () => onSend(one.id) }))}>
         Send to job
-      </Button>
+      </SplitButton>
     </div>
   );
 }

@@ -405,10 +405,10 @@ test("a note is edited in place and removed, until it is sent", async () => {
 });
 
 /** A window holding one Job, which holds the pull request, and the messages it was sent. */
-function heldJob() {
+function heldJob(others: readonly { id: string; title: string; dead?: "ended" }[] = []) {
   const send = vi.fn(async (_id: string, _message: { text: string }) => true);
   const session = { id: "job-1", attachments: [{ kind: "pull_request", number: 418, title: "Keep the tide tables a day", branch: "ines/tide-cache", address: ADDRESS, checks: { state: "passed" }, state: "open", auto: false }], waitingFor: [], rows: [] };
-  const sessions = [session];
+  const sessions = [session, ...others.map((one) => ({ ...one, attachments: [], waitingFor: [], rows: [] }))];
   const held = { get: () => sessions, subscribe: () => () => undefined, send } as unknown as SessionsDraft;
   return { send, held };
 }
@@ -458,5 +458,25 @@ test("no Send to job is drawn where no Job holds the pull request", async () => 
   await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
   await press("Files");
   await noteOn("+let days = 2;", "Name the unit.");
+  expect(sendButton()).toBeUndefined();
+});
+
+test("the Send to job menu lists the other running Jobs, and picking one sends the notes there and marks them sent", async () => {
+  window.localStorage.clear();
+  const job = heldJob([
+    { id: "job-2", title: "Cache key" },
+    { id: "job-3", title: "Old one", dead: "ended" },
+  ]);
+  await mountHeld({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES }, job.held);
+  await press("Files");
+  await noteOn("+let days = 2;", "Name the unit.");
+  await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Send to a job"]')!.click());
+  const menu = document.querySelector('[role="menu"][aria-label="Send to a job"]')!;
+  // The Job that holds it is the press itself, a Job that ended is not offered, and the one left is.
+  expect([...menu.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent)).toEqual(["Cache key"]);
+  await act(async () => menu.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click());
+  expect(job.send).toHaveBeenCalledTimes(1);
+  expect(job.send.mock.calls[0]![0]).toBe("job-2");
+  expect(job.send.mock.calls[0]![1].text).toContain("1. src/tide/tables.rs:1: Name the unit.");
   expect(sendButton()).toBeUndefined();
 });
