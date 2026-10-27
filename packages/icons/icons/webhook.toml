@@ -1,7 +1,7 @@
 [icons.webhook]
-  means = "A Trigger: a script or a skill attached to a moment in a Job"
-  group = "Trigger"
+  means = "Three nodes joined by a strand - a hook, a call another system makes into yours"
+  group = "Sketch screens"
   size = "12px"
   status = "Specified"
-  reserved = "A Trigger, and a step added to one Job: the mark on a step's card, the line of each Trigger that fires there, and the card of an added step. Never a network call or an integration, and never a step the workflow itself declares."
-  notes = "Added 7 Oct 2026 for the walk `aTriggerOnAWorkflow`; the owner picked the glyph and the name Trigger. It replaces `zap` on a step card's Trigger lines, since `zap` is reserved against automation. Three nodes joined by a strand is none of the outlines in the Job state set at 12px."
+  reserved = "A webhook or an integration drawn as a node in a sketch (`show_sketch`), one of the glyphs a scene node may carry. Never in Armada's own surfaces, where a network call or an integration has no mark."
+  notes = "Kept for the sketch's node icons (`packages/components/src/compositions/SketchScene/scene.ts`), where a diagram of someone's product draws its webhooks. Three nodes joined by a strand is none of the outlines in the Job state set at 12px."

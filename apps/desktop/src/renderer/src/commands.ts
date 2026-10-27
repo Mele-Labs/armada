@@ -216,7 +216,6 @@ export const dismissWorkflowChange = (change: number) => window.armada.dismissWo
 export const sendBackWorkflowChange = (back: SendBackWorkflowChange) => window.armada.sendBackWorkflowChange(back);
 /** A Job on Armada's own repository that lands a definition, so it ships to every install. */
 export const proposeWorkflowToArmada = (proposing: ProposeToArmada) => window.armada.proposeWorkflowToArmada(proposing);
-export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>
