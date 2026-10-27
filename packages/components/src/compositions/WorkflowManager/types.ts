@@ -1,5 +1,5 @@
 // What the Workflow manager draws: workflows by where they come from, each a run of steps whose words
-// are what the agent is told. `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
+// are what the agent is told. The decision of 27 Oct, a feature Job walks before it tests.
 
 import {
   Cable,

@@ -3,7 +3,7 @@
 // are read-only, a repository's copy compares with Armada's, and a change of shape is typed to an agent whose
 // diff waits on Approve. Jobs Fleet nudged at a step are listed under it, each with Open Job and Not a drift, and
 // a suggested change for the step's words waits on Approve. A mock, no Fleet behind it.
-// `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
+// The decision of 27 Oct, a feature Job walks before it tests.
 
 import { button, inside, role, text, toSystemPage, walk } from "../walk";
 

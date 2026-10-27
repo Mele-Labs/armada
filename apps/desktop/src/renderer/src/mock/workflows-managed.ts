@@ -1,6 +1,6 @@
 // The workflows the Workflows page is walked on, as the definitions Fleet would hold: Armada's, a repository's copy of
 // `feature` that differs in one step, and one of Yours. `feature` is the six steps the owner chose on 27 Oct 2026, in
-// `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`. Only the mock Fleet in `workflows-fleet.ts`
+// The decision of 27 Oct, a feature Job walks before it tests. Only the mock Fleet in `workflows-fleet.ts`
 // reads this; the page reads what that Fleet answers.
 
 /** A step as its definition file writes it. */

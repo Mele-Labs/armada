@@ -24,7 +24,7 @@ import type {
 /**
  * Workflows as a person manages them: a list grouped by where each comes from, and the picked one drawn
  * as its steps, one card each, with the words the agent is told in a box that is edited where it stands.
- * `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
+ * The decision of 27 Oct, a feature Job walks before it tests.
  *
  * **Armada's rows are read-only.** Make my copy puts one under Yours; Propose to Armada asks for the
  * change to land for every install. A repository's copy and Yours are edited, compared with Armada's,
