@@ -54,6 +54,8 @@ pub struct Said {
     pub answers: Vec<QuestionAnswer>,
     /// The folder an "always" answer is for.
     pub folder: Option<String>,
+    /// The kind a "like this" answer allows.
+    pub kind: Option<ipc::CallKind>,
 }
 
 impl Said {
@@ -68,6 +70,7 @@ impl Said {
                 .map(str::to_string),
             answers: said.answers.clone(),
             folder: said.folder.clone(),
+            kind: said.kind.clone(),
         }
     }
 }
@@ -199,6 +202,7 @@ impl Asks {
             questions,
             reaches,
             reaches_to,
+            kind: None,
         };
         let (sender, receiver) = oneshot::channel();
         // Read under the lock `all_withdrawn` takes, so a call minted as Fleet stops is never held.
@@ -384,7 +388,8 @@ pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
         HelmCallAnswer::AllowOnce
         | HelmCallAnswer::AllowAndRemember
         | HelmCallAnswer::AlwaysAllow
-        | HelmCallAnswer::AllowForSession => {
+        | HelmCallAnswer::AllowForSession
+        | HelmCallAnswer::AllowLikeThisForSession => {
             RunOrNot::Allow {
                 updated_input: asking.input.clone(),
             }

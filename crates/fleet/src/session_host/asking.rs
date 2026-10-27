@@ -261,6 +261,8 @@ where
                         }
                         SessionAskState::AllowedForSession
                     }
+                    // Runs, and nothing is held yet: the stored kind comes with the guard.
+                    HelmCallAnswer::AllowLikeThisForSession => SessionAskState::AllowedForSession,
                     HelmCallAnswer::AllowAndRemember => {
                         let at = adapters::personal_settings(&root);
                         // A settings file that will not be written is not a

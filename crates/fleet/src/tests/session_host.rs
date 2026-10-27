@@ -852,6 +852,7 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
         note: None,
         answers: Vec::new(),
         folder,
+        kind: None,
     };
 
     let waiting = card("~/Documents/notes-2441/x.md");
@@ -965,6 +966,7 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
         note: None,
         answers: Vec::new(),
         folder,
+        kind: None,
     };
 
     let waiting = card(&id, "~/Music/a-2441.mp3");
@@ -1025,6 +1027,7 @@ async fn a_reach_into_the_root_is_asked_once_only() {
             note: None,
             answers: Vec::new(),
             folder: None,
+            kind: None,
         })
         .await
         .unwrap();
@@ -1111,6 +1114,7 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
             note: Some("not that".into()),
             answers: Vec::new(),
             folder: None,
+            kind: None,
         })
         .await
         .unwrap();

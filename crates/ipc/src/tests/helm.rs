@@ -248,3 +248,58 @@ fn a_question_option_keeps_its_preview() {
     assert_eq!(json.matches("preview").count(), 1, "no key for an option without one: {json}");
     assert_eq!(decode::<crate::AskedQuestion>("a question", json.as_bytes()).expect("round-trips"), asked);
 }
+
+fn a_reach_card(kind: Option<crate::CallKind>) -> crate::HelmCallInFlight {
+    crate::HelmCallInFlight {
+        call: "helm-1".into(),
+        manifest_id: ManifestId::carried("armada"),
+        asked_at: Instant::carried("2026-10-26T10:00:00Z"),
+        tool: "Bash".into(),
+        detail: "node drive.mjs --out ~/Desktop/shot.png".into(),
+        truncated: false,
+        length: None,
+        whole: None,
+        rule: "Bash(node drive.mjs:*)".into(),
+        offers: vec![crate::HelmCallAnswer::AllowOnce, crate::HelmCallAnswer::AllowLikeThisForSession],
+        holding_for_seconds: 600,
+        questions: Vec::new(),
+        reaches: Some("/Users/someone/Desktop/shot.png".into()),
+        reaches_to: Some(crate::ReachesTo::Write),
+        kind,
+    }
+}
+
+/// A reach card over a Bash call names its program and script, and a card with no kind leaves
+/// the key out, so a Fleet's other cards read as they did.
+#[test]
+fn a_reach_cards_kind_is_sent_when_set_and_left_out_when_not() {
+    let kind = crate::CallKind { program: "node".into(), script: Some("drive.mjs".into()) };
+    let card = a_reach_card(Some(kind));
+    let json = encode(&card).expect("plain data");
+    assert!(json.contains(r#""kind":{"program":"node","script":"drive.mjs"}"#), "{json}");
+    assert_eq!(decode::<crate::HelmCallInFlight>("a card", json.as_bytes()).expect("round-trips"), card);
+
+    let json = encode(&a_reach_card(None)).expect("plain data");
+    assert!(!json.contains(r#""kind""#), "{json}");
+}
+
+/// The answer that allows calls of a kind travels under its own word, with the width chosen.
+#[test]
+fn allowing_calls_like_this_round_trips_with_its_kind() {
+    let answer = decode::<crate::HelmCallAnswer>("an answer", br#""allow_like_this_for_session""#).expect("a word");
+    assert_eq!(answer, crate::HelmCallAnswer::AllowLikeThisForSession);
+    assert_eq!(encode(&answer).expect("plain data"), r#""allow_like_this_for_session""#);
+
+    let said = crate::AnswerSessionAsk {
+        session_id: crate::SessionId::carried("s1"),
+        call: "helm-1".into(),
+        answer,
+        note: None,
+        answers: Vec::new(),
+        folder: Some("/Users/someone/Desktop".into()),
+        kind: Some(crate::CallKind { program: "node".into(), script: None }),
+    };
+    let json = encode(&said).expect("plain data");
+    assert!(json.contains(r#""kind":{"program":"node"}"#), "{json}");
+    assert_eq!(decode::<crate::AnswerSessionAsk>("an answer", json.as_bytes()).expect("round-trips"), said);
+}

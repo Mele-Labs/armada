@@ -69,6 +69,7 @@ async fn asked_by(rig: &Rig, id: &SessionId, label: &str, ask: &'static str) -> 
             note: None,
             answers: vec![QuestionAnswer { question: "Carry on in a new Job?".into(), chosen: vec![label.into()] }],
             folder: None,
+            kind: None,
         })
         .await
         .expect("answered");
@@ -428,6 +429,7 @@ async fn pressed(rig: &Rig, id: &SessionId, question: &str, label: &str) {
             note: None,
             answers: vec![QuestionAnswer { question: question.into(), chosen: vec![label.into()] }],
             folder: None,
+            kind: None,
         })
         .await
         .expect("answered");

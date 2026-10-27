@@ -357,6 +357,7 @@ async fn his_answer_to_the_jobs_question_is_not_words_on_the_walk() {
             note: None,
             answers: vec![QuestionAnswer { question: "Save where?".into(), chosen: vec!["This Mac".into()] }],
             folder: None,
+            kind: None,
         })
         .await
         .expect("answered");

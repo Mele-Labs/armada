@@ -22,6 +22,7 @@ const PERMISSION: Record<SessionAnswer, string> = {
   always_allow: "Always allow",
   always_block: "Always block",
   allow_for_session: "Always allow for this job",
+  allow_like_this_for_session: "Allow calls like this for this job",
 };
 const PERMISSION_OF: Record<string, SessionAnswer> = { "Allow once": "allow_once", "Allow and remember": "allow_and_remember", Refuse: "refuse" };
 

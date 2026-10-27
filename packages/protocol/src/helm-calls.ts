@@ -28,6 +28,10 @@
  * until that session is closed. Fleet holds it in memory: nothing goes on `features.reachFolders`,
  * and a folder the owner blocked stays blocked.
  *
+ * `allow_like_this_for_session` carries `kind`, the card's own or the same with no script, and lets
+ * the session's calls of that kind run with no card until it is closed, narrowed to `folder` where
+ * one is given. Held in Fleet's memory the same way; a removal or a push is still read as one.
+ *
  * **Offered, never assumed.** `offers` carries the subset fleet will take, and
  * an answer outside it is a 409.
  *
@@ -37,11 +41,14 @@
  * appear on.
  */
 /** Every answer, for a process that checks one before sending it on. */
-export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "allow_for_session", "always_block"] as const;
+export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "allow_for_session", "allow_like_this_for_session", "always_block"] as const;
 export type HelmCallAnswer = (typeof HELM_CALL_ANSWERS)[number];
 
 /** Whether a call past a session's slots reads what it names or writes to it. */
 export type ReachesTo = "read" | "write";
+
+/** The kind of a shell call: its program, and for an interpreter the script it runs. */
+export type CallKind = { program: string; script?: string };
 
 /**
  * One call a helm session is waiting on a person to answer, right now. Since
@@ -76,6 +83,8 @@ export type HelmCallInFlight = {
   reaches?: string;
   /** Whether the call reads or writes past the slots, on a card the guard drew over a reach. Set where `reaches` is, and where the path could not be read as one. */
   reaches_to?: ReachesTo;
+  /** The program and script of the Bash segment whose reach the card is about, and what `allow_like_this_for_session` matches. Set only on a Bash reach card. */
+  kind?: CallKind;
 };
 
 /** One question the agent put to the person. Since protocol 23.71. */
@@ -107,6 +116,8 @@ export type AnswerHelmCall = {
   answers?: QuestionAnswer[];
   /** The folder an `always_allow`, `always_block` or `allow_for_session` is for: `reaches` or a folder above it. Read for those three only. */
   folder?: string;
+  /** The width an `allow_like_this_for_session` allows: the card's own `kind`, or the same with no script. Read for that answer only. */
+  kind?: CallKind;
 };
 
 /** What `list_helm_calls` and `answer_helm_call` answer. Since protocol 14.18. */

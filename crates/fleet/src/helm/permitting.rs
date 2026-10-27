@@ -151,7 +151,9 @@ where
             HelmCallAnswer::AllowOnce => HelmCallSettled::AllowedOnce,
             // Helm's dock never offers the folder answers: a Helm runs in his own checkout.
             HelmCallAnswer::Refuse | HelmCallAnswer::AlwaysBlock => HelmCallSettled::Refused,
-            HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AllowForSession => HelmCallSettled::AllowedOnce,
+            HelmCallAnswer::AlwaysAllow
+            | HelmCallAnswer::AllowForSession
+            | HelmCallAnswer::AllowLikeThisForSession => HelmCallSettled::AllowedOnce,
             HelmCallAnswer::AllowAndRemember => {
                 let at = adapters::personal_settings(served.root());
                 match adapters::remember_the_rule(&at, &waiting.rule) {

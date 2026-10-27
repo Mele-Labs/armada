@@ -853,6 +853,7 @@ export class FakeSessionsFleet {
       always_allow: "always_allowed",
       always_block: "always_blocked",
       allow_for_session: "allowed_for_session",
+      allow_like_this_for_session: "allowed_for_session",
     };
     const waiting = this.threads[answer.session_id]?.find((row) => row.kind === "ask" && row.ask.call === answer.call && row.state === "waiting");
     if (waiting?.kind === "ask") this.row(answer.session_id, { ...waiting, state: STATE[answer.answer] });

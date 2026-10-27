@@ -316,7 +316,7 @@ pub use timeline::{
     TimelineSubject, TimelineTone, DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_ITEMS, MOST_TIMELINE_LIMIT,
 };
 pub use helm_call::{
-    AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
+    AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, CallKind, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
     ReachesTo, RunOrNot, handoff_figure, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT,
     HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES,

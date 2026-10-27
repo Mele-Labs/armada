@@ -627,7 +627,7 @@ export type SentMessage = {
 export type SessionCommand = { name: string; says: string };
 
 /** What a person may answer a permission a Session is held on. */
-export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block" | "allow_for_session";
+export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block" | "allow_for_session" | "allow_like_this_for_session";
 
 /**
  * A permission a Session's agent is held on. `call` is Fleet's id for it and `offers` the answers it

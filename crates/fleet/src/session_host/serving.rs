@@ -223,6 +223,7 @@ where
             note: said.note,
             answers: said.answers,
             folder: said.folder,
+            kind: said.kind,
         };
         self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
