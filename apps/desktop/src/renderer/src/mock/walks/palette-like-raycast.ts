@@ -15,6 +15,7 @@ function steps(): Step[] {
     { look: role("option", /^Cache key/), say: "Cache key is pinned, and the glyph says it waits on him" },
     { drag: text("Pinned"), by: { x: 0, y: 160 }, say: "Drag it by any bare part. It snaps to the window's middle lines and opens where you left it. Double click a bare part to put it back" },
     { drag: text("Pinned"), by: { x: 0, y: -160 }, say: "Back up" },
+    { look: role("option", /^Cache key/), say: "Hold ⌘: the first nine rows show 1 to 9 over their kind, which blurs. ⌘ and a digit opens that row" },
     { type: "migration", into: bar, say: "Jobs from both repositories, one at work and one paused. A number or a repository name finds a row as a title does" },
     { key: "Meta+k", on: bar, say: "⌘K on a row opens its acts inside the palette, and the palette stays up. Esc goes back to the results with the words kept" },
     { press: role("option", "Pause", { exact: true }), say: "Pause. Stop asks first" },

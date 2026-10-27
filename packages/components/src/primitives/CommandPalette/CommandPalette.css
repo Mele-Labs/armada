@@ -204,23 +204,6 @@
   line-height: var(--leading-2xs);
 }
 
-/* One box per chord, plain punctuation between two distinct bindings. The
- * gap here is between boxes; a chord's own "+" is drawn inside kbd's box. */
-.armada-palette__keys {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-}
-
-/* `/` between two alternatives and `–` across a range. --fg-subtle, because it
- * is punctuation inside reference material that is already stepped down. */
-.armada-palette__between {
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-}
-
 .armada-palette__empty {
   margin: 0;
   padding: var(--space-3);
@@ -356,22 +339,34 @@
   text-overflow: ellipsis;
 }
 
-.armada-palette__keys-col {
-  flex: none;
-  display: inline-flex;
-  justify-content: flex-end;
-  width: calc(var(--space-4) * 4);
-}
-
 .armada-palette__kind {
+  position: relative;
   flex: none;
   width: calc(var(--space-12) * 2);
-  overflow: hidden;
   color: var(--fg-subtle);
   font-size: var(--text-xs);
   text-align: right;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.armada-palette__kind-word {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: filter var(--duration-fast) var(--ease), opacity var(--duration-fast) var(--ease);
+}
+
+/* While ⌘ is held, the kind blurs and the digit that opens the row sits over its right edge, as Raycast draws it. */
+.armada-palette__kind[data-revealing] .armada-palette__kind-word {
+  filter: blur(var(--space-1));
+  opacity: 0.6;
+}
+
+.armada-palette__quick {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ⌘K on a row: what can be done to it, over the lower right of the results, as Raycast lays its panel: the row's

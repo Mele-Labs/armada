@@ -102,11 +102,8 @@ export function DispatchRow({
           <span className="armada-palette__words">“{words}”</span>
         </span>
       </span>
-      {/* The result rows' two columns, so its key ends on their keys' edge. */}
+      {/* The result rows' kind column, so its kind ends on their edge. Its key, ⌘↵, is on the foot. */}
       <span className="armada-palette__kind">{KIND[kind]}</span>
-      <span className="armada-palette__keys-col">
-        <KbdChord keys={["⌘", "↵"]} />
-      </span>
     </div>
   );
 }

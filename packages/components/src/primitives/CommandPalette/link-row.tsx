@@ -36,7 +36,6 @@ export function LinkRow({ kind, link, active, ref, onEnter, onChoose }: { kind: 
         </span>
       </span>
       <span className="armada-palette__kind">{drawn}</span>
-      <span className="armada-palette__keys-col" />
     </div>
   );
 }

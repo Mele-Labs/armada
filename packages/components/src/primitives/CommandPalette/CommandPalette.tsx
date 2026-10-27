@@ -7,6 +7,7 @@ import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type P
 import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
 import { usePlace } from "./place";
+import { ShortcutRevealProvider, useShortcutReveal } from "../../shortcut-reveal";
 
 import { LINK_ROW, LinkRow, type PaletteLink } from "./link-row";
 import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
@@ -340,6 +341,24 @@ export function CommandPalette({
     return () => window.removeEventListener("keydown", onChord, true);
   });
 
+  // ⌘1 to ⌘9 open the first nine results, as Raycast's do; the digit is drawn on each while ⌘ is held. Taken from the
+  // window in the capture phase, so the title bar's tabs, which ⌘1 to ⌘8 reach elsewhere, stand down while it is up.
+  useEffect(() => {
+    if (!open || acting !== null) return;
+    function onDigit(event: KeyboardEvent) {
+      if (event.defaultPrevented || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return;
+      const digit = /^Digit([1-9])$/.exec(event.code)?.[1];
+      if (digit === undefined) return;
+      const held = hits[Number(digit) - 1];
+      if (held === undefined) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      choose(held);
+    }
+    window.addEventListener("keydown", onDigit, true);
+    return () => window.removeEventListener("keydown", onDigit, true);
+  });
+
   // A click outside `.armada-palette` closes it, following `Popover`'s `contains(target)` check —
   // not `event.target === layer`, which breaks the moment anything else nests in the layer.
   useEffect(() => {
@@ -475,6 +494,8 @@ export function CommandPalette({
   }
 
   let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1) + (typedKind === null ? 0 : 1);
+  // The results' own count, for the digit ⌘ shows on each of the first nine.
+  let quick = 0;
   const current = flat[at];
   const actionList = acting === null ? [] : narrowed(actionsOf?.(acting.entry) ?? [], actionQuery);
   const sendRow = !offered ? null : (
@@ -482,6 +503,8 @@ export function CommandPalette({
   );
 
   return (
+    // Its own ⌘ listener: the palette is mounted beside the shell, outside the one `TheShell` holds.
+    <ShortcutRevealProvider>
     <div className="armada-palette-layer" data-anchored={place.style === undefined ? undefined : ""}>
       {/* The window's middle lines, drawn only while the palette is dragged onto one. */}
       {place.snapped?.across === true ? <div className="armada-palette__guide armada-palette__guide--across" aria-hidden /> : null}
@@ -534,10 +557,13 @@ export function CommandPalette({
               <div className="armada-palette__section">{group.section.title}</div>
               {group.hits.map((held) => {
                 n += 1;
+                quick += 1;
                 const where = n;
+                const digit = quick;
                 return (
                   <Row
                     key={held.entry.id}
+                    quick={digit <= 9 ? digit : undefined}
                     hit={held}
                     query={query}
                     active={where === at}
@@ -575,6 +601,7 @@ export function CommandPalette({
         ) : null}
       </div>
     </div>
+    </ShortcutRevealProvider>
   );
 }
 
@@ -586,6 +613,7 @@ function rowId(entry: PaletteEntry): string {
 function Row({
   hit: held,
   query,
+  quick,
   active,
   ref,
   onEnter,
@@ -593,6 +621,8 @@ function Row({
 }: {
   hit: Hit;
   query: string;
+  /** Its place among the first nine results, which ⌘ and that digit open. */
+  quick: number | undefined;
   active: boolean;
   ref?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
@@ -636,11 +666,25 @@ function Row({
         </span>
         <Subtitle meta={entry.meta} value={entry.value} dormant={entry.dormant} />
       </span>
-      {/* Two fixed columns, so every kind and every binding ends on the same
-          edge as the rows above it: the kind, then the key at the far right. */}
-      <span className="armada-palette__kind">{entry.kind}</span>
-      <span className="armada-palette__keys-col">{entry.shortcut === undefined ? null : <Shortcut shortcut={entry.shortcut} />}</span>
+      {/* What the row is, flush right. While ⌘ is held its digit sits over the
+          kind, which blurs behind it, as Raycast draws it (the owner, 27 Oct 2026). */}
+      <Kind kind={entry.kind} quick={quick} />
     </div>
+  );
+}
+
+/** The kind, and over it while ⌘ is held, the digit that opens the row. */
+function Kind({ kind, quick }: { kind: string | undefined; quick: number | undefined }) {
+  const revealing = useShortcutReveal();
+  return (
+    <span className="armada-palette__kind" data-revealing={revealing && quick !== undefined ? "" : undefined}>
+      <span className="armada-palette__kind-word">{kind}</span>
+      {revealing && quick !== undefined ? (
+        <span className="armada-palette__quick" aria-hidden>
+          <KbdChord keys={[String(quick)]} />
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -665,57 +709,4 @@ function Marked({ label, query, at }: { label: string; query: string; at: number
       {label.slice(at + query.length)}
     </>
   );
-}
-
-/**
- * The binding, cut into one box per chord and a separator between two.
- *
- * **The registry's spelling is the input and nothing is re-spelled here.**
- * `⌘K`, `j / k / ↓ / ↑`, `⌘1–⌘6` and `[ ]` are all how `actions.toml` writes
- * them, and the gate holds that file to the contract's map — so the palette
- * shows exactly the string a person will read in the contract. What this does
- * is put every chord — the keys of one binding held together — in its own
- * box; `/` and `–` still separate two distinct bindings and are drawn as
- * punctuation between boxes, never folded into one.
- */
-function Shortcut({ shortcut }: { shortcut: string }) {
-  return (
-    <span className="armada-palette__keys">
-      {piecesOf(shortcut).map((piece, i) =>
-        piece.chord === undefined ? (
-          <span key={i} className="armada-palette__between">
-            {piece.between}
-          </span>
-        ) : (
-          <KbdChord key={i} keys={piece.chord} />
-        ),
-      )}
-    </span>
-  );
-}
-
-/** A chord that gets one box, or a separator drawn between two. */
-type Piece = { chord: string[]; between?: undefined } | { chord?: undefined; between: string };
-
-/**
- * Cut a binding into chords and separators.
- *
- * A space separates two whole bindings and needs no mark — the gap between
- * boxes is the separation. `/` and `–` are kept and drawn, because `j / k`
- * means either key and `⌘1–⌘6` means a range: both are two distinct bindings,
- * never one chord, so the separator stays outside every box. A leading `⌘`
- * joins the box it already started rather than starting one of its own — the
- * combination `⌘K` is one press, and one box is what reads as one.
- */
-function piecesOf(shortcut: string): Piece[] {
-  return shortcut
-    .split(/(\s+|\/|–)/)
-    .flatMap((part): Piece[] => {
-      if (part.trim() === "") return [];
-      if (part === "/" || part === "–") return [{ between: part }];
-      if (part.length > 1 && part.startsWith("⌘")) {
-        return [{ chord: ["⌘", part.slice(1)] }];
-      }
-      return [{ chord: [part] }];
-    });
 }

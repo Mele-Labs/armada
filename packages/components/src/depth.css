@@ -485,7 +485,6 @@
   background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
 :root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
-:root[data-look="new"] .armada-palette__keys { margin-left: auto; font-family: var(--font-mono); }
 @media (prefers-reduced-motion: reduce) {
   :root[data-look="new"] .armada-palette { animation: none; }
 }
