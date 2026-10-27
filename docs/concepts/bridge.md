@@ -102,7 +102,7 @@ It is a System page, `⌘,`, and the title menu's entry.
 **A digit is a tab's place in the bar, and nothing else takes one.** `⌘1` to `⌘8` are the tabs in the order the bar draws them, each drawn tab taking the next, Settings is `⌘,`, and every other page is reached from the strip, the palette or a link.
 The rail's `⌘1`–`⌘9` and their history are in `../contracts/design-system.md`, Two tiers.
 
-**Workflows is a System page and takes no digit.** It lists the definitions Fleet holds for the picked repository, one row per file, and a definition opens as its steps on a canvas.
+**Workflows is a System page and takes no digit.** It lists the workflows Fleet holds for the picked repository in three groups, and a workflow opens as its steps.
 Fleet is read for the list, for each file's text and for the save; a Kit file and a repository file are written through `save_workflow`, so Fleet's loader checks what is saved and its sentence is what a refused save shows.
 The page's glyph is `workflow`, and its strip tab carries a mark while Fleet has left a file out, with no count.
 See [Workflow](workflow.md).

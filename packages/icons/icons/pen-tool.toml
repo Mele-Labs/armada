@@ -1,0 +1,6 @@
+[icons.pen-tool]
+  means = "A pen nib on a path"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Marks the Sketch step on a workflow step card. Sketch draws the idea, and a nib on a path is drawing. Drawn at 14px, stroke 2. Refused: `shapes`, reserved to placing a Sketch node on a Studio whiteboard."

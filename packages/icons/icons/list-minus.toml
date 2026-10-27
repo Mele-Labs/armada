@@ -1,0 +1,6 @@
+[icons.list-minus]
+  means = "A list with a minus"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Marks the Before column of a proposed change to a workflow. A line taken off a list. Tooltip `Removed`. Drawn at 14px, stroke 2. Refused: `minus`, reserved to a verdict row and a dropped task."

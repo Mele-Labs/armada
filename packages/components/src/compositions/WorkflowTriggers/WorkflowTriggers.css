@@ -196,3 +196,23 @@
   padding: var(--space-1);
   border-color: var(--accent);
 }
+
+.armada-wf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.armada-wf-panel__gate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.armada-wf-panel__fact {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}

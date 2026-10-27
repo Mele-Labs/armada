@@ -59,6 +59,10 @@ mod turn_usage_keeping;
 mod loadout_reading;
 /// A Session's place in its workflow, read from what Fleet observed, and the nudge for a step skipped.
 mod rail;
+/// What ends each step of a workflow, derived from its anchor, for the workflow's page.
+mod rail_ends;
+/// The repository's test paths by convention, which the rail asks about a file the agent wrote.
+mod test_paths;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
@@ -343,6 +347,9 @@ mod worktrees_kept;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
 mod wire;
+mod workflow_page;
+/// A change to a workflow an agent drafts for the owner to approve.
+mod workflow_changes;
 pub mod workspaces;
 
 #[cfg(test)]

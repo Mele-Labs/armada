@@ -10,6 +10,17 @@ It is absent for a custom Job, once the delivering step's pull request has merge
 A `follows_plan` step is current from approval, and stays until a later step is entered.
 A `delivers` step is current from the first push until its pull request merges.
 
+**Steps before the plan, and the walk** (27 Oct 2026, `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`).
+A step before the recording step is current until a plan is recorded, or, with `awaits_reply`, until the owner replies.
+The reply is a message of his after the agent's first turn: Fleet's own notices and other Jobs' words are not one.
+The recording step, when something precedes it, is entered when a plan is recorded and is current until he approves it.
+A `walks` step is current from the plan's approval until he approves a window the Job showed (`show_window`).
+A walk is expected as [Workflow](../workflow.md#walks-and-replies) says.
+It is passed over only when the plan was approved with no walk expected and the Job has pushed.
+Until it pushes, the step stays current, because the mock is still being built.
+A `follows_plan` step after it, or any step that fits a fact, is entered only once it is passed.
+Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
+
 **The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:
 
 | Step declares | Entered on |
@@ -35,7 +46,21 @@ That holds for a Job an agent started, which waits for the owner's send, and for
 A step with `asks_delivery` is read from that first message: one that names a delivery goes with the step's instructions, and one that does not goes with the question, the instructions waiting for the answer.
 A Job whose Delivery was settled before Start is asked nothing, and its first turn carries the choice with the instructions.
 
-**A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Job's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open.
+**A skipped step draws one nudge, and nothing blocks.** Each skip is told once for each step in a Job's life.
+Each nudge sent is also kept against the workflow, where it came from and the step, with the short fact in the table, so the workflow's page lists the Jobs that drifted there.
+
+| Skip | Told when | Kept as |
+|---|---|---|
+| Plan | Files are edited before the `records_plan` step's plan is approved, in a workflow with no `walks` step | *edited before the plan was approved* |
+| Plan, tested | In a workflow with a `walks` step, a test file is edited before the plan is approved | *a test before the plan was approved* |
+| Plan, pushed | In a workflow with a `walks` step, the work is pushed before the plan is approved | *pushed before the plan was approved* |
+| Tasks | The work is pushed while the plan's tasks are open | *pushed with the plan's tasks open* |
+| Walk | A test file is edited after the plan is approved and before the `walks` step is passed, when a walk is expected | *a test before the walk was approved* |
+
+In a workflow with a `walks` step, editing before the plan is approved is no skip, because a rough mock may be built while it is discussed.
+A test file is one under `tests/` or `__tests__/`, or named `*.test.*` or `*_test.*` (`test_paths.rs`).
+A kept nudge marked Not a drift stops counting and stays listed (`workflow_nudges`).
+Two counting at one step inside seven days draw a suggested change to that step's words ([Workflow](../workflow.md), *The Workflows page*).
 Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*.
 A nudge that cannot be delivered because nobody is there is asked again later and not counted.
 

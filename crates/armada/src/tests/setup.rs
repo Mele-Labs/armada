@@ -100,10 +100,10 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         .collect();
     assert_eq!(
         steps,
-        vec!["plan", "implement", "land"],
-        "three steps, which is M1's reduced form of the designed Bug workflow \
-         — `implement` carries the test Check itself rather than handing off \
-         to a separate `verify` step"
+        vec!["find_the_cause", "fix", "short_walk", "tests", "deliver"],
+        "the five steps the owner chose on 27 Oct 2026: the walk comes before \
+         the tests, and `tests` carries the test Check itself rather than \
+         handing off to a separate `verify` step"
     );
 }
 
@@ -341,16 +341,16 @@ fn the_designed_bug_workflow_is_refused_for_a_reason_a_later_milestone_removes()
 /// The two definitions are different files with different scope, and nothing
 /// reconciles them by accident.
 ///
-/// M1's reduced form has three steps because M1 has no Judge to answer
-/// `auto_if_judge_passes` and no verdict to route on, and `implement` carries
-/// the test Check itself rather than handing off to a step of its own. The
-/// designed one has seven and loops. A change that made the two the same
-/// length would mean one of them had been quietly rewritten into the other.
+/// The shipped form has five steps, the order the owner chose on 27 Oct 2026,
+/// and `tests` carries the test Check itself rather than handing off to a step
+/// of its own. The designed one has seven and loops. A change that made the two
+/// the same length would mean one of them had been quietly rewritten into the
+/// other.
 #[test]
 fn the_designed_definition_and_m1s_reduced_form_are_not_the_same_workflow() {
     let setup =
         Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    assert_eq!(bug(&setup).steps().len(), 3);
+    assert_eq!(bug(&setup).steps().len(), 5);
 
     let designed = repository()
         .join("crates/core-model/domain/workflow-samples")

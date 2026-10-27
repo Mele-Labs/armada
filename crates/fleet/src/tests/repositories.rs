@@ -12,7 +12,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::repositories::{
-    Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotSaved,
+    Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotRemoved, WorkflowNotSaved,
 };
 use crate::tests::daemon::fitted_with;
 use crate::tests::daemon::manifest;
@@ -38,6 +38,9 @@ pub struct Planted {
     /// What each check answers in turn, `Ok` once they run out, and every check asked for.
     checking: Mutex<std::collections::VecDeque<Result<(), WorkflowNotSaved>>>,
     checks: Mutex<Vec<ipc::SaveWorkflow>>,
+    /// What the next removal answers, and every removal asked for: the scope and the id.
+    removing: Mutex<Option<Result<String, WorkflowNotRemoved>>>,
+    removals: Mutex<Vec<(ipc::WorkflowScope, String)>>,
     /// What the folders read as when Fleet reads them again.
     reading: Mutex<Option<Catalogued>>,
     /// Folders in no git repository, until one is started there.
@@ -88,6 +91,17 @@ impl Planted {
     /// writes is the composition root's, tested there against real files.
     pub fn will_save(&self, answer: Result<SavedWorkflow, WorkflowNotSaved>) {
         *self.saving.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    }
+
+    /// What the next removal answers. Nothing is deleted: what a removal deletes is the composition
+    /// root's, tested there against real files.
+    pub fn will_remove(&self, answer: Result<String, WorkflowNotRemoved>) {
+        *self.removing.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    }
+
+    /// Every removal Fleet asked the composition root to make.
+    pub fn removals(&self) -> Vec<(ipc::WorkflowScope, String)> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     /// What the next checks answer, one each.
@@ -209,6 +223,34 @@ impl Locating for Planted {
             .unwrap_or_else(PoisonError::into_inner)
             .take()
             .expect("a case that saves says what the save answers")
+    }
+
+    fn remove_workflow(
+        &self,
+        _root: &Path,
+        scope: ipc::WorkflowScope,
+        id: &str,
+    ) -> Result<String, WorkflowNotRemoved> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, id.to_string()));
+        self.removing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that removes says what the removal answers")
+    }
+
+    fn remove_workflow_file(
+        &self,
+        _root: &Path,
+        scope: ipc::WorkflowScope,
+        file: &Path,
+    ) -> Result<String, WorkflowNotRemoved> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, file.display().to_string()));
+        self.removing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that removes says what the removal answers")
     }
 
     fn check_workflow(

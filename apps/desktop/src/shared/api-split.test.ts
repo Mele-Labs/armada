@@ -109,10 +109,21 @@ import type {
   KitServersRead,
 } from "@armada/screens/src/manifest-kit";
 import type { InstallKitPiece, LookAtKitSource, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
+import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
 import type {
+  ActingOnWorkflowCopy,
+  AskingForWorkflowChange,
+  NotADriftAnswer,
   SavingWorkflow,
+  SuggestingWorkflowChange,
+  WorkflowChangeAnswer,
+  WorkflowChangeApproveAnswer,
+  WorkflowChangesRead,
+  WorkflowCopyDeleteAnswer,
   WorkflowDefinitionRead,
+  WorkflowProposeAnswer,
   WorkflowSaveAnswer,
+  WorkflowStepsRead,
   WorkflowsRead,
 } from "./workflows";
 import type {
@@ -271,6 +282,17 @@ type OldBridgeApi = {
     readWorkflows: () => Promise<WorkflowsRead>;
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
+    readWorkflowSteps: (workflowId: string, source: string) => Promise<WorkflowStepsRead>;
+    deleteWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowCopyDeleteAnswer>;
+    resetWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowSaveAnswer>;
+    markNotADrift: (nudge: number) => Promise<NotADriftAnswer>;
+    askWorkflowChange: (asking: AskingForWorkflowChange) => Promise<WorkflowChangeAnswer>;
+    suggestWorkflowChange: (suggesting: SuggestingWorkflowChange) => Promise<WorkflowChangeAnswer>;
+    readWorkflowChanges: (workflowId: string, source: string) => Promise<WorkflowChangesRead>;
+    approveWorkflowChange: (change: number) => Promise<WorkflowChangeApproveAnswer>;
+    dismissWorkflowChange: (change: number) => Promise<WorkflowChangeAnswer>;
+    sendBackWorkflowChange: (back: SendBackWorkflowChange) => Promise<WorkflowChangeAnswer>;
+    proposeWorkflowToArmada: (proposing: ProposeToArmada) => Promise<WorkflowProposeAnswer>;
     readTriggers: () => Promise<TriggersRead>;
     readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
     saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
@@ -589,6 +611,17 @@ const OLD_CHANNELS = {
     readWorkflows: "bridge:read-workflows",
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
+    readWorkflowSteps: "bridge:read-workflow-steps",
+    deleteWorkflowCopy: "bridge:delete-workflow-copy",
+    resetWorkflowCopy: "bridge:reset-workflow-copy",
+    markNotADrift: "bridge:mark-not-a-drift",
+    askWorkflowChange: "bridge:ask-workflow-change",
+    suggestWorkflowChange: "bridge:suggest-workflow-change",
+    readWorkflowChanges: "bridge:read-workflow-changes",
+    approveWorkflowChange: "bridge:approve-workflow-change",
+    dismissWorkflowChange: "bridge:dismiss-workflow-change",
+    sendBackWorkflowChange: "bridge:send-back-workflow-change",
+    proposeWorkflowToArmada: "bridge:propose-workflow-to-armada",
     readTriggers: "bridge:read-triggers",
     readTrigger: "bridge:read-trigger",
     saveTrigger: "bridge:save-trigger",

@@ -213,6 +213,14 @@ pub(crate) async fn show_sketch<D: Sessions>(
     }
 }
 
+/// What `record_plan` carries beside [`ipc::RecordPlan`]: the agent's word that the person would see the change. Read
+/// here, off the same body, so it is no field of the wire type. It holds nothing.
+#[derive(Deserialize)]
+struct PlanSeen {
+    #[serde(default)]
+    seen: bool,
+}
+
 /// A session records its plan. 200 with the row, or a [`Receipt`] through the agent's door naming the version and
 /// each group and task by the id Fleet gave it; 422 for a plan that breaks a rule, naming each, or a call that places
 /// no session. **The session is placed by the connection**, as `show_window`'s is.
@@ -225,7 +233,8 @@ pub(crate) async fn record_plan<D: Sessions>(
         Ok(plan) => plan,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().record_plan(crate::acting::asking(), plan).await {
+    let seen = ipc::decode::<PlanSeen>("a plan to record", &body).is_ok_and(|beside| beside.seen);
+    match served.daemon().record_plan(crate::acting::asking(), plan, seen).await {
         Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::plan(&record), served.run_id()),
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),

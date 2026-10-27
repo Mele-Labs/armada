@@ -105,9 +105,9 @@ fn a_refused_width_does_not_take_the_check_with_a_default() {
 #[test]
 fn it_is_frozen_onto_the_resolved_step() {
     let feature = resolved(FEATURE);
-    let implement = step(&feature, "implement");
+    let refine = step(&feature, "refine");
     let by_name = |name: &str| {
-        implement
+        refine
             .checks()
             .iter()
             .find(|check| check.name() == Some(name))

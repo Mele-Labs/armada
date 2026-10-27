@@ -115,8 +115,52 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::repositories::list_left_out_workflows::<D>),
         )
         .route(
+            "/workflows/steps",
+            get(crate::repositories::get_workflow_steps::<D>),
+        )
+        .route(
             "/workflows/save",
             post(crate::repositories::save_workflow::<D>),
+        )
+        .route(
+            "/workflows/delete",
+            post(crate::repositories::delete_workflow_copy::<D>),
+        )
+        .route(
+            "/workflows/reset",
+            post(crate::repositories::reset_workflow_copy::<D>),
+        )
+        .route(
+            "/workflows/not_a_drift",
+            post(crate::repositories::mark_not_a_drift::<D>),
+        )
+        .route(
+            "/workflows/changes",
+            get(crate::repositories::list_workflow_changes::<D>),
+        )
+        .route(
+            "/workflows/changes/ask",
+            post(crate::repositories::ask_workflow_change::<D>),
+        )
+        .route(
+            "/workflows/changes/suggest",
+            post(crate::repositories::suggest_workflow_change::<D>),
+        )
+        .route(
+            "/workflows/changes/approve",
+            post(crate::repositories::approve_workflow_change::<D>),
+        )
+        .route(
+            "/workflows/changes/dismiss",
+            post(crate::repositories::dismiss_workflow_change::<D>),
+        )
+        .route(
+            "/workflows/changes/send_back",
+            post(crate::repositories::send_back_workflow_change::<D>),
+        )
+        .route(
+            "/workflows/propose",
+            post(crate::repositories::propose_workflow_to_armada::<D>),
         )
         .route("/triggers", get(crate::repositories::list_triggers::<D>))
         .route(

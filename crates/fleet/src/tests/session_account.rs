@@ -243,7 +243,7 @@ fn group(title: &str, tasks: &[&str]) -> PlanGroupInput {
 async fn planned(rig: &Rig, id: &SessionId, approved: bool) {
     let groups = vec![group("Store", &["Add the tables", "Add the migration"]), group("Fleet", &["Record it"])];
     let plan = RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(id.clone()) };
-    rig.fleet.record_plan(None, plan).await.expect("recorded");
+    rig.fleet.record_plan(None, plan, false).await.expect("recorded");
     if approved {
         Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.expect("approved");
     }

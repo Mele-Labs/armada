@@ -30,6 +30,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         set_aside_at: None,
         sketch: Some(("sketch:Flow".to_string(), "Flow".to_string())),
         walk: (version == 1).then(|| "http://localhost:5173/?walk=plan".to_string()),
+        seen: version == 2,
         changes: (version > 1).then(|| vec![KeptPlanChange { kind: "added".into(), id: "t9".into(), other: String::new() }]),
         next_group: 2,
         next_task: 10,
@@ -62,6 +63,7 @@ fn a_plan_survives_a_reopen_with_its_order_paths_and_changes() {
     let mut store = open(&dir);
     assert_eq!(store.session_plan("s1").unwrap(), None);
     let kept = plan(2, &[("t1", "Add the tables"), ("t2", "Add the migration")]);
+    assert!(kept.seen, "the plan says the person would see it");
     store.keep_session_plan("s1", &kept).unwrap();
     drop(store);
     assert_eq!(open(&dir).session_plan("s1").unwrap(), Some(kept));

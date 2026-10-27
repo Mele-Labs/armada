@@ -325,7 +325,7 @@
 @import "./compositions/RetroSheet/RetroSheet.css";
 @import "./compositions/PoolSlots/PoolSlots.css";
 @import "./compositions/PoolSlots/TileSheet.css";
-@import "./compositions/WorkflowCreator/WorkflowCreator.css";
+@import "./compositions/WorkflowManager/WorkflowManager.css";
 @import "./compositions/WorkflowTriggers/WorkflowTriggers.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/RegisteredOwner/RegisteredOwner.css";

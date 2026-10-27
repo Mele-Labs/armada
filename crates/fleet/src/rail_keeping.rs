@@ -5,16 +5,20 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Ulid, WorkflowId};
 use ipc::{
-    ConcernFrom, ConcernHow, ConcernSettled, Instant, JudgeConcern, JudgeReading, WaitingAct, WaitingActKind,
-    WaitingCite, WaitingItem, WaitingSource,
+    ConcernFrom, ConcernHow, ConcernSettled, Instant, JudgeConcern, JudgeReading, SessionRow, SessionVoice, WaitingAct,
+    WaitingActKind, WaitingCite, WaitingItem, WaitingSource,
 };
-use store::{KeptConcern, KeptReading, KeptSession, Store, WriteError};
+use store::{KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, WriteError};
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
+use crate::session_host::walking::walk_approval;
 
 /// The prefix of a concern's item id: `judge:<n>`.
 pub(crate) const CONCERN_PREFIX: &str = "judge:";
+
+/// How many nudges a step's list holds.
+const RECENT_NUDGES: u32 = 20;
 
 /// What a row's step and judge reading are derived from.
 #[derive(Default)]
@@ -23,18 +27,48 @@ pub(crate) struct RailReads {
     pub reading: Option<KeptReading>,
 }
 
-/// Read what the rail needs beyond the record. **The commit and Check run are looked for only where the
-/// Session follows a workflow**, since nothing else reads them.
+/// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
+/// walk are looked for only where the Session follows a workflow**, since nothing else reads them.
 pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
     let extra = if follows {
+        let rows: Vec<SessionRow> = store
+            .session_rows(&session.id)?
+            .iter()
+            .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
+            .collect();
         Extra {
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
+            plan_expects_walk: store.session_plan(&session.id)?.is_some_and(|plan| plan.seen || plan.walk.is_some()),
+            ..thread_facts(&rows)
         }
     } else {
         Extra::default()
     };
     Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)? })
+}
+
+/// What the thread shows: the person wrote after the agent's first turn (a message or a tool call),
+/// the Job showed a window, and he approved one. **Only `You` is the person**: Fleet's own notices
+/// and other Sessions' words are not a reply.
+pub(crate) fn thread_facts(rows: &[SessionRow]) -> Extra {
+    let spoke = rows.iter().position(|row| match row {
+        SessionRow::Message { from, .. } => *from == SessionVoice::Agent,
+        SessionRow::Tool { .. } => true,
+        _ => false,
+    });
+    let replied = spoke.is_some_and(|spoke| {
+        rows[spoke..].iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, .. }))
+    });
+    let windows: Vec<&str> = rows
+        .iter()
+        .filter_map(|row| match row {
+            SessionRow::Window { url, .. } => Some(url.as_str()),
+            _ => None,
+        })
+        .collect();
+    let walk_approved = windows.iter().any(|url| walk_approval(rows, url).is_some());
+    Extra { replied, walk_shown: !windows.is_empty(), walk_approved, ..Extra::default() }
 }
 
 pub(crate) fn reading_wire(kept: &KeptReading) -> JudgeReading {
@@ -96,6 +130,43 @@ where
         let held = served.workflows();
         let found = held.get(&WorkflowId::carried(Ulid::carried(workflow)))?;
         Some(rail::steps_of(found))
+    }
+
+    /// Keep a nudge against the step it was sent for, so the workflow's page can list it. A fault is
+    /// the page's loss and not the Job's, so it is said and nothing more. **The place the definition
+    /// came from, where the nudge was new**: a Job drifts from a step in one way once.
+    pub(crate) async fn nudge_kept(
+        &self,
+        manifest: &str,
+        workflow: &str,
+        step: &RailStep,
+        session: &str,
+        skip: rail::Skip,
+    ) -> Option<&'static str> {
+        let source = self.repositories().serving(manifest).and_then(|served| {
+            served.workflows().get(&WorkflowId::carried(Ulid::carried(workflow))).map(|found| found.source().as_wire())
+        })?;
+        let at = self.now().as_str().to_string();
+        let kept = self.store().lock().await.keep_workflow_nudge(workflow, source, &step.id, session, skip.fact(), &at);
+        match kept {
+            Ok(new) => new.then_some(source),
+            Err(why) => {
+                self.session_warned(session, "the nudge was not kept against its step", why);
+                None
+            }
+        }
+    }
+
+    /// The newest nudges sent for one step of a workflow, newest first, those marked not a drift
+    /// included (they do not count). For the workflow's page.
+    pub(crate) async fn step_nudges(&self, workflow: &str, source: &str, step: &str) -> Vec<KeptWorkflowNudge> {
+        self.store().lock().await.workflow_nudges(workflow, source, step, RECENT_NUDGES).unwrap_or_default()
+    }
+
+    /// Mark a nudge not a drift, so it stops counting. Whether there was one.
+    pub(crate) async fn nudge_not_a_drift(&self, id: i64) -> bool {
+        let at = self.now().as_str().to_string();
+        self.store().lock().await.dismiss_workflow_nudge(id, &at).unwrap_or(false)
     }
 
     /// Draw what the rail and the judges add to a hosted Session's row: the step it is on, whether a

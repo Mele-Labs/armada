@@ -311,6 +311,24 @@ async fn record_plan_names_each_window_that_holds_it_and_what_settles_it() {
 }
 
 #[tokio::test]
+async fn record_plan_hands_the_daemon_whether_the_agent_said_the_person_would_see_it() {
+    let seen_by = |body: &str| {
+        let body = body.to_string();
+        async move {
+            let daemon = FakeDaemon::new(Broadcaster::new());
+            let kept = daemon.plans_seen.clone();
+            let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+            through_the_door(&app, "record_plan", &body).await;
+            let kept = kept.lock().expect("plans seen").clone();
+            kept
+        }
+    };
+    let with = PLAN.replacen('{', r#"{"seen":true,"#, 1);
+    assert_eq!(seen_by(&with).await, [true]);
+    assert_eq!(seen_by(PLAN).await, [false], "left out, it is false");
+}
+
+#[tokio::test]
 async fn show_file_answers_the_path_it_opened() {
     let (app, _) = a_fleet();
     let said = through_the_door(&app, "show_file", FILE).await;

@@ -76,6 +76,8 @@ pub struct KeptPlan {
     pub sketch: Option<(String, String)>,
     /// The page the plan depends on: its call waits until the person approves that walk.
     pub walk: Option<String>,
+    /// The agent's word that the person would see the change, so a walk follows approval. It holds nothing.
+    pub seen: bool,
     /// What this version changed against the one before. Absent for the first.
     pub changes: Option<Vec<KeptPlanChange>>,
     /// The next number a group and a task are given, so an id is never given twice.
@@ -110,7 +112,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -128,6 +130,7 @@ impl Store {
                         summary: row.get(9)?,
                         set_aside_at: row.get(10)?,
                         calls: row.get(11)?,
+                        seen: row.get::<_, i64>(12)? == 1,
                         groups: Vec::new(),
                     })
                 },
@@ -224,8 +227,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 session_id,
                 plan.version,
@@ -240,6 +243,7 @@ impl Store {
                 plan.summary,
                 plan.set_aside_at,
                 plan.calls,
+                plan.seen,
             ],
         )
         .map_err(keeping)?;

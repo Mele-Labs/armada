@@ -297,6 +297,7 @@ pub struct WorkflowFile {
     source: WorkflowSource,
     path: PathBuf,
     text: String,
+    def: WorkflowDef,
     overridden_by: Option<WorkflowSource>,
     hides: Option<WorkflowSource>,
 }
@@ -314,6 +315,7 @@ impl WorkflowFile {
             source,
             path: def.path().to_path_buf(),
             text,
+            def: def.clone(),
             overridden_by,
             hides: None,
         }
@@ -335,6 +337,12 @@ impl WorkflowFile {
     /// The file as it was read, whole.
     pub fn text(&self) -> &str {
         &self.text
+    }
+
+    /// The file parsed, so a place that replaced this one can still be read step by step without
+    /// parsing again. **Not resolved**: one a more specific place replaced never is.
+    pub fn def(&self) -> &WorkflowDef {
+        &self.def
     }
 
     /// The place that answers for this id instead. `None` where this one runs.

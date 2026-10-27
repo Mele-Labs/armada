@@ -1,0 +1,16 @@
+[operations.suggest_workflow_change]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Ask for new words for one step of a repository's or Kit's workflow now, from the Jobs Fleet nudged there"
+notes = """
+`POST /workflows/changes/suggest`, since 27 Oct 2026, with `?manifest_id=`. The body is `SuggestWorkflowChange`: `workflow_id`, `source` and `step_id`. The answer is a `WorkflowChange` with `origin` `drift`, `step_id` set and `state` `drafting`.
+
+**Fleet drafts one on its own when one step drifts twice in a week**: two nudges that still count inside seven days, no open change for that step, in a repository's or Kit's copy. This is the same change asked for sooner, from the nudges that count now. Armada's own definitions get none.
+
+**A suggestion may change only that step's `instructions`.** The agent is given the whole definition and returns the whole definition, and anything but that one step's words differing makes the draft unfit.
+
+422 `fleet.workflow_is_armadas`; 422 `fleet.no_such_workflow_definition`; 422 `fleet.workflow_step_not_here` where the definition has no such step; 422 `fleet.workflow_change_open` where the step already has an open change, which is returned in the refusal's `change` field; 422 `fleet.workflow_nothing_drifted` where no nudge counts at that step.
+
+`agent_access` is `Bridge only`, as `ask_workflow_change`.
+"""

@@ -1,0 +1,16 @@
+[operations.list_workflow_changes]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The open changes to one workflow in one place: drafting, ready or failed"
+notes = """
+`GET /workflows/changes?workflow_id=&source=&manifest_id=`, since 27 Oct 2026. The answer is a `WorkflowChanges`: the changes not yet approved or dismissed, oldest first. `source` is required.
+
+**A read the page polls while one is `drafting`.** The event stream carries nothing of these, so this adds no load to the sink that is unbounded from the application side.
+
+A change left drafting by a Fleet that stopped is read as `failed` here, with that as its `reason`, once longer has passed than two attempts can take.
+
+A repository's copy is one repository's: the changes listed are those begun under that `manifest_id`. Kit's are every repository's.
+
+`agent_access` is `Yes`, `get_workflow_steps`' terms.
+"""

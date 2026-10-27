@@ -37,6 +37,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         set_aside_at: None,
         sketch: None,
         walk: None,
+        seen: false,
         changes: None,
         next_group: 3,
         next_task: 4,

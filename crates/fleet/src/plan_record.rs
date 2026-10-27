@@ -44,6 +44,7 @@ pub(crate) fn recorded(
     groups: &[PlanGroupInput],
     sketch: Option<(String, String)>,
     walk: Option<String>,
+    seen: bool,
     summary: String,
     now: &str,
 ) -> KeptPlan {
@@ -201,6 +202,7 @@ pub(crate) fn recorded(
         set_aside_at: None,
         sketch,
         walk,
+        seen,
         changes: before.map(|_| changes),
         next_group,
         next_task,

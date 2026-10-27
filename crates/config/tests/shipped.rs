@@ -111,8 +111,8 @@ fn four_shipped_workflows_send_their_work_out_and_three_do_not() {
     assert_eq!(
         delivering,
         vec![
-            (String::from("bug"), String::from("land")),
-            (String::from("feature"), String::from("land")),
+            (String::from("bug"), String::from("deliver")),
+            (String::from("feature"), String::from("deliver")),
             (String::from("refactor"), String::from("handoff")),
             (String::from("revert"), String::from("handoff")),
         ],
@@ -341,7 +341,7 @@ fn bug_feature_and_refactor_carry_instructions_on_every_step() {
 
 /// **Bug and feature ask how the work is delivered at their first step**, and nothing else does.
 #[test]
-fn only_the_plan_step_of_bug_and_feature_asks_how_the_work_is_delivered() {
+fn only_the_first_step_of_bug_and_feature_asks_how_the_work_is_delivered() {
     for (path, text) in shipped() {
         let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
         let def = config::WorkflowDef::parse(&path, &text, &roster())
@@ -353,9 +353,9 @@ fn only_the_plan_step_of_bug_and_feature_asks_how_the_work_is_delivered() {
     }
 }
 
-/// **Bug and feature each end in a `land` step**, the one that delivers.
+/// **Bug and feature each end in a `deliver` step**, the one that delivers.
 #[test]
-fn bug_and_feature_each_end_in_a_land_step() {
+fn bug_and_feature_each_end_in_a_deliver_step() {
     for (path, text) in shipped() {
         let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
         if !["bug", "feature"].contains(&name.as_str()) {
@@ -364,7 +364,74 @@ fn bug_and_feature_each_end_in_a_land_step() {
         let def = config::WorkflowDef::parse(&path, &text, &roster())
             .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
         let last = def.steps().last().expect("a workflow has steps");
-        assert_eq!(last.id().as_str(), "land", "{name} ends in `land`");
-        assert!(last.delivers(), "{name}'s `land` step delivers");
+        assert_eq!(last.id().as_str(), "deliver", "{name} ends in `deliver`");
+        assert!(last.delivers(), "{name}'s `deliver` step delivers");
+    }
+}
+
+/// **The steps the owner chose on 27 Oct 2026**, in order, and which of them walk or wait for his reply.
+/// the decision record "A feature Job walks before it tests".
+#[test]
+fn feature_and_bug_run_the_steps_the_owner_chose() {
+    let steps_of = |name: &str| -> Vec<(String, bool, bool)> {
+        let (path, text) = shipped()
+            .into_iter()
+            .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some(name))
+            .unwrap_or_else(|| panic!("{name} is shipped"));
+        config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()))
+            .steps()
+            .iter()
+            .map(|step| (step.id().as_str().to_string(), step.walks(), step.awaits_reply()))
+            .collect()
+    };
+    let expect = |rows: &[(&str, bool, bool)]| -> Vec<(String, bool, bool)> {
+        rows.iter().map(|(id, walks, awaits)| (id.to_string(), *walks, *awaits)).collect()
+    };
+    assert_eq!(
+        steps_of("feature"),
+        expect(&[
+            ("propose", false, true),
+            ("discuss", false, false),
+            ("approve_plan", false, false),
+            ("walk", true, false),
+            ("refine", false, false),
+            ("deliver", false, false),
+        ])
+    );
+    assert_eq!(
+        steps_of("bug"),
+        expect(&[
+            ("find_the_cause", false, false),
+            ("fix", false, false),
+            ("short_walk", true, false),
+            ("tests", false, false),
+            ("deliver", false, false),
+        ])
+    );
+}
+
+/// **Tests come after the walk**: no step before it, nor the walk itself, asks for a test, and the step
+/// after it does.
+#[test]
+fn no_step_before_the_walk_is_told_to_write_a_test_and_the_one_after_is() {
+    for (name, after) in [("feature", "refine"), ("bug", "tests")] {
+        let (path, text) = shipped()
+            .into_iter()
+            .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some(name))
+            .unwrap_or_else(|| panic!("{name} is shipped"));
+        let def = config::WorkflowDef::parse(&path, &text, &roster()).expect("loads");
+        let walk_at = def.steps().iter().position(|step| step.walks()).expect("a walk step");
+        for (at, step) in def.steps().iter().enumerate() {
+            let words = step.instructions().unwrap_or_default().to_lowercase();
+            let asks_for_tests = words.contains("write the test") || words.contains("write a test") || words.contains("each with the test");
+            let sentence_forbidding = words.contains("write no test") || words.contains("no tests");
+            if at <= walk_at && !sentence_forbidding {
+                assert!(!asks_for_tests, "{name} step `{}` asks for tests before the walk is approved", step.id().as_str());
+            }
+            if step.id().as_str() == after {
+                assert!(asks_for_tests, "{name} step `{after}` is where the tests are written");
+            }
+        }
     }
 }

@@ -66,6 +66,8 @@ function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => 
       const bare = isPressed("new_job", event);
       const chord = !bare && isPressed("dispatch_from_field", event);
       if (!bare && !chord) return;
+      // A row that marks `n` its own, such as a drift's Not a drift on the Workflows page, keeps the key.
+      if (bare && event.target instanceof Element && event.target.closest("[data-own-keys~='n']") !== null) return;
       if ((!chord && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
       event.preventDefault();
       event.stopPropagation();
