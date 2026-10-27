@@ -1,5 +1,5 @@
 // A layout mod arranges the Cockpit as it is drawn today: the panels it hides leave the deck, the Jobs list stays, and an open Job's
-// panels stand in the right column in the order it gives. Through `App` on `one-session-view`, with the mod put in the mock's source.
+// zones are hidden by it, all but Now. Through `App` on `one-session-view`, with the mod put in the mock's source.
 
 import { act } from "react";
 import { expect, test } from "vitest";
@@ -30,14 +30,13 @@ test("a hidden Activity, Bays or Flight control is not drawn, and the Jobs list 
   await expect.element(list()).toBeVisible();
 });
 
-test("an open Job's panels stand in the order the layout gives", async () => {
+test("a layout hides an open Job's Next, and cannot hide Now", async () => {
   mount("one-session-view");
   await onScreen();
   await expect.element(list()).toBeVisible();
-  install('{"version":1,"job.panels":{"order":["blueprint","field"]}}');
+  install('{"version":1,"job.panels":{"hidden":["next","now"]}}');
   await list().getByRole("button", { name: "Queue session for later", exact: true }).click();
-  await expect.poll(() => panels("Blueprint").length).toBe(1);
-  const field = page.getByRole("region", { name: "Field", exact: true }).element();
-  const blueprint = page.getByRole("region", { name: "Blueprint", exact: true }).element();
-  expect(blueprint.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await expect.poll(() => panels("Now").length).toBe(1);
+  expect(panels("Completed")).toHaveLength(1);
+  expect(panels("Next")).toHaveLength(0);
 });

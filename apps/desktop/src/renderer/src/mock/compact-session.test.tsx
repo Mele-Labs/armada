@@ -15,8 +15,8 @@ unmountAfterEach();
 const TITLE = "Retry the slot lease";
 const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 const thread = () => page.getByRole("region", { name: "Thread", exact: true });
-const controls = () => page.getByRole("region", { name: "Flight controls" });
-const tile = (name: string) => controls().getByRole("button", { name });
+// The four views of a Job are keys in its head, and no longer tiles of the Flight controls.
+const tile = (name: string) => page.getByRole("region", { name: /^Job: / }).getByRole("button", { name, exact: true });
 const scroller = () => thread().element() as HTMLElement;
 const tail = () => scroller().querySelector<HTMLElement>(".armada-session-thread__tail");
 const needs = () => page.getByRole("region", { name: "Needs you", exact: true });

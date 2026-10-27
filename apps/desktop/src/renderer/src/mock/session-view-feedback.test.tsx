@@ -1,5 +1,5 @@
-// The owner's notes on the Cockpit's one Session view, approved on `?walk=sessionViewFeedback`: the Blueprint and the Field stand in the right
-// column (Ledger and Status gave way to the Job's story), and the Merge line frames the open Session's own pull requests and no other. Through `App` on `session-view-feedback`.
+// The owner's notes on the Cockpit's one Session view, approved on `?walk=sessionViewFeedback`: the Job's story (Completed, Now and Next) stands in the right
+// column and the Field under the Jobs list (Ledger and Status gave way to the story), and the Merge line frames the open Session's own pull requests and no other. Through `App` on `session-view-feedback`.
 // The Field's fit is held by `cockpit/deck/battlefield-own-camera.test.tsx`.
 
 import { expect, test } from "vitest";
@@ -19,13 +19,16 @@ async function open(title: string) {
 
 const related = () => [...queue().element().querySelectorAll("[data-related]")].map((chip) => chip.getAttribute("aria-label") ?? "");
 
-test("the Blueprint is drawn above the Field in the open Session's column, and the Ledger and Status are not", async () => {
+test("Completed, Now and Next are drawn in that order in the open Session's column, the Field is under the Jobs list, and the Ledger and Status are not", async () => {
   mount("session-view-feedback");
   await onScreen();
   await open("Rotate the audit log");
-  const field = page.getByRole("region", { name: "Field", exact: true }).element();
-  const blueprint = page.getByRole("region", { name: "Blueprint", exact: true }).element();
-  expect(blueprint.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const [done, now, next] = ["Completed", "Now", "Next"].map((name) => page.getByRole("region", { name, exact: true }).element());
+  expect(done!.compareDocumentPosition(now!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(now!.compareDocumentPosition(next!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(done!.parentElement).toBe(now!.parentElement);
+  expect(document.querySelector('.deck-left [aria-label="Field"]')).not.toBeNull();
+  expect(document.querySelector('.deck-right [aria-label="Field"]')).toBeNull();
   expect(document.querySelector('section[aria-label="Ledger"], section[aria-label="Status"]')).toBeNull();
 });
 

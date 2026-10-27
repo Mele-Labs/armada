@@ -1,4 +1,4 @@
-// A Session selected on the Cockpit is drawn compact: the Blueprint, the Field and the Landing share the right column, and there is no Ledger, Status, Plan
+// A Session selected on the Cockpit is drawn compact: Completed, Now and Next share the right column on one line, and there is no Ledger, Status, Plan
 // or Incoming calls panel and no Field in the foot. A Session calling him pulses its row in Work, and its tooltip names the call. Through
 // `App` on `one-session-view` and `compact-session-view`.
 
@@ -22,30 +22,29 @@ async function open(scenario: string, title: string) {
 const panels = (name: string) => document.querySelectorAll(`section[aria-label="${name}"]`);
 const calling = () => [...document.querySelectorAll<HTMLElement>("[data-row][data-calling]")].map((one) => one.getAttribute("aria-label"));
 
-test("the Blueprint, the Field and the Landing share the right column, in that order, and nothing else of the old column is drawn", async () => {
+test("Completed, Now and Next share the right column on one line, in that order, and nothing else of the old column is drawn", async () => {
   await open("one-session-view", "Queue session for later");
-  await expect.poll(() => panels("Blueprint").length).toBe(1);
-  expect(panels("Field")).toHaveLength(1);
-  expect(panels("Delivery")).toHaveLength(1);
-  const [blueprint, field, landing] = ["Blueprint", "Field", "Delivery"].map((name) => page.getByRole("region", { name, exact: true }).element());
-  expect(blueprint!.compareDocumentPosition(field!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(field!.compareDocumentPosition(landing!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(field!.parentElement).toBe(blueprint!.parentElement);
-  expect(field!.parentElement).toBe(landing!.parentElement);
-  for (const gone of ["Ledger", "Status", "Plan", "Incoming calls"]) expect(panels(gone), gone).toHaveLength(0);
+  await expect.poll(() => panels("Now").length).toBe(1);
+  expect(panels("Completed")).toHaveLength(1);
+  expect(panels("Next")).toHaveLength(1);
+  const [done, now, next] = ["Completed", "Now", "Next"].map((name) => page.getByRole("region", { name, exact: true }).element());
+  expect(done!.compareDocumentPosition(now!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(now!.compareDocumentPosition(next!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(done!.parentElement).toBe(now!.parentElement);
+  expect(done!.parentElement).toBe(next!.parentElement);
+  expect(done!.parentElement!.classList.contains("sv-spine")).toBe(true);
+  for (const gone of ["Blueprint", "Delivery", "Workflow", "Ledger", "Status", "Plan", "Incoming calls"]) expect(panels(gone), gone).toHaveLength(0);
   expect(document.querySelector(".sv-slot[data-place='foot']")).toBeNull();
 });
 
-test("the Workflow carries the workflow as glyphs and the Blueprint the plan's groups", async () => {
+test("the workflow heads the story as glyphs and Now carries the plan's groups", async () => {
   await open("compact-session-view", "Retry the slot lease");
-  const workflow = page.getByRole("region", { name: "Workflow", exact: true });
-  await expect.element(workflow.getByRole("list", { name: "Workflow" })).toBeVisible();
-  await expect.element(workflow.getByRole("img", { name: "Build · current" })).toBeVisible();
-  const blueprint = page.getByRole("region", { name: "Blueprint", exact: true });
-  // This Job's pull request is out, so the Landing is the open panel and the Blueprint stands folded to its band; its heading opens it, and the plan is approved, so a press opens the whole of it.
-  await blueprint.getByRole("heading", { name: "Blueprint" }).click();
-  await blueprint.getByRole("button", { name: "Whole blueprint", exact: true }).click();
-  await expect.element(blueprint.getByRole("region", { name: "Attempt count on the wire", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("list", { name: "Workflow" })).toBeVisible();
+  await expect.element(page.getByRole("img", { name: "Build · current" })).toBeVisible();
+  const now = page.getByRole("region", { name: "Now", exact: true });
+  // The plan is approved, so a press on Whole plan opens every group with its tasks.
+  await now.getByRole("button", { name: "Whole plan", exact: true }).click();
+  await expect.element(now.getByRole("region", { name: "Attempt count on the wire", exact: true })).toBeVisible();
 });
 
 test("a Session calling him pulses its row and names the call, and the open Session's own row does not", async () => {
@@ -64,9 +63,9 @@ test("the right column starts level with the open Job whichever of the handle's 
   document.head.append(later);
   try {
     await open("compact-session-view", "Retry the slot lease");
-    await expect.poll(() => panels("Blueprint").length).toBe(1);
+    await expect.poll(() => panels("Now").length).toBe(1);
     const top = (name: string) => page.getByRole("region", { name, exact: true }).element().getBoundingClientRect().top;
-    expect(top("Workflow")).toBe(top("Job: Retry the slot lease"));
+    expect(document.querySelector(".sv-spine")!.getBoundingClientRect().top).toBe(top("Job: Retry the slot lease"));
   } finally {
     later.remove();
   }
