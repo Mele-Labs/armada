@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 
 use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild};
 
-use crate::building::{checkout_of, Building, NotChanged, NotOffered};
+use crate::building::{checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered};
 use crate::tests::tmp::TempDir;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -259,4 +259,23 @@ async fn a_wrapper_that_will_not_start_leaves_no_status_behind() {
     let refused = Building::default().change(Some(checkout.path()), support.path(), &asked, SystemTime::now());
     assert!(matches!(refused, Err(NotChanged::NotStarted(_))), "{refused:?}");
     assert!(!support.path().join("restart-build.status").exists());
+}
+
+#[test]
+fn the_branches_left_out_are_read_for_the_running_build_only() {
+    let support = TempDir::new();
+    assert!(left_out_in(support.path(), SHA).is_empty(), "no file");
+
+    let other = "f".repeat(40);
+    let (tip_a, tip_b) = ("a".repeat(40), "b".repeat(40));
+    fs::write(
+        support.path().join("preview-left-out"),
+        format!("{SHA}\narmada/a\t{tip_a}\tconflict: apps/a.ts, apps/b.ts\nno tab here\narmada/b\t{tip_b}\tdoes not build: x.rs\n"),
+    )
+    .unwrap();
+    assert!(left_out_in(support.path(), &other).is_empty(), "written for another build");
+    let read = left_out_in(support.path(), SHA);
+    assert_eq!(read.len(), 2, "{read:?}");
+    assert_eq!(read["armada/a"], LeftOut { tip: "a".repeat(40), why: "conflict: apps/a.ts, apps/b.ts".into() });
+    assert_eq!(read["armada/b"], LeftOut { tip: "b".repeat(40), why: "does not build: x.rs".into() });
 }

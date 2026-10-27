@@ -12,6 +12,8 @@
 //! draws as Refresh preview or Update to main — as the answer to that wait, with every branch it
 //! holds. And a session whose branch the build newly holds, holds newer commits of, or dropped,
 //! with those branches only: a rebuild that leaves its branches where they were says nothing.
+//! A branch the preview left out is told with the reason `scripts/preview` recorded for it, and
+//! that is news the first time even to a session never told the branch was in.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -22,7 +24,7 @@ use adapters::BranchInBuild;
 use ipc::{AnswerWaiting, BuildSource, SessionId, WaitingActKind};
 use store::{AttachmentState, HolderKind, SessionSearch, SessionState};
 
-use crate::building::{build_word, commit_in, restarting_in, source_in};
+use crate::building::{build_word, commit_in, left_out_in, restarting_in, source_in, LeftOut};
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::pull_notices::short;
@@ -51,8 +53,13 @@ pub(crate) fn restart_asked(command: &str) -> Option<(BuildSource, bool)> {
     (flags.contains(&flag) && known).then(|| (build, flags.contains(&"--adopt")))
 }
 
-/// What a session is told, in bare facts.
-fn said(build: BuildSource, commit: &str, branches: &[(String, BranchInBuild)]) -> String {
+/// What a session is told, in bare facts. `why` is what the preview recorded of each branch it left out.
+fn said(
+    build: BuildSource,
+    commit: &str,
+    branches: &[(String, BranchInBuild)],
+    why: &BTreeMap<String, LeftOut>,
+) -> String {
     let which = match build {
         BuildSource::Preview => "the preview",
         BuildSource::Main => "main",
@@ -62,7 +69,10 @@ fn said(build: BuildSource, commit: &str, branches: &[(String, BranchInBuild)]) 
         out.push('\n');
         out.push_str(&match standing {
             BranchInBuild::In { .. } => format!("{branch} is in it."),
-            BranchInBuild::NotIn => format!("{branch} is not in it."),
+            BranchInBuild::NotIn => match why.get(branch) {
+                Some(left) => format!("{branch} is not in it: {}.", left.why),
+                None => format!("{branch} is not in it."),
+            },
             BranchInBuild::Partly { newest, since: 1 } => {
                 format!("{branch} is in it up to {}; 1 commit since is not.", short(newest))
             }
@@ -142,9 +152,13 @@ where
         if self.sweeping().lock().await.build_told.as_deref() == Some(commit.as_str()) {
             return;
         }
+        let why = match build {
+            BuildSource::Preview => left_out_in(&support, &commit),
+            BuildSource::Main => BTreeMap::new(),
+        };
         let mut everyone = true;
         for served in self.repositories().served() {
-            everyone &= self.build_told_in(&served, build, &commit).await;
+            everyone &= self.build_told_in(&served, build, &commit, &why).await;
         }
         if everyone {
             self.sweeping().lock().await.build_told = Some(commit);
@@ -152,7 +166,13 @@ where
     }
 
     /// One repository's sessions. **False where one could not be told**, to be asked again.
-    async fn build_told_in(self: &Arc<Self>, served: &Served, build: BuildSource, commit: &str) -> bool {
+    async fn build_told_in(
+        self: &Arc<Self>,
+        served: &Served,
+        build: BuildSource,
+        commit: &str,
+        why: &BTreeMap<String, LeftOut>,
+    ) -> bool {
         let mut everyone = true;
         for (session, reasons) in self.build_reasons(served).await {
             let kept = self.store().lock().await.build_notice_kept(commit, &session).unwrap_or(true);
@@ -160,16 +180,16 @@ where
                 continue;
             }
             let standing = self.branches_in_build(served, commit, &reasons.branches).await;
-            let moved = self.branches_moved(&session, &standing).await;
+            let moved = self.branches_moved(&session, &standing, why).await;
             let mut settling = reasons.restarts.into_iter().filter(|(_, asked)| *asked == build).map(|(item, _)| item);
             // A wait for this build is answered with the notice itself, so the session wakes once.
             let told = match settling.next() {
                 Some(item) => {
-                    let text = said(build, commit, &standing);
+                    let text = said(build, commit, &standing, why);
                     Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok()
                 }
                 None if moved.is_empty() => continue,
-                None => matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved), ipc::Notice::BuildMoved).await, Ok(true)),
+                None => matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved, why), ipc::Notice::BuildMoved).await, Ok(true)),
             };
             if !told {
                 everyone = false;
@@ -192,11 +212,13 @@ where
     }
 
     /// The branches whose standing is news to this session: newly in the build or newer commits of
-    /// it, or out of it after it was told it was in. Out of a build it never heard it was in is not.
+    /// it, or out of it after it was told it was in, or out of it with a reason in `why` and not
+    /// told out already. Out of a build with no reason, never told in, is not.
     async fn branches_moved(
         &self,
         session: &str,
         standing: &[(String, BranchInBuild)],
+        why: &BTreeMap<String, LeftOut>,
     ) -> Vec<(String, BranchInBuild)> {
         let store = self.store().lock().await;
         standing
@@ -206,7 +228,7 @@ where
                     return false;
                 };
                 let now = kept_as(one);
-                last.as_deref() != Some(now.as_str()) && (now != OUT || last.is_some())
+                last.as_deref() != Some(now.as_str()) && (now != OUT || last.is_some() || why.contains_key(branch))
             })
             .cloned()
             .collect()
