@@ -38,7 +38,7 @@ const walk: ManagedStep = {
 const refine: ManagedStep = {
   id: "refine",
   label: "Refine",
-  glyph: "refine",
+  glyph: "fix",
   ends: "it is pushed",
   words: "Wire it to the real thing and write the tests now. Show a new walk only if the look changed.",
 };
@@ -63,7 +63,7 @@ const BUG: ManagedStep[] = [
   {
     id: "fix",
     label: "Fix",
-    glyph: "refine",
+    glyph: "fix",
     ends: "the fix is made",
     words: "Make the smallest change that addresses the cause. Write no tests yet.",
   },
@@ -108,7 +108,7 @@ const PROTOTYPE: ManagedStep[] = [
   {
     id: "build",
     label: "Build",
-    glyph: "refine",
+    glyph: "fix",
     ends: "the mock runs",
     words: "Build the idea in the real Bridge on fixtures. Wire nothing and write no tests.",
   },
@@ -163,7 +163,7 @@ export const WIRE_AND_TESTS: ManagedStep[] = [
   {
     id: "wire",
     label: "Wire",
-    glyph: "refine",
+    glyph: "fix",
     ends: "it is wired to the real thing",
     words: "Wire it to the real thing. Show a new walk only if the look changed.",
   },
