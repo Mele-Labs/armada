@@ -52,6 +52,8 @@ mod reply_confirmed;
 mod later_misreads;
 /// The follow-ups read from a reply that he confirmed as deferred.
 mod later_confirmed;
+/// The sentences of a reply a disputed walk or done reminder misread.
+mod claim_misreads;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
 mod home_repositories;
