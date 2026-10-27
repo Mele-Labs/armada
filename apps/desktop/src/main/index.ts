@@ -38,6 +38,7 @@ import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { handleProjects } from "./projects-channels";
+import { showHeld } from "./banners";
 import { DownshiftNotice } from "./downshift-notice";
 import { handleAgentSignIn } from "./agent-sign-in-channels";
 import { AgentSignInNotice } from "./agent-sign-in-notice";
@@ -455,7 +456,7 @@ const downshiftNotice = new DownshiftNotice({
     if (!Notification.isSupported()) return;
     const banner = new Notification({ title: told.title, body: told.body, sound: told.sound });
     banner.on("click", focusBridge);
-    banner.show();
+    showHeld(banner);
   },
 });
 
@@ -469,7 +470,7 @@ const agentSignInNotice = new AgentSignInNotice({
     if (!Notification.isSupported()) return;
     const banner = new Notification({ title: told.title, sound: told.sound });
     banner.on("click", focusBridge);
-    banner.show();
+    showHeld(banner);
   },
 });
 
@@ -485,7 +486,7 @@ const sessionAttention = new SessionAttention({
     if (!Notification.isSupported()) return;
     const banner = new Notification({ title: told.title, body: told.body, sound: soundOf(told.tone) });
     banner.on("click", () => summon({ sessionId: told.sessionId }));
-    banner.show();
+    showHeld(banner);
   },
 });
 
