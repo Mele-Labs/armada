@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { SessionComposer } from "./SessionComposer";
+import { SessionComposer, seedDraft } from "./SessionComposer";
 
 /**
  * A Session's message box, one box over one slim row: the permission mode,
@@ -327,6 +327,26 @@ export const GrowsToHalf: Story = {
     await expect(field.scrollHeight).toBeGreaterThan(field.clientHeight);
     await userEvent.clear(field);
     await expect(field.getBoundingClientRect().height).toBeCloseTo(rest, 0);
+  },
+};
+
+/** A held Job's first message arrives as a draft: the box fits it up to half the thread column, though the dock it sits in also holds the start strip. */
+export const GrowsToHalfOfTheThread: Story = {
+  render: (args) => (
+    <div data-thread className="armada-session-frame__body" style={{ height: "calc(var(--space-12) * 8)", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: "1 1 0", minHeight: 0 }} />
+      <div style={{ flex: "none" }}>
+        <div style={{ height: "var(--space-8)" }} />
+        <SessionComposer {...args} draftKey="held-long" />
+      </div>
+    </div>
+  ),
+  beforeEach: () => seedDraft("held-long", "a long first message ".repeat(120)),
+  play: async ({ canvas, canvasElement }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    const thread = canvasElement.querySelector<HTMLElement>("[data-thread]")!;
+    await expect(field.getBoundingClientRect().height).toBeGreaterThan(thread.clientHeight / 2 - 4);
+    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(thread.clientHeight / 2 + 1);
   },
 };
 
