@@ -171,6 +171,9 @@ pub struct AnswerSessionAsk {
     /// [`crate::AnswerHelmCall::folder`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
+    /// [`crate::AnswerHelmCall::kind`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<crate::CallKind>,
 }
 
 /// `tune_session`: what the next turn runs on. An absent model or effort is the

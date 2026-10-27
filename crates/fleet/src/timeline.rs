@@ -519,6 +519,7 @@ pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
         ipc::HelmCallAnswer::AlwaysAllow => "Answered: always allow the folder",
         ipc::HelmCallAnswer::AlwaysBlock => "Answered: always block the folder",
         ipc::HelmCallAnswer::AllowForSession => "Answered: allow the folder for this job",
+        ipc::HelmCallAnswer::AllowLikeThisForSession => "Answered: allow calls like this for this job",
     }
     .to_string()
 }

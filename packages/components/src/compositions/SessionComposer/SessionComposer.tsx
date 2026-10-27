@@ -440,9 +440,11 @@ export function SessionComposer({
     const box = editor.current;
     if (box === null) return;
     const form = box.closest("form");
-    let bound = form?.parentElement ?? null;
+    // A frame's body is the thread area. The dock under the thread holds the box itself, so halving it chases the box's own height.
+    const thread = box.closest<HTMLElement>(".armada-session-frame__body");
+    let bound = thread ?? form?.parentElement ?? null;
     // A wrapper no taller than the box is its content's height, which halving would shrink again at each line: the panel is the first one taller.
-    while (grows === "panel" && form != null && bound?.parentElement != null && bound.clientHeight <= form.offsetHeight + 1) bound = bound.parentElement;
+    while (thread === null && grows === "panel" && form != null && bound?.parentElement != null && bound.clientHeight <= form.offsetHeight + 1) bound = bound.parentElement;
     if (grows === "scroller") while (bound !== null && !/auto|scroll|hidden/.test(getComputedStyle(bound).overflowY)) bound = bound.parentElement;
     box.style.maxHeight = bound ? `${bound.clientHeight / 2}px` : "";
   }, [draft.text, grows]);

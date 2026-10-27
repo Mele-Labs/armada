@@ -117,7 +117,8 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
                 HelmCallAnswer::AllowAndRemember
                 | HelmCallAnswer::AlwaysAllow
                 | HelmCallAnswer::AlwaysBlock
-                | HelmCallAnswer::AllowForSession => None,
+                | HelmCallAnswer::AllowForSession
+                | HelmCallAnswer::AllowLikeThisForSession => None,
             })
             .collect(),
     }
