@@ -67,9 +67,8 @@ export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find
  */
 export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The issue its group works, on a line of its own under the live line. */ issue?: ReactNode }) {
   const since = agedAt(task);
-  const fleet = task as typeof task & { marked?: string; stale?: { why: string; since: string } };
   // Fleet's own reading dims a mark first; the age past `STALE_AFTER_MS` is the fallback where Fleet sent none.
-  const stale = useStale(since) || fleet.stale !== undefined;
+  const stale = useStale(since) || task.stale !== undefined;
   const aged = since !== undefined;
   const lit = here && !aged;
   return (
@@ -81,7 +80,7 @@ export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][
           </span>
         </Tooltip>
       ) : (
-        <TaskMark state={task.state} marked={fleet.marked} stale={fleet.stale} />
+        <TaskMark state={task.state} marked={task.marked} stale={task.stale} />
       )}
       <span className="sv-group__task-text">{task.text}</span>
       {since === undefined ? null : <TaskAge since={since} />}
