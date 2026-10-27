@@ -57,18 +57,18 @@ pub(super) async fn recorded(rig: &Rig, groups: RecordPlan) -> SessionRecord {
 }
 
 /// A hosted Session with a process running, so what Fleet tells it can be read off the process.
-async fn running(rig: &Rig) -> SessionId {
+pub(super) async fn running(rig: &Rig) -> SessionId {
     let id = rig.start().await;
     rig.send(&id, "plan it").await;
     rig.stand_in.init(0);
     id
 }
 
-fn told(rig: &Rig, containing: &str) -> usize {
+pub(super) fn told(rig: &Rig, containing: &str) -> usize {
     rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
 }
 
-async fn read(rig: &Rig, id: &SessionId) -> SessionRecord {
+pub(super) async fn read(rig: &Rig, id: &SessionId) -> SessionRecord {
     Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session
 }
 
@@ -346,7 +346,7 @@ fn states(record: &SessionRecord) -> Vec<(String, PlanTaskState, bool)> {
     record.plan.iter().flat_map(|p| &p.groups).flat_map(|g| &g.tasks).map(|t| (t.text.clone(), t.state, t.seen)).collect()
 }
 
-fn edit(path: &str) -> DroneEvent {
+pub(super) fn edit(path: &str) -> DroneEvent {
     DroneEvent::Called { tool: testkit::EDITS.into(), call: "toolu_1".into(), detail: CallDetail::of(path) }
 }
 

@@ -70,7 +70,7 @@ export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][
           </span>
         </Tooltip>
       ) : (
-        <TaskMark state={task.state} />
+        <TaskMark state={task.state} marked={(task as typeof task & { marked?: string }).marked} stale={(task as typeof task & { stale?: { why: string; since: string } }).stale} />
       )}
       <span className="sv-group__task-text">{task.text}</span>
       {here && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}

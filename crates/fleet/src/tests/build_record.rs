@@ -315,7 +315,7 @@ async fn a_terminal_sessions_build_is_kept_and_read_back_off_its_row() {
     apart().await;
     report(&fleet, SessionFact::Touched { paths: vec!["src/b.rs".to_string()], by: None, act: None }).await;
     apart().await;
-    report(&fleet, SessionFact::Committed { branch: Some("armada/topic".to_string()) }).await;
+    report(&fleet, SessionFact::Committed { branch: Some("armada/topic".to_string()), commit: String::new(), subject: String::new() }).await;
     apart().await;
     report(&fleet, SessionFact::Pushed { branch: Some("armada/topic".to_string()) }).await;
     apart().await;

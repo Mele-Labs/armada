@@ -64,7 +64,8 @@ export type Fact =
   | { kind: 'wrote' }
   | { kind: 'tasks'; tasks: Task[] }
   | { kind: 'plan_left' }
-  | { kind: 'committed'; branch?: string }
+  | { kind: 'committed'; branch?: string; commit?: string; subject?: string }
+  | { kind: 'calls'; calls: number }
   | { kind: 'pushed'; branch?: string }
   | { kind: 'permission_asked'; tool: string; detail?: string }
   | { kind: 'permission_settled' }

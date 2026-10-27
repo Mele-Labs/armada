@@ -13,6 +13,11 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         completed_at: None,
         edited: false,
         started_at: started_at.map(str::to_string),
+        touched_at: None,
+        touched_call: 0,
+        marked: None,
+        marked_why: None,
+        told: false,
     };
     let group = |id: &str, tasks: Vec<KeptPlanTask>| KeptPlanGroup {
         id: id.to_string(),
@@ -35,6 +40,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         changes: None,
         next_group: 3,
         next_task: 4,
+        calls: 0,
         groups: vec![
             group("g1", vec![task("t1", states[0]), task("t2", states[1])]),
             group("g2", vec![task("t3", states[2])]),

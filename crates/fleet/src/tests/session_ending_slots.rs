@@ -14,13 +14,17 @@ use super::session_host::eventually;
 use crate::tests::peer::Placing;
 
 async fn close(rig: &super::session_host::Rig, id: &SessionId) {
+    let parks = rig.fleet.vcs().hold_parks();
+    parks.open();
+    let owed = standing(rig, id, "slot").await.len();
     let holding = Arc::strong_count(&rig.fleet);
     Arc::clone(&rig.fleet)
         .close_session(ipc::CloseSession { session_id: id.clone() })
         .await
         .expect("closed");
-    // The park runs on a task that holds the Fleet until it is done.
-    eventually(|| async { Arc::strong_count(&rig.fleet) == holding }).await;
+    // The park runs on a task that holds the Fleet until it is done. The process heard before the
+    // close may still hold it too, so the count only has to come back down to where it was.
+    eventually(|| async { parks.arrived() == owed && Arc::strong_count(&rig.fleet) <= holding }).await;
 }
 
 #[tokio::test]
@@ -43,8 +47,8 @@ async fn a_close_the_pool_accepts_gives_the_slot_back_on_the_ledger() {
 
     close(&rig, &id).await;
 
-    assert_eq!(rig.fleet.vcs().parked_slots(), vec![(1, id.as_str().to_string())]);
-    assert!(standing(&rig, &id, "slot").await.is_empty());
+    eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(1, id.as_str().to_string())] }).await;
+    eventually(|| async { standing(&rig, &id, "slot").await.is_empty() }).await;
 }
 
 #[tokio::test]

@@ -130,6 +130,14 @@ where
         // A session in a terminal is read from what its mod tells: anything said while a turn runs
         // is that turn being heard from. A hosted one is heard from its own process.
         let terminal = session.origin != "bridge";
+        // What may move the plan's marks, after which a terminal session's mod is handed what Fleet marked.
+        let marks = terminal
+            && matches!(
+                report.fact,
+                SessionFact::Tasks { .. } | SessionFact::Committed { .. } | SessionFact::Touched { .. } | SessionFact::Calls { .. }
+            );
+        // A hosted session's agent hears them at its next call.
+        let owed = !terminal && matches!(report.fact, SessionFact::Tasks { .. } | SessionFact::Committed { .. });
         if terminal && !matches!(report.fact, SessionFact::TurnStarted | SessionFact::TurnCompleted { .. } | SessionFact::Ended { .. }) {
             self.hosts().terminals().turn_heard(&id);
         }
@@ -384,6 +392,11 @@ where
             fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
                 changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
             }
+            // A hosted session's own calls are counted from its process, so its mod's count is not read.
+            SessionFact::Calls { calls } if terminal => {
+                crate::plan_keeping::calls_counted(&mut store, &id, calls).map_err(fault)?;
+            }
+            SessionFact::Calls { .. } => {}
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -411,10 +424,18 @@ where
             }
         }
 
+        let marked = if marks { crate::plan_keeping::marks_untold(&mut store, &id).map_err(fault)? } else { None };
+        if owed {
+            self.hosts().of(&id).state().marks_owed = true;
+        }
+        changed |= marked.is_some();
         session.last_seen_at = now;
         store.keep_session(&session).map_err(fault)?;
         let record = self.ledger_row(&store, &session)?;
         drop(store);
+        if let Some(marked) = marked {
+            self.terminal_marks_told(&session.id, marked);
+        }
         if let Some((manifest, slot)) = parking {
             self.park_once_gone(&session.id, &manifest, slot);
         }
