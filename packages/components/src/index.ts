@@ -37,6 +37,7 @@ export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
 export * from "./primitives/Stamp/Stamp";
 export * from "./primitives/Inspect/Inspect";
+export * from "./primitives/SelectMark/SelectMark";
 
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/BoardEmptyState/BoardEmptyState";

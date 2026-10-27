@@ -12,7 +12,7 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { CheckBlame, DeliveryChoice, DeliveryPicked, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -360,6 +360,8 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "saved"; name: string; collection: string; collectionId: string; request: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
   | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string }
+  /** A draft the agent put to the person with `propose_draft`, whole as Fleet wrote it; `settled` once he answered it. */
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -548,7 +550,7 @@ export type Session = {
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
   /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
-  later?: readonly { id: string; text: string; at: string }[];
+  later?: readonly { id: string; text: string; at: string; /** The person marked it Deferred: Fleet was right to keep it, and its thumbs are gone. */ confirmed?: boolean }[];
   /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
   watches?: readonly WatchSummary[];
   /** The name of the live watch that alone keeps it open. `SessionRecord.held_open_by`. */
@@ -768,8 +770,9 @@ export type SessionsDraft = {
    * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
    * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
    * `held` starts it on its start card: the words are read and nothing runs until `begin`.
+   * `projectRows` are the rows of the repository's projects it starts with: each written task is held by the Job.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[]) => string | Promise<string | undefined>;
   /**
    * Begins a Session held on its start card: the agent starts, and `delivery` is how the work lands where the Job's workflow has a landing
    * step. `message` is the first message as he left it on the card. Absent where nothing serves it, and the card offers no Start.
@@ -826,8 +829,10 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
-  /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list. */
-  dropLater?: (id: string, later: string) => void;
+  /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */
+  dropLater?: (id: string, later: string, misread?: boolean) => void;
+  /** The person marks a kept follow-up Deferred (thumbs up): it stays on the list without its thumbs. */
+  confirmLater?: (id: string, later: string) => void;
   /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
   stopWatch?: (id: string, watch: string) => void;
   /** Runs a failed hand off again for Job `id`. */
@@ -926,8 +931,11 @@ export type SessionsDraft = {
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
-  /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
-  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void | Promise<unknown>;
+  /**
+   * Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the
+   * reasonable path). `fixed` approves a draft with his own text. Absent where nothing serves it.
+   */
+  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick"; fixed?: string }) => void | Promise<unknown>;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
    * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as

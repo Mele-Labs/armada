@@ -5,8 +5,8 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
-import type { BeginSession, DismissFinding, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
+import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
@@ -63,13 +63,17 @@ function noticeMute(value: unknown): SetNoticeMute | undefined {
   return undefined;
 }
 
+/** The project rows a start names, each a project and a row; none where there are none or the list is not one. */
+const rowsOf = (rows: unknown): ProjectRowRef[] | undefined =>
+  Array.isArray(rows) && rows.length > 0 && rows.every((one) => text(one?.project) && text(one?.row)) ? rows.map((one): ProjectRowRef => ({ project: one.project, row: one.row })) : undefined;
+
 export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: unknown) => {
     const fleet = connection();
     if (fleet === null) return unsent;
     // A model or effort the person did not pick is left off, so Fleet's proposer fills it in.
     const picked = { ...(text(tuning?.model) ? { model: tuning.model } : {}), ...(text(tuning?.effort) ? { effort: tuning.effort } : {}) };
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked, after !== undefined && text(after.session) ? after : undefined, held === true);
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked, after !== undefined && text(after.session) ? after : undefined, held === true, rowsOf(projectRows));
   });
   ipc.handle(CHANNELS.beginSession, (_event, begin: BeginSession) => {
     if (!text(begin?.session_id) || (begin.delivery !== undefined && !DELIVERIES.includes(begin.delivery)) || (begin.message !== undefined && typeof begin.message !== "string")) return unread;
@@ -130,7 +134,7 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.settleLater, (_event, settle: SettleLater) => {
     if (!text(settle?.id) || !(["done", "filed", "dropped"] as const).includes(settle.how)) return unread;
     if (settle.session_id !== undefined && !text(settle.session_id)) return unread;
-    return connection()?.sessions.settleLater({ id: settle.id, how: settle.how, ...(settle.issue === undefined ? {} : { issue: settle.issue }), ...(settle.reason === undefined ? {} : { reason: settle.reason }), ...(settle.session_id === undefined ? {} : { session_id: settle.session_id }) }) ?? unsent;
+    return connection()?.sessions.settleLater({ id: settle.id, how: settle.how, ...(settle.issue === undefined ? {} : { issue: settle.issue }), ...(settle.misread === true ? { misread: true } : {}), ...(settle.reason === undefined ? {} : { reason: settle.reason }), ...(settle.session_id === undefined ? {} : { session_id: settle.session_id }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.stopWatch, (_event, stop: StopWatch) => {
     if (!text(stop?.watch) || (stop.session_id !== undefined && !text(stop.session_id))) return unread;
@@ -139,6 +143,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
+  });
+  ipc.handle(CHANNELS.confirmLater, (_event, confirm: ConfirmLater) => {
+    if (!text(confirm?.id) || (confirm.session_id !== undefined && !text(confirm.session_id))) return unread;
+    return connection()?.sessions.confirmLater({ id: confirm.id, ...(confirm.session_id === undefined ? {} : { session_id: confirm.session_id }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.confirmWaiting, (_event, confirm: ConfirmWaiting) => {
     if (!text(confirm?.session_id) || !text(confirm.item_id)) return unread;
@@ -293,6 +301,11 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.openTerminal, (_event, sessionId: string, cols?: number, rows?: number) =>
     text(sessionId) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
       ? (connection()?.sessions.openTerminal({ session_id: sessionId, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
+      : unread,
+  );
+  ipc.handle(CHANNELS.startTerminalRun, (_event, command: string, dir: string, cols?: number, rows?: number) =>
+    text(command) && text(dir) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
+      ? (connection()?.sessions.startTerminalRun({ command, dir, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
       : unread,
   );
   ipc.handle(CHANNELS.openTerminalWindow, (_event, sessionId: unknown) => {

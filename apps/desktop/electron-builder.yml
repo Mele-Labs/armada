@@ -35,6 +35,13 @@ extraResources:
     filter:
       - "*.wav"
 
+# `armada://pull/<owner>/<name>/<n>` opens Bridge on that pull request. Declared in `Info.plist` so macOS can hand the link over;
+# `features.deepLinks` is what claims the scheme from the OS, or gives it back (`src/main/deep-link.ts`).
+protocols:
+  - name: Armada pull request
+    schemes:
+      - armada
+
 mac:
   # The `.icns` here rather than the PNG the dock tile reads at runtime:
   # `Info.plist` is the reader for a packaged bundle, and it handles the format

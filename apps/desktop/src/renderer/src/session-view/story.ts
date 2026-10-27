@@ -177,7 +177,7 @@ export const BAND_KEYS: readonly { area: Stage | "workflow"; code: string; cap: 
   { area: "workflow", code: "KeyW", cap: "⌥W" },
   { area: "blueprint", code: "KeyB", cap: "⌥B" },
   { area: "field", code: "KeyF", cap: "⌥F" },
-  { area: "landing", code: "KeyL", cap: "⌥L" },
+  { area: "landing", code: "KeyD", cap: "⌥D" },
 ];
 
 export const bandKeyFor = (area: string): string | undefined => BAND_KEYS.find((one) => one.area === area)?.cap;

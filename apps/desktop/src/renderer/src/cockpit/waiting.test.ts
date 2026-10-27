@@ -158,9 +158,9 @@ describe("a call is raised only if he has not been in the Session since it began
     expect(lastOwnerMessageAt(waiting({ rows: [{ id: "m", at: "09:30:00", kind: "message", from: { kind: "you" }, text: "x" }] }))).toBe(0);
   });
 
-  test("a blocking source follows the same rule: a question, a permission, a window ask, a full pool and a call a taught rule made are no call once he was there for them", () => {
+  test("a blocking source follows the same rule: a question, a permission, a window ask, a full pool, the done ask on his tasks and a call a taught rule made are no call once he was there for them", () => {
     const working = (source: string) => session("w", { turn: { state: "working" }, waitingFor: [item(source, SINCE, source)] });
-    for (const source of ["ask_card", "permission", "window_ask", "slot_choice", "delivery", "fleet_call"]) {
+    for (const source of ["ask_card", "permission", "window_ask", "slot_choice", "delivery", "fleet_call", "task_done"]) {
       expect(ids([working(source)])).toEqual([source]);
       expect(ids([working(source)], () => at("2026-10-09T09:30:00.000Z"))).toEqual([]);
       expect(ids([working(source)], () => at("2026-10-09T08:30:00.000Z"))).toEqual([source]);
@@ -198,5 +198,14 @@ describe("a plan and a judge's concern", () => {
       ],
     });
     expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["c1", "plan:2"]);
+  });
+});
+
+describe("a draft put to the person", () => {
+  const AT = "2026-10-26T09:00:00.000Z";
+
+  test("calls him while the turn goes on, as a question does", () => {
+    const one = session("w", { turn: { state: "working" }, waitingFor: [{ id: "draft:d1", text: "Description for the queue pull request", since: AT, source: "draft", options: [{ label: "Approve" }] }] });
+    expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["draft:d1"]);
   });
 });

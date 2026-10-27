@@ -556,6 +556,23 @@ pub struct AskInWindow {
     pub session_id: Option<SessionId>,
 }
 
+/// `propose_draft`: a session puts a draft to the person for approval, such as a pull request
+/// description, a comment or a message. Fleet keeps a `draft` row and answers at once; the answer
+/// comes back later as a message from the person.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposeDraft {
+    /// One short line naming what it is and where it goes.
+    pub title: String,
+    /// The draft, in markdown.
+    pub text: String,
+    /// The text it replaces, where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<String>,
+    /// Which session proposes it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// `withdraw_window`: a session takes back a walk it showed with `show_window`, so it leaves the
 /// person's Needs you list and stops holding the session's pending plan. Showing the page again
 /// makes it wait again.
@@ -582,6 +599,9 @@ pub enum WaitingSource {
     Permission,
     /// Fleet: a question the session asked in its walk window, `ask_in_window`, is unanswered.
     WindowAsk,
+    /// Fleet: a draft the session proposed with `propose_draft` waits on the person. Read off its
+    /// row as `draft:<row>`; settled by `answer_waiting`.
+    Draft,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
     FirstMessage,
@@ -658,7 +678,7 @@ pub enum SessionStanding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
     /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
-    /// `window_ask:<row>`, `unsent:<session>`, `done:<done_since>`.
+    /// `window_ask:<row>`, `draft:<row>`, `unsent:<session>`, `done:<done_since>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.
@@ -747,6 +767,9 @@ pub struct SessionLater {
     pub sentence: String,
     /// When the reply that said it ended.
     pub said_at: Instant,
+    /// He said it is a follow-up, with thumbs up (`confirm_later`). Absent where he has not.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub confirmed: bool,
 }
 
 /// How a follow-up was settled.
@@ -777,6 +800,37 @@ pub struct SettleLater {
     /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// He pressed thumbs down, Not deferred: the sentence is kept as no follow-up. **Only the person's
+    /// call** (no connection places a job) may set it, and only with `how` `dropped`. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub misread: bool,
+}
+
+/// `confirm_later`: thumbs up on an open follow-up. Its sentence is kept as one, the row stays and
+/// reads `confirmed`. The person's call; `session_id` names the Session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfirmLater {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// `defer_later`: the agent keeps one follow-up for itself, as a sentence. Answered with [`LaterDeferred`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeferLater {
+    /// What the job will do later, as it would say it.
+    pub sentence: String,
+    /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `defer_later` answers: the follow-up kept, and the ones open with it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LaterDeferred {
+    pub id: String,
+    pub sentence: String,
+    pub open: Vec<SessionLater>,
 }
 
 /// What `settle_later` answers: the follow-up that was settled and the ones still open.
@@ -809,6 +863,10 @@ pub struct AnswerWaiting {
     pub text: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<WaitingMode>,
+    /// The person's corrected text for a `draft` item, which approves it with their words. Refused on
+    /// an item of any other source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed: Option<String>,
 }
 
 /// `dismiss_waiting`: the person drops one item for good. An item the agent stated tells it so;

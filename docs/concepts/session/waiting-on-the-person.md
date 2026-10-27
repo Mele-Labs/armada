@@ -3,7 +3,8 @@
 **Part of:** [Job](../session.md).
 
 **A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, and optional `steps`, a list of short lines); an empty list clears it.
-Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*).
+Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)).
+**`task_done:<project>` is answered with Mark done or Keep open**, through `answer_waiting`, and the choice settles every task the job asked in that project without sending the agent a message.
 Where an agent item names the same act and target as one of Fleet's, Fleet's stands.
 **`waiting_for` refuses an item that asks the person to walk**, by a `walk` act or in its words, and tells the agent to call `show_window`: the window is the one record of a walk, and its item leaves at his Approve.
 On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind it and one that stayed after he approved.
@@ -27,7 +28,7 @@ A `choice` with `text` says both: the words go with the pick, to the agent as a 
 **`dismiss_waiting`** (`session_id`, `item_id`, and an optional `reason`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, save a walk the job shows again, and an agent item with it is removed and left off if the agent states it again.
 **An item the agent stated tells it so**: the Job is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave a reason that is not blank, so the agent does not take the silence for an answer.
 The owner, 14 Oct 2026: "when there is a 'needs me' item on a job, I should be able to delete it, which lets the agent know that I removed it.
-Maybe I can give a reason when I do." An item Fleet derived (a card, a permission, a walk, a window question, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
+Maybe I can give a reason when I do." An item Fleet derived (a card, a permission, a walk, a window question, a task asked about, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
 The message goes before the item is dropped, so a send that fails leaves the item standing to try again.
 A nothing-held id is refused as for `answer_waiting`.
 **Every walk window of a job waits until the person approves it.** One item per page, `walk:<url>`, for each standing window he has not approved since it was last shown: an Approve at or after the newest `window` row showing the page or one of its takes.
@@ -193,7 +194,7 @@ It reads a sentence of a close here, not an item, and that was not measured.
 The second head of *A reply that asks* finds it, and a sentence the first head calls an ask is not one.
 Fleet keeps it per job across replies (`session_later`, `SessionRecord.later`, `crates/fleet/src/session_host/later.rs`).
 The same sentence said again is the same item, and a settled one is not kept again when a reply is read again.
-Bridge shows the open ones in the Landing, folded under a Deferred label that a press opens, with the issues the Job filed for later.
+Bridge shows the open ones in Delivery, folded under a Deferred label that a press opens, with the issues the Job filed for later.
 
 The job settles one with `settle_later`, and the person has two presses on its row:
 

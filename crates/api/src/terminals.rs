@@ -27,6 +27,22 @@ pub(crate) async fn open_terminal<D: Sessions>(
     }
 }
 
+/// 200 with the run's id. 422 for a blank command, a directory that does not exist or a size with
+/// no cells. No Job is named or told: the run's output, keys, size and stop are the run routes.
+pub(crate) async fn start_terminal_run<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let start: ipc::StartTerminalRun = match ipc::decode("a terminal run to start", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().start_terminal_run(start).await {
+        Ok(underway) => answer(StatusCode::OK, &underway, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// 200 with what the shell printed once it went quiet. 422 for a call that places no Job, or one
 /// `open_terminal` refuses. **The Job is placed by the connection** where the call arrived
 /// through the agent's door, and by the body's `session_id` only where it places none.

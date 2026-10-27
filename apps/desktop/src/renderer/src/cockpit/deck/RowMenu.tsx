@@ -9,22 +9,27 @@ import { askToReport, canReport } from "../../report";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useTeachBridge } from "../../teach";
 import { PAUSE_KEY } from "./session-tiles";
+import { toggleField, useRowView, viewEntries, viewFieldOf } from "./row-view";
 
-export type RowMenuAt = { id: string; root: string; title: string; x: number; y: number; row: HTMLElement | null };
+/** `viewOnly`: no Job is under the press (a pull request's row, or the list's empty room), so the menu is the View group alone. */
+export type RowMenuAt = { id: string; root: string; title: string; x: number; y: number; row: HTMLElement | null; viewOnly?: true };
 
-export function RowMenu({ at, onClose, onAutopilot }: { at: RowMenuAt | undefined; onClose: () => void; onAutopilot: (root: string) => void }) {
+export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | undefined; onClose: () => void; onKeep?: (at: RowMenuAt) => void; onAutopilot: (root: string) => void }) {
   const draft = useSessionsDraft();
   const teach = useTeachBridge();
   const paused = useSessions().find((one) => one.id === at?.id)?.paused === true;
+  const view = useRowView();
   if (at === undefined) return null;
-  const entries: DropdownMenuEntry[] = [
+  const acts: DropdownMenuEntry[] = [
     ...(draft?.pause === undefined ? [] : [{ kind: "item" as const, id: "pause", label: paused ? "Resume" : "Pause", shortcut: PAUSE_KEY, icon: paused ? Play : CirclePause }]),
     { kind: "item", id: "autopilot", label: "Auto Pilot", icon: Plane },
     ...(at.row !== null ? [{ kind: "item" as const, id: "mod", label: "Mod", icon: Puzzle }] : []),
     ...(canReport() && at.row !== null ? [{ kind: "item" as const, id: "report", label: "Report", icon: Flag }] : []),
     ...(teach === undefined ? [] : [{ kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }]),
-    ...(draft?.close === undefined ? [] : [{ kind: "separator" as const, id: "rule" }, { kind: "item" as const, id: "close", label: "Close", danger: true, icon: X }]),
   ];
+  const close: DropdownMenuEntry[] = draft?.close === undefined ? [] : [{ kind: "separator", id: "rule" }, { kind: "item", id: "close", label: "Close", danger: true, icon: X }];
+  // The View group (`row-view.tsx`) comes before the destructive Close, and is all of the menu where no Job is under the press.
+  const entries: DropdownMenuEntry[] = at.viewOnly === true ? viewEntries(view) : [...acts, { kind: "separator", id: "view-rule" }, ...viewEntries(view), ...close];
   return (
     <DropdownMenu
       triggerLabel="Job"
@@ -37,6 +42,8 @@ export function RowMenu({ at, onClose, onAutopilot }: { at: RowMenuAt | undefine
         at.row?.focus();
       }}
       onSelect={(chosen) => {
+        const field = viewFieldOf(chosen);
+        if (field !== undefined) return toggleField(field), onKeep?.(at);
         if (chosen === "pause") void (paused ? draft?.resume : draft?.pause)?.(at.id);
         if (chosen === "autopilot") onAutopilot(at.root);
         if (chosen === "mod" && at.row !== null) void startModJob(at.row, at.title);

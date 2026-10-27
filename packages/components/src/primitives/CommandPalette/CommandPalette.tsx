@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
-import { DISPATCH_ROW, DispatchKeys, DispatchRow, nextKind, readsAsWork, useAnchor, type PaletteDispatch } from "./dispatch-row";
+import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, useAnchor, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 
+import { LINK_ROW, LinkRow, type PaletteLink } from "./link-row";
 import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
 
 export { readsAsPath, type PalettePath } from "./path-row";
-export { readsAsWork, type DispatchKind, type PaletteDispatch } from "./dispatch-row";
+export type { PaletteLink, PaletteLinkKind } from "./link-row";
+export { adds, readsAsWork, type AddKind, type BarKind, type DispatchKind, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 
 /**
  * The palette is a superset of the UI, never a substitute for it, and it is
@@ -122,6 +124,8 @@ export type CommandPaletteProps = {
   dispatch?: PaletteDispatch;
   /** A typed path offered as a file to open, first in the list. Absent offers none. */
   path?: PalettePath;
+  /** A typed link to a pull request or an issue, offered as the page to open, first in the list. Absent offers none. */
+  link?: PaletteLink;
   /**
    * A selector for the box the palette's field opens over, so the search and the field it opened from
    * read as one bar. Absent, or not on screen (the narrow title row hides it), the palette centres.
@@ -165,6 +169,7 @@ export function CommandPalette({
   onClose,
   dispatch,
   path,
+  link,
   anchor,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
@@ -174,29 +179,33 @@ export function CommandPalette({
   const input = useRef<HTMLInputElement>(null);
   const active = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // The words a kind is filing and the step listing where they can go, while that step is up.
+  const [stepping, setStepping] = useState<{ words: string; step: PaletteStep } | null>(null);
+  const listed = stepping === null ? { entries, sections } : stepping.step;
 
   // Grouped by section in the caller's order, and in the caller's order inside
   // each. Nothing is ranked: the contract fixes what comes first, and a
   // relevance score would reorder a list a person is learning positions in.
   const grouped = useMemo(() => {
-    const found = entries.flatMap((entry) => hit(entry, query) ?? []);
-    return sections
+    const found = listed.entries.flatMap((entry) => hit(entry, query) ?? []);
+    return listed.sections
       .map((section) => ({
         section,
         hits: found.filter((held) => held.entry.section === section.id),
       }))
       .filter((group) => group.hits.length > 0);
-  }, [entries, sections, query]);
+  }, [listed, query]);
 
   const hits = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
   // The dispatch row, once something is typed: first where nothing else matches or the words are a
   // link, so ↵ sends them; last otherwise, so ↵ still opens what was searched
-  // for. ⌘↵ always sends.
-  const offered = dispatch !== undefined && query.trim() !== "";
-  const leading = offered && (hits.length === 0 || readsAsWork(query));
-  const typedPath = path === undefined ? null : readsAsPath(query);
+  // for. ⌘↵ always sends. A kind that adds to his projects puts it first whatever matches: Tab chose it.
+  const offered = dispatch !== undefined && query.trim() !== "" && stepping === null;
+  const leading = offered && (hits.length === 0 || readsAsWork(query) || adds(dispatch.kind));
+  const typedPath = path === undefined || stepping !== null ? null : readsAsPath(query);
   const rest: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
-  const flat: (Hit | "dispatch" | "path")[] = typedPath === null ? rest : ["path", ...rest];
+  const typedKind = link === undefined || stepping !== null ? null : link.kindOf(query.trim());
+  const flat: (Hit | "dispatch" | "path" | "link")[] = [...(typedKind === null ? [] : ["link" as const]), ...(typedPath === null ? [] : ["path" as const]), ...rest];
   const place = useAnchor(open, anchor);
 
   // **The first row is always active**, so a query narrowed to one result is a
@@ -205,7 +214,13 @@ export function CommandPalette({
   // somewhere the person did not put it.
   useEffect(() => (setAt(0), setRefused(null)), [query]);
   // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
-  useEffect(() => void (open || setQuery(defaultQuery)), [open, defaultQuery]);
+  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null))), [open, defaultQuery]);
+  // Tab to a kind that adds makes its row the active one, so Enter adds.
+  const kind = dispatch?.kind;
+  useEffect(() => {
+    if (kind !== undefined && adds(kind)) setAt(typedPath === null ? 0 : 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind]);
 
   useEffect(() => {
     if (open) input.current?.focus();
@@ -223,11 +238,17 @@ export function CommandPalette({
       if (layer && !layer.classList.contains("armada-palette")) return;
       event.preventDefault();
       event.stopPropagation();
+      // A second step backs out to the words it was filing.
+      if (stepping !== null) {
+        setQuery(stepping.words);
+        setStepping(null);
+        return;
+      }
       onClose?.();
     }
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [open, onClose]);
+  }, [open, onClose, stepping]);
 
   // A click outside `.armada-palette` closes it, following `Popover`'s `contains(target)` check —
   // not `event.target === layer`, which breaks the moment anything else nests in the layer.
@@ -255,7 +276,16 @@ export function CommandPalette({
   if (!open) return null;
 
   function send() {
-    if (dispatch !== undefined && query.trim() !== "") (dispatch.onDispatch(query.trim(), dispatch.kind), onClose?.());
+    if (dispatch === undefined || query.trim() === "" || stepping !== null) return;
+    const words = query.trim();
+    const step = dispatch.step?.(words, dispatch.kind);
+    if (step !== undefined) {
+      setStepping({ words, step });
+      setQuery("");
+      return;
+    }
+    dispatch.onDispatch(words, dispatch.kind);
+    onClose?.();
   }
 
   function openPath() {
@@ -266,14 +296,28 @@ export function CommandPalette({
     });
   }
 
-  function choose(held: Hit | "dispatch" | "path" | undefined) {
+  function openLink() {
+    if (link === undefined || typedKind === null) return;
+    void Promise.resolve(link.onOpen(query.trim(), typedKind)).then((opened) => {
+      if (opened) onClose?.();
+      else setRefused(`Could not open “${query.trim()}”.`);
+    });
+  }
+
+  function choose(held: Hit | "dispatch" | "path" | "link" | undefined) {
     if (held === undefined) return;
+    if (held === "link") return openLink();
     if (held === "path") return openPath();
     if (held === "dispatch") return send();
     // Drawn so the binding can be learned, and inert because the row already
     // says why. Pressing it does nothing rather than reaching something
     // invented.
     if (held.entry.dormant !== undefined) return;
+    if (stepping !== null) {
+      stepping.step.onChoose(held.entry);
+      onClose?.();
+      return;
+    }
     if (held.entry.destructive === true) {
       onConfirm?.(held.entry);
       return;
@@ -301,13 +345,13 @@ export function CommandPalette({
       choose(flat[at]);
       return;
     }
-    if (event.key === "Tab" && dispatch?.onKind !== undefined && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    if (event.key === "Tab" && dispatch?.onKind !== undefined && stepping === null && !event.altKey && !event.ctrlKey && !event.metaKey) {
       event.preventDefault();
       dispatch.onKind(nextKind(dispatch));
     }
   }
 
-  let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1);
+  let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1) + (typedKind === null ? 0 : 1);
   const current = flat[at];
   const sendRow = !offered ? null : (
     <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
@@ -330,23 +374,25 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={current === undefined ? undefined : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
-          aria-label={placeholder}
-          placeholder={placeholder}
+          aria-activedescendant={current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
+          aria-label={stepping?.step.title ?? placeholder}
+          placeholder={stepping === null ? placeholder : ""}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}
         />
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
-          {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(0)} onChoose={openPath} />}
+          {stepping === null ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
+          {typedKind === null ? null : <LinkRow kind={typedKind} link={query.trim()} active={current === "link"} ref={current === "link" ? active : undefined} onEnter={() => setAt(0)} onChoose={openLink} />}
+          {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
           {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
           {leading ? sendRow : null}
-          {hits.length === 0 && typedPath === null ? (
+          {hits.length === 0 && typedPath === null && typedKind === null ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
             <p className="armada-palette__empty">
-              {`Nothing matches “${query}”. Searched ${searched}.`}
+              {`Nothing matches “${query}”. Searched ${stepping?.step.searched ?? searched}.`}
             </p>
           ) : null}
           {grouped.map((group) => (
@@ -373,7 +419,7 @@ export function CommandPalette({
           ))}
           {offered && !leading ? sendRow : null}
         </div>
-        {offered && dispatch !== undefined ? <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} /> : null}
+        {offered && dispatch !== undefined ? <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} /> : stepping !== null ? <StepKeys /> : null}
       </div>
     </div>
   );

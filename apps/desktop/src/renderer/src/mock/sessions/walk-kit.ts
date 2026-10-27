@@ -1,6 +1,6 @@
 // What the Sessions walks share. Each walk is told twice, in the window the
 // tests start from and in a narrow one. A Job open on the Cockpit keeps what it made
-// or used in the Artifacts layer, a key in Flight control, at either width, so `kit`
+// or used in the Artifacts layer, a button in the Job's head, at either width, so `kit`
 // takes `narrow` for the walks that still pass it and acts on it in neither. Not
 // under `walks/`, where every file is a walk.
 
@@ -14,8 +14,8 @@ export const toSessions: Step = { press: place("Cockpit"), say: "Cockpit" };
 
 export function kit(_narrow: boolean) {
   const artifacts = region("Artifacts", { exact: true });
-  /** A key in Flight control, which opens its layer over the open Job's thread, or closes it. */
-  const key = (name: string) => inside(region("Flight controls"), button(name, { exact: true }));
+  /** A view's button in the Job's head, which opens its layer over the open Job's thread, or closes it. */
+  const key = (name: string) => button(name, { exact: true });
   const show: Step = { press: key("Artifacts"), say: "Artifacts" };
   const back: Step = { press: inside(artifacts, button("Back")), say: "Back to the thread" };
   /** The Close of a sheet, and not "Close as superseded" or the like. */

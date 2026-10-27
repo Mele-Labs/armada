@@ -526,6 +526,18 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           text: `Asked in the window: ${row.question}${row.answer === undefined ? "" : ` — ${row.answer.replace(/\n/g, " · ")}`}`,
         });
         break;
+      // The draft is answered on its card, so the row is kept whole.
+      case "draft":
+        out.push({
+          id: row.id,
+          at,
+          kind: "draft",
+          title: row.title,
+          text: row.text,
+          ...(row.before === undefined ? {} : { before: row.before }),
+          ...(row.settled === undefined ? {} : { settled: row.settled }),
+        });
+        break;
       case "plan_changes":
         out.push({ id: row.id, at, kind: "suggest", lines: linesOfWire(row.lines) });
         break;
@@ -637,7 +649,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
     ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }) } }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
-    ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at })) }),
+    ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at, ...(one.confirmed === true ? { confirmed: true } : {}) })) }),
     ...(ended || record.held_open_by === undefined ? {} : { heldOpenBy: record.held_open_by }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
     ...(work === undefined ? {} : { work }),

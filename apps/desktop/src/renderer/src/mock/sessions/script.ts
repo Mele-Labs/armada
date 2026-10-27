@@ -507,6 +507,7 @@ export function sessionsStore(
     },
     startNow: (id) => store.starts(id, "Started by you"),
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
+    confirmLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).map((it) => (it.id === later ? { ...it, confirmed: true } : it)) })),
     dropLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).filter((it) => it.id !== later) })),
     // As Fleet does: the watch ends stopped, and a Job it alone held open is held no more.
     stopWatch: (id, watch) =>

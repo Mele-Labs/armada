@@ -63,10 +63,16 @@ Below the row's narrow width the other controls are listed in the menu, and the 
 | Tab | Opens | Key |
 |---|---|---|
 | Cockpit | The flight deck | `⌘1` |
-| Jobs | Every Job | `⌘3` |
-| Studios | One repository's Studios, and a Studio opened from the list | `⌘4` |
-| Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘5` |
-| System | The System page last used, Kit where none has been | `⌘6` |
+| Jobs | Every Job | `⌘2` |
+| Studios | One repository's Studios, and a Studio opened from the list | `⌘3` |
+| Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘4` |
+| Reviews | The pull requests waiting on him | `⌘5` |
+| Issues | A repository's tracker | `⌘6` |
+| Projects | His own projects and their tasks, per repository | `⌘7` |
+| System | The System page last used, Kit where none has been | `⌘8` |
+
+The keys above are the tabs' places when every tab is drawn.
+A tab that is not drawn takes no key, and the keys behind it move up.
 
 **System is a strip of pages under the tab bar**, drawn while System is the place: Kit, Mods, Settings, Guides, Workflows.
 Settings answers `⌘,` and the title menu's entry.
@@ -93,7 +99,7 @@ See [Studio](studio.md).
 It replaced a sheet reached from the status bar (#1088 removed the bar), and it is where a limit changed still takes the same way it always has.
 It is a System page, `⌘,`, and the title menu's entry.
 
-**A digit is a tab's place in the bar, and nothing else takes one.** `⌘1` to `⌘6` are the tabs in the order the bar draws them, Settings is `⌘,`, and every other page is reached from the strip, the palette or a link.
+**A digit is a tab's place in the bar, and nothing else takes one.** `⌘1` to `⌘8` are the tabs in the order the bar draws them, each drawn tab taking the next, Settings is `⌘,`, and every other page is reached from the strip, the palette or a link.
 The rail's `⌘1`–`⌘9` and their history are in `../contracts/design-system.md`, Two tiers.
 
 **Workflows is a System page and takes no digit.** It lists the definitions Fleet holds for the picked repository, one row per file, and a definition opens as its steps on a canvas.
@@ -106,8 +112,6 @@ A row opens a panel with the Check's facts over its log, followed live while the
 Who asked is a link where a route to it exists.
 The glyph is `shield-check`, the Check family's.
 See [Manifest](manifest.md).
-
-**`⌘2` reaches the Cockpit** as `⌘1` does, and the Cockpit's Work list holds every Job.
 
 What the window places is what is built, which is not yet the whole roster. A surface with nothing behind it would be a promise Armada does not keep, so it is not listed and takes no digit.
 

@@ -1,8 +1,8 @@
 // The Cockpit window's eight tabs and the pages under System: which surface each reaches, which tab a surface
-// is under, and what ⌘1 to ⌘6 and ⌘, reach. In node: nothing here needs a document.
+// is under, and what ⌘1 to ⌘8 and ⌘, reach. In node: nothing here needs a document.
 
 import { describe, expect, it } from "vitest";
-import { DECK_TABS, SURFACE, SURFACES, SYSTEM_PAGES, deckTabOf, surfaceOfDigit } from "@armada/shell";
+import { DECK_TABS, SURFACE, SURFACES, SYSTEM_PAGES, deckTabOf, drawnTabs, surfaceOfDigit } from "@armada/shell";
 
 describe("the tabs", () => {
   it("maps each tab to its surface", () => {
@@ -14,6 +14,7 @@ describe("the tabs", () => {
       ["logbook", SURFACE.logbook],
       ["reviews", SURFACE.reviews],
       ["issues", SURFACE.issues],
+      ["projects", SURFACE.projects],
       ["system", SURFACE.kit],
     ]);
   });
@@ -46,24 +47,41 @@ describe("the tabs", () => {
   });
 });
 
-describe("⌘1 to ⌘6", () => {
-  it("open the places bar's tabs in the order it draws them", () => {
-    expect([1, 2, 3, 4, 5, 6].map((digit) => surfaceOfDigit(digit))).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.kit]);
+describe("⌘1 to ⌘8", () => {
+  const OLD_JOBS = [SURFACE.jobs];
+
+  it("open the drawn tabs in the order the bar draws them, System last", () => {
+    expect(drawnTabs(OLD_JOBS).map((tab) => tab.id)).toEqual(["cockpit", "sessions", "studios", "logbook", "reviews", "issues", "projects", "system"]);
+    expect([1, 2, 3, 4, 5, 6, 7, 8].map((digit) => surfaceOfDigit(digit, OLD_JOBS))).toEqual([SURFACE.overview, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.projects, SURFACE.kit]);
   });
 
-  it("reach nothing past ⌘6", () => {
-    for (const digit of [7, 8, 9]) expect(surfaceOfDigit(digit), String(digit)).toBeUndefined();
+  it("give a tab that is not drawn no digit, and close the digits up behind it", () => {
+    const flight = [SURFACE.jobs, SURFACE.sessions, SURFACE.reviews, SURFACE.issues, SURFACE.projects];
+    expect([1, 2, 3, 4].map((digit) => surfaceOfDigit(digit, flight))).toEqual([SURFACE.overview, SURFACE.studios, SURFACE.logbook, SURFACE.kit]);
+    const noStudios = [SURFACE.jobs, SURFACE.studios];
+    expect([1, 2, 3, 4, 5, 6, 7].map((digit) => surfaceOfDigit(digit, noStudios))).toEqual([SURFACE.overview, SURFACE.sessions, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.projects, SURFACE.kit]);
   });
 
-  it("are the keys the palette shows beside a place, with Settings on ⌘,", () => {
-    const keyed = SURFACES.filter((one) => one.shortcut !== undefined).map((one) => [one.id, one.shortcut]);
-    expect(keyed).toEqual([
+  it("reach nothing past the last tab drawn", () => {
+    for (const digit of [9]) expect(surfaceOfDigit(digit, OLD_JOBS), String(digit)).toBeUndefined();
+    expect(surfaceOfDigit(5, [SURFACE.jobs, SURFACE.sessions, SURFACE.reviews, SURFACE.issues, SURFACE.projects])).toBeUndefined();
+  });
+
+  it("are the keys the palette shows beside a place, as the app last said what is left off, with Settings on ⌘,", () => {
+    const keyed = () => SURFACES.filter((one) => one.shortcut !== undefined).map((one) => [one.id, one.shortcut]);
+    const placed = (...ids: string[]) => ids.map((id) => [id, SURFACES.find((one) => one.id === id)!.shortcut]);
+    // Before the app says, only the old Jobs tab is off.
+    expect(placed(SURFACE.overview, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.projects)).toEqual([
       [SURFACE.overview, "⌘1"],
-      [SURFACE.jobs, "⌘2"],
-      [SURFACE.studios, "⌘4"],
-      [SURFACE.settings, "⌘,"],
-      [SURFACE.logbook, "⌘5"],
-      [SURFACE.sessions, "⌘3"],
-    ].sort((a, b) => SURFACES.findIndex((one) => one.id === a[0]) - SURFACES.findIndex((one) => one.id === b[0])));
+      [SURFACE.sessions, "⌘2"],
+      [SURFACE.studios, "⌘3"],
+      [SURFACE.logbook, "⌘4"],
+      [SURFACE.reviews, "⌘5"],
+      [SURFACE.issues, "⌘6"],
+      [SURFACE.projects, "⌘7"],
+    ]);
+    expect(keyed().map(([id]) => id)).not.toContain(SURFACE.jobs);
+    expect(keyed().map(([id]) => id)).not.toContain(SURFACE.kit);
+    expect(SURFACES.find((one) => one.id === SURFACE.settings)!.shortcut).toBe("⌘,");
   });
 });

@@ -8,6 +8,7 @@ import type {
   PullRequestFilePatch,
   PullRequestFilePatches,
   PullRequestPage,
+  PullRequestState,
   PullReviewLists,
   PullThreadResolved,
   RememberedPlace,
@@ -26,6 +27,7 @@ import type {
 } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import type { IssuesApi } from "../../../shared/api/issues";
 import type { ReviewActed, ReviewsApi } from "../../../shared/api/reviews";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../../../shared/review-walk";
 
@@ -35,6 +37,8 @@ export type Read<T> = { ok: true; value: T } | { ok: false; said: string };
 export type ReviewSource = {
   lists: () => Promise<Read<PullReviewLists>>;
   page: (manifestId: string, number: number) => Promise<Read<PullRequestPage>>;
+  /** Where a pull request stands and what it is called: all a link to one that is on no list tells of it before its page is read. */
+  pull: (manifestId: string, number: number) => Promise<Read<PullRequestState>>;
   file: (manifestId: string, number: number, path: string) => Promise<Read<PullRequestFilePatch>>;
   /** Every file's patch, in the forge's order, from one read: what the Files tab draws. */
   patches: (manifestId: string, number: number) => Promise<Read<PullRequestFilePatches>>;
@@ -71,9 +75,10 @@ export type ReviewSource = {
 const worded = <T>(answer: ReviewActed<T>): Read<T> => (answer.ok ? { ok: true, value: answer.value } : { ok: false, said: refusalWords(answer.outcome) });
 
 /** The source over what the preload (or the mock Fleet) offers. */
-export const reviewSourceOf = (api: ReviewsApi): ReviewSource => ({
+export const reviewSourceOf = (api: ReviewsApi & Pick<IssuesApi, "getPullRequest">): ReviewSource => ({
   lists: async () => worded(await api.getReviewLists()),
   page: async (manifestId, number) => worded(await api.readReviewPage(manifestId, number)),
+  pull: async (manifestId, number) => worded(await api.getPullRequest(manifestId, number)),
   file: async (manifestId, number, path) => worded(await api.readReviewFile(manifestId, number, path)),
   patches: async (manifestId, number) => worded(await api.readReviewPatches(manifestId, number)),
   write: async (manifestId, write) => worded(await api.writeReview(manifestId, write)),

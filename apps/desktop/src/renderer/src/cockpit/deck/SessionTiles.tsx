@@ -5,17 +5,16 @@
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026. **Release** opens a confirmation naming what the Session
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 //
-// **Which tiles are drawn, in what order, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by
-// `FlightEdit.tsx`); this file draws what that says and does what each tile does. Facts live on the tiles: Compact carries the context
-// window's fill, Auto land and Pause are lit while on and paused, Terminal while the Job's shell shows, Checks pulses while any Check runs,
-// Subagents shows how many are running.
+// **Which tiles are drawn, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by `FlightEdit.tsx`), in the order `flight-order.ts` gives: one row of keys, each
+// a seat that stays whether it is on or off. This file draws what that says and does what each tile does. Facts live on the tiles: Auto land and Pause are lit while on and paused, Terminal while
+// the Job's shell shows. Artifacts, Checks, Subagents and Bays are the Job head's views (`JobViews.tsx`) and Compact the context figure's, so none is a tile here.
 // A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 //
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
-
+//
 import { useEffect, useRef, useState } from "react";
-import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
+import { Circle, CircleCheck, CircleDot, LoaderCircle, Play } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
@@ -26,8 +25,7 @@ import { provideJobFacts } from "../../job-facts";
 import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
-import { flightGrid, pageCell, pagesOf } from "./flight-pages";
-import { FlightBlock } from "./FlightBlock";
+import { flightKey, flightTilesOf } from "./flight-order";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
 import { TileAskDialog, askOfRefusal } from "./TileAskDialog";
@@ -40,11 +38,8 @@ import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, ti
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
-import { toggleLayer, useLayer } from "../../session-view/layers";
-import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
-
-/** The share of the context window from which the meter reads as nearly full. */
-const HIGH_PERCENT = 85;
+import { toggleLayer } from "../../session-view/layers";
+import type { SessionBays } from "../../session-view/slot-trouble";
 
 /** How long a judge that found nothing is shown as done. */
 const CLEAR_MS = 2400;
@@ -54,7 +49,6 @@ export type ReportRepository = { root: string; name?: string };
 
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
-  const layer = useLayer(session.id);
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
   const flight = useRepositoryFlight(repository?.root, session.id);
   const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(flight), committedFileOf(flight));
@@ -266,6 +260,11 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
   const shown = tiles.filter((one) => !one.hidden);
+  const idOf = (tile: Tile): SessionTileId | undefined => (tile.builtIn === undefined ? undefined : (tile.id as SessionTileId));
+  const whyOf = (tile: Tile): string | undefined => {
+    const id = idOf(tile);
+    return id === undefined ? offCustom(tile) : off[id];
+  };
   // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
   const dialog = releasing ? (
     <OverTheApp open>
@@ -290,96 +289,76 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
   }
   if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
+  /** One tile, with every fact it carries. */
+  const drawTile = (tile: Tile) => {
+    const id = idOf(tile);
+    const paused = id === "pause" && session.paused === true;
+    const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
+    const name = paused ? "Resume" : tile.label;
+    const key = flightKey(tile);
+    const why = whyOf(tile);
+    const reading = id === "judge" && judging;
+    const cleared = id === "judge" && clear && !reading;
+    // Pressed, and Fleet has not answered: the tile already reads the new state (`pressed.ts`), and a going mark says so.
+    const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
+    return (
+      <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
+        <button
+          type="button"
+          className="deck-tile"
+          aria-label={name}
+          data-key={key}
+          data-act={id === "pause" ? "pause" : undefined}
+          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true)}
+          data-on={paused || undefined}
+          aria-busy={pending === tile.id || undefined}
+          aria-disabled={why !== undefined || undefined}
+          onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
+        >
+          {reading ? (
+            <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+              <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
+            </span>
+          ) : cleared ? (
+            <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
+              <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
+            </span>
+          ) : (
+            <Glyph size={20} aria-hidden="true" />
+          )}
+          <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
+          {id !== "land" && id !== "pause" ? null : (
+            // A mark in the corner, so the tile keeps its place: a filled dot while on, a ring while off. Auto land is on while it is set and Pause while the Job is paused.
+            <span className="deck-tile__state" role="img" aria-label={id === "land" ? (on ? "Auto land on" : "Auto land off") : paused ? "Paused" : "Not paused"} data-on={(id === "land" ? on : paused) || undefined}>
+              {(id === "land" ? on : paused) ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
+            </span>
+          )}
+          {!going ? null : (
+            <span className="deck-tile__going" role="img" aria-label="Sending">
+              <LoaderCircle size={12} strokeWidth={2} aria-hidden="true" />
+            </span>
+          )}
+          {tile.hides === undefined ? null : (
+            <span className="deck-tile__hides" role="img" aria-label={`Hides the repository's ${tile.hides}`}>
+              <Eclipse size={12} strokeWidth={2.5} aria-hidden="true" />
+            </span>
+          )}
+          {key === undefined ? null : (
+            <Kbd className="deck-tile__key" aria-hidden="true">
+              {tileCap(key)}
+            </Kbd>
+          )}
+        </button>
+      </Tooltip>
+    );
+  };
+  const drawn = flightTilesOf(shown);
   return (
     <>
       {dialog}
-      <FlightBlock className="deck-controls__block" data-subject="session" pages={pagesOf(shown.length).count}>
-        <div className="deck-controls__tiles" style={flightGrid(shown.length)}>
-          {shown.map((tile, at) => {
-            const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
-            const paused = id === "pause" && session.paused === true;
-            const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
-            const name = paused ? "Resume" : tile.label;
-            const key = tile.key;
-            const why = id === undefined ? offCustom(tile) : off[id];
-            const reading = id === "judge" && judging;
-            const cleared = id === "judge" && clear && !reading;
-            const pulsing = id === "checks" && checksRunning;
-            // Pressed, and Fleet has not answered: the tile already reads the new state (`pressed.ts`), and a going mark says so.
-            const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
-            return (
-              <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
-                <button
-                  type="button"
-                  className="deck-tile"
-                  {...pageCell(at, shown.length)}
-                  aria-label={name}
-                  data-key={key}
-                  data-act={id === "pause" ? "pause" : undefined}
-                  aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true) || layer === id}
-                  data-lit={(id === "slot" && bays !== undefined && baysLit(bays)) || undefined}
-                  data-on={paused || undefined}
-                  data-running={pulsing || undefined}
-                  aria-busy={pending === tile.id || undefined}
-                  aria-disabled={why !== undefined || undefined}
-                  onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
-                >
-                  {reading ? (
-                    <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
-                      <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  ) : cleared ? (
-                    <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
-                      <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  ) : (
-                    <Glyph size={20} aria-hidden="true" />
-                  )}
-                  <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
-                  {id !== "land" ? null : (
-                    // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
-                    <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
-                      {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
-                    </span>
-                  )}
-                  {!going ? null : (
-                    <span className="deck-tile__going" role="img" aria-label="Sending">
-                      <LoaderCircle size={12} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  )}
-                  {id !== "slot" || clashSaid === undefined ? null : (
-                    // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
-                    <span className="deck-tile__clash" role="img" aria-label={clashSaid}>
-                      <Swords size={12} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  )}
-                  {tile.hides === undefined ? null : (
-                    <span className="deck-tile__hides" role="img" aria-label={`Hides the repository's ${tile.hides}`}>
-                      <Eclipse size={12} strokeWidth={2.5} aria-hidden="true" />
-                    </span>
-                  )}
-                  {id !== "subagents" || subagentsRunning === 0 ? null : (
-                    // The number running: the owner asked for it by name, the one place a figure is drawn beside what it counts.
-                    <span className="deck-tile__count" role="img" aria-label={`${subagentsRunning} subagents running`}>
-                      {subagentsRunning}
-                    </span>
-                  )}
-                  {id !== "compact" || filledBy === undefined ? null : (
-                    <span className="deck-tile__meter" role="meter" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={filledBy} data-high={filledBy >= HIGH_PERCENT || undefined}>
-                      <span style={{ width: `${filledBy}%` }} />
-                    </span>
-                  )}
-                  {key === undefined ? null : (
-                    <Kbd className="deck-tile__key" aria-hidden="true">
-                      {tileCap(key)}
-                    </Kbd>
-                  )}
-                </button>
-              </Tooltip>
-            );
-          })}
-        </div>
-      </FlightBlock>
+      <div className="deck-controls__block deck-flight" data-subject="session">
+        {drawn.map(drawTile)}
+      </div>
     </>
   );
 }

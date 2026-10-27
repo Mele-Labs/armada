@@ -31,7 +31,7 @@ export type TabsItem = {
    * never a figure**: how many is not what it is for. Absent draws none.
    */
   alert?: string;
-  /** The glyph the tab is drawn as under `iconsOnly`. A registry glyph. */
+  /** The glyph the tab is drawn as under `iconsOnly`, or before its label under `icons`. A registry glyph. */
   icon?: LucideIcon;
 };
 
@@ -46,9 +46,11 @@ export type TabsProps = {
    * with no icon keeps its label.
    */
   iconsOnly?: boolean;
+  /** Each tab drawn as its `icon` before its label. A tab with no icon is its label alone. */
+  icons?: boolean;
 };
 
-export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }: TabsProps) {
+export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, icons = false }: TabsProps) {
   const [internal, setInternal] = useState(defaultValue ?? items[0]?.id);
   const active = value ?? internal;
   const { strip, fill } = useSelectedFill(active, items.map((item) => item.id).join("\u0000"));
@@ -97,7 +99,16 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }
             onClick={() => select(item.id)}
             {...(Icon === undefined ? {} : { "aria-label": item.label, "data-icon-only": "" })}
           >
-            {Icon === undefined ? item.label : <Icon size={16} strokeWidth={2} aria-hidden />}
+            {Icon !== undefined ? (
+              <Icon size={16} strokeWidth={2} aria-hidden />
+            ) : icons && item.icon !== undefined ? (
+              <>
+                <item.icon size={14} strokeWidth={2} aria-hidden />
+                <span className="armada-tabs__label">{item.label}</span>
+              </>
+            ) : (
+              item.label
+            )}
             {item.alert === undefined ? null : (
               <Tooltip label={item.alert}>
                 <span className="armada-tabs__alert" role="img" aria-label={item.alert} />

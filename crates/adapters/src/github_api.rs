@@ -179,8 +179,8 @@ impl ApiFailure {
                 format!("GitHub's rate limit is spent for about {minutes} minutes. Open it again after that.")
             }
             ApiFailure::Refused { status: 401 | 403, said, .. } => format!(
-                "GitHub refused access ({said}). Run `gh auth refresh`, authorize the token for the \
-                 organization's single sign-on, then open it again."
+                "GitHub refused the token gh signed in with ({said}). Sign in again with `gh auth refresh -s repo`, \
+                 authorize it for the organization's SSO, then open it again."
             ),
             ApiFailure::Refused { status, said, .. } => {
                 format!("GitHub answered {status} ({said}). Open it again in a minute.")

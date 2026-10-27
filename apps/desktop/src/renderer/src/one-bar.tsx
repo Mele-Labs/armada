@@ -1,24 +1,44 @@
 // The title bar's search field and the keys that dispatch. `n` and ⌘N open the dispatch sheet on the draft, in one
 // press, from every surface; the palette is search only, and a dispatch row chosen in it (↵ on the row, ⌘↵, a pasted
 // link) moves the words into that same sheet, in the kind Tab chose. The sheet, its draft and the sends are `dispatch-panel/`.
+// Task and Project, where the window keeps projects, file the words in them instead (`projects-tab/palette.ts`).
 
-import { useEffect, useRef } from "react";
-import { isPressed, type PaletteDispatch } from "@armada/components";
+import { useEffect, useRef, useState } from "react";
+import { adds, isPressed, type AddKind, type BarKind, type PaletteDispatch } from "@armada/components";
+import type { RepositorySummary } from "@armada/protocol";
 import { holdsText } from "@armada/screens/src/keys";
 
 import type { Dispatching } from "./dispatch-panel/dispatching";
+import { useProjectsFiling } from "./projects-tab/palette";
 
 /** The title bar's field, which the strip a send leaves hangs from. */
 export const ONE_BAR = ".armada-title-bar__search";
 
-export function useOneBar({ live, dispatching }: { live: boolean; dispatching: Dispatching }): PaletteDispatch {
+export function useOneBar({ live, dispatching, open, picked, repositories }: {
+  live: boolean;
+  dispatching: Dispatching;
+  /** Whether the palette is up: closed, Tab's Task or Project goes back to the sheet's kind. */
+  open: boolean;
+  picked: RepositorySummary | null;
+  repositories: readonly RepositorySummary[];
+}): PaletteDispatch {
   useOpenedToDispatch(live, dispatching.openNew, dispatching.openAfter);
+  const filing = useProjectsFiling(picked, repositories);
+  const [adding, setAdding] = useState<AddKind>();
+  useEffect(() => {
+    if (!open) setAdding(undefined);
+  }, [open]);
+  const kinds: BarKind[] = [...dispatching.kinds, ...(filing === undefined ? [] : (["task", "project"] as const))];
 
   return {
-    kind: dispatching.kind,
-    kinds: dispatching.kinds,
-    ...(dispatching.kinds.length < 2 ? {} : { onKind: dispatching.choose }),
-    onDispatch: (words) => dispatching.openSheet(words),
+    kind: adding ?? dispatching.kind,
+    kinds,
+    // Tab past the sheet's kinds puts the sheet back on its first, so the palette opens on Job again once Task or Project was chosen.
+    ...(kinds.length < 2
+      ? {}
+      : { onKind: (next: BarKind) => (adds(next) ? (setAdding(next), dispatching.choose(dispatching.kinds[0] ?? "session")) : (setAdding(undefined), dispatching.choose(next))) }),
+    onDispatch: (words, kind) => (adds(kind) ? filing?.add(words, kind) : dispatching.openSheet(words)),
+    ...(filing === undefined ? {} : { step: (words: string, kind: BarKind) => (adds(kind) ? filing.step(words, kind) : undefined) }),
   };
 }
 

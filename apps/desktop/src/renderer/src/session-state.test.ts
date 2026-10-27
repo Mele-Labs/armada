@@ -115,3 +115,10 @@ describe("a Job held on its start card is a draft", () => {
     expect(stateOf(session({ turn: { state: "working" }, standing: "working" })).state).toBe("working");
   });
 });
+
+describe("the done ask on his project tasks holds the Session on him", () => {
+  test("a Session at work with a task_done item on it is waiting on him, whatever its turn says", () => {
+    const ask = { id: "task_done:p1", text: "Mark Sign the build done?", since: TURN_ENDED, source: "task_done", options: [{ label: "Mark done" }, { label: "Keep open" }] };
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [ask] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
+});

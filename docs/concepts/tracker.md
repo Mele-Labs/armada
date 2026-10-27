@@ -252,6 +252,9 @@ Still open:
 | Each row | The issue's reference as its tracker writes it: `#123`, `ABC-123`. Autopilot's Next up and its picks draw the same |
 | The Issues tab | Each repository's issues under its heading, or one repository's. Open, Assigned to me and the queries he saved are run with `search_issues`, and a query described in his words is written by `write_issue_query`, the one act that spends, which Bridge asks about first. An issue is read whole with `get_issue`, with the Jobs working it from `holders`. Start a Job opens the dispatch sheet on the issue held as a tag, and Fleet claims it for the Job from that tag |
 
+**An issue can be linked into a project, and onto a task in one.**
+Fleet keeps its reference and reads its title and state from the tracker each time: [Project](project.md).
+
 ## What it does not do yet
 
 | Missing | Waiting on it |

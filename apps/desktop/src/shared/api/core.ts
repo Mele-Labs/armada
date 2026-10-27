@@ -14,6 +14,7 @@ import type {
 } from "@armada/protocol";
 import type { PanelGo } from "@armada/studios/api";
 import type { Pattern } from "../haptics";
+import type { PullLink } from "../pull-link";
 import type { StateChange } from "../state-change";
 
 /** `S` is the whole app's state, which `state` and `subscribe` hand over; Core cannot name it. */
@@ -74,6 +75,11 @@ export type CoreApi<S = CoreState> = {
    * how one stops.
    */
   onSummoned: (onGo: (to: Summons) => void) => () => void;
+  /**
+   * A link to a pull request opened from outside, `armada://pull/<owner>/<name>/<n>`: the repository and number it names. Main only sends one while
+   * `features.deepLinks` is on, and holds it for a window that is not up yet. It grants nothing: the window finds the repository among those it draws.
+   */
+  onPullLink: (onLink: (link: PullLink) => void) => () => void;
   /**
    * A trackpad swipe or a browser back/forward key, which only main hears.
    * One-way and `"back" | "forward"` only; it grants nothing.
@@ -163,6 +169,8 @@ export const CORE_CHANNELS = {
   restartFleet: "bridge:restart-fleet",
   changeFleetBuild: "bridge:change-fleet-build",
   summoned: "bridge:summoned",
+  // A pull request's link opened from outside, main to the window. Sent by main, never invoked.
+  pullLinked: "bridge:pull-linked",
   // A swipe or a browser key, from the OS to the window. Sent by main, never invoked.
   history: "bridge:history",
   // A press Fleet answered, felt on the trackpad. Sent, never invoked: nothing waits on it.

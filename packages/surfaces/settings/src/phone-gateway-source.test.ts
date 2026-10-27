@@ -90,7 +90,7 @@ test("confirm sends the code, then reads the devices again", async () => {
   source.confirm();
   await vi.advanceTimersByTimeAsync(0);
   expect(asked).toContainEqual({ op: "confirm", code: "c0de" });
-  expect(asked.at(-1)).toEqual({ op: "devices" });
+  expect(asked.filter((one) => one.op !== "setup").at(-1)).toEqual({ op: "devices" });
   expect(source.get().pairing).toBeNull();
   expect(source.get().claim).toBeNull();
 });
@@ -114,7 +114,7 @@ test("unpair sends the id and reads the devices again; a Gateway gone says so", 
   source.unpair("d2");
   await vi.advanceTimersByTimeAsync(0);
   expect(asked).toContainEqual({ op: "unpair", id: "d2" });
-  expect(asked.at(-1)).toEqual({ op: "devices" });
+  expect(asked.filter((one) => one.op !== "setup").at(-1)).toEqual({ op: "devices" });
   const gone = over({ unpair: DOWN });
   await vi.advanceTimersByTimeAsync(0);
   gone.source.unpair("d1");
@@ -183,4 +183,60 @@ test("Fleet refusing the switch shows its sentence and leaves the switch where i
   await vi.advanceTimersByTimeAsync(0);
   expect(source.get().access).toEqual({ on: false, turning: false });
   expect(source.get().gateway).toEqual({ state: "said", said: "Fleet could not write the phone marker." });
+});
+
+const MISSING = { tailscale: "missing", served: "none", named: false };
+const FUNNEL = { tailscale: "running", served: "funnel", named: false, address: "https://m.ts.net" };
+
+test("the way in is read with the devices, and read again every 5 s until Funnel is on", async () => {
+  let setup: unknown = MISSING;
+  const asked: PhoneRequest[] = [];
+  const source = createPhoneGatewaySource(async (request) => {
+    asked.push(request);
+    return request.op === "access" ? ok(ON) : request.op === "setup" ? ok(setup) : ok(null);
+  });
+  source.subscribe(() => undefined);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(source.get().setup).toEqual(MISSING);
+  setup = FUNNEL;
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(source.get().setup).toEqual(FUNNEL);
+  const reads = asked.filter((one) => one.op === "setup").length;
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(asked.filter((one) => one.op === "setup").length).toBe(reads);
+});
+
+test("Turn on Funnel shows the tailnet's page, keeps it while Funnel is off, and drops it once on", async () => {
+  let setup: unknown = { tailscale: "running", served: "none", named: false };
+  const source = createPhoneGatewaySource(async (request) =>
+    request.op === "access" ? ok(ON) : request.op === "setup" ? ok(setup) : request.op === "funnel" ? ok({ approve: "https://allow.example/f" }) : ok(null),
+  );
+  source.subscribe(() => undefined);
+  await vi.advanceTimersByTimeAsync(0);
+  source.funnel();
+  expect(source.get().setup?.funnel).toEqual({ state: "turning" });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(source.get().setup?.funnel).toEqual({ state: "approve", page: "https://allow.example/f" });
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(source.get().setup?.funnel).toEqual({ state: "approve", page: "https://allow.example/f" });
+  setup = FUNNEL;
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(source.get().setup).toEqual(FUNNEL);
+});
+
+test("a refused Turn on Funnel is Tailscale's sentence, and open hands the page on", async () => {
+  const opened: string[] = [];
+  const source = createPhoneGatewaySource(
+    async (request) =>
+      request.op === "access" ? ok(ON) : request.op === "setup" ? ok({ tailscale: "running", served: "none", named: false }) : request.op === "funnel" ? refused("Tailscale could not turn Funnel on.") : ok(null),
+    Date.now,
+    (page) => opened.push(page),
+  );
+  source.subscribe(() => undefined);
+  await vi.advanceTimersByTimeAsync(0);
+  source.funnel();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(source.get().setup?.funnel).toEqual({ state: "said", said: "Tailscale could not turn Funnel on." });
+  source.open("https://tailscale.com/download/mac");
+  expect(opened).toEqual(["https://tailscale.com/download/mac"]);
 });

@@ -24,6 +24,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [Showing a file](session/showing-a-file.md) |
 | [Noting what you read](session/noting-what-you-read.md) |
 | [Asking in the window](session/asking-in-the-window.md) |
+| [Proposing a draft](session/proposing-a-draft.md) |
 | [What a Job is doing](session/what-a-job-is-doing.md) |
 | [Waiting on the person](session/waiting-on-the-person.md) |
 | [Working on](session/working-on.md) |

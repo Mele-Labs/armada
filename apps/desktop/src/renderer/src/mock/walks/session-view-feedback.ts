@@ -1,5 +1,5 @@
 // Three notes on the Cockpit's one Session view. Opening a Session fits the whole Field in the foot, and opening another fits it again;
-// the right column is the Job's story, Workflow, Blueprint, Field and Landing (the Ledger and Status gave way to it); and the Merge line frames the open Session's own pull requests. Over `session-view-feedback`.
+// the right column is the Job's story, Workflow, Blueprint, Field and Delivery (the Ledger and Status gave way to it); and the Merge line frames the open Session's own pull requests. Over `session-view-feedback`.
 
 import { button, deckRow, inside, region, walk } from "../walk";
 

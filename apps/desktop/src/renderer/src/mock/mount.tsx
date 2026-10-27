@@ -67,6 +67,7 @@ import { SharedPanelOver } from "../shared-panel/wired";
 import { reviewSourceOf } from "../pr-review/source";
 import { IssuesFrom, createIssuesStore } from "../issues-tab/store";
 import { issuesTabSource } from "./slices/issues";
+import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 
@@ -94,7 +95,13 @@ export type Mounted = {
  * mounted, this window's bindings included.
  */
 /** The Phone card's moment for each `phone/…` scenario; any other scenario has access on and two phones paired. */
-const PHONE_MOMENTS: Record<string, PhoneMoment> = { "phone/off": "off", "phone/port-taken": "port_taken", "phone/tailscale": "tailscale" };
+const PHONE_MOMENTS: Record<string, PhoneMoment> = {
+  "phone/off": "off",
+  "phone/port-taken": "port_taken",
+  "phone/tailscale": "tailscale",
+  "phone/set-up": "set_up",
+  "phone/named": "named",
+};
 
 function OnScreen({ say }: { say: () => void }) {
   useEffect(() => say(), [say]);
@@ -176,6 +183,10 @@ export function mountApp(
   const tracked = chosen.draft?.issuesTab;
   if (tracked !== undefined && seed === undefined) forgetAllKept();
   const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked));
+  // The Projects tab starts with nothing open, over the mock Fleet's projects routes, whose done asks join the Jobs that carry the same ask (`slices/projects.ts`).
+  const listed = chosen.draft?.projectsTab;
+  if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();
+  const projects = listed === undefined ? undefined : createProjectsStore(api, chosen.draft?.projectsPulls);
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
@@ -209,6 +220,7 @@ export function mountApp(
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
                                           <ReviewsFrom store={reviews}>
                                           <IssuesFrom store={issues}>
+                                          <ProjectsFrom store={projects}>
                                             {panelReads === undefined ? (
                                               <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
                                                 <App />
@@ -225,6 +237,7 @@ export function mountApp(
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>
                                             )}
+                                          </ProjectsFrom>
                                           </IssuesFrom>
                                           </ReviewsFrom>
                                         </PrOwnersFrom>

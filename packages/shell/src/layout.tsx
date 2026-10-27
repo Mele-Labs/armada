@@ -59,7 +59,7 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
       { id: "workflow", label: "Workflow", icon: Workflow, hideable: true },
       { id: "blueprint", label: "Blueprint", icon: DraftingCompass, hideable: false },
       { id: "field", label: "Field", icon: Radar, hideable: true },
-      { id: "landing", label: "Landing", icon: PlaneLanding, hideable: true },
+      { id: "landing", label: "Delivery", icon: PlaneLanding, hideable: true },
     ],
   },
   rail: {
