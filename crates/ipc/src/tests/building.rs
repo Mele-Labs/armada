@@ -4,6 +4,7 @@
 
 use crate::{
     decode, encode, BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildReport,
+    LeftOutBranch,
 };
 
 #[test]
@@ -15,6 +16,7 @@ fn a_build_with_nothing_to_say_carries_only_where_it_runs() {
         restarting: None,
         stage: None,
         failed: None,
+        left_out: Vec::new(),
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(json, r#"{"on":"main"}"#);
@@ -33,11 +35,13 @@ fn a_full_report_round_trips() {
         restarting: Some(BuildSource::Main),
         stage: None,
         failed: Some("main cannot fast-forward to origin/main".into()),
+        left_out: vec![LeftOutBranch { branch: "armada/a".into(), why: "conflict: apps/a.ts".into() }],
     };
     let json = encode(&report).expect("a report is plain data");
     assert!(json.contains(r#""on":"preview""#), "{json}");
     assert!(json.contains(r#""position":{"ahead":4,"behind":0}"#), "{json}");
     assert!(json.contains(r#""restarting":"main""#), "{json}");
+    assert!(json.contains(r#""left_out":[{"branch":"armada/a","why":"conflict: apps/a.ts"}]"#), "{json}");
     assert_eq!(
         decode::<FleetBuildReport>("build", json.as_bytes()).expect("it round-trips"),
         report
@@ -62,6 +66,7 @@ fn a_stage_crosses_as_a_snake_case_word_and_round_trips() {
             restarting: Some(BuildSource::Preview),
             stage: Some(stage),
             failed: None,
+            left_out: Vec::new(),
         };
         let json = encode(&report).expect("a report is plain data");
         assert!(json.contains(&format!(r#""stage":"{word}""#)), "{json}");

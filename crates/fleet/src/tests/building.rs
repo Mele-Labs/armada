@@ -280,6 +280,47 @@ fn the_branches_left_out_are_read_for_the_running_build_only() {
     assert_eq!(read["armada/b"], LeftOut { tip: "b".repeat(40), why: "does not build: x.rs".into() });
 }
 
+#[tokio::test]
+async fn the_report_carries_the_branches_the_preview_left_out_sorted_with_why() {
+    let (checkout, support) = rig();
+    a_preview_that_left_branches_out(support.path());
+    let report = Building::default()
+        .report(Some(checkout.path()), support.path(), SystemTime::now())
+        .await
+        .expect("the preview");
+    let left: Vec<(&str, &str)> = report.left_out.iter().map(|l| (l.branch.as_str(), l.why.as_str())).collect();
+    assert_eq!(
+        left,
+        [
+            ("armada/a", "conflict: apps/a.ts"),
+            ("armada/m", "breaking migration projects.span_repositories is not on main"),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn the_report_names_nothing_left_out_on_main_or_without_a_file_or_for_another_build() {
+    let (checkout, support) = rig();
+    let building = Building::default();
+    let now = SystemTime::now();
+
+    a_preview_that_left_branches_out(support.path());
+    fs::write(support.path().join("restart-commit"), format!("{}\n", "f".repeat(40))).unwrap();
+    let other = building.report(Some(checkout.path()), support.path(), now).await.unwrap();
+    assert!(other.left_out.is_empty(), "written for another build");
+
+    a_preview_that_left_branches_out(support.path());
+    fs::write(support.path().join("restart-source"), "").unwrap();
+    let main = building.report(Some(checkout.path()), support.path(), now).await.unwrap();
+    assert_eq!(main.on, BuildSource::Main);
+    assert!(main.left_out.is_empty(), "main left nothing out, whatever the file says");
+
+    fs::remove_file(support.path().join("preview-left-out")).unwrap();
+    fs::write(support.path().join("restart-source"), "/Users/user/armada/.armada/preview\n").unwrap();
+    let none = building.report(Some(checkout.path()), support.path(), now).await.unwrap();
+    assert!(none.left_out.is_empty(), "no file");
+}
+
 /// The preview at `SHA`, which left out `armada/a` at the tip `"a" * 40` and `armada/m` for a
 /// migration that is not on main.
 fn a_preview_that_left_branches_out(support: &Path) {

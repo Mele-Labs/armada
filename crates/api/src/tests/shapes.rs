@@ -72,6 +72,7 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         restarting: None,
         stage: None,
         failed: None,
+        left_out: Vec::new(),
     }
 }
 

@@ -25,7 +25,7 @@ use std::time::{Duration, Instant, SystemTime};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, WireError,
+    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, LeftOutBranch, WireError,
 };
 
 use crate::daemon::Fleet;
@@ -313,6 +313,13 @@ impl Building {
             }
             _ => (None, None, None),
         };
+        let left_out = match (on, commit.as_deref()) {
+            (BuildSource::Preview, Some(commit)) => left_out_in(support, commit)
+                .into_iter()
+                .map(|(branch, left)| LeftOutBranch { branch, why: left.why })
+                .collect(),
+            _ => Vec::new(),
+        };
         Ok(FleetBuildReport {
             on,
             commit,
@@ -320,6 +327,7 @@ impl Building {
             restarting,
             stage,
             failed,
+            left_out,
         })
     }
 

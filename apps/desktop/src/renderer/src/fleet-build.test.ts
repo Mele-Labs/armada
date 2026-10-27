@@ -19,4 +19,16 @@ describe("the build as the panel is handed it", () => {
     expect(build?.working).toBe("preview");
     expect(build).not.toHaveProperty("stage");
   });
+
+  it("carries the branches the preview left out, with why", () => {
+    const left = [
+      { branch: "armada/a", why: "conflict: apps/a.ts" },
+      { branch: "armada/m", why: "breaking migration is not on main" },
+    ];
+    expect(fleetBuildOf(report({ left_out: left }), () => {})?.leftOut).toEqual(left);
+  });
+
+  it("has no left-out list where Fleet reported none", () => {
+    expect(fleetBuildOf(report({}), () => {})).not.toHaveProperty("leftOut");
+  });
 });
