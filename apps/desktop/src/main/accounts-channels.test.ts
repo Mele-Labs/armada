@@ -26,6 +26,7 @@ const accounts = {
   chooseSharedHomeSide: said("choose"),
   homeKinds: said("kinds"),
   setHomeKind: said("set"),
+  setHomeItem: said("item"),
   setHomeRepository: said("repository"),
 };
 const connected = { accounts } as unknown as FleetConnection;
@@ -43,6 +44,7 @@ describe("the shared home's channels", () => {
     await handlers.get(CHANNELS.chooseSharedHomeSide)?.({}, { login: "nickmele", kind: "mods", name: "dusk" }, "there");
     await handlers.get(CHANNELS.getHomeKinds)?.({}, "nickmele");
     await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", true);
+    await handlers.get(CHANNELS.setHomeItem)?.({}, { login: "nickmele", kind: "plugins", name: "impeccable@impeccable", state: "here" }, true);
     await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "mele-labs", "armada-home");
     expect(called).toEqual([
       'read ["nickmele"]',
@@ -52,6 +54,7 @@ describe("the shared home's channels", () => {
       'choose [{"login":"nickmele","kind":"mods","name":"dusk"},"there"]',
       'kinds ["nickmele"]',
       'set ["nickmele","mods",true]',
+      'item [{"login":"nickmele","kind":"plugins","name":"impeccable@impeccable"},true]',
       'repository ["nickmele","mele-labs","armada-home"]',
     ]);
   });
@@ -65,6 +68,7 @@ describe("the shared home's channels", () => {
     expect(await handlers.get(CHANNELS.bringFromSharedHome)?.({}, null)).toEqual(unread);
     expect(await handlers.get(CHANNELS.chooseSharedHomeSide)?.({}, { login: "nickmele", kind: "mods", name: "dusk" }, "both")).toEqual(unread);
     expect(await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", "yes")).toEqual(unread);
+    expect(await handlers.get(CHANNELS.setHomeItem)?.({}, { login: "nickmele", kind: "plugins", name: "impeccable" }, "on")).toEqual(unread);
     expect(await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "", "armada-home")).toEqual(unread);
     expect(called).toEqual([]);
   });

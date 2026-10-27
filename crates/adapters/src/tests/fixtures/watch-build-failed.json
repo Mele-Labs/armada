@@ -1,0 +1,9 @@
+{
+  "number": 5120,
+  "state": "failed",
+  "web_url": "https://ci.example.test/acme-shop/web/builds/5120",
+  "jobs": [
+    { "id": "j-build", "type": "script", "name": "build", "state": "passed", "web_url": "https://ci.example.test/acme-shop/web/builds/5120#j-build", "log_url": "https://api.example.test/jobs/j-build/log" },
+    { "id": "j-provision", "type": "script", "name": "provision", "state": "failed", "web_url": "https://ci.example.test/acme-shop/web/builds/5120#j-provision", "log_url": "https://api.example.test/jobs/j-provision/log" }
+  ]
+}

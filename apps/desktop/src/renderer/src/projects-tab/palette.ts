@@ -1,17 +1,24 @@
-// The one bar's Task and Project: words typed in the palette, filed in his projects without leaving the page he is on. A
-// task asks which project, listed in the palette, last used first; a project goes into the repository picked, and on All
-// the palette asks which repository first.
+// The one bar's Task and Project: words typed in the palette, filed in his projects without leaving the page he is on. A task asks
+// which project, listed in the palette, last used first, or none; it goes to the repository the last task did, else the first
+// listed. A project is his, so it asks for no repository. The palette also finds a task or subtask by its title, with the project
+// (or No project) and the repository under it, and choosing one opens it on the Projects tab (`usePaletteTasks`).
 
 import type { AddKind, PaletteStep } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
+import type { PaletteTask } from "@armada/shell";
 
 import { bandsIn } from "./list";
-import { useProjectsStore } from "./store";
+import type { ProjectRow } from "./model";
+import { NO_PROJECT } from "./views";
+import { useProjects, useProjectsStore } from "./store";
+
+/** The palette row for a task in no project. */
+const NONE = "none:";
 
 export type Filing = {
   /** Where the words need a place chosen, the step listing the places; `undefined` where they go at once. */
   step: (words: string, kind: AddKind) => PaletteStep | undefined;
-  /** Files words that needed no step: a project in the one repository picked. */
+  /** Files words that needed no step: a project. */
   add: (words: string, kind: AddKind) => void;
 };
 
@@ -20,35 +27,35 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
   const store = useProjectsStore();
   if (store === undefined) return undefined;
   const bands = bandsIn(picked, repositories);
+  const home = () => bands.find((band) => band.manifestId === store.get().lastRepo)?.manifestId ?? bands[0]?.manifestId;
   return {
     step: (words, kind) => {
-      const title = `Add “${words}” to`;
-      if (kind === "project") {
-        if (bands.length === 1) return undefined;
-        return {
-          title,
-          sections: [{ id: "repositories", title: "Repositories" }],
-          entries: bands.map((band) => ({ id: band.manifestId, section: "repositories", label: band.label })),
-          searched: "every repository",
-          onChoose: (entry) => void store.addProject(entry.id, words, false),
-        };
-      }
-      // The picked repository's projects, or every repository's under its name; the last used first, in both.
-      const projects = store
-        .get()
-        .projects.filter((one) => bands.some((band) => band.manifestId === one.manifestId))
-        .sort((a, b) => b.usedAt - a.usedAt);
-      const order = [...new Set(projects.map((one) => one.manifestId))];
+      if (kind === "project") return undefined;
+      const projects = [...store.get().projects].sort((a, b) => b.usedAt - a.usedAt);
       return {
-        title,
-        sections: order.map((id) => ({ id, title: bands.find((band) => band.manifestId === id)?.label ?? id })),
-        entries: projects.map((one) => ({ id: one.id, section: one.manifestId, label: one.name })),
-        searched: picked === null ? "every repository's projects" : "this repository's projects",
-        onChoose: (entry) => store.addTask(entry.id, words),
+        title: `Add “${words}” to`,
+        sections: [{ id: "projects", title: "Projects" }],
+        entries: [{ id: NONE, section: "projects", label: "No project" }, ...projects.map((one) => ({ id: one.id, section: "projects", label: one.name }))],
+        searched: "your projects",
+        onChoose: (entry) => {
+          const repo = home();
+          if (repo !== undefined) store.addTask(repo, entry.id === NONE ? undefined : entry.id, words);
+        },
       };
     },
     add: (words, kind) => {
-      if (kind === "project" && bands.length === 1) void store.addProject(bands[0]!.manifestId, words, false);
+      if (kind === "project") void store.addProject(words, false);
     },
   };
+}
+
+/** Every task and subtask he has, for the palette to find by title: the project it is in, or No project, then its repository. */
+export function usePaletteTasks(repositories: readonly RepositorySummary[]): PaletteTask[] {
+  const { loose, projects } = useProjects();
+  const repository = new Map(bandsIn(null, repositories).map((band) => [band.manifestId, band.label]));
+  const named = (rows: ProjectRow[], project: string): PaletteTask[] =>
+    rows.flatMap((row) =>
+      row.kind === "task" ? [row, ...(row.subtasks ?? [])].map((one) => ({ id: one.id, label: one.title, detail: `${project} · ${repository.get(one.manifestId) ?? one.manifestId}` })) : [],
+    );
+  return [...named([...loose], NO_PROJECT), ...projects.flatMap((one) => named(one.rows, one.name))];
 }

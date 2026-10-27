@@ -338,7 +338,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
               <li key={`band:${band.key}`} className="deck-list__band">
-                <h3 className="deck-list__repository">{band.label}</h3>
+                <h3 className="deck-list__head">{band.label}</h3>
                 <ul className="deck-list__group">{[...band.ideas.map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...band.subjects.map(row)]}</ul>
               </li>
             ))}

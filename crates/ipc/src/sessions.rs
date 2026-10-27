@@ -656,6 +656,13 @@ pub enum WaitingSource {
     /// dismissed. Listed only while the Job is live: the ask stands on the tasks when it ends, and the
     /// Projects tab settles it.
     TaskDone,
+    /// Fleet: a watch of the Job ended `not_ours`. Derived on every read from the store's watch: id
+    /// `watch_not_ours:<watch id>`, text `<watch>: <parts> failed`, an `answer` act whose `target` is
+    /// the watch id, and exactly two options, `Ignore` (choice 0) and `Fix it` (choice 1), labels only.
+    /// `Ignore` settles it and tells the agent nothing; `Fix it` sends the agent the part, its
+    /// sentence and its link, then settles it. Words alone go to the agent as a message and settle
+    /// it. Dismissing settles it. Listed only while the Job is live.
+    WatchNotOurs,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

@@ -9,6 +9,7 @@
 //! why on standard error and exits non-zero, which Fleet keeps as a broken reading.
 
 pub(crate) mod buildkite;
+pub(crate) mod evidence;
 pub(crate) mod github;
 
 use std::path::{Path, PathBuf};
@@ -50,12 +51,15 @@ pub fn read_watch(reader: &str, values: &[String], cwd: &Path) -> Result<Reading
     }
 }
 
-/// One part as a reader found it, with where to look at it.
+/// One part as a reader found it, with where to look at it and, where it failed, the exact lines
+/// it failed on and the end of its log.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Found {
     pub(crate) name: String,
     pub(crate) state: ReadingState,
     pub(crate) link: Option<String>,
+    pub(crate) error: Option<String>,
+    pub(crate) tail: Option<String>,
 }
 
 /// Up to three names, then how many more.
@@ -89,6 +93,9 @@ pub(crate) fn folded(found: Vec<Found>, of: &str, finished: bool) -> Reading {
         finished: finished && going.is_empty() && !found.is_empty(),
         says,
         link,
-        parts: found.into_iter().map(|one| Part { name: one.name, state: one.state }).collect(),
+        parts: found
+            .into_iter()
+            .map(|one| Part { name: one.name, state: one.state, link: one.link, error: one.error, tail: one.tail })
+            .collect(),
     }
 }

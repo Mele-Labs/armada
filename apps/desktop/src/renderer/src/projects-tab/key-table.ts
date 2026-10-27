@@ -15,20 +15,17 @@ export const PROJECTS_KEYS = {
   get rows() {
     return capOfSlot("projects_panel", 1);
   },
+  get search() {
+    return capOfSlot("projects_search", 0);
+  },
   get newProject() {
     return capOfSlot("projects_new", 0);
   },
   get addTask() {
     return capOfSlot("projects_add_task", 0);
   },
-  get link() {
-    return capOfSlot("projects_link", 0);
-  },
   get addSubtask() {
     return capOfSlot("projects_add_subtask", 0);
-  },
-  get linkTask() {
-    return capOfSlot("projects_link_task", 0);
   },
   get remove() {
     return capOfSlot("projects_delete", 0);
@@ -63,6 +60,11 @@ export const PROJECTS_KEYS = {
   get keepOpen() {
     return capOfSlot("projects_keep_open", 0);
   },
+  get done() {
+    return capOfSlot("projects_done", 0);
+  },
+  /** The key of the view at `at`: 0 all, 1 needs you, 2 in a Job. */
+  view: (at: number): string => capOfSlot("projects_view", at),
 };
 
 export { capOf } from "../pr-review/key-table";

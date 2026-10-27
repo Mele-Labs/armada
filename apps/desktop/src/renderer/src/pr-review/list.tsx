@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, SearchField, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -26,17 +26,25 @@ const LISTS = [
 ];
 
 const FIND_KEEP = "pr-review:find";
+const SEARCH_KEEP = "pr-review:search";
 /** The dropdown's last entry: not a list, but the box a find is written in. */
 const ASK = "ask";
 
 /** The repository picked narrows the list, as it narrows every other list in the window. */
 export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): boolean => picked === null || picked.manifest === undefined || pr.manifestId === picked.manifest.id;
 
+/** Whether a row answers the words in the bar: its title, `#number`, repository or author, in any case. */
+const matches = (pr: ReviewPr, words: string): boolean => {
+  const wanted = words.trim().toLowerCase();
+  return wanted === "" || [pr.title, `#${pr.number}`, pr.repository, pr.page.author ?? ""].some((one) => one.toLowerCase().includes(wanted));
+};
+
 export function ReviewList({ picked, repositories }: { picked: RepositorySummary | null; repositories: readonly RepositorySummary[] }) {
   const store = useReviewStore()!;
   const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
+  const [narrow, setNarrow] = useKept<string>(SEARCH_KEEP, "");
   const [address, setAddress] = useState("");
   const [unopened, setUnopened] = useState<string | undefined>(undefined);
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
@@ -53,6 +61,7 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
           const pr = prs.find((one) => one.key === hit.key);
           return pr === undefined || !inRepository(pr, picked) ? [] : [{ pr, reason: hit.reason }];
         });
+  const shown = rows.filter(({ pr }) => matches(pr, narrow));
   const fetched = fetchedAt === undefined ? "Not fetched" : `Fetched ${agoOf(new Date(fetchedAt).toISOString())}`;
   const here = asking ? ASK : tab;
   const entries: DropdownMenuEntry[] = [
@@ -60,7 +69,7 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
     ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
     ...finds.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.words, selected: here === one.id })),
     { kind: "separator", id: "ask-rule" },
-    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: REVIEW_KEYS.search },
+    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: capOf(REVIEW_KEYS.search) },
   ];
   const ask = () => {
     if (words.trim() === "") return;
@@ -100,6 +109,9 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
           </Tooltip>
         </span>
       </header>
+      <div className="pr-list__search">
+        <SearchField label="Search the pull requests" value={narrow} onValue={setNarrow} cap={REVIEW_KEYS.filter} />
+      </div>
       <div className="deck-scope pr-list__pick">
         <DropdownMenu
           align="start"
@@ -175,7 +187,7 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
       )}
       {find === undefined ? null : <FindHead find={find} />}
       <ul className="deck-list__rows pr-list__rows">
-        {rows.map(({ pr, reason }) => (
+        {shown.map(({ pr, reason }) => (
           <li key={pr.key} className="deck-list__item">
             <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => store.open(pr.key)}>
               <span className="pr-row__title">{pr.title}</span>

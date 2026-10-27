@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, StopWatch, WatchList, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -126,6 +126,8 @@ export type SessionsApi = {
   stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
   /** The person's delete on one ended watch of a Session. Fleet forgets it and answers the Job's watches after. */
   deleteWatch: (remove: DeleteWatch) => Promise<SessionActed<WatchList>>;
+  /** A failed reading's log, read whole. */
+  readWatchLog: (read: ReadWatchLog) => Promise<SessionActed<WatchLog>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
   /** Thumbs up on a follow-up Fleet read from a reply: the row stays open and reads `confirmed`. Fleet refuses an id that names no open follow-up. */
@@ -347,6 +349,7 @@ export const SESSIONS_CHANNELS = {
   settleLater: "bridge:settle-later",
   stopWatch: "bridge:stop-watch",
   deleteWatch: "bridge:delete-watch",
+  readWatchLog: "bridge:read-watch-log",
   readSessionWait: "bridge:read-session-wait",
   changeWaiting: "bridge:change-waiting",
   startWaitingNow: "bridge:start-waiting-now",

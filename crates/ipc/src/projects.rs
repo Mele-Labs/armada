@@ -1,5 +1,8 @@
-//! Projects: per repository, a person's ordered lists of tasks he wrote and issues he linked.
+//! Projects: a person's ordered lists of tasks he wrote and issues he linked, across repositories.
 //! `docs/practices/protocol/projects.md`.
+//!
+//! **A project is his, on this Mac, and has no repository.** Every row names its own, so a project
+//! may hold rows of several; a task in no project is loose.
 //!
 //! **An issue row keeps no state.** It is the tracker's reference only; whether it is open, and its
 //! title, are read from the tracker each time the rows are, and are absent where it could not say.
@@ -11,16 +14,17 @@ use crate::{IssueState, ManifestId, SessionId};
 /// `list_projects`' answer, what every write answers, and `projects.changed` whole.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Projects {
-    pub manifest_id: ManifestId,
     /// In the order he keeps them.
     pub projects: Vec<Project>,
+    /// The tasks in no project, of every repository, in their own order.
+    pub loose: Vec<ProjectRow>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
     pub name: String,
-    /// In order: a row's position is its place here.
+    /// In order, across repositories: a row's position is its place here.
     pub rows: Vec<ProjectRow>,
 }
 
@@ -35,6 +39,8 @@ pub enum ProjectRow {
     /// pull requests linked to it, in the order linked, each with what the forge says of it now.
     Task {
         id: String,
+        /// The repository the task is in. Moving it between projects keeps it.
+        manifest_id: ManifestId,
         title: String,
         notes: String,
         state: ProjectTaskState,
@@ -51,6 +57,8 @@ pub enum ProjectRow {
     /// says of it now.
     Issue {
         id: String,
+        /// The repository the issue is in.
+        manifest_id: ManifestId,
         issue: String,
         /// The tracker's title. Absent where it could not be read.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -114,10 +122,10 @@ pub enum ProjectTaskState {
     Asked,
 }
 
-/// One row of a project a Job starts with: the task, or the linked issue its brief should carry.
+/// One row a Job starts with: the task, or the linked issue its brief should carry. Row ids are
+/// unique across projects and the loose rows, so the row is the whole address.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectRowRef {
-    pub project: String,
     pub row: String,
 }
 
@@ -127,7 +135,7 @@ pub struct NameProject {
     pub name: String,
 }
 
-/// `add_project_task` and `edit_project_task`: a task's title and notes, whole.
+/// `edit_project_task` and `add_project_subtask`: a task's title and notes, whole.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectTask {
     pub title: String,
@@ -135,17 +143,42 @@ pub struct ProjectTask {
     pub notes: String,
 }
 
-/// `link_project_issue`: an issue by the tracker's reference, `#7` or `7`, `ABC-12`, `armada-3fz`.
+/// `add_project_task`: a task in the repository `manifest_id`, in the project `project` or, absent, in none.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NewProjectTask {
+    pub manifest_id: ManifestId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    pub title: String,
+    #[serde(default)]
+    pub notes: String,
+}
+
+/// `link_project_issue`: an issue of the repository `manifest_id`, by the tracker's reference, `#7` or
+/// `7`, `ABC-12`, `armada-3fz`, as a row of the project `project` or, absent, of none.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NewProjectIssue {
+    pub manifest_id: ManifestId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    pub issue: String,
+}
+
+/// `link_task_issue` and `unlink_task_issue`: an issue by the tracker's reference, `#7` or `7`, `ABC-12`, `armada-3fz`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinkProjectIssue {
     pub issue: String,
 }
 
 /// `move_project_row`: where the row goes, counted from 0 among the rows of the parent it ends up
-/// under. Past the end is the end. `parent` is the task to make it a subtask of, `""` to take it to
-/// the top level, and absent to leave it under the parent it has.
+/// under. Past the end is the end. `project` is the project it goes to, `""` for none, and absent to
+/// leave it in the one it is in. `parent` is the task to make it a subtask of, `""` to take it to
+/// the top level, and absent to leave it under the parent it has, or at the top level where the
+/// project changes. The row keeps its repository.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MoveProjectRow {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     pub position: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent: Option<String>,

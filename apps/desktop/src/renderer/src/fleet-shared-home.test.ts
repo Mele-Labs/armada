@@ -1,11 +1,11 @@
 // The Fleet-backed shared home, against a fake Fleet and a fake account: whose home is read, how a row on the wire
 // becomes Kit's, Sync turning while it runs, the three acts naming the row Fleet takes, a refusal told as a press that
-// failed, and reading again after What syncs moves. What the marks look like is the composition's (`KitBrowser`).
+// failed, reading again after What syncs moves, and What syncs switched from Kit. What the marks look like is the composition's (`KitBrowser`).
 
 import { describe, expect, it } from "vitest";
 
 import type { Profile } from "@armada/components";
-import type { HomeRow, HomeRowAt, HomeSynced, Outcome, SharedHomeRead } from "@armada/protocol";
+import type { HomeItem, HomeKind, HomeKinds, HomeRow, HomeRowAt, HomeSynced, Outcome, SharedHomeRead } from "@armada/protocol";
 
 import type { AccountsActed } from "../../shared/api/accounts";
 import type { AccountHeld, AccountSource } from "./fleet-account";
@@ -35,9 +35,12 @@ const DUSK: HomeRow = { kind: "mods", name: "dusk", state: "differs", here: "--a
 const HELD: SharedHomeRead = { home: { account: "nickmele", repository: "armada-home" }, rows: [SERVER, NOTE, DUSK], unreadable: [] };
 const refusal = (message: string): Outcome => ({ ok: false, why: "refused", error: { code: "fleet.home_login_not_held", message, run_id: "r1", fields: {}, chain: [] } });
 
-/** A Fleet holding `read`, a record of what Bridge asked of it, and a Sync that answers when the test says. */
-function fake(read: SharedHomeRead, over: Partial<FleetHome> = {}) {
+const KINDS: readonly HomeKind[] = ["skills", "plugins", "global_instructions", "sub_agents", "commands", "mcp_servers", "allowlist", "workflows", "memory", "mods"];
+
+/** A Fleet holding `read` and What syncs (`on` kinds, `items`), a record of what Bridge asked of it, and a Sync that answers when the test says. */
+function fake(read: SharedHomeRead, over: Partial<FleetHome> = {}, on: HomeKind[] = ["skills"], items: HomeItem[] = []) {
   const asked: string[] = [];
+  const kinds = (login: string): AccountsActed<HomeKinds> => ({ ok: true, value: { login, kinds: KINDS.map((kind) => ({ kind, on: on.includes(kind) })), items: [...items] } });
   let synced: ((answer: AccountsActed<HomeSynced>) => void) | undefined;
   const settle = (at: HomeRowAt): AccountsActed<SharedHomeRead> => ({ ok: true, value: { ...read, rows: read.rows.map((one) => (one.name === at.name ? { kind: one.kind, name: one.name, state: "same" } : one)) } });
   const fleet: FleetHome = {
@@ -47,6 +50,17 @@ function fake(read: SharedHomeRead, over: Partial<FleetHome> = {}) {
     bringFromSharedHome: async (at) => (asked.push(`bring ${JSON.stringify(at)}`), settle(at)),
     chooseSharedHomeSide: async (at, side) => (asked.push(`choose ${JSON.stringify(at)} ${side}`), settle(at)),
     setHomeRepository: (login, owner, name) => (asked.push(`repository ${login} ${owner}/${name}`), Promise.resolve({ ok: true, value: { ...read, planned: { account: owner, repository: name, exists: false } } })),
+    getHomeKinds: async (login) => kinds(login),
+    setHomeKind: async (login, kind, to) => {
+      asked.push(`kind ${login} ${kind} ${to}`);
+      on = to ? [...on, kind] : on.filter((one) => one !== kind);
+      return kinds(login);
+    },
+    setHomeItem: async (row, to) => {
+      asked.push(`item ${JSON.stringify(row)} ${to}`);
+      items = to ? [...items, { kind: row.kind, name: row.name }] : items.filter((one) => one.name !== row.name);
+      return kinds(row.login);
+    },
     ...over,
   };
   return { fleet, asked, answerSync: (answer: AccountsActed<HomeSynced>) => synced?.(answer) };
@@ -241,5 +255,52 @@ describe("the shared home over Fleet", () => {
     home.subscribe(() => undefined);
     await settled();
     expect([home.get()?.made, home.get()?.owners]).toEqual([undefined, undefined]);
+  });
+
+  it("draws What syncs beside the rows, and sends a kind or an item switched on in Kit to the home at once", async () => {
+    const fleet = fake(HELD, {}, ["skills"], [{ kind: "memory", name: "Walks, not pictures", repository: "armada" }]);
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true)]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    expect(home.get()?.syncs).toEqual({ kinds: ["skills"], items: [{ kind: "memory", name: "Walks, not pictures" }] });
+
+    home.get()?.setKind?.("plugins", true);
+    await settled();
+    expect(home.get()?.syncs?.kinds).toEqual(["skills", "plugins"]);
+    expect(home.get()?.syncing).toBe(true);
+    fleet.answerSync({ ok: true, value: { ...HELD, left: [] } });
+    await settled();
+    home.get()?.setItem?.({ kind: "sub_agents", name: "reviewer" }, true);
+    await settled();
+    expect(home.get()?.syncs?.items).toEqual([
+      { kind: "memory", name: "Walks, not pictures" },
+      { kind: "sub_agents", name: "reviewer" },
+    ]);
+    fleet.answerSync({ ok: true, value: { ...HELD, left: [] } });
+    await settled();
+    // Off sends nothing: the rows are read again.
+    home.get()?.setItem?.({ kind: "sub_agents", name: "reviewer" }, false);
+    await settled();
+    expect(fleet.asked).toEqual([
+      "read nickmele",
+      "kind nickmele plugins true",
+      "sync nickmele",
+      `item ${JSON.stringify({ login: "nickmele", kind: "sub_agents", name: "reviewer" })} true`,
+      "sync nickmele",
+      `item ${JSON.stringify({ login: "nickmele", kind: "sub_agents", name: "reviewer" })} false`,
+      "read nickmele",
+    ]);
+  });
+
+  it("tells that nothing syncs yet when Sync runs with no kind or item switched on", async () => {
+    const told: string[] = [];
+    const fleet = fake(HELD, {}, []);
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true)]).source, (sentence) => told.push(sentence));
+    home.subscribe(() => undefined);
+    await settled();
+    home.get()?.sync();
+    fleet.answerSync({ ok: true, value: { ...HELD, rows: [], left: [] } });
+    await settled();
+    expect(told).toEqual(["Nothing syncs yet: no kind or item is switched on"]);
   });
 });

@@ -1,6 +1,6 @@
 // Mods that travel, over `mods-travel`: Mods turned on in What syncs, Promote opening a pull request and the Job that
-// holds it, a mod Armada ships beside a local one of the same name, the Theme rows and Kit's Mods offering the same
-// marks and acts, the two theme.css of a mod that differs, and a kind left off drawing no marks.
+// holds it, a mod Armada ships beside a local one of the same name, the Theme rows and Kit's Mods carrying the same
+// marks, the two theme.css of a mod that differs, and a kind left off drawing no marks.
 
 import { button, dialog, inside, region, role, systemPage, toSystemPage, walk } from "../walk";
 
@@ -35,11 +35,11 @@ const modsTravel = walk("mods-travel", [
   { hover: inside(DUSK, button("Differs from the home, dusk", { exact: true })), say: "Dusk differs from the home" },
   { press: button("Add to this machine ember", { exact: true }), say: "Ember is only in the home: add it here" },
 
-  // Kit's Mods: the same marks and acts, and the two theme.css of the one that differs.
+  // Kit's Mods: the same marks, the acts in the item's detail, and the two theme.css of the one that differs.
   { press: entry("Mods"), say: "Kit, Mods" },
   { key: "ArrowDown", on: inside(KIT_MODS, button(/^dusk/)), say: "Down to the Harbour Armada ships" },
-  { press: inside(KIT_MODS, button("Add to the home harbour", { exact: true })), say: "Add the local Harbour to the home" },
-  { press: inside(KIT_MODS, button("Differs from the home, dusk", { exact: true })), say: "Open both versions of Dusk" },
+  { press: inside(KIT_MODS, button(/^dusk/)), say: "Dusk differs from the home" },
+  { press: inside(region("Detail"), button("Compare with the home")), say: "Open both versions of Dusk" },
   { look: inside(dialog("dusk"), region("The home", { exact: true })), say: "The home's theme.css, its accent lines lit" },
   { press: inside(dialog("dusk"), button(/^Use the home.s$/)), say: "Use the home's" },
 
