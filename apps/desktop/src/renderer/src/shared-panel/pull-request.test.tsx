@@ -355,3 +355,57 @@ test("Files entered again shows the diff of the head the forge names now, not th
   expect(filesPanel()?.textContent).toContain("+let days = 3;");
   expect(filesPanel()?.textContent).not.toContain("+let days = 2;");
 });
+
+// ---- Ready for review: the forge assigns reviewers a few seconds after the press, so the panel reads again ----------
+
+const DRAFT: PullRequestRead = { ...READ, facts: { ...READ.facts, state: "draft" } };
+const ASSIGNED: PullRequestRead = { ...READ, page: { ...PAGE, reviewers: [{ login: "ines", kind: "person" }] } };
+const plate = () => document.querySelector('section[aria-label="Reviewers"]');
+
+/** A forge that names reviewers from its `after`th read on, counting each read. */
+function assigning(after: number) {
+  const seen = { reads: 0 };
+  const pullRequest = async (): Promise<PullRequestRead> => (++seen.reads > after ? ASSIGNED : DRAFT);
+  return { seen, reads: { ...readsOf(pullRequest), actOnPullRequest: async () => true } satisfies PanelReads };
+}
+
+/** Time passing a second at a time, each drawn before the next, as it would be: one jump would fire every timer before a read could land. */
+const later = async (ms: number) => {
+  for (let at = 0; at < ms; at += 1_000) await act(async () => void (await vi.advanceTimersByTimeAsync(1_000)));
+};
+
+test("Ready for review reads the pull request again, and the reviewers the forge assigns after it appear without the panel being opened again", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const tide = assigning(1);
+    await mount(tide.reads);
+    expect(plate()).toBeNull();
+    await act(async () => pressed("Ready for review")!.click());
+    await later(2_000);
+    expect(plate()?.textContent).toContain("ines");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("the reads after Ready for review stop once reviewers show, and a forge that names none is read four times more and no further", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const named = assigning(1);
+    await mount(named.reads);
+    await act(async () => pressed("Ready for review")!.click());
+    await later(60_000);
+    expect(named.seen.reads).toBe(2);
+    act(() => root?.unmount());
+    host?.remove();
+    forgetPanel();
+    forgetReadings();
+    const none = assigning(Infinity);
+    await mount(none.reads);
+    await act(async () => pressed("Ready for review")!.click());
+    await later(60_000);
+    expect(none.seen.reads).toBe(5);
+  } finally {
+    vi.useRealTimers();
+  }
+});

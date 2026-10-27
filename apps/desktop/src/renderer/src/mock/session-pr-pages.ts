@@ -3,7 +3,7 @@
 // scenario, which is about the three states the panel draws. Read through `readReviewPage` and
 // `writeReview` by the side panel (`slices/reviews.ts`).
 
-import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage } from "@armada/protocol";
+import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage, PullRequestReviewer } from "@armada/protocol";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -156,6 +156,26 @@ function initial(): Record<number, PullRequestPage> {
         ["7d92f6a", "Draw the clash on the Session's row", "claude", 41],
       ]),
     },
+    // A draft: the forge names its reviewers a few seconds after it leaves draft, which `ASSIGNED_ON_READ` stands in for.
+    2214: {
+      manifest_id: "armada",
+      number: 2214,
+      base: "main",
+      author: "nick",
+      created_at: minutesAgo(20),
+      additions: 37,
+      deletions: 5,
+      mergeable: "mergeable",
+      review: "required",
+      approvals: 0,
+      conversation: [{ kind: "comment", author: "nick", at: minutesAgo(18), body: "Reads the forge again when its first answer is empty." }],
+      checks: checks(2214, [
+        ["build", "passed", 112],
+        ["lint", "passed", 30],
+      ]),
+      files: files([["apps/desktop/src/renderer/src/shared-panel/pull-request.tsx", "modified", 37, 5]]),
+      commits: commits([["c41d7e2", "Read the pull request again after Ready for review", "nick", 19]]),
+    },
   };
 }
 
@@ -165,11 +185,20 @@ export type PullRequestPages = {
   write: (number: number, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => PullRequestPage | { said: string };
 };
 
+/** Pull requests whose reviewers the forge names late: from this read of the page on, not before. The panel reads once on open, so the second read is the first one it asks for after Ready for review, two seconds on. */
+const ASSIGNED_ON_READ: Record<number, { read: number; reviewers: PullRequestReviewer[] }> = {
+  2214: { read: 2, reviewers: [{ login: "marta", kind: "person", name: "Marta Ruiz", url: "https://forge.example/marta" }, { login: "platform", kind: "team" }] },
+};
+
 export function pullRequestPages(): PullRequestPages {
   const pages = initial();
+  const reads: Record<number, number> = {};
   const read = (number: number): PullRequestPage | undefined => {
     const page = pages[number];
-    return page === undefined ? undefined : { ...page, conversation: [...page.conversation] };
+    if (page === undefined) return undefined;
+    const late = ASSIGNED_ON_READ[number];
+    reads[number] = (reads[number] ?? 0) + 1;
+    return { ...page, conversation: [...page.conversation], ...(late !== undefined && reads[number]! >= late.read ? { reviewers: late.reviewers } : {}) };
   };
   return {
     read,

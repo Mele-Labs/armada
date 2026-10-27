@@ -75,11 +75,14 @@ export function PullRequestSide({ item }: { item: Item }) {
   }
   const reading = useReading<PullRequestRead | PullRequestRefused>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, again, true);
   if (reads === undefined) return null;
-  return <Drawn item={item} reading={reading} onFiles={() => setAgain((n) => n + 1)} />;
+  return <Drawn item={item} reading={reading} onFiles={() => setAgain((n) => n + 1)} onRefresh={() => setAgain((n) => n + 1)} />;
 }
 
+/** The forge names a pull request's reviewers a few seconds after it leaves draft, so it is read again at these offsets (ms) from the press. */
+const REVIEWERS_ASKED_AT = [2_000, 5_000, 10_000, 20_000];
+
 // One component whether the read is out or in, so the panel's Sheet stays mounted when it lands.
-function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRequestRead | PullRequestRefused>; onFiles: () => void }) {
+function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Reading<PullRequestRead | PullRequestRefused>; onFiles: () => void; onRefresh: () => void }) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
@@ -94,10 +97,12 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   const [said, setSaid] = useState<string | undefined>(undefined);
   const [pressed, setPressed] = useState<PullRequestAct | undefined>(undefined);
   const here = useRef(true);
+  const asking = useRef<number[]>([]);
   useEffect(() => {
     here.current = true;
     return () => {
       here.current = false;
+      asking.current.forEach(clearTimeout);
     };
   }, []);
   const goTo = (next: string) => {
@@ -123,6 +128,9 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   const [patches, setPatches] = useState<{ head: string | undefined; answer: PatchesRead | "reading" } | undefined>(undefined);
   const readPatches = reads.pullRequestPatches;
   const paged = read !== undefined;
+  // What the reads after a press check: reviewers named, so nothing more to wait for.
+  const reviewed = useRef(false);
+  reviewed.current = (written ?? read?.page)?.reviewers?.length ? true : false;
   const head = read?.page.head;
   const patchesRun = useRef(0);
   useEffect(() => {
@@ -193,6 +201,19 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
     if (owner !== undefined && asked !== undefined && (what === "merge" || what === "auto_merge"))
       void done.then((accepted) => {
         if (accepted) draft?.answerWaiting?.(owner.id, asked.id, { text: what === "merge" ? `Merged #${facts.number}` : `Auto-merge is on for #${facts.number}` });
+      });
+    // The forge assigns reviewers after the press, not with it: read again until they show or the offsets run out.
+    if (what === "ready")
+      void done.then((accepted) => {
+        if (!accepted || !here.current) return;
+        asking.current.forEach(clearTimeout);
+        asking.current = REVIEWERS_ASKED_AT.map((ms) =>
+          window.setTimeout(() => {
+            if (!here.current || reviewed.current) return;
+            setPage(undefined);
+            onRefresh();
+          }, ms),
+        );
       });
     return done.finally(() => here.current && setPressed(undefined));
   };
