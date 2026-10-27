@@ -65,8 +65,9 @@ pub(crate) struct Holds {
 /// The windows that hold a pending plan back. **Only a window he can see or still owes holds it.**
 /// One a newer window of its page replaced, or whose walk item he dismissed, holds nothing. Every
 /// other window he has not approved since it was last shown holds it. **An Approve stands until the
-/// page is shown again**: a file write marks every window changed, so being changed holds only the
-/// newest window, the one on his screen, and one he has not approved, which waits to be shown again.
+/// page is shown again**: a file write marks every window changed, and the Job goes on writing after
+/// he approves, so a window he approved holds nothing however it was marked since. One he has not
+/// approved and was changed waits to be shown again.
 /// A walk the plan names holds it until he approves it. **A window he answered with words, not an
 /// Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to them, and
 /// showing the window again after the recording makes it hold again. His answer to one of the Job's
@@ -92,12 +93,14 @@ pub(crate) fn plan_holds(
         let on_screen = newest == Some(url);
         let changed = walking::is_changed(window);
         let approved = walking::walk_approval(rows, url);
-        let why = if on_screen && walking::is_working(window) {
+        let why = if approved.is_some() {
+            None
+        } else if on_screen && walking::is_working(window) {
             Some(PlanHoldWhy::Changing)
-        } else if changed && (on_screen || approved.is_none()) {
+        } else if changed {
             Some(PlanHoldWhy::Changed)
         } else {
-            approved.is_none().then_some(PlanHoldWhy::Unapproved)
+            Some(PlanHoldWhy::Unapproved)
         };
         if let Some(why) = why {
             held_by.push(PlanHold { url: url.to_string(), why });

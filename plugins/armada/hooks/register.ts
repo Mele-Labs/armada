@@ -67,6 +67,7 @@ import {
   skillUseOrigin,
   styleOrigin,
   toolOrigin,
+  touchedOf,
   waitedOf,
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, RateLimit, WaitingItem } from './facts'
@@ -1332,13 +1333,16 @@ export const register: Register = on => {
   }
 
   // The session's own write, not a subagent's, says it is changing what a window shows: Fleet marks
-  // the windows it showed as still changing until its turn ends or it shows the page again.
+  // the windows it showed as still changing until its turn ends or it shows the page again. Only a
+  // file under its folder counts: a memory note or a plan file changes no page it showed.
   for (const tool of ['Edit', 'Write', 'NotebookEdit']) {
     on('tool.call', { tool }, async ($, e, next) => {
       const ran = await next(e)
       if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
         void current($)
-          .then(([id]) => say($, id, { kind: 'wrote' }))
+          .then(([id, one]) => {
+            if (touchedOf(one.cwd, e as Record<string, unknown>) !== undefined) say($, id, { kind: 'wrote' })
+          })
           .catch(() => undefined)
       }
       return ran
