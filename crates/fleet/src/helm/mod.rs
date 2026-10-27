@@ -19,7 +19,7 @@ mod serving;
 mod session;
 mod thread;
 
-pub use asking::{answering, blocked_folder, question_unanswered, restarted, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
+pub use asking::{answering, blocked_folder, restarted, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
 pub use brief::{brief, Brief, Voice};
 pub(crate) use brief::{shipped, worded, VOICE};
 pub use conversation::Conversations;
@@ -30,6 +30,7 @@ pub use deciding::{
 pub use permitting::SHIPPED_ASK_HOLD;
 pub use reach::{may, Authority};
 pub use thread::what_was_said;
+pub use asking::question_unanswered;
 
 #[cfg(test)]
 mod tests;

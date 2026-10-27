@@ -23,9 +23,10 @@ use super::serving::mode_of;
 use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{
-    answering, blocked_folder, guarded_in_a_session, pages_opened, question_unanswered, restarted, unanswered, Because, Folders,
+    answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
     Guarded, Own, Said,
 };
+use crate::helm::question_unanswered;
 
 /// How long one `Wait` is held. The mod's request must outlast it.
 const POLL_HOLD: Duration = Duration::from_secs(25);
