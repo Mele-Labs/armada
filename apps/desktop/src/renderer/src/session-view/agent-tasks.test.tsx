@@ -85,10 +85,10 @@ function panel(work: SessionWork, acts?: SessionWorkActs): HTMLElement {
   return show(<BlueprintPanel work={work} place="side" id="s1" session={session} acts={acts} ed={undefined} onOpenSketch={() => undefined} onOpenSession={() => undefined} />);
 }
 
-test("Blueprint lists the tasks where there is no plan, and a Session with none stands folded to its band until it has one", () => {
+test("Blueprint lists the tasks where there is no plan, and a Session with none stays open with nothing listed, since a panel is folded only by a press", () => {
   const acts = { workflows: [], choose: () => undefined } as unknown as SessionWorkActs;
   const bare = panel({ proposal: { workflow: null } }, acts);
-  expect(bare.querySelector<HTMLElement>('section[aria-label="Blueprint"]')!.dataset["collapsed"]).toBe("true");
+  expect(bare.querySelector<HTMLElement>('section[aria-label="Blueprint"]')!.dataset["collapsed"]).toBeUndefined();
   expect(bare.querySelector('ul[aria-label="Tasks"]')).toBeNull();
 
   const busy = panel({ proposal: { workflow: null }, tasks: TASKS }, acts);

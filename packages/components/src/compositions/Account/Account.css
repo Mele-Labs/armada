@@ -206,7 +206,7 @@
 .armada-account__tile-body--centered {
   align-items: center;
   justify-content: center;
-  min-height: calc(var(--h-row) * 3);
+  min-height: calc(var(--h-row-unit) * 3);
 }
 
 /* Nothing signed in yet: one strip across the glass, the slot a profile will fill. */
@@ -350,7 +350,7 @@
 /* ---- Repositories: the ones bound to a profile, or waiting for one ------------------------------- */
 
 .armada-account__repos {
-  max-height: calc(var(--h-row) * 6);
+  max-height: calc(var(--h-row-unit) * 6);
   margin: 0;
   padding: 0;
   border-top: var(--border-width) solid var(--border-subtle);
@@ -524,7 +524,7 @@
 }
 
 .armada-syncs__items {
-  max-height: calc(var(--h-row) * 6);
+  max-height: calc(var(--h-row-unit) * 6);
   margin: 0;
   padding: 0 0 var(--space-2);
   list-style: none;
@@ -613,7 +613,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: var(--bg-raised);
   color: var(--status-awaiting-review);
   pointer-events: none;

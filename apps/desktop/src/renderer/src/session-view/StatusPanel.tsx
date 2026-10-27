@@ -17,21 +17,29 @@ export const stateOf = (i: number, at: number | undefined) => (at === undefined 
 /** What a step reads as in its hover card: "Build · current". */
 const WORD = { done: "done", now: "current", next: "next" } as const;
 
-/** The workflow's steps as one line of glyphs joined by a hairline; the current one is the dotted circle. Hovering or focusing a step names it and its state. */
-export function StepRail({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
+/** One step as its state glyph, which names itself and its state on hover or focus: "Draft · done". The rail and the spine's step nodes (`StoryParts.tsx`) draw the same. */
+export function StepGlyph({ step, state }: { step: string; state: "done" | "now" | "next" }) {
+  const { Glyph } = MARK[state];
+  const said = `${step} · ${WORD[state]}`;
   return (
-    <ol className="sv-rail" aria-label="Workflow">
+    <Inspect card={<InspectCard kind={{ Glyph, label: "Step" }} title={step} state={{ said: WORD[state].charAt(0).toUpperCase() + WORD[state].slice(1) }} />} name={said} side="below" pin={false}>
+      <span className="sv-rail__mark" role="img" aria-label={said}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Inspect>
+  );
+}
+
+/** The workflow's steps as one line of glyphs joined by a hairline; the current one is the dotted circle. Hovering or focusing a step names it and its state. `named` writes each step's name beside its glyph. */
+export function StepRail({ steps, at, named = false }: { steps: readonly string[]; at: number | undefined; named?: boolean }) {
+  return (
+    <ol className="sv-rail" aria-label="Workflow" data-named={named || undefined}>
       {steps.map((step, i) => {
         const state = stateOf(i, at);
-        const { Glyph } = MARK[state];
-        const said = `${step} · ${WORD[state]}`;
         return (
           <li key={step} className="sv-rail__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <Inspect card={<InspectCard kind={{ Glyph, label: "Step" }} title={step} state={{ said: WORD[state].charAt(0).toUpperCase() + WORD[state].slice(1) }} />} name={said} side="below" pin={false}>
-              <span className="sv-rail__mark" role="img" aria-label={said}>
-                <Glyph size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Inspect>
+            <StepGlyph step={step} state={state} />
+            {named ? <span className="sv-rail__name">{step}</span> : null}
           </li>
         );
       })}

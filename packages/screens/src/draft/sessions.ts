@@ -150,7 +150,7 @@ export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed";
 
 /** One task the agent recorded. `seen` is whether Fleet observed edits for it. */
-export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
+export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean; /** When the agent last changed this task's mark, RFC 3339. A mark the agent has not touched in a long while reads its age and dims. */ changedAt?: string };
 
 /** Tasks one subagent takes, by the type of subagent. */
 export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
@@ -359,7 +359,7 @@ type SessionRowKinds =
   /** The agent saved a request into a collection in Requests. `collectionId` and `request` name it there. */
   | { id: string; at: string; kind: "saved"; name: string; collection: string; collectionId: string; request: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
-  | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string }
+  | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string; /** How many takes of the change the page shows. **A mock's field**: nothing in Fleet carries it yet. */ takes?: number }
   /** A draft the agent put to the person with `propose_draft`, whole as Fleet wrote it; `settled` once he answered it. */
   | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */

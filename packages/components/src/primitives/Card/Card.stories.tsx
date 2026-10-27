@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Eye } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import { Badge } from "../Badge/Badge";
+import { Button } from "../Button/Button";
 import { Sheet } from "../Sheet/Sheet";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./Card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardReadout, CardTitle } from "./Card";
 
 /**
  * The contract names two renderings of a card: its resting state, and a
@@ -64,6 +65,24 @@ export const WithHeader: Story = {
           Read at <span className="mono">14:22</span>
         </span>
       </CardFooter>
+    </Card>
+  ),
+};
+
+/** The legend strip: 24px, the title in tracked caps, a mono readout and a ghost icon button at the end, one hairline under it. */
+export const LegendStrip: Story = {
+  render: () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Armada</CardTitle>
+        <CardReadout>main</CardReadout>
+        <Button variant="ghost" size="sm" iconOnly aria-label="New Studio">
+          <Plus size={16} aria-hidden="true" />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <span style={{ color: "var(--fg-muted)", fontSize: "var(--text-xs)" }}>What the panel holds.</span>
+      </CardContent>
     </Card>
   ),
 };

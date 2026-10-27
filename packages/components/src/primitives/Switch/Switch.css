@@ -7,7 +7,7 @@
 
 .armada-switch {
   --switch-h: calc(var(--h-badge) + var(--space-2));
-  --switch-text: var(--text-xs);
+  --switch-text: var(--text-switch);
   --pad: calc(var(--border-width) * 3);
   --knob: calc(var(--switch-h) - var(--pad) * 2);
   /* The words' side of the track: a little air each side of the longest word. */

@@ -239,7 +239,7 @@
 .armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: center; }
 .armada-session-thread__plan-body:has(.armada-session-thread__sketch) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 .armada-session-thread__plan .armada-session-sketch__band { display: none; }
-.armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row) * 3); }
+.armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row-unit) * 3); }
 
 /* What the agent made, in the Session end panel: many rows scroll so End session stays in view. */
 .armada-session-done__made {
@@ -461,6 +461,11 @@
   white-space: nowrap;
 }
 
+/* A calls row reads as a line of words; the call lines under it stay in mono. */
+.armada-session-fold__names--line {
+  font-family: var(--font-sans);
+}
+
 .armada-session-fold__calls {
   display: flex;
   flex-direction: column;
@@ -560,7 +565,7 @@
   height: var(--space-6);
   padding: 0;
   border: var(--border-width) solid var(--border-default);
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--fg-muted);
   font-family: var(--font-mono);

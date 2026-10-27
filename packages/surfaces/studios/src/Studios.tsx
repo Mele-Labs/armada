@@ -11,7 +11,7 @@
 // the one `App` keeps is what Helm's footer names — so this keeps the list and reports its first.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Image, Power, Trash2 } from "lucide-react";
+import { ExternalLink, Image, Plus, Power, Trash2 } from "lucide-react";
 import {
   ACTION,
   Alert,
@@ -38,6 +38,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  Tooltip,
   keyFor,
   useStudioPlacement,
 } from "@armada/components";
@@ -345,9 +346,11 @@ function StudiosPanel({
     <Card>
       <CardHeader className="armada-studio__head">
         <CardTitle>{title}</CardTitle>
-        <Button variant="primary" size="sm" pending={creating} disabled={!live} onClick={create}>
-          {creating ? "Starting a Studio" : "New Studio"}
-        </Button>
+        <Tooltip label={creating ? "Starting a Studio" : "New Studio"} asChild>
+          <Button variant="ghost" size="sm" iconOnly aria-label="New Studio" pending={creating} disabled={!live} onClick={create}>
+            <Plus size={16} aria-hidden="true" />
+          </Button>
+        </Tooltip>
       </CardHeader>
       <CardContent>
         {refused === null ? null : (

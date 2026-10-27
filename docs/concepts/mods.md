@@ -82,6 +82,13 @@ The tokens are the names in `packages/tokens/tokens.json`, compiled into Fleet, 
 
 Every problem is returned with its line, up to 20.
 
+> **Rule.** An `--accent` written as `#rgb` or `#rrggbb` is refused when it is less than 0.07 from a status colour in OKLab distance.
+> Why: a selected row is drawn in the accent and a row in a status in that status's colour, so an accent that near one cannot be told from it.
+
+The status colours are the hex values of `--status-*` in `packages/tokens/tokens.json`.
+The problem names the nearest one and its distance.
+Another form of colour, such as `rgb()`, is not measured.
+
 ## tweak.css
 
 > **Rule.** A tweak is checked as `theme.css` is, token declarations and nothing else, and names `tweak.css` in its problems.

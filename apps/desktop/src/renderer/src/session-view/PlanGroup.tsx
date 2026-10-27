@@ -14,6 +14,7 @@ import { EditText, GroupEditor, type PlanEditing } from "./PlanEdit";
 import { childrenOf, linkedPropsOf } from "./linked";
 import { rename, type ViewGroup } from "./plan-marks";
 import { wasOpen } from "./place";
+import { TaskAge, agedAt, useStale } from "./TaskAge";
 
 /**
  * The issue a group names, on a meta line of its own under the title: the ticket glyph, the key and the issue's title, muted and cut with an ellipsis, all one
@@ -59,21 +60,32 @@ export function StepMark({ step }: { step: Step }) {
 /** The task a group's live line is about: the first one running. */
 export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working")?.id;
 
-/** One task's line: its state glyph and the plan's words, with what the turn is doing under it where it is the one being worked. */
+/**
+ * One task's line: its state glyph and the plan's words, with what the turn is doing under it where it is the one being worked. A mark in progress that carries
+ * the time of its last change (`TaskAge`) reads that age at the right, and dims once it is old; it then claims nothing about what the turn is on, which the
+ * detected line at the head of Now says.
+ */
 export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The issue its group works, on a line of its own under the live line. */ issue?: ReactNode }) {
+  const since = agedAt(task);
+  const fleet = task as typeof task & { marked?: string; stale?: { why: string; since: string } };
+  // Fleet's own reading dims a mark first; the age past `STALE_AFTER_MS` is the fallback where Fleet sent none.
+  const stale = useStale(since) || fleet.stale !== undefined;
+  const aged = since !== undefined;
+  const lit = here && !aged;
   return (
-    <li className="sv-group__task" data-state={task.state} data-here={here || undefined}>
-      {here ? (
+    <li className="sv-group__task" data-state={task.state} data-here={lit || undefined} data-aged={aged || undefined} data-stale={stale || undefined}>
+      {lit ? (
         <Tooltip asChild label="Working on this now">
           <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
             <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
       ) : (
-        <TaskMark state={task.state} marked={(task as typeof task & { marked?: string }).marked} stale={(task as typeof task & { stale?: { why: string; since: string } }).stale} />
+        <TaskMark state={task.state} marked={fleet.marked} stale={fleet.stale} />
       )}
       <span className="sv-group__task-text">{task.text}</span>
-      {here && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}
+      {since === undefined ? null : <TaskAge since={since} />}
+      {lit && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}
       {issue}
     </li>
   );

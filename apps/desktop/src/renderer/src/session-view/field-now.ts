@@ -5,15 +5,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
-import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screens/src/draft/sessions";
+import { owesOf, standingOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { insideOf, uncut } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
-import { THINK_MS, burstOf, quietAt, callingOf, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
+import { THINK_MS, burstOf, quietAt, callingOf, lastToolAt, lightsOf, mainNow, messageWord, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
-
-/** One drone of the Drones menu: the drone it frames, its name, what it is doing in words, and whether it has finished. */
-export type StripEntry = { key: string; name: string; word: string; done: boolean };
 
 /** How long a lift-off or a return is kept on the Field: past the longest the play moves. */
 const PLAY_MS = 4_000;
@@ -77,23 +74,6 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
 }
 
 /**
- * The Job's drone, then each subagent the ledger holds in the order they started: finished ones too, which the menu keeps listed. While
- * a message to or from another Job is fresh the Job's drone says that (`talking`), unless it is waiting on you.
- */
-export function stripOf(session: Session, main: Now, field: readonly WorkDrone[] | undefined, talking?: string): StripEntry[] {
-  const own = `session:${session.id}`;
-  const placed = new Map((field ?? []).map((one) => [one.id, one] as const));
-  const subagents = session.attachments.flatMap((one) => (one.kind === "subagent" ? [one] : []));
-  return [
-    { key: own, name: session.title ?? session.id, word: talking !== undefined && main.kind !== "ask" ? talking : wordOf(main), done: false },
-    ...subagents.map((one) => {
-      const file = placed.get(one.id)?.file ?? (one.call === undefined ? undefined : placed.get(one.call)?.file);
-      return { key: `${own}/${one.id}`, name: one.task, word: wordOf(subagentNow(one.state === "done", file)), done: one.state === "done" };
-    }),
-  ];
-}
-
-/**
  * The Job's fresh messages as the Field draws them: an arc for each other Job whose drone is on it, from the sender's drone to the
  * receiver's, and the Drones menu's word for the newest. Another Job with no drone here draws no arc, and its word still shows.
  */
@@ -154,29 +134,30 @@ export function withLeaving(drones: readonly DroneIn[], leaving: readonly DroneI
 /**
  * A subagent that starts lifts off the drone that sent it, and one that ends flies back into it and is gone: a play each, and the one
  * that ended kept on the Field until its return has played. None on the first draw, while scrubbed back, or under reduced motion.
+ * **Per Job.** Opening another Job is not its subagents ending: the first Job's drones are then drawn as ghosts, and flying them back as
+ * well drew each twice under one key.
  */
-export function useLiftsAndReturns(drones: readonly DroneIn[], live: boolean): { drones: readonly DroneIn[]; plays: readonly Play[] } {
-  const seen = useRef<Map<string, DroneIn> | undefined>(undefined);
-  const [plays, setPlays] = useState<readonly Play[]>([]);
-  const [leaving, setLeaving] = useState<readonly DroneIn[]>([]);
+export function useLiftsAndReturns(job: string, drones: readonly DroneIn[], live: boolean): { drones: readonly DroneIn[]; plays: readonly Play[] } {
+  const seen = useRef<{ job: string; drones: Map<string, DroneIn> } | undefined>(undefined);
+  const [kept, setKept] = useState<{ job: string; plays: readonly Play[]; leaving: readonly DroneIn[] }>({ job, plays: [], leaving: [] });
+  const plays = kept.job === job ? kept.plays : [];
+  const leaving = kept.job === job ? kept.leaving : [];
   const timers = useRef(new Set<number>());
   useEffect(() => () => timers.current.forEach((one) => window.clearTimeout(one)), []);
   useEffect(() => {
     const now = new Map(drones.filter((one) => one.parent !== undefined).map((one) => [one.key, one] as const));
     const was = seen.current;
-    seen.current = now;
-    if (was === undefined || !live || still()) return;
-    const { added, gone } = liftsAndReturns(was, now, Date.now());
+    seen.current = { job, drones: now };
+    if (was === undefined || was.job !== job || !live || still()) return;
+    const { added, gone } = liftsAndReturns(was.drones, now, Date.now());
     if (added.length === 0) return;
-    setPlays((list) => [...list, ...added]);
-    setLeaving((list) => [...list, ...gone]);
+    setKept((one) => ({ job, plays: [...(one.job === job ? one.plays : []), ...added], leaving: [...(one.job === job ? one.leaving : []), ...gone] }));
     const timer = window.setTimeout(() => {
       timers.current.delete(timer);
-      setPlays((list) => list.filter((one) => !added.includes(one)));
-      setLeaving((list) => list.filter((one) => !gone.includes(one)));
+      setKept((one) => (one.job !== job ? one : { job, plays: one.plays.filter((it) => !added.includes(it)), leaving: one.leaving.filter((it) => !gone.includes(it)) }));
     }, PLAY_MS);
     timers.current.add(timer);
-  }, [drones, live]);
+  }, [job, drones, live]);
   const all = useMemo(() => withLeaving(drones, leaving), [drones, leaving]);
   return { drones: all, plays };
 }

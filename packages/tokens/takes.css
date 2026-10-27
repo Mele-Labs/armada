@@ -9,8 +9,8 @@
    Faces stay IBM Plex: the family is deferred.
 
    What it changes is the type roles, the spacing and radius rhythm, the four shadow and border levels, the
-   material, and the motion on top of them. The steps `--text-2xs` to `--text-2xl` and `--space-*` are left as
-   they are: the Cockpit's panels are laid out on them, and its layout does not move. */
+   material, and the motion on top of them. The steps `--text-2xs` to `--text-2xl`, `--space-*` and the radii are the
+   scales' own and are left as they are. */
 
 /* ---- The look ------------------------------------------------------------------------------- */
 :root[data-look="new"] {
@@ -26,11 +26,11 @@
   --weight-head: 600;
   --tracking-head: 0.12em;
   --weight-nav: 600;  --tracking-nav: 0.08em;
-  --text-row: 14px;  --weight-row: 500;  --tracking-row: 0;
-  --size-meta: 12.5px;
+  --text-row: var(--text-xs);  --weight-row: 500;  --tracking-row: 0;  /* a row's title: the ladder's second step */
+  --size-meta: var(--text-2xs);                                           /* its meta: the first */
   --weight-title: 600;
-  --text-head: 13px;       --leading-head: 16px;     /* a panel header: tracked caps in the display face */
-  --text-nav: 15px;        /* the places in the title bar: the loudest type on screen */
+  --text-head: var(--text-xs);  --leading-head: 16px;     /* a panel header: tracked caps in the display face */
+  --text-nav: var(--text-xs);                             /* the places in the title bar: the panel header's size, weight and caps */
   --text-title: 20px;      --leading-title: 28px;    /* a page or sheet title */
   --text-figure: var(--text-2xl);                    /* the rare large number */
   --tracking-title: -0.012em;
@@ -41,9 +41,6 @@
   --gap-section: 32px;
   --pad-panel: var(--space-4);
   --gap-stack: var(--space-3);
-  --radius-sm: 3px;   /* main's */
-  --radius-md: 6px;   /* controls and rows */
-  --radius-lg: 8px;   /* panels, cards and menus */
   --bar: 2px;         /* the bar on a selected row's leading edge */
   --blur-glass: 32px;  /* the backdrop blur under a glass panel: heavy, so the sheet frosts the grid and the pool behind it */
   --blur-overlay: 28px; /* the backdrop blur under a menu, popover or palette: over text, so it stays blurred */
@@ -53,8 +50,8 @@
   --glass-tint: var(--fg-default);
   --glass-fill: 10%;
   --glass-saturate: 180%;
-  --glass-edge: color-mix(in srgb, var(--fg-default) 15%, transparent);
-  --glass-edge-lifted: color-mix(in srgb, var(--fg-default) 28%, transparent);
+  --glass-edge: var(--border-default);                /* a panel's edge */
+  --glass-edge-lifted: var(--border-strong);
   --glass-highlight: inset 0 var(--border-width) 0 color-mix(in srgb, var(--fg-default) 24%, transparent);
   --glass-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
   --glass-shadow-lifted: 0 16px 40px rgb(0 0 0 / 0.38);
@@ -62,9 +59,21 @@
   --glass-radius: var(--radius-lg);
   --glass-radius-control: var(--radius-md);
   --glass-radius-chip: var(--radius-md);
+
+  /* ---- The console. A panel is its edge and a hairline one pixel inside it, as an instrument's bezel is; its header is a
+     legend strip; what sits in it nests inside its curve; and what is picked is told by a frame, not a hue. ---- */
+  --bezel: inset 0 0 0 var(--border-width) var(--border-subtle);  /* the hairline inside a panel's edge, an inset shadow and not an element */
+  --legend-h: var(--h-control-sm);                                 /* a panel's header: 24px, the same on every panel */
+  --radius-floor: 2px;                                             /* the least a corner is cut to */
+  --radius-bezel: calc(var(--radius-lg) - var(--border-width) * 2); /* content flush against the bezel: the panel's curve less its edge and hairline */
+  --radius-inset: max(calc(var(--radius-bezel) - var(--space-1)), var(--radius-floor)); /* content a gutter (4px) inside: a row, a chip, a bay, a track */
+  --select-edge: color-mix(in srgb, var(--fg-default) 70%, transparent);  /* a picked thing's frame: the text colour, so it reads in any theme */
+  --select-frame: inset 0 0 0 var(--border-width) var(--select-edge);
+  --select-ground: var(--bg-hover);
+  --lamp: var(--dot);                                              /* a state lamp: 6px and round, the one round thing on a row */
   --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
   --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
-  --chip-edge: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  --chip-edge: var(--border-subtle);                  /* an inner tile's edge */
 
   /* ---- The grid of dots the panels hover over. `depth.css` draws it on the shell. ---- */
   --grid-pitch: 16px;
@@ -81,8 +90,8 @@
   --shadow-hover: 0 2px 6px rgb(0 0 0 / 0.35);
   --shadow-lifted: 0 4px 12px rgb(0 0 0 / 0.4);
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.5);
-  --edge-rest: var(--border-subtle);
-  --edge-hover: var(--border-default);
+  --edge-rest: var(--border-default);
+  --edge-hover: var(--border-strong);
   --edge-lifted: var(--border-strong);
   --edge-overlay: color-mix(in srgb, var(--border-strong) 82%, var(--fg-default));
   --shadow-card: var(--shadow-rest);

@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleDashed, CircleDot, File, Folder, GitPullRequest, ListTree, MessageCircleQuestion, Send, SquareTerminal, Ticket, Trash2, X, type LucideIcon } from "lucide-react";
-import { Button, DropdownMenu, Kbd, PullRequestChip, RepositoryChip, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Button, DropdownMenu, Kbd, PullRequestChip, Readout, RepositoryChip, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
@@ -172,7 +172,7 @@ function Card({ row, sub, repository, movable, adding, editing, state, sessions,
         </Tooltip>
       )}
       <span className="projects-row__title">
-        {row.kind === "issue" ? <span className="projects-row__reference">{row.reference}</span> : null}
+        {row.kind === "issue" ? <Readout fixed className="projects-row__reference">{row.reference}</Readout> : null}
         {editing && row.kind === "task" ? <EditTitle row={row} /> : <span className="projects-row__words">{row.title}</span>}
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
         {repository === undefined ? null : <RepositoryChip name={repository} />}
@@ -264,9 +264,9 @@ function IssueChips({ issues }: { issues: readonly Linked[] }) {
     <span className="projects-row__issues">
       {issues.map((one) => (
         <Tooltip key={one.reference} label={one.title === "" ? one.reference : one.title} asChild>
-          <span className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
+          <Readout className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
             {one.reference}
-          </span>
+          </Readout>
         </Tooltip>
       ))}
     </span>

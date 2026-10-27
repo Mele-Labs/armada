@@ -79,8 +79,9 @@ const longPath = "crates/api/src/session/refresh_coalescing.rs";
 
 /**
  * A frame that puts the trigger against an edge, so the flip is visible at a
- * size that fits on the page. `contain: layout` makes the frame the bubble's
- * containing block, which is the window in the app.
+ * size that fits on the page. The bubble is in the top layer, so the edge it
+ * flips against is the viewport's and not the frame's: the frame places the
+ * trigger, and the flip is only seen where the viewport's edge is the frame's.
  */
 function Frame({ edge, children }: { edge: "left" | "right" | "bottom"; children: React.ReactNode }) {
   return (
@@ -125,6 +126,30 @@ export const WithNoRoomBelow: Story = {
       </Tooltip>
     </Frame>
   ),
+};
+
+/**
+ * **The bubble is in the top layer, and as wide as its words.** A narrow trigger
+ * used to squeeze the bubble to its own width, and a stacking context above it
+ * could paint over the bubble. A popover is lifted out of both, so neither can
+ * happen, and neither is a thing a screenshot shows when the page is calm.
+ */
+export const InTheTopLayer: Story = {
+  render: () => (
+    <div style={{ paddingBlock: "var(--space-8)", paddingInline: "var(--space-8)" }}>
+      <Tooltip defaultOpen label={longPath} asChild>
+        <button type="button" aria-label="Narrow trigger" style={{ inlineSize: "var(--space-6)" }}>
+          i
+        </button>
+      </Tooltip>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const trigger = canvas.getByRole("button", { name: "Narrow trigger" });
+    const bubble = trigger.querySelector<HTMLElement>(".armada-tooltip__bubble")!;
+    await expect(bubble.matches(":popover-open")).toBe(true);
+    await expect(bubble.getBoundingClientRect().width).toBeGreaterThan(trigger.getBoundingClientRect().width * 3);
+  },
 };
 
 /**

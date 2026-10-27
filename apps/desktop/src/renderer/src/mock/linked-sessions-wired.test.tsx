@@ -1,5 +1,5 @@
 // Linked Sessions on a real Fleet's path, through `App`: the plan comes off the Session's record, Hand to a Job on a group that has none
-// is `hand_to_session` to Fleet, and the Session Fleet starts stands on that group in the Blueprint, in the Artifacts layer and under its
+// is `hand_to_session` to Fleet, and the Session Fleet starts stands on that group in Now, in the Artifacts layer and under its
 // parent in Work, all read off the `detail.group` of the two link rows.
 
 import { expect, test } from "vitest";
@@ -7,6 +7,7 @@ import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
+import { resetFolds } from "../session-view/story";
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, held, hosted } from "./sessions-fleet";
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -39,6 +40,8 @@ function fleet(): FakeSessionsFleet {
 }
 
 async function open(served: FakeSessionsFleet) {
+  // Whole plan is kept per Job, in the window's storage and in memory, so the test before this one would leave it on.
+  resetFolds(PARENT);
   mount(served.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
   const work = page.getByRole("region", { name: "Jobs", exact: true });
@@ -50,10 +53,10 @@ async function open(served: FakeSessionsFleet) {
 
 test("a Session Fleet says was handed a group stands on that group, in the Ledger and under its parent in Work", async () => {
   const work = await open(fleet());
-  const plan = page.getByRole("region", { name: "Blueprint", exact: true });
-  await plan.getByRole("button", { name: "Whole blueprint", exact: true }).click();
+  const plan = page.getByRole("region", { name: "Now", exact: true });
+  await plan.getByRole("button", { name: "Whole plan", exact: true }).click();
   await expect.element(plan.getByRole("region", { name: "Name the migrations", exact: true }).getByRole("button", { name: "Open Migrations get names" })).toBeVisible();
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts" }).click();
+  await page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "Artifacts", exact: true }).click();
   await expect.element(page.getByRole("region", { name: "Artifacts", exact: true }).getByRole("button", { name: "Migrations get names" })).toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.element(work.getByLabelText("Linked Job, handed from Name the migrations")).toBeVisible();
@@ -62,8 +65,8 @@ test("a Session Fleet says was handed a group stands on that group, in the Ledge
 test("Hand to a Job on a group not handed is hand_to_session, and the Session it starts stands on the group", async () => {
   const served = fleet();
   await open(served);
-  const plan = page.getByRole("region", { name: "Blueprint", exact: true });
-  await plan.getByRole("button", { name: "Whole blueprint", exact: true }).click();
+  const plan = page.getByRole("region", { name: "Now", exact: true });
+  await plan.getByRole("button", { name: "Whole plan", exact: true }).click();
   await plan.getByRole("button", { name: "Apply them in order", exact: true }).click();
   await userEvent.click(plan.getByRole("button", { name: "Hand to a Job" }));
   await expect.poll(() => served.calls.handed).toEqual([{ sessionId: PARENT, group: "g2" }]);

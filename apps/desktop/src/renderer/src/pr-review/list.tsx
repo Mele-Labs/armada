@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, SearchField, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Textarea, Tooltip, agoOf, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -200,9 +200,9 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
               <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} />
               <ChecksMark checks={pr.checks} />
               <span className="pr-row__facts">
-                <span className="pr-row__number mono">{`#${pr.number}`}</span>
                 <span className="pr-row__author">{pr.page.author}</span>
                 <span className="pr-row__repository">{pr.repository}</span>
+                <Readout fixed className="pr-row__number">{`#${pr.number}`}</Readout>
               </span>
               {reason === undefined ? null : (
                 <Tooltip label={reason} asChild>

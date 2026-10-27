@@ -4,7 +4,7 @@
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
-const landing = region("Delivery", { exact: true });
+const landing = region("Now", { exact: true });
 const watchingBlock = inside(landing, region("Watching"));
 const health = dialog("Watch QA health");
 const readings = inside(health, role("list", "Readings"));

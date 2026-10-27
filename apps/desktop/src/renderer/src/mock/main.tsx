@@ -3,7 +3,7 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
-import { forgetAllKept } from "@armada/components";
+import { forgetAllKept, watchClippedText } from "@armada/components";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import { forgetViewed } from "../cockpit/viewed";
@@ -17,6 +17,8 @@ import type { RunnerPage } from "./review-walk-runner";
 import { SCENARIOS, scenarioNamed } from "./scenario";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
+
+watchClippedText();
 
 const query = new URLSearchParams(window.location.search);
 // A walk names its scenario, so `?walk` wins over `?scenario`.

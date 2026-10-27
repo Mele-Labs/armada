@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type HTMLAttributes,
@@ -137,6 +138,7 @@ export function Tooltip({
    */
   const shown = useRef(defaultOpen);
   const frame = useRef<HTMLElement | null>(null);
+  const bubbleRef = useRef<HTMLSpanElement | null>(null);
   const bubbleId = useId();
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -153,6 +155,11 @@ export function Tooltip({
   // this effect re-ran.
   useEffect(() => {
     const held = frame.current;
+    // The anchor class is lent through `className`, which a child may overwrite
+    // with its own (`Button` sets its class after spreading its props). Without
+    // it the bubble has no anchor and no `position: relative`, and a bubble in
+    // the top layer then falls to the corner of the window.
+    if (held !== null && asChild) held.classList.add("armada-tooltip-on");
     if (held === null || decorative) return;
     const on = held.matches(FOCUSABLE) ? held : held.querySelector<HTMLElement>(FOCUSABLE);
     const target = on ?? held;
@@ -164,7 +171,23 @@ export function Tooltip({
     // control's own description is what a keyboard gets.
     if (held.closest(FOCUSABLE) === null) held.tabIndex = 0;
   // Not on `children`, which is new on every render: that rewrote the attribute on every tooltip in the window each time anything drew.
-  }, [bubbleId, decorative]);
+  }, [bubbleId, decorative, asChild]);
+
+  // **The top layer, not a z-index.** The bubble is drawn inside its trigger,
+  // so any `z-index` it carries is only ever compared against the trigger's own
+  // stacking context: a later sibling that makes one (a transform, an opacity,
+  // a `position` with a `z-index`) painted over it, and an ancestor with
+  // `overflow` or a backdrop filter clipped or re-based it. A popover is
+  // lifted out of every one of them while it stays where it is in the tree, so
+  // `aria-describedby`, the anchor and the descendant selectors that restyle a
+  // bubble all keep working. `manual` because the pointer and focus close it.
+  useLayoutEffect(() => {
+    const node = bubbleRef.current;
+    if (node === null || typeof node.showPopover !== "function") return;
+    const lifted = node.matches(":popover-open");
+    if (open && !lifted) node.showPopover();
+    else if (!open && lifted) node.hidePopover();
+  }, [open]);
 
   const show = useCallback(() => {
     window.clearTimeout(timer.current);
@@ -203,6 +226,8 @@ export function Tooltip({
       className="armada-tooltip__bubble"
       aria-hidden
       id={bubbleId}
+      ref={bubbleRef}
+      popover="manual"
       data-card={card || undefined}
       data-beside={beside || undefined}
       hidden={!open}

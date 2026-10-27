@@ -104,10 +104,10 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: calc(var(--h-row) * 3);
-  border: calc(var(--border-width) * 2) solid
+  min-height: calc(var(--h-row-unit) * 3);
+  border: var(--border-width) solid
     color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-inset, var(--radius-md));
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   overflow: hidden;
   font-size: var(--text-xs);

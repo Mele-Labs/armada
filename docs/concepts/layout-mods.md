@@ -31,8 +31,8 @@ Every entry is drawn until a layout hides it.
 
 | Region | Entries | Never hidden | Orders | Opens on |
 |---|---|---|---|---|
-| `dashboard.panels` | The Cockpit's panels: `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
-| `job.panels` | An open Job's panels: `workflow`, `blueprint`, `field`, `landing` | `blueprint` | yes | |
+| `dashboard.panels` | The Cockpit's panels: `list`, `field`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
+| `job.panels` | An open Job's panels: `done`, `now`, `next` | `now` | no | |
 | `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | |
 
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
@@ -45,14 +45,16 @@ A right press on a tab hides it, and its View group shows it again; both write t
 Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
 **`dashboard.panels` is the deck's panels, and it hides them and never orders them**, because they stand in fixed columns.
-`list` is the Jobs list, `merge-line` the merge queue, `controls` Flight control, and the rest are named as drawn.
+`list` is the Jobs list, `field` the Field under it, `merge-line` the merge queue, `controls` Flight control, and the rest are named as drawn.
 The stage is not an entry.
 A right column a layout empties is not drawn and gives its room to the stage, and so is an emptied foot.
 
-**`job.panels` is the panels an open Job stacks in the right column**, drawn in the region's order.
-A Job is a story and the column tells it in this order: the workflow, the blueprint, the field it is built on, and what it lands in.
-Blueprint holds the plan the owner approves, so it is never hidden.
-Delivery holds the pull request, the doc or the mods a Mod Job made, each with its switch, by the kind of Job; a layout may hide or move it like the others.
+**`job.panels` is the panels an open Job stacks in the right column**, and it hides them and never orders them, because a story runs Completed, Now, Next.
+A Job is a story and the column tells it in that order: what it has made, what it is doing, what is left.
+Now holds what runs this minute and what waits on the person, so it is never hidden.
+Completed and Next may be hidden.
+The Field is not in this region: it stands in the Cockpit's lower left as `field` in `dashboard.panels`.
+`workflow`, `blueprint`, `field` and `landing` were ids of this region before the story, so a layout that names one is ignored like any id this build does not have.
 `progress` and `mods` were ids of this region before the story, so a layout that names either is ignored like any id this build does not have.
 
 `dashboard.tabs` went with the old Cockpit (#2301), and `job.tabs` with the Job's tabs, so a layout that names either is ignored like any region this build does not have.

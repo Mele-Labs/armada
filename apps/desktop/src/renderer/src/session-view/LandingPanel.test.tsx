@@ -42,6 +42,8 @@ function OpenLayer() {
 }
 
 async function mount(session: Session): Promise<HTMLElement> {
+  // Delivery lists the mods the Job made, read from Fleet; a test that names none gets an empty list.
+  if (window.armada === undefined) fleet([]);
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);

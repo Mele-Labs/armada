@@ -27,6 +27,16 @@ export function toneOf(subject: Subject): Tone {
   return "calm";
 }
 
+/** The state a row's lamp shows: needs him, failed, running or done; anything else is idle. */
+export type Lamp = "needs" | "failed" | "running" | "done" | "idle";
+export function lampOf(subject: Subject): Lamp {
+  const tone = toneOf(subject);
+  if (tone === "ask") return "needs";
+  if (tone === "bad") return "failed";
+  const group = groupOf(subject);
+  return group === "working" ? "running" : group === "done" ? "done" : "idle";
+}
+
 export function groupOf(subject: Subject): Group {
   if (toneOf(subject) !== "calm") return "needs";
   const phase: Phase = subject.phase;

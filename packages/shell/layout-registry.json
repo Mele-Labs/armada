@@ -2,6 +2,7 @@
   "regions": {
     "dashboard.panels": { "ordered": false, "firstable": false, "entries": [
       { "id": "list", "hideable": false },
+      { "id": "field", "hideable": true },
       { "id": "merge-line", "hideable": true },
       { "id": "activity", "hideable": true },
       { "id": "bays", "hideable": true },
@@ -9,11 +10,10 @@
       { "id": "dispatch", "hideable": true },
       { "id": "autopilot", "hideable": true }
     ] },
-    "job.panels": { "ordered": true, "firstable": false, "entries": [
-      { "id": "workflow", "hideable": true },
-      { "id": "blueprint", "hideable": false },
-      { "id": "field", "hideable": true },
-      { "id": "landing", "hideable": true }
+    "job.panels": { "ordered": false, "firstable": false, "entries": [
+      { "id": "done", "hideable": true },
+      { "id": "now", "hideable": false },
+      { "id": "next", "hideable": true }
     ] },
     "rail": { "ordered": false, "firstable": false, "entries": [
       { "id": "overview", "hideable": false },

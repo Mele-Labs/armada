@@ -22,6 +22,7 @@ import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Kbd } from "../../primitives/Kbd/Kbd";
+import { Readout } from "../../primitives/Readout/Readout";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -136,11 +137,13 @@ function marksOf(entry: LogbookEntry, now: number, withState: boolean): ReactNod
   );
 }
 
-/** A time drawn as its age, with the date on hover. */
-function When({ at, now }: { at: string; now: number }) {
+/** A time drawn as its age in a readout, with the date on hover, and the column kept where a row sits in a list. */
+function When({ at, now, said, fixed = false }: { at: string; now: number; said?: string; fixed?: boolean }) {
   return (
-    <Tooltip label={dated(at)}>
-      <time dateTime={at}>{ago(at, now)}</time>
+    <Tooltip label={said === undefined ? dated(at) : `${said} ${dated(at)}`}>
+      <Readout fixed={fixed}>
+        <time dateTime={at}>{ago(at, now)}</time>
+      </Readout>
     </Tooltip>
   );
 }
@@ -293,6 +296,7 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
                         <Words text={entry.text} />
                       </span>
                       <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
+                      <When at={entry.last_confirmed} now={now} said="Last confirmed" fixed />
                     </div>
                   ))}
                 </div>
@@ -478,7 +482,7 @@ function Detail({
                         {row.job_title}
                       </button>
                     )}
-                    <span className="armada-logbook__cite">{row.cite}</span>
+                    <Readout className="armada-logbook__cite">{row.cite}</Readout>
                     <When at={row.at} now={now} />
                   </span>
                   {row.says === undefined ? null : (
