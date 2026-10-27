@@ -777,6 +777,20 @@ test('a file the session itself writes is told, and one a subagent writes is not
   expect(kinds(posts.slice(before)).filter(kind => kind === 'wrote')).toHaveLength(2)
 })
 
+test('a file the session writes outside its folder, such as a memory note, is not told', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Write', file_path: '/Users/me/.claude/projects/x/memory/MEMORY.md', content: 'a' })
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada-other/src/a.ts', old_string: 'a', new_string: 'b' })
+  await clock.settle()
+
+  expect(kinds(posts.slice(before)).filter(kind => kind === 'wrote')).toHaveLength(0)
+})
+
 test('opening a file or a folder runs as usual', async ($, on) => {
   const { posts, clock } = world(on)
   let ranIt = 0
