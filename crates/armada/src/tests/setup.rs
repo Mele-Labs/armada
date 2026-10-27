@@ -100,10 +100,10 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         .collect();
     assert_eq!(
         steps,
-        vec!["plan", "implement", "land"],
-        "three steps, which is M1's reduced form of the designed Bug workflow \
-         — `implement` carries the test Check itself rather than handing off \
-         to a separate `verify` step"
+        vec!["find_the_cause", "fix", "short_walk", "tests", "deliver"],
+        "the five steps the owner chose on 27 Oct 2026: the walk comes before \
+         the tests, and `tests` carries the test Check itself rather than \
+         handing off to a separate `verify` step"
     );
 }
 

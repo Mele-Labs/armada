@@ -32,10 +32,12 @@ That document owns the call.
 A Job may follow one workflow, which the proposer picks at dispatch or a person sets.
 No step gates it.
 A step may carry `instructions`, the words the agent follows there, sent when the Job enters the step.
-A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's Delivery, set before Start, settled it; `bug` and `feature` set it on `plan`.
-`bug` runs `plan`, `implement`, `land`: root cause and proposed fix, the fix, then delivery.
-`feature` runs the same three, its `plan` also scoping with questions and proposing a walk where the owner would see the change.
-At `land` the agent delivers by the answer it was told, and a change the owner would see waits for his walk first.
+A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's Delivery, set before Start, settled it; `bug` and `feature` set it on their first step.
+`feature` runs `propose`, `discuss`, `approve_plan`, `walk`, `refine`, `deliver`, the order the owner chose on 27 Oct 2026: the idea and a stop for his reply, the scope with sketches, the plan, a mock walked and approved, then the real thing with its tests, then delivery.
+`bug` runs `find_the_cause`, `fix`, `short_walk`, `tests`, `deliver`: the cause and a plan, the fix, a short walk straight to the place, then the test, then delivery.
+A step with `awaits_reply: true` ends when the owner replies, and a step with `walks: true` is the one where he is shown the work, current from the plan's approval until he approves it and passed over when nothing would be seen.
+No test is written before the walk is approved: a test edited first draws one nudge.
+At `deliver` the agent delivers by the answer it was told.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.
 `session.md`, *The rail* and *The judges*.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.

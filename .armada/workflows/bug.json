@@ -1,64 +1,22 @@
-# Bug, as M1 runs it. The definition a running Fleet loads, and the file the
-# other seven point at for what they all hold to.
+# Bug, as the owner chose it on 27 Oct 2026: Find the cause, Fix, Short walk, Tests, Deliver. A bug he
+# would see gets a short walk straight to the place before any test; one he would not, skips it.
+# `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md` has why. This file is also what
+# Armada ships, and `feature.json` beside it is the other workflow that walks.
 #
-# Where the reasoning lives: `crates/core-model/domain/workflowdef-fields.toml`
-# is the field-by-field schema, `crates/core-model/domain/workflows.toml` the
-# catalogue of workflow shapes, `docs/concepts/workflow.md` the concept, and
-# `armada.yml` says what each Check catches and who runs it.
-# `crates/config/src/workflow.rs` is the parser, and it refuses by name every
-# schema key it does not read.
+# Where the reasoning lives: `crates/core-model/domain/workflowdef-fields.toml` is the schema,
+# `docs/concepts/workflow.md` the concept, `crates/config/src/workflow.rs` the parser. These files are
+# YAML and the `.json` extension is kept on purpose: a `#` comment is not JSON. `workflow-samples/bug.json`
+# is the designed seven-step form, not a duplicate of this one; do not reconcile the two.
 #
-# **These files are YAML, and the extension is kept on purpose.** A `#` comment
-# is not JSON; `crates/config` reads them with a YAML parser, of which JSON is a
-# subset, so a strict JSON reader will not take them. The name follows
-# `crates/core-model/domain/workflow-samples/`, which established it.
+# **`find_the_cause` records the plan**, the cause and the fix as tasks, because the walk is placed from
+# the plan's approval. It asks how the work is delivered, as `feature`'s first step does.
 #
-# **There is a second `bug.json`, under `workflow-samples/`, and the two are not
-# duplicates.** That one is the designed workflow -- seven steps in a loop --
-# and it is the authority on what Bug becomes. This is the form M1 runs:
-# `review`, `merge` and `close` folded into one `land`, and the designed
-# `verify` folded into `implement`, since a step no Drone can advance past until
-# build and test pass needs no second step to say so. The questions below are
-# ported from the designed file; none of its shape is. The shape is why the two
-# stay apart, not the parser -- its `review` gate is `manifest_rule:review_gate`
-# and that has been carried since #264, so what still separates them is seven
-# steps in a loop against five in a line. Do not reconcile the two and do not
-# copy either over the other.
+# **`deliver` is gated `human_always`: every workflow that produces code stops before it lands**
+# (the owner, Aug 28 2026). Auto land does not stop there (19 Oct 2026); Fleet declares the gate and does
+# not enforce it, and the step's instructions carry the stop.
 #
-# **`land` is gated `human_always`: every workflow that produces code stops
-# before it lands.** The owner's decision, Aug 28 2026, and it is why this file
-# says the word outright where the designed one reads the same answer off a
-# Manifest rule. A repository may now say otherwise; this one does not. The owner
-# decided on 19 Oct 2026 that Auto land does not stop at `land`. Fleet declares
-# the gate value and does not enforce it; the step's instructions carry the stop.
-#
-# **`model: haiku` was on the reporting step, and is on none now.** Owner's call,
-# 31 Aug 2026: cheap by default, strong where the thinking is. `land` stopped
-# reporting and started reviewing with #903's step 7, which is thinking. `plan`,
-# `implement` and `land` name no model, and so run as the Job was proposed.
-# Switching model re-caches the prompt prefix rather than reading one --
-# `docs/spikes/005-what-does-a-job-cost.md` measured 58.6% of a cold run's bill
-# on cache writes against 27.6% warm -- which is the argument against
-# alternating step by step. One switch, at the last step, is what this spends.
-#
-# **`retry_limit` is on the steps that can fail mechanically, and nowhere
-# else.** Two hand-backs, so `implement` is worked three times before the
-# failure stands. `plan` can fail mechanically and still declares none: its one
-# mechanical failure is not recording a plan, which a second attempt does not
-# fix.
-#
-# **`no_behaviour_beyond_the_plan` asks about behaviour, not about every line.**
-# It was ported wider than the designed file -- *anything the plan did not
-# describe* -- and refused a diff that fixed the cause and also moved a helper.
-# #190 decided it should not, so the question is the designed one again.
-#
-# **Every definition here declares `for_requests`, and each line is read off
-# that workflow's own Judge criteria and steps.** The owner's call, 1 Oct 2026:
-# a request to retire a guide was proposed as `refactor`, whose Judge then
-# refused the plan for changing what a person sees -- correctly, since nothing
-# but step labels had told the proposer what a refactor promises. Each line
-# says what separates it from its nearest neighbour. The key stays optional to
-# the parser; `fleet`'s `tests::proposing` refuses a definition here without one.
+# **`no_behaviour_beyond_the_plan` asks about behaviour, not every line** (#190). Every definition here
+# declares `for_requests`, read off its own criteria; `fleet`'s `tests::proposing` refuses one without.
 {
   "version": 1,
   "workflow_id": "bug",
@@ -66,12 +24,14 @@
   "for_requests": "Something that is broken: it used to work, or is meant to work, and does not, and what is wanted is the cause found and fixed. Taking a change that already landed back out whole is a revert, and adding or changing what the software does on purpose is a feature.",
   "steps": [
     {
-      "id": "plan",
-      "label": "Plan the change",
-      "about": "Reads the report and the code, finds the cause, and writes down the fix as tasks. Nothing is changed yet. The tasks are what Implement works from.",
-      "instructions": "Separate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a walk of it comes before landing.\nList the tasks in the order they must happen, each with the test that proves it. Every new test is shown failing before the change makes it pass.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then.",
+      "id": "find_the_cause",
+      "label": "Find the cause",
+      "about": "Reads the report and the code, reproduces the bug and names the cause, then writes down the fix as tasks. Nothing is changed yet.",
+      "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then.",
       "evidence": {
-        "submitted": { "type": "plan" }
+        "submitted": {
+          "type": "plan"
+        }
       },
       "mechanical_checks": [
         {
@@ -103,19 +63,18 @@
       "advance_gate": "auto_if_judge_passes"
     },
     {
-      "id": "implement",
-      "label": "Implement",
-      "about": "Makes the fix from the plan, one Drone per task, and runs the repository's checks on the result. The change is held in the Job's branch.",
-      "instructions": "First reproduce the report. Run the checks; if the suite is already red for other reasons, say so with ask_the_person and stop. Write one test on the narrowest observable failure, from the report's inputs, asserting what a person sees and not a helper you suspect. Read its failure message and confirm it fails for the reported reason. Then fix the cause.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built, how tests are named.\nEvery new test is shown failing without the change, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
+      "id": "fix",
+      "label": "Fix",
+      "about": "Makes the fix from the plan, with no tests yet. The change is held in the Job's branch.",
+      "instructions": "Make the smallest change that addresses the cause. Write no tests yet.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
       "evidence": {
-        "submitted": { "type": "diff" }
+        "submitted": {
+          "type": "diff"
+        }
       },
       "retry_limit": 2,
       "follows_plan": true,
       "mechanical_checks": [
-        {
-          "type": "every_manifest_check"
-        },
         {
           "type": "diff_nonempty"
         }
@@ -145,10 +104,10 @@
               "criterion_id": "tasks_match_the_diff",
               "question": "Does the diff do every task set to done or handed in, and does each dropped task's reason hold?"
             },
-          {
-            "criterion_id": "the_evidence_accounts_for_itself",
-            "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
-          }
+            {
+              "criterion_id": "the_evidence_accounts_for_itself",
+              "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
+            }
           ]
         }
       ],
@@ -156,12 +115,45 @@
       "advance_gate": "auto_if_judge_passes"
     },
     {
-      "id": "land",
-      "label": "Land the change",
-      "about": "Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch. A change you would see in Bridge waits for your walk and approval first.",
-      "instructions": "Land the change by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.\nIf the change is something the person would see in Bridge, stop before any delivery: serve a walk of it, show it with show_window, and wait for their approval. Nothing below runs until they approve. A change nobody would see in Bridge needs no walk.\nReview the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.\nAuto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.\nOpen PR only: push the branch and open the pull request. Stop there and do not merge.\nKeep local: stop at the commit on the Job's branch. Push nothing and open no pull request.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
+      "id": "short_walk",
+      "label": "Short walk",
+      "about": "Shows you the fix as a short walk straight to the place. No tests until you approve it. Passed over when nothing would be seen.",
+      "instructions": "Show the fix as a short walk straight to the place. Notes come back as another take.\nShow it with show_window and wait for the person's approval. A bug nobody would see in Bridge needs no walk.",
+      "walks": true,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "about": "Writes the test that fails without the fix and passes with it, and runs the repository's checks on the result.",
+      "instructions": "Write a test that fails without the fix and passes with it.\nRun the checks; if the suite is already red for other reasons, say so with ask_the_person and stop. Write the test on the narrowest observable failure, from the report's inputs, asserting what a person sees and not a helper you suspect. Read its failure message and confirm it fails for the reported reason.\nEvery new test is shown failing without the fix, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
       "evidence": {
-        "submitted": { "type": "review" }
+        "submitted": {
+          "type": "failing_test"
+        }
+      },
+      "retry_limit": 2,
+      "mechanical_checks": [
+        {
+          "type": "every_manifest_check"
+        },
+        {
+          "type": "diff_nonempty"
+        }
+      ],
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "deliver",
+      "label": "Deliver",
+      "about": "Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch.",
+      "instructions": "Open the pull request and merge it on a green ci. Say what landed.\nDeliver by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.\nReview the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.\nAuto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.\nOpen PR only: push the branch and open the pull request. Stop there and do not merge.\nKeep local: stop at the commit on the Job's branch. Push nothing and open no pull request.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
+      "evidence": {
+        "submitted": {
+          "type": "review"
+        }
       },
       "delivers": true,
       "advance_gate": "human_always"
