@@ -3,7 +3,7 @@
 // a Job, Pin on a task); Projects' own acts head the results; a command with a blank asks for it in a second step. Over the
 // scenario of the same name.
 
-import { dialog, inside, place, role, walk } from "../walk";
+import { dialog, inside, place, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const places = role("navigation", "Places");
@@ -11,8 +11,10 @@ const bar = inside(dialog("Command palette"), role("combobox"));
 
 function steps(): Step[] {
   return [
-    { key: "Meta+k", on: places, say: "⌘K, with nothing typed: Pinned, then Recent. Each Job row names its repository, its state as a glyph and the pull request it holds" },
+    { key: "Meta+k", on: places, say: "⌘K, with nothing typed: Pinned, then Recent. Each Job row names its repository, with its state as the glyph" },
     { look: role("option", /^Cache key/), say: "Cache key is pinned, and the glyph says it waits on him" },
+    { drag: text("Pinned"), by: { x: 0, y: 160 }, say: "Drag it by any bare part. It snaps to the window's middle lines and opens where you left it. Double click a bare part to put it back" },
+    { drag: text("Pinned"), by: { x: 0, y: -160 }, say: "Back up" },
     { type: "migration", into: bar, say: "Jobs from both repositories, one at work and one paused. A number or a repository name finds a row as a title does" },
     { key: "Meta+k", on: bar, say: "⌘K on a row opens its acts inside the palette, and the palette stays up. Esc goes back to the results with the words kept" },
     { press: role("option", "Pause", { exact: true }), say: "Pause. Stop asks first" },

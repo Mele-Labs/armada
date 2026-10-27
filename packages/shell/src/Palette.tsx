@@ -451,7 +451,9 @@ export function Palette({
             ...(picked === one.root ? { value: "picked" } : {}),
           })),
         ]),
-    ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: session.aliases, meta: metaOfJob(session) })),
+    // A Job's pull request is found by its number and not drawn (the owner, 27 Oct 2026: too much in a row). Its own row
+    // under Pull requests draws it.
+    ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: [...session.aliases, ...(session.pull === undefined ? [] : [`#${session.pull}`])], meta: metaOfJob(session) })),
     ...pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: PULLS, label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
     ...issues.map((one) => ({ id: `issue:${one.repo}:${one.number}`, section: ISSUES, label: one.title, icon: CircleDot, meta: { repo: one.repo, number: `#${one.number}` } })),
     ...tasks.map((one) => ({ id: `task:${one.id}`, section: TASKS, label: one.title, icon: ListTodo, meta: { repo: one.repo }, aliases: [one.project] })),
@@ -580,7 +582,6 @@ function searchedSentence(held: { sessions: number; settings: number; runnables:
 function metaOfJob(session: PaletteSession): PaletteMeta {
   return {
     ...(session.repo === undefined ? {} : { repo: session.repo }),
-    ...(session.pull === undefined ? {} : { number: `#${session.pull}` }),
     ...(session.state === undefined ? {} : { state: session.state }),
   };
 }

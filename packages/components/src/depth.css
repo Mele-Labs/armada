@@ -454,11 +454,11 @@
 @keyframes armada-palette-in {
   from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); }
 }
-:root[data-look="new"] .armada-palette-layer:not([data-anchored]) .armada-palette__input {
+:root[data-look="new"] .armada-palette__input {
   height: var(--space-12);
   padding: 0 var(--space-4);
   border-bottom-color: var(--head-rule);
-  font-size: var(--text-row);
+  font-size: var(--text-lg);
 }
 :root[data-look="new"] .armada-palette__list { padding: var(--space-1) var(--space-2) var(--space-2); }
 :root[data-look="new"] .armada-palette__section {

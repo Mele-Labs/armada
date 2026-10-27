@@ -41,8 +41,8 @@ export function PathRow({ path, active, ref, onEnter, onChoose }: { path: string
           Open <span className="armada-palette__words">{path}</span>
         </span>
       </span>
-      <span className="armada-palette__keys-col" />
       <span className="armada-palette__kind">File</span>
+      <span className="armada-palette__keys-col" />
     </div>
   );
 }

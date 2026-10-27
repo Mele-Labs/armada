@@ -35,8 +35,8 @@ export function LinkRow({ kind, link, active, ref, onEnter, onChoose }: { kind: 
           {label} <span className="armada-palette__words">{link}</span>
         </span>
       </span>
-      <span className="armada-palette__keys-col" />
       <span className="armada-palette__kind">{drawn}</span>
+      <span className="armada-palette__keys-col" />
     </div>
   );
 }

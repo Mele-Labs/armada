@@ -4,8 +4,9 @@ import type { LucideIcon } from "lucide-react";
 import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
 import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction } from "./actions-panel";
-import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, useAnchor, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
+import { usePlace } from "./place";
 
 import { LINK_ROW, LinkRow, type PaletteLink } from "./link-row";
 import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
@@ -242,7 +243,7 @@ export function CommandPalette({
   const rest: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
   const typedKind = link === undefined || stepping !== null ? null : link.kindOf(query.trim());
   const flat: (Hit | "dispatch" | "path" | "link")[] = [...(typedKind === null ? [] : ["link" as const]), ...(typedPath === null ? [] : ["path" as const]), ...rest];
-  const place = useAnchor(open, anchor);
+  const place = usePlace(open, anchor, panel);
   // The row under the cursor and what ⌘K would open on it.
   const under = flat[at];
   const underEntry = typeof under === "object" ? under.entry : undefined;
@@ -481,7 +482,10 @@ export function CommandPalette({
   );
 
   return (
-    <div className="armada-palette-layer" data-anchored={place === undefined ? undefined : ""}>
+    <div className="armada-palette-layer" data-anchored={place.style === undefined ? undefined : ""}>
+      {/* The window's middle lines, drawn only while the palette is dragged onto one. */}
+      {place.snapped?.across === true ? <div className="armada-palette__guide armada-palette__guide--across" aria-hidden /> : null}
+      {place.snapped?.down === true ? <div className="armada-palette__guide armada-palette__guide--down" aria-hidden /> : null}
       <div
         ref={panel}
         className="armada-palette"
@@ -489,7 +493,10 @@ export function CommandPalette({
         aria-modal="true"
         aria-label="Command palette"
         data-acting={acting === null ? undefined : ""}
-        style={place}
+        data-moving={place.snapped === null ? undefined : ""}
+        style={place.style}
+        onPointerDown={place.onPointerDown}
+        onDoubleClick={place.onDoubleClick}
       >
         <input
           ref={input}
@@ -629,10 +636,10 @@ function Row({
         </span>
         <Subtitle meta={entry.meta} value={entry.value} dormant={entry.dormant} />
       </span>
-      {/* Flush right, in two fixed columns, so every binding and every kind
-          ends on the same edge as the rows above it. */}
-      <span className="armada-palette__keys-col">{entry.shortcut === undefined ? null : <Shortcut shortcut={entry.shortcut} />}</span>
+      {/* Two fixed columns, so every kind and every binding ends on the same
+          edge as the rows above it: the kind, then the key at the far right. */}
       <span className="armada-palette__kind">{entry.kind}</span>
+      <span className="armada-palette__keys-col">{entry.shortcut === undefined ? null : <Shortcut shortcut={entry.shortcut} />}</span>
     </div>
   );
 }

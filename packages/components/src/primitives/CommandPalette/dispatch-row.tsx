@@ -1,7 +1,6 @@
 // The palette's dispatch row: what was typed in the title bar's one bar, offered as the work itself
-// (the owner, 10 Oct 2026), and where the palette sits when it opens over that bar.
+// (the owner, 10 Oct 2026).
 
-import { useLayoutEffect, useState, type CSSProperties } from "react";
 import { Plus } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
@@ -104,29 +103,13 @@ export function DispatchRow({
         </span>
       </span>
       {/* The result rows' two columns, so its key ends on their keys' edge. */}
+      <span className="armada-palette__kind">{KIND[kind]}</span>
       <span className="armada-palette__keys-col">
         <KbdChord keys={["⌘", "↵"]} />
       </span>
-      <span className="armada-palette__kind">{KIND[kind]}</span>
     </div>
   );
 }
-
-/**
- * Where the palette sits when it opens over a field: the field's own box, so its input lands where
- * the field was. Read once on opening, as `Popover` reads its trigger; a resize while open leaves it.
- */
-export function useAnchor(open: boolean, anchor: string | undefined): CSSProperties | undefined {
-  const [place, setPlace] = useState<CSSProperties>();
-  useLayoutEffect(() => {
-    if (!open || anchor === undefined) return setPlace(undefined);
-    const box = document.querySelector(anchor)?.getBoundingClientRect();
-    if (box === undefined || box.width === 0) return setPlace(undefined);
-    setPlace({ top: box.top, left: box.left, width: box.width, ["--palette-field" as string]: `${box.height}px` });
-  }, [open, anchor]);
-  return place;
-}
-
 
 /** The keys the one bar answers, along the palette's foot while there is something typed to send. */
 export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispatch; sends: boolean; acts: boolean }) {

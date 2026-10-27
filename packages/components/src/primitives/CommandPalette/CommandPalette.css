@@ -20,6 +20,8 @@
  */
 .armada-palette {
   --armada-glyph: var(--space-4);
+  /* A fifth wider than the title bar's field it opens over (the owner, 27 Oct 2026). */
+  --palette-wide: calc(var(--palette-width) * 1.2);
 }
 
 .armada-palette-layer {
@@ -42,7 +44,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: var(--palette-width);
+  max-width: var(--palette-wide);
   max-height: var(--palette-max-height);
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
@@ -61,8 +63,8 @@
   background: transparent;
   color: var(--fg-default);
   font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
 }
 
 .armada-palette__input::placeholder {
@@ -228,8 +230,8 @@
   text-wrap: pretty;
 }
 
-/* Opened from the title bar's one bar: the palette's field lands on the bar's own field, so search
- * and dispatch read as one control, and the results hang beneath it. `useAnchor` places it. */
+/* Placed: where he dragged it, or opened from the title bar's one bar with its middle on the bar's field and its input
+ * on the field's top. `place.ts` places it by its middle, so a drag snaps to the window's middle line. */
 .armada-palette-layer[data-anchored] {
   display: block;
   padding-top: 0;
@@ -237,16 +239,41 @@
 
 .armada-palette-layer[data-anchored] .armada-palette {
   position: absolute;
-  min-width: min(var(--palette-width), calc(100vw - var(--space-6)));
-  max-width: none;
-  border-color: var(--accent);
+  width: min(var(--palette-wide), calc(100vw - var(--space-6)));
+  translate: -50% 0;
 }
 
-.armada-palette-layer[data-anchored] .armada-palette__input {
-  height: var(--palette-field);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+/* Moved by any ground that is not a field, a row or a button. */
+.armada-palette__section,
+.armada-palette__keys-foot,
+.armada-palette__actions-title {
+  cursor: grab;
+}
+
+.armada-palette[data-moving] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* The window's middle line the palette has snapped to, across or down, while it is dragged. */
+.armada-palette__guide {
+  position: fixed;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.armada-palette__guide--across {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--border-width);
+}
+
+.armada-palette__guide--down {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--border-width);
 }
 
 /* What was typed, offered as the work itself. The accent marks the one row that sends something.
@@ -281,9 +308,9 @@
   padding: var(--space-2) var(--space-3);
   border-top: var(--border-width) solid var(--border-subtle);
   color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
 .armada-palette__keys-foot > span {
@@ -329,15 +356,11 @@
   text-overflow: ellipsis;
 }
 
-.armada-palette__mono {
-  font-family: var(--font-mono);
-}
-
 .armada-palette__keys-col {
   flex: none;
   display: inline-flex;
   justify-content: flex-end;
-  width: calc(var(--space-12) * 2);
+  width: calc(var(--space-4) * 4);
 }
 
 .armada-palette__kind {

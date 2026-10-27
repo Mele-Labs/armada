@@ -31,8 +31,8 @@ export function StateGlyph({ state }: { state: NonNullable<PaletteMeta["state"]>
 export function Subtitle({ meta, value, dormant }: { meta: PaletteMeta | undefined; value: string | undefined; dormant: string | undefined }) {
   const parts = [
     meta?.repo === undefined ? null : <span key="repo">{meta.repo}</span>,
-    meta?.number === undefined ? null : <span key="number" className="armada-palette__mono">{meta.number}</span>,
-    value === undefined ? null : <span key="value" className="armada-palette__mono">{value}</span>,
+    meta?.number === undefined ? null : <span key="number">{meta.number}</span>,
+    value === undefined ? null : <span key="value">{value}</span>,
     dormant === undefined ? null : <span key="dormant">{dormant}</span>,
   ].filter((one) => one !== null);
   return parts.length === 0 ? null : <span className="armada-palette__subtitle">{parts}</span>;
