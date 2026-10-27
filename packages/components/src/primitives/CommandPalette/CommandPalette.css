@@ -351,24 +351,70 @@
   white-space: nowrap;
 }
 
-/* ⌘K on a row: what can be done to it, over the lower right of the results. The list keeps the height
- * the panel needs while it is up, so a short result list does not clip it. */
+/* ⌘K on a row: what can be done to it, over the lower right of the results, as Raycast lays its panel: the row's
+ * title, the acts with their keys at the right, a rule between groups, and a field at the foot that narrows them. */
 .armada-palette__actions {
   position: absolute;
   right: var(--space-2);
   bottom: calc(var(--space-8) + var(--space-1));
-  width: calc(var(--palette-width) / 2);
-  max-height: 100%;
-  overflow-y: auto;
-  padding: var(--space-1) 0;
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--palette-width) / 1.6);
+  /* Below the palette's field, which it never covers: the list inside it scrolls instead. */
+  max-height: calc(100% - var(--space-12) - var(--space-8) - var(--space-2));
   border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
 }
 
+.armada-palette__actions-title {
+  flex: none;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-palette__actions-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-1) var(--space-1);
+}
+
+.armada-palette__actions .armada-palette__row > .armada-kbd {
+  flex: none;
+  margin-left: auto;
+}
+
+.armada-palette__rule {
+  height: var(--border-width);
+  margin: var(--space-1) var(--space-2);
+  background: var(--border-subtle);
+}
+
+.armada-palette__actions-field {
+  flex: none;
+  height: var(--h-menu-item);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.armada-palette__actions-field::placeholder {
+  color: var(--fg-subtle);
+}
+
 .armada-palette[data-acting] .armada-palette__list {
-  min-height: calc(var(--h-menu-item) * 8 + var(--space-4));
+  min-height: calc(var(--h-menu-item) * 11 + var(--space-4));
 }
 
 /* A confirmation raised from the palette, Stop on a Job, is the top layer: above the palette that asked,

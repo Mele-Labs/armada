@@ -610,24 +610,43 @@ const COMMAND_GLYPH: Record<PaletteCommand["kind"], LucideIcon> = { url: Globe, 
  * whichever list it was found in. Stop confirms: it is the one act here that ends work.
  */
 function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[] }): readonly PaletteAction[] {
-  const pin: PaletteAction = held.pinned.includes(entry.id) ? { id: "unpin", label: "Unpin", stays: true } : { id: "pin", label: "Pin", stays: true };
+  // Each act's chord runs it while the palette is up, from the results or the panel, as Raycast's do. None is a
+  // Global binding: the palette holds focus, and a chord it took from the window would go deaf everywhere else.
+  const pin: PaletteAction = held.pinned.includes(entry.id) ? { id: "unpin", label: "Unpin", shortcut: "⇧⌘F", apart: true, stays: true } : { id: "pin", label: "Pin", shortcut: "⇧⌘F", apart: true, stays: true };
   if (entry.id.startsWith("session:")) {
     const job = held.sessions.find((one) => `session:${one.id}` === entry.id);
     return [
-      { id: "open", label: "Open" },
-      job?.paused === true ? { id: "resume", label: "Resume", icon: Play } : { id: "pause", label: "Pause", icon: Pause },
-      { id: "stop", label: "Stop", icon: Ban, destructive: true },
-      { id: "fork", label: "Fork", icon: GitFork },
-      ...(job?.pull === undefined ? [] : [{ id: "open-pull", label: "Open pull request", icon: GitPullRequest }, { id: "merge-pull", label: "Merge pull request", icon: GitMerge }]),
-      { id: "copy-id", label: "Copy Job id", icon: Copy },
+      { id: "open", label: "Open", shortcut: "↵" },
+      job?.paused === true ? { id: "resume", label: "Resume", icon: Play, shortcut: "⌘P" } : { id: "pause", label: "Pause", icon: Pause, shortcut: "⌘P" },
+      { id: "fork", label: "Fork", icon: GitFork, shortcut: "⌥⌘F" },
+      ...(job?.pull === undefined
+        ? []
+        : [
+            { id: "open-pull", label: "Open pull request", icon: GitPullRequest, shortcut: "⇧⌘P", apart: true as const },
+            { id: "merge-pull", label: "Merge pull request", icon: GitMerge, shortcut: "⇧⌘M" },
+          ]),
+      { id: "copy-id", label: "Copy Job id", icon: Copy, shortcut: "⇧⌘C", apart: true },
       pin,
+      { id: "stop", label: "Stop", icon: Ban, shortcut: "⌘⌫", destructive: true, apart: true },
     ];
   }
   if (entry.id.startsWith("pull:")) {
-    return [{ id: "open", label: "Open in Reviews", icon: GitPullRequest }, { id: "github", label: "Open on GitHub", icon: ExternalLink }, { id: "start-job", label: "Start a Job on it", icon: Plus }, pin];
+    return [
+      { id: "open", label: "Open in Reviews", icon: GitPullRequest, shortcut: "↵" },
+      { id: "github", label: "Open on GitHub", icon: ExternalLink, shortcut: "⇧⌘O" },
+      { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true },
+      pin,
+    ];
   }
-  if (entry.id.startsWith("issue:")) return [{ id: "open", label: "Open" }, { id: "start-job", label: "Start a Job on it", icon: Plus }, pin];
-  if (entry.id.startsWith("task:")) return [{ id: "open", label: "Open" }, { id: "dispatch", label: "Dispatch", icon: Send }, { id: "tick", label: "Tick", icon: Check }, pin];
-  if (entry.id.startsWith("cmd:")) return [{ id: "run", label: "Run" }, pin];
+  if (entry.id.startsWith("issue:")) return [{ id: "open", label: "Open", shortcut: "↵" }, { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true }, pin];
+  if (entry.id.startsWith("task:")) {
+    return [
+      { id: "open", label: "Open", shortcut: "↵" },
+      { id: "dispatch", label: "Dispatch", icon: Send, shortcut: "⇧⌘N" },
+      { id: "tick", label: "Tick", icon: Check, shortcut: "⌘D" },
+      pin,
+    ];
+  }
+  if (entry.id.startsWith("cmd:")) return [{ id: "run", label: "Run", shortcut: "↵" }, pin];
   return [];
 }

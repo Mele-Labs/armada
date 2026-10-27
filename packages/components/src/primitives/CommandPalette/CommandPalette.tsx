@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
-import { ActionKeys, ActionsPanel, ResultKeys, actionEntryId, actionRowId, type PaletteAction } from "./actions-panel";
+import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction } from "./actions-panel";
 import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, useAnchor, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
 
@@ -214,6 +214,8 @@ export function CommandPalette({
   // The row whose acts are up, and the one of them under the cursor.
   const [acting, setActing] = useState<{ entry: PaletteEntry; at: number } | null>(null);
   const actionRow = useRef<HTMLDivElement>(null);
+  // What is typed in the actions panel's own field, which narrows its acts.
+  const [actionQuery, setActionQuery] = useState("");
   const bare = query.trim() === "";
   const listed = stepping !== null ? stepping.step : home !== undefined && bare ? home : { entries, sections };
 
@@ -312,6 +314,31 @@ export function CommandPalette({
     return () => window.removeEventListener("keydown", onActs, true);
   }, [open, acting, underEntry, underActions.length]);
 
+  // The panel's field starts empty on every opening, and the palette's own field takes focus back when it goes.
+  useEffect(() => {
+    setActionQuery("");
+    if (acting === null && open) input.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting === null, acting?.entry.id]);
+
+  // An act's own chord runs it on the row under the cursor, from the results or from the panel, as Raycast's do.
+  useEffect(() => {
+    if (!open || stepping !== null) return;
+    const entry = acting?.entry ?? underEntry;
+    if (entry === undefined) return;
+    const acts = actionsOf?.(entry) ?? [];
+    function onChord(event: KeyboardEvent) {
+      if (event.defaultPrevented || entry === undefined) return;
+      const action = acts.find((one) => one.shortcut !== undefined && pressedChord(one.shortcut, event));
+      if (action === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      runAction(entry, action);
+    }
+    window.addEventListener("keydown", onChord, true);
+    return () => window.removeEventListener("keydown", onChord, true);
+  });
+
   // A click outside `.armada-palette` closes it, following `Popover`'s `contains(target)` check —
   // not `event.target === layer`, which breaks the moment anything else nests in the layer.
   useEffect(() => {
@@ -408,20 +435,7 @@ export function CommandPalette({
   // Only the navigation set is intercepted here, and `Esc` above. Every other
   // key belongs to the query, which is the suppression rule holding.
   function onKey(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (acting !== null) {
-      const list = actionsOf?.(acting.entry) ?? [];
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const step = event.key === "ArrowDown" ? 1 : -1;
-        setActing({ ...acting, at: list.length === 0 ? 0 : (acting.at + step + list.length) % list.length });
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        runAction(acting.entry, list[acting.at]);
-      } else if (event.key === "Tab") {
-        event.preventDefault();
-      }
-      return;
-    }
+    if (acting !== null) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setAt((n) => (flat.length === 0 ? 0 : (n + 1) % flat.length));
@@ -444,10 +458,24 @@ export function CommandPalette({
     }
   }
 
+  // The panel's field: ↑ ↓ move through the acts it narrows to, ↵ runs one. Esc and ⌘K are the window's, above.
+  function onPanelKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (acting === null) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      setActing({ ...acting, at: actionList.length === 0 ? 0 : (acting.at + step + actionList.length) % actionList.length });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      runAction(acting.entry, actionList[acting.at]);
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+    }
+  }
+
   let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1) + (typedKind === null ? 0 : 1);
   const current = flat[at];
-  const actionList = acting === null ? [] : (actionsOf?.(acting.entry) ?? []);
-  const actionUnder = acting === null ? undefined : actionList[acting.at];
+  const actionList = acting === null ? [] : narrowed(actionsOf?.(acting.entry) ?? [], actionQuery);
   const sendRow = !offered ? null : (
     <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
   );
@@ -470,7 +498,7 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={actionUnder !== undefined ? actionRowId(actionUnder) : current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
+          aria-activedescendant={acting !== null || current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={stepping?.step.title ?? placeholder}
           placeholder={stepping === null ? placeholder : ""}
           value={query}
@@ -521,13 +549,16 @@ export function CommandPalette({
             entry={acting.entry}
             actions={actionList}
             at={acting.at}
+            query={actionQuery}
             active={actionRow}
+            onQuery={(typed) => (setActionQuery(typed), setActing({ ...acting, at: 0 }))}
+            onKey={onPanelKey}
             onEnter={(next) => setActing({ ...acting, at: next })}
             onChoose={(action) => runAction(acting.entry, action)}
           />
         )}
         {acting !== null ? (
-          <ActionKeys />
+          <ResultKeys />
         ) : offered && dispatch !== undefined ? (
           <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
         ) : stepping !== null ? (

@@ -478,10 +478,11 @@
   transition: background-color var(--duration-fast) var(--ease);
 }
 :root[data-look="new"] .armada-palette__row:not(.armada-palette__row--dormant):hover { background: var(--bg-step); }
+/* The row under the cursor is one neutral rounded fill, as Raycast draws it (the owner, 27 Oct 2026): no edge bar
+ * and no accent, so the highlight reads as where you are rather than as a state. */
 :root[data-look="new"] .armada-palette__row--active,
 :root[data-look="new"] .armada-palette__row--active:hover {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset var(--bar) 0 0 var(--accent);
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
 :root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
 :root[data-look="new"] .armada-palette__keys { margin-left: auto; font-family: var(--font-mono); }
