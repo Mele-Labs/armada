@@ -33,7 +33,7 @@ pub(crate) async fn save_preferences<D: Settings>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let save: SavePreference = match ipc::decode("a preference to save", &body) {
+    let save: SavePreference = match ipc::decode_body("a preference to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

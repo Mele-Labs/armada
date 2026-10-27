@@ -22,7 +22,7 @@ fn answered<D: Projects>(served: &Served<D>, result: Result<ipc::Projects, Refus
 }
 
 fn decoded<T: DeserializeOwned, D: Projects>(served: &Served<D>, what: &'static str, body: &Bytes) -> Result<T, Response> {
-    ipc::decode(what, body).map_err(|why| undecodable(&why.to_string(), served.run_id()))
+    ipc::decode_body(what, body).map_err(|why| undecodable(&why.to_string(), served.run_id()))
 }
 
 pub(crate) async fn list_projects<D: Projects>(State(served): State<Served<D>>, Path(repository): Path<String>) -> Response {

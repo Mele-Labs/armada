@@ -32,7 +32,7 @@ pub(crate) async fn start_sign_in<D: Accounts>(State(served): State<Served<D>>) 
 }
 
 pub(crate) async fn sign_out<D: Accounts>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let sign_out: SignOut = match ipc::decode("a profile to sign out", &body) {
+    let sign_out: SignOut = match ipc::decode_body("a profile to sign out", &body) {
         Ok(sign_out) => sign_out,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -43,7 +43,7 @@ pub(crate) async fn sign_out<D: Accounts>(State(served): State<Served<D>>, body:
 }
 
 pub(crate) async fn set_repository_profile<D: Accounts>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let set: SetRepositoryProfile = match ipc::decode("a repository and its profile", &body) {
+    let set: SetRepositoryProfile = match ipc::decode_body("a repository and its profile", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -127,7 +127,7 @@ pub(crate) async fn review_lessons<D: Retros>(
     let review: ipc::ReviewLessons = if body.is_empty() {
         ipc::ReviewLessons::default()
     } else {
-        match ipc::decode("a lesson review", &body) {
+        match ipc::decode_body("a lesson review", &body) {
             Ok(review) => review,
             Err(why) => return undecodable(&why.to_string(), served.run_id()),
         }
@@ -145,7 +145,7 @@ pub(crate) async fn ask_lesson<D: Retros>(
     Path(NamedLesson { lesson_id }): Path<NamedLesson>,
     body: Bytes,
 ) -> Response {
-    let ask: ipc::LessonAsk = match ipc::decode("a question about an item", &body) {
+    let ask: ipc::LessonAsk = match ipc::decode_body("a question about an item", &body) {
         Ok(ask) => ask,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

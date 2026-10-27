@@ -86,6 +86,11 @@ export type DialogProps = {
   /** Disables confirm without hiding it — a blank field it would refuse anyway. */
   confirmDisabled?: boolean;
   cancelLabel?: string;
+  /**
+   * Which control holds focus on open, and so which one `Enter` fires. **Cancel, unless the act is neutral and the person
+   * asked for it a moment ago** (Resume and send, after pressing send): the confirm then, with the `↵` drawn on it.
+   */
+  initialFocus?: "cancel" | "confirm";
   onConfirm?: () => void;
   onCancel?: () => void;
 };
@@ -104,17 +109,23 @@ export function Dialog({
   confirmLabel,
   confirmDisabled = false,
   cancelLabel = "Cancel",
+  initialFocus = "cancel",
   onConfirm,
   onCancel,
 }: DialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
 
   // Cancel holds initial focus. A destructive action is never one keystroke
   // from a focused row, so the safe control is the one under the cursor.
   useEffect(() => {
-    if (open && confirmLabel !== undefined) cancelRef.current?.focus();
-  }, [open, confirmLabel]);
+    if (!open || confirmLabel === undefined) return;
+    if (initialFocus === "cancel") return cancelRef.current?.focus();
+    // After the keystroke that opened the layer has finished: an `Enter` sent from a box must not reach the confirm it just opened.
+    const timer = window.setTimeout(() => confirmRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [open, confirmLabel, initialFocus]);
 
   // Whether the layer collects the confirmation in a field it draws.
   //
@@ -227,7 +238,7 @@ export function Dialog({
                 Enter" is the shortcut read as part of the name. The glyph
                 (`↵`), not the word — `Kbd`'s own precedent for `⌘` is a plain
                 Unicode character standing in for a key. */}
-            {collects || confirmLabel === undefined ? null : (
+            {collects || initialFocus === "confirm" || confirmLabel === undefined ? null : (
               <Kbd className="armada-dialog__kbd" aria-hidden="true">
                 ↵
               </Kbd>
@@ -235,6 +246,7 @@ export function Dialog({
           </button>
           {confirmLabel === undefined ? null : (
             <button
+              ref={confirmRef}
               type="button"
               className={
                 destructive
@@ -245,7 +257,7 @@ export function Dialog({
               onClick={onConfirm}
             >
               {confirmLabel}
-              {collects ? (
+              {collects || initialFocus === "confirm" ? (
                 <Kbd className="armada-dialog__kbd" aria-hidden="true">
                   ↵
                 </Kbd>

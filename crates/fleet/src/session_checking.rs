@@ -26,6 +26,12 @@ use crate::slot_holders::session_in_slot;
 const NO_SUCH_RUN: &str = "fleet.session_check_unknown";
 /// A stop asked of a run that is not out.
 const NOT_RUNNING: &str = "fleet.session_check_not_running";
+/// How long a pause waits for the runs it stopped to say they ended. A run's `armada check` hears
+/// the stop at its next chunk, a quarter of a second on, and ends the Check's whole process group.
+const STOPPED_WITHIN: std::time::Duration = std::time::Duration::from_secs(3);
+/// How often a pause looks at whether they have.
+const LOOKED_EVERY: std::time::Duration = std::time::Duration::from_millis(25);
+
 /// A call that cannot be a run's start or end.
 const UNNAMED: &str = "fleet.session_check_unnamed";
 
@@ -206,12 +212,39 @@ where
 
     /// A Session ended: the runs still out will never be ended by their CLI, so they end failed.
     pub(crate) async fn session_checks_ended(&self, session: &str) {
+        self.session_checks_failed(session, "the Job ended").await;
+    }
+
+    /// A Job is being paused: **every Check it has running is stopped, as a person's force stop stops
+    /// it, before its slot is parked**, so none runs on under the next holder. Waits for each to say
+    /// it ended; one whose `armada check` does not (it died with the agent, or does not answer)
+    /// ends failed here instead.
+    pub(crate) async fn session_checks_stopped(&self, session: &str) {
+        let Ok(running) = self.store().lock().await.running_session_checks(session) else {
+            return;
+        };
+        for run in &running {
+            if let Ok(id) = u64::try_from(run.id) {
+                let _ = self.session_check_stopped(id, true).await;
+            }
+        }
+        let waited = std::time::Instant::now();
+        while !running.is_empty() && waited.elapsed() < STOPPED_WITHIN {
+            match self.store().lock().await.running_session_checks(session) {
+                Ok(left) if !left.is_empty() => tokio::time::sleep(LOOKED_EVERY).await,
+                _ => return,
+            }
+        }
+        self.session_checks_failed(session, "the Job was paused").await;
+    }
+
+    async fn session_checks_failed(&self, session: &str, why: &str) {
         let at = self.clock().now().as_str().to_string();
         let Ok(runs) = self
             .store()
             .lock()
             .await
-            .fail_running_session_checks(session, &at, "the Job ended")
+            .fail_running_session_checks(session, &at, why)
         else {
             return;
         };

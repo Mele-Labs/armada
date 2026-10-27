@@ -457,7 +457,7 @@ export class SessionsHost {
     // A socket that goes without `exited` ends the run for the reader all the same, as a stop does.
     const finish = (): void => {
       if (this.runs.get(runId) === socket) this.runs.delete(runId);
-      if (!exited) this.ran(runId, { kind: "exited", code: null });
+      if (!exited) this.ran(runId, { kind: "exited", code: null, stopped: false });
       exited = true;
       this.letGo(runId);
     };

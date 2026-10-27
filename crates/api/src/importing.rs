@@ -37,7 +37,7 @@ pub(crate) async fn get_import_runs<D: Queries>(
 
 /// 200 whether the CLI installed it or not: the answer says which, in the CLI's words.
 pub(crate) async fn install_agent_mod<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: ipc::InstallAgentMod = match ipc::decode("a request to install the mod", &body) {
+    let asked: ipc::InstallAgentMod = match ipc::decode_body("a request to install the mod", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

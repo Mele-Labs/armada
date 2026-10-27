@@ -94,6 +94,8 @@ pub(crate) struct WaitingReads {
     calls: Vec<store::KeptCall>,
     /// The Job waits on its start card.
     start_held: bool,
+    /// The Job is paused, and raises nothing until it is resumed.
+    paused: bool,
     /// The project tasks it finished and nobody has said are done.
     asked_tasks: Vec<store::KeptAsked>,
 }
@@ -129,6 +131,7 @@ pub(crate) fn waiting_reads(
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
+        paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         asked_tasks: store.asked_project_tasks(&session.id)?,
     })
 }
@@ -315,7 +318,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, asked_tasks } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -428,7 +431,7 @@ where
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
-        let standing = if ended {
+        let standing = if ended || paused {
             ipc::SessionStanding::Idle
         } else {
             super::standing::standing(&seen, self.hosts().stuck_after())
@@ -574,6 +577,8 @@ where
             .filter(|one| one.settled.is_some())
             .map(|one| crate::rail_keeping::concern_item(&session.id, one))
             .collect();
+        // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
+        let items = if paused { Vec::new() } else { items };
         Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 

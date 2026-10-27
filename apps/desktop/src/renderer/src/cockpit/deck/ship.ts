@@ -65,8 +65,10 @@ export type Subject = {
   needs: boolean;
   /** Something is broken: stuck, red. */
   alarm: boolean;
-  /** The call that is about it, where one is raised. */
+  /** The call that is about it, where one is raised. Never on a paused Job. */
   call?: string;
+  /** He parked it: nothing it waits on calls, on the list or on the map, until he resumes it. */
+  paused?: true;
   pr?: Pr;
   slot?: number;
   /** The last lines of what it is doing, for Peek. */
@@ -142,6 +144,8 @@ const one = (text: string) => text.split("\n")[0]!.trim();
 
 function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
+  // A paused Job is calm and reads Paused: nothing is asked of him.
+  if (state === "paused") return { Glyph: sessionGlyphOf(state), said, tone: "calm" };
   const tone: Tone = state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
@@ -258,7 +262,9 @@ export function shipOf(input: Inputs): Ship {
     const stuck = stateOf(session).state === "stuck";
     const redPr = pr !== undefined && pr.stage === "red";
     const idle = session.turn.state === "idle";
-    const alarm = mark.tone === "bad" || (redPr && idle);
+    const paused = session.paused === true && session.dead === undefined;
+    // A paused Job is parked by him: a red pull request on it alarms nothing until he resumes it.
+    const alarm = !paused && (mark.tone === "bad" || (redPr && idle));
     const slot = slots.find((one) => one.held.state === "hosted_session" && one.held.session_id === session.id)?.slot ?? attachmentsOf(session, "branch")[0]?.slot;
     const root = rootOf(session.manifestId);
     const call = callOf((item) => sessionIdOf(item.key) === session.id);
@@ -274,13 +280,15 @@ export function shipOf(input: Inputs): Ship {
       ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       ...(session.mod === true ? { mod: true as const } : {}),
       mark,
-      phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
+      phase: needs || (alarm && !stuck) ? "needs" : stuck || paused || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
       needs,
       alarm,
       ...(stateOf(session).state === "replied" ? { reply: true as const } : {}),
-      ...(call === undefined ? {} : { call }),
+      ...(paused ? { paused: true as const } : {}),
+      ...(call === undefined || paused ? {} : { call }),
       ...(pr === undefined ? {} : { pr }),
-      ...(slot === undefined ? {} : { slot }),
+      // Pause gives the slot back: a paused Job holds no bay.
+      ...(slot === undefined || paused ? {} : { slot }),
       peek: peekOfSession(session),
       stoppable: session.turn.state === "working",
       repliable: session.waits === undefined,
@@ -363,7 +371,7 @@ export function shipOf(input: Inputs): Ship {
     subjects
       .filter((one) => {
         const session = one.kind === "session" ? sessions.find((s) => s.id === one.id) : undefined;
-        return session !== undefined && (stateOf(session).state === "waiting" || session.start !== undefined);
+        return session !== undefined && session.paused !== true && (stateOf(session).state === "waiting" || session.start !== undefined);
       })
       .map((one) => one.key),
   );

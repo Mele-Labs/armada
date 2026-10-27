@@ -462,7 +462,7 @@ where
         })
     }
 
-    async fn resume_session(&self, asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
+    async fn resume_session(self: Arc<Self>, asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
         self.session_resumed(asked).await
     }
 

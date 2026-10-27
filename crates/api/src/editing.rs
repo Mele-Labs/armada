@@ -41,7 +41,7 @@ pub(crate) async fn save_manifest_file<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let save: SaveManifestFile = match ipc::decode("a Manifest to save", &body) {
+    let save: SaveManifestFile = match ipc::decode_body("a Manifest to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{HostedSessions, ObservedSessionRun, Sessions, SessionRunEvent};
+use api::{HostedSessions, ObservedSessionRun, SessionRunEnd, SessionRunEvent, Sessions};
 use ipc::{
     ResizeSessionRun, SessionFact, SessionId, SessionReport, SetWaitingFor, StartSessionRun,
     StopSessionRun, TakeHeld, WaitingAct, WaitingActKind, WaitingInput, WriteSessionRun,
@@ -43,7 +43,7 @@ pub(super) struct Rig {
     pub(super) fleet: Arc<Running>,
     pub(super) session: SessionId,
     pub(super) dir: TempDir,
-    _home: TempDir,
+    pub(super) home: TempDir,
 }
 
 pub(super) async fn rig() -> Rig {
@@ -51,7 +51,7 @@ pub(super) async fn rig() -> Rig {
     let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let dir = TempDir::new();
     let session = a_session_in(&fleet, &dir.path().to_string_lossy()).await;
-    Rig { fleet, session, dir, _home: home }
+    Rig { fleet, session, dir, home }
 }
 
 impl Rig {
@@ -90,10 +90,10 @@ impl Rig {
 }
 
 /// Each message the run sent, as a socket would, and how it ended.
-async fn chunks(observed: ObservedSessionRun) -> (Vec<String>, Option<i32>) {
+async fn chunks(observed: ObservedSessionRun) -> (Vec<String>, SessionRunEnd) {
     let mut seen = vec![observed.history];
     let mut live = match observed.live {
-        Err(code) => return (seen, code),
+        Err(end) => return (seen, end),
         Ok(live) => live,
     };
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -101,7 +101,7 @@ async fn chunks(observed: ObservedSessionRun) -> (Vec<String>, Option<i32>) {
             // A reader that falls behind reads on, as the socket does with `missed`.
             match live.recv().await {
                 Ok(SessionRunEvent::Output(more)) => seen.push(more),
-                Ok(SessionRunEvent::Exited(code)) => return (seen, code),
+                Ok(SessionRunEvent::Exited(end)) => return (seen, end),
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
                 Err(closed) => panic!("the run ends with exited: {closed:?}"),
             }
@@ -113,8 +113,8 @@ async fn chunks(observed: ObservedSessionRun) -> (Vec<String>, Option<i32>) {
 
 /// Everything the run printed and how it ended.
 async fn whole(observed: ObservedSessionRun) -> (String, Option<i32>) {
-    let (seen, code) = chunks(observed).await;
-    (seen.concat(), code)
+    let (seen, end) = chunks(observed).await;
+    (seen.concat(), end.code)
 }
 
 #[tokio::test]
@@ -194,14 +194,22 @@ async fn stop_ends_a_sleeping_block_promptly_with_no_code() {
         .expect("in flight");
     assert_eq!(stopped.run_id, run);
     let started = std::time::Instant::now();
-    let (_, code) = whole(observed).await;
+    let (_, end) = chunks(observed).await;
 
-    assert_eq!(code, None);
+    assert_eq!(end, SessionRunEnd { code: None, stopped: true }, "stopped by Stop, not by a signal");
     assert!(started.elapsed() < Duration::from_secs(5), "ended promptly");
     assert!(
         rig.fleet.stop_session_run(StopSessionRun { run_id: run }).await.is_err(),
         "a run that ended is not in flight"
     );
+}
+
+#[tokio::test]
+async fn a_signal_that_is_not_stop_ends_a_run_with_no_code_and_not_stopped() {
+    let rig = rig().await;
+    let run = rig.runs("kill -KILL $$").await;
+    let (_, end) = chunks(rig.observes(&run).await).await;
+    assert_eq!(end, SessionRunEnd { code: None, stopped: false });
 }
 
 #[tokio::test]
@@ -232,8 +240,8 @@ async fn a_viewer_that_opens_late_gets_the_held_tail_and_then_the_rest_once() {
     let late = rig.observes(&run).await;
     assert!(late.history.contains("first"));
     rig.types(&run, "\n").await.unwrap();
-    let (seen, code) = chunks(late).await;
-    let text = seen.concat();
+    let (seen, end) = chunks(late).await;
+    let (text, code) = (seen.concat(), end.code);
     assert_eq!(text.matches("first").count(), 1, "{text:?}");
     assert!(text.contains("second"), "{text:?}");
     assert_eq!(code, Some(0));

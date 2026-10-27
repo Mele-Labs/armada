@@ -32,8 +32,10 @@ export async function startWithDraft(
   const root = await sink.root();
   if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
   const picture = await pictureOf(note, box, sink);
-  const started = await fleet.startSession(titleOf([note]), root);
+  const words = requestOf(note);
+  // Held on its start card, with the note's words as the request so Fleet's proposer reads them at the start.
+  const started = await fleet.startSession(titleOf([note]), root, words, undefined, undefined, true);
   if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
-  leaveDraft(started.value.id, requestOf(note), picture, `annotation-${note.id}.png`);
+  leaveDraft(started.value.id, words, picture, `annotation-${note.id}.png`);
   return { ok: true, sessionId: started.value.id };
 }

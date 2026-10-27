@@ -11,7 +11,7 @@ use crate::served::Served;
 
 /// Mute the notice for a Job, a repository or an hour, or lift the mute; answers with the body.
 pub(crate) async fn set_notice_mute<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: ipc::SetNoticeMute = match ipc::decode("a notice to mute", &body) {
+    let asked: ipc::SetNoticeMute = match ipc::decode_body("a notice to mute", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

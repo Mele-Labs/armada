@@ -243,7 +243,7 @@ pub trait HostedSessions: Send + Sync + 'static {
 
     /// `resume_session`: takes a slot again at the branch tip, or waits for one.
     fn resume_session(
-        &self,
+        self: std::sync::Arc<Self>,
         asked: ipc::ResumeSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 

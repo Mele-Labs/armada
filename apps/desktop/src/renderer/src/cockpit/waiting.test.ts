@@ -209,3 +209,11 @@ describe("a draft put to the person", () => {
     expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["draft:d1"]);
   });
 });
+
+describe("a Job he parked", () => {
+  test("raises no call, and raises it again once it resumes", () => {
+    const owed = [{ id: "ask:1", text: "Which grid?", since: "2026-10-09T10:00:00.000Z", source: "ask_card" }];
+    expect(callsFromWaiting([session("a", { waitingFor: owed, paused: true })])).toEqual([]);
+    expect(callsFromWaiting([session("a", { waitingFor: owed })]).map((one) => one.item.id)).toEqual(["ask:1"]);
+  });
+});
