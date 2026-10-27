@@ -5,9 +5,13 @@
 //!
 //! **Not a state**: the marker is `KeptHosting::paused_at`, read onto `hosted.paused`. A resume
 //! seats the branch at its tip through the Session's ordinary lease (`gate::take_lease`), so a
-//! full pool puts it in the repository's line and never takes a slot from another holder. A
-//! message to a paused Session starts its process through `leased_for_resume`, which takes the
-//! same lease.
+//! full pool puts it in the repository's line and never takes a slot from another holder.
+//!
+//! **Only a person's Resume lifts a pause.** No message does: the process of a paused Session is
+//! never started (`living::process_of` refuses), a Fleet notice is not told (`fleet_word`), and
+//! every other turn, a person's, Helm's or another Job's, is on the thread and kept off the agent
+//! in `held_later_turns`, where the start card keeps its own. They are the Job's next turns once
+//! it holds a slot again, or Fleet tells it that it was resumed ([`Fleet::pause_lifted`]).
 
 use std::sync::Arc;
 
@@ -17,6 +21,8 @@ use ipc::{ManifestId, PauseSession, ResumeSession, SessionRecord, StopSession, W
 use store::Holder;
 
 use super::gate::Taken;
+use super::proposing::Held;
+use super::start_card::{first_turn_of, FirstTurn};
 use crate::daemon::Fleet;
 use crate::leasing::pool_of;
 
@@ -29,6 +35,9 @@ const SESSION_ALREADY_PAUSED: &str = "fleet.session_already_paused";
 const SESSION_NOT_PAUSED: &str = "fleet.session_not_paused";
 /// The pool or git would not park the work, or seat the branch. A 409.
 const SESSION_PAUSE_REFUSED: &str = "fleet.session_pause_refused";
+
+/// What a Job with no turn kept is told when it is resumed, so it carries on.
+const RESUMED: &str = "You were paused and have been resumed. Carry on with what you were doing.";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -91,6 +100,8 @@ where
         }
         let runtime = self.hosts().of(&id);
         let _one_at_a_time = runtime.lease.lock().await;
+        // Before the turn is ended and the slot parked: a Check left running would run on under the next holder.
+        self.session_checks_stopped(&id).await;
         self.stop_session(StopSession { session_id: asked.session_id.clone() }).await?;
         self.stopped_servers_in(&adapter_traits::slot_path(served.root(), slot)).await;
         let parked = {
@@ -131,14 +142,59 @@ where
             }
         }
         self.session_slot(&id, session.title.clone(), Some(hosting.manifest_id.clone()), slot, false);
+        // After the marker is kept, which is what drops the reading of a command ended here.
+        self.watches_paused(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.hosts().slot_freed();
         self.published_hosted(&id).await
     }
 
+    /// Keep `turn` for the Resume of the Job, if it is paused. **Read under the store lock the Resume
+    /// clears the pause in**, so a turn that arrives as it is pressed is kept before the Resume takes
+    /// the kept turns, or finds the Job resumed and goes on as any other. The turn is on the thread
+    /// already.
+    pub(crate) async fn turn_kept_while_paused(&self, id: &str, turn: &Held) -> Result<bool, Refusal> {
+        let body = ipc::encode(&FirstTurn::kept_of(turn))
+            .map_err(|why| self.hosted_fault(super::serving::SESSION_UNSTARTED, &why.to_string()))?;
+        let mut store = self.store().lock().await;
+        let paused = store.hosting(id).map_err(|why| self.ledger_fault(why))?.is_some_and(|one| one.paused_at.is_some());
+        if paused {
+            store.keep_held_later_turn(id, &body).map_err(|why| self.ledger_fault(why))?;
+        }
+        Ok(paused)
+    }
+
+    /// The Job holds a slot again, at Resume or when the line grants one: the turns kept while it
+    /// was paused go as its next turns, in the order they came, and with none kept Fleet tells it
+    /// that it was resumed.
+    pub(crate) async fn pause_lifted(self: &Arc<Self>, id: &str) {
+        let kept = self.store().lock().await.take_held_later_turns(id);
+        let kept = match kept {
+            Ok(kept) => kept,
+            Err(why) => {
+                self.session_warned(id, "a resumed job's kept turns were not read", format!("{why:?}"));
+                return;
+            }
+        };
+        let mut sent = false;
+        for turn in kept.iter().filter_map(|body| first_turn_of(body)) {
+            let held = match self.held_again(id, turn).await {
+                Ok(held) => held,
+                Err(why) => {
+                    self.session_warned(id, "a kept turn was not read again", format!("{why:?}"));
+                    continue;
+                }
+            };
+            sent |= self.deliver_turn(id, held).await.is_ok();
+        }
+        if !sent {
+            let _ = self.told_of_a_resume(id, RESUMED).await;
+        }
+    }
+
     /// `resume_session`. **A slot is taken if one is free and waited for if not**; the line is
     /// first come first served and nobody is moved out of a slot for it.
-    pub(crate) async fn session_resumed(&self, asked: ResumeSession) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn session_resumed(self: &Arc<Self>, asked: ResumeSession) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -159,10 +215,15 @@ where
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let manifest = served.manifest().id().as_str().to_string();
         let taken = match self.hosts().slot_queue().ahead_of(&manifest, &id) {
-            0 => self.take_lease(&id, &served).await,
+            0 => self.take_lease_resuming(&id, &served).await,
             _ => Taken::Full,
         };
         match taken {
+            Taken::Resumed => {
+                self.line_left(&id).await;
+                self.pause_lifted(&id).await;
+                self.published_hosted(&id).await
+            }
             Taken::Held { .. } | Taken::Moving(_) => {
                 self.line_left(&id).await;
                 self.published_hosted(&id).await

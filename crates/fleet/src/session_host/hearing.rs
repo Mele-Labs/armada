@@ -535,7 +535,7 @@ where
 
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
     /// thread draws it as that session's, the timeline enters it unless Helm sent
-    /// it, and a receiver whose process was ended is resumed with it.
+    /// it, and a receiver whose process was ended is started with it, unless it is paused.
     async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
         let (target, title, named, hosting, from_helm) = {
             let store = self.store().lock().await;
@@ -609,6 +609,10 @@ where
                 state.proposal.held.push_back(super::start_card::job_turn(message, said));
                 return;
             }
+        }
+        // A paused Job is not woken by it: its row is on the thread, and Resume sends it.
+        if self.turn_kept_while_paused(&target, &super::start_card::job_turn(message, said.clone())).await.unwrap_or(false) {
+            return;
         }
         if self.ensure_process(&target, &hosting).await.is_err() {
             return;

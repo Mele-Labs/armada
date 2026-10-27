@@ -3,7 +3,10 @@
 
 import { expect, test } from "vitest";
 
-import { bigOf, layoutOf, type DroneIn, type RepoIn } from "./layout";
+import type { Session } from "@armada/screens/src/draft/sessions";
+
+import { bigOf, droneOf, layoutOf, type DroneIn, type RepoIn } from "./layout";
+import { shipOf } from "./ship";
 
 const SIZE = { width: 1000, height: 700 };
 const BIG = bigOf(SIZE);
@@ -94,4 +97,46 @@ test("two drones over one plot are not a clash: only Fleet's write-clash read ma
   const clash = { path: "crates/fleet", root: "/r", keys: ["session:a", "session:b"] };
   const elsewhere = { path: "apps/desktop", root: "/r", keys: ["session:a"] };
   expect(layoutOf([repo({ areas: AREAS })], drones, SIZE, BIG, [], [clash, elsewhere]).clashes).toEqual([clash]);
+});
+
+test("a paused drone pings nothing, whatever it waits on, and a resumed one pings again", () => {
+  const SINCE = "2026-10-18T09:00:00.000Z";
+  const waiting = (extra: Partial<Session> = {}): Session => ({
+    id: "w",
+    title: "Waiting",
+    turn: { state: "idle" },
+    lastTurnAt: SINCE,
+    rows: [],
+    attachments: [{ kind: "branch", name: "fix/grid", slot: 5 }],
+    waitingFor: [{ id: "ask:1", text: "Which grid?", since: SINCE, source: "ask_card" }],
+    ...extra,
+  });
+  const dronesOf = (session: Session) => {
+    const ship = shipOf({ sessions: [session], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+    const subject = ship.subjects.find((one) => one.id === "w")!;
+    // A call that still stands: a paused drone pings none of it.
+    return droneOf(subject, true, { shown: true });
+  };
+  expect(dronesOf(waiting()).ping).toBe(true);
+  const parked = dronesOf(waiting({ paused: true }));
+  expect(parked).toMatchObject({ ping: false, hue: "calm", flare: false, paused: true });
+});
+
+test("a paused row carries the pause mark alone: calm, no call, no bay, and not under Needs you", () => {
+  const SINCE = "2026-10-18T09:00:00.000Z";
+  const session: Session = {
+    id: "w",
+    title: "Waiting",
+    turn: { state: "idle" },
+    lastTurnAt: SINCE,
+    rows: [],
+    attachments: [{ kind: "branch", name: "fix/grid", slot: 5 }],
+    waitingFor: [{ id: "ask:1", text: "Which grid?", since: SINCE, source: "ask_card" }],
+    paused: true,
+  };
+  const subject = shipOf({ sessions: [session], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 }).subjects.find((one) => one.id === "w")!;
+  expect(subject.mark).toMatchObject({ said: "Paused", tone: "calm" });
+  expect(subject).toMatchObject({ needs: false, paused: true });
+  expect(subject.call).toBeUndefined();
+  expect(subject.slot).toBeUndefined();
 });

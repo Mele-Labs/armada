@@ -8,5 +8,5 @@ notes = """
 
 **Fleet stores an attachment and passes it on.** A picture reaches the job as a picture; any other file as a path in a directory the job may read. **`aim`** (`theme`, `layout`, `words`, `fleet`, `tracker` or `source`) is what he picked in an empty Mod Job. Fleet reads it with that Job's first message only, as one line after the Mod brief; on any other message, and on a Job that is not a Mod Job, it is ignored and not an error.
 
-**A mention becomes one line Fleet adds** ahead of the message; the thread keeps only the person's words, with the mentions beside them. A message to a job whose process ended starts one with `--resume`.
+**A mention becomes one line Fleet adds** ahead of the message; the thread keeps only the person's words, with the mentions beside them. A message to a job whose process ended starts one with `--resume`. **A paused job is the exception**: the message is written to its thread and kept, and the job reads it when the person resumes it (`docs/concepts/session/pausing-a-job.md`).
 """

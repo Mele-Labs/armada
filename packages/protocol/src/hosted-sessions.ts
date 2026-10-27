@@ -171,7 +171,7 @@ export type RetryHandoff = { session_id: string };
 /** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
 export type PauseSession = { session_id: string };
 
-/** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). Starts no turn. Since 23.92. */
+/** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). The kept turns go once it holds a slot again. Only a person resumes. Since 23.92. */
 export type ResumeSession = { session_id: string };
 
 /**

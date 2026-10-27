@@ -69,7 +69,8 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
     call: callingOf(events, at),
     burst: burst === undefined ? undefined : { act: burst.act, ...bursted(burstFile === undefined ? undefined : uncut(burstFile, known)) },
     file,
-    owed: session.asked !== undefined || owesOf(session).length > 0,
+    // A paused Job asks nothing of him until he resumes it.
+    owed: session.paused !== true && (session.asked !== undefined || owesOf(session).length > 0),
     done: standingOf(session) === "done",
   });
   return { now, lights, walk };

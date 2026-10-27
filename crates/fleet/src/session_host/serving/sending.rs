@@ -19,6 +19,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// **A paused Job is told nothing**: `Ok(false)`, so the caller asks again, and a notice reaches
+    /// it after the person resumes it. Only a person's Resume lifts a pause, and a word is a wake.
     pub(super) async fn fleet_word(
         self: &Arc<Self>,
         session: &str,
@@ -37,8 +39,8 @@ where
                 super::super::terminal::LISTENING_FOR,
             ));
         }
-        let (held, _) = self.session_and_hosting(session).await?;
-        if held.state == store::SessionState::Ended {
+        let (held, hosting) = self.session_and_hosting(session).await?;
+        if held.state == store::SessionState::Ended || hosting.paused_at.is_some() {
             return Ok(false);
         }
         let sent = SendSessionMessage {
@@ -249,6 +251,15 @@ where
         id: &str,
         held: super::super::proposing::Held,
     ) -> Result<(), Refusal> {
+        let (session, _) = self.session_and_hosting(id).await?;
+        // A session closed while its turn was held takes nothing more.
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(id));
+        }
+        // **A paused Job starts nothing.** Its turn is on the thread already and is kept for Resume.
+        if self.turn_kept_while_paused(id, &held).await? {
+            return Ok(());
+        }
         let super::super::proposing::Held {
             text,
             kept,
@@ -256,11 +267,8 @@ where
             ahead,
             instead,
         } = held;
-        let (session, hosting) = self.session_and_hosting(id).await?;
-        // A session closed while its turn was held takes nothing more.
-        if session.state == store::SessionState::Ended {
-            return Err(self.closed(id));
-        }
+        // Read after the keep above, which found the Job resumed if a Resume came in meanwhile.
+        let (_, hosting) = self.session_and_hosting(id).await?;
         let runtime = self.hosts().of(id);
         // Before the process starts, so the rail sees a Job that has run only with its step already kept.
         let stepped = self.first_step_kept(id, &hosting, &text).await;
