@@ -10,6 +10,7 @@ import { ProseLinks } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { modelSaid } from "../SessionFrame/model-said";
+import { isLargePaste, snippetOf } from "./large-paste";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
@@ -594,8 +595,10 @@ export function SessionComposer({
   const onPaste = (event: ClipboardEvent) => {
     event.preventDefault();
     const pasted = textOnly ? [] : [...event.clipboardData.files];
+    const words = event.clipboardData.getData("text/plain");
     if (pasted.length > 0) add(pasted);
-    else document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
+    else if (!textOnly && isLargePaste(words)) add([snippetOf(words, files.filter((one) => one.name.startsWith("pasted-snippet-")).length + 1)]);
+    else document.execCommand("insertText", false, words);
   };
 
   const onDrop = (event: DragEvent) => {
