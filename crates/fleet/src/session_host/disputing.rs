@@ -85,9 +85,11 @@ where
             review: None,
         };
         self.store().lock().await.keep_dispute(&kept).map_err(|why| self.ledger_fault(why))?;
+        // A reminder that learnt from the dispute is settled by it, and needs no review job.
+        let learnt = self.claim_learnt(disputing, rows).await;
         let settled = {
             let _settling = SETTLING.lock().await;
-            let settled = self.review_settled(&kept, rows).await;
+            let settled = if learnt { Settled { review: None, joined: false } } else { self.review_settled(&kept, rows).await };
             if let Some(review) = &settled.review {
                 self.store()
                     .lock()
