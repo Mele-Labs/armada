@@ -147,14 +147,14 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             )}
             {workflowDone.map((name) => {
               const list = made.filter((one) => underStep(one) === name);
-              return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} /> })} />;
+              return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} newest="last" /> })} />;
             })}
             {finished.map((group) => (
               <DoneGroup key={group.id} group={group} open={all} session={session} onOpenSession={onOpenSession} />
             ))}
             {loose.length === 0 ? null : (
               <li className="sv-beat sv-beat--made">
-                <MadeList session={session} list={loose} />
+                <MadeList session={session} list={loose} newest="last" />
               </li>
             )}
           </ol>
@@ -163,7 +163,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             {byKind(made).map(({ id: bucket, label, made: list }) => (
               <section key={bucket} className="sv-kind" aria-label={label}>
                 <h4 className="sv-kind__label">{label}</h4>
-                <MadeList session={session} list={list} />
+                <MadeList session={session} list={list} newest="first" />
               </section>
             ))}
           </>
