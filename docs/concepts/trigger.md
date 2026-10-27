@@ -30,7 +30,7 @@ A `brief` Trigger has no name of its own to take from what it names, so Bridge n
 |---|---|---|
 | Armada | Compiled in | Ships none |
 | Repository | `.armada/triggers/` | Read from `main` only |
-| This machine | `~/.armada/machine/triggers/` | Machine, not [Kit](kit.md): it does not travel |
+| This machine | `~/Library/Application Support/Armada/machine/triggers/` | Machine, not [Kit](kit.md): it does not travel |
 
 **Identity is when, step and name.** The workflow a Trigger applies to is not part of it.
 

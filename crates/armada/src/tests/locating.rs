@@ -139,3 +139,25 @@ fn a_folder_that_is_not_a_repository_is_refused_in_one_plain_sentence() {
     assert_eq!(said.matches(". ").count(), 0, "one sentence: {said}");
     assert!(!refused.cause().is_empty(), "the cause is kept for the log");
 }
+
+/// **A recipe on this Mac is read from Fleet's own data directory**, `machine/watches/` under it,
+/// which is `~/Library/Application Support/Armada`. Docs that said `~/.armada/machine/watches/`
+/// sent a recipe where nothing reads it (27 Oct 2026).
+#[test]
+fn a_recipe_in_the_machines_watch_folder_is_listed_and_written_to() {
+    let (machine, kit) = (TempDir::new(), TempDir::new());
+    machine.write(
+        "machine/watches/qa-deploy.yml",
+        "name: qa-deploy\ncommand: [bash, probe.sh, \"{sha}\"]\nevery: 2m\n",
+    );
+    let locator = a_locator(&machine, &kit);
+    let folder = machine.path().join("machine").join("watches");
+    let read: Vec<_> = locator
+        .machine_watch_recipes()
+        .into_iter()
+        .filter(|written| written.source() == config::WatchRecipeSource::Machine)
+        .map(|written| written.path().to_path_buf())
+        .collect();
+    assert_eq!(read, vec![folder.join("qa-deploy.yml")]);
+    assert_eq!(locator.machine_watch_folder(), Some(folder));
+}
