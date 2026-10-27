@@ -1,6 +1,6 @@
 # Mod
 
-**What it is:** A folder on this machine that changes how Bridge looks, how it is arranged, what it links or what Fleet tells a Session, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
+**What it is:** A folder on this machine that changes how Bridge looks, how it is arranged, what it links, what Fleet tells a Session or which rows the command palette offers, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
 
 ---
 
@@ -36,6 +36,7 @@ A month later you promote it, and a Job of its own opens a pull request that put
 | `words.toml` | A pattern Bridge links and where it opens in each repository, in a Words mod |
 | `fleet.toml` | What Fleet does with a notice, by Job, repository or everywhere, in a Fleet mod |
 | `tweak.css` | Token values layered over whichever theme is chosen, in a tweak mod |
+| `commands.toml` | Rows added to the command palette, each starting a Job, opening an address, running a line or chaining other rows, in a Commands mod |
 | `tracker.toml` | How to list, search and read a tracker's issues, in a tracker mod. *Tracker mods* below |
 | `.tried.toml` | A tracker mod's last try, written by Fleet and never promoted |
 | `.git/` | The mod's own history, one commit at scaffold |
@@ -49,7 +50,7 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | field | type | required | default | meaning |
 |---|---|---|---|---|
 | `name` | string | yes | | The folder's name |
-| `kind` | string | yes | | `theme`, `layout`, `words`, `fleet`, `tweak` or `tracker` |
+| `kind` | string | yes | | `theme`, `layout`, `words`, `fleet`, `tweak`, `tracker` or `commands` |
 | `version` | string | yes | | Up to 32 letters, digits, `.`, `+`, `-` |
 | `description` | string | no | none | Up to 200 characters |
 | `taught_on` | string | no | none | What Teach was pressed on, up to 120 characters. The mod's row lists it |
@@ -61,7 +62,7 @@ A Job that passes its own `session_id` to `scaffold_mod` is recorded as `made_by
 
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
-A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css` and a tracker mod `tracker.toml`, and the kind says which file is read.
+A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css`, a tracker mod `tracker.toml` and a Commands mod `commands.toml`, and the kind says which file is read.
 
 ## theme.css
 
@@ -174,6 +175,51 @@ Fleet reads the rules where it sends every notice (`told_by_fleet`), after the p
 
 A mute is not handled: the notice is asked again at the caller's next reading, so lifting the mute resumes it.
 A notice that is a line to the Session and not a word of the table above (the answer to a request, a plan's change, a linked Job's news) carries no word and no rule reads it.
+
+## commands.toml
+
+> **Rule.** A Commands mod adds rows to the command palette, and each row does exactly one of four things.
+> Why: a person who runs the same prompt, page or line every day should reach it by name, and a row that does two things has no answer to Enter.
+
+```toml
+[[command]]
+name = "Review a pull request for security"
+aliases = ["sec", "audit"]
+hotkey = "⌥⌘S"
+prompt = "Review {pr} for security issues in {repo}"
+
+[[command]]
+name = "Open the board"
+url = "https://grafana.example.com/d/{repo}"
+
+[[command]]
+name = "Audit dependencies"
+shell = "pnpm audit"
+
+[[command]]
+name = "Add a task"
+chain = ["nav:projects", "act:add_task"]
+```
+
+| Key | Does |
+|---|---|
+| `prompt` | Starts a Job on the text once the person has filled its blanks in the palette |
+| `url` | Opens an `http` or `https` address, which may hold blanks outside its host |
+| `shell` | Runs the line in the picked repository's checkout |
+| `chain` | Runs the palette rows named by id, in order |
+
+`name` is the row's label and is required.
+`aliases` are searched and never drawn.
+`hotkey` is a chord in the registry's spelling, modifiers in the order `⌃⌥⇧⌘` and then one key: `⇧⌘F`, `⌥↑`, `Esc`, `F5`.
+**A blank is `{name}`**, lower case letters, digits and `_` starting with a letter, in a prompt, an address or a line.
+Fleet reads them off the text and hands each row's `blanks` to Bridge once each, in the order they first appear, so Bridge never parses a prompt to find them.
+A brace that holds anything else, such as `awk '{print $1}'` or `{a,b}`, is text, and so is one right after a `$`, as in `${HOME}`.
+A row that writes `blanks` itself is refused, because they are read off the text.
+A chain names rows and takes no blanks.
+**A mod row's palette id is `cmd:<mod name>:<slug of its name>`**, lower case with each run of anything but letters and digits one `-`, and a chain that names its own row's id is refused.
+
+Each of these is a problem that names the row and the line its `[[command]]` opens on: a row with no name or with none of the four keys, a row with more than one, an empty prompt, address, line or chain, a blank spelled `{Pr}` or a `{` with no `}`, an address that is not `http` or `https` or whose host holds a blank, a name or an alias that another row already has, and a hotkey that is not a chord.
+At least one `[[command]]` and at most 16 KiB. Bridge draws the rows from `commands` in `validate_mod`'s answer; nothing here runs a row.
 
 ## Tracker mods
 
@@ -318,7 +364,7 @@ It stands at the agent door a Job with no Manifest stands at, which offers `list
 |---|---|---|---|
 | `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `made_by` (the Job that scaffolded it), `enabled`, `valid`, `reason`, `changed_at`, a tracker's `tried` or `stale`, and the `pull_request` a promote holds open for it |
 | `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit, recording the calling Job as `made_by` where it passes `session_id` |
-| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod and `fleet` for a Fleet mod, each the file as typed data |
+| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod, `fleet` for a Fleet mod and `commands` for a Commands mod, each the file as typed data |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
