@@ -98,10 +98,10 @@ test("a merged pull request settles the band as landed", async () => {
   expect(host.querySelector("section.sv-panel")?.getAttribute("data-state")).toBe("done");
 });
 
-test("a spike landing draws the doc it made as Findings, and no pull request list", async () => {
+test("a spike landing draws the doc it made as Findings, and the pull request it opened beside them", async () => {
   const host = await mount(sessionOf("spike", [doc("docs/findings.md", "Why the lease drops"), pull(7)]));
   expect(titles(host, "Findings")).toEqual(["Why the lease drops"]);
-  expect(host.querySelector('[aria-label="Pull requests"]')).toBeNull();
+  expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
 });
 
 // A page written with the document skill stands in the Landing whatever the Job lands in, and opens in the reading layer.
@@ -115,6 +115,18 @@ for (const [said, landing] of [["a pull request landing", "pull_request"], ["a J
     expect([layer.dataset["layer"], layer.dataset["page"]]).toEqual(["document", "/work/.armada/documents/lease.html"]);
   });
 }
+
+// A Job whose workflow lands a doc may still open a pull request, which stands in Delivery beside the doc and holds the band until it merges.
+test("a document landing draws the pull request the Job opened beside the doc it made", async () => {
+  const host = await mount(sessionOf("document", [doc("docs/design/watches.md", "How a watch ends"), pull(7)]));
+  expect(titles(host, "Document")).toEqual(["How a watch ends"]);
+  expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
+});
+
+test("an open pull request keeps a document landing's band live, though the doc is written", async () => {
+  const host = await mount(sessionOf("document", [doc("docs/design/watches.md", "How a watch ends"), pull(7)]));
+  expect(host.querySelector("section.sv-panel")?.getAttribute("data-state")).toBe("live");
+});
 
 test("a spike that has written nothing yet draws no Findings", async () => {
   const host = await mount(sessionOf("spike", []));

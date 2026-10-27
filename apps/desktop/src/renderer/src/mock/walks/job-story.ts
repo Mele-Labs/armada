@@ -5,7 +5,7 @@
 // live line, the next one), a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into. One open panel fills the column.
 // The head's Artifacts icon opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
-// Job's own page, from its Delivery and from where its thread names it.
+// Job's own page, from its Delivery and from where its thread names it. `job-story-design-plan` is a doc landing that opened a pull request.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -80,4 +80,12 @@ const page = walk("job-story", [
   { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
 ]);
 
-export { story as "job-story", spike as "job-story-spike", report as "job-story-report", page as "job-story-page" };
+// A Job whose workflow lands a doc and which opened a pull request too: the pull request stands in Delivery above the doc, and holds the band.
+const design = walk("job-story", [
+  { press: deckRow("Design how a watch ends"), say: "A design plan Job: its workflow lands a doc, and it opened a pull request beside it" },
+  { look: inside(landing, role("list", "Pull requests")), say: "The pull request stands in Delivery, as in a Job that lands one: its Checks, its place in the queue and its acts" },
+  { look: inside(landing, role("list", "Document")), say: "The design it wrote stands under it" },
+  { look: landing, say: "The band reads live, not landed, while the pull request is open" },
+]);
+
+export { story as "job-story", spike as "job-story-spike", report as "job-story-report", page as "job-story-page", design as "job-story-design-plan" };
