@@ -364,6 +364,7 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
     ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),
     ...(ask.reaches === undefined ? {} : { reaches: ask.reaches }),
     ...(ask.reaches_to === undefined ? {} : { reachesTo: ask.reaches_to }),
+    ...(ask.kind === undefined ? {} : { kind: ask.kind }),
   };
 }
 

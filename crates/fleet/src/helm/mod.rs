@@ -19,13 +19,13 @@ mod serving;
 mod session;
 mod thread;
 
-pub use asking::{answering, blocked_folder, restarted, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
+pub use asking::{answering, blocked_folder, restarted, unanswered, Asks, HelmAskHold, NotAnswerable, Reach, Said};
 pub use brief::{brief, Brief, Voice};
 pub(crate) use brief::{shipped, worded, VOICE};
 pub use conversation::Conversations;
 pub use deciding::{
     because, because_in_a_session, because_in_a_session_owning, guarded_in_a_session, pages_opened, Because, Folders,
-    Guarded, Own,
+    Guarded, KindAllowed, Own,
 };
 pub use permitting::SHIPPED_ASK_HOLD;
 pub use reach::{may, Authority};

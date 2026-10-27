@@ -255,6 +255,8 @@ export class FakeSessionsFleet {
   adversary: { findings: readonly AdversarialFinding[]; readsMs: number } | undefined;
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
+  /** Hears each answer to an ask once it has settled, to script the agent's next call. */
+  onAnswer: ((answer: AnswerSessionAsk) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
   startsNow = false;
   /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
@@ -389,10 +391,12 @@ export class FakeSessionsFleet {
           answerSessionAsk: async (answer) => {
             this.calls.answered.push(answer);
             this.settled(answer);
-            return this.change(answer.session_id, (one) => {
+            const acted = this.change(answer.session_id, (one) => {
               const { asked: _asked, ...rest } = one.hosted!;
               return { ...one, hosted: rest };
             });
+            this.onAnswer?.(answer);
+            return acted;
           },
           answerWaiting: async (answer) => {
             this.calls.waited.push(answer);
@@ -774,6 +778,12 @@ export class FakeSessionsFleet {
     this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
   }
 
+  /** The agent's call is held on the person, as Fleet holds one: the Session carries the ask and its thread a waiting row for it. */
+  asks(sessionId: string, ask: HelmCallInFlight): void {
+    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" }, asked: ask } }));
+    this.row(sessionId, { kind: "ask", id: `ask-${ask.call}-${sessionId}`, at: ask.asked_at, ask, state: "waiting" });
+  }
+
   /** The agent takes a turn and stays in it: working, one row written, and no end to the turn, for a walk to look at the Working mark. */
   async agentWorks(sessionId: string, row: SessionRow): Promise<void> {
     this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
@@ -853,6 +863,7 @@ export class FakeSessionsFleet {
       always_allow: "always_allowed",
       always_block: "always_blocked",
       allow_for_session: "allowed_for_session",
+      allow_like_this_for_session: "allowed_for_session",
     };
     const waiting = this.threads[answer.session_id]?.find((row) => row.kind === "ask" && row.ask.call === answer.call && row.state === "waiting");
     if (waiting?.kind === "ask") this.row(answer.session_id, { ...waiting, state: STATE[answer.answer] });

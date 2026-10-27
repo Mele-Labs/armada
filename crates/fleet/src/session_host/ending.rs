@@ -144,6 +144,7 @@ where
             state.turn = SessionTurn::Idle;
             state.moving = None;
             state.allowed_folders.clear();
+            state.allowed_kinds.clear();
         }
         // Out of the line if it was in it: an ended session is granted nothing.
         self.hosts().slot_queue().leave(&id);

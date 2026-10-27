@@ -84,6 +84,10 @@ export const HELM_CALL_ANSWER: Record<HelmCallAnswer, { label: string; means: st
     label: "Always allow for this job",
     means: "Runs it now. This job reads and writes in the folder chosen, and under it, with no card, until it is closed. Settings does not list it.",
   },
+  allow_like_this_for_session: {
+    label: "Allow calls like this for this job",
+    means: "Runs it, and every call of this kind until the job is closed. Settings does not list it.",
+  },
 };
 
 /** The once answers on a card over a session reaching past its slots, in the owner's words for them. */
