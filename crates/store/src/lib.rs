@@ -54,6 +54,8 @@ mod later_misreads;
 mod later_confirmed;
 /// The sentences of a reply a disputed walk or done reminder misread.
 mod claim_misreads;
+/// The nudges Fleet sent about a workflow's steps, kept against the step.
+mod workflow_nudges;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
 mod home_repositories;
@@ -166,6 +168,7 @@ pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_tells::KeptTell;
+pub use workflow_nudges::KeptWorkflowNudge;
 pub use session_later::KeptLater;
 pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
