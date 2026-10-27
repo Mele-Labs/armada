@@ -439,8 +439,9 @@ class Preview(unittest.TestCase):
         with open(os.path.join(self.home, "Library", "Application Support", "Armada", "preview-left-out")) as f:
             lines = f.read().splitlines()
         self.assertEqual(lines[0], run(self.wt, "rev-parse", "HEAD").strip())
-        self.assertEqual(sorted(lines[1:]), ["feat/bad\tdoes not build: bad.rs",
-                                             "feat/mig\tbreaking migration m.rebuild is not on main"])
+        tip = lambda b: run(self.repo, "rev-parse", f"refs/heads/{b}")
+        self.assertEqual(sorted(lines[1:]), [f"feat/bad\t{tip('feat/bad')}\tdoes not build: bad.rs",
+                                             f"feat/mig\t{tip('feat/mig')}\tbreaking migration m.rebuild is not on main"])
 
     def test_error_paths_are_the_errors_not_the_warnings(self):
         wt = os.path.join(self.dir, "wt")

@@ -379,7 +379,7 @@ Each round drops at least one branch, so it ends.
 
 **Which branches were left out is written down for Fleet.** Before each restart,
 `Armada/preview-left-out` gets the preview commit on its first line and a
-`branch<TAB>why` line for every skipped branch.
+`branch<TAB>tip<TAB>why` line for every skipped branch, the tip being its commit when it was left out.
 Fleet reads it only while that commit is the build it runs, and tells each branch's Job
 why it is not in the preview (`docs/concepts/fleet.md`, *Telling sessions the build they now run*).
 

@@ -350,12 +350,14 @@ LEAVE_OUT = re.compile(r"^restart: leave out (\S+): (.+)$")
 
 
 def write_left_out(wt, rows):
-    """`Armada/preview-left-out`: the preview commit, then a `branch<TAB>why` line for each
-    branch it skipped. Fleet tells each branch's Job why, once that commit is the build it runs."""
+    """`Armada/preview-left-out`: the preview commit, then a `branch<TAB>tip<TAB>why` line for
+    each branch it skipped. Once that commit is the build it runs, Fleet tells each branch's
+    Job why, and refreshes the preview when a branch moves past its tip."""
     support = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
     os.makedirs(support, exist_ok=True)
     lines = [out(wt, "rev-parse", "HEAD")]
-    lines += [f"{branch}\t{what[len('skipped ('):-1]}" for branch, what, _ in rows if what.startswith("skipped (")]
+    lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}\t{what[len('skipped ('):-1]}"
+              for branch, what, _ in rows if what.startswith("skipped (")]
     path = os.path.join(support, "preview-left-out")
     with open(path + ".tmp", "w") as f:
         f.write("\n".join(lines) + "\n")
