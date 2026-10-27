@@ -311,14 +311,17 @@ where
 
     async fn weigh_watch(&self, caller: Option<api::Caller>, weigh: WeighWatch) -> Result<WatchSummary, Refusal> {
         let job = self.watching_job(caller, weigh.session_id.as_ref()).await?;
-        let (verdict, given) = match weigh.verdict {
+        let (verdict, given, evidence) = match weigh.verdict {
             WatchVerdict::Ours { sentence } => {
-                (Verdict::Ours { sentence: sentence.clone() }, (true, sentence, Vec::new()))
+                (Verdict::Ours { sentence: sentence.clone() }, (true, sentence, Vec::new()), ipc::WatchEvidence::default())
             }
-            WatchVerdict::NotOurs { sentence, parts } => {
-                (Verdict::NotOurs { sentence: sentence.clone(), parts: parts.clone() }, (false, sentence, parts))
+            WatchVerdict::NotOurs { sentence, parts, evidence } => {
+                (Verdict::NotOurs { sentence: sentence.clone(), parts: parts.clone() }, (false, sentence, parts), evidence)
             }
         };
+        // Blank entries are dropped, so an item the agent left empty is no line in the summary.
+        let kept_of = |items: Vec<String>| items.into_iter().map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect::<Vec<_>>();
+        let (links, logs, errors) = (kept_of(evidence.links), kept_of(evidence.logs), kept_of(evidence.errors));
         let now = self.now();
         let (job, whole, ended) = {
             let mut store = self.store().lock().await;
@@ -335,7 +338,7 @@ where
                 let aside = KeptWatchSetAside { part: part.clone(), sentence: sentence.trim().to_string(), at: at.clone() };
                 store.keep_watch_set_aside(&kept.watch.id, &aside).map_err(|why| self.ledger_fault(why))?;
             }
-            let given = KeptWatchVerdict { at: at.clone(), ours, sentence: sentence.trim().to_string(), parts };
+            let given = KeptWatchVerdict { at: at.clone(), ours, sentence: sentence.trim().to_string(), parts, links, logs, errors };
             store.keep_watch_verdict(&kept.watch.id, &given).map_err(|why| self.ledger_fault(why))?;
             let mut next = moved(&kept.watch, &watch, &now);
             if next.state != kept.watch.state {

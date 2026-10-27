@@ -89,7 +89,7 @@ async fn a_failed_part_tells_once_and_a_part_set_aside_ends_it_not_ours() {
     );
     assert!(matches!(&again.last, Some(WatchReading::Read { count: 1, last_at: None, .. })), "the newest as taken");
 
-    let not_ours = WatchVerdict::NotOurs { sentence: "Another team's service.".into(), parts: vec!["deploy-api".into()] };
+    let not_ours = WatchVerdict::NotOurs { sentence: "Another team's service.".into(), parts: vec!["deploy-api".into()], evidence: ipc::WatchEvidence::default() };
     let weighed = rig
         .fleet
         .weigh_watch(None, WeighWatch { session_id: Some(job.clone()), watch: id.clone(), verdict: not_ours })
@@ -145,9 +145,19 @@ async fn a_weighing_that_ends_it_not_ours_tells_the_job_and_asks_the_person() {
     pass(&rig).await;
     assert_eq!(the_watch(&rig, &job).await.state, WatchState::Failed);
 
-    let not_ours = WatchVerdict::NotOurs { sentence: "A cloud lookup outside this change.".into(), parts: vec!["provision".into()] };
+    let evidence = ipc::WatchEvidence {
+        links: vec!["https://ci.example.com/runs/7".into(), "  ".into()],
+        logs: vec!["/scratch/provision.log".into()],
+        errors: vec!["Error: cloud lookup for region qa-east returned no account".into()],
+    };
+    let not_ours = WatchVerdict::NotOurs { sentence: "A cloud lookup outside this change.".into(), parts: vec!["provision".into()], evidence };
     let weighed = rig.fleet.weigh_watch(None, WeighWatch { session_id: Some(job.clone()), watch: id.clone(), verdict: not_ours }).await.unwrap();
     assert_eq!((weighed.state, weighed.live), (WatchState::NotOurs, false));
+    let kept = &weighed.verdicts[0].evidence;
+    assert_eq!(kept.links, ["https://ci.example.com/runs/7"], "a blank link is dropped");
+    assert_eq!((kept.logs.len(), kept.errors.len()), (1, 1));
+    let again = the_watch(&rig, &job).await;
+    assert_eq!(&again.verdicts[0].evidence, kept, "kept with the verdict");
     rig.fleet.watches_told_when_due().await;
     eventually(|| async { told(&rig, &job, "QA deploy ended not ours: provision failed.").await == 1 }).await;
 

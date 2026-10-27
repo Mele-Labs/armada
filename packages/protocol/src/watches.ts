@@ -74,7 +74,10 @@ export type LoginShell = { kind: "read" } | { kind: "fell_back"; why: string };
  * One `weigh_watch`, as kept on the watch. `at` places it after the reading it weighed. Each verdict carries the agent's
  * `sentence`; `parts` are those a `not_ours` set aside.
  */
-export type WatchVerdict = { at: string; verdict: "ours" | "not_ours"; sentence: string; parts?: string[] };
+export type WatchVerdict = { at: string; verdict: "ours" | "not_ours"; sentence: string; parts?: string[]; evidence?: WatchEvidence };
+
+/** What backs a `not_ours`: links to what was watched, log files the agent saved, and the exact error lines. Each list may be absent. */
+export type WatchEvidence = { links?: string[]; logs?: string[]; errors?: string[] };
 
 /** `list_watches`: a Job's live watches, and with `?ended=true` its ended ones too, the newest first. `watches.changed` carries both. */
 export type WatchList = { session_id: string; watches: WatchSummary[] };
@@ -148,7 +151,7 @@ export type WatchRecipeSaved = { recipe: WatchRecipeListed; file: string; script
 /** `weigh_watch`, each verdict with its sentence. `ours` ends the watch failed; `not_ours` sets its parts aside. */
 export type WeighWatch = { session_id?: string; watch: string } & (
   | { verdict: "ours"; sentence: string }
-  | { verdict: "not_ours"; sentence: string; parts: string[] }
+  | { verdict: "not_ours"; sentence: string; parts: string[]; evidence?: WatchEvidence }
 );
 
 /** `stop_watch`: the person's Stop, or the agent's. */

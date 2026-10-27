@@ -188,8 +188,28 @@ pub fn collapsed(readings: impl IntoIterator<Item = WatchReading>) -> Vec<WatchR
 pub enum WatchVerdict {
     /// The change caused it, and `sentence` says how. The watch ends `failed`.
     Ours { sentence: String },
-    /// Not the change's doing: `parts` stop counting toward the watch's state.
-    NotOurs { sentence: String, parts: Vec<String> },
+    /// Not the change's doing: `parts` stop counting toward the watch's state, and `evidence` is
+    /// what the agent gathered for the person to send on.
+    NotOurs { sentence: String, parts: Vec<String>, evidence: WatchEvidence },
+}
+
+/// What backs a `not_ours`: links to what was watched, log files the agent saved, and the exact
+/// error text. Each list may be empty.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WatchEvidence {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
+}
+
+impl WatchEvidence {
+    pub fn is_empty(&self) -> bool {
+        self.links.is_empty() && self.logs.is_empty() && self.errors.is_empty()
+    }
 }
 
 /// Which way the agent weighed a failed reading.
@@ -208,6 +228,9 @@ pub struct WatchVerdictGiven {
     pub sentence: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<String>,
+    /// What a `not_ours` carried. Absent where it carried none.
+    #[serde(default, skip_serializing_if = "WatchEvidence::is_empty")]
+    pub evidence: WatchEvidence,
 }
 
 /// One watch, as `list_watches` answers it and every act on one answers.
@@ -441,6 +464,8 @@ struct WeighAsWritten {
     sentence: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     parts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    evidence: Option<WatchEvidence>,
 }
 
 impl TryFrom<WeighAsWritten> for WeighWatch {
@@ -448,12 +473,17 @@ impl TryFrom<WeighAsWritten> for WeighWatch {
 
     fn try_from(written: WeighAsWritten) -> Result<WeighWatch, &'static str> {
         let verdict = match (written.verdict, written.sentence) {
+            (WatchVerdictWord::Ours, Some(_)) if written.evidence.is_some() => {
+                return Err("`ours` ends the watch: `evidence` backs a `not_ours`, so leave it out")
+            }
             (WatchVerdictWord::Ours, Some(sentence)) if written.parts.is_empty() => WatchVerdict::Ours { sentence },
             (WatchVerdictWord::Ours, Some(_)) => {
                 return Err("`ours` ends the watch: it sets nothing aside, so leave out `parts`")
             }
             (WatchVerdictWord::Ours, None) => return Err("`ours` carries a `sentence` saying how the change caused it"),
-            (WatchVerdictWord::NotOurs, Some(sentence)) => WatchVerdict::NotOurs { sentence, parts: written.parts },
+            (WatchVerdictWord::NotOurs, Some(sentence)) => {
+                WatchVerdict::NotOurs { sentence, parts: written.parts, evidence: written.evidence.unwrap_or_default() }
+            }
             (WatchVerdictWord::NotOurs, None) => {
                 return Err("`not_ours` carries a `sentence` saying why, and the `parts` to set aside")
             }
@@ -464,11 +494,13 @@ impl TryFrom<WeighAsWritten> for WeighWatch {
 
 impl From<WeighWatch> for WeighAsWritten {
     fn from(weigh: WeighWatch) -> WeighAsWritten {
-        let (verdict, sentence, parts) = match weigh.verdict {
-            WatchVerdict::Ours { sentence } => (WatchVerdictWord::Ours, Some(sentence), Vec::new()),
-            WatchVerdict::NotOurs { sentence, parts } => (WatchVerdictWord::NotOurs, Some(sentence), parts),
+        let (verdict, sentence, parts, evidence) = match weigh.verdict {
+            WatchVerdict::Ours { sentence } => (WatchVerdictWord::Ours, Some(sentence), Vec::new(), None),
+            WatchVerdict::NotOurs { sentence, parts, evidence } => {
+                (WatchVerdictWord::NotOurs, Some(sentence), parts, Some(evidence).filter(|one| !one.is_empty()))
+            }
         };
-        WeighAsWritten { session_id: weigh.session_id, watch: weigh.watch, verdict, sentence, parts }
+        WeighAsWritten { session_id: weigh.session_id, watch: weigh.watch, verdict, sentence, parts, evidence }
     }
 }
 

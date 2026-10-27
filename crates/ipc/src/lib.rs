@@ -655,7 +655,7 @@ pub use triggers::{
 pub use watches::{
     collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
     WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
-    WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+    WatchEvidence, WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };
 pub use watch_tools::{
     SaveWatchRecipe, TryWatch, WatchRecipeList, WatchRecipeListed, WatchRecipeSaved,

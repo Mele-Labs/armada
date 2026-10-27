@@ -862,6 +862,8 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 | `WaitingSource` (`WaitingItem.source`) | Fleet writes | Gains `watch_not_ours`: id `watch_not_ours:<watch id>`, text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id, options `Ignore` (choice 0) and `Fix it` (choice 1). Derived on every read from the store's watch, while the Job is live |
 | `answer_waiting` on it | Bridge writes | `Ignore` settles it and sends nothing; `Fix it` sends the agent the parts, each sentence and the link, then settles it; words alone are a message to the agent. `dismiss_waiting` settles it too |
 
+| `weigh_watch` `not_ours` | An agent writes | Gains `evidence?`, `{ links[]?, logs[]?, errors[]? }`: links to what was watched, log files the agent saved, and the exact error lines. Refused with `ours`. Kept with the verdict, blank entries dropped |
+| `WatchVerdictGiven.evidence` | Fleet writes | The same, on the verdict as kept; absent where it carried none |
 | `WatchPart` | Fleet writes | Gains `link?`, `error?` and `tail?`: where to look at the part, the exact lines it failed on, and the last lines of its own log, as the command's line gave them. The line's `parts[]` takes the same three, so a hand-written command can give them |
 | `WatchReading.log` | Fleet writes | Both kinds gain `log?`: the path of a file under Fleet's state holding the whole stdout and stderr of a run that failed or broke, as much as the run captured (the last 64 KiB of each stream), its first line saying when either was cut. A run of readings carries its last one's. Deleting the watch, or the Job ending, deletes the file |
 

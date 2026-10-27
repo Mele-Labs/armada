@@ -320,6 +320,11 @@ pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -
                 verdict: if given.ours { WatchVerdictWord::Ours } else { WatchVerdictWord::NotOurs },
                 sentence: given.sentence.clone(),
                 parts: given.parts.clone(),
+                evidence: ipc::WatchEvidence {
+                    links: given.links.clone(),
+                    logs: given.logs.clone(),
+                    errors: given.errors.clone(),
+                },
             })
             .collect(),
         in_terminal: held.in_terminal.clone(),

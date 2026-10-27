@@ -78,8 +78,19 @@ fn each_verdict_carries_its_sentence_and_only_not_ours_its_parts() {
         br#"{"watch":"w1","verdict":"not_ours","sentence":"Another service's tests.","parts":["unit-tests-other"]}"#,
     )
     .expect("not ours");
-    assert!(matches!(not_ours.verdict, WatchVerdict::NotOurs { ref parts, .. } if parts == &["unit-tests-other"]));
+    assert!(matches!(not_ours.verdict, WatchVerdict::NotOurs { ref parts, ref evidence, .. } if parts == &["unit-tests-other"] && evidence.is_empty()));
+    let backed: WeighWatch = decode(
+        "a weighing",
+        br#"{"watch":"w1","verdict":"not_ours","sentence":"A cloud lookup.","parts":["provision"],"evidence":{"links":["https://ci.example.test/runs/7"],"logs":["/scratch/provision.log"],"errors":["Error: no account"]}}"#,
+    )
+    .expect("not ours with evidence");
+    let WatchVerdict::NotOurs { evidence, .. } = &backed.verdict else { panic!("not ours") };
+    assert_eq!((evidence.links.len(), evidence.logs.len(), evidence.errors.as_slice()), (1, 1, &["Error: no account".to_string()][..]));
+    let again: WeighWatch = decode("a weighing", crate::encode(&backed).expect("encodes").as_bytes()).expect("reads back");
+    assert_eq!(again, backed, "evidence survives the wire both ways");
     for refused in [
+        r#"{"watch":"w1","verdict":"ours","sentence":"why","evidence":{"links":["x"]}}"#,
+        r#"{"watch":"w1","verdict":"not_ours","sentence":"why","parts":["a"],"evidence":{"screenshots":["x"]}}"#,
         r#"{"watch":"w1","verdict":"ours"}"#,
         r#"{"watch":"w1","verdict":"ours","sentence":"why","parts":["a"]}"#,
         r#"{"watch":"w1","verdict":"not_ours","parts":["a"]}"#,
@@ -123,6 +134,7 @@ fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
             verdict: WatchVerdictWord::Ours,
             sentence: "My migration.".into(),
             parts: Vec::new(),
+            evidence: Default::default(),
         }],
         in_terminal: None,
         regex: false,

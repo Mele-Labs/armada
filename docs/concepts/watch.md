@@ -207,6 +207,7 @@ The slot guard lets the Job write, remove and chmod there as in its slots, and t
 
 A weighing tells nobody, since the agent gave it, except one that ends the watch `not_ours`: the Job is told it did not pass, so it does not report a pass.
 A `not_ours` names a part some reading of the watch carried, or it is refused.
+A `not_ours` carries the evidence the agent gathered for the person to send on: links to what it watched, the logs it saved, and the exact error lines.
 A watch may start with parts already set aside, so a redeploy keeps what the agent learned on the last one.
 A set-aside lasts one watch, so a step that fails on every build costs one wake on every push.
 

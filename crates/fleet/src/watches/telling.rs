@@ -113,7 +113,7 @@ pub(crate) fn notice(kept: &KeptWatchWhole, watch: &core_model::Watch) -> Option
             // An ended one, such as a terminal watch whose terminal ended, has nothing to weigh.
             if watch.live {
                 said.push_str(&format!(
-                    "\nWeigh it with weigh_watch on watch {}: ours ends it, and not_ours sets those parts aside and it carries on.",
+                    "\nWeigh it with weigh_watch on watch {}: ours ends it, and not_ours sets those parts aside and it carries on. Before not_ours, gather the links, the logs and the exact errors, and pass them as evidence.",
                     kept.watch.id
                 ));
             }

@@ -60,7 +60,15 @@ fn a_watch_and_all_it_kept_survive_a_reopen() {
     store.keep_watch_set_aside("w-1", &aside).unwrap();
     let again = KeptWatchSetAside { sentence: "Flaky upstream.".into(), ..aside.clone() };
     store.keep_watch_set_aside("w-1", &again).unwrap();
-    let verdict = KeptWatchVerdict { at: AT.into(), ours: false, sentence: "Flaky upstream.".into(), parts: vec!["deploy-api".into()] };
+    let verdict = KeptWatchVerdict {
+        at: AT.into(),
+        ours: false,
+        sentence: "Flaky upstream.".into(),
+        parts: vec!["deploy-api".into()],
+        links: vec!["https://ci.example.test/runs/7".into()],
+        logs: vec!["/scratch/deploy-api.log".into()],
+        errors: vec!["Error: upstream answered 503".into()],
+    };
     store.keep_watch_verdict("w-1", &verdict).unwrap();
     let mut ended = watch("w-1", "s1");
     ended.state = "failed".into();
@@ -132,7 +140,7 @@ fn a_deleted_watch_takes_everything_kept_of_it_and_nothing_else() {
         store.keep_watch_reading(id, &read(1)).unwrap();
         let aside = KeptWatchSetAside { part: "deploy-api".into(), sentence: "Another team's.".into(), at: AT.into() };
         store.keep_watch_set_aside(id, &aside).unwrap();
-        let verdict = KeptWatchVerdict { at: AT.into(), ours: true, sentence: "Mine.".into(), parts: Vec::new() };
+        let verdict = KeptWatchVerdict { at: AT.into(), ours: true, sentence: "Mine.".into(), parts: Vec::new(), links: Vec::new(), logs: Vec::new(), errors: Vec::new() };
         store.keep_watch_verdict(id, &verdict).unwrap();
         store.keep_watch_notice(id, "failed:", AT).unwrap();
     }

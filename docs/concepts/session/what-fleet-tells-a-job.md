@@ -31,7 +31,7 @@ Parts the agent set aside are left out, and a watch with no parts quotes the lin
 The reading's link follows after a space, and the second line names the watch for `weigh_watch`, where `w-…` is its id:
 
 ```
-Weigh it with weigh_watch on watch w-…: ours ends it, and not_ours sets those parts aside and it carries on.
+Weigh it with weigh_watch on watch w-…: ours ends it, and not_ours sets those parts aside and it carries on. Before not_ours, gather the links, the logs and the exact errors, and pass them as evidence.
 ```
 
 **A not ours notice names the set-aside parts that failed, then the link, each part's sentence, and a last line.**

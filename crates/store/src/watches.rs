@@ -98,6 +98,10 @@ pub struct KeptWatchVerdict {
     pub ours: bool,
     pub sentence: String,
     pub parts: Vec<String>,
+    /// What a `not_ours` carried to back it: links, log files the agent saved, and exact errors.
+    pub links: Vec<String>,
+    pub logs: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 /// A watch with everything kept of it: readings oldest first, verdicts in the order given.
@@ -243,14 +247,17 @@ impl Store {
     pub fn keep_watch_verdict(&mut self, watch: &str, verdict: &KeptWatchVerdict) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO watch_verdicts (watch_id, n, at, verdict, sentence, parts) \
-                 VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_verdicts WHERE watch_id = ?1), ?2, ?3, ?4, ?5)",
+                "INSERT INTO watch_verdicts (watch_id, n, at, verdict, sentence, parts, links, logs, errors) \
+                 VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_verdicts WHERE watch_id = ?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     watch,
                     verdict.at,
                     if verdict.ours { "ours" } else { "not_ours" },
                     verdict.sentence,
                     written(&verdict.parts),
+                    written(&verdict.links),
+                    written(&verdict.logs),
+                    written(&verdict.errors),
                 ],
             )
             .map_err(fault("keeping a watch's verdict"))?;
@@ -402,7 +409,7 @@ impl Store {
             .map_err(fault(doing))?;
         let mut asking = self
             .conn
-            .prepare("SELECT at, verdict, sentence, parts FROM watch_verdicts WHERE watch_id = ?1 ORDER BY n")
+            .prepare("SELECT at, verdict, sentence, parts, links, logs, errors FROM watch_verdicts WHERE watch_id = ?1 ORDER BY n")
             .map_err(fault(doing))?;
         let verdicts = asking
             .query_map([&watch.id], |row| {
@@ -411,6 +418,9 @@ impl Store {
                     ours: row.get::<_, String>(1)? == "ours",
                     sentence: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
                     parts: texts(row.get(3)?),
+                    links: texts(row.get(4)?),
+                    logs: texts(row.get(5)?),
+                    errors: texts(row.get(6)?),
                 })
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
