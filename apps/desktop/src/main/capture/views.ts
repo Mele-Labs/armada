@@ -9,8 +9,9 @@ import tokens from "@armada/tokens/tokens.json";
 import { app, session, WebContentsView, type Session } from "electron";
 import { join } from "node:path";
 
-import { chromeAgent, partitionFor } from "./address";
+import { chromeAgent, granted, onAnyOrigin, partitionFor, type Pinned } from "./address";
 import { panelQuery, type PanelSubject } from "./layout";
+import { may, reachesLocalNetwork } from "./permissions";
 
 /**
  * Every partition already given its handlers. **Kept because a partition is
@@ -22,9 +23,11 @@ const held = new Set<string>();
 /**
  * The session the page runs in: persistent, one per repository, and nothing of Bridge's in it.
  *
- * **Every permission is denied without asking.** A page that wants the camera,
+ * **Every permission is denied without asking, bar one.** A page that wants the camera,
  * the clipboard, a notification or the screen gets no dialog and no capability
- * — this window exists to look at a page, not to host one.
+ * — this window exists to look at a page, not to host one. The exception is local network access,
+ * for a sign-in provider's page reaching the sign-in app on this machine, and only on an origin
+ * the window may reach (`permissions.ts`).
  *
  * **The user agent is Electron's with its own two tokens taken out**, for every page and popup in the
  * partition: a sign-in provider that refuses a browser it reads as Electron then reads Chrome.
@@ -39,8 +42,11 @@ function sessionFor(manifestId: string | null): Session {
   part.setUserAgent(agent);
   // A popup's first request left with Electron's agent in the owner's walk: the header is set on every request too.
   part.webRequest.onBeforeSendHeaders(({ requestHeaders }, done) => done({ requestHeaders: { ...requestHeaders, "User-Agent": agent } }));
-  part.setPermissionRequestHandler((_contents, _permission, decide) => decide(false));
-  part.setPermissionCheckHandler(() => false);
+  // `permission` is compared as a string: Electron sends "local-network-access", which its typed union omits.
+  part.setPermissionRequestHandler((contents, permission: string, decide, details) =>
+    decide(granted(permission, details.requestingUrl, may(contents))),
+  );
+  part.setPermissionCheckHandler((contents, permission: string, requestingOrigin) => granted(permission, requestingOrigin, may(contents)));
   part.setDisplayMediaRequestHandler(() => {}, { useSystemPicker: false });
   part.on("will-download", (event) => event.preventDefault());
   return part;
@@ -53,10 +59,10 @@ function sessionFor(manifestId: string | null): Session {
 const GROUND = tokens.tokens.find((one) => one.name === "--bg-base")?.value;
 
 /** The page: another repository's running app, with no preload and a session of its own. */
-export function pageView(manifestId: string | null): WebContentsView {
+export function pageView(pin: Pinned): WebContentsView {
   const view = new WebContentsView({
     webPreferences: {
-      session: sessionFor(manifestId),
+      session: sessionFor(pin.manifestId),
       // **No preload.** The only surface that cannot be widened by accident
       // is an absent one — `capture-window.md`, *What the page can reach into*.
       sandbox: true,
@@ -74,6 +80,7 @@ export function pageView(manifestId: string | null): WebContentsView {
     },
   });
   if (GROUND !== undefined) view.setBackgroundColor(GROUND);
+  reachesLocalNetwork(view.webContents, (address) => onAnyOrigin(pin, address));
   return view;
 }
 
