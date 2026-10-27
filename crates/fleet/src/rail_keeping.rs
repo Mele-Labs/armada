@@ -39,7 +39,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
         Extra {
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
-            plan_names_walk: store.session_plan(&session.id)?.is_some_and(|plan| plan.walk.is_some()),
+            plan_expects_walk: store.session_plan(&session.id)?.is_some_and(|plan| plan.seen || plan.walk.is_some()),
             ..thread_facts(&rows)
         }
     } else {

@@ -247,7 +247,12 @@ pub(super) fn plan(id: &SessionId) -> RecordPlan {
 }
 
 pub(super) async fn approved_plan(rig: &Rig, id: &SessionId) {
-    rig.fleet.record_plan(None, plan(id)).await.expect("recorded");
+    approved_plan_saying(rig, id, false).await;
+}
+
+/// As [`approved_plan`], the agent saying `seen`: the person would see the change.
+pub(super) async fn approved_plan_saying(rig: &Rig, id: &SessionId, seen: bool) {
+    rig.fleet.record_plan(None, plan(id), seen).await.expect("recorded");
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.expect("approved");
 }
 

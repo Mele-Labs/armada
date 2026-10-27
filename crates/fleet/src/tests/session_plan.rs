@@ -53,7 +53,7 @@ fn sketch(title: &str, scene: &str) -> PlanSketchInput {
 }
 
 pub(super) async fn recorded(rig: &Rig, groups: RecordPlan) -> SessionRecord {
-    rig.fleet.record_plan(None, groups).await.expect("recorded")
+    rig.fleet.record_plan(None, groups, false).await.expect("recorded")
 }
 
 /// A hosted Session with a process running, so what Fleet tells it can be read off the process.
@@ -119,7 +119,7 @@ async fn a_sketch_that_breaks_a_rule_refuses_the_plan_and_nothing_is_kept() {
     let id = rig.start().await;
     let mut bad = first(&id);
     bad.sketch = Some(sketch("Plan flow", &scene("Fleet").replace(r#""kind":"box","x":300"#, r#""kind":"oval","x":300"#)));
-    let Err(Refusal::Unacceptable(refused)) = rig.fleet.record_plan(None, bad).await else {
+    let Err(Refusal::Unacceptable(refused)) = rig.fleet.record_plan(None, bad, false).await else {
         panic!("a plan with a bad sketch is refused");
     };
     assert_eq!(refused.code, "fleet.plan_refused");
@@ -139,7 +139,7 @@ async fn a_plan_with_a_blank_group_or_a_path_outside_the_repository_is_refused_w
     let rig = rig_placing(None);
     let id = rig.start().await;
     let bad = plan(&id, vec![group(None, " ", "rust engineer", &["../etc"], &[])]);
-    let Err(Refusal::Unacceptable(refused)) = rig.fleet.record_plan(None, bad).await else { panic!("refused") };
+    let Err(Refusal::Unacceptable(refused)) = rig.fleet.record_plan(None, bad, false).await else { panic!("refused") };
     for part in ["blank `title`", "`agent`", "not a path inside the repository", "no tasks"] {
         assert!(refused.message.contains(part), "{part}: {}", refused.message);
     }

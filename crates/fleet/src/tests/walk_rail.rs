@@ -44,7 +44,7 @@ fn recorded() -> Facts {
 }
 
 fn approved_naming_a_walk() -> Facts {
-    Facts { plan_recorded: true, plan_names_walk: true, ..approved() }
+    Facts { plan_recorded: true, plan_expects_walk: true, ..approved() }
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn a_walk_is_passed_over_only_when_nothing_was_named_or_shown_and_the_work_is_pu
     let pushed = Facts { pushed: true, ..planned };
     assert!(pushed.walk_passed());
     assert_eq!(at(&steps, pushed), Some(4), "pushed with nothing named or shown: nothing was seen");
-    assert!(!Facts { plan_names_walk: true, ..pushed }.walk_passed(), "a named walk is not passed over");
+    assert!(!Facts { plan_expects_walk: true, ..pushed }.walk_passed(), "a named walk is not passed over");
     assert!(!Facts { walk_shown: true, ..pushed }.walk_passed(), "nor one that was shown");
     assert!(!Facts { pushed: true, plan_recorded: true, ..Facts::default() }.walk_passed(), "nothing is passed over before the plan is approved");
 }
@@ -108,7 +108,7 @@ fn a_test_edited_before_the_walk_is_approved_is_a_skip_of_the_walk_step_when_a_w
     let tested = Facts { test_edited: true, ..approved_naming_a_walk() };
     assert_eq!(rail::skipped(&steps, &tested), [(3, Skip::Walk)]);
     assert!(rail::skipped(&steps, &Facts { walk_approved: true, ..tested }).is_empty(), "approved");
-    let unnamed = Facts { plan_names_walk: false, ..tested };
+    let unnamed = Facts { plan_expects_walk: false, ..tested };
     assert!(rail::skipped(&steps, &unnamed).is_empty(), "no walk named and none shown: tests come at once for a change nobody sees");
     assert_eq!(rail::skipped(&steps, &Facts { walk_shown: true, ..unnamed }), [(3, Skip::Walk)], "a window shown");
     let plain = [plan_step(), follows("Implement"), delivers("Hand off")];
@@ -355,4 +355,18 @@ async fn before_the_plan_is_approved_a_rough_mock_is_no_skip_but_a_test_and_a_pu
         .expect("kept");
     super::session_host::eventually(|| async { told(&rig, "pushed before the plan was approved") == 1 }).await;
     let _ = id;
+}
+
+#[tokio::test]
+async fn a_plan_that_says_seen_expects_a_walk_before_any_window_is_shown_and_one_that_does_not_does_not() {
+    let (rig, id) = walking_rig().await;
+    super::session_rail::approved_plan_saying(&rig, &id, true).await;
+    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
+    super::session_host::eventually(|| async { told(&rig, "edited a test before the walk was approved") == 1 }).await;
+
+    let (rig, id) = walking_rig().await;
+    super::session_rail::approved_plan_saying(&rig, &id, false).await;
+    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, "edited a test before"), 0, "said nothing seen, named no walk, showed none");
 }

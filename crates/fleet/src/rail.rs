@@ -117,8 +117,8 @@ pub(crate) struct Extra {
     pub walk_shown: bool,
     /// The person approved a window the Job showed.
     pub walk_approved: bool,
-    /// The recorded plan names a walk.
-    pub plan_names_walk: bool,
+    /// The recorded plan names a walk or says the person would see the change.
+    pub plan_expects_walk: bool,
 }
 
 /// What was observed, as the rules read it.
@@ -136,7 +136,7 @@ pub(crate) struct Facts {
     pub landed: bool,
     pub walk_shown: bool,
     pub walk_approved: bool,
-    pub plan_names_walk: bool,
+    pub plan_expects_walk: bool,
     /// A test file was written or edited.
     pub test_edited: bool,
 }
@@ -167,7 +167,7 @@ impl Facts {
             landed: record.build.as_ref().is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some()),
             walk_shown: extra.walk_shown,
             walk_approved: extra.walk_approved,
-            plan_names_walk: extra.plan_names_walk,
+            plan_expects_walk: extra.plan_expects_walk,
             test_edited: record
                 .touches
                 .iter()
@@ -175,10 +175,16 @@ impl Facts {
         }
     }
 
-    /// The walk was approved, or nothing would be seen: the plan was approved naming no walk, the
-    /// Job never showed a window, and it has pushed. Until it pushes, a mock may still be coming.
+    /// A walk is expected: the plan said the person would see the change or named a walk, or a
+    /// window was shown.
+    pub(crate) fn walk_expected(&self) -> bool {
+        self.plan_expects_walk || self.walk_shown
+    }
+
+    /// The walk was approved, or nothing would be seen: the plan was approved with no walk expected
+    /// and the Job has pushed. Until it pushes, a mock may still be coming.
     pub(crate) fn walk_passed(&self) -> bool {
-        self.walk_approved || (self.plan_approved && !self.plan_names_walk && !self.walk_shown && self.pushed)
+        self.walk_approved || (self.plan_approved && !self.walk_expected() && self.pushed)
     }
 
     fn has(&self, fit: Fit) -> bool {
@@ -303,7 +309,7 @@ pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
         found.push((at, Skip::Tasks));
     }
     if let Some(at) = steps.iter().position(|step| step.walks).filter(|_| {
-        facts.test_edited && facts.plan_approved && (facts.plan_names_walk || facts.walk_shown) && !facts.walk_passed()
+        facts.test_edited && facts.plan_approved && facts.walk_expected() && !facts.walk_passed()
     }) {
         found.push((at, Skip::Walk));
     }

@@ -664,8 +664,9 @@ where
         &self,
         caller: Option<api::Caller>,
         record: ipc::RecordPlan,
+        seen: bool,
     ) -> Result<SessionRecord, Refusal> {
-        self.plan_recorded(caller, record).await
+        self.plan_recorded(caller, record, seen).await
     }
 
     async fn approve_plan(self: Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {

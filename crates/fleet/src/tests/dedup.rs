@@ -195,7 +195,7 @@ async fn a_reply_that_restates_fleets_plan_item_is_one_row_while_the_fold_is_in_
     let rig = rig_placing(None);
     rig.fleet.language_model().loaded(Arc::new(Fake));
     let id = rig.start().await;
-    rig.fleet.record_plan(None, super::plan_asks::plan(&id)).await.expect("recorded");
+    rig.fleet.record_plan(None, super::plan_asks::plan(&id), false).await.expect("recorded");
     rig.send(&id, "plan the store").await;
     rig.stand_in.init(0);
     rig.stand_in.finishes(0, "The plan is recorded.\n\nWant me to go ahead with the plan?");
