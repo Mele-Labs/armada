@@ -2,7 +2,7 @@
 // request each and nothing kept here. **A secret's value passes through once, toward Fleet**, and nothing answered carries one
 // back. `docs/practices/protocol.md`, *Requests*.
 
-import type { Outcome, Requests, RequestSent, SaveRequestCollection, SaveRequestEnvironment, SendRequest } from "@armada/protocol";
+import type { DeleteRequestEnvironment, Outcome, Requests, RequestSent, SaveRequestCollection, SaveRequestEnvironment, SendRequest } from "@armada/protocol";
 import type { RequestsAnswer } from "../shared/api/requests";
 import { ask, COMMAND_MS } from "./request";
 
@@ -43,6 +43,10 @@ export class RequestsHost {
 
   saveEnvironment(body: SaveRequestEnvironment): Promise<RequestsAnswer<Requests>> {
     return this.ask("POST", "/requests/environments", body);
+  }
+
+  deleteEnvironment(body: DeleteRequestEnvironment): Promise<RequestsAnswer<Requests>> {
+    return this.ask("POST", "/requests/environments/delete", body);
   }
 
   send(body: SendRequest): Promise<RequestsAnswer<RequestSent>> {
