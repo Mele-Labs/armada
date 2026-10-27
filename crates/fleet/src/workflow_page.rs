@@ -25,7 +25,7 @@ use crate::repositories::{Served, WorkflowNotRemoved};
 /// No definition by that id in that place. A 422.
 const NO_SUCH_DEFINITION: &str = "fleet.no_such_workflow_definition";
 /// The definition is Armada's own, which is carried in the binary. A 422.
-const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
+pub(crate) const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
 /// Armada carries no definition of the id to reset a copy to. A 422.
 const NOT_CARRIED: &str = "fleet.workflow_not_carried";
 /// Fleet kept no nudge by that id. A 422.

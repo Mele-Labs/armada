@@ -18,6 +18,7 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use config::settings as keys;
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
     ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, Instant, ManifestId, ProposeToArmada, SaveWorkflow,
     SendBackWorkflowChange, SendSessionMessage, SessionId, StartSession, StepId, SuggestWorkflowChange, WireError,
@@ -27,9 +28,8 @@ use store::{KeptWorkflowChange, NewWorkflowChange};
 
 use crate::daemon::Fleet;
 use crate::repositories::Served;
+use crate::workflow_page::IS_ARMADAS;
 
-/// Armada's own definitions are carried in the binary and are not drafted. A 422.
-const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
 /// The words or the notes or the definition are blank. A 422.
 const EMPTY: &str = "fleet.workflow_change_empty";
 /// No model could be asked. A 422.
@@ -114,6 +114,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// A line on the transcript for a change that could not be kept; nobody is waiting on it to answer.
+    fn change_warned(&self, msg: &str, subject: &str, why: String) {
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
+            .with_field("change", FieldValue::Str(subject.to_string()))
+            .with_field("why", FieldValue::Str(why));
+        crate::transcript::note_aloud(&envelope);
+    }
+
     /// Ask for a change in the owner's words.
     pub(crate) async fn workflow_change_asked(
         self: &Arc<Self>,
@@ -378,7 +386,7 @@ where
             before_text: &before,
         };
         if let Err(why) = self.change_begun(&new).await {
-            eprintln!("workflow {workflow}: a change to step {step} was not begun: {}", why.error().message);
+            self.change_warned("a change to a step was not begun", workflow, why.error().message.clone());
         }
     }
 
@@ -479,7 +487,7 @@ where
             Err(because) => store.workflow_change_failed(id, because, at.as_str()),
         };
         if let Err(why) = moved {
-            eprintln!("workflow change {id}: the outcome was not kept: {why:?}");
+            self.change_warned("a change's outcome was not kept", &id.to_string(), format!("{why:?}"));
         }
     }
 
