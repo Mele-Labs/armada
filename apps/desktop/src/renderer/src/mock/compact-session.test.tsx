@@ -127,12 +127,20 @@ test("the Bays key is lit only when a bay is wrong, and then the Needs you list 
   await expect.element(layer.getByRole("img", { name: "31 behind main" })).toBeInTheDocument();
 });
 
-test("a write clash puts its glyph on the Bays key, leaves the key unlit and raises no call in the Needs you list", async () => {
+test("a write clash is a lamp in the Bays key's corner that keeps its name, leaves the key unlit and raises no call in the Needs you list", async () => {
   await page.viewport(1512, 900);
   mount("compact-slot-clash");
   await onScreen();
   await work().getByRole("button", { name: TITLE, exact: true }).click();
   await expect.element(tile("Bays").getByRole("img", { name: "Write clash with Name the store migrations, Rotate the audit log" })).toBeVisible();
+  // A lamp and not a glyph: no words, smaller than the key, and in its lower right corner clear of the glyph.
+  const key = tile("Bays").element().getBoundingClientRect();
+  const lamp = tile("Bays").getByRole("img", { name: /^Write clash with/ }).element();
+  const at = lamp.getBoundingClientRect();
+  expect(lamp.textContent).toBe("");
+  expect(at.width).toBeLessThan(key.width / 2);
+  expect(at.left + at.width / 2).toBeGreaterThan(key.left + key.width / 2);
+  expect(at.top + at.height / 2).toBeGreaterThan(key.top + key.height / 2);
   expect(tile("Bays").element().hasAttribute("data-lit")).toBe(false);
   await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
   expect(listed().join("\n")).not.toContain("conflicts with another holder");

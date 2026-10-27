@@ -129,6 +129,30 @@ export const WithNoRoomBelow: Story = {
 };
 
 /**
+ * **The bubble is in the top layer, and as wide as its words.** A narrow trigger
+ * used to squeeze the bubble to its own width, and a stacking context above it
+ * could paint over the bubble. A popover is lifted out of both, so neither can
+ * happen, and neither is a thing a screenshot shows when the page is calm.
+ */
+export const InTheTopLayer: Story = {
+  render: () => (
+    <div style={{ paddingBlock: "var(--space-8)", paddingInline: "var(--space-8)" }}>
+      <Tooltip defaultOpen label={longPath} asChild>
+        <button type="button" aria-label="Narrow trigger" style={{ inlineSize: "var(--space-6)" }}>
+          i
+        </button>
+      </Tooltip>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const trigger = canvas.getByRole("button", { name: "Narrow trigger" });
+    const bubble = trigger.querySelector<HTMLElement>(".armada-tooltip__bubble")!;
+    await expect(bubble.matches(":popover-open")).toBe(true);
+    await expect(bubble.getBoundingClientRect().width).toBeGreaterThan(trigger.getBoundingClientRect().width * 3);
+  },
+};
+
+/**
  * **The first hover waits; the next one does not.** Crossing a row of annotated
  * chips used to mean one 400ms wait per chip, because the delay was held per
  * instance — so a reader scanning a run tree's facts either stopped on each one
