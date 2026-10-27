@@ -30,11 +30,17 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 
 **A page is the pull request's description, conversation, checks, files and commits, with its review threads and head commit.** It is read when the pull request is opened, and again when the lists are refreshed while it is open.
 
+**The pull request open in the reader stays open until another one is opened.** Esc never closes it, and a reload of Bridge opens it again.
+
+**A pull request opened by its link has a row above whichever list is chosen**, since no list from the forge holds it. Bridge keeps the last ten across a reload.
+
 **A file's patch is read the first time its change is shown.** The forge numbers a line by path, line and side; the diff draws no numbers, so `apps/desktop/src/renderer/src/pr-review/patch.ts` is the one place the two meet.
 
 ## A review
 
 **Drafts are held in Bridge until Submit.** A draft is a line comment, a comment on a file, or a reply to a thread.
+
+**Review in the reader's head opens his review**, with the count of drafts waiting on Submit. It is the Comments tool's view, reached without knowing the tile.
 
 **Submit posts the verdict, its summary and every draft as one review at the commit he read.** Comment, Approve and Request changes are the three verdicts. Helm still asks before it writes.
 

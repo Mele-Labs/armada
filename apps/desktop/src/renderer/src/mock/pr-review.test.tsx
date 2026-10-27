@@ -4,7 +4,7 @@
 
 import type { WritePullRequest } from "@armada/protocol";
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import type { MockForge } from "./review-forge";
 import { s262PrReview } from "./scenarios/pr-review";
@@ -169,6 +169,38 @@ test("a run that fails shows Fleet's reason where the result would be, and Run a
   await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
   await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
   await expect.element(results.getByRole("alert")).not.toBeInTheDocument();
+});
+
+test("Esc in the list leaves the pull request open: only another row changes it", async () => {
+  await reviews();
+  await open(1899);
+  (row(1899).element() as HTMLElement).focus();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.keyboard("{Escape}");
+  await expect.element(reader(1899)).toBeVisible();
+  await open(212);
+  await expect.element(reader(1899)).not.toBeInTheDocument();
+});
+
+test("a pull request opened by its link has a row above whichever list is chosen", async () => {
+  await reviews();
+  await list().getByRole("textbox", { name: "Pull request link" }).fill("https://forge.example/mele-labs/armada/pull/1905");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(reader(1905)).toBeVisible();
+  await expect.element(row(1905)).toHaveAttribute("aria-current", "true");
+  await open(1899);
+  await choose("Team");
+  await row(1905).click();
+  await expect.element(reader(1905)).toBeVisible();
+});
+
+test("Review in the pull request's head shows his review, with Comment, Approve and Request changes", async () => {
+  await reviews();
+  await open(1899);
+  await reader(1899).getByRole("button", { name: "Review" }).click();
+  await expect.element(yours().getByRole("tab", { name: "Approve" })).toBeVisible();
+  await expect.element(yours().getByRole("tab", { name: "Request changes" })).toBeVisible();
+  await expect.element(yours().getByRole("button", { name: "Submit review" })).toBeVisible();
 });
 
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {
