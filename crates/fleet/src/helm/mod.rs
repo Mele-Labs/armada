@@ -30,6 +30,7 @@ pub use deciding::{
 pub use permitting::SHIPPED_ASK_HOLD;
 pub use reach::{may, Authority};
 pub use thread::what_was_said;
+pub use asking::question_unanswered;
 
 #[cfg(test)]
 mod tests;

@@ -16,6 +16,10 @@
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
 //! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
 //!
+//! **So is one that repeats a question that lapsed**, nobody answered it in time or it was kept for a walk:
+//! it is already in his Needs you from the `AskUserQuestion` call and his answer comes as a message.
+//! `lapsed_asks.rs` reads it, and a read leaves off one kept before the rule.
+//!
 //! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
 //!
 //! **And one he could not act on**, once `clarity::IN_FORCE`: a status, a pointer, or no verb aimed at him.
@@ -48,6 +52,8 @@ use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
+use crate::session_host::handoff_answers::lapsed_question;
+use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
@@ -55,6 +61,7 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
+const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -356,6 +363,12 @@ where
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        if let Some(lapsed) = lapsed_question(&rows) {
+            items.retain(|one| {
+                let labels: Vec<&str> = one.options.iter().map(|option| option.label.as_str()).collect();
+                one.source != WaitingSource::Agent || !repeats_lapsed(&one.text, &labels, &lapsed)
+            });
+        }
         // The harness's own permission prompt in a terminal. Only the terminal can answer it, so its
         // one act opens the Session and it offers nothing to choose.
         let prompt = (session.origin != "bridge" && asked.is_none() && !ended)
@@ -600,6 +613,14 @@ where
             }
             if asks_to_walk(&item.id, &item.text, item.act.as_ref().map(|act| act.kind)) {
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
+            }
+        }
+        if let Some(lapsed) = self.rows_of(&id).await.ok().and_then(|rows| lapsed_question(&rows)) {
+            for item in &set.items {
+                let labels: Vec<&str> = item.options.iter().map(|option| option.label.as_str()).collect();
+                if repeats_lapsed(&item.text, &labels, &lapsed) {
+                    return Err(self.hosted_refusal(SESSION_WAITING_ASKED, &lapsed_item_refusal(item.id.trim())));
+                }
             }
         }
         let unclear = set.items.iter().map(|item| {
