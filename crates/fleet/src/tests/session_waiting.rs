@@ -53,6 +53,7 @@ fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
         questions,
         reaches: None,
         reaches_to: None,
+        kind: None,
     }
 }
 
@@ -657,4 +658,84 @@ async fn removing_a_done_fleet_derived_tells_the_agent_nothing() {
     let gone = Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, &item, Some("not yet"))).await.unwrap();
     assert!(gone.waiting_for.is_empty());
     assert_eq!(said_by_the_person(&rig, &id).await, before, "the reason has nobody to go to");
+}
+
+/// The question "Which clock?" with options Fake and Frozen, asked and let lapse: nobody answered
+/// inside the hold, and the thread holds nothing of his after it.
+async fn lapsed_clock_question(rig: &Rig, id: &ipc::SessionId) {
+    let row = SessionRow::Ask {
+        id: format!("ask-lapsed-{}", id.as_str()),
+        at: rig.fleet.instant(),
+        ask: card("lapsed", Some("Which clock?")),
+        state: ipc::SessionAskState::Unanswered,
+        via: None,
+    };
+    rig.fleet.row_put(id.as_str(), row).await;
+}
+
+fn options_of(labels: &[&str]) -> Vec<WaitingOption> {
+    labels.iter().map(|label| WaitingOption { label: (*label).into(), description: None }).collect()
+}
+
+fn answer_item(id: &ipc::SessionId, item: &str, text: &str, labels: &[&str]) -> SetWaitingFor {
+    SetWaitingFor {
+        session_id: Some(id.clone()),
+        items: vec![WaitingInput {
+            id: item.into(),
+            text: text.into(),
+            act: Some(WaitingAct { kind: WaitingActKind::Answer, target: String::new() }),
+            options: options_of(labels),
+            steps: Vec::new(),
+        }],
+    }
+}
+
+#[tokio::test]
+async fn an_item_repeating_a_question_that_lapsed_is_refused_and_one_with_other_options_is_kept() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    lapsed_clock_question(&rig, &id).await;
+
+    // The same labels in another order, under words of the agent's own.
+    let repeat = answer_item(&id, "clock", "Choose which clock the tests run on", &["Frozen", "Fake"]);
+    let why = refused_for(rig.fleet.waiting_for(None, repeat).await);
+    assert!(why.contains("already in his Needs you"), "{why}");
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "nothing kept: {:?}", ids(&record));
+    assert!(rig.fleet.store().lock().await.waiting_for(id.as_str()).unwrap().is_empty(), "nothing stored");
+
+    // The same words as the question, whatever the options.
+    let worded = answer_item(&id, "clock", "  Which clock?  ", &["Real"]);
+    refused_for(rig.fleet.waiting_for(None, worded).await);
+
+    // Other options and other words are a different thing to ask.
+    let other = answer_item(&id, "tz", "Choose the time zone", &["UTC", "Local"]);
+    rig.fleet.waiting_for(None, other).await.expect("a different question is kept");
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["tz"]);
+}
+
+#[tokio::test]
+async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let item = |item_id: &str, labels: &[&str]| KeptWaiting {
+        item_id: item_id.into(),
+        text: format!("text of {item_id}"),
+        since: "2026-10-09T00:00:00Z".into(),
+        act: Some(("answer".into(), String::new())),
+        options: labels.iter().map(|label| (*label).to_string()).collect(),
+        steps: Vec::new(),
+    };
+    rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[item("clock", &["Fake", "Frozen"]), item("tz", &["UTC", "Local"])]).unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["clock", "tz"], "with no lapsed question both are his");
+
+    lapsed_clock_question(&rig, &id).await;
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["tz"], "the repeat is left off while the question stands");
+
+    say(&rig, &id, "Answering your earlier question \"Which clock?\": Fake").await;
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["clock", "tz"], "once he answers it the question no longer lapses");
 }

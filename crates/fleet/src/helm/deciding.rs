@@ -13,17 +13,17 @@
 //! `HelmCallSettled::RanUnasked` — the audit trail is what catches a rule drawn
 //! too wide.
 
-use ipc::{AskingToRun, ReachesTo};
+use ipc::{AskingToRun, CallKind, ReachesTo};
 
 use super::reading::{
-    changes_only_held, command_of, queries, reaches_into_owners_files, segment_only_reads, with_variables,
+    changes_only_held, command_of, kind_of, queries, reaches_into_owners_files, segment_only_reads, with_variables,
 };
 
 mod folders;
 mod programs;
 mod shell;
 
-pub use folders::{guarded_in_a_session, pages_opened, Folders};
+pub use folders::{guarded_in_a_session, pages_opened, Folders, KindAllowed};
 pub(in crate::helm) use folders::{reaches_outside, read_refused};
 pub(in crate::helm) use shell::{truncating_redirect, Slot};
 use folders::{cd_stays, in_the_slot, inside_the_directory, Listed};
@@ -138,8 +138,9 @@ pub enum Guarded {
     /// Put to a person, or refused by the mode, for `because`. `reaching` is the absolute path past
     /// the slots it named first, which a card offers to the folder list. **None for a removal**: an
     /// allowed folder lets a write in and never an `rm`. `to` says whether a reach reads or writes,
-    /// and is `None` where nothing was reached.
-    Because { because: Because, reaching: Option<String>, to: Option<ReachesTo> },
+    /// and is `None` where nothing was reached. `kind` is the program and script of the Bash
+    /// segment that named `reaching`, which a card offers to allow for the job; `None` otherwise.
+    Because { because: Because, reaching: Option<String>, to: Option<ReachesTo>, kind: Option<CallKind> },
     /// A folder the owner blocked holds what it names. Refused with no card.
     Blocked { folder: String },
 }
