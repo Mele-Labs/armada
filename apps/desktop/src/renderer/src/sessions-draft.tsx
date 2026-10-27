@@ -78,6 +78,12 @@ export function useSessions(): readonly Session[] {
   return useSyncExternalStore(held.subscribe, held.get);
 }
 
+/** The Sessions of every repository, whatever is picked, live: what the palette jumps to. Where the list already holds them all, that list. */
+export function useSessionsEverywhere(): readonly Session[] {
+  const held = useContext(Held);
+  return useSyncExternalStore(held?.subscribe ?? NEVER.subscribe, held?.everywhere ?? held?.get ?? NEVER.get);
+}
+
 /** The ideas saved to start later, live. Empty where none are served. */
 export function useQueued(): readonly QueuedIdea[] {
   const held = useContext(Held);

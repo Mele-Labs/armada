@@ -1,7 +1,7 @@
 // The rows the story's zones are made of (`StoryColumn.tsx`): a made thing as the ledger draws it, a finished group with what it produced beneath,
 // a step of the workflow, and a beat the Job is on. A state is a glyph or a lamp with a tooltip and no row prints a state word.
 
-import type { KeyboardEvent, ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Circle, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
 import { Button, LinkedSession, Readout, Stamp, Tooltip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -199,14 +199,31 @@ function PullStack({ session, list }: { session: Session; list: readonly Extract
   );
 }
 
-/** What was made, in the order it is handed in. Every pull request stands in one stack, where the first of them stands. */
-export function MadeList({ session, list, label }: { session: Session; list: readonly Made[]; label?: string }) {
-  const prs = list.filter((one): one is Extract<Made, { shape: "pr" }> => one.shape === "pr");
+/** How many of the most recent things made a list shows before he asks for the rest. */
+const RECENT = 5;
+
+/**
+ * What was made, in the order it is handed in. Every pull request stands in one stack, where the first of them stands. A list given `newest` keeps the most
+ * recent `RECENT` and a press shows the rest: Show earlier above a list that runs oldest first, Show more under one that runs newest first.
+ */
+export function MadeList({ session, list, label, newest }: { session: Session; list: readonly Made[]; label?: string; newest?: "first" | "last" }) {
+  const [all, setAll] = useState(false);
   if (list.length === 0) return null;
+  const shown = newest === undefined || all || list.length <= RECENT ? list : newest === "last" ? list.slice(-RECENT) : list.slice(0, RECENT);
+  const more =
+    shown.length === list.length ? null : (
+      <li className="sv-made-list__more">
+        <Button variant="ghost" size="sm" onClick={() => setAll(true)}>
+          {newest === "last" ? "Show earlier" : "Show more"}
+        </Button>
+      </li>
+    );
+  const prs = shown.filter((one): one is Extract<Made, { shape: "pr" }> => one.shape === "pr");
   const first = prs[0];
   return (
     <ul className="sv-rows sv-made-list" {...(label === undefined ? {} : { "aria-label": label })}>
-      {list.map((one) => {
+      {newest === "last" ? more : null}
+      {shown.map((one) => {
         if (one.shape === "pr") return one === first ? <li key="pull-requests"><PullStack session={session} list={prs} /></li> : null;
         return (
           <li key={one.key}>
@@ -222,6 +239,7 @@ export function MadeList({ session, list, label }: { session: Session; list: rea
           </li>
         );
       })}
+      {newest === "first" ? more : null}
     </ul>
   );
 }

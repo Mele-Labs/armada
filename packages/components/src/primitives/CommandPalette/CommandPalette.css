@@ -20,6 +20,8 @@
  */
 .armada-palette {
   --armada-glyph: var(--space-4);
+  /* A fifth wider than the title bar's field it opens over (the owner, 27 Oct 2026). */
+  --palette-wide: calc(var(--palette-width) * 1.2);
 }
 
 .armada-palette-layer {
@@ -38,10 +40,11 @@
 }
 
 .armada-palette {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: var(--palette-width);
+  max-width: var(--palette-wide);
   max-height: var(--palette-max-height);
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
@@ -50,18 +53,44 @@
   overflow: hidden;
 }
 
-.armada-palette__input {
+/* The field's row: the input, and while a command asks for something, the command's name before it. */
+.armada-palette__field {
+  display: flex;
   flex: none;
+  align-items: center;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-palette__of {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--space-6);
+  margin-left: var(--space-3);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.armada-palette__input {
+  flex: 1;
+  min-width: 0;
   height: var(--h-control);
   padding: 0 var(--space-3);
   border: none;
-  border-bottom: var(--border-width) solid var(--border-subtle);
   border-radius: 0;
   background: transparent;
   color: var(--fg-default);
   font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+}
+
+.armada-palette__of + .armada-palette__input {
+  padding-left: var(--space-2);
 }
 
 .armada-palette__input::placeholder {
@@ -117,22 +146,6 @@
   font-size: var(--text-sm);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease);
-}
-
-/* A row with a second line (a task, and what it is in) is as tall as its two lines need. */
-.armada-palette__row--detailed {
-  height: auto;
-  min-height: var(--h-menu-item);
-  padding-block: var(--space-1);
-}
-
-.armada-palette__detail {
-  display: block;
-  overflow: hidden;
-  color: var(--fg-subtle);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  text-overflow: ellipsis;
 }
 
 .armada-palette__row--active {
@@ -210,37 +223,11 @@
   text-underline-offset: calc(var(--space-1) / 2);
 }
 
-/* A setting states its current value, in mono, right of the label. Metadata
- * rather than a second label, so it steps down. */
-.armada-palette__value {
-  flex: none;
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
 .armada-palette__dormant {
   flex: none;
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-}
-
-/* One box per chord, plain punctuation between two distinct bindings. The
- * gap here is between boxes; a chord's own "+" is drawn inside kbd's box. */
-.armada-palette__keys {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-}
-
-/* `/` between two alternatives and `–` across a range. --fg-subtle, because it
- * is punctuation inside reference material that is already stepped down. */
-.armada-palette__between {
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
 }
 
 .armada-palette__empty {
@@ -252,8 +239,8 @@
   text-wrap: pretty;
 }
 
-/* Opened from the title bar's one bar: the palette's field lands on the bar's own field, so search
- * and dispatch read as one control, and the results hang beneath it. `useAnchor` places it. */
+/* Placed: where he dragged it, or opened from the title bar's one bar with its middle on the bar's field and its input
+ * on the field's top. `place.ts` places it by its middle, so a drag snaps to the window's middle line. */
 .armada-palette-layer[data-anchored] {
   display: block;
   padding-top: 0;
@@ -261,16 +248,41 @@
 
 .armada-palette-layer[data-anchored] .armada-palette {
   position: absolute;
-  min-width: min(var(--palette-width), calc(100vw - var(--space-6)));
-  max-width: none;
-  border-color: var(--accent);
+  width: min(var(--palette-wide), calc(100vw - var(--space-6)));
+  translate: -50% 0;
 }
 
-.armada-palette-layer[data-anchored] .armada-palette__input {
-  height: var(--palette-field);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+/* Moved by any ground that is not a field, a row or a button. */
+.armada-palette__section,
+.armada-palette__keys-foot,
+.armada-palette__actions-title {
+  cursor: grab;
+}
+
+.armada-palette[data-moving] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* The window's middle line the palette has snapped to, across or down, while it is dragged. */
+.armada-palette__guide {
+  position: fixed;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.armada-palette__guide--across {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--border-width);
+}
+
+.armada-palette__guide--down {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--border-width);
 }
 
 /* What was typed, offered as the work itself. The accent marks the one row that sends something.
@@ -300,17 +312,185 @@
   flex: none;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2) var(--space-4);
   padding: var(--space-2) var(--space-3);
   border-top: var(--border-width) solid var(--border-subtle);
   color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
 .armada-palette__keys-foot > span {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* A row as Raycast lays one: the title, then a muted subtitle that gives way first when the row is
+ * short of room, then two fixed columns flush right, the binding and the kind. Fixed, so a key and a
+ * kind end on the same edge as the rows above and below whether or not this row has one. */
+.armada-palette__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+/* Never shrunk while the subtitle has room to give, which a shrink weight would still do by a pixel and
+ * cost the title its last letters. Capped at the label so a title longer than the row still ends in an ellipsis. */
+.armada-palette__title {
+  flex: none;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-palette__subtitle {
+  flex: 0 1 auto;
+  display: inline-flex;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.armada-palette__subtitle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-palette__kind {
+  position: relative;
+  flex: none;
+  width: calc(var(--space-12) * 2);
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.armada-palette__kind-word {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: filter var(--duration-fast) var(--ease), opacity var(--duration-fast) var(--ease);
+}
+
+/* While ⌘ is held, the kind blurs and the digit that opens the row sits over its right edge, as Raycast draws it. */
+.armada-palette__kind[data-revealing] .armada-palette__kind-word {
+  filter: blur(var(--space-1));
+  opacity: 0.6;
+}
+
+.armada-palette__quick {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ⌘K on a row: what can be done to it, over the lower right of the results, as Raycast lays its panel: the row's
+ * title, the acts with their keys at the right, a rule between groups, and a field at the foot that narrows them. */
+.armada-palette__actions {
+  position: absolute;
+  right: var(--space-2);
+  bottom: calc(var(--space-8) + var(--space-1));
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--palette-width) / 1.6);
+  /* Below the palette's field, which it never covers: the list inside it scrolls instead. */
+  max-height: calc(100% - var(--space-12) - var(--space-8) - var(--space-2));
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-palette__actions-title {
+  flex: none;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-palette__actions-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-1) var(--space-1);
+}
+
+.armada-palette__actions .armada-palette__row > .armada-kbd {
+  flex: none;
+  margin-left: auto;
+}
+
+/* What an act holds now, drawn where its key would be: a word is plain, a chord is the key's cap. */
+.armada-palette__held {
+  flex: none;
+  max-width: 50%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Why the answer given was refused, at the right of the field it was given in, so the acts above keep their room. */
+.armada-palette__refused {
+  flex: none;
+  padding-right: var(--space-3);
+  color: var(--status-escalated);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.armada-palette__actions-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-palette__rule {
+  height: var(--border-width);
+  margin: var(--space-1) var(--space-2);
+  background: var(--border-subtle);
+}
+
+.armada-palette__actions-field {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-menu-item);
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.armada-palette__actions-field::placeholder {
+  color: var(--fg-subtle);
+}
+
+.armada-palette[data-acting] .armada-palette__list {
+  min-height: calc(var(--h-menu-item) * 11 + var(--space-4));
+}
+
+/* A confirmation raised from the palette, Stop on a Job, is the top layer: above the palette that asked,
+ * which is above every modal. */
+:root:has(.armada-palette-layer) .armada-dialog-scrim {
+  z-index: calc(var(--z-palette) + 1);
 }

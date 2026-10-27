@@ -66,6 +66,7 @@ const PANES: readonly SettingsSection[] = [
   { id: "time", label: "Time", palette: "Time", settings: [["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"]] },
   // The keyboard's own matches are the acts, counted by `KeyboardSettings`; these find the category.
   { id: "keyboard", label: "Keyboard shortcuts", palette: "Keyboard shortcuts", settings: [["Keyboard shortcuts", "keys", "key bindings", "hotkeys", "keymap", "rebind", "controls"]] },
+  { id: "palette", label: "Command palette", palette: "Command palette aliases and hotkeys", settings: [["Command palette", "alias", "hotkey", "pinned", "pins", "recent", "opens with", "empty", "everything"]] },
   { id: "guides", label: "Guides", palette: "Guide settings", settings: [["Open a guide the first time I meet a piece", "help", "tutorial", "onboarding"]] },
 ];
 
@@ -118,7 +119,7 @@ const SHIPPED_GROUPS: readonly { id: string; label: string; sections: readonly s
   { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention", "machine", "account", "store"] },
   { id: "features", label: "Features", sections: ["features"] },
   { id: "tools", label: "Tools", sections: ["editor", "terminal", "links"] },
-  { id: "appearance", label: "Appearance", sections: ["theme", "spacing", "layout", "time", "keyboard"] },
+  { id: "appearance", label: "Appearance", sections: ["theme", "spacing", "layout", "time", "keyboard", "palette"] },
   { id: "phone", label: "Phone", sections: ["phone"] },
   { id: "guides", label: "Guides", sections: ["guides"] },
 ];

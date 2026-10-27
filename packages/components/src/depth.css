@@ -525,7 +525,9 @@
 /* The glass material above, an input row set off by a hairline, small-caps sections, rows of 32px with a flat wash and a 2px bar for
    the active one. Keycaps are the Kbd the inspect card uses. The layout, keys and labels are the palette's own. */
 :root[data-look="new"] .armada-palette {
-  --palette-row: var(--h-control-sm);
+  /* A spacing step, not a control height: the rows stay at the 32px the owner walked when control heights tighten, and still follow
+     the Spacing choice. */
+  --palette-row: var(--space-8);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-overlay), var(--glass-highlight);
   animation: armada-palette-in 120ms var(--ease);
@@ -533,11 +535,12 @@
 @keyframes armada-palette-in {
   from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); }
 }
-:root[data-look="new"] .armada-palette-layer:not([data-anchored]) .armada-palette__input {
+:root[data-look="new"] .armada-palette__field { border-bottom-color: var(--head-rule); }
+:root[data-look="new"] .armada-palette__of { margin-left: var(--space-4); }
+:root[data-look="new"] .armada-palette__input {
   height: var(--space-12);
   padding: 0 var(--space-4);
-  border-bottom-color: var(--head-rule);
-  font-size: var(--text-row);
+  font-size: var(--text-lg);
 }
 :root[data-look="new"] .armada-palette__list { padding: var(--space-1) var(--space-2) var(--space-2); }
 :root[data-look="new"] .armada-palette__section {
@@ -557,13 +560,19 @@
   transition: background-color var(--duration-fast) var(--ease);
 }
 :root[data-look="new"] .armada-palette__row:not(.armada-palette__row--dormant):hover { background: var(--bg-step); }
+/* The row under the cursor is one neutral rounded fill, as Raycast draws it (the owner, 27 Oct 2026): no edge bar
+ * and no accent, so the highlight reads as where you are rather than as a state. */
 :root[data-look="new"] .armada-palette__row--active,
 :root[data-look="new"] .armada-palette__row--active:hover {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset var(--bar) 0 0 var(--accent);
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
+/* A row nothing answers keeps its dimming under the cursor: the lighter fill a hover gives, and the glyph one step down with the text. */
+:root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active,
+:root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active:hover {
+  background: var(--bg-step);
+}
+:root[data-look="new"] .armada-palette__row--dormant .armada-palette__glyph { color: var(--fg-subtle); }
 :root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
-:root[data-look="new"] .armada-palette__keys { margin-left: auto; font-family: var(--font-mono); }
 @media (prefers-reduced-motion: reduce) {
   :root[data-look="new"] .armada-palette { animation: none; }
 }

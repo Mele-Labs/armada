@@ -88,6 +88,8 @@ export class WiredStore {
   private readonly api: BridgeApi;
   private inputs: Inputs | undefined;
   private mapped: readonly Session[] = NONE;
+  /** Every repository's Sessions: `mapped` itself while the list holds them all. */
+  private mappedEverywhere: readonly Session[] = NONE;
   /** The live Helm Session of the repository the dock answers for, held whatever the rail picked. */
   private helm: Session | undefined;
   private refusal: string | undefined;
@@ -159,6 +161,9 @@ export class WiredStore {
     const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
     // Nothing drawn changed: the same list, so what reads it does not draw again.
     if (mapped.length !== this.mapped.length || mapped.some((one, at) => one !== this.mapped[at])) this.mapped = mapped;
+    // Mapped again only while one repository is picked, and through the memo: a Session that did not change is the same object.
+    const everywhere = picked === null || read === undefined || read.state !== "read" ? this.mapped : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
+    if (everywhere === this.mapped || everywhere.length !== this.mappedEverywhere.length || everywhere.some((one, at) => one !== this.mappedEverywhere[at])) this.mappedEverywhere = everywhere;
     // Helm answers for the repository the dock points at, which the rail's pick need not be.
     const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
     const record = aimed === undefined || read === undefined || read.state !== "read" ? undefined : read.sessions.find((one) => one.helm === true && one.state !== "ended" && one.manifest_id === aimed);
@@ -663,6 +668,7 @@ export class WiredStore {
     const store = this;
     return {
     get: () => this.mapped,
+    everywhere: () => this.mappedEverywhere,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
     start: (tag, root, request, tuning, after, held, projectRows) => this.starting(tag, root, request, tuning, after, held, projectRows),

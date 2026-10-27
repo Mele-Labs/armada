@@ -119,6 +119,16 @@ describe("the plan", () => {
     expect(plan.sketch).toEqual({ id: "sketch:Plan", title: "Plan", scene: { nodes: [], edges: [] } });
   });
 
+  it("carries when a task last changed, Fleet's proof and its stale reading, and leaves each off where Fleet sent none", () => {
+    const stale = { why: "edits went to Bridge", since: AT };
+    const fleets: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, tasks: [{ id: "t1", text: "Back off", state: "working", changed_at: AT, stale }, { id: "t2", text: "Cap it", state: "done", changed_at: AT, marked: "commit 1a2b3c4 names it" }] }] };
+    const tasks = planOf(fleets, { attachments: [], rows: undefined, drawn: [] }).groups[0]?.tasks;
+    expect(tasks).toEqual([
+      { id: "t1", text: "Back off", state: "working", changedAt: AT, stale },
+      { id: "t2", text: "Cap it", state: "done", changedAt: AT, marked: "commit 1a2b3c4 names it" },
+    ]);
+  });
+
   it("keeps the issue a group names, and names none where it names none", () => {
     const named: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, issue: "2214" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], tasks: [] }] };
     const groups = planOf(named, { attachments: [], rows: undefined, drawn: [] }).groups;

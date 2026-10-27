@@ -8,6 +8,7 @@ import { startModJob } from "../../mod-job";
 import { askToReport, canReport } from "../../report";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useTeachBridge } from "../../teach";
+import { toggleSessionPause } from "./acts";
 import { PAUSE_KEY } from "./session-tiles";
 import { toggleField, useRowView, viewEntries, viewFieldOf } from "./row-view";
 
@@ -44,7 +45,7 @@ export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | 
       onSelect={(chosen) => {
         const field = viewFieldOf(chosen);
         if (field !== undefined) return toggleField(field), onKeep?.(at);
-        if (chosen === "pause") void (paused ? draft?.resume : draft?.pause)?.(at.id);
+        if (chosen === "pause") void toggleSessionPause(draft, at.id, paused);
         if (chosen === "autopilot") onAutopilot(at.root);
         if (chosen === "mod" && at.row !== null) void startModJob(at.row, at.title);
         if (chosen === "report" && at.row !== null) askToReport(at.row);
