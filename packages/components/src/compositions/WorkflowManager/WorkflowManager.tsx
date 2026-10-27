@@ -75,10 +75,10 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   const pickedHere = picked !== null && shown.some((one) => keyOf(one) === keyOf(picked));
   const current = picked === null ? undefined : workflows.find((one) => keyOf(one) === keyOf(picked));
 
-  // `/` reaches this search from a page with nothing focused, before System's own search hears it.
+  // `F` reaches this search from a page with nothing focused; `/` stays System's own search.
   useEffect(() => {
     const reach = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || document.activeElement !== document.body) return;
+      if (event.key.toLowerCase() !== "f" || event.metaKey || event.ctrlKey || event.altKey || document.activeElement !== document.body) return;
       event.preventDefault();
       event.stopPropagation();
       search.current?.focus();
@@ -89,7 +89,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const typing = (event.target as HTMLElement).closest("input, textarea, select") !== null;
-    if (event.key !== "/" || typing || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key.toLowerCase() !== "f" || typing || event.metaKey || event.ctrlKey || event.altKey) return;
     event.preventDefault();
     event.stopPropagation();
     search.current?.focus();
@@ -103,7 +103,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
           ref={search}
           type="search"
           aria-label="Search workflows"
-          placeholder="Search"
+          placeholder="Find workflow"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -113,7 +113,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
               setQuery("");
             }
           }}
-          trailing={<Kbd>/</Kbd>}
+          trailing={<Kbd>F</Kbd>}
         />
         <div className="armada-wm__groups">
           {groups.map((group) => (
