@@ -1,8 +1,8 @@
 /* The Projects tab: his projects in the Cockpit's grid, drawn to the Issues tab's bar. A repository's heading is a band with
-   weight, the Jobs list's (`.deck-list__head`), and a press on it opens the repository's own tasks; what is open is lit in
-   the accent. A project's rows are cards, in fixed columns: the state's glyph and the title on the left; the done ask, the Job
+   weight, the Jobs list's (`.deck-list__head`), and a press on it opens the repository's own tasks; what is open is framed
+   by its shape. A project's rows are cards, in fixed columns: the state's glyph and the title on the left; the done ask, the Job
    holding it and the acts on the right, each column held where a card has nothing for it. A card is picked with ⌘-click and
-   ⇧-click and lit in the accent. Subtasks are smaller cards set in under their parent. Tokens only; no gradient, no glow,
+   ⇧-click and framed by its shape. Subtasks are smaller cards set in under their parent. Tokens only; no gradient, no glow,
    no grain. */
 
 .deck-grid[data-projects] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
@@ -17,7 +17,7 @@
 /* A repository's heading: the shared band (`.deck-list__head`) with a press that opens its own tasks and a `+` for a new project. */
 .projects-band__head { padding-inline-end: var(--space-1); }
 .projects-band__head:hover { background: color-mix(in srgb, var(--fg-default) 12%, transparent); }
-.projects-band__head[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+.projects-band__head[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 .projects-band__open {
   flex: 1 1 0;
   align-self: stretch;
@@ -180,10 +180,9 @@
 
 /* A subtask: a smaller card, quieter, with no shadow of its own. */
 .projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); box-shadow: none; background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
-/* A card picked: the accent's quiet fill and a border in it, the state's hue kept on the left edge. After the subtask's, so a subtask picked keeps it. */
+/* A card picked is told by its shape, never the accent: a hairline frame in the text colour on a raised ground. After the subtask's, so a subtask picked keeps it. */
 .projects-row[data-selected],
-.projects-row[data-selected][data-sub] { background: var(--accent-muted); border-block-color: var(--accent); border-inline-end-color: var(--accent); }
-.projects-row[data-selected]:hover { background: color-mix(in srgb, var(--accent) 24%, var(--bg-raised)); }
+.projects-row[data-selected][data-sub] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 
 .projects-row__mark {
   display: inline-flex;

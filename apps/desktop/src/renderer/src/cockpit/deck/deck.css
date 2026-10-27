@@ -164,6 +164,8 @@
       & > * { margin-inline-start: 0; }
     }
     &:is(:hover, :focus-within) > :is(.deck-band, .sv-panel__band) { opacity: 1; pointer-events: auto; }
+    /* A list that opens on a repository's filled head starts under the chip's lane, so the chip never lies across the head. */
+    & > .deck-list__rows:has(> .deck-list__band:first-child) { padding-top: calc(var(--space-1) * 2 + var(--h-control-sm)); }
   }
 }
 
