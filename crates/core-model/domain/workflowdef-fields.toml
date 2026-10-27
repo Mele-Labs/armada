@@ -260,6 +260,30 @@ notes = """
 **The five workflows this closes:** Code Review's `read` keeps `read.md`; Design Plan's `draft` keeps its draft, and records again each time the loop returns to it; Epic's `plan` keeps its split, and the same; Prototype's `frame` keeps its `facts_note`; Revert's one step, `revert`, both records and follows.
 """
 
+[fields.walks]
+type = "bool"
+concern = "Gating"
+parent = "steps[]"
+purpose = "Whether this is the step where the person is shown the work and approves it before any test is written. Optional, and absent means it is not."
+notes = """
+**The owner's, 27 Oct 2026**, in `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`. Fleet places the step from what it saw, never from the agent's word: it is current from the plan's approval until he approves a window the Job showed (`show_window`). It is **passed over when the plan was approved naming no walk and the Job never showed a window**, so a change nobody would see skips it.
+
+**A `follows_plan` step after it is entered only once it is passed**, approved or passed over; the same holds for any step that fits a Check, a commit or a pull request. A test file edited before then draws one nudge, once for the Job, and blocks nothing.
+
+**Needs a recording step before it.** The step is placed from the plan's approval, so in a workflow with none it is never entered. Not refused at load, unlike `follows_plan`: it grants no tool, so nothing is silently withheld. Unrelated to `evidence.walked`, which starts the repository's server when a step stops for a person.
+"""
+
+[fields.awaits_reply]
+type = "bool"
+concern = "Gating"
+parent = "steps[]"
+purpose = "Whether this step ends when the person replies, and stops the agent until he does. Optional, and absent means it does not."
+notes = """
+**The owner's, 27 Oct 2026**: Propose says what it took the request to mean and waits. Fleet reads the reply as a message from him after the agent's first turn.
+
+**It is also what places the steps before the recording step.** A step before the recording step is current until a plan is recorded, and one with this key until he replies. The step after it is entered on the reply. The recording step itself, when something precedes it, is entered when a plan is recorded and is current until he approves it; with nothing before it, it is current from the start, as before. Two keys would say the same thing as the position does, so the second fact (a plan is recorded) is not a key.
+"""
+
 [fields.for_requests]
 type = "string"
 concern = "Structure"
@@ -615,7 +639,7 @@ No sample carries one yet.
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"
-sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "phase"]
+sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "walks", "awaits_reply", "phase"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
 Ordered, and any step may send the work back to an earlier one through `verdict_routing`; there is no workflow-level label for it.

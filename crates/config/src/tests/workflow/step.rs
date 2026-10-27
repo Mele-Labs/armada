@@ -441,6 +441,31 @@ fn an_asks_delivery_that_is_not_a_boolean_is_refused_rather_than_read_as_false()
     );
 }
 
+/// The walk step and the step that waits on the person's reply; absent is false for both.
+#[test]
+fn a_step_may_say_it_walks_or_awaits_a_reply_and_absent_is_false() {
+    let def = bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         walks: true\n    awaits_reply: true\n",
+    )
+    .expect("walks and awaits_reply are keys of a step");
+    assert!(def.steps()[3].walks() && def.steps()[3].awaits_reply());
+    assert!(!def.steps()[0].walks() && !def.steps()[0].awaits_reply(), "absent is false");
+}
+
+#[test]
+fn a_walks_or_awaits_reply_that_is_not_a_boolean_is_refused_rather_than_read_as_false() {
+    for key in ["walks", "awaits_reply"] {
+        let refused = refusals(bug_with(&format!(
+            "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    {key}: sometimes\n"
+        )));
+        assert!(
+            refused.iter().any(|r| r.key == format!("steps[3].{key}") && matches!(r.fault, Fault::WrongType { .. })),
+            "{key}: {refused:?}"
+        );
+    }
+}
+
 /// What the agent is told at the step, read as written; absent sends nothing.
 #[test]
 fn a_steps_instructions_are_read_and_absent_is_none() {

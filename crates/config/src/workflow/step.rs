@@ -52,6 +52,8 @@ const STEP_KEYS: &[&str] = &[
     "follows_plan",
     "records_plan",
     "asks_delivery",
+    "walks",
+    "awaits_reply",
     "phase",
 ];
 
@@ -134,6 +136,8 @@ pub struct Step {
     follows_plan: bool,
     records_plan: bool,
     asks_delivery: bool,
+    walks: bool,
+    awaits_reply: bool,
     phase: Option<StepPhase>,
 }
 
@@ -314,6 +318,18 @@ impl Step {
         self.asks_delivery
     }
 
+    /// Whether this is the step where the person is shown the work and approves it before tests
+    /// are written. **False where the file leaves the key out.** `workflowdef-fields.toml`, `walks`.
+    pub fn walks(&self) -> bool {
+        self.walks
+    }
+
+    /// Whether the step ends when the person replies, before any plan is recorded. **False where
+    /// the file leaves the key out.** `workflowdef-fields.toml`, `awaits_reply`.
+    pub fn awaits_reply(&self) -> bool {
+        self.awaits_reply
+    }
+
     /// The phase the step declared. **`None` where the file leaves the key
     /// out**, which `core_model::StepPhase::of` reads off `delivers`.
     pub fn phase(&self) -> Option<StepPhase> {
@@ -423,6 +439,16 @@ pub(super) fn read(
     let asks_delivery = match table.optional("asks_delivery") {
         None => Some(false),
         Some(value) => yaml::flag(&asks_key, value, out),
+    };
+    let walks_key = table.at("walks");
+    let walks = match table.optional("walks") {
+        None => Some(false),
+        Some(value) => yaml::flag(&walks_key, value, out),
+    };
+    let awaits_key = table.at("awaits_reply");
+    let awaits_reply = match table.optional("awaits_reply") {
+        None => Some(false),
+        Some(value) => yaml::flag(&awaits_key, value, out),
     };
     // **Absent is false, and anything that is not a boolean is a refusal** —
     // `records_plan`'s rule, for its reason: a value read as absent would
@@ -587,6 +613,8 @@ pub(super) fn read(
         follows_plan: follows_plan?,
         records_plan: records_plan?,
         asks_delivery: asks_delivery?,
+        walks: walks?,
+        awaits_reply: awaits_reply?,
         phase,
     })
 }
