@@ -83,6 +83,7 @@ export function useModRows(): readonly ModRow[] {
     let seen = "";
     let live = true;
     const publish = () => {
+      if (!live) return;
       const next = on.flatMap((one) => read.get(one.name)?.rows ?? []);
       setRows((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
     };
@@ -100,6 +101,7 @@ export function useModRows(): readonly ModRow[] {
       );
     };
     const ingest = (state: Facts) => {
+      if (!live) return;
       const next = (state.mods?.mods ?? [])
         .filter((row) => row.kind === "commands" && row.valid && row.enabled)
         .map((row) => ({ name: row.name, at: row.changed_at ?? "" }))
