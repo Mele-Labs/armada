@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
-use crate::rail::{self, Facts, RailStep, Skip};
+use crate::rail::{self, Extra, Facts, RailStep, Skip};
 use crate::rail_keeping::rail_read;
 use crate::session_host::delivering::{card_choice, chosen_words, delivery_asked, ASKED};
 use crate::session_host::session_judging::{Question, Reading};
@@ -30,7 +30,7 @@ const BOUNDARY_JUDGES: bool = false;
 #[derive(Clone, PartialEq, Eq)]
 struct Seen {
     step: Option<u32>,
-    skipped: Vec<(usize, bool)>,
+    skipped: Vec<(usize, Skip)>,
 }
 
 /// Start reacting to a hosted Session's published row. Production starts it beside the timeline's, and
@@ -82,12 +82,13 @@ where
         let Some(steps) = self.rail_steps(manifest.as_str(), workflow) else {
             return;
         };
-        let facts = Facts::of(&record, Default::default());
+        // The walk the nudge reads is in the thread, so it is read only for a Job that wrote a test.
+        let mut facts = Facts::of(&record, Default::default());
+        if facts.test_edited && steps.iter().any(|step| step.walks) {
+            facts = Facts::of(&record, self.rail_extra(&id).await);
+        }
         let skips = rail::skipped(&steps, &facts);
-        let now = Seen {
-            step: record.workflow_step,
-            skipped: skips.iter().map(|(at, skip)| (*at, *skip == Skip::Plan)).collect(),
-        };
+        let now = Seen { step: record.workflow_step, skipped: skips.clone() };
         if seen.get(&id) == Some(&now) {
             return;
         }
@@ -109,6 +110,7 @@ where
             let sent = self.told_by_fleet(&id, &rail::nudge(&name, step, skip), ipc::Notice::RailNudge).await;
             if matches!(sent, Ok(true)) {
                 self.rail_nudged(&id, at as u32).await;
+                self.nudge_kept(manifest.as_str(), workflow, step, &id, skip).await;
             }
         }
     }
@@ -235,6 +237,13 @@ where
             }),
             None => words,
         }
+    }
+
+    /// What the rail reads beyond the record, for a Session that follows a workflow.
+    async fn rail_extra(&self, id: &str) -> Extra {
+        let store = self.store().lock().await;
+        let Some(session) = store.session(id).ok().flatten() else { return Extra::default() };
+        rail_read(&store, &session, true).map(|read| read.extra).unwrap_or_default()
     }
 
     /// Remember that the agent was nudged about step `at`.
