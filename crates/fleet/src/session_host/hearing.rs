@@ -184,6 +184,13 @@ where
     /// build record, whichever tool made it.
     async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent, subagent: Option<&str>) {
         self.touch_heard(id, event, subagent).await;
+        // The agent's own calls are counted for the plan's stale reading; a subagent's are its own work.
+        if subagent.is_none() && matches!(event, DroneEvent::Called { .. }) {
+            let counted = crate::plan_keeping::calls_counted(&mut *self.store().lock().await, id, 1).unwrap_or(false);
+            if counted {
+                self.task_marks_told(id).await;
+            }
+        }
         self.background_heard(id, event).await;
         // A terminal session's own mod tells these; a hosted one is heard here.
         if let Some(done) = crate::timeline::tool_of(&**self.harness(), event) {
@@ -237,6 +244,23 @@ where
             let step = self.hosts().of(id).state().activity.changed(self.hosts().activity_every());
             self.publish_step(id.to_string(), step);
         }
+        self.task_marks_told(id).await;
+    }
+
+    /// Tell the agent of the tasks Fleet marked or saw go stale that it has not been told of, at its
+    /// next tool call, and publish the row they show on. A mark heard from its mod is told here too.
+    async fn task_marks_told(self: &Arc<Self>, id: &str) {
+        let said = crate::plan_keeping::marks_untold(&mut *self.store().lock().await, id).ok().flatten();
+        let Some(said) = said else { return };
+        let _ = self.told_by_fleet(id, &said, ipc::Notice::TaskMarked).await;
+        let _ = self.published_hosted(id).await;
+    }
+
+    /// [`Self::task_marks_told`] for a terminal session: the words are held for its mod, as a reply
+    /// claim's are, and dropped where the mod is not listening.
+    pub(crate) fn terminal_marks_told(&self, id: &str, said: String) {
+        let said = format!("{}: {said}", super::serving::FLEET_NAME);
+        self.hosts().terminals().hold(id, said, super::terminal::LISTENING_FOR);
     }
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {

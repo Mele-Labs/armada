@@ -15,7 +15,7 @@ The migration `20261014T2100Z-session_build.record` has a name and not a number,
 | `SessionBuild.phase` | Fleet writes, Bridge matches | `scope`, `plan`, `implement`, `road`, `landed` |
 | `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`), `working?` and `by?`, the writing subagent's label in the form `workers` uses (`Type: what it was asked`), left out for the Job's own tasks |
 | `SessionBuild.stops[]`, `forecast[]` | Fleet writes, Bridge matches `id` | `BuildStop`: `id` (`walk`, `pushed`, `pr`, `checks` or `auto_merge`) and `at?`, left out for a stop not yet reached |
-| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`) and `by?`, the `agentId` of the subagent that wrote the task, absent for the Job's own (mod 0.3.24). `committed` and `pushed` carry `branch?` |
+| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`) and `by?`, the `agentId` of the subagent that wrote the task, absent for the Job's own (mod 0.3.24). `committed` and `pushed` carry `branch?`, and `committed` its short hash `commit?` and first line `subject?` (mod 0.3.46) |
 | `TimelineKind` `session.walked`, `session.committed`, `session.pushed` | Fleet writes, Bridge draws | Strict. A walk's detail is the page's title, the others' the branch |
 
 **Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them.

@@ -302,7 +302,7 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
     let tasks = states
         .iter()
         .enumerate()
-        .map(|(at, state)| ipc::SessionPlanTask { id: format!("T{at}"), text: format!("Task {at}"), state: *state, seen: true, marked: None, stale: None })
+        .map(|(at, state)| ipc::SessionPlanTask { id: format!("T{at}"), text: format!("Task {at}"), state: *state, seen: true, marked: None, stale: None, changed_at: None })
         .collect();
     record.plan = Some(ipc::SessionPlan {
         version: 1,

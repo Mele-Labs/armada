@@ -7,13 +7,19 @@
 //! **Observed decides.** A task's state comes from the agent's own task list, matched to the plan by
 //! text, and from edits Fleet saw under its group's paths. A task the list calls completed with no edit
 //! seen is `handed_in`, claimed and not observed. Nothing here reads a word of the agent's about
-//! progress.
+//! progress. **Fleet marks a task itself where it has proof**, a commit naming it, its group's pull
+//! request merged, or edits in its group's files with nothing in progress, and that mark stands until
+//! the agent's list changes the task. A task in progress whose work looks to be elsewhere is stale
+//! (`stale_of`). `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`.
 
 use ipc::{
     Instant, PlanChanges, PlanGroupInput, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask,
+    ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, TaskStale,
 };
-use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask};
+use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
+
+/// How many of the agent's own calls without a touch make a task in progress stale (owner, 27 Oct 2026).
+pub(crate) const QUIET_CALLS: u32 = 40;
 
 /// A task's text is cut here, as the build record cuts a task list's item.
 const TEXT_AT_MOST: usize = 200;
@@ -218,6 +224,7 @@ enum Pass {
 /// the plan moved.
 pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> bool {
     let recorded = plan.recorded_at.clone();
+    let calls = plan.calls;
     let mut moved = false;
     let texts: Vec<String> = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| cut_norm(&task.text)).collect();
     let items: Vec<String> = list.iter().map(|item| cut_norm(&item.text)).collect();
@@ -243,6 +250,10 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
                 continue;
             }
             moved = true;
+            // The agent changed the task, so its word stands over a mark Fleet set.
+            task.marked = None;
+            task.marked_why = None;
+            touched(task, now, calls);
             task.listed = Some(status.to_string());
             task.started_at = (status == "in_progress").then(|| now.to_string());
             if status == "completed" {
@@ -255,6 +266,19 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
         }
     }
     moved
+}
+
+/// The plan as the record carries it, with each task in progress that looks left behind read as stale
+/// from `touches`, the Job's recent file touches.
+pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch]) -> SessionPlan {
+    let mut wired = wire(plan);
+    for (g, group) in wired.groups.iter_mut().enumerate() {
+        for (t, task) in group.tasks.iter_mut().enumerate() {
+            task.stale = stale_of(plan, (g, t), touches)
+                .map(|why| TaskStale { why, since: Instant::carried(touched_since(plan, &plan.groups[g].tasks[t])) });
+        }
+    }
+    wired
 }
 
 /// Words too common to say which task a line is.
@@ -316,34 +340,201 @@ fn under(paths: &[String], path: &str) -> bool {
 /// What an edit moved in the plan.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct Seen {
-    /// The groups whose paths hold the file.
-    pub groups: Vec<String>,
-    /// The tasks of those that are in progress, which now have an edit seen.
-    pub tasks: Vec<String>,
-    /// A row would show it: a group worked for the first time, or a task that is now solid.
+    /// Whether the edit lay under any group's paths, so the plan is kept again.
+    pub moved: bool,
+    /// A row would show it: a group worked for the first time, a task that is now solid, or one Fleet
+    /// marked.
     pub shown: bool,
 }
 
 /// An edit of `path` (from the repository's root), seen now. Every group whose paths hold it is
-/// worked, and a task of it that is in progress has an edit seen. Changes `plan` as the store will.
+/// worked, and a task of it that is in progress has an edit seen and is touched, where the group names
+/// paths of its own. With nothing in progress anywhere, the first open task of the first such group is
+/// marked working. Changes `plan` as the store will.
 pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
     let mut seen = Seen::default();
+    let calls = plan.calls;
+    let mut idle = !plan.groups.iter().flat_map(|group| &group.tasks).any(|task| status(task) == Some("in_progress"));
     for group in plan.groups.iter_mut().filter(|group| under(&group.paths, path)) {
+        seen.moved = true;
         seen.shown |= group.worked_at.is_none();
         group.worked_at = Some(now.to_string());
-        seen.groups.push(group.id.clone());
-        for task in group.tasks.iter_mut().filter(|task| task.listed.as_deref() == Some("in_progress")) {
+        let owned = !group.paths.is_empty();
+        for task in group.tasks.iter_mut().filter(|task| status(task) == Some("in_progress")) {
             seen.shown |= !task.edited;
             task.edited = true;
-            seen.tasks.push(task.id.clone());
+            if owned {
+                touched(task, now, calls);
+            }
+        }
+        if !(idle && owned) {
+            continue;
+        }
+        if let Some(task) = group.tasks.iter_mut().find(|task| status(task).is_none_or(|said| said == "pending")) {
+            task.marked = Some("in_progress".into());
+            task.marked_why = Some(format!("edits in {path}"));
+            task.started_at = Some(now.to_string());
+            task.edited = true;
+            touched(task, now, calls);
+            seen.shown = true;
+            idle = false;
         }
     }
     seen
 }
 
+/// What a task's state is: Fleet's mark where it set one, else what the agent's list last said.
+pub(crate) fn status(task: &KeptPlanTask) -> Option<&str> {
+    task.marked.as_deref().or(task.listed.as_deref())
+}
+
+/// The task was touched now: its mark moved, or work was seen under its group's paths.
+fn touched(task: &mut KeptPlanTask, now: &str, calls: u32) {
+    task.touched_at = Some(now.to_string());
+    task.touched_call = calls;
+}
+
+/// Mark the task at `at` completed on Fleet's proof `why`. It is `edited` if an edit was seen under its
+/// group's paths since the group's last completion, as a completion the agent's list says is.
+fn completed_by_fleet(plan: &mut KeptPlan, at: (usize, usize), why: String, now: &str) {
+    let calls = plan.calls;
+    let group = &mut plan.groups[at.0];
+    let start = group
+        .tasks
+        .iter()
+        .filter_map(|task| task.completed_at.as_deref())
+        .chain(std::iter::once(plan.recorded_at.as_str()))
+        .max()
+        .unwrap_or_default()
+        .to_string();
+    let worked = group.worked_at.as_deref().is_some_and(|at| at > start.as_str());
+    let task = &mut group.tasks[at.1];
+    task.marked = Some("completed".into());
+    task.marked_why = Some(why);
+    task.completed_at = Some(now.to_string());
+    task.edited = worked;
+    touched(task, now, calls);
+}
+
+/// A commit whose first line says a task not yet completed, as an item of the list says one
+/// (`said`): that task is completed on its proof. The best said wins, and the earlier task a tie.
+/// Whether a task moved.
+pub(crate) fn commit_named(plan: &mut KeptPlan, commit: &str, subject: &str, now: &str) -> bool {
+    let subject = cut_norm(subject);
+    let mut best: Option<(f64, (usize, usize))> = None;
+    for (g, group) in plan.groups.iter().enumerate() {
+        for (t, task) in group.tasks.iter().enumerate() {
+            if status(task) == Some("completed") {
+                continue;
+            }
+            let Some(score) = said(&cut_norm(&task.text), &subject) else { continue };
+            if best.is_none_or(|(most, _)| score > most) {
+                best = Some((score, (g, t)));
+            }
+        }
+    }
+    let Some((_, at)) = best else { return false };
+    let why = if commit.is_empty() { "a commit names it".to_string() } else { format!("commit {commit} names it") };
+    completed_by_fleet(plan, at, why, now);
+    true
+}
+
+/// Pull request `number`, opened while task `task` was in progress, merged: every task of that task's
+/// group not yet completed is completed on it. The texts of the tasks it moved.
+pub(crate) fn merge_marked(plan: &mut KeptPlan, task: &str, number: u64, now: &str) -> Vec<String> {
+    let Some(g) = plan.groups.iter().position(|group| group.tasks.iter().any(|one| one.id == task)) else { return Vec::new() };
+    let open: Vec<usize> =
+        (0..plan.groups[g].tasks.len()).filter(|&t| status(&plan.groups[g].tasks[t]) != Some("completed")).collect();
+    for &t in &open {
+        completed_by_fleet(plan, (g, t), format!("#{number} merged"), now);
+    }
+    open.into_iter().map(|t| plan.groups[g].tasks[t].text.clone()).collect()
+}
+
+/// Why the task at `at` looks left behind, if it is in progress and does. **A newer task in progress
+/// leads**, unless a subagent edited this one's group since it started, as two at work side by side do;
+/// then **edits in another group's files** that has nothing in progress, since this was last touched or
+/// its own group last edited, where its group names paths of its own; then **`QUIET_CALLS` of the
+/// agent's own calls** since it was last touched.
+pub(crate) fn stale_of(plan: &KeptPlan, at: (usize, usize), touches: &[KeptTouch]) -> Option<String> {
+    let own = &plan.groups[at.0];
+    let task = &own.tasks[at.1];
+    let working = |one: &KeptPlanTask| status(one) == Some("in_progress");
+    if !working(task) {
+        return None;
+    }
+    let owned = !own.paths.is_empty();
+    let started = task.started_at.as_deref().unwrap_or_default();
+    let newer = plan
+        .groups
+        .iter()
+        .flat_map(|group| &group.tasks)
+        .filter(|one| working(one) && one.started_at.as_deref().unwrap_or_default() > started)
+        .max_by(|a, b| a.started_at.cmp(&b.started_at));
+    if let Some(newer) = newer {
+        let alongside = owned && touches.iter().any(|one| one.by.is_some() && one.at.as_str() >= started && under(&own.paths, &one.path));
+        if !alongside {
+            return Some(format!("\"{}\" started after it", newer.text));
+        }
+    }
+    if owned {
+        let since = touched_since(plan, task).max(own.worked_at.as_deref().unwrap_or_default());
+        let elsewhere = plan
+            .groups
+            .iter()
+            .enumerate()
+            .filter(|(g, group)| *g != at.0 && !group.paths.is_empty() && !group.tasks.iter().any(working))
+            .filter_map(|(_, group)| group.worked_at.as_deref().filter(|worked| *worked > since).map(|worked| (worked, group)))
+            .max_by(|a, b| a.0.cmp(b.0));
+        if let Some((_, group)) = elsewhere {
+            return Some(format!("edits went to {}", group.title));
+        }
+    }
+    (plan.calls.saturating_sub(task.touched_call) >= QUIET_CALLS).then(|| format!("{QUIET_CALLS} calls with no update"))
+}
+
+/// When a task was last touched, else started, else when the plan was recorded.
+fn touched_since<'a>(plan: &'a KeptPlan, task: &'a KeptPlanTask) -> &'a str {
+    task.touched_at.as_deref().or(task.started_at.as_deref()).unwrap_or(plan.recorded_at.as_str())
+}
+
+/// The line the agent is told for a task Fleet marked or saw go stale, if it has not been told of it.
+fn told_line(plan: &KeptPlan, at: (usize, usize), touches: &[KeptTouch]) -> Option<String> {
+    let task = &plan.groups[at.0].tasks[at.1];
+    if task.told {
+        return None;
+    }
+    if let (Some(state), Some(why)) = (task.marked.as_deref(), task.marked_why.as_deref()) {
+        let state = if state == "completed" { "completed" } else { "in progress" };
+        return Some(format!("- \"{}\" is {state}: {why}.", task.text));
+    }
+    stale_of(plan, at, touches).map(|why| format!("- \"{}\" is in progress, but {why}.", task.text))
+}
+
+/// What the agent is told of the tasks Fleet marked or saw go stale that it has not been told of, each
+/// marked told: **once a task**, however long it stays so. Absent where there is none.
+pub(crate) fn untold(plan: &mut KeptPlan, touches: &[KeptTouch]) -> Option<String> {
+    let mut lines = Vec::new();
+    for g in 0..plan.groups.len() {
+        for t in 0..plan.groups[g].tasks.len() {
+            if let Some(line) = told_line(plan, (g, t), touches) {
+                lines.push(line);
+                plan.groups[g].tasks[t].told = true;
+            }
+        }
+    }
+    (!lines.is_empty()).then(|| {
+        format!(
+            "Fleet set these tasks of your plan from what it saw. Update your task list to match with TaskUpdate, \
+             or change the task there if Fleet has it wrong:\n{}",
+            lines.join("\n")
+        )
+    })
+}
+
 /// A task's state and whether an edit was seen for it.
 pub(crate) fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
-    match task.listed.as_deref() {
+    match status(task) {
         Some("completed") if task.edited => (PlanTaskState::Done, true),
         Some("completed") => (PlanTaskState::HandedIn, false),
         Some("in_progress") => (PlanTaskState::Working, task.edited),
@@ -384,7 +575,19 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                     .iter()
                     .map(|task| {
                         let (state, seen) = state_of(task);
-                        SessionPlanTask { id: task.id.clone(), text: task.text.clone(), state, seen, marked: None, stale: None }
+                        SessionPlanTask {
+                            id: task.id.clone(),
+                            text: task.text.clone(),
+                            state,
+                            seen,
+                            marked: task.marked_why.clone(),
+                            stale: None,
+                            changed_at: match state {
+                                PlanTaskState::Working => task.started_at.as_deref().map(Instant::carried),
+                                PlanTaskState::Open => None,
+                                _ => task.completed_at.as_deref().map(Instant::carried),
+                            },
+                        }
                     })
                     .collect(),
                 worked_at: group.worked_at.as_deref().map(Instant::carried),

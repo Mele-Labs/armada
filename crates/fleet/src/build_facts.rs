@@ -63,9 +63,10 @@ where
                 Observed::Tasks(labelled(tasks, &store.attachments_of(&Holder::session(&session.id))?))
             }
             SessionFact::PlanLeft => Observed::PlanLeft,
-            SessionFact::Committed { branch, .. } => {
+            SessionFact::Committed { branch, commit, subject } => {
                 self.road_noted(session, TimelineKind::SessionCommitted, "Committed", branch, now);
-                Observed::Committed
+                let named = crate::plan_keeping::commit_heard(store, &session.id, &commit, &subject, now)?;
+                return Ok(build_heard(store, &session.id, &Observed::Committed, now)? | named);
             }
             SessionFact::Pushed { branch } => {
                 self.road_noted(session, TimelineKind::SessionPushed, "Pushed", branch, now);
