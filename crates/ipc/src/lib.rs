@@ -366,8 +366,8 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
-    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
-    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SetHomeRepository, SharedHomeRead,
+    ChooseHomeSide, HomeItem, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
+    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeItem, SetHomeKind, SetHomeRepository, SharedHomeRead,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{

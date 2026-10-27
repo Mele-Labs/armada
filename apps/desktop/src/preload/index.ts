@@ -529,6 +529,7 @@ const api: BridgeApi = {
   chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.chooseSharedHomeSide, row, side),
   getHomeKinds: (login: string): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.getHomeKinds, login),
   setHomeKind: (login: string, kind: HomeKind, on: boolean): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.setHomeKind, login, kind, on),
+  setHomeItem: (row: HomeRowAt, on: boolean): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.setHomeItem, row, on),
   setHomeRepository: (login: string, owner: string, name: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.setHomeRepository, login, owner, name),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
