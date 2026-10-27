@@ -11,7 +11,7 @@ import { counted, placeOfLine } from "../pr-review/patch";
 import type { Counted } from "../pr-review/patch";
 import "../pr-review/pr-review.css";
 import { addNote, editNote, removeNote, useJobNotes } from "./job-notes";
-import type { JobNote } from "./job-notes";
+import type { JobNote, NoteHandle } from "./job-notes";
 
 type Composing = { path: string; index: number };
 
@@ -31,48 +31,64 @@ const hereOf = (note: JobNote, file: DiffFile, index: number): boolean => {
   return place !== undefined && note.path === file.path && note.line === place.line && note.side === place.side;
 };
 
+export type LineNotes = {
+  /** What the diff takes to draw the gutter and the notes. Absent where Fleet serves no notes. */
+  lines: Pick<UnifiedDiffProps, "onLine" | "under"> | undefined;
+  /** Every note for the pull request, resolved ones included. */
+  notes: readonly JobNote[];
+  showResolved: boolean;
+  toggleResolved: () => void;
+};
+
 /**
  * What the Files tab's diff takes to draw his notes: the gutter and what sits under a line. **The notes are redrawn as they
- * change**, and `key` is the pull request as `repository#number`.
+ * change.** **A note the Job resolved is folded away** until Show resolved is pressed.
  */
-export function useLineNotes(key: string): Pick<UnifiedDiffProps, "onLine" | "under"> {
-  const notes = useJobNotes(key);
+export function useLineNotes(handle: NoteHandle | undefined): LineNotes {
+  const notes = useJobNotes(handle);
   const [composing, setComposing] = useState<Composing | undefined>(undefined);
-  return useMemo(
-    () => ({
-      onLine: {
-        label: "Note for the job",
-        name: (file, index) => `Note for the job on ${file.lines[index]?.text.trim() ?? "this line"}`,
-        press: (file, index) => setComposing({ path: file.path, index }),
-      },
-      under: (file, index) => {
-        const here = notes.filter((one) => hereOf(one, file, index));
-        const writing = composing?.path === file.path && composing.index === index;
-        if (here.length === 0 && !writing) return null;
-        const place = placeOfLine(file.lines, index);
-        return (
-          <div className="pr-under">
-            {here.map((one) => (
-              <NoteCard key={one.id} note={one} onRemove={() => removeNote(key, one.id)} onEdit={(body) => editNote(key, one.id, body)} />
-            ))}
-            {writing && place !== undefined ? (
-              <LineComposer
-                keep={`job-notes:${key}:${file.path}:${index}`}
-                label="Note for the job"
-                action="Save note"
-                onAdd={(body) => {
-                  addNote(key, { path: file.path, line: place.line, side: place.side, body });
-                  setComposing(undefined);
-                }}
-                onCancel={() => setComposing(undefined)}
-              />
-            ) : null}
-          </div>
-        );
-      },
-    }),
-    [key, notes, composing],
+  const [showResolved, setShowResolved] = useState(false);
+  const lines = useMemo(
+    () =>
+      handle === undefined
+        ? undefined
+        : {
+            onLine: {
+              label: "Note for the job",
+              name: (file: DiffFile, index: number) => `Note for the job on ${file.lines[index]?.text.trim() ?? "this line"}`,
+              press: (file: DiffFile, index: number) => setComposing({ path: file.path, index }),
+            },
+            under: (file: DiffFile, index: number) => {
+              const here = notes.filter((one) => (showResolved || !one.done) && hereOf(one, file, index));
+              const writing = composing?.path === file.path && composing.index === index;
+              if (here.length === 0 && !writing) return null;
+              const place = placeOfLine(file.lines, index);
+              return (
+                <div className="pr-under">
+                  {here.map((one) => (
+                    <NoteCard key={one.id} note={one} onRemove={() => void removeNote(handle, one.id)} onEdit={(body) => void editNote(handle, one.id, body)} />
+                  ))}
+                  {writing && place !== undefined ? (
+                    <LineComposer
+                      keep={`job-notes:${handle.manifestId}#${handle.number}:${file.path}:${index}`}
+                      label="Note for the job"
+                      action="Save note"
+                      onAdd={(body) => {
+                        void addNote(handle, { path: file.path, line: place.line, side: place.side, body });
+                        setComposing(undefined);
+                      }}
+                      onCancel={() => setComposing(undefined)}
+                    />
+                  ) : null}
+                </div>
+              );
+            },
+          },
+    // The handle is rebuilt as the panel draws; the pull request and the way Fleet is asked are what the notes follow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [handle?.manifestId, handle?.number, handle?.reads, notes, composing, showResolved],
   );
+  return { lines, notes, showResolved, toggleResolved: () => setShowResolved((was) => !was) };
 }
 
 /** A running Job the notes can go to instead of the one that holds the pull request. */
@@ -94,6 +110,15 @@ export function NotesBar({ count, holder, others, onSend }: { count: number; hol
   );
 }
 
+/** Folds the notes a Job resolved away, or draws them again. Drawn only where one has. */
+export function ResolvedToggle({ count, shown, onToggle }: { count: number; shown: boolean; onToggle: () => void }) {
+  return (
+    <Button variant="ghost" size="sm" aria-pressed={shown} onClick={onToggle}>
+      {shown ? "Hide resolved" : `Show resolved (${count})`}
+    </Button>
+  );
+}
+
 function NoteCard({ note, onRemove, onEdit }: { note: JobNote; onRemove: () => void; onEdit: (body: string) => void }) {
   const [editing, setEditing] = useState(false);
   if (editing)
@@ -110,11 +135,12 @@ function NoteCard({ note, onRemove, onEdit }: { note: JobNote; onRemove: () => v
         onCancel={() => setEditing(false)}
       />
     );
+  const to = note.title === undefined ? "the job" : note.title;
   return (
-    <article className="pr-draft" aria-label="Note for the job">
+    <article className="pr-draft" aria-label="Note for the job" data-resolved={note.done || undefined}>
       <header className="pr-card__head">
-        {note.sent ? <PrMark Glyph={Check} said="Sent to the job" /> : <PrMark Glyph={Notebook} said="Kept on this Mac, not sent yet" />}
-        <b className="pr-card__who">Note for the job</b>
+        {note.done ? <PrMark Glyph={Check} said={`Resolved by ${to}`} /> : note.sent ? <PrMark Glyph={Check} said={`Sent to ${to}`} /> : <PrMark Glyph={Notebook} said="Kept on this Mac, not sent yet" />}
+        <b className="pr-card__who">{note.done ? `Resolved by ${to}` : "Note for the job"}</b>
         <span className="pr-card__act">
           {note.sent ? null : (
             <Tooltip label="Edit the note">

@@ -21,8 +21,9 @@ import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
 import { commandIn } from "./fix-command";
 import { useTerminalRun } from "./terminal-run";
-import { markSent, messageOf, useJobNotes } from "./job-notes";
-import { NotesBar, useLineNotes } from "./job-notes-lines";
+import { loadNotes, messageOf, sendNotes as recordSent } from "./job-notes";
+import type { NoteHandle } from "./job-notes";
+import { NotesBar, ResolvedToggle, useLineNotes } from "./job-notes-lines";
 import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
 import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
@@ -149,13 +150,20 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       .catch((): undefined => undefined)
       .then((answer) => here.current && run === reachRun.current && setReach({ head, answer: answer ?? {} }));
   }, [tab, paged, head, reach, readReach, item]);
-  // Notes are kept for any pull request; only sending them needs a Job that holds it.
-  const noteKey = `${item.repository ?? repositoryOfAddress(item.address) ?? read?.repository ?? ""}#${item.number}`;
-  const lineNotes = useLineNotes(noteKey);
-  const unsent = useJobNotes(noteKey).filter((one) => !one.sent);
+  // Fleet keeps the notes, per Manifest and pull request, once the page has said which Manifest holds it. Only sending them needs a Job that holds it.
+  const notesReads = reads.notes;
+  const manifestId = read?.page.manifest_id;
+  const noteHandle = useMemo<NoteHandle | undefined>(() => (notesReads === undefined || manifestId === undefined ? undefined : { reads: notesReads, manifestId, number: item.number }), [notesReads, manifestId, item.number]);
+  const lineNotes = useLineNotes(noteHandle);
+  // A Job resolves a note while the panel is open and nothing tells Bridge, so the notes are read again each time Files is entered.
+  useEffect(() => {
+    if (tab === "files" && noteHandle !== undefined) void loadNotes(noteHandle);
+  }, [tab, noteHandle]);
+  const unsent = lineNotes.notes.filter((one) => !one.sent);
+  const resolved = lineNotes.notes.filter((one) => one.done).length;
   const shownPatches = useMemo(
-    () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lineNotes)),
-    [readPatches, patches, lineNotes],
+    () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lineNotes.lines)),
+    [readPatches, patches, lineNotes.lines],
   );
   const marks = reach === undefined || reach.answer === "reading" ? undefined : reach.answer;
 
@@ -233,14 +241,15 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
     if (!openAddressInPanel(address)) void openLink(address);
   };
 
-  // The unsent notes go to the Job as one message the way its own composer sends one, and are marked sent once it took them.
+  // The unsent notes go to the Job as one message the way its own composer sends one, and are recorded as sent to it once it took them.
   const others = sessions.filter((one) => one.id !== owner?.id && one.dead === undefined && one.older === undefined && one.replacedBy === undefined).map((one) => ({ id: one.id, title: one.title ?? one.address ?? one.id }));
+  const holderTitle = owner === undefined ? undefined : (owner.title ?? owner.address ?? owner.id);
   const sendNotes = (to?: string) => {
-    const target = to ?? owner?.id;
-    if (target === undefined || draft === undefined || unsent.length === 0) return;
+    const target = to === undefined ? (owner === undefined ? undefined : { id: owner.id, title: holderTitle ?? owner.id }) : others.find((one) => one.id === to);
+    if (target === undefined || draft === undefined || noteHandle === undefined || unsent.length === 0) return;
     const ids = unsent.map((one) => one.id);
-    void Promise.resolve(draft.send(target, { text: messageOf(facts.number, unsent), files: [], sketches: [], tags: [] })).then((went) => {
-      if (went !== false) markSent(noteKey, ids);
+    void Promise.resolve(draft.send(target.id, { text: messageOf(facts.number, unsent), files: [], sketches: [], tags: [] })).then((went) => {
+      if (went !== false) void recordSent(noteHandle, ids, target);
     });
   };
 
@@ -283,7 +292,8 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       >
         {/* A press the Job made and Fleet refused is said here, where it was pressed; one nobody holds is a toast. */}
         {owner === undefined || refused === undefined || refused === "" ? null : <Alert tone="escalated">{refused}</Alert>}
-        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : <NotesBar count={unsent.length} holder={owner === undefined ? undefined : (owner.title ?? owner.address ?? owner.id)} others={others} onSend={sendNotes} />}
+        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : <NotesBar count={unsent.length} holder={holderTitle} others={others} onSend={sendNotes} />}
+        {resolved === 0 ? null : <ResolvedToggle count={resolved} shown={lineNotes.showResolved} onToggle={lineNotes.toggleResolved} />}
       </PullRequestPanel>
     </PrOwnersOnTheWire>
   );
