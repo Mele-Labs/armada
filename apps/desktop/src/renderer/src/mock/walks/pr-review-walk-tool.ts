@@ -5,7 +5,6 @@
 
 import { button, dialog, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
-import { putAway } from "../pr-review-steps";
 
 const list = region("Pull requests");
 const flight = region("Flight controls");
@@ -27,10 +26,9 @@ const fromThePullRequest: Step[] = [
   { press: lists, say: "The team's list" },
   { press: pick("Team"), say: "Team" },
   { press: inside(list, button(/#1907/)), say: "A pull request with a preview deployed" },
-  putAway(1907),
   { look: tool, say: "Walk is a tool of Armada's, in the Flight control with the rest. It has a colour of its own" },
   { hover: inside(tool, role("img", "Armada's tool")), say: "Defined where the other tools are" },
-  { key: "5", on: reader(1907), say: "5 presses it. It plays the change, which costs, so it asks first" },
+  { key: "8", on: reader(1907), say: "8 presses it, after the four explanations and the other tools. It plays the change, which costs, so it asks first" },
   { look: dialog("Walk"), say: "The same question every tool that spends asks" },
   { key: " ", on: dialog("Walk"), say: "Space turns the question off on this machine" },
   { key: "Enter", on: dialog("Walk"), say: "↵ runs it" },
@@ -52,7 +50,6 @@ const fromThePullRequest: Step[] = [
 
 const fromMemory: Step[] = [
   { press: inside(list, button(/#1899/)), say: "A pull request that touches Fleet" },
-  putAway(1899),
   { press: tool, say: "Walk. The question is off, so it runs" },
   { look: inside(fact("From the pull request"), role("img", "Nothing found")), say: "The pull request says nothing about where it runs" },
   { look: fact("From what Armada remembers of this area"), say: "So Armada looks at what it remembers of this repository and the area of code the pull request touches" },
@@ -72,7 +69,6 @@ const fromMemory: Step[] = [
 
 const asked: Step[] = [
   { press: inside(list, button(/#1903/)), say: "A pull request with nothing posted on it, in an area nothing is remembered for" },
-  putAway(1903),
   { press: tool, say: "Walk" },
   { look: sheet, say: "The pull request says nothing, and nothing is remembered for apps/desktop, so it asks him. Keyboard first: focus is on the choice" },
   { press: inside(sheet, role("radio", "Pull it down and run")), say: "Deployed at, or pull it down and run" },

@@ -1,5 +1,6 @@
 //! Saves into the person's own file: a collection whole, an environment whole with its secrets
-//! kept in the Keychain first, and one request an agent made.
+//! kept in the Keychain first, an environment deleted with its secrets forgotten first, and one
+//! request an agent made.
 //!
 //! **Every save reads the person's own file first and refuses where it will not read**, so a file
 //! a person broke by hand is never written over with what an empty one would hold. A save never
@@ -11,7 +12,7 @@ use adapter_traits::{AgentHarness, Delivery, SecretVariable, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     RequestCollection, RequestEnvironmentWrite, RequestPlace, RequestSaved, RequestToSave,
-    Requests, RequestsFile, SavedRequest, WireError,
+    RequestVariable, Requests, RequestsFile, SavedRequest, WireError,
 };
 
 use super::files::{
@@ -27,6 +28,8 @@ use crate::run_memory::places;
 pub(super) const COLLECTION_REFUSED: &str = "fleet.request_collection_refused";
 /// An environment that breaks a rule. A 422.
 pub(super) const ENVIRONMENT_REFUSED: &str = "fleet.request_environment_refused";
+/// The person's own holds no environment of that name. A 404.
+pub(super) const NO_SUCH_ENVIRONMENT: &str = "fleet.no_such_request_environment";
 /// The Keychain would not keep, read or forget a secret. A 500.
 pub(super) const SECRET_UNKEPT: &str = "fleet.request_secret_unkept";
 
@@ -91,6 +94,40 @@ where
                 Some(held) => *held = environment,
                 None => own.environments.push(environment),
             }
+            self.own_requests_written(root, &own).await?;
+        }
+        self.requests_answer(root, job).await
+    }
+
+    /// `delete_request_environment`: the environment `name` out of the person's own, each
+    /// secret's Keychain item forgotten first, so the file never loses an environment whose
+    /// secrets the Keychain still holds.
+    pub(super) async fn request_environment_deleted(
+        &self,
+        root: &str,
+        job: Option<&str>,
+        name: &str,
+    ) -> Result<Requests, Refusal> {
+        {
+            let _one_save = SAVING.lock().await;
+            let mut own = self.own_requests_to_change(root).await?;
+            let Some(at) = own.environments.iter().position(|one| one.name == name) else {
+                return Err(Refusal::NotFound(WireError::raised(
+                    NO_SUCH_ENVIRONMENT,
+                    format!("Your requests for this repository hold no environment called {name}."),
+                    self.run_id(),
+                )));
+            };
+            let changes = own.environments[at]
+                .variables
+                .iter()
+                .filter_map(|variable| match variable {
+                    RequestVariable::Secret { name } => Some(SecretChange::Forget { name: name.clone() }),
+                    RequestVariable::Plain { .. } => None,
+                })
+                .collect();
+            self.secrets_changed(root, name, changes).await?;
+            own.environments.remove(at);
             self.own_requests_written(root, &own).await?;
         }
         self.requests_answer(root, job).await

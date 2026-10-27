@@ -471,7 +471,7 @@ pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
 pub use requests::{
-    Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
+    DeleteRequestEnvironment, Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
     RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,
     RequestToSave, RequestToSend, RequestVariable, Requests, RequestsFile, RequestsNotRead,
     SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SavedRequest,

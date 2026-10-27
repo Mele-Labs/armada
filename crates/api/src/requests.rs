@@ -95,6 +95,20 @@ pub(crate) async fn save_request_environment<D: Requests>(
     }
 }
 
+pub(crate) async fn delete_request_environment<D: Requests>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let delete: ipc::DeleteRequestEnvironment = match ipc::decode_body("an environment to delete", &body) {
+        Ok(delete) => delete,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().delete_request_environment(crate::acting::asking(), delete).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn save_request_to_collection<D: Requests>(
     State(served): State<Served<D>>,
     body: Bytes,
