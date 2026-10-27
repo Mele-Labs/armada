@@ -320,6 +320,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             <ClashMark kind={one.kind} id={one.id} />
           </span>
         )}
+        {one.linked?.rails?.map((rail) => <span key={rail} className="deck-list__rail" style={{ "--deck-rail": rail } as CSSProperties} aria-hidden />)}
       </li>
     );
   };

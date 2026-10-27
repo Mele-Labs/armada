@@ -218,6 +218,12 @@ test("a Job started from a Job that was itself started from another stands under
   expect(listed.map((one) => one.linked?.depth)).toEqual([undefined, 1, 2, undefined]);
 });
 
+test("a parent's line runs on past each of its Jobs but the last, and past their own Jobs to reach it", () => {
+  const all = [subject("session", "p"), { ...subject("session", "k"), linked: { parent: "session:p" } }, { ...subject("session", "g"), linked: { parent: "session:k" } }, { ...subject("session", "m"), linked: { parent: "session:p" } }];
+  const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => [one.key, one.linked?.rails])).toEqual([["session:p", undefined], ["session:k", [1]], ["session:g", [1]], ["session:m", undefined]]);
+});
+
 test("a loop of started Jobs is listed once each and never hangs the list", () => {
   const all = [{ ...subject("session", "a"), linked: { parent: "session:b" } }, { ...subject("session", "b"), linked: { parent: "session:a" } }, subject("session", "j")];
   const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());

@@ -400,14 +400,16 @@ function linkedUnder(rows: readonly Subject[]): Subject[] {
     const { linked: _gone, ...rest } = one;
     return rest;
   };
-  const tree = (one: Subject, depth: number): Subject[] => {
+  // `rails` are the levels whose line runs on past this row: a parent's, down to its next Job, at each level above.
+  const tree = (one: Subject, depth: number, rails: readonly number[]): Subject[] => {
     placed.add(one.key);
-    const row = depth === 0 || one.linked === undefined ? plain(one) : { ...one, linked: { ...one.linked, depth } };
-    return [row, ...rows.filter((child) => child.linked?.parent === one.key && !placed.has(child.key)).flatMap((child) => tree(child, depth + 1))];
+    const row = depth === 0 || one.linked === undefined ? plain(one) : { ...one, linked: { ...one.linked, depth, ...(rails.length === 0 ? {} : { rails }) } };
+    const kids = rows.filter((child) => child.linked?.parent === one.key && !placed.has(child.key));
+    return [row, ...kids.flatMap((child, at) => tree(child, depth + 1, at === kids.length - 1 ? rails : [...rails, depth + 1]))];
   };
-  const listedRows = rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => tree(one, 0));
+  const listedRows = rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => tree(one, 0, []));
   // Rows that started one another in a loop have no top to hang from: the first of them stands on its own, the rest under it.
-  return [...listedRows, ...rows.flatMap((one) => (placed.has(one.key) ? [] : tree(one, 0)))];
+  return [...listedRows, ...rows.flatMap((one) => (placed.has(one.key) ? [] : tree(one, 0, [])))];
 }
 
 /**
