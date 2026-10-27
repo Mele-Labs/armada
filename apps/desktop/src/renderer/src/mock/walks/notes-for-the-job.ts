@@ -19,6 +19,11 @@ const notesForTheJob = walk("shared-side-panel", [
   { look: inside(pull, role("group", "Notes for the job")), say: "Two notes wait, and one press sends them" },
   { press: inside(pull, button("Send to job")), say: "Both go to the Job as one numbered message" },
   { look: inside(pull, role("article", "Note for the job")), say: "The notes stay beside the lines, marked sent" },
+  { press: inside(pull, button(/^Note for the job on -\s+at: Instant,/)), say: "A third line, for a different Job" },
+  { type: "Check that nothing else reads this column.", into: inside(pull, note), say: "A third note" },
+  { press: inside(pull, button("Save note")), say: "Kept" },
+  { press: inside(pull, button("Send to a job")), say: "The caret lists the other running Jobs" },
+  { press: inside(role("menu", "Send to a job"), role("menuitem", "Cache key")), say: "Sent to that Job instead of the one holding the pull request" },
 ]);
 
 export { notesForTheJob as "notes-for-the-job" };
