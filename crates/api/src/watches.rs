@@ -92,6 +92,24 @@ pub(crate) async fn list_watches<D: Watches>(
     }
 }
 
+/// `?watch=&log=`: the watch, and the path one of its readings carries.
+#[derive(Deserialize)]
+pub(crate) struct ReadingWatchLog {
+    watch: String,
+    log: String,
+}
+
+pub(crate) async fn read_watch_log<D: Watches>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ReadingWatchLog>,
+) -> Response {
+    let read = ipc::ReadWatchLog { watch: asked.watch, log: asked.log };
+    match served.daemon().read_watch_log(crate::acting::asking(), read).await {
+        Ok(log) => answer(StatusCode::OK, &log, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn try_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let tried: ipc::TryWatch = match ipc::decode_body("a watch to try", &body) {
         Ok(tried) => tried,

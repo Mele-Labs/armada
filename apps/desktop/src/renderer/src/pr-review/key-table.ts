@@ -22,6 +22,9 @@ export const REVIEW_KEYS = {
   get lists() {
     return capOfSlot("review_lists", 0);
   },
+  get filter() {
+    return capOfSlot("review_filter", 0);
+  },
   get search() {
     return capOfSlot("review_search", 0);
   },

@@ -59,6 +59,10 @@ export class AccountsHost {
     return await this.act<HomeKinds>("POST", "/shared_home/kinds/set", { login, kind, on });
   }
 
+  async setHomeItem(row: HomeRowAt, on: boolean): Promise<AccountsActed<HomeKinds>> {
+    return await this.act<HomeKinds>("POST", "/shared_home/items/set", { ...row, on });
+  }
+
   async setHomeRepository(login: string, owner: string, name: string): Promise<AccountsActed<SharedHomeRead>> {
     return await this.act<SharedHomeRead>("POST", "/shared_home/repository", { login, owner, name });
   }

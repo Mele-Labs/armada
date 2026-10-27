@@ -1,4 +1,4 @@
-//! A repository's projects, kept in Fleet's store on this Mac. `docs/practices/protocol/projects.md`.
+//! His projects, kept in Fleet's store on this Mac, across repositories, and the tasks in none. `docs/practices/protocol/projects.md`.
 //!
 //! **An issue row keeps no state.** Whether it is open, and its title, are read from the tracker
 //! when the rows are: the open list Fleet holds for the Issues tab first, and an issue not on it read
@@ -6,7 +6,7 @@
 //! absent and refuses nothing, so a project is always listed. **A pull request linked to a task is read the
 //! same way**, from the forge by its number and held [`HELD_FOR`], and a forge that is silent leaves both absent.
 //!
-//! **Every write answers the repository's projects whole** and publishes them as `projects.changed`.
+//! **Every write answers his projects and the loose tasks whole** and publishes them as `projects.changed`.
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -16,19 +16,19 @@ use api::{Projects, Refusal};
 use core_model::Timestamp;
 use ipc::{
     IssueReference, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, NameProject,
-    Project, ProjectRow, ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue, TaskPull, TaskPullState,
-    TickProjectTask, WireError,
+    NewProjectIssue, NewProjectTask, Project, ProjectRow, ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue,
+    TaskPull, TaskPullState, TickProjectTask, WireError,
 };
-use store::{KeptHolder, KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState, Store};
+use store::{KeptHolder, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, Store, LOOSE_PROJECT};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::project_holds::subtasks_of;
 use crate::tracking::HELD_FOR;
 
-/// The repository has no project by that id. A 404.
+/// He has no project by that id. A 404.
 const NO_SUCH_PROJECT: &str = "fleet.no_such_project";
-/// The project has no row by that id. A 404.
+/// There is no row by that id. A 404.
 const NO_SUCH_ROW: &str = "fleet.no_such_project_row";
 /// A project's name or a task's title is blank. A 422.
 const BLANK: &str = "fleet.project_blank";
@@ -94,30 +94,37 @@ fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>)
     }
 }
 
-fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>, pulled: &BTreeMap<u64, PullSaid>) -> ProjectRow {
+/// What the trackers said of each issue, and the forges of each pull request, by repository.
+type SaidBy = BTreeMap<String, BTreeMap<String, Said>>;
+type PulledBy = BTreeMap<String, BTreeMap<u64, PullSaid>>;
+
+fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) -> ProjectRow {
+    let (said, pulled) = (said_by.get(&row.manifest_id), pulled_by.get(&row.manifest_id));
+    let manifest_id = ManifestId::carried(row.manifest_id);
     match row.item {
         KeptRowItem::Task { title, notes, state, parent, issues, pulls } => {
             let (state, held_by) = task_state(state);
             let issues = issues
                 .into_iter()
                 .map(|issue| {
-                    let read = said.get(&issue);
+                    let read = said.and_then(|said| said.get(&issue));
                     TaskIssue { title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state), issue }
                 })
                 .collect();
             let pulls = pulls
                 .into_iter()
                 .map(|number| {
-                    let read = pulled.get(&number);
+                    let read = pulled.and_then(|pulled| pulled.get(&number));
                     TaskPull { number, title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state) }
                 })
                 .collect();
-            ProjectRow::Task { id: row.id, title, notes, state, held_by, parent, issues, pulls }
+            ProjectRow::Task { id: row.id, manifest_id, title, notes, state, held_by, parent, issues, pulls }
         }
         KeptRowItem::Issue { reference } => {
-            let read = said.get(&reference);
+            let read = said.and_then(|said| said.get(&reference));
             ProjectRow::Issue {
                 id: row.id,
+                manifest_id,
                 title: read.map(|(_, title)| title.clone()),
                 state: read.map(|(state, _)| *state),
                 issue: reference,
@@ -126,32 +133,40 @@ fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>, pulled: &
     }
 }
 
-fn issue_references(kept: &[KeptProject]) -> Vec<String> {
-    let mut references: Vec<String> = kept
-        .iter()
-        .flat_map(|project| &project.rows)
-        .flat_map(|row| match &row.item {
-            KeptRowItem::Issue { reference } => vec![reference.clone()],
-            KeptRowItem::Task { issues, .. } => issues.clone(),
-        })
-        .collect();
-    references.sort_unstable();
-    references.dedup();
-    references
+fn rows_of(kept: &KeptProjects) -> impl Iterator<Item = &KeptProjectRow> {
+    kept.projects.iter().flat_map(|project| &project.rows).chain(&kept.loose)
 }
 
-fn pull_numbers(kept: &[KeptProject]) -> Vec<u64> {
-    let mut numbers: Vec<u64> = kept
-        .iter()
-        .flat_map(|project| &project.rows)
-        .flat_map(|row| match &row.item {
-            KeptRowItem::Task { pulls, .. } => pulls.clone(),
-            KeptRowItem::Issue { .. } => Vec::new(),
-        })
-        .collect();
-    numbers.sort_unstable();
-    numbers.dedup();
-    numbers
+/// The references of the issues linked in `kept`, by the repository each row is in.
+fn issue_references(kept: &KeptProjects) -> BTreeMap<String, Vec<String>> {
+    let mut by: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for row in rows_of(kept) {
+        let references = match &row.item {
+            KeptRowItem::Issue { reference } => vec![reference.clone()],
+            KeptRowItem::Task { issues, .. } => issues.clone(),
+        };
+        by.entry(row.manifest_id.clone()).or_default().extend(references);
+    }
+    for references in by.values_mut() {
+        references.sort_unstable();
+        references.dedup();
+    }
+    by
+}
+
+/// The numbers of the pull requests linked in `kept`, by the repository each row is in.
+fn pull_numbers(kept: &KeptProjects) -> BTreeMap<String, Vec<u64>> {
+    let mut by: BTreeMap<String, Vec<u64>> = BTreeMap::new();
+    for row in rows_of(kept) {
+        if let KeptRowItem::Task { pulls, .. } = &row.item {
+            by.entry(row.manifest_id.clone()).or_default().extend(pulls.iter().copied());
+        }
+    }
+    for numbers in by.values_mut() {
+        numbers.sort_unstable();
+        numbers.dedup();
+    }
+    by
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -172,34 +187,48 @@ where
         Refusal::Unacceptable(self.project_refusal(BLANK, said))
     }
 
-    pub(crate) fn project_in<'k>(&self, kept: &'k [KeptProject], project: &str) -> Result<&'k KeptProject, Refusal> {
-        kept.iter().find(|one| one.id == project).ok_or_else(|| {
-            Refusal::NotFound(self.project_refusal(NO_SUCH_PROJECT, format!("the repository has no project {project}")))
+    pub(crate) fn project_in<'k>(&self, kept: &'k KeptProjects, project: &str) -> Result<&'k store::KeptProject, Refusal> {
+        kept.projects.iter().find(|one| one.id == project).ok_or_else(|| {
+            Refusal::NotFound(self.project_refusal(NO_SUCH_PROJECT, format!("there is no project {project}")))
         })
     }
 
-    pub(crate) fn row_in<'k>(&self, kept: &'k [KeptProject], project: &str, row: &str) -> Result<&'k KeptProjectRow, Refusal> {
-        self.project_in(kept, project)?.rows.iter().find(|one| one.id == row).ok_or_else(|| {
-            Refusal::NotFound(self.project_refusal(NO_SUCH_ROW, format!("the project has no row {row}")))
-        })
+    /// The project a write puts a row in: the one named, [`LOOSE_PROJECT`] where none is.
+    fn project_named(&self, kept: &KeptProjects, project: Option<&str>) -> Result<String, Refusal> {
+        match project.filter(|one| !one.is_empty()) {
+            None => Ok(LOOSE_PROJECT.to_string()),
+            Some(one) => self.project_in(kept, one).map(|found| found.id.clone()),
+        }
     }
 
-    /// `row` of `project` where it is a task.
-    fn task_in(&self, kept: &[KeptProject], project: &str, row: &str) -> Result<(), Refusal> {
-        match self.row_in(kept, project, row)?.item {
+    /// Row `row` wherever it stands, and the project it is in ([`LOOSE_PROJECT`] for none).
+    pub(crate) fn row_in<'k>(&self, kept: &'k KeptProjects, row: &str) -> Result<(&'k str, &'k KeptProjectRow), Refusal> {
+        let found = kept
+            .projects
+            .iter()
+            .flat_map(|project| project.rows.iter().map(move |one| (project.id.as_str(), one)))
+            .chain(kept.loose.iter().map(|one| (LOOSE_PROJECT, one)))
+            .find(|(_, one)| one.id == row);
+        found.ok_or_else(|| Refusal::NotFound(self.project_refusal(NO_SUCH_ROW, format!("there is no row {row}"))))
+    }
+
+    /// `row` where it is a task.
+    fn task_in(&self, kept: &KeptProjects, row: &str) -> Result<(), Refusal> {
+        match self.row_in(kept, row)?.1.item {
             KeptRowItem::Task { .. } => Ok(()),
             KeptRowItem::Issue { .. } => Err(self.not_a_task(row)),
         }
     }
 
-    /// `row` of `project` as a task that may take subtasks: a top-level one.
-    fn top_level_task_in(&self, kept: &[KeptProject], project: &str, row: &str) -> Result<(), Refusal> {
-        match &self.row_in(kept, project, row)?.item {
+    /// `row` as a task that may take subtasks: a top-level one. Where it stands.
+    fn top_level_task_in<'k>(&self, kept: &'k KeptProjects, row: &str) -> Result<(&'k str, &'k KeptProjectRow), Refusal> {
+        let found = self.row_in(kept, row)?;
+        match &found.1.item {
             KeptRowItem::Issue { .. } => Err(self.not_a_task(row)),
             KeptRowItem::Task { parent: Some(_), .. } => {
                 Err(Refusal::Unacceptable(self.project_refusal(TOO_DEEP, format!("row {row} is a subtask, and a subtask has none"))))
             }
-            KeptRowItem::Task { .. } => Ok(()),
+            KeptRowItem::Task { .. } => Ok(found),
         }
     }
 
@@ -209,19 +238,18 @@ where
         )
     }
 
-    /// Moving `row` under the task `parent`: both written tasks, the parent top-level, and the row a
-    /// task with no subtasks of its own, which is not the parent itself.
-    fn moved_under(&self, kept: &[KeptProject], project: &str, row: &str, parent: &str) -> Result<(), Refusal> {
-        let moving = self.row_in(kept, project, row)?;
+    /// Moving `row` under the task `parent` of the project `into`: both written tasks, the parent
+    /// top-level and in that project, and the row a task with no subtasks of its own, which is not the parent itself.
+    fn moved_under(&self, kept: &KeptProjects, row: &str, parent: &str, into: &str) -> Result<(), Refusal> {
+        let (_, moving) = self.row_in(kept, row)?;
         if matches!(moving.item, KeptRowItem::Issue { .. }) {
             return Err(self.not_a_task(row));
         }
-        self.top_level_task_in(kept, project, parent)?;
-        let has_subtasks = self
-            .project_in(kept, project)?
-            .rows
-            .iter()
-            .any(|one| matches!(&one.item, KeptRowItem::Task { parent: Some(of), .. } if of == row));
+        let (home, _) = self.top_level_task_in(kept, parent)?;
+        if home != into {
+            return Err(Refusal::NotFound(self.project_refusal(NO_SUCH_ROW, format!("there is no row {parent} in that project"))));
+        }
+        let has_subtasks = subtasks_of(kept, row).next().is_some();
         if parent == row || has_subtasks {
             return Err(Refusal::Unacceptable(self.project_refusal(
                 TOO_DEEP,
@@ -246,10 +274,9 @@ where
         self.mint().ulid().as_str().to_lowercase()
     }
 
-    /// What the tracker says of each issue linked in `kept`, by reference. **Never refuses**: one
+    /// What the tracker of `manifest_id` says of each of `references`, by reference. **Never refuses**: one
     /// it could not say is left out, and the row draws without a state.
-    async fn issues_said(&self, manifest_id: &ManifestId, kept: &[KeptProject]) -> BTreeMap<String, Said> {
-        let references = issue_references(kept);
+    async fn issues_said(&self, manifest_id: &ManifestId, references: Vec<String>) -> BTreeMap<String, Said> {
         let mut said = BTreeMap::new();
         if references.is_empty() {
             return said;
@@ -290,11 +317,10 @@ where
         said
     }
 
-    /// What the forge says of each pull request linked in `kept`, by number. **Never refuses**: one it
+    /// What the forge of `manifest_id` says of each of `numbers`, by number. **Never refuses**: one it
     /// could not say is left out, and the task draws it without a title or a state.
-    async fn pulls_said(&self, manifest_id: &ManifestId, kept: &[KeptProject]) -> BTreeMap<u64, PullSaid> {
+    async fn pulls_said(&self, manifest_id: &ManifestId, numbers: Vec<u64>) -> BTreeMap<u64, PullSaid> {
         let mut said = BTreeMap::new();
-        let numbers = pull_numbers(kept);
         if numbers.is_empty() {
             return said;
         }
@@ -323,36 +349,36 @@ where
         said
     }
 
-    pub(crate) async fn projects_on_the_wire(&self, manifest_id: ManifestId, kept: Vec<KeptProject>) -> ipc::Projects {
-        let said = self.issues_said(&manifest_id, &kept).await;
-        let pulled = self.pulls_said(&manifest_id, &kept).await;
+    pub(crate) async fn projects_on_the_wire(&self, kept: KeptProjects) -> ipc::Projects {
+        let (mut said, mut pulled): (SaidBy, PulledBy) = (BTreeMap::new(), BTreeMap::new());
+        for (manifest, references) in issue_references(&kept) {
+            let read = self.issues_said(&ManifestId::carried(manifest.clone()), references).await;
+            said.insert(manifest, read);
+        }
+        for (manifest, numbers) in pull_numbers(&kept) {
+            let read = self.pulls_said(&ManifestId::carried(manifest.clone()), numbers).await;
+            pulled.insert(manifest, read);
+        }
+        let wire = |rows: Vec<KeptProjectRow>| rows.into_iter().map(|row| row_on_the_wire(row, &said, &pulled)).collect();
         ipc::Projects {
-            manifest_id,
-            projects: kept
-                .into_iter()
-                .map(|project| Project {
-                    id: project.id,
-                    name: project.name,
-                    rows: project.rows.into_iter().map(|row| row_on_the_wire(row, &said, &pulled)).collect(),
-                })
-                .collect(),
+            projects: kept.projects.into_iter().map(|project| Project { id: project.id, name: project.name, rows: wire(project.rows) }).collect(),
+            loose: wire(kept.loose),
         }
     }
 
-    /// `write` against the store, given the repository's projects as they were; then the projects
+    /// `write` against the store, given his projects as they were; then the projects
     /// as they are, answered and published.
-    async fn projects_written<F>(&self, manifest_id: ManifestId, write: F) -> Result<ipc::Projects, Refusal>
+    async fn projects_written<F>(&self, write: F) -> Result<ipc::Projects, Refusal>
     where
-        F: FnOnce(&mut Store, &[KeptProject]) -> Result<(), Refusal> + Send,
+        F: FnOnce(&mut Store, &KeptProjects) -> Result<(), Refusal> + Send,
     {
-        self.served_named(Some(&manifest_id))?;
         let kept = {
             let mut store = self.store().lock().await;
-            let before = store.projects(manifest_id.as_str()).map_err(|why| self.ledger_fault(why))?;
+            let before = store.projects().map_err(|why| self.ledger_fault(why))?;
             write(&mut store, &before)?;
-            store.projects(manifest_id.as_str()).map_err(|why| self.ledger_fault(why))?
+            store.projects().map_err(|why| self.ledger_fault(why))?
         };
-        let projects = self.projects_on_the_wire(manifest_id, kept).await;
+        let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects.clone()));
         Ok(projects)
     }
@@ -368,60 +394,45 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    async fn list_projects(&self, manifest_id: ManifestId) -> Result<ipc::Projects, Refusal> {
-        self.served_named(Some(&manifest_id))?;
-        let kept = self.store().lock().await.projects(manifest_id.as_str()).map_err(|why| self.ledger_fault(why))?;
-        Ok(self.projects_on_the_wire(manifest_id, kept).await)
+    async fn list_projects(&self) -> Result<ipc::Projects, Refusal> {
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        Ok(self.projects_on_the_wire(kept).await)
     }
 
-    async fn add_project(&self, manifest_id: ManifestId, name: NameProject) -> Result<ipc::Projects, Refusal> {
+    async fn add_project(&self, name: NameProject) -> Result<ipc::Projects, Refusal> {
         let name = name.name.trim().to_string();
         if name.is_empty() {
             return Err(self.blank("a project needs a name"));
         }
-        let (id, at, repository) = (self.minted(), self.now(), manifest_id.as_str().to_string());
-        self.projects_written(manifest_id, |store, _| {
-            store.add_project(&repository, &id, &name, at.as_str()).map_err(|why| self.ledger_fault(why))
-        })
-        .await
+        let (id, at) = (self.minted(), self.now());
+        self.projects_written(|store, _| store.add_project(&id, &name, at.as_str()).map_err(|why| self.ledger_fault(why))).await
     }
 
-    async fn rename_project(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        name: NameProject,
-    ) -> Result<ipc::Projects, Refusal> {
+    async fn rename_project(&self, project: String, name: NameProject) -> Result<ipc::Projects, Refusal> {
         let name = name.name.trim().to_string();
-        let repository = manifest_id.as_str().to_string();
-        self.projects_written(manifest_id, |store, kept| {
+        self.projects_written(|store, kept| {
             self.project_in(kept, &project)?;
             if name.is_empty() {
                 return Err(self.blank("a project needs a name"));
             }
-            store.rename_project(&repository, &project, &name).map(drop).map_err(|why| self.ledger_fault(why))
+            store.rename_project(&project, &name).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn delete_project(&self, manifest_id: ManifestId, project: String) -> Result<ipc::Projects, Refusal> {
-        let repository = manifest_id.as_str().to_string();
-        self.projects_written(manifest_id, |store, kept| {
+    async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
             self.project_in(kept, &project)?;
-            store.delete_project(&repository, &project).map(drop).map_err(|why| self.ledger_fault(why))
+            store.delete_project(&project).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn add_project_task(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        task: ProjectTask,
-    ) -> Result<ipc::Projects, Refusal> {
+    async fn add_project_task(&self, task: NewProjectTask) -> Result<ipc::Projects, Refusal> {
+        self.served_named(Some(&task.manifest_id))?;
         let id = self.minted();
-        self.projects_written(manifest_id, |store, kept| {
-            self.project_in(kept, &project)?;
+        self.projects_written(|store, kept| {
+            let project = self.project_named(kept, task.project.as_deref())?;
             let title = task.title.trim();
             if title.is_empty() {
                 return Err(self.blank("a task needs a title"));
@@ -434,21 +445,16 @@ where
                 issues: Vec::new(),
                 pulls: Vec::new(),
             };
-            store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
+            let row = KeptProjectRow { id, manifest_id: task.manifest_id.as_str().to_string(), item };
+            store.add_project_row(&project, &row).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn add_project_subtask(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        task: ProjectTask,
-    ) -> Result<ipc::Projects, Refusal> {
+    async fn add_project_subtask(&self, row: String, task: ProjectTask) -> Result<ipc::Projects, Refusal> {
         let id = self.minted();
-        self.projects_written(manifest_id, |store, kept| {
-            self.top_level_task_in(kept, &project, &row)?;
+        self.projects_written(|store, kept| {
+            let (project, parent) = self.top_level_task_in(kept, &row)?;
             let title = task.title.trim();
             if title.is_empty() {
                 return Err(self.blank("a task needs a title"));
@@ -461,194 +467,142 @@ where
                 issues: Vec::new(),
                 pulls: Vec::new(),
             };
-            store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
+            let subtask = KeptProjectRow { id, manifest_id: parent.manifest_id.clone(), item };
+            store.add_project_row(project, &subtask).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn link_task_issue(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        link: LinkProjectIssue,
-    ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
+    async fn link_task_issue(&self, row: String, link: LinkProjectIssue) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
             let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
-            store.link_task_issue(&project, &row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
+            store.link_task_issue(&row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn unlink_task_issue(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        link: LinkProjectIssue,
-    ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
+    async fn unlink_task_issue(&self, row: String, link: LinkProjectIssue) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
             let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
-            store.unlink_task_issue(&project, &row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
+            store.unlink_task_issue(&row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn link_task_job(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        link: LinkTaskJob,
-    ) -> Result<ipc::Projects, Refusal> {
-        let (session, repository) = (link.session_id.as_str().to_string(), manifest_id.as_str().to_string());
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
-            self.job_may_hold(store, &repository, &session)?;
-            let mut tasks = vec![(project.clone(), row.clone())];
-            tasks.extend(subtasks_of(self.project_in(kept, &project)?, &row).map(|sub| (project.clone(), sub)));
+    async fn link_task_job(&self, row: String, link: LinkTaskJob) -> Result<ipc::Projects, Refusal> {
+        let session = link.session_id.as_str().to_string();
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
+            self.job_may_hold(store, &self.row_in(kept, &row)?.1.manifest_id, &session)?;
+            let mut tasks = vec![row.clone()];
+            tasks.extend(subtasks_of(kept, &row));
             store.hold_project_tasks(&session, &tasks).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn unlink_task_job(&self, manifest_id: ManifestId, project: String, row: String) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
-            store.free_held_project_task(&project, &row).map(drop).map_err(|why| self.ledger_fault(why))
+    async fn unlink_task_job(&self, row: String) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
+            store.free_held_project_task(&row).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn link_task_pull(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        link: LinkTaskPull,
-    ) -> Result<ipc::Projects, Refusal> {
-        let repository = manifest_id.as_str().to_string();
+    async fn link_task_pull(&self, row: String, link: LinkTaskPull) -> Result<ipc::Projects, Refusal> {
         let projects = self
-            .projects_written(manifest_id.clone(), |store, kept| {
-                self.task_in(kept, &project, &row)?;
+            .projects_written(|store, kept| {
+                self.task_in(kept, &row)?;
                 if link.number == 0 {
                     return Err(self.unreadable_pull(link.number));
                 }
-                store.link_task_pull(&project, &row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
+                store.link_task_pull(&row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
             })
             .await?;
         // One that merged before it was linked asks now, once, as the sweep would have.
-        let merged = projects.projects.iter().flat_map(|one| &one.rows).find_map(|one| match one {
-            ProjectRow::Task { id, pulls, .. } if *id == row => {
-                pulls.iter().find(|pull| pull.number == link.number && pull.state == Some(TaskPullState::Merged))
-            }
+        let merged = projects.projects.iter().flat_map(|one| &one.rows).chain(&projects.loose).find_map(|one| match one {
+            ProjectRow::Task { id, manifest_id, pulls, .. } if *id == row => pulls
+                .iter()
+                .find(|pull| pull.number == link.number && pull.state == Some(TaskPullState::Merged))
+                .map(|pull| (manifest_id.as_str().to_string(), pull)),
             _ => None,
         });
         match merged {
-            Some(pull) if self.tasks_asked_by_linked_pull(&repository, link.number, pull.title.as_deref().unwrap_or_default()).await => {
-                self.list_projects(manifest_id).await
+            Some((repository, pull))
+                if self.tasks_asked_by_linked_pull(&repository, link.number, pull.title.as_deref().unwrap_or_default()).await =>
+            {
+                self.list_projects().await
             }
             _ => Ok(projects),
         }
     }
 
-    async fn unlink_task_pull(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        link: LinkTaskPull,
-    ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
-            store.unlink_task_pull(&project, &row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
+    async fn unlink_task_pull(&self, row: String, link: LinkTaskPull) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
+            store.unlink_task_pull(&row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn edit_project_task(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        task: ProjectTask,
-    ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
+    async fn edit_project_task(&self, row: String, task: ProjectTask) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
             let title = task.title.trim();
             if title.is_empty() {
                 return Err(self.blank("a task needs a title"));
             }
-            store
-                .edit_project_task(&project, &row, title, task.notes.trim())
-                .map(drop)
-                .map_err(|why| self.ledger_fault(why))
+            store.edit_project_task(&row, title, task.notes.trim()).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn link_project_issue(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        link: LinkProjectIssue,
-    ) -> Result<ipc::Projects, Refusal> {
+    async fn link_project_issue(&self, link: NewProjectIssue) -> Result<ipc::Projects, Refusal> {
+        self.served_named(Some(&link.manifest_id))?;
         let id = self.minted();
-        self.projects_written(manifest_id, |store, kept| {
-            self.project_in(kept, &project)?;
+        self.projects_written(|store, kept| {
+            let project = self.project_named(kept, link.project.as_deref())?;
             let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
             let item = KeptRowItem::Issue { reference: issue.as_str().to_string() };
-            store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
+            let row = KeptProjectRow { id, manifest_id: link.manifest_id.as_str().to_string(), item };
+            store.add_project_row(&project, &row).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn remove_project_row(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-    ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.row_in(kept, &project, &row)?;
-            store.remove_project_row(&project, &row).map(drop).map_err(|why| self.ledger_fault(why))
+    async fn remove_project_row(&self, row: String) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            self.row_in(kept, &row)?;
+            store.remove_project_row(&row).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn move_project_row(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        to: MoveProjectRow,
-    ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.row_in(kept, &project, &row)?;
+    async fn move_project_row(&self, row: String, to: MoveProjectRow) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(|store, kept| {
+            let (was, _) = self.row_in(kept, &row)?;
+            let into = match to.project.as_deref() {
+                Some(project) => self.project_named(kept, Some(project))?,
+                None => was.to_string(),
+            };
             if let Some(parent) = to.parent.as_deref().filter(|parent| !parent.is_empty()) {
-                self.moved_under(kept, &project, &row, parent)?;
+                self.moved_under(kept, &row, parent, &into)?;
             }
             store
-                .move_project_row(&project, &row, to.position as usize, to.parent.as_deref())
+                .move_project_row(&row, to.project.as_ref().map(|_| into.as_str()), to.position as usize, to.parent.as_deref())
                 .map(drop)
                 .map_err(|why| self.ledger_fault(why))
         })
         .await
     }
 
-    async fn tick_project_task(
-        &self,
-        manifest_id: ManifestId,
-        project: String,
-        row: String,
-        tick: TickProjectTask,
-    ) -> Result<ipc::Projects, Refusal> {
+    async fn tick_project_task(&self, row: String, tick: TickProjectTask) -> Result<ipc::Projects, Refusal> {
         let state = if tick.done { KeptTaskState::Done } else { KeptTaskState::Open };
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
-            store.set_project_task_state(&project, &row, state).map(drop).map_err(|why| self.ledger_fault(why))
+        self.projects_written(|store, kept| {
+            self.task_in(kept, &row)?;
+            store.set_project_task_state(&row, state).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }

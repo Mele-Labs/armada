@@ -1,6 +1,6 @@
 // Kit on a second machine against the shared home: the account and Sync in the band, a mark on each
-// row for how it stands, the acts a row that is on one side only offers, and the two versions of a
-// row that differs. Over `shared-home`.
+// row for how it stands, the acts an item's detail offers for one only in the home or one that differs,
+// and the two versions of a row that differs. Over `shared-home`.
 
 import { button, dialog, inside, region, role, text, toSystemPage, walk } from "../walk";
 
@@ -17,12 +17,12 @@ const sharedHome = walk("shared-home", [
   ...toSystemPage("Allowlist", "Allowlist"),
   { look: MARK("Allowlist", "Only on this machine"), say: "A command only this machine allows" },
   { look: MARK("Allowlist", "Only in the home"), say: "A command only the home has" },
-  { press: button("Add to the home git log --oneline"), say: "Add to the home" },
-  { press: button("Add to this machine gh run view"), say: "Add to this machine" },
-  { look: MARK("Allowlist", "Same as the home"), say: "Both settle to the same" },
+  { press: inside(region("Allowlist"), button(/^gh run view/)), say: "gh run view, only in the home" },
+  { press: inside(region("Detail"), button("Add to this machine")), say: "Add to this machine" },
+  { look: MARK("Allowlist", "Same as the home"), say: "It settles to the same" },
   ...toSystemPage("Instructions", "Instructions"),
-  { hover: button("Differs from the home, AGENTS.md"), say: "The global instructions differ" },
-  { press: button("Differs from the home, AGENTS.md"), say: "Open both versions" },
+  { press: MARK("Instructions", "Differs from the home"), say: "The global instructions differ" },
+  { press: inside(region("Detail"), button("Compare with the home")), say: "Open both versions" },
   { look: inside(dialog("AGENTS.md"), region("This machine")), say: "This machine's version" },
   { look: inside(dialog("AGENTS.md"), region("The home")), say: "The home's, with the lines that differ lit on each side" },
   { press: inside(dialog("AGENTS.md"), button(/^Use the home.s$/)), say: "Pick a side" },

@@ -108,7 +108,7 @@ describe("a repository's projects, carried whole by their event", () => {
   it("are passed on as the repository's projects and nothing of the event's kind", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
-    const projects = { manifest_id: "armada", projects: [{ id: "p1", name: "Pocket launch", rows: [{ kind: "task", id: "t1", title: "Pair a phone", notes: "", state: "open" }] }] };
+    const projects = { projects: [{ id: "p1", name: "Pocket launch", rows: [{ kind: "task", id: "t1", manifest_id: "armada", title: "Pair a phone", notes: "", state: "open" }] }], loose: [] };
     applyArrival({ ...host, projects: { changed } }, JSON.stringify({ message: "event", cursor: 5, event: { kind: "projects.changed", ...projects } }), FLEET);
     expect(changed).toHaveBeenCalledWith(projects);
   });

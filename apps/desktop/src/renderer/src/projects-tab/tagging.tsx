@@ -1,10 +1,12 @@
 // What a task is written with: the request box's `#` and `@` menus (`useAtMenu`, `SessionMenu`) on the projects' own
-// fields. `#` offers the repository's issues and pull requests, `@` its live Jobs. On Enter each tag the words still
-// carry becomes a link on the task, and its words leave the title: the card draws the link as a chip.
+// fields. `#` offers the repository's issues and pull requests, `@` its live Jobs and, once something follows it, its files.
+// On Enter each tag the words still carry becomes a link on the task, and its words leave the title: the card draws the link
+// as a chip. A file is the exception: tasks store no files, so `@path` stays in the title as written.
 
 import { useEffect, useId, useMemo, useRef, type ChangeEvent, type SyntheticEvent } from "react";
 import type { ComposerNumbered, ComposerTag, NumberedHit } from "@armada/components";
 
+import { searchFiles } from "../commands";
 import { SessionMenu, useAtMenu, type Offered } from "../dispatch-panel/SessionMenu";
 import { jobTitle } from "../issues-tab/marks";
 import { useIssues, useIssuesStore } from "../issues-tab/store";
@@ -62,7 +64,7 @@ export function useTagField(manifestId: string, words: string, onWords: (next: s
     latest.current = next;
     onWords(next);
   };
-  const at = useAtMenu(words, write, { sessions, numbered, onTag: (tag) => void chosen.current.push(tag) }, `projects-tag-${useId()}`);
+  const at = useAtMenu(words, write, { sessions, numbered, searchFiles: (query) => searchFiles(query, manifestId), onTag: (tag) => void chosen.current.push(tag) }, `projects-tag-${useId()}`);
 
   /** The words as a title, and the links their tags name. A tag typed by number, not picked, is read the same. */
   const resolve = (text: string): { title: string; links: TaskLinks } => {
@@ -94,8 +96,24 @@ export function useTagField(manifestId: string, words: string, onWords: (next: s
     };
   };
 
+  /** Writes `@` or `#` at the caret of the field, after a space if a word runs up to it, and opens that menu there. */
+  const insert = (field: HTMLTextAreaElement, trigger: "@" | "#") => {
+    const caret = field.selectionStart ?? words.length;
+    const before = words.slice(0, caret);
+    const lead = before === "" || /\s$/.test(before) ? "" : " ";
+    const landed = before.length + lead.length + 1;
+    write(`${before}${lead}${trigger}${words.slice(caret)}`);
+    // The new words reach the field on the next draw; the caret and the menu are read off them then.
+    window.requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(landed, landed);
+      at.evaluate(field);
+    });
+  };
+
   return {
     resolve,
+    insert,
     /** On the field: the menu reads its words, its caret and its keys. `onKeyDown` is true where the key was the menu's. */
     field: {
       "aria-haspopup": "listbox" as const,

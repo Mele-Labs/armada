@@ -78,9 +78,9 @@ pub struct StartSession {
     /// Not read with `fork`, `root` or `after`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub held: bool,
-    /// Rows of the repository's projects this Job starts with. **Each written task is held by the
+    /// Rows of his projects, or loose, this Job starts with. **Each written task is held by the
     /// Job** (`projects.changed`) and shows it; a linked issue row keeps no state and is only named,
-    /// so the brief can carry it. Refused 404 for a project or row that is not there and 422 for one
+    /// so the brief can carry it. Refused 404 for a row that is not there and 422 for one
     /// of another repository, before anything is made. Not read with `fork` or `root`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub project_rows: Vec<crate::ProjectRowRef>,
@@ -171,6 +171,9 @@ pub struct AnswerSessionAsk {
     /// [`crate::AnswerHelmCall::folder`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
+    /// [`crate::AnswerHelmCall::kind`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<crate::CallKind>,
 }
 
 /// `tune_session`: what the next turn runs on. An absent model or effort is the

@@ -119,6 +119,22 @@
   transition: background var(--duration-fast) var(--ease);
 }
 
+/* A row with a second line (a task, and what it is in) is as tall as its two lines need. */
+.armada-palette__row--detailed {
+  height: auto;
+  min-height: var(--h-menu-item);
+  padding-block: var(--space-1);
+}
+
+.armada-palette__detail {
+  display: block;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+}
+
 .armada-palette__row--active {
   background: var(--bg-hover);
 }

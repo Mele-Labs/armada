@@ -34,8 +34,7 @@ test("a task typed in the field is written through Fleet and is the top card onc
   await userEvent.keyboard("Draft the store text{Enter}");
 
   await expect.poll(() => write.mock.calls.length).toBe(1);
-  expect(write.mock.calls[0]!.slice(0, 2)).toEqual(["armada", "pocket-launch"]);
-  expect(write.mock.calls[0]![2]).toMatchObject({ title: "Draft the store text" });
+  expect(write.mock.calls[0]![0]).toMatchObject({ manifest_id: "armada", project: "pocket-launch", title: "Draft the store text" });
   await expect.element(pocket().getByRole("group", { name: "Draft the store text" })).toBeVisible();
 });
 
@@ -45,7 +44,7 @@ test("a task added elsewhere shows on the card list when Fleet publishes project
   const reread = vi.spyOn(app.api, "listProjects");
 
   // The same call another Bridge, or a Job through the MCP, would make: Fleet answers it and publishes the projects whole.
-  await app.api.addProjectTask("armada", "pocket-launch", { title: "Written by another Bridge" });
+  await app.api.addProjectTask({ manifest_id: "armada", project: "pocket-launch", title: "Written by another Bridge" });
 
   await expect.element(pocket().getByRole("group", { name: "Written by another Bridge" })).toBeVisible();
   // It arrived on the event: the tab did not read Fleet again to find it.
@@ -59,7 +58,7 @@ test("a tick on a card is written through Fleet", async () => {
   await userEvent.click(pocket().getByRole("checkbox", { name: "Done?: Write the install guide" }));
 
   await expect.poll(() => tick.mock.calls.length).toBe(1);
-  expect(tick.mock.calls[0]!.slice(0, 3)).toEqual(["armada", "pocket-launch", "task-guide"]);
+  expect(tick.mock.calls[0]!.slice(0, 1)).toEqual(["task-guide"]);
 });
 
 test("Dispatch starts the Job with the rows that were selected, and Fleet then shows it holding the task", async () => {
@@ -67,7 +66,9 @@ test("Dispatch starts the Job with the rows that were selected, and Fleet then s
   const card = () => pocket().getByRole("group", { name: "Test on a small phone" });
   expect(card().getByRole("button", { name: /^Open / }).query()).toBeNull();
 
-  await userEvent.click(page.getByRole("checkbox", { name: "Select Test on a small phone" }));
+  await userEvent.keyboard("{Meta>}");
+  await userEvent.click(card());
+  await userEvent.keyboard("{/Meta}");
   await userEvent.click(pocket().getByRole("button", { name: "Dispatch", exact: true }));
   const request = page.getByRole("textbox", { name: "Request" });
   await expect.element(request).toBeVisible();
@@ -93,8 +94,7 @@ test("a task filed from the palette on another page is written through Fleet and
   await userEvent.click(page.getByRole("option", { name: "Pocket launch" }));
 
   await expect.poll(() => write.mock.calls.length).toBe(1);
-  expect(write.mock.calls[0]!.slice(0, 2)).toEqual(["armada", "pocket-launch"]);
-  expect(write.mock.calls[0]![2]).toMatchObject({ title: "Check the pairing copy" });
+  expect(write.mock.calls[0]![0]).toMatchObject({ manifest_id: "armada", project: "pocket-launch", title: "Check the pairing copy" });
   await expect.element(page.getByRole("tab", { name: "Logbook" })).toHaveAttribute("aria-selected", "true");
 });
 
@@ -109,6 +109,8 @@ test("the done ask on the Job is answered in Needs you and the task card follows
   await userEvent.click(needs.getByRole("radio", { name: "Mark done", exact: true }));
   await userEvent.click(needs.getByRole("button", { name: "Answer" }));
 
+  // Done cards are hidden until he shows them, so the answered card leaves the list.
   await userEvent.click(tab());
-  await expect.element(page.getByRole("checkbox", { name: "Done: Sign the build" })).toBeVisible();
+  await expect.element(pocket()).toBeVisible();
+  await expect.element(pocket().getByRole("group", { name: "Sign the build" })).not.toBeInTheDocument();
 });

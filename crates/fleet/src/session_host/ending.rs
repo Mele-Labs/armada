@@ -112,6 +112,7 @@ where
         self.watches_ended_with(session).await;
         self.job_shell_wound_up(session);
         self.scratch_removed(session);
+        self.watch_logs_removed(session);
         self.project_tasks_freed(session).await;
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;
@@ -144,6 +145,7 @@ where
             state.turn = SessionTurn::Idle;
             state.moving = None;
             state.allowed_folders.clear();
+            state.allowed_kinds.clear();
         }
         // Out of the line if it was in it: an ended session is granted nothing.
         self.hosts().slot_queue().leave(&id);

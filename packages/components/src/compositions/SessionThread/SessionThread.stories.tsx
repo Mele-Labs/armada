@@ -292,6 +292,76 @@ export const HeldWithFleetsOffers: Story = {
   },
 };
 
+const LIKE_OFFERS = [
+  { id: "allow_once", label: "Allow once", means: "Runs it now. The next call outside its slots asks again." },
+  { id: "refuse", label: "Reject once", means: "Not run. The job is told no, and the next call asks again." },
+  { id: "always_allow", label: "Always allow", means: "Runs it now. Every job reads and writes in the folder chosen." },
+  { id: "allow_for_session", label: "Always allow for this job", means: "Runs it now. This job reads and writes in the folder chosen." },
+  { id: "allow_like_this_for_session", label: "Allow calls like this for this job", means: "Runs it, and every call of this kind until the job is closed." },
+  { id: "always_block", label: "Always block", means: "Not run. Every job is refused the folder chosen." },
+];
+
+const LIKE_ASKED = {
+  command: "node drive.mjs --out /Users/user/Desktop/shot.png",
+  offers: LIKE_OFFERS,
+  reaches: "/Users/user/Desktop/shot.png",
+  reachesTo: "write" as const,
+  kind: { program: "node", script: "drive.mjs" },
+};
+
+/** A Bash call reaching past its slots, with its kind: Calls like starts on the script, and its answer sends that kind. */
+export const CallsLikeThisStartsOnTheScript: Story = {
+  args: { rows: ROWS, asked: LIKE_ASKED },
+  play: async ({ canvas, args }) => {
+    const like = within(canvas.getByRole("group", { name: "Calls like" }));
+    await expect(like.getAllByRole("button").map((one) => one.textContent)).toEqual(["node", "drive.mjs"]);
+    await expect(like.getByRole("button", { name: "drive.mjs" })).toHaveAttribute("aria-pressed", "true");
+    await expect(like.getByRole("button", { name: "node" })).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(canvas.getByRole("button", { name: "Allow calls like this for this job" }));
+    await expect(args.onAnswer).toHaveBeenLastCalledWith("allow_like_this_for_session", undefined, undefined, { program: "node", script: "drive.mjs" });
+  },
+};
+
+/** A press on the program widens the kind to every call of it, and Only in narrows it to the folder picked above. */
+export const CallsLikeThisWidensAndNarrows: Story = {
+  args: { rows: ROWS, asked: LIKE_ASKED },
+  play: async ({ canvas, args }) => {
+    const like = within(canvas.getByRole("group", { name: "Calls like" }));
+    await userEvent.click(like.getByRole("button", { name: "node" }));
+    await expect(like.getByRole("button", { name: "node" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "Allow calls like this for this job" }));
+    await expect(args.onAnswer).toHaveBeenLastCalledWith("allow_like_this_for_session", undefined, undefined, { program: "node" });
+    await userEvent.click(within(canvas.getByRole("group", { name: "Folder for always" })).getByRole("button", { name: "Desktop" }));
+    const only = canvas.getByRole("switch", { name: "Only in Desktop" });
+    await expect(only).not.toBeChecked();
+    await userEvent.click(only);
+    await userEvent.click(canvas.getByRole("button", { name: "Allow calls like this for this job" }));
+    await expect(args.onAnswer).toHaveBeenLastCalledWith("allow_like_this_for_session", undefined, "/Users/user/Desktop", { program: "node" });
+  },
+};
+
+/** A kind with no script draws the program alone, already chosen. */
+export const CallsLikeThisProgramAlone: Story = {
+  args: { rows: ROWS, asked: { ...LIKE_ASKED, kind: { program: "rm" }, command: "rm /Users/user/Desktop/shot.png" } },
+  play: async ({ canvas, args }) => {
+    const like = within(canvas.getByRole("group", { name: "Calls like" }));
+    await expect(like.getAllByRole("button").map((one) => one.textContent)).toEqual(["rm"]);
+    await expect(like.getByRole("button", { name: "rm" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "Allow calls like this for this job" }));
+    await expect(args.onAnswer).toHaveBeenLastCalledWith("allow_like_this_for_session", undefined, undefined, { program: "rm" });
+  },
+};
+
+/** A reach card with no kind: the folder answers, and no Calls like row. */
+export const CallsLikeThisAbsentWithNoKind: Story = {
+  args: { rows: ROWS, asked: (({ kind: _, ...bare }) => bare)(LIKE_ASKED) },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("group", { name: "Folder for always" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("group", { name: "Calls like" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Allow calls like this for this job" })).toBeNull();
+  },
+};
+
 /** The agent asking the person: options and Other, a multi-select, and Answer held until each has something. */
 export const Questions: Story = {
   args: {

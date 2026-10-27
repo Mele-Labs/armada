@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { CallKind, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -721,6 +721,10 @@ export class WiredStore {
     confirmLater: (id, later) => void this.plain(this.api.confirmLater({ session_id: id, id: later })),
     stopWatch: (id, watch) => void this.plain(this.api.stopWatch({ session_id: id, watch })),
     deleteWatch: (id, watch) => void this.plain(this.api.deleteWatch({ session_id: id, watch })),
+    readWatchLog: async (watch, log) => {
+      const read = await this.api.readWatchLog({ watch, log });
+      return read.ok ? { ok: true, text: read.value.text } : { ok: false, said: refusalWords(read.outcome) };
+    },
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),
@@ -842,7 +846,7 @@ export class WiredStore {
       const request = { session_id: id, item_id: itemId, ...given };
       return this.plain(this.api.answerWaiting(request), { act: "answer_waiting", request });
     },
-    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => {
+    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => {
       const asked = this.lookup(id)?.asked;
       const call = asked?.call;
       if (call === undefined) return;
@@ -852,9 +856,10 @@ export class WiredStore {
         answer: answer ?? "allow_once",
         ...(answers === undefined ? {} : { answers }),
         ...(folder === undefined ? {} : { folder }),
+        ...(kind === undefined ? {} : { kind }),
       };
       // What the card put to him, so a refusal can be read against it.
-      const card = { ask: asked?.command, ask_reaches: asked?.reaches, ask_reaches_to: asked?.reachesTo, ask_offers: asked?.offers?.join(",") };
+      const card = { ask: asked?.command, ask_reaches: asked?.reaches, ask_reaches_to: asked?.reachesTo, ask_kind: asked?.kind, ask_offers: asked?.offers?.join(",") };
       void this.plain(this.api.answerSessionAsk(request), { act: "answer_session_ask", request, card });
     },
     };

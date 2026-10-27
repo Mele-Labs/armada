@@ -108,24 +108,27 @@ t              show the timeline   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
 l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
 L              open the lists   (review only)
-/              Natural Search   (review only)
+/              search the pull requests   (review only)
+N              Natural Search   (review only)
 Q              go to the quick actions   (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
 l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
-/              describe a query   (issues only)
+/              search the issues   (issues only)
+D              describe a query   (issues only)
 s              start a Job on the issue   (issues only)
-l r            go to a part of Projects: the list, the project   (projects only)
+l r            go to a part of Projects: the left column, the cards   (projects only)
+/              search the tasks   (projects only)
+1 2 3          show all tasks, the ones Fleet asks about, the ones a Job holds   (projects only)
+h              show or hide done tasks   (projects only)
 N              new project   (projects only)
 a              add a task   (projects only)
 A              add a subtask   (projects only)
-i              link   (projects only)
-I              link to the task   (projects only)
 Backspace      delete or unlink   (projects only)
 ⌥↑ ⌥↓          move the row up or down   (projects only)
-Space / x      select the row   (projects only)
+Space / x      select the card   (projects only)
 Enter          edit the title   (projects only)
 o              open the Job   (projects only)
 u              unlink the Job   (projects only)
@@ -174,22 +177,28 @@ Its keys answer wherever focus is on the plan card or in the plan in full.
 `j`, `k` and the arrows move between the findings not yet acted on, in the order the plan draws them; `Enter` sends the one in focus to the agent and `d` or Backspace dismisses it.
 They stand down in a text field.
 
+**System, Projects, Reviews and Issues share one search bar,** `SearchField` in `packages/components`: "Search" with the key drawn inside it, Esc clearing the words and a second Esc leaving it.
+Its key is `/` on each page, and on a page with nothing focused the bar takes it.
+
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
 any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,
-`L` opens the lists, `/` is Natural Search, `Q` the quick actions, `A` the question box, `D` the
+`L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the quick actions, `A` the question box, `D` the
 description and `W` the places changes run. They stand down in a text field and while a dialog is up.
 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
-list does; `l r` go to the list and the reader, `L` opens the queries, `/` describes a query and `s`
+list does; `l r` go to the list and the reader, `L` opens the queries, `/` goes to the search bar that narrows the loaded rows, `D` describes a query and `s`
 starts a Job on the open issue. They stand down in a text field and while a dialog is up.
 
 **The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through
-the list of projects and through the cards, subtasks included, and the search's results; `l r` go to the list and the
-cards. In the list, `Enter` opens a project, `N` names a new one, `e` renames the focused one and Backspace deletes it.
-On a card, Space or `x` selects it, `Enter` edits a task's title in place, `d` ticks a task, `a` goes to the field that
-adds a task and `A` opens one for a subtask inside the focused card, `i` links an issue, a Job or a pull request to the
-project and `I` to the focused task, `o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
-Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected,
+the three views, the projects, the repositories and the cards, subtasks included; `l r` go to the left column and the
+cards, `/` goes to the search field above the views and `1 2 3` show the three views.
+In the search field, ↓ goes to the first result and Esc clears the words and goes back to the view that was open.
+In the column, `Enter` opens a view, a project or a repository, `N` names a new
+project, `e` renames the focused project and Backspace deletes it. `h` shows or hides the done tasks. A ⌘-click on a card selects it and a
+⇧-click selects the range from the card last clicked. On a card, Space or `x` selects it, `Enter` edits a task's title in
+place, `d` ticks a task, `a` goes to the field that adds a task and `A` opens one for a subtask inside the focused card,
+`o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
+Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected, a request for each repository, or the focused one (a subtask on its own, with its parent as context),
 and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
 field and while a dialog is up.
 
@@ -380,12 +389,16 @@ sheet holding them. The sheet reads the repository from them and asks in its own
 
 **What is typed can also be added to Projects.**
 The query offers a Task and a Project beside the dispatch rows, and Tab to either moves it to the top so ↵ adds.
-A Task then picks its project, and a Project on All asks which repository.
+A Task then picks its project, or none, and goes to the repository the last task did. A Project is his and asks for no repository.
 What a project is: [Project](../../concepts/project.md).
+
+**Any task is found by its title.**
+Tasks and subtasks of the Projects tab are listed while something is typed, in a Tasks block after the Jobs, each with its project or No project and its repository on a quiet second line.
+Choosing one goes to the Projects tab on that task's project, or All tasks for a task in no project, shows done tasks if it is done, and scrolls its card into view with the focus on it.
 
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, sessions by any word of the title or by id,
-settings. Only work in hand is listed: a Job that is not over, a Session
+tasks by title (while something is typed), settings. Only work in hand is listed: a Job that is not over, a Session
 that is live.
 
 **The palette obeys the lexicon.** Displayed labels always use the

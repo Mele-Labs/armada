@@ -57,6 +57,8 @@ const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
 /// An "always" answer naming no folder, or one that does not hold the path asked about. A 422.
 const SESSION_ANSWER_NOT_A_FOLDER: &str = "fleet.session_answer_not_a_folder";
+/// A "like this" answer naming neither the ask's kind nor its program alone. A 422.
+const SESSION_ANSWER_NOT_ITS_KIND: &str = "fleet.session_answer_not_its_kind";
 /// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
 /// one, so no new kind of row reaches Bridge.
 pub(crate) const FLEET_NAME: &str = "Fleet";
@@ -223,6 +225,7 @@ where
             note: said.note,
             answers: said.answers,
             folder: said.folder,
+            kind: said.kind,
         };
         self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
@@ -238,6 +241,11 @@ where
                 NotAnswerable::NotAFolderAbove => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_NOT_A_FOLDER,
                     "an always answer names the folder it is for: the path asked about or one above it",
+                    self.run_id(),
+                )),
+                NotAnswerable::NotItsKind => Refusal::Unacceptable(WireError::raised(
+                    SESSION_ANSWER_NOT_ITS_KIND,
+                    "a like this answer names the ask's own program and script, or its program alone",
                     self.run_id(),
                 )),
                 _ => self.ask_not_waiting(),

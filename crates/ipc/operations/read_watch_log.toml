@@ -1,0 +1,10 @@
+[operations.read_watch_log]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Read the log a failed or broken reading of a watch kept, whole"
+notes = """
+`GET /watches/log?watch=&log=`: `watch` its id, and `log` the path one of its kept readings carries as `WatchReading.log`. Answers 200 with a `WatchLog`: `watch`, `log` and `text`, the file whole, which holds the run's stdout and stderr, as much as the run captured. A path no kept reading of the watch carries, or a file no longer there, is a 404 `fleet.no_such_watch_log`; a watch nothing holds is a 404 `fleet.no_such_watch`.
+
+**Bridge only.** The agent reads the file at the path itself; the side panel cannot, since Bridge's main process opens only files a Job's ledger names.
+"""

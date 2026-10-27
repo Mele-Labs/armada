@@ -68,7 +68,7 @@ Below the row's narrow width the other controls are listed in the menu, and the 
 | Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘4` |
 | Reviews | The pull requests waiting on him | `⌘5` |
 | Issues | A repository's tracker | `⌘6` |
-| Projects | His own projects and their tasks, per repository | `⌘7` |
+| Projects | His own projects and their tasks, across repositories | `⌘7` |
 | System | The System page last used, Kit where none has been | `⌘8` |
 
 The keys above are the tabs' places when every tab is drawn.

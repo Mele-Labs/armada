@@ -10,9 +10,9 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 const list = () => page.getByRole("region", { name: "Jobs", exact: true });
-const headings = () => [...document.querySelectorAll(".deck-list__repository")].map((one) => one.textContent);
+const headings = () => [...document.querySelectorAll(".deck-list__head")].map((one) => one.textContent);
 const drawn = (heading: string) => {
-  const band = [...document.querySelectorAll(".deck-list__band")].find((one) => one.querySelector(".deck-list__repository")?.textContent === heading);
+  const band = [...document.querySelectorAll(".deck-list__band")].find((one) => one.querySelector(".deck-list__head")?.textContent === heading);
   return [...(band?.querySelectorAll("[data-row]") ?? [])].map((one) => one.getAttribute("aria-label"));
 };
 const keys = () => [...document.querySelectorAll(".deck-list [data-row]")].map((one) => one.getAttribute("data-row")!);

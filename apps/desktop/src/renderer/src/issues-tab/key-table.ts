@@ -18,6 +18,9 @@ export const ISSUES_KEYS = {
   get queries() {
     return capOfSlot("issues_queries", 0);
   },
+  get search() {
+    return capOfSlot("issues_search", 0);
+  },
   get describe() {
     return capOfSlot("issues_describe", 0);
   },

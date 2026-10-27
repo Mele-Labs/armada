@@ -25,14 +25,17 @@ async function parent() {
   await expect.element(page.getByRole("region", { name: `Job: ${PARENT}` })).toBeVisible();
 }
 
-test("in Work each linked Session stands right under its parent, led by link and naming its group", async () => {
+test("in Work each linked Session stands right under its parent, at any depth, led by link and naming its group", async () => {
   await parent();
   const rows = [...document.querySelectorAll<HTMLElement>("[data-row]")];
   const at = rows.findIndex((one) => one.getAttribute("aria-label") === PARENT);
   expect(at).toBeGreaterThanOrEqual(0);
-  const under = rows.slice(at + 1, at + 4);
-  expect(under.map((one) => one.getAttribute("aria-label"))).toEqual(["Migrations get names", "Migrations apply in order", "One row for each migration"]);
+  const under = rows.slice(at + 1, at + 5);
+  // The Job the second child started stands under that child, a step further in.
+  expect(under.map((one) => one.getAttribute("aria-label"))).toEqual(["Migrations get names", "Migrations apply in order", "Sort names that share a prefix", "One row for each migration"]);
   expect(under.every((one) => one.hasAttribute("data-linked"))).toBe(true);
+  const step = (one: HTMLElement) => parseFloat(getComputedStyle(one.closest("li")!).marginInlineStart);
+  expect(step(under[2]!)).toBeGreaterThan(step(under[1]!));
   await expect.element(work().getByLabelText("Linked Job, handed from Name the migrations")).toBeVisible();
 });
 

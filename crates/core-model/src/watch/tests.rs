@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use super::*;
 
 fn part(name: &str, state: ReadingState) -> Part {
-    Part { name: name.to_string(), state }
+    Part::new(name.to_string(), state)
 }
 
 fn reading(state: ReadingState, finished: bool, parts: Vec<Part>) -> Reading {
@@ -27,6 +27,10 @@ fn the_words_round_trip_and_an_unknown_one_is_none() {
         assert_eq!(ReadingState::from_wire(state.as_wire()), Some(*state));
     }
     assert_eq!(ReadingState::from_wire("success"), None);
+    for state in WatchState::ALL {
+        assert_eq!(WatchState::from_wire(state.as_wire()), Some(*state));
+    }
+    assert_eq!(WatchState::from_wire("not_ours"), Some(WatchState::NotOurs));
 }
 
 /// Spike 36: a run reads `failed` overall while the parts that deploy the change still run.
@@ -59,10 +63,48 @@ fn a_part_set_aside_no_longer_counts() {
     let other = reading(Failed, true, vec![part("unit-tests-other", Failed), part("deploy-api", Passed)]);
     assert_eq!(counted_state(&other, &[]), Failed);
     assert_eq!(counted_state(&other, &[aside("unit-tests-other")]), Passed);
-    assert!(ends_passed(&other, &[aside("unit-tests-other")]));
 
     let all_aside = reading(Failed, true, vec![part("flaky", Failed)]);
     assert_eq!(counted_state(&all_aside, &[aside("flaky")]), Passed, "nothing that counts failed");
+}
+
+/// The QA deploy that read green: `build` passed, `provision` failed and was set aside.
+#[test]
+fn a_set_aside_part_that_failed_ends_not_ours_and_never_passed() {
+    use ReadingState::*;
+    let deploy = reading(Failed, true, vec![part("build", Passed), part("provision", Failed)]);
+    let set = [aside("provision")];
+    assert_eq!(watch_state_of(&deploy, &set), WatchState::NotOurs);
+    assert!(!ends_passed(&deploy, &set));
+    assert!(ends_on(&deploy, &set));
+    assert_eq!(set_aside_failing(&deploy, &set), vec!["provision"]);
+
+    let all_aside = reading(Failed, true, vec![part("provision", Failed)]);
+    assert_eq!(watch_state_of(&all_aside, &set), WatchState::NotOurs, "an empty set of counted parts is no pass");
+
+    let still_going = reading(Failed, false, vec![part("build", Passed), part("provision", Failed)]);
+    assert_eq!(watch_state_of(&still_going, &set), WatchState::NotOurs, "never green mid-run either");
+    assert!(!ends_on(&still_going, &set));
+}
+
+#[test]
+fn a_set_aside_part_that_passes_on_a_retry_blocks_nothing() {
+    use ReadingState::*;
+    let mut one = watch();
+    one.set_aside = vec![aside("provision")];
+    one.reported = vec!["provision".to_string()];
+    assert_eq!(one.read(reading(Failed, false, vec![part("build", Passed), part("provision", Failed)])), WatchState::NotOurs);
+    assert!(one.live);
+    assert_eq!(one.read(reading(Passed, true, vec![part("build", Passed), part("provision", Passed)])), WatchState::Passed);
+    assert!(!one.live);
+}
+
+#[test]
+fn a_counted_failure_still_fails_beside_a_set_aside_one() {
+    use ReadingState::*;
+    let both = reading(Failed, true, vec![part("build", Failed), part("provision", Failed)]);
+    assert_eq!(watch_state_of(&both, &[aside("provision")]), WatchState::Failed);
+    assert!(!ends_on(&both, &[aside("provision")]), "a failure waits for the agent's verdict");
 }
 
 #[test]
@@ -90,9 +132,11 @@ fn not_ours_sets_parts_aside_and_counts_again() {
     assert_eq!(one.state, WatchState::Failed);
 
     let verdict = Verdict::NotOurs { sentence: "another service".to_string(), parts: vec!["unit-tests-other".to_string()] };
-    assert_eq!(one.weigh(verdict), Ok(WatchState::Passed));
-    assert!(!one.live, "the last reading was finished, so it ends passed");
+    assert_eq!(one.weigh(verdict), Ok(WatchState::NotOurs));
+    assert!(!one.live, "the last reading was finished, so it ends, and not passed");
     assert_eq!(one.set_aside, vec![SetAside { part: "unit-tests-other".to_string(), sentence: "another service".to_string() }]);
+    let last = one.last.as_ref().map(|last| last.parts.iter().map(|part| part.state).collect::<Vec<_>>());
+    assert_eq!(last, Some(vec![Failed, Passed]), "the reading keeps its real state");
 }
 
 #[test]

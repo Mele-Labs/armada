@@ -71,7 +71,6 @@ async fn a_plan_recorded_while_a_page_changes_waits_until_the_job_shows_it_again
     let id = rig.start().await;
     page(&rig, &id, ONE).await;
     later().await;
-    rig.send(&id, &format!("Approved: {ONE}")).await;
     told(&rig, &id, SessionFact::Wrote).await;
 
     record(&rig, &id, None).await;
@@ -98,7 +97,7 @@ async fn a_plan_recorded_while_a_page_changes_waits_until_the_job_shows_it_again
     assert!(item.since > shown && item.since > record.plan.expect("a plan").recorded_at, "later than the re-show and the recording");
 
     told(&rig, &id, SessionFact::Wrote).await;
-    assert!(call(&rig, &id).await.is_none(), "changing the page again takes it back");
+    assert!(call(&rig, &id).await.is_some(), "his Approve stands until the page is shown again");
 }
 
 #[tokio::test]
@@ -132,6 +131,30 @@ async fn a_plan_naming_a_walk_is_asked_only_after_his_approve_on_it() {
     rig.send(&id, &format!("Approved: {ONE}")).await;
     let item = call(&rig, &id).await.expect("approved, so it is asked");
     assert!(item.since.as_str() > read(&rig, &id).await.plan.expect("a plan").recorded_at.as_str());
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert!(call(&rig, &id).await.is_none(), "shown again, it is to be approved again");
+}
+
+/// Job 887f02f4, 27 Oct 2026: the plan named the walk, he approved it, and six seconds later the Job
+/// edited its design document. The card went back on hold and never reached him.
+#[tokio::test]
+async fn an_approved_walk_holds_nothing_while_the_job_goes_on_editing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    record(&rig, &id, Some(ONE)).await;
+    later().await;
+    page(&rig, &id, ONE).await;
+    later().await;
+    rig.send(&id, &format!("Approved: {ONE}")).await;
+    assert!(call(&rig, &id).await.is_some(), "approved, so it is asked");
+
+    told(&rig, &id, SessionFact::Wrote).await;
+    assert!(call(&rig, &id).await.is_some(), "a file written while the turn runs takes nothing back");
+    told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
+    assert!(call(&rig, &id).await.is_some(), "nor once the turn ends");
+    assert!(read(&rig, &id).await.plan.expect("a plan").held_by.is_empty());
 
     later().await;
     page(&rig, &id, ONE).await;
@@ -223,14 +246,11 @@ async fn a_plan_is_asked_at_his_last_approve_however_many_windows_the_job_showed
     record(&rig, &id, None).await;
     fixed(&rig, &id).await;
     assert!(call(&rig, &id).await.is_none());
-    let mut held = read(&rig, &id).await.plan.expect("a plan").held_by;
-    held.sort_by(|a, b| a.url.cmp(&b.url));
     assert_eq!(
-        held,
-        [(THREAD, ipc::PlanHoldWhy::Changed), (AT_SCALE, ipc::PlanHoldWhy::Changed)]
-            .map(|(url, why)| ipc::PlanHold { url: url.into(), why }),
-        "the window on his screen was changed after his Approve, and Many workspaces was never approved; \
-         the replaced Header and remember-where windows, and the approved menu and pick windows, hold nothing"
+        read(&rig, &id).await.plan.expect("a plan").held_by,
+        [ipc::PlanHold { url: AT_SCALE.into(), why: ipc::PlanHoldWhy::Changed }],
+        "Many workspaces was never approved; the replaced Header and remember-where windows, and the \
+         approved menu, pick and Thread windows, hold nothing, though the Job wrote after his Approves"
     );
 
     window(&rig, &id, &[FIRST_RUN, NEW, CLAUDE, MENU, AT_SCALE]).await;
@@ -357,6 +377,7 @@ async fn his_answer_to_the_jobs_question_is_not_words_on_the_walk() {
             note: None,
             answers: vec![QuestionAnswer { question: "Save where?".into(), chosen: vec!["This Mac".into()] }],
             folder: None,
+            kind: None,
         })
         .await
         .expect("answered");

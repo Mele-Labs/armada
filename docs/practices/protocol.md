@@ -177,7 +177,7 @@ WebSocket event stream, read this first.
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
-| [Projects: tasks and linked issues, per repository](protocol/projects.md) |
+| [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -851,6 +851,25 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 | `list_watches` (`GET /watches?session_id=&ended=`) | Bridge or an agent reads | Live watches only, unless `ended=true`. Any value but `true` or `false` is a 400 `api.undecodable_request`. Bridge asks for ended ones, as `watches.changed` carries them whole |
 
 **The store keeps every reading.** Only the answer collapses them, in `ipc::collapsed`.
+
+### A watch that ended not ours: `not_ours` and `watch_not_ours`
+
+Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WatchState` (`WatchSummary.state`) | Fleet writes | Gains `not_ours`: every counted part passed while a part set aside still reads `failed`. An end once the reading is finished; never `passed`. The readings keep their own states |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes | Gains `watch_not_ours`: id `watch_not_ours:<watch id>`, text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id, options `Ignore` (choice 0) and `Fix it` (choice 1). Derived on every read from the store's watch, while the Job is live |
+| `answer_waiting` on it | Bridge writes | `Ignore` settles it and sends nothing; `Fix it` sends the agent the parts, each sentence and the link, then settles it; words alone are a message to the agent. `dismiss_waiting` settles it too |
+
+| `weigh_watch` `not_ours` | An agent writes | Gains `evidence?`, `{ links[]?, logs[]?, errors[]? }`: links to what was watched, log files the agent saved, and the exact error lines. Refused with `ours`. Kept with the verdict, blank entries dropped |
+| `read_watch_log` (`GET /watches/log?watch=&log=`, `agent_access = "No"`) | Bridge reads | `ReadWatchLog` `{ watch, log }`; answers `WatchLog` `{ watch, log, text }`, the file whole. Only a path a kept reading of that watch carries is read; any other is a 404 `fleet.no_such_watch_log`. Bridge's main process opens only files a Job's ledger names, so the side panel reads a log through Fleet |
+| `WatchVerdictGiven.evidence` | Fleet writes | The same, on the verdict as kept; absent where it carried none |
+| `WatchPart` | Fleet writes | Gains `link?`, `error?` and `tail?`: where to look at the part, the exact lines it failed on, and the last lines of its own log, as the command's line gave them. The line's `parts[]` takes the same three, so a hand-written command can give them |
+| `WatchReading.log` | Fleet writes | Both kinds gain `log?`: the path of a file under Fleet's state holding the whole stdout and stderr of a run that failed or broke, as much as the run captured (the last 64 KiB of each stream), its first line saying when either was cut. A run of readings carries its last one's. Deleting the watch, or the Job ending, deletes the file |
+
+**No new field on the item.** Bridge reads the watch from `watches.changed` by the act's `target`, so Escalate's summary is drawn from what the session already holds and nothing reaches Fleet.
+**The event stream.** No new event: the Job's row is published again when a watch ends, a weighing that ends one included, so the item arrives with it.
 
 ## Not a question: `misread` on `dismiss_waiting`
 

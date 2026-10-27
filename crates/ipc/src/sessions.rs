@@ -219,10 +219,21 @@ pub enum SessionFact {
     },
     /// The agent left plan mode (`ExitPlanMode`).
     PlanLeft,
-    /// A `git commit` ran and its output showed a commit made. `branch` is the one that output named.
+    /// A `git commit` ran and its output showed a commit made. `branch` is the one that output named;
+    /// `commit` its short hash and `subject` its first line, empty from a mod before 0.3.46.
     Committed {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         branch: Option<String>,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        commit: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        subject: String,
+    },
+    /// The session's own agent made `calls` more tool calls since the last of these, not its subagents'.
+    /// Told every ten by a terminal session's mod; Fleet counts a hosted session's itself and reads
+    /// none of these from it. Since mod 0.3.46.
+    Calls {
+        calls: u32,
     },
     /// A `git push` ran and its output showed a ref updated. `branch` is the one that output named.
     Pushed {
@@ -656,6 +667,13 @@ pub enum WaitingSource {
     /// dismissed. Listed only while the Job is live: the ask stands on the tasks when it ends, and the
     /// Projects tab settles it.
     TaskDone,
+    /// Fleet: a watch of the Job ended `not_ours`. Derived on every read from the store's watch: id
+    /// `watch_not_ours:<watch id>`, text `<watch>: <parts> failed`, an `answer` act whose `target` is
+    /// the watch id, and exactly two options, `Ignore` (choice 0) and `Fix it` (choice 1), labels only.
+    /// `Ignore` settles it and tells the agent nothing; `Fix it` sends the agent the part, its
+    /// sentence and its link, then settles it. Words alone go to the agent as a message and settle
+    /// it. Dismissing settles it. Listed only while the Job is live.
+    WatchNotOurs,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

@@ -123,7 +123,7 @@ async fn a_weighing_and_a_stop_act_on_the_jobs_own_watch() {
 
     let ours = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours { sentence: "Mine.".into() })).await.expect_err("nothing failed");
     assert_eq!(code(&ours), ("fleet.watch_not_failed", 409));
-    let not_ours = WatchVerdict::NotOurs { sentence: "Another service.".to_string(), parts: vec!["unit".to_string()] };
+    let not_ours = WatchVerdict::NotOurs { sentence: "Another service.".to_string(), parts: vec!["unit".to_string()], evidence: ipc::WatchEvidence::default() };
     let unreported = rig.fleet.weigh_watch(None, weigh(&id, not_ours)).await.expect_err("no reading carried it");
     assert_eq!(code(&unreported), ("fleet.watch_part_unreported", 422));
 

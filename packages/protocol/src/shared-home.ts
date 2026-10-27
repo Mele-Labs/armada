@@ -73,8 +73,14 @@ export type HomeKindSwitch = { kind: HomeKind; on: boolean };
 /** `POST /shared_home/kinds/set`'s body: one kind switched for one profile. */
 export type SetHomeKind = { login: string; kind: HomeKind; on: boolean };
 
-/** `GET /shared_home/kinds`: one profile's every kind, in order, off until it is turned on. */
-export type HomeKinds = { login: string; kinds: HomeKindSwitch[] };
+/** One item switched on in What syncs on its own, whatever its kind's switch says. `repository` on a memory note alone. */
+export type HomeItem = { kind: HomeKind; name: string; repository?: string };
+
+/** `POST /shared_home/items/set`'s body: one item switched for one profile. */
+export type SetHomeItem = { login: string; kind: HomeKind; name: string; repository?: string; on: boolean };
+
+/** `GET /shared_home/kinds`: one profile's every kind, in order, off until it is turned on, and each item switched on on its own. */
+export type HomeKinds = { login: string; kinds: HomeKindSwitch[]; items: HomeItem[] };
 
 /** `POST /shared_home/repository`'s body: where one profile's home is made, before it exists. `owner` is the profile's login or one of its organisations. Answers `SharedHomeRead`. */
 export type SetHomeRepository = { login: string; owner: string; name: string };

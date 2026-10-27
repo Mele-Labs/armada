@@ -6,7 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
-import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch } from "@armada/protocol";
+import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, ReadWatchLog } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
@@ -63,9 +63,9 @@ function noticeMute(value: unknown): SetNoticeMute | undefined {
   return undefined;
 }
 
-/** The project rows a start names, each a project and a row; none where there are none or the list is not one. */
+/** The project rows a start names, each by its id; none where there are none or the list is not one. */
 const rowsOf = (rows: unknown): ProjectRowRef[] | undefined =>
-  Array.isArray(rows) && rows.length > 0 && rows.every((one) => text(one?.project) && text(one?.row)) ? rows.map((one): ProjectRowRef => ({ project: one.project, row: one.row })) : undefined;
+  Array.isArray(rows) && rows.length > 0 && rows.every((one) => text(one?.row)) ? rows.map((one): ProjectRowRef => ({ row: one.row })) : undefined;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }: Hosts): void {
   ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: unknown) => {
@@ -112,6 +112,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   });
   ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
+    // A kind is what Fleet will run unasked until the job ends, so one it cannot read is refused rather than passed on.
+    const kind = answer.kind as { program?: unknown; script?: unknown } | null | undefined;
+    if (kind !== undefined && (typeof kind !== "object" || kind === null || !text(kind.program) || (kind.script !== undefined && !text(kind.script)))) return unread;
     return connection()?.sessions.answer(answer) ?? unsent;
   });
   ipc.handle(CHANNELS.answerWaiting, (_event, answer: AnswerWaiting) => {
@@ -139,6 +142,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.stopWatch, (_event, stop: StopWatch) => {
     if (!text(stop?.watch) || (stop.session_id !== undefined && !text(stop.session_id))) return unread;
     return connection()?.sessions.stopWatch({ watch: stop.watch, ...(stop.session_id === undefined ? {} : { session_id: stop.session_id }) }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.readWatchLog, (_event, read: ReadWatchLog) => {
+    if (!text(read?.watch) || !text(read?.log)) return unread;
+    return connection()?.sessions.readWatchLog({ watch: read.watch, log: read.log }) ?? unsent;
   });
   ipc.handle(CHANNELS.deleteWatch, (_event, remove: DeleteWatch) => {
     if (!text(remove?.watch) || (remove.session_id !== undefined && !text(remove.session_id))) return unread;

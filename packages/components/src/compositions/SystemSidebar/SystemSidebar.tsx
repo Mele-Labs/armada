@@ -1,10 +1,9 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { CardHeader, CardTitle } from "../../primitives/Card/Card";
-import { Input } from "../../primitives/Input/Input";
-import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { SearchField } from "../SearchField/SearchField";
 import { columnKeys } from "./columns";
 
 /** One page of System, in the sidebar. `alert` draws the needs-you dot, with this as its tooltip. */
@@ -38,22 +37,7 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
       <CardHeader>
         <CardTitle>System</CardTitle>
       </CardHeader>
-      <Input
-        type="search"
-        aria-label="Search System"
-        placeholder="Search"
-        data-system-search=""
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && query !== "") {
-            event.preventDefault();
-            event.stopPropagation();
-            onQuery("");
-          }
-        }}
-        trailing={<Kbd>/</Kbd>}
-      />
+      <SearchField label="Search System" value={query} onValue={onQuery} />
       <div className="armada-system-side__scroll">
       {shown.map((group) => (
         <div key={group.id} role="group" aria-label={group.label} className="armada-system-side__group">
@@ -104,18 +88,6 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
  */
 export function SystemPage({ side, children }: { side: ReactNode; children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
-  // `/` reaches the search from a page with nothing focused too.
-  useEffect(() => {
-    const reach = (event: KeyboardEvent) => {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || document.activeElement !== document.body) return;
-      const search = root.current?.querySelector<HTMLInputElement>("[data-system-search]");
-      if (search === null || search === undefined) return;
-      event.preventDefault();
-      search.focus();
-    };
-    document.addEventListener("keydown", reach);
-    return () => document.removeEventListener("keydown", reach);
-  }, []);
   return (
     <div ref={root} className="armada-system" onKeyDown={(event) => columnKeys(event, root.current)}>
       {side}

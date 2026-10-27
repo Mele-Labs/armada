@@ -1,7 +1,8 @@
 // Delivery: what the workflow ends in, so it differs by kind. It opens on the Job's route (`route.ts`), every step pending from the start and lit as its
 // data arrives, with what the Job has made standing under the step it belongs to. A pull request draws the pull request, its Checks, its place in the merge queue and
 // the merge. A spike and a document draw the doc they made. A report draws the report itself: its title and the first lines of its conclusion, and a
-// press opens the whole of it in the side panel; it has no pull request and no merge. A mod draws the mods it made, each with its switch. Watching and
+// press opens the whole of it in the side panel. A mod draws the mods it made, each with its switch. A pull request the Job opened holds the band whatever
+// the kind, until it merges. Watching and
 // Deferred stand inside, whatever the kind, and so does a page the Job wrote with the document skill, which opens in the reading layer. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, an issue the Job claimed stands here as a row of its own, and the issues it only filed for later stand in Deferred.
 // It is open at every stage, and the larger share of the column while the stage is at it (`story.ts`); the band or ⌥D folds it by hand. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
 
@@ -123,26 +124,26 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
     );
   const bodies = {
     "Pull request": stack,
-    Findings: docs.length === 0 ? undefined : <Docs rows={docs} said="Findings" />,
-    Document: kind === "report" ? (report === undefined ? undefined : <Report session={session} row={report} />) : docs.length === 0 ? undefined : <Docs rows={docs} said="Document" />,
+    // A doc kind has no Pull request step, so a pull request the Job opened stands under the doc beside what it made.
+    Findings: docs.length === 0 && stack === undefined ? undefined : <>{docs.length === 0 ? null : <Docs rows={docs} said="Findings" />}{stack}</>,
+    Document:
+      kind === "report" ? (
+        report === undefined && stack === undefined ? undefined : <>{report === undefined ? null : <Report session={session} row={report} />}{stack}</>
+      ) : docs.length === 0 && stack === undefined ? undefined : (
+        <>{docs.length === 0 ? null : <Docs rows={docs} said="Document" />}{stack}</>
+      ),
     Mod: kind === "mod" && mods.length > 0 ? <ModsMade id={id} /> : undefined,
   };
-  const state: PanelState | undefined =
-    kind === "pull_request"
-      ? prs.length === 0
-        ? undefined
-        : prs.every((pr) => pr.state === "merged")
-          ? "done"
-          : prs.some((pr) => pr.state !== "merged" && pr.checks.state === "failed")
-            ? "failed"
-            : "live"
-      : kind === "report"
-        ? report !== undefined
-          ? "done"
-          : undefined
-        : docs.length > 0
-          ? "done"
-          : undefined;
+  // A pull request the Job opened holds the band whatever the kind: a written doc is not landed while its pull request is open.
+  const pulled: PanelState | undefined =
+    prs.length === 0
+      ? undefined
+      : prs.every((pr) => pr.state === "merged")
+        ? "done"
+        : prs.some((pr) => pr.state !== "merged" && pr.checks.state === "failed")
+          ? "failed"
+          : "live";
+  const state: PanelState | undefined = pulled ?? (kind === "report" ? (report !== undefined ? "done" : undefined) : docs.length > 0 ? "done" : undefined);
   return (
     <SvPanel label="Delivery" area="landing" place={place} state={state} fold={fold} keycap={bandKeyFor("landing")}>
       <DeliveryRoute steps={steps} bodies={bodies} />

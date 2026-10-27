@@ -24,7 +24,7 @@ pub(crate) fn refocus(conn: &Connection, session_id: &str) -> rusqlite::Result<(
          VALUES (?1, (
              SELECT t.task_id FROM session_plan_tasks t
              JOIN session_plan_groups g ON g.session_id = t.session_id AND g.group_id = t.group_id
-             WHERE t.session_id = ?1 AND t.listed = 'in_progress'
+             WHERE t.session_id = ?1 AND COALESCE(t.marked, t.listed) = 'in_progress'
              ORDER BY t.started_at DESC, g.position DESC, t.position DESC
              LIMIT 1))
          ON CONFLICT (session_id) DO UPDATE SET task_id = excluded.task_id",

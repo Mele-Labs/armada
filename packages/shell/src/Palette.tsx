@@ -9,7 +9,8 @@
 //
 // # The contents, in the order the contract fixes
 //
-// Acts on the current context, navigation, sessions, settings. The context block
+// Acts on the current context, navigation, sessions, settings; the Projects tab's tasks sit after the sessions and are listed only
+// while something is typed. The context block
 // is **titled with what it acts on**, so a palette that will act on something
 // says which something before the first row is read.
 //
@@ -42,6 +43,9 @@ import type { Action, ActionContext, PaletteDispatch, PaletteLink, PalettePath, 
 
 /** A Session as a search result: found by any word of its title, or by its id. */
 export type PaletteSession = { id: string; label: string; aliases: readonly string[] };
+
+/** A task or subtask of the Projects tab as a search result: found by its title, with where it stands as a quiet second line. */
+export type PaletteTask = { id: string; label: string; detail: string };
 
 /**
  * A destination in Bridge, with the digit that reaches it where it has one.
@@ -127,6 +131,7 @@ export type PaletteBoardRow = { id: string; label: string; icon?: LucideIcon; de
 export type PaletteChoice =
   | { of: "act"; id: string }
   | { of: "session"; id: string }
+  | { of: "task"; id: string }
   | { of: "surface"; id: string }
   | { of: "run"; id: string }
   | { of: "setting"; id: string }
@@ -166,6 +171,8 @@ export type PaletteProps = {
   board?: readonly PaletteBoardRow[];
   /** Sessions to jump to. Absent draws none. */
   sessions?: readonly PaletteSession[];
+  /** Tasks and subtasks to jump to, listed only while something is typed. Absent draws none. */
+  tasks?: readonly PaletteTask[];
   settings: readonly PaletteSetting[];
   /**
    * The repositories to pick between, and which one is picked (`null` is All). Absent or empty draws
@@ -204,6 +211,7 @@ const CONTEXT = "context";
 const NAVIGATION = "navigation";
 const RUN = "run";
 const SESSIONS = "sessions";
+const TASKS = "tasks";
 const SETTINGS = "settings";
 const REPOSITORIES = "repositories";
 
@@ -258,6 +266,7 @@ export function Palette({
   runnables = [],
   board = [],
   sessions = [],
+  tasks = [],
   settings,
   repositories = [],
   picked = null,
@@ -282,6 +291,7 @@ export function Palette({
     // Where the title row's picker is, from the keyboard: the same pick, over the same list.
     ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
     ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Jobs" }]),
+    ...(tasks.length === 0 ? [] : [{ id: TASKS, title: "Tasks" }]),
     { id: SETTINGS, title: "Settings" },
   ];
 
@@ -352,6 +362,8 @@ export function Palette({
           })),
         ]),
     ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: session.aliases })),
+    // Searched, never listed at rest: a long list of tasks would bury the acts.
+    ...tasks.map((task) => ({ id: `task:${task.id}`, section: TASKS, label: task.label, detail: task.detail, searchOnly: true })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
       section: SETTINGS,
@@ -366,7 +378,7 @@ export function Palette({
       open={open}
       sections={sections}
       entries={entries}
-      searched={searchedSentence(sessions.length, settings.length, runnables.length, repositories.length)}
+      searched={searchedSentence(sessions.length, tasks.length, settings.length, runnables.length, repositories.length)}
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
       {...(path === undefined ? {} : { path })}
@@ -417,6 +429,7 @@ function choiceOf(id: string): PaletteChoice {
   if (id.startsWith("act:")) return { of: "act", id: rest };
   if (id.startsWith("nav:")) return { of: "surface", id: rest };
   if (id.startsWith("session:")) return { of: "session", id: rest };
+  if (id.startsWith("task:")) return { of: "task", id: rest };
   if (id.startsWith("tab:")) return { of: "filter", id: rest };
   if (id.startsWith("run:")) return { of: "run", id: rest };
   if (id.startsWith("board:")) return { of: "board", id: rest };
@@ -432,13 +445,14 @@ function choiceOf(id: string): PaletteChoice {
  * sentence claiming settings on a build that indexes none would be the labelled
  * blank this app refuses everywhere else.
  */
-function searchedSentence(sessions: number, settings: number, runnables: number, repositories: number): string {
+function searchedSentence(sessions: number, tasks: number, settings: number, runnables: number, repositories: number): string {
   const held = [
     "every act available here",
     "every place in Bridge",
     runnables === 0 ? null : "every Check and Command this Manifest declares",
     repositories === 0 ? null : "every repository",
     sessions === 0 ? null : "every live job",
+    tasks === 0 ? null : "every task",
     settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);
   return `${held.slice(0, -1).join(", ")} and ${held[held.length - 1]}`;

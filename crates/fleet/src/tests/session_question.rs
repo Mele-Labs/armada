@@ -67,6 +67,7 @@ async fn answer(
             note: None,
             answers,
             folder: None,
+            kind: None,
         })
         .await
         .map(|_| ())
@@ -197,6 +198,7 @@ async fn a_question_nobody_answers_in_the_hold_keeps_its_options_on_the_unanswer
         panic!("a question nobody answered does not run");
     };
     assert!(message.contains("Nobody answered this within 2 seconds"), "{message}");
+    assert!(message.contains("stays in his Needs you") && message.contains("do not add it to waiting_for"), "{message}");
 
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     assert!(record.session.hosted.unwrap().asked.is_none(), "the lapsed ask is no longer live");

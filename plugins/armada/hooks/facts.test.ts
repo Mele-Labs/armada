@@ -313,9 +313,15 @@ test('a task updated changes its status or its words, goes when deleted, and is 
 test('a commit is read from what git printed, so one with nothing staged is not one', () => {
   expect(commitIn('git commit -m "Pin the clock"', '[armada/session-build-record 1a2b3c4] Pin the clock\n 2 files changed')).toEqual({
     branch: 'armada/session-build-record',
+    commit: '1a2b3c4',
+    subject: 'Pin the clock',
   })
-  expect(commitIn('git add -A && git commit --amend --no-edit', '[main (root-commit) 1a2b3c4d5e] First')).toEqual({ branch: 'main' })
-  expect(commitIn('git commit -m x', '[detached HEAD 1a2b3c4] x')).toEqual({})
+  expect(commitIn('git add -A && git commit --amend --no-edit', '[main (root-commit) 1a2b3c4d5e] First')).toEqual({
+    branch: 'main',
+    commit: '1a2b3c4d5e',
+    subject: 'First',
+  })
+  expect(commitIn('git commit -m x', '[detached HEAD 1a2b3c4] x')).toEqual({ commit: '1a2b3c4', subject: 'x' })
   expect(commitIn('git commit -m x', 'nothing to commit, working tree clean')).toBeUndefined()
   expect(commitIn('git log -3', '[main 1a2b3c4] looks like one')).toBeUndefined()
 })
