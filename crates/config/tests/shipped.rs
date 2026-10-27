@@ -370,7 +370,7 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
 }
 
 /// **The steps the owner chose on 27 Oct 2026**, in order, and which of them walk or wait for his reply.
-/// `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
+/// the decision record "A feature Job walks before it tests".
 #[test]
 fn feature_and_bug_run_the_steps_the_owner_chose() {
     let steps_of = |name: &str| -> Vec<(String, bool, bool)> {

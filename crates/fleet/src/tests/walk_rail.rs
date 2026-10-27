@@ -1,7 +1,7 @@
 //! The claim, written before the code: **Fleet places a Job on its workflow's steps before the plan
 //! and around a walk from what it saw (a reply, a plan recorded, a window shown, a window approved),
 //! and nudges once when a test is written before the walk is approved. Nothing blocks, and the
-//! agent's word is never an input.** `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`.
+//! agent's word is never an input.** The owner's decision of 27 Oct 2026, "A feature Job walks before it tests".
 //!
 //! The first half is the rules, pure. The second drives a Fleet with a workflow that has a walk step.
 
