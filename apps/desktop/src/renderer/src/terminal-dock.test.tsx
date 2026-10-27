@@ -216,3 +216,39 @@ test("a run that ended while its Job was left is found ended, with its exit", as
   await expect.element(pane().getByRole("img", { name: "Failed" })).toBeVisible();
   expect(p.started).toHaveLength(1);
 });
+
+test("Run opens the terminal inside the command's block, and nothing is docked under the thread", async () => {
+  const p = program();
+  view(p.runner);
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.element(pane()).toBeVisible();
+  const block = page.getByRole("group", { name: "make test", exact: true }).element();
+  expect(block.contains(pane().element())).toBe(true);
+  expect(document.querySelectorAll(".armada-terminal")).toHaveLength(1);
+  expect(document.querySelector(".armada-terminal-dock")).toBeNull();
+});
+
+test("the terminal grows with what the run prints, to 24 lines, and scrolls inside past that", async () => {
+  const p = program();
+  view(p.runner);
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.poll(() => p.started.length).toBe(1);
+  expect(p.started[0]!.size?.rows).toBe(24);
+  const height = () => document.querySelector(".armada-xterm")!.getBoundingClientRect().height;
+  const lines = (count: number) => Array.from({ length: count }, (_, at) => `line ${at}\r\n`).join("");
+
+  p.prints(lines(2));
+  await expect.element(pane().getByText("line 1")).toBeVisible();
+  const two = height();
+  p.prints(lines(8));
+  await expect.poll(height).toBeGreaterThan(two);
+  const ten = height();
+  p.prints(lines(60));
+  await expect.poll(height).toBeGreaterThan(ten);
+  const full = height();
+  p.prints(lines(60));
+  await expect.element(pane().getByText("line 59")).toBeVisible();
+  expect(height()).toBe(full);
+  // 24 lines of text and the screen's padding, not the pane's old two fifths of the view.
+  expect(full).toBeLessThanOrEqual(24 * 24 + 40);
+});
