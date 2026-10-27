@@ -103,7 +103,8 @@ test("the palette's Debug Bridge opens a Session holding the picture and the sta
 
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("01DEBUGSESSION00"));
   expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
-  expect(fleet.startSession).toHaveBeenCalledWith("Debug Bridge on Overview", "/repo");
+  // Held on its start card, with the note's words as the request so Fleet's proposer reads them at the start.
+  expect(fleet.startSession).toHaveBeenCalledWith("Debug Bridge on Overview", "/repo", expect.stringContaining("Work out what is going on in Bridge"), undefined, undefined, true);
   // No message: Fleet starts no turn until the owner sends the draft.
   expect(sent).toHaveLength(0);
   expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
