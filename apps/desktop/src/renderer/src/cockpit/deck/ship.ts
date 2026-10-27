@@ -145,7 +145,7 @@ function sessionMark(session: Session): Mark {
   // A paused Job keeps the glyph of what it was doing beside its pause mark, drawn calm: nothing is asked of him.
   if (state === "paused") {
     const beneath = beneathPause(session);
-    return { Glyph: sessionGlyphOf(beneath.state), said: `Paused, ${beneath.said.toLowerCase()}`, tone: "calm" };
+    return { Glyph: sessionGlyphOf(beneath.state), said: `Was ${beneath.said.toLowerCase()}`, tone: "calm" };
   }
   const tone: Tone = state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
