@@ -71,6 +71,60 @@ fn a_secret_is_kept_read_back_whole_and_forgotten() {
     secrets.forget(&token).expect("forgetting twice is not an error");
 }
 
+/// A browser's cookie: kB of `name=value; ` pairs holding `%`, `|` and JSON-ish text.
+fn cookie(length: usize) -> String {
+    let pair = "sess_id=a%7B%22u%22%3A42%7D|x; theme=dark; ";
+    pair.repeat(length / pair.len() + 1)[..length].to_string()
+}
+
+#[test]
+fn no_line_security_is_given_for_a_long_secret_passes_what_it_reads_in_one() {
+    let keychain = std::path::Path::new("/tmp/armada-secrets-a-keychain-path-of-some-length.keychain-db");
+    let lines = crate::request_secrets::keep_lines("acme--shop/qa-9/cookie", &cookie(4096), Some(keychain)).expect("lines");
+    for line in &lines {
+        // `security -i` reads 4095 bytes a line and runs what follows as another command.
+        assert!(line.len() <= 4095, "a line of {} bytes", line.len());
+        assert!(line.ends_with(&format!("{:?}\n", keychain.to_str().unwrap())), "every line names the keychain");
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_cookie_of_kilobytes_is_kept_whole_replaced_by_a_shorter_one_and_forgotten() {
+    let throwaway = Throwaway::made("cookie");
+    let secrets = throwaway.secrets();
+    let session = variable("qa-9", "cookie");
+    let long = cookie(4096);
+    assert!(long.contains(';') && long.contains('=') && long.contains('%') && long.contains('|'));
+    secrets.keep(&session, Secret::new(long.clone())).expect("kept");
+    assert_eq!(secrets.read(&session).expect("read").expect("held").expose(), &long);
+
+    // The longer value's later parts must not be read as the end of the shorter one.
+    let short = cookie(1600);
+    secrets.keep(&session, Secret::new(short.clone())).expect("replaced");
+    assert_eq!(secrets.read(&session).unwrap().unwrap().expose(), &short);
+
+    secrets.keep(&session, Secret::new(long.clone())).expect("kept again");
+    secrets.forget(&session).expect("forgotten");
+    assert!(!secrets.is_kept(&session).unwrap());
+    let part = std::process::Command::new("/usr/bin/security")
+        .args(["find-generic-password", "-s", crate::request_secrets::SECRET_PART_SERVICE, "-a", "acme--shop/qa-9/cookie/1"])
+        .arg(&throwaway.keychain)
+        .status()
+        .unwrap();
+    assert_eq!(part.code(), Some(44), "no part is left behind");
+}
+
+#[test]
+fn a_failed_save_names_the_keychains_status_and_never_an_echoed_line() {
+    let said = "security: unknown command \"6162633d\"\n\
+                security: SecKeychainItemCreateFromContent (/tmp/a.keychain-db): User canceled the operation.\n\
+                add-generic-password: returned -128\n";
+    let status = crate::request_secrets::status_of(said);
+    assert_eq!(status, "OSStatus -128, User canceled the operation.");
+    assert_eq!(crate::request_secrets::status_of("security: unknown command \"6162633d\"\n"), "security named no status");
+}
+
 #[test]
 fn a_value_that_does_not_fit_is_refused_before_the_keychain_is_asked_and_not_repeated() {
     let folder = std::env::temp_dir().join(format!("armada-secrets-refused-{}", std::process::id()));
