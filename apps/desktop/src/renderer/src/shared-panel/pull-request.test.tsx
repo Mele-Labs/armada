@@ -378,3 +378,26 @@ test("a press on a diff line opens a note box, and Save puts the note under that
   expect(filesPanel()!.querySelector('textarea[aria-label="Note for the job"]')).toBeNull();
   expect(window.localStorage.getItem("armada:job-notes:harbor-labs/tidewater#418")).toContain('"path":"src/tide/tables.rs","line":1,"side":"right"');
 });
+
+const inFiles = (name: string) => [...filesPanel()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.getAttribute("aria-label") === name || one.textContent === name);
+
+test("a note is edited in place and removed, until it is sent", async () => {
+  window.localStorage.clear();
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
+  await press("Files");
+  await act(async () => gutter("Note for the job on +let days = 2;")!.click());
+  await type(filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!, "Name the unit.");
+  await act(async () => inFiles("Save note")!.click());
+
+  await act(async () => inFiles("Edit the note")!.click());
+  const box = filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!;
+  expect(box.value).toBe("Name the unit.");
+  await type(box, "Name the unit, in seconds.");
+  await act(async () => inFiles("Save note")!.click());
+  expect(sections()[0]!.textContent).toContain("Name the unit, in seconds.");
+  expect(window.localStorage.getItem("armada:job-notes:harbor-labs/tidewater#418")).toContain("in seconds");
+
+  await act(async () => inFiles("Remove the note")!.click());
+  expect(sections()[0]!.textContent).not.toContain("in seconds");
+  expect(window.localStorage.getItem("armada:job-notes:harbor-labs/tidewater#418")).toBeNull();
+});

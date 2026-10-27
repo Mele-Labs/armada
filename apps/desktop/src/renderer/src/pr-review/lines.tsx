@@ -17,8 +17,8 @@ import { ArmadaMark, SeverityMark, TOOL_MARK } from "./marks";
  * The box a comment or a reply is written in. **It adds to the pending review**; nothing is posted from here.
  * Cancel leaves the words where they are, kept under `keep`, so a draft survives putting the box away.
  */
-export function LineComposer({ keep, label, onAdd, onCancel, action = "Add to review" }: { keep: string; label: string; onAdd: (body: string) => void; onCancel: () => void; action?: string }) {
-  const [text, setText] = useState("");
+export function LineComposer({ keep, label, onAdd, onCancel, action = "Add to review", initial = "" }: { keep: string; label: string; onAdd: (body: string) => void; onCancel: () => void; action?: string; initial?: string }) {
+  const [text, setText] = useState(initial);
   const ready = text.trim() !== "";
   const add = () => {
     if (!ready) return;

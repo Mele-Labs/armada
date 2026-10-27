@@ -2,7 +2,7 @@
 // hangs under the line it was written on. **They are for the Job alone**: a note is never added to a review or posted.
 
 import { useMemo, useState } from "react";
-import { Check, Notebook, X } from "lucide-react";
+import { Check, Notebook, Pencil, X } from "lucide-react";
 import { Button, Prose, PrMark, Tooltip } from "@armada/components";
 import type { DiffFile, DiffLine, UnifiedDiffProps } from "@armada/components";
 
@@ -10,7 +10,7 @@ import { LineComposer } from "../pr-review/lines";
 import { counted, placeOfLine } from "../pr-review/patch";
 import type { Counted } from "../pr-review/patch";
 import "../pr-review/pr-review.css";
-import { addNote, removeNote, useJobNotes } from "./job-notes";
+import { addNote, editNote, removeNote, useJobNotes } from "./job-notes";
 import type { JobNote } from "./job-notes";
 
 type Composing = { path: string; index: number };
@@ -53,7 +53,7 @@ export function useLineNotes(key: string): Pick<UnifiedDiffProps, "onLine" | "un
         return (
           <div className="pr-under">
             {here.map((one) => (
-              <NoteCard key={one.id} note={one} onRemove={() => removeNote(key, one.id)} />
+              <NoteCard key={one.id} note={one} onRemove={() => removeNote(key, one.id)} onEdit={(body) => editNote(key, one.id, body)} />
             ))}
             {writing && place !== undefined ? (
               <LineComposer
@@ -75,13 +75,35 @@ export function useLineNotes(key: string): Pick<UnifiedDiffProps, "onLine" | "un
   );
 }
 
-function NoteCard({ note, onRemove }: { note: JobNote; onRemove: () => void }) {
+function NoteCard({ note, onRemove, onEdit }: { note: JobNote; onRemove: () => void; onEdit: (body: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  if (editing)
+    return (
+      <LineComposer
+        keep={`job-notes:edit:${note.id}`}
+        label="Note for the job"
+        action="Save note"
+        initial={note.body}
+        onAdd={(body) => {
+          onEdit(body);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
+    );
   return (
     <article className="pr-draft" aria-label="Note for the job">
       <header className="pr-card__head">
         {note.sent ? <PrMark Glyph={Check} said="Sent to the job" /> : <PrMark Glyph={Notebook} said="Kept on this Mac, not sent yet" />}
         <b className="pr-card__who">Note for the job</b>
         <span className="pr-card__act">
+          {note.sent ? null : (
+            <Tooltip label="Edit the note">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Edit the note" onClick={() => setEditing(true)}>
+                <Pencil size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip label="Remove the note">
             <Button variant="ghost" size="sm" iconOnly aria-label="Remove the note" onClick={onRemove}>
               <X size={16} strokeWidth={2} aria-hidden />
