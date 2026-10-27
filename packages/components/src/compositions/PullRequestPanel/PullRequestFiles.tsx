@@ -45,7 +45,7 @@ export function PatchStack({ rows, patches, target }: { rows: readonly PullReque
 }
 
 /**
- * The Files tab for a host that has no panel around it: the file list, and under it every file's diff, where a press on a
+ * The Files tab for a host that has no panel around it: the file tree, and beside it every file's diff, where a press on a
  * row scrolls to that file. The panel floats the same list beside its body and so draws the two itself.
  */
 export function PullRequestFilesView({ rows, patches }: { rows: readonly PullRequestFile[]; patches: PullRequestPatches }) {
@@ -57,9 +57,11 @@ export function PullRequestFilesView({ rows, patches }: { rows: readonly PullReq
     sections.current.get(path)?.scrollIntoView({ block: "start" });
   };
   return (
-    <>
-      <FileRows rows={rows} current={current} onFile={onFile} />
+    <div className="armada-pr-files">
+      <div className="armada-pr-files__tree">
+        <FileRows rows={rows} current={current} onFile={onFile} />
+      </div>
       <PatchStack rows={rows} patches={patches} target={target} />
-    </>
+    </div>
   );
 }
