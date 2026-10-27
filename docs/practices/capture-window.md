@@ -305,7 +305,8 @@ this window, and that is another security review. `#1294`.
 | Bridge's window | None | Never an opener: the only popup is the page's own, onto an origin the page may reach |
 | Bridge's cookies and cache | None | Its own job partition |
 | The filesystem | None | Downloads refused, `file:` never loaded |
-| The screen | None | Fullscreen, pointer lock and every permission denied |
+| The screen | None | Fullscreen and pointer lock denied, and every permission but one |
+| An app on this machine | Local network access, for the shown origin and the `origins` a Job names | `local-network-access` is the one permission granted, to those origins only |
 | A dialog that looks like Armada's | None | `disableDialogs` |
 
 > **Rule.** A page runs in a job partition of its own, persistent, one
@@ -315,7 +316,15 @@ this window, and that is another security review. `#1294`.
 > repositories share nothing.
 
 > **Rule.** Every permission request is denied without asking, and a certificate
-> error is not overridden.
+> error is not overridden. The one exception is Chromium's Local Network Access
+> (`local-network-access`), granted only when the requesting origin is the shown
+> origin or one of the `origins` the Job passed to `show_window`. A Run's window
+> names none, so for it that is its own loopback origin, where the check never
+> fires. A popup the page opened gets the same rule. The person turns nothing
+> on: a Job that passes the provider in `origins` is enough.
+> Why: a single sign-on provider's page may verify the person through an app
+> running on this machine, which it reaches over the local network. Refused, the
+> sign-in fails, and the walk window has no site settings to allow it.
 
 ## What a person sees
 
@@ -885,11 +894,13 @@ does not find:
 | What it allows | A top-level navigation, a redirect or a subframe to that origin, compared on scheme, host and port whole |
 | What it does not allow | Any other origin. A redirect off the named ones is refused and said on the bar, as before |
 | Where main still runs a script | The shown origin only. Capture, a question's locate, the failure look and a walk's handle all wait for the page to be on it, so a provider's page is never asked anything |
-| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied, downloads refused, popups held as *A popup a Job's page opened* says, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
+| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied but local network access, downloads refused, popups held as *A popup a Job's page opened* says, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
 | What the Job can do with it | Reach a page it could already show with `show_window`. Naming an origin makes no page the window loads trusted; it lets a redirect there complete |
 
-> **Rule.** A named origin is allowed to be navigated to and nothing more.
-> Why: the allowance is the redirect to a provider and back. Everything the
+> **Rule.** A named origin is allowed to be navigated to and to reach this
+> machine's local network, and nothing more.
+> Why: the allowance is the redirect to a provider and back, and the provider's
+> check with an app on this machine on the way. Everything the
 > window does to a page for the person's sake (capture, a question, a look,
 > a walk) stays on the origin the Job showed, so the injected layer's
 > guarantees are the ones already reviewed.
@@ -933,7 +944,7 @@ letting that one window open, and it is a capability added to this window.
 | Which address | The popup's own, `HandlerDetails.url`, on the shown origin or a named one, compared whole. Anything else is refused, said on the bar |
 | How many | One. A second `window.open` while it is open is refused, and so is one the popup makes |
 | What it is | A child window of the walk's around the contents Electron made for it (`createWindow`), in the page's partition, sandboxed, `contextIsolation` on, `nodeIntegration` off, no preload |
-| What holds it | The page's own hold: `will-navigate`, `will-redirect` and `will-frame-navigate` against the same origins. A download, a permission and a dialog meet the partition's refusals |
+| What holds it | The page's own hold: `will-navigate`, `will-redirect` and `will-frame-navigate` against the same origins. A download, a dialog and every permission but local network access meet the partition's refusals; that one is granted on the same origins as the page's |
 | What it can reach | The page that opened it, as any popup reaches its opener, and the repository's cookie jar. Nothing of Bridge's: it is not Bridge's window's opener, and the page has no preload for it to find |
 | When it closes | The page calls `window.close()`, the person closes it, or the walk window closes |
 | What a failure does | Nothing reaches main uncaught. A popup that cannot be built is closed and refused as every popup was |
