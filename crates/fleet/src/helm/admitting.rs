@@ -34,6 +34,10 @@ where
             otherwise(authority),
         ))
     }
+
+    fn always_loads(&self) -> Option<&'static str> {
+        self.harness().always_loads_tool()
+    }
 }
 
 /// Why a call outside Helm's reach is refused, said after its name.

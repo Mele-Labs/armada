@@ -116,8 +116,16 @@ impl HeadlessAgent {
     }
 }
 
+/// The `_meta` key Claude Code reads as loading a door tool at the session's start, found in its
+/// 2.1.301 binary. Without it a tool past the CLI's budget waits behind a search.
+const ALWAYS_LOAD: &str = "anthropic/alwaysLoad";
+
 impl AgentHarness for HeadlessAgent {
     type Error = Infallible;
+
+    fn always_loads_tool(&self) -> Option<&'static str> {
+        Some(ALWAYS_LOAD)
+    }
 
     fn read(&self, line: &str) -> Vec<DroneEvent> {
         transcript::read(line)

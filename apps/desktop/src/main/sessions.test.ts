@@ -120,7 +120,7 @@ it("reads a Job's watches once as its thread opens, and takes each watches.chang
   const { sessions, last } = host(port);
   await sessions.again(port);
   await sessions.watch("a");
-  expect(sent.filter((one) => one.path === "/watches?session_id=a")).toHaveLength(1);
+  expect(sent.filter((one) => one.path === "/watches?session_id=a&ended=true")).toHaveLength(1);
   await vi.waitFor(() => expect(last("sessionWatches")).toMatchObject({ a: [{ id: "w1", state: "running" }] }));
   sessions.watchesChanged({ session_id: "a", watches: [watch("w1", { state: "failed", live: false }), watch("w2")] });
   expect(last("sessionWatches")).toMatchObject({ a: [{ id: "w1", state: "failed" }, { id: "w2" }] });

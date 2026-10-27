@@ -255,6 +255,8 @@ pub mod saying;
 /// because a [`scanning::Tree`] has no write on it.**
 pub mod scanning;
 mod scoping;
+/// Each Job's own scratch folder, which the slot guard reads as a slot.
+mod scratch;
 /// The read-only agent a person starts from a Studio. `#1292`.
 pub mod scout;
 mod scouting;

@@ -79,7 +79,7 @@ pub use triggers::{
     Written as TriggerWritten,
 };
 pub use watches::{
-    carried as carried_watch_recipes, parse as parse_watch_recipe, LeftOut as WatchRecipeLeftOut,
+    parse as parse_watch_recipe, written as watch_recipe_written, LeftOut as WatchRecipeLeftOut,
     Recipe as WatchRecipe, RecipeSource as WatchRecipeSource, Recipes as WatchRecipes,
     ResolvedRecipe as ResolvedWatchRecipe, WhyLeftOut as WhyWatchRecipeLeftOut,
     Written as WatchRecipeWritten,

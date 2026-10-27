@@ -1,13 +1,13 @@
 # Watch
 
-**What it is:** A command Fleet runs on a cadence for one Job, whose last line says where a deploy or a pipeline stands.
+**What it is:** A command Fleet runs on a cadence for one Job, whose last line says where a deploy or a pipeline stands, or text Fleet waits for in the Job's terminal.
 Fleet tells the Job when it fails, ends, gives up or breaks, and the Job's agent weighs a failure.
 
 ---
 
 **Kind:** Concept.
 
-**Built:** the model, recipes, the store, the runner, the notices and the wire.
+**Built:** the model, recipes and the two Armada ships, the store, the runner, the login shell's environment, terminal watches, the notices and the wire.
 
 The design is `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`, and spike 36 measured it (`docs/spikes/036-is-one-line-enough-to-watch-a-deploy.md`).
 The wire is `docs/practices/protocol.md`, *Watches on the wire*.
@@ -17,7 +17,8 @@ The wire is `docs/practices/protocol.md`, *Watches on the wire*.
 | Part | Holds |
 |---|---|
 | Name | What the person reads, such as `QA deploy` |
-| Command | Whole arguments, never read by a shell |
+| Command | Whole arguments, never read by a shell. A terminal watch has none |
+| In terminal | A terminal watch's text, or regular expression, to wait for |
 | Every | How often Fleet runs it |
 | Gives up after | How long before Fleet stops waiting for it to finish |
 | Follows | The pull request it is about, where it is about one |
@@ -25,7 +26,7 @@ The wire is `docs/practices/protocol.md`, *Watches on the wire*.
 | Readings | The newest 50, each a line read or a run that broke |
 
 A watch belongs to one Job and ends with it.
-Armada knows no provider: a script the repository or the person owns turns a provider's words into the line.
+Outside its two shipped readers Armada knows no provider: a script the repository or the person owns turns a provider's words into the line.
 
 ## What the command prints
 
@@ -86,7 +87,7 @@ A person writes it as a file; the agent starts a watch by naming one and filling
 
 | Level | Where | Notes |
 |---|---|---|
-| Armada | Compiled in | Ships none |
+| Armada | Compiled in, from `crates/adapters/watch-recipes/` | `github-checks` and `buildkite-build` |
 | Repository | `.armada/watches/` | Read from `main` only |
 | This machine | `~/.armada/machine/watches/` | Does not travel |
 
@@ -95,6 +96,26 @@ A person writes it as a file; the agent starts a watch by naming one and filling
 
 > **Rule.** An agent may start a watch on a command of its own, with no recipe and no person's step.
 > Why: the agent can already run any command it likes, and a recipe is for a watch a repository starts often.
+
+### The recipes Armada ships
+
+Each runs `armada watch-line`, a reader of Armada's own that prints the one line, by Fleet's own binary's whole path.
+
+| Recipe | Values | Reads |
+|---|---|---|
+| `github-checks` | `sha`, `context` | The commit's check runs and commit statuses whose names start with `context`, each a part, with the token `gh` holds, in the repository the slot's remote names |
+| `buildkite-build` | `organization`, `pipeline`, `build` | One build, each command step a part and a retried step by its latest attempt, with `BUILDKITE_API_TOKEN` from the login shell |
+
+A provider's name is in the adapters only: `config` reads the files as any recipe.
+
+### Keeping one on this Mac
+
+`save_watch_recipe` writes a recipe into `~/.armada/machine/watches/`, and a script the Job wrote beside it, copied and made runnable.
+
+> **Rule.** A saved recipe is never written into a repository.
+> Why: a repository's recipes travel with it, and one an agent writes can name a private repository or a person's own script.
+
+A name Armada ships is refused, and a name the repository or this Mac holds is refused unless the Job asks to replace it.
 
 The recipe's `environment` is a [Requests](requests.md) environment, so its secrets come from the Keychain and are kept out of every reading and the side panel as `{{name}}`.
 The cadence floor and the give-up cap are checked when a watch starts and not when the file loads, since a person moves them while Fleet runs.
@@ -107,11 +128,19 @@ The cadence floor and the give-up cap are checked when a watch starts and not wh
 | Behaviour | Holds |
 |---|---|
 | A run | A Check's: no shell, a process group of its own, a time limit, low priority |
-| Where | The Job's worktree, so an agent's own script runs as written |
-| Environment | Fleet's own, with `ARMADA_SPAWNED_BY`, so a crash's leftovers are ended |
+| Where | The Job's worktree, so an agent's own script runs as written and `gh` reads the repository from its remote |
+| Environment | The person's login shell's over Fleet's, with `ARMADA_SPAWNED_BY`, so a crash's leftovers are ended, and the recipe's Requests environment over both |
 | Slowing | Every 2 minutes after 30 unchanged, every 5 after an hour |
 | Kept | The newest 50 readings in the store, so a restart carries on |
 | Published | A changed reading at once, an unchanged one at most every 5 minutes |
+
+> **Rule.** A watch's environment is the login shell's, read once when it starts and kept for its life.
+> Why: Fleet runs under launchd, whose environment has neither the shell's `PATH` nor a token the person exports, and a watch whose environment changed under it would read differently for no reason it could see.
+
+Fleet runs `$SHELL -lic` in the Job's folder, prints a marker either side of `env -0`, and reads only what lies between, since a prompt such as powerlevel10k prints escapes around it.
+A shell that takes longer than 15 seconds, or prints nothing Fleet can read, gives Fleet's own environment, and the watch says why in `login_shell`.
+After a restart Fleet reads it again at a live watch's first run.
+A command that reads the keychain, such as `gh`, works because Fleet runs as the person.
 
 A watch whose worktree is gone gives broken readings, so it breaks after three and the agent is told.
 A machine's recipe runs its command by absolute path.
@@ -126,6 +155,32 @@ A machine's recipe runs its command by absolute path.
 
 The values are `crates/config/settings.toml`.
 A recipe may ask to give up after up to 24 hours, and a watch stops after three broken readings in a row.
+
+## A terminal watch
+
+A terminal watch runs nothing: it waits for text, or a regular expression, in the Job's terminal.
+
+| Behaviour | Holds |
+|---|---|
+| Passes | On the first line printed after it started that matches, finished, and `says` quotes the line |
+| Fails, and ends | When the terminal ends first, or is not open when it listens after a restart. Nothing is left to hear, so nobody weighs it |
+| Read as | Each line as the person's pane draws it, so colours and a redrawn progress bar do not hide the words |
+| Bounds | Its own give-up time; it is not one of the commands `limits.watchesAtOnce` bounds |
+
+A start where the Job has no terminal open is refused.
+
+## Setting one up
+
+| Tool | Does |
+|---|---|
+| `try_watch` | Runs a command or a recipe once, as a watch would, and keeps nothing: what it read, the command, the folder, the `PATH`, whether the login shell was read, and the scratch folder |
+| `list_watch_recipes` | Names each recipe a start may name, its values, where it came from, how often it runs and when it gives up |
+| `save_watch_recipe` | Keeps a recipe and its script on this Mac |
+| `list_watches` | The Job's live watches, and with `ended` its ended ones too |
+| `delete_watch` | Forgets an ended watch and all kept of it. A live one is stopped first |
+
+Each Job has a scratch folder of its own under Fleet's state, `$ARMADA_SCRATCH` in a hosted Job and `scratch` in every `try_watch` answer.
+The slot guard lets the Job write, remove and chmod there as in its slots, and the folder is removed when the Job ends.
 
 ## The agent weighs it
 
@@ -168,8 +223,8 @@ Ending a Job ends its live watches `stopped` and tells nothing.
 
 | Where | What it draws |
 |---|---|
-| Delivery | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it |
-| The side panel, on a press | Readings over time, each part, parts set aside struck through, a broken run's output, the link, and Stop |
+| Delivery | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it. Live watches only, until Show ended draws the ended ones, each with Delete |
+| The side panel, on a press | Readings over time, a run that read the same as one row with its count and first and last times, each part, parts set aside struck through, a broken run's output, the link, and Stop |
 | A Job's row and header | Held open by the watch's name, while only a watch keeps the Job open |
 
 The glyphs are `docs/contracts/iconography.md`, *A watch and its states*.
@@ -182,8 +237,13 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 | The model, with the counting and the verdicts | `crates/core-model/src/watch.rs` |
 | Reading a command's last line | `crates/ipc/src/watches.rs` |
 | Recipes | `crates/config/src/watches.rs` |
+| The recipes Armada ships, and their readers | `crates/adapters/src/watch_lines.rs` |
 | Start, weigh, stop and list | `crates/fleet/src/watches/serving.rs` |
+| Try, list recipes and save one | `crates/fleet/src/watches/tools.rs` |
 | The timer and the runs | `crates/fleet/src/watches/running.rs` |
+| The login shell's environment | `crates/fleet/src/watches/environment.rs` |
+| A terminal watch | `crates/fleet/src/watches/listening.rs` |
+| A Job's scratch folder | `crates/fleet/src/scratch.rs` |
 | The notices | `crates/fleet/src/watches/telling.rs` |
 | What is kept | `crates/store/src/watches.rs` |
 | Bridge's copy of the wire | `packages/protocol/src/watches.ts` |
@@ -192,6 +252,5 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 
 | Follow-up | Why it waits |
 |---|---|
-| The agent's session rule: start a watch, never poll | `crates/adapters/src/session_rules.md` says nothing of watches yet |
 | A watch that sends a saved Request and reads a field | Left for after v1: it fits the same line |
 | A watch on what an environment is running | A new watch for whoever needs it, so a replaced deploy is news |

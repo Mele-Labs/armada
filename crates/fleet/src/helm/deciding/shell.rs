@@ -98,10 +98,13 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
         }
     }
     // A `cd` into the slot keeps a relative path inside it; one anywhere else,
-    // or one that cannot be read, loses track of where the line is.
+    // or one that cannot be read, loses track of where the line is. **A scratch folder is no
+    // one's working directory**: with no real slot held the line runs in the owner's checkout,
+    // so only an absolute path is read against it.
+    let in_a_slot = slots.iter().any(|directory| !crate::scratch::is_scratch(directory));
     let slot = (!slots.is_empty()).then(|| Slot {
         slots,
-        relative: segments.iter().all(|said| {
+        relative: in_a_slot && segments.iter().all(|said| {
             // `(cd x && ...)` moves the subshell, so its `(` is not the program.
             let mut words = said.split_whitespace().map(|word| word.trim_start_matches(['(', '{'])).filter(|word| !word.is_empty());
             match words.next() {

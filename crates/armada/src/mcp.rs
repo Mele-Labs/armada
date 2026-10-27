@@ -481,6 +481,7 @@ pub(crate) fn refused(message: &[u8], why: &str) -> Option<Vec<u8>> {
         Asked::Tools { id } => Answered::Tools {
             id,
             shapes: Vec::new(),
+            always_loads: None,
         },
         Asked::Call { id, .. } | Asked::NotACall { id, .. } => Answered::Refused {
             id,

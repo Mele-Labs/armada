@@ -273,13 +273,13 @@ pub(in crate::helm) fn read_refused(word: &str, walks: bool) -> bool {
             .any(|guarded| under == *guarded || under.starts_with(&format!("{guarded}/")))
 }
 
-/// The directories of `held` that are slots. Before its first lease a session runs in
-/// the repository's root, the owner's own checkout, and nothing is taken away
-/// there unasked.
+/// The directories of `held` that are slots, or the Job's scratch folder, which is read as one.
+/// Before its first lease a session runs in the repository's root, the owner's own checkout, and
+/// nothing is taken away there unasked.
 pub(super) fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
     held.iter()
         .copied()
-        .filter(|directory| directory.contains("/.armada/slots/"))
+        .filter(|directory| directory.contains("/.armada/slots/") || crate::scratch::is_scratch(directory))
         .collect()
 }
 

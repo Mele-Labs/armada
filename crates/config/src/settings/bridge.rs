@@ -2,7 +2,7 @@
 //! panes, never by the generic form. Fleet holds them so they survive a
 //! relaunch and reach every window.
 
-use super::{Applies, Entry, Flag, Json, Kind, Section, Shipped, Words};
+use super::{Applies, Entry, Flag, Json, Kind, Options, Section, Shipped, Words};
 
 pub const THEME: Words = Words("bridge.theme");
 pub const LAYOUT: Json = Json("bridge.layout");
@@ -10,11 +10,26 @@ pub const KEY_BINDINGS: Json = Json("bridge.keyBindings");
 pub const TIME_FORMAT: Json = Json("bridge.timeFormat");
 pub const ROW_VIEW: Json = Json("bridge.rowView");
 pub const WHERE_THINGS_ARE_OPEN: Flag = Flag("bridge.whereThingsAreOpen");
+/// Compact, Default or Roomy: which set of space tokens Bridge draws with (`packages/tokens/src/spacing-sets.css`).
+pub const SPACING: Words = Words("spacing.density");
+pub const SPACINGS: &[&str] = &["compact", "default", "roomy"];
 
 /// The theme nobody has chosen away from.
 pub const SHIPPED_THEME: &str = "dark";
 
 pub(super) const BRIDGE: &[Entry] = &[
+    Entry {
+        key: SPACING.0,
+        section: Section::Spacing,
+        title: "Spacing",
+        description: "Room around rows, panels and controls.",
+        kind: Kind::Choice(Options::Fixed(SPACINGS)),
+        shipped: Shipped::Text("default"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
     // Fleet keeps the word and Bridge decides what it names, so a theme naming
     // nothing is Bridge falling back to the default.
     Entry {

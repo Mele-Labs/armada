@@ -27,7 +27,7 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
   await expect.poll(labels("Fleet")).toEqual(["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]);
   // Mods lists Words and Fleet only once a teaching has made a mod of that kind.
   await expect.poll(labels("Mods")).toEqual(["All", "Theme", "Layout"]);
-  await expect.poll(labels("Bridge")).toEqual(["Keyboard shortcuts", "Time", "Editor", "Terminal", "Links", "Phone", "Guides"]);
+  await expect.poll(labels("Bridge")).toEqual(["Spacing", "Keyboard shortcuts", "Time", "Editor", "Terminal", "Links", "Phone", "Guides"]);
   // Each Fleet entry draws its one section under its own heading.
   for (const name of ["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]) {
     await toSystemPage(name);

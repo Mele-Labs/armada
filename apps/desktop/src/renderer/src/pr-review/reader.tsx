@@ -1,12 +1,15 @@
 // The reader: one pull request, description first. Under it he can choose an explanation (`explain.tsx`): how it works
 // (its changes grouped into themes by what they make happen, each in the order it was made with why), what it changes
-// for him, how to test it, or why it was needed. No list of files: a path is a caption on a change, and a hunk is its
-// evidence, folded until opened. Checks and Commits stay reachable. A tool pressed in the Flight control below replaces
+// for him, how to test it, or why it was needed. An explanation names no list of files: a path is a caption on a change,
+// and a hunk is its evidence, folded until opened. The Files tab is that list, every changed file's diff as the pull
+// request panel draws them. Checks and Commits stay reachable. A tool pressed in the Flight control below replaces
 // the body with what it found, and the way back is at its head.
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Compass, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
-import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
+import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, PullRequestFilesView, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
+
+import { patchesOf } from "../shared-panel/pull-request-patches";
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
@@ -21,6 +24,7 @@ import { WalkView } from "./walk";
 
 const TABS = [
   { id: "explanation", label: "Overview" },
+  { id: "files", label: "Files" },
   { id: "checks", label: "Checks" },
   { id: "commits", label: "Commits" },
 ];
@@ -119,10 +123,18 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         <ChecksMark checks={pr.checks} />
       </div>
       <div className="pr-reader__tabs">
-        <Tabs items={TABS} value={work.view} onChange={(id) => store.setView(pr.key, id)} />
+        <Tabs
+          items={TABS}
+          value={work.view}
+          onChange={(id) => {
+            store.setView(pr.key, id);
+            if (id === "files") store.readPatches(pr.key);
+          }}
+        />
       </div>
       <div className="pr-reader__body">
         {work.page.state === "said" ? <p className="pr-reader__said" role="alert">{work.page.said}</p> : null}
+        {work.view === "files" ? <PullRequestFilesView rows={pr.page.files} patches={patchesOf(work.every.state === "read" ? { ok: true, files: work.every.files } : work.every.state === "said" ? { ok: false, said: work.every.said } : undefined)} /> : null}
         {work.view === "checks" ? <PrChecks rows={pr.page.checks} onOpenLink={onOpenLink} /> : null}
         {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
         {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}

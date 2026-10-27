@@ -837,6 +837,8 @@ export type SessionsDraft = {
   confirmLater?: (id: string, later: string) => void;
   /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
   stopWatch?: (id: string, watch: string) => void;
+  /** The person's delete on one of a Session's ended watches (`watch` is its id): Fleet forgets it and all kept of it. */
+  deleteWatch?: (id: string, watch: string) => void;
   /** Runs a failed hand off again for Job `id`. */
   retryHandoff?: (id: string) => void;
   /**

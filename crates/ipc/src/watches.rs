@@ -6,7 +6,8 @@
 //! last reading whole; what reaches Bridge and the agent is chosen field by field in Fleet.
 //!
 //! **The command's line is read here**, by [`read_watch_line`], because untyped JSON is read in
-//! `ipc` and `store` only. It is not the wire to Bridge, and nothing here serialises it back.
+//! `ipc` and `store` only. It is not the wire to Bridge. [`watch_line`] writes it, for the readers
+//! Armada itself ships, so what they print is what Fleet reads.
 
 use std::collections::BTreeMap;
 
@@ -54,6 +55,11 @@ pub struct WatchSetAside {
 }
 
 /// One reading a watch took: what its command's line said, or why it gave none.
+///
+/// **In `WatchSummary::readings`, back-to-back readings that read the same are one**: `at` is the
+/// first, `last_at` the last and `count` how many. Read is the same state, `finished`, `says`,
+/// `link` and parts; broken is the same `why`, and `output` is the last one's. The store keeps
+/// each; only the answer collapses them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WatchReading {
@@ -66,6 +72,12 @@ pub enum WatchReading {
         link: Option<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         parts: Vec<WatchPart>,
+        /// How many readings in a row this stands for. Absent for one.
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        count: u32,
+        /// The last of them, where it stands for more than one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        last_at: Option<Instant>,
     },
     /// It exited non-zero, ran out of time, or its last line was not one. `why` is said to a
     /// person; `output` is the end of what it printed, where it printed anything.
@@ -74,7 +86,76 @@ pub enum WatchReading {
         why: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         output: Option<String>,
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        count: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        last_at: Option<Instant>,
     },
+}
+
+fn one() -> u32 {
+    1
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_one(count: &u32) -> bool {
+    *count == 1
+}
+
+impl WatchReading {
+    /// One reading as taken, standing for itself alone.
+    pub fn read(
+        at: Instant,
+        state: WatchReadingState,
+        finished: bool,
+        says: String,
+        link: Option<String>,
+        parts: Vec<WatchPart>,
+    ) -> WatchReading {
+        WatchReading::Read { at, state, finished, says, link, parts, count: 1, last_at: None }
+    }
+
+    /// One broken run as taken, standing for itself alone.
+    pub fn broken(at: Instant, why: String, output: Option<String>) -> WatchReading {
+        WatchReading::Broken { at, why, output, count: 1, last_at: None }
+    }
+
+    /// `next` folded into `self` where the two read the same, else `next` back.
+    fn folded(&mut self, next: WatchReading) -> Option<WatchReading> {
+        match (self, next) {
+            (
+                WatchReading::Read { state, finished, says, link, parts, count, last_at, .. },
+                WatchReading::Read { at, state: s, finished: f, says: w, link: l, parts: p, .. },
+            ) if (*state, *finished, &*says, &*link, &*parts) == (s, f, &w, &l, &p) => {
+                *count += 1;
+                *last_at = Some(at);
+                None
+            }
+            (
+                WatchReading::Broken { why, output, count, last_at, .. },
+                WatchReading::Broken { at, why: y, output: o, .. },
+            ) if *why == y => {
+                *count += 1;
+                *last_at = Some(at);
+                *output = o;
+                None
+            }
+            (_, next) => Some(next),
+        }
+    }
+}
+
+/// `readings`, oldest first, with each run of back-to-back readings that read the same as one.
+pub fn collapsed(readings: impl IntoIterator<Item = WatchReading>) -> Vec<WatchReading> {
+    let mut runs: Vec<WatchReading> = Vec::new();
+    for reading in readings {
+        let unfolded = match runs.last_mut() {
+            Some(run) => run.folded(reading),
+            None => Some(reading),
+        };
+        runs.extend(unfolded);
+    }
+    runs
 }
 
 /// The agent's weighing of a failed reading.
@@ -128,10 +209,10 @@ pub struct WatchSummary {
     /// False once it has ended, whichever way.
     pub live: bool,
     pub started_at: Instant,
-    /// The newest reading, read or broken: the last of `readings`.
+    /// The newest reading, read or broken, as taken: never collapsed, so its `at` is its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<WatchReading>,
-    /// The readings it kept, the newest 50, oldest first.
+    /// The readings it kept, the newest 50, oldest first, a run that reads the same as one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub readings: Vec<WatchReading>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -139,6 +220,26 @@ pub struct WatchSummary {
     /// The agent's weighings, in the order given.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub verdicts: Vec<WatchVerdictGiven>,
+    /// What a terminal watch waits for in its Job's terminal, in place of a command.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_terminal: Option<String>,
+    /// `in_terminal` is read as a regular expression.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub regex: bool,
+    /// Where the environment its command is given came from, while Fleet holds it. Absent for a
+    /// terminal watch, one that has ended, and one not run since Fleet started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub login_shell: Option<LoginShell>,
+}
+
+/// Where a watch's environment came from: the person's login shell, read when it started, or
+/// Fleet's own where that read failed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LoginShell {
+    Read,
+    /// Fleet's own environment, and why the login shell's was not read.
+    FellBack { why: String },
 }
 
 /// `list_watches`, and the `watches.changed` event: a Job's watches, live and ended, the newest
@@ -149,7 +250,8 @@ pub struct WatchList {
     pub watches: Vec<WatchSummary>,
 }
 
-/// What a start runs: a recipe with its values, or the agent's own command.
+/// What a start runs: a recipe with its values, the agent's own command, or nothing at all, for a
+/// watch on the Job's terminal.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WatchStarts {
     Recipe {
@@ -162,6 +264,14 @@ pub enum WatchStarts {
         /// A span, `60s`, `2m` or `2h`.
         every: String,
         /// A span. Absent gives up after the machine's `timeouts.watchGiveUpMinutes`.
+        gives_up_after: Option<String>,
+    },
+    /// Passes once output arriving in the Job's terminal after the start matches `text`.
+    Terminal {
+        text: String,
+        /// `text` is a regular expression, not words to find.
+        regex: bool,
+        /// A span, as a command's.
         gives_up_after: Option<String>,
     },
 }
@@ -201,6 +311,10 @@ struct StartAsWritten {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     gives_up_after: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    in_terminal: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    regex: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     follows: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     set_aside: Vec<WatchSetAside>,
@@ -210,6 +324,21 @@ impl TryFrom<StartAsWritten> for StartWatch {
     type Error = &'static str;
 
     fn try_from(written: StartAsWritten) -> Result<StartWatch, &'static str> {
+        if written.regex && written.in_terminal.is_none() {
+            return Err("`regex` reads `in_terminal` as a pattern: give `in_terminal`");
+        }
+        if let Some(text) = written.in_terminal {
+            if written.recipe.is_some() || written.command.is_some() || written.every.is_some() || !written.values.is_empty() {
+                return Err("`in_terminal` waits on the Job's terminal: leave out `recipe`, `values`, `command` and `every`");
+            }
+            return Ok(StartWatch {
+                session_id: written.session_id,
+                name: written.name,
+                starts: WatchStarts::Terminal { text, regex: written.regex, gives_up_after: written.gives_up_after },
+                follows: written.follows,
+                set_aside: written.set_aside,
+            });
+        }
         let starts = match (written.recipe, written.command, written.every, written.gives_up_after) {
             (Some(recipe), None, None, None) => WatchStarts::Recipe { recipe, values: written.values },
             (Some(_), _, _, _) => {
@@ -222,7 +351,7 @@ impl TryFrom<StartAsWritten> for StartWatch {
             (None, Some(command), Some(every), gives_up_after) => {
                 WatchStarts::Command { command, every, gives_up_after }
             }
-            (None, _, _, _) => return Err("name a `recipe`, or give `command` and `every`"),
+            (None, _, _, _) => return Err("name a `recipe`, give `command` and `every`, or give `in_terminal`"),
         };
         Ok(StartWatch {
             session_id: written.session_id,
@@ -236,10 +365,15 @@ impl TryFrom<StartAsWritten> for StartWatch {
 
 impl From<StartWatch> for StartAsWritten {
     fn from(start: StartWatch) -> StartAsWritten {
+        let (mut in_terminal, mut regex) = (None, false);
         let (recipe, values, command, every, gives_up_after) = match start.starts {
             WatchStarts::Recipe { recipe, values } => (Some(recipe), values, None, None, None),
             WatchStarts::Command { command, every, gives_up_after } => {
                 (None, BTreeMap::new(), Some(command), Some(every), gives_up_after)
+            }
+            WatchStarts::Terminal { text, regex: pattern, gives_up_after } => {
+                (in_terminal, regex) = (Some(text), pattern);
+                (None, BTreeMap::new(), None, None, gives_up_after)
             }
         };
         StartAsWritten {
@@ -250,6 +384,8 @@ impl From<StartWatch> for StartAsWritten {
             command,
             every,
             gives_up_after,
+            in_terminal,
+            regex,
             follows: start.follows,
             set_aside: start.set_aside,
         }
@@ -320,6 +456,15 @@ pub struct StopWatch {
     pub watch: String,
 }
 
+/// `delete_watch`. `POST /watches/delete`. An ended watch only.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteWatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub watch: String,
+}
+
 /// The line as a command prints it. Unknown fields are ignored, so a script may carry its own.
 #[derive(Deserialize)]
 struct Line {
@@ -336,6 +481,34 @@ struct Line {
 struct LinePart {
     name: String,
     state: String,
+}
+
+#[derive(Serialize)]
+struct LineOut<'a> {
+    state: &'a str,
+    finished: bool,
+    says: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<&'a str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    parts: Vec<PartOut<'a>>,
+}
+
+#[derive(Serialize)]
+struct PartOut<'a> {
+    name: &'a str,
+    state: &'a str,
+}
+
+/// `reading` as the one line a watch's command prints, which [`read_watch_line`] reads back whole.
+pub fn watch_line(reading: &core_model::Reading) -> Result<String, crate::Unencodable> {
+    crate::encode(&LineOut {
+        state: reading.state.as_wire(),
+        finished: reading.finished,
+        says: &reading.says,
+        link: reading.link.as_deref(),
+        parts: reading.parts.iter().map(|part| PartOut { name: &part.name, state: part.state.as_wire() }).collect(),
+    })
 }
 
 const STATES: &str = "`waiting`, `running`, `passed` or `failed`";
