@@ -167,7 +167,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
       {mode === "comments" ? cards(onChange) : null}
       <Button variant="ghost" size="sm" className="pr-change__toggle" aria-expanded={shown} onClick={() => store.toggleOpen(pr.key, change.id)}>
         {shown ? <ChevronDown size={16} strokeWidth={2} aria-hidden /> : <ChevronRight size={16} strokeWidth={2} aria-hidden />}
-        {shown ? "Hide change" : "Show change"}
+        {shown ? "Hide diff" : "Show diff"}
       </Button>
       {shown && patch?.state === "reading" ? (
         <span className="pr-review__mark" data-checks="running">

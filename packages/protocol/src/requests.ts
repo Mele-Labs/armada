@@ -78,6 +78,13 @@ export type SaveRequestCollection = { repository?: string; session_id?: string; 
  */
 export type SaveRequestEnvironment = { repository?: string; session_id?: string; environment: RequestEnvironmentWrite };
 
+/**
+ * `delete_request_environment`: `POST /requests/environments/delete`. The environment `name` out of the person's own, each
+ * secret's Keychain item forgotten first. Answers `Requests`. A 404 `fleet.no_such_request_environment` where the person's
+ * own holds none of that name, a 409 `fleet.requests_unread`, a 500 `fleet.requests_unwritable` or `fleet.request_secret_unkept`.
+ */
+export type DeleteRequestEnvironment = { repository?: string; session_id?: string; name: string };
+
 /** A request the agent saves: a `SavedRequest` before Fleet gives it an id. */
 export type RequestToSave = { name: string; method: string; url: string; headers: RequestHeader[]; body?: string };
 

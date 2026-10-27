@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use api::{Commands, Refusal, Requests};
 use ipc::{
-    Placed, RequestCollection, RequestEnvironmentWrite, RequestPlace, RequestToSave, RunCloud,
+    DeleteRequestEnvironment, Placed, RequestCollection, RequestEnvironmentWrite, RequestPlace, RequestToSave, RunCloud,
     RunMemoryPlace, RunPlace, SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection,
     SavedRequest, SessionRow, VariableRead, VariableWrite,
 };
@@ -175,6 +175,89 @@ async fn a_secret_is_kept_in_the_keychain_and_never_in_the_file() {
     let (status, code) = refused(rig.fleet.save_request_environment(None, environment(&rig, vec![secret("token", Some(TOKEN))])).await.expect_err("refused"));
     assert_eq!((status, code.as_str()), (500, "fleet.request_secret_unkept"));
     assert_eq!(std::fs::read_to_string(own_file(&rig)).unwrap(), before, "the file is not written");
+}
+
+fn named_environment(rig: &Rig, name: &str, variables: Vec<VariableWrite>) -> SaveRequestEnvironment {
+    let mut save = environment(rig, variables);
+    save.environment.name = name.to_string();
+    save
+}
+
+fn deleting(rig: &Rig, name: &str) -> DeleteRequestEnvironment {
+    DeleteRequestEnvironment { repository: Some(rig.root.clone()), session_id: None, name: name.to_string() }
+}
+
+fn base() -> VariableWrite {
+    VariableWrite::Plain { name: "base".to_string(), value: "https://staging.example.test".to_string() }
+}
+
+/// Pins what a save already does: a secret left out goes from the list and from the Keychain.
+#[tokio::test]
+async fn a_secret_left_out_of_a_save_leaves_the_list_and_the_keychain() {
+    let (rig, held) = rig_holding();
+    rig.fleet.save_request_environment(None, environment(&rig, vec![base(), secret("token", Some(TOKEN))])).await.expect("saved");
+    assert_eq!(held.accounts().len(), 1);
+    rig.fleet.save_request_environment(None, environment(&rig, vec![base()])).await.expect("saved");
+    let read = rig.fleet.get_requests(None, Some(rig.root.clone()), None).await.expect("read");
+    let staging = read.environments.iter().find(|one| one.item.name == "staging").expect("staging listed");
+    let names: Vec<&str> = staging
+        .item
+        .variables
+        .iter()
+        .map(|one| match one {
+            VariableRead::Plain { name, .. } | VariableRead::Secret { name, .. } => name.as_str(),
+        })
+        .collect();
+    assert_eq!(names, vec!["base"]);
+    assert!(held.accounts().is_empty(), "{:?}", held.accounts());
+}
+
+#[tokio::test]
+async fn deleting_an_environment_forgets_its_secrets_and_leaves_the_list() {
+    let (rig, held) = rig_holding();
+    let staging = vec![base(), secret("token", Some(TOKEN)), secret("cookie", Some("c00kie-value"))];
+    rig.fleet.save_request_environment(None, named_environment(&rig, "staging", staging)).await.expect("saved");
+    rig.fleet.save_request_environment(None, named_environment(&rig, "test", vec![base(), secret("token", Some(TOKEN))])).await.expect("saved");
+    let kept_for_test = format!("{}/test/token", places::key_of(&rig.root));
+    assert_eq!(held.accounts().len(), 3, "{:?}", held.accounts());
+
+    let read = rig.fleet.delete_request_environment(None, deleting(&rig, "staging")).await.expect("deleted");
+    let listed: Vec<&str> = read.environments.iter().map(|one| one.item.name.as_str()).collect();
+    assert_eq!(listed, vec!["test"]);
+    assert_eq!(held.accounts(), vec![kept_for_test]);
+    let test = &read.environments[0].item.variables;
+    assert_eq!(test[1], VariableRead::Secret { name: "token".to_string(), set: true });
+    let again = rig.fleet.get_requests(None, Some(rig.root.clone()), None).await.expect("read");
+    assert_eq!(again, read);
+    let text = std::fs::read_to_string(own_file(&rig)).unwrap();
+    assert!(!text.contains("name = \"staging\"") && text.contains("name = \"test\""), "{text}");
+}
+
+#[tokio::test]
+async fn a_delete_is_refused_for_an_unknown_name_an_unread_file_and_a_refusing_keychain() {
+    let (rig, held) = rig_holding();
+    rig.fleet.save_request_environment(None, environment(&rig, vec![base(), secret("token", Some(TOKEN))])).await.expect("saved");
+    let (status, code) = refused(rig.fleet.delete_request_environment(None, deleting(&rig, "nowhere")).await.expect_err("refused"));
+    assert_eq!((status, code.as_str()), (404, "fleet.no_such_request_environment"));
+
+    // The repository's is not the person's to delete.
+    let committed = "version = 1\n[[environment]]\nname = \"shared\"\nvariables = [{ name = \"base\", value = \"https://shared.example.test\" }]\n";
+    std::fs::create_dir_all(PathBuf::from(&rig.root).join(".armada")).unwrap();
+    std::fs::write(PathBuf::from(&rig.root).join(".armada/requests.toml"), committed).unwrap();
+    let (status, code) = refused(rig.fleet.delete_request_environment(None, deleting(&rig, "shared")).await.expect_err("refused"));
+    assert_eq!((status, code.as_str()), (404, "fleet.no_such_request_environment"));
+
+    held.refusing.store(true, Ordering::SeqCst);
+    let before = std::fs::read_to_string(own_file(&rig)).unwrap();
+    let (status, code) = refused(rig.fleet.delete_request_environment(None, deleting(&rig, "staging")).await.expect_err("refused"));
+    assert_eq!((status, code.as_str()), (500, "fleet.request_secret_unkept"));
+    assert_eq!(std::fs::read_to_string(own_file(&rig)).unwrap(), before, "the file is not written");
+    held.refusing.store(false, Ordering::SeqCst);
+
+    std::fs::write(own_file(&rig), "version = 1\n[[collection]]\nid = \"\"\n").unwrap();
+    let (status, code) = refused(rig.fleet.delete_request_environment(None, deleting(&rig, "staging")).await.expect_err("refused"));
+    assert_eq!((status, code.as_str()), (409, "fleet.requests_unread"));
+    assert!(std::fs::read_to_string(own_file(&rig)).unwrap().contains("id = \"\""), "left as the person broke it");
 }
 
 fn to_save(name: &str, url: &str) -> RequestToSave {

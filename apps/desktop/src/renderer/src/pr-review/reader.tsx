@@ -13,7 +13,7 @@ import { patchesOf } from "../shared-panel/pull-request-patches";
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
-import { AskComposer, Explained, QuickActions } from "./explain";
+import { AskComposer, AskedOf, Explained } from "./explain";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
@@ -68,6 +68,9 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
   const state = STATE[pr.draft ? "draft" : "open"];
   const opened = agoOf(pr.page.created_at);
   const tool = toolsOf(reviews, pr.manifestId).find((one) => one.id === work.view);
+  // His review is a tab of its own, the Comments tool's view, counting the comments that wait on Submit.
+  const pending = work.drafts.length;
+  const tabs = [...TABS, { id: "comments", label: pending === 0 ? "Review" : `Review · ${pending}` }];
 
   return (
     <section className="deck-pane pr-reader" aria-label={`Pull request #${pr.number}`} tabIndex={-1}>
@@ -124,7 +127,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
       </div>
       <div className="pr-reader__tabs">
         <Tabs
-          items={TABS}
+          items={tabs}
           value={work.view}
           onChange={(id) => {
             store.setView(pr.key, id);
@@ -154,7 +157,7 @@ export function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnT
   const open = chosen ?? !shown;
   return (
     <div className="pr-explain">
-      <QuickActions pr={pr} />
+      <AskedOf pr={pr} />
       <section className="pr-what pr-desc" aria-label="Description" data-open={open || undefined}>
         <header className="pr-what__head">
           <Tooltip label={open ? "Hide the description" : "Show the description"} shortcut={capOf(REVIEW_KEYS.description)}>

@@ -1,6 +1,6 @@
-// The review's Flight control: one tile per review tool, keyed 1 to 9, in the Cockpit's own tile language. **A
-// tool runs for the open pull request only when pressed**, because an agent run is expensive, and shows running on
-// its tile. The tools are definitions from three places, as workflows are, and each tile carries its place as a
+// The review's Flight control: one tile per explanation and then per review tool, keyed 1 to 9, in the Cockpit's own tile
+// language. **Each runs for the open pull request only when pressed**, because an agent run is expensive, and shows running
+// on its tile. An explanation is shown under the description, and a tool's result in place of it. The tools are definitions from three places, as workflows are, and each tile carries its place as a
 // small glyph: Armada's, his Kit's (`~/.armada/review-tools/`), or the repository's (`.armada/review-tools/`).
 // The last tile adds one: Fleet writes the file, in the Kit's folder or the repository's.
 
@@ -14,7 +14,8 @@ import { ReviewKeys } from "./keys";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { isWalk, onlyTools, toolsOf } from "./tools";
+import { pressExplanation } from "./explain";
+import { isWalk, tilesOf, toolsOf } from "./tools";
 import { WalkSheets } from "./walk";
 
 /** What a tile says under its glyph, where the tool's name is long. */
@@ -30,12 +31,13 @@ export function ReviewTools() {
   const reviews = useReviews();
   const pr = reviews.prs.find((one) => one.key === reviews.open);
   const work = pr === undefined ? NO_WORK : (reviews.work[pr.key] ?? NO_WORK);
-  const tools = onlyTools(toolsOf(reviews, pr?.manifestId));
+  const tools = tilesOf(toolsOf(reviews, pr?.manifestId));
   const [adding, setAdding] = useState(false);
   const { sheet } = reviews;
 
   const press = (tool: ToolDef) => {
     if (pr === undefined) return;
+    if (tool.kind === "explanation") return pressExplanation(store, pr, tool);
     const kept = work.runs[tool.id];
     // The Walk is found a place before it is written, and one already looking, asking or failed to find shows as it stands.
     const finding = isWalk(tool) && work.walk.find.state !== "idle";
@@ -65,7 +67,9 @@ export function ReviewTools() {
     <>
       <div className="deck-controls__block pr-tools" data-n={count} style={{ "--n": count } as React.CSSProperties}>
         {tools.map((tool, at) => {
-          const run = work.runs[tool.id];
+          const explains = tool.kind === "explanation";
+          const run = explains ? work.explains[tool.id] : work.runs[tool.id];
+          const pressed = explains ? work.view === "explanation" && work.kind === tool.id : work.view === tool.id;
           const running = run?.state === "running";
           const blocked = pr === undefined;
           const kept = run?.state === "done" && tool.agent ? run : undefined;
@@ -75,7 +79,7 @@ export function ReviewTools() {
           const source = SOURCE_MARK[tool.source];
           return (
             <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
-              <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-tool={tool.mark} data-source={tool.source} data-stale={stale || undefined} onClick={() => press(tool)}>
+              <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={pressed} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-tool={tool.mark} data-source={tool.source} data-explains={explains || undefined} data-stale={stale || undefined} onClick={() => press(tool)}>
                 {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
