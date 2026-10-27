@@ -7,18 +7,24 @@
 //! what is left.
 //!
 //! **Phrase rules for now, not the language model**: #2692 is the model reader. The readers are pure,
-//! text and facts in, so each rule is tested without a Fleet.
+//! text and facts in, so each rule is tested without a Fleet. **They learn from disputes**: a reminder
+//! a job disputed and the model agreed was wrong keeps the sentences that set it off, and a near one
+//! is not reminded again, so a misfire is corrected without a change to the rules.
 //!
 //! **One reminder a claim.** The reply to a reminder is not read again: the reminder is kept as the
 //! session's tell, and the first reply after it is the one `keep_turn_end` marks. `session_tells`
 //! holds one row a session, so a reminder replaces an earlier tell, which costs nothing while the
 //! refusal reader is not in force (`tell_refusal::IN_FORCE`).
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::WaitingSource;
+use config::settings as keys;
+use ipc::{SessionRow, SessionVoice, WaitingSource};
 
+use super::dedup::{left_off_as_misread_sentences, FOLDS_AT};
+use super::disputing::Disputing;
 use crate::daemon::Fleet;
 
 /// What the agent reads when its reply says the work is done and `all_done` is not called.
@@ -71,14 +77,20 @@ pub(crate) struct Backed {
 /// a reply making both is reminded of the walk. **Nothing is reminded while `all_done` stands**: the
 /// agent has said nothing is left, and the turn a reminder starts would clear the done and take the
 /// person's end panel away on a misread.
+#[cfg(test)]
 pub(crate) fn unbacked(reply: &str, backed: &Backed) -> Option<Claim> {
+    decided(asks_to_walk(reply), claims_done(reply), backed)
+}
+
+/// [`unbacked`] from what the reply was read to say.
+fn decided(walk: bool, done: bool, backed: &Backed) -> Option<Claim> {
     if backed.done || backed.subagents {
         return None;
     }
-    if !backed.walk && asks_to_walk(reply) {
+    if !backed.walk && walk {
         return Some(Claim::Walk);
     }
-    (!backed.done && !backed.waiting && claims_done(reply)).then_some(Claim::Done)
+    (!backed.done && !backed.waiting && done).then_some(Claim::Done)
 }
 
 /// Words that put a done later or take it back: "once ci passes", "is not done".
@@ -104,27 +116,49 @@ const NEGATES: &[&str] = &["not", "no", "never"];
 /// Whether the reply's close says the work is done. A reply too short for the close's rules, such as
 /// "All done.", is read whole.
 pub(crate) fn claims_done(reply: &str) -> bool {
+    !done_sentences(reply).is_empty()
+}
+
+/// The sentences of the close that say the work is done.
+pub(crate) fn done_sentences(reply: &str) -> Vec<String> {
     let reply = unquoted(reply);
     let close = super::asks::closing_sentences(&reply);
     if close.is_empty() {
-        return says_done(reply.trim());
+        return Some(reply.trim().to_string()).filter(|whole| says_done(whole)).into_iter().collect();
     }
-    close.iter().any(|sentence| says_done(sentence))
+    close.into_iter().filter(|sentence| says_done(sentence)).collect()
 }
 
 /// Whether the reply asks the owner to walk, approve or leave notes on something: in its close, or in
 /// a cell of a table near its end, where an agent lists what he has to do.
 pub(crate) fn asks_to_walk(reply: &str) -> bool {
+    !walk_sentences(reply).is_empty()
+}
+
+/// The sentences and table cells of the close that ask the owner to walk something.
+pub(crate) fn walk_sentences(reply: &str) -> Vec<String> {
     let reply = unquoted(reply);
     let reply = reply.as_str();
     let tail = super::standing::tail(reply);
-    let cells: Vec<String> = tail
+    let cells = tail
         .lines()
         .map(str::trim)
         .filter(|line| line.starts_with('|'))
-        .flat_map(|row| row.split('|').map(str::to_string).collect::<Vec<_>>())
-        .collect();
-    super::asks::closing_sentences(reply).iter().chain(&cells).any(|sentence| asks_walk(sentence))
+        .flat_map(|row| row.split('|').map(|cell| cell.trim().to_string()).collect::<Vec<_>>());
+    super::asks::closing_sentences(reply).into_iter().chain(cells).filter(|sentence| asks_walk(sentence)).collect()
+}
+
+/// The sentences of `reply` that make `claim`.
+fn claim_sentences(reply: &str, claim: Claim) -> Vec<String> {
+    match claim {
+        Claim::Walk => walk_sentences(reply),
+        Claim::Done => done_sentences(reply),
+    }
+}
+
+/// The claim whose reminder `notice` is, if it is one.
+fn reminded(notice: &str) -> Option<Claim> {
+    [Claim::Walk, Claim::Done].into_iter().find(|claim| notice.trim() == claim.reminder())
 }
 
 fn says_done(sentence: &str) -> bool {
@@ -186,6 +220,49 @@ fn unquoted(reply: &str) -> String {
     kept
 }
 
+/// The agent's last reply before the row `notice_row`: the one its reminder was about.
+fn reply_before<'a>(rows: &'a [SessionRow], notice_row: &str) -> Option<&'a str> {
+    let at = rows.iter().position(|row| row.id() == notice_row)?;
+    rows[..at].iter().rev().find_map(|row| match row {
+        SessionRow::Message { from: SessionVoice::Agent, text, .. } => Some(text.as_str()),
+        _ => None,
+    })
+}
+
+/// What the model is asked of a disputed reminder; a test's model double answers on it.
+pub(crate) const CHECKING: &str = "Did those sentences";
+const MISREAD: &str = "misread:";
+
+/// The question put to the model about a disputed reminder of `claim`.
+fn checking(claim: Claim, sentences: &[String], why: &str, reply: &str) -> String {
+    let asked = match claim {
+        Claim::Walk => "ask the person, now, to open, walk, approve or leave notes on something shown to them",
+        Claim::Done => "say that the agent's whole job is finished",
+    };
+    let listed: Vec<String> = sentences.iter().map(|one| format!("- {one}")).collect();
+    format!(
+        "A tool that supervises a coding agent sent it this reminder:\n\n{reminder}\n\n\
+         It was set off by these sentences of the agent's reply:\n\n{listed}\n\n\
+         The agent disputed it: {why}\n\n\
+         The agent's whole reply:\n\n{reply}\n\n\
+         {CHECKING} {asked}? A step described for later, a condition or a summary does not.\n\n\
+         Answer in one line and nothing else:\n\
+         {MISREAD} yes where they did not, so the reminder was wrong, or no where they did",
+        reminder = claim.reminder(),
+        listed = listed.join("\n"),
+        why = why.trim(),
+        reply = reply.trim(),
+    )
+}
+
+/// The model's answer, read. Anything but a `yes` keeps the reminder as it was.
+fn misread(answer: &str) -> bool {
+    answer.lines().any(|line| {
+        let line = line.trim().to_lowercase();
+        line.strip_prefix(MISREAD).is_some_and(|said| said.trim().starts_with("yes"))
+    })
+}
+
 /// The words of a lowercased sentence, an apostrophe kept inside one.
 fn words(sentence: &str) -> Vec<&str> {
     sentence.split(|c: char| !c.is_alphanumeric() && c != '\'').filter(|word| !word.is_empty()).collect()
@@ -242,7 +319,59 @@ where
             walk: items.iter().any(|item| item.source == WaitingSource::Walk),
             subagents,
         };
-        unbacked(said, &backed)
+        let walk = self.not_misread(Claim::Walk, walk_sentences(said)).await;
+        let done = self.not_misread(Claim::Done, done_sentences(said)).await;
+        decided(!walk.is_empty(), !done.is_empty(), &backed)
+    }
+
+    /// `sentences` with every one near a sentence kept as not making `claim` left off: the same words,
+    /// or within [`FOLDS_AT`] of one once the language model is loaded. A dispute the model agreed with
+    /// keeps them, so the reminder learns without a change to these rules.
+    async fn not_misread(&self, claim: Claim, sentences: Vec<String>) -> Vec<String> {
+        if sentences.is_empty() {
+            return sentences;
+        }
+        let misreads = self.store().lock().await.claim_misreads(claim.kind()).unwrap_or_default();
+        let sentences: Vec<String> = sentences.into_iter().filter(|one| !misreads.contains(one)).collect();
+        if sentences.is_empty() || misreads.is_empty() {
+            return sentences;
+        }
+        let Some(model) = self.language_model().model() else { return sentences };
+        // Read now, not on a later pass as the Needs you list is: the turn's end is the one look.
+        let texts: Vec<String> = sentences.iter().chain(&misreads).cloned().collect();
+        let embedded = tokio::task::spawn_blocking(move || {
+            let borrowed: Vec<&str> = texts.iter().map(String::as_str).collect();
+            model.embed(&borrowed).ok().filter(|vectors| vectors.len() == texts.len()).map(|vectors| texts.into_iter().zip(vectors).collect::<HashMap<_, _>>())
+        })
+        .await;
+        let Ok(Some(vectors)) = embedded else { return sentences };
+        left_off_as_misread_sentences(sentences, &misreads, |text| vectors.get(text).cloned(), FOLDS_AT)
+    }
+
+    /// Where `dispute` is of a walk or done reminder and the model agrees the sentences that set it off
+    /// made no such claim, keep them as misread, so the reminder holds near ones off in every Session.
+    /// Whether they were kept: a dispute learnt from needs no review job.
+    pub(crate) async fn claim_learnt(&self, dispute: &Disputing<'_>, rows: &[SessionRow]) -> bool {
+        let Some(claim) = reminded(dispute.notice) else { return false };
+        let Some(reply) = reply_before(rows, dispute.notice_row) else { return false };
+        let sentences = claim_sentences(reply, claim);
+        if sentences.is_empty() {
+            return false;
+        }
+        let model = self.machine_settings().now().get(keys::MODELS_DISPUTE);
+        let agreed = match self.dispute_asked(&checking(claim, &sentences, dispute.why, reply), &model).await {
+            Ok(answer) => misread(&answer),
+            Err(why) => {
+                eprintln!("job {}: a disputed reminder was not checked, so nothing was learnt: {why}", dispute.session);
+                false
+            }
+        };
+        if !agreed {
+            return false;
+        }
+        let at = self.now().as_str().to_string();
+        let mut store = self.store().lock().await;
+        sentences.iter().all(|sentence| store.keep_claim_misread(dispute.session, claim.kind(), sentence, &at).is_ok())
     }
 
     /// Remind a hosted Session of `claim`, and keep that it was once the words are taken.

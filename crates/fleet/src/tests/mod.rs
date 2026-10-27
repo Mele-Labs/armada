@@ -111,6 +111,7 @@ mod session_servers;
 mod session_activity;
 mod session_annotation_done;
 mod session_dispute;
+mod claim_disputes;
 mod session_dispute_reading;
 mod session_done;
 mod session_finish_up;

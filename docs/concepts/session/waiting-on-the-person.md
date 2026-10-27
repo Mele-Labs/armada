@@ -79,6 +79,7 @@ It is kept as the job's tell (`reminded_done` or `reminded_walk`), and the reply
 Helm and an ended job are not read, and a terminal job is reminded only while its mod is listening, as any word Fleet holds for it.
 The owner reported two jobs on 21 Oct 2026: one wrote "PR 2681 is merged and the job is done" and never called `all_done`, so no Done item came, and one listed walks for him in a table with no window open, until he asked "Please open the walks".
 These are phrase rules; #2692 is the language model reader that would replace them.
+They learn from disputes in the meantime: a reminder the Job disputed and a cheap model agreed was wrong keeps the sentences that set it off, and a near sentence is not reminded again in any Job (*What Fleet tells a Job*).
 
 **A turn that leaves the person's message unanswered is sent back once** (`unanswered.rs`).
 He reads only what the agent writes, never its reasoning.
