@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { ArrowUpFromLine, Check, Laptop } from "lucide-react";
 import type { KitPieceKind } from "@armada/protocol";
 
 import { useKept } from "../../keep";
@@ -145,10 +145,20 @@ export function KitBrowser({
           {one.mod === undefined ? null : <ModMarks mod={one.mod} />}
         </span>
       </button>
-      {one.sync === undefined || shared === undefined ? null : (
+      {one.sync === undefined || shared === undefined ? (
+        // A row that does not sync keeps the mark and act columns, so the rows that do stay in line with it.
+        shared?.syncs === undefined || one.home === undefined ? null : (
+          <span className="armada-kit-browser__sync" aria-hidden="true">
+            <span className="armada-kit-browser__kept">
+              <Laptop size={16} strokeWidth={2} />
+            </span>
+            <ActKept />
+          </span>
+        )
+      ) : (
         <span className="armada-kit-browser__sync">
           <SyncMarks row={one.sync} onCompare={setComparing} />
-          {one.sync.state === "here" || one.sync.state === "home" ? <SyncAct row={one.sync} acts={shared} /> : null}
+          {one.sync.state === "here" || one.sync.state === "home" ? <SyncAct row={one.sync} acts={shared} /> : shared.syncs === undefined ? null : <ActKept />}
         </span>
       )}
     </li>
@@ -258,6 +268,17 @@ export function KitBrowser({
         <SyncSheet row={comparing} kindLabel={KIT_KIND_LABEL[comparing.kind as KitSetupKindWord] ?? comparing.kind} acts={shared} onClose={() => setComparing(null)} />
       )}
     </div>
+  );
+}
+
+/** The act column's width on a row with no act, drawn and never seen. */
+function ActKept() {
+  return (
+    <span className="armada-kit-browser__kept" aria-hidden="true">
+      <Button variant="ghost" size="sm" iconOnly tabIndex={-1} disabled aria-label="">
+        <ArrowUpFromLine size={16} strokeWidth={2} aria-hidden="true" />
+      </Button>
+    </span>
   );
 }
 

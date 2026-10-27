@@ -174,30 +174,32 @@ export function SharedHomeChip({ account, repository, made = true }: { account: 
   );
 }
 
-/** The account the home belongs to, the open kind's switch where it is one the home carries, and Sync. */
+/** The account the home belongs to and Sync, then the open kind's switch on a row of its own where the home carries it. */
 export function SharedHomeBar({ home, kind }: { home: SharedHome; kind?: string }) {
   const setKind = home.setKind;
   return (
-    <div className="armada-shared-bar">
-      {home.made === false && home.owners !== undefined ? (
-        <HomePicker
-          login={home.login ?? home.account}
-          owners={home.owners}
-          {...(home.setHome === undefined ? {} : { chosen: { owner: home.account, name: home.repository }, onChoose: home.setHome })}
-        />
-      ) : (
-        <SharedHomeChip account={home.account} repository={home.repository} made={home.made !== false} />
-      )}
+    <>
+      <div className="armada-shared-bar">
+        {home.made === false && home.owners !== undefined ? (
+          <HomePicker
+            login={home.login ?? home.account}
+            owners={home.owners}
+            {...(home.setHome === undefined ? {} : { chosen: { owner: home.account, name: home.repository }, onChoose: home.setHome })}
+          />
+        ) : (
+          <SharedHomeChip account={home.account} repository={home.repository} made={home.made !== false} />
+        )}
+        <Button variant="ghost" size="sm" pending={home.syncing} onClick={home.sync}>
+          <RotateCw size={12} strokeWidth={2} aria-hidden="true" className="armada-shared-bar__turn" data-turning={home.syncing ? "" : undefined} />
+          Sync
+        </Button>
+      </div>
       {kind === undefined || home.syncs === undefined || setKind === undefined ? null : (
         <Switch size="sm" checked={home.syncs.kinds.includes(kind)} onChange={(event) => setKind(kind, event.target.checked)}>
           Sync all
         </Switch>
       )}
-      <Button variant="ghost" size="sm" pending={home.syncing} onClick={home.sync}>
-        <RotateCw size={12} strokeWidth={2} aria-hidden="true" className="armada-shared-bar__turn" data-turning={home.syncing ? "" : undefined} />
-        Sync
-      </Button>
-    </div>
+    </>
   );
 }
 

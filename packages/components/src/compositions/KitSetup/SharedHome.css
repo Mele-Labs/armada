@@ -196,7 +196,3 @@ button.armada-shared-chip:hover {
   padding: var(--space-3);
   min-width: calc(var(--h-row) * 7);
 }
-
-.armada-shared-bar > .armada-switch {
-  flex: none;
-}
