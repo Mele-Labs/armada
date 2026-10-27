@@ -120,7 +120,7 @@ export const theExplanation: Step[] = [
   { look: inside(reader(1899), region("How it works")), say: "What it does in a few plain sentences, under the choice" },
   { look: theme("Fleet keeps the last read"), say: "Its changes by what they make happen, with the order they were made in" },
   { look: inside(theme("Fleet keeps the last read"), change("Hold the last read for a minute")), say: "Each change says why it was made" },
-  { press: inside(change("Hold the last read for a minute"), button("Show change")), say: "The hunk is folded until he opens it" },
+  { press: inside(change("Hold the last read for a minute"), button("Show diff")), say: "The hunk is folded until he opens it" },
   { look: inside(change("Hold the last read for a minute"), thread("Hold the last read for a minute", "devon")), say: "A thread already on the line sits there" },
 ];
 

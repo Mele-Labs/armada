@@ -6,7 +6,7 @@
 // the body with what it found, and the way back is at its head.
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Compass, ExternalLink, GitPullRequest, MessageSquare, SquareTerminal } from "lucide-react";
+import { ChevronDown, ChevronRight, Compass, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
 import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, PullRequestFilesView, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { patchesOf } from "../shared-panel/pull-request-patches";
@@ -68,8 +68,9 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
   const state = STATE[pr.draft ? "draft" : "open"];
   const opened = agoOf(pr.page.created_at);
   const tool = toolsOf(reviews, pr.manifestId).find((one) => one.id === work.view);
-  // His review is in Comments, under a tile he would have to know about. Review in the head goes straight to it.
+  // His review is a tab of its own, the Comments tool's view, counting the comments that wait on Submit.
   const pending = work.drafts.length;
+  const tabs = [...TABS, { id: "comments", label: pending === 0 ? "Review" : `Review · ${pending}` }];
 
   return (
     <section className="deck-pane pr-reader" aria-label={`Pull request #${pr.number}`} tabIndex={-1}>
@@ -98,21 +99,6 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
               </Button>
             </Tooltip>
           )}
-          <Tooltip label={pending === 0 ? "Comment, Approve or Request changes" : `${pending} ${pending === 1 ? "comment" : "comments"} waiting to be submitted`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={pending === 0 ? "Review" : `Review, ${pending} pending`}
-              aria-pressed={work.view === "comments"}
-              onClick={() => {
-                store.setView(pr.key, "comments");
-                window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".pr-yours textarea")?.focus());
-              }}
-            >
-              <MessageSquare size={16} strokeWidth={2} aria-hidden />
-              {pending === 0 ? "Review" : `Review · ${pending}`}
-            </Button>
-          </Tooltip>
           <Tooltip label="Open on the forge">
             <Button variant="ghost" size="sm" iconOnly aria-label="Open on the forge" onClick={() => onOpenLink(pr.address)}>
               <ExternalLink size={16} aria-hidden="true" />
@@ -141,7 +127,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
       </div>
       <div className="pr-reader__tabs">
         <Tabs
-          items={TABS}
+          items={tabs}
           value={work.view}
           onChange={(id) => {
             store.setView(pr.key, id);

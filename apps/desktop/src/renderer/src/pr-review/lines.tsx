@@ -64,7 +64,7 @@ export function LineComposer({ keep, label, onAdd, onCancel }: { keep: string; l
 
 export function DraftCard({ draft, onRemove }: { draft: Draft; onRemove: () => void }) {
   return (
-    <article className="pr-draft" aria-label="Pending comment">
+    <article className="pr-draft" aria-label="Pending comment" data-draft={draft.id} tabIndex={-1}>
       <header className="pr-card__head">
         <PrMark Glyph={SquareDashed} said="Pending, posted with the review" />
         <b className="pr-card__who">You</b>

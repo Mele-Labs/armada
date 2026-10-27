@@ -9,7 +9,9 @@ import { Button, PrConversation, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetK
 
 import type { useSendFindings } from "./acts";
 import { useSessionsDraft } from "../sessions-draft";
-import type { ReviewPr, Verdict } from "./model";
+import { changesOf, ownerOf, placeOfDraft } from "./changes";
+import type { Draft, ReviewPr, Verdict } from "./model";
+import { indexOfPlace } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { BareChanges, ThemeBlock } from "./themes";
 import { isExplained } from "./tools";
@@ -39,6 +41,40 @@ export function CommentsView({ pr, send }: { pr: ReviewPr; send: ReturnType<type
         <BareChanges pr={pr} mode="comments" send={send} />
       )}
     </div>
+  );
+}
+
+/**
+ * One comment waiting on Submit: the file and line it is on, with that line's code, and his words. **A press goes to it in the
+ * diff**, opening the change again where its diff was put away.
+ */
+function PendingComment({ pr, draft }: { pr: ReviewPr; draft: Draft }) {
+  const store = useReviewStore()!;
+  const work = useReviews().work[pr.key] ?? NO_WORK;
+  const place = placeOfDraft(draft);
+  const where = place === undefined ? draft.path : `${draft.path}:${place.line}`;
+  const patch = work.patches[draft.path];
+  const lines = patch?.state === "read" ? patch.lines : [];
+  const code = place === undefined ? undefined : lines[indexOfPlace(lines, place)]?.text;
+  const card = () => document.querySelector<HTMLElement>(`.pr-reader [data-draft="${draft.id}"]`);
+  const goTo = () => {
+    if (card() === null) {
+      const owner = ownerOf(changesOf(pr, work), draft.path, place);
+      if (owner !== undefined) store.toggleOpen(pr.key, owner.id);
+    }
+    window.requestAnimationFrame(() => {
+      card()?.scrollIntoView({ block: "center" });
+      card()?.focus();
+    });
+  };
+  return (
+    <button type="button" className="pr-yours__go" aria-label={`Go to your comment on ${where}`} onClick={goTo}>
+      <span className="pr-yours__where">
+        <span className="pr-yours__path">{where}</span>
+        {code === undefined ? null : <code className="pr-yours__code">{code}</code>}
+      </span>
+      <span className="pr-yours__text">{draft.body}</span>
+    </button>
   );
 }
 
@@ -72,8 +108,7 @@ function YourReview({ pr }: { pr: ReviewPr }) {
         <ul className="pr-yours__drafts" aria-label="Pending comments">
           {work.drafts.map((one) => (
             <li key={one.id} className="pr-yours__draft">
-              <span className="pr-yours__path">{one.path}</span>
-              <span className="pr-yours__text">{one.body}</span>
+              <PendingComment pr={pr} draft={one} />
               <Tooltip label="Remove from the review">
                 <Button variant="ghost" size="sm" iconOnly aria-label="Remove from the review" onClick={() => store.removeDraft(pr.key, one.id)}>
                   <X size={16} strokeWidth={2} aria-hidden />

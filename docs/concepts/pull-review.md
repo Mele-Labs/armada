@@ -40,7 +40,9 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 
 **Drafts are held in Bridge until Submit.** A draft is a line comment, a comment on a file, or a reply to a thread.
 
-**Review in the reader's head opens his review**, with the count of drafts waiting on Submit. It is the Comments tool's view, reached without knowing the tile.
+**Review is a tab of the reader, after Commits**, with the count of drafts waiting on Submit. It is the Comments tool's view.
+
+**A pending comment names its file, line and code, and a press goes to it in the diff**, opening the diff again where it was folded.
 
 **Submit posts the verdict, its summary and every draft as one review at the commit he read.** Comment, Approve and Request changes are the three verdicts. Helm still asks before it writes.
 

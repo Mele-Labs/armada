@@ -1,5 +1,6 @@
 // A pull request he opened stays open until he opens another: Esc stops at the list, and one opened by its link keeps a row
-// above whichever list is chosen. Review in the reader's head goes to his review. Over the `pr-review` scenario.
+// above whichever list is chosen. Review is a tab of the reader, and each pending comment there goes to its line.
+// Over the `pr-review` scenario.
 
 import { button, inside, region, role, tab, walk } from "../walk";
 
@@ -20,18 +21,21 @@ const prReviewStaysOpen = walk("pr-review", [
   { press: role("menuitem", "Team"), say: "Team" },
   { look: inside(list, button(/#1905/)), say: "The pull request opened by its link is above this list too" },
   { press: inside(list, button(/#1905/)), say: "A press goes back to it. A reload of Bridge opens it again too, and keeps the row" },
-  { look: inside(reader(1905), button(/^Review/)), say: "Review sits in the pull request's head, beside Open on the forge" },
-  { press: inside(reader(1905), button(/^Review/)), say: "It opens his review" },
+  { look: inside(reader(1905), tab("Review", { exact: true })), say: "Review is a tab of the pull request, after Commits" },
+  { press: inside(reader(1905), tab("Review", { exact: true })), say: "It opens his review" },
   { look: inside(yours, tab("Approve")), say: "Comment, Approve and Request changes, with a summary" },
   { look: inside(yours, button("Submit review")), say: "Submit posts it as one review, with every comment he added" },
   { press: inside(list, button(/#1899/)), say: "A pull request that already has comments on the forge" },
-  { press: inside(reader(1899), button(/^Review/)), say: "Review" },
+  { press: inside(reader(1899), tab("Review", { exact: true })), say: "Review" },
   { look: inside(reader(1899), role("article", /^Thread on/)), say: "Comments already posted sit under his review, on the change they are about, each thread with Reply" },
-  { press: inside(reader(1899), button(/^Comment on /)), say: "Each change has Comment. A line of its hunk has one too, once the change is shown" },
+  { look: inside(reader(1899), button("Hide diff")), say: "Show diff and Hide diff open and fold a file's diff, where a line can be commented on" },
+  { press: inside(reader(1899), button(/^Comment on \+ let mut held/)), say: "Comment on a line of the diff" },
   { type: "Take the lock after the call.", into: inside(reader(1899), role("textbox", "Comment")), say: "His comment" },
   { press: inside(reader(1899), button("Add to review")), say: "Add to review. Nothing reaches the forge until Submit" },
-  { look: inside(yours, role("list", "Pending comments")), say: "It waits in his review, with the file it is on, and X takes it out" },
-  { look: inside(reader(1899), button("Review, 1 pending")), say: "Review in the head counts what is waiting" },
+  { look: inside(reader(1899), tab("Review · 1")), say: "The tab counts what is waiting" },
+  { look: inside(yours, button(/^Go to your comment on /)), say: "It waits in his review with the file, the line and the code it is on. X takes it out" },
+  { press: inside(yours, button(/^Go to your comment on /)), say: "A press goes to it in the diff, and opens the diff again if he folded it" },
+  { look: inside(reader(1899), role("article", "Pending comment")), say: "His comment, under the line it is on" },
 ]);
 
 export { prReviewStaysOpen as "pr-review-stays-open" };

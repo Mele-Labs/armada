@@ -87,7 +87,7 @@ test("a review goes out as one call with its line comment placed, and then it is
   };
 
   // A line of the hunk, and then the change itself.
-  await serve.getByRole("button", { name: "Show change" }).click();
+  await serve.getByRole("button", { name: "Show diff" }).click();
   await serve.getByRole("button", { name: /Comment on \+ let mut held = self\.held\.lock/ }).click();
   await addComment("Take the lock after the call.");
   await serve.getByRole("button", { name: "Comment on Serve it while it is fresh" }).click();
@@ -194,13 +194,33 @@ test("a pull request opened by its link has a row above whichever list is chosen
   await expect.element(reader(1905)).toBeVisible();
 });
 
-test("Review in the pull request's head shows his review, with Comment, Approve and Request changes", async () => {
+test("Review, a tab beside Commits, shows his review, with Comment, Approve and Request changes", async () => {
   await reviews();
   await open(1899);
-  await reader(1899).getByRole("button", { name: "Review" }).click();
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
   await expect.element(yours().getByRole("tab", { name: "Approve" })).toBeVisible();
   await expect.element(yours().getByRole("tab", { name: "Request changes" })).toBeVisible();
   await expect.element(yours().getByRole("button", { name: "Submit review" })).toBeVisible();
+});
+
+test("a pending comment says the file, line and code it is on, and a press goes to it in the diff", async () => {
+  await reviews();
+  await open(1899);
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
+  await reader(1899).getByRole("button", { name: /^Comment on \+ let mut held = self\.held\.lock/ }).click();
+  await reader(1899).getByRole("textbox", { name: "Comment" }).fill("Take the lock after the call.");
+  await reader(1899).getByRole("form", { name: "Comment" }).getByRole("button", { name: "Add to review" }).click();
+  await expect.element(reader(1899).getByRole("tab", { name: "Review · 1" })).toBeVisible();
+
+  const pending = yours().getByRole("button", { name: /^Go to your comment on .+:31$/ });
+  await expect.element(pending).toHaveTextContent("let mut held = self.held.lock");
+  const card = reader(1899).getByRole("article", { name: "Pending comment" });
+  const change = reader(1899).getByRole("article", { name: /^Change: / }).filter({ has: page.getByRole("article", { name: "Pending comment" }) });
+  await change.getByRole("button", { name: "Hide diff" }).click();
+  await expect.element(card).not.toBeInTheDocument();
+
+  await pending.click();
+  await expect.element(card).toHaveFocus();
 });
 
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {
