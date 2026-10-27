@@ -27,7 +27,7 @@ pub(crate) async fn send_request<D: Requests>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let send: ipc::SendRequest = match ipc::decode("a request to send", &body) {
+    let send: ipc::SendRequest = match ipc::decode_body("a request to send", &body) {
         Ok(send) => send,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -70,7 +70,7 @@ pub(crate) async fn save_request_collection<D: Requests>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let save: ipc::SaveRequestCollection = match ipc::decode("a collection to save", &body) {
+    let save: ipc::SaveRequestCollection = match ipc::decode_body("a collection to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -85,7 +85,7 @@ pub(crate) async fn save_request_environment<D: Requests>(
     body: Bytes,
 ) -> Response {
     // The decode error names a field and never quotes the body, so a secret's value stays out of it.
-    let save: ipc::SaveRequestEnvironment = match ipc::decode("an environment to save", &body) {
+    let save: ipc::SaveRequestEnvironment = match ipc::decode_body("an environment to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -99,7 +99,7 @@ pub(crate) async fn save_request_to_collection<D: Requests>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let save: ipc::SaveRequestToCollection = match ipc::decode("a request to save", &body) {
+    let save: ipc::SaveRequestToCollection = match ipc::decode_body("a request to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

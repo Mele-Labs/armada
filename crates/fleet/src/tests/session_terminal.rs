@@ -60,8 +60,8 @@ async fn the_person_opens_the_same_shell_and_an_ended_or_unknown_job_is_refused(
     }
 }
 
-fn typing(rig: &Rig, text: &str, enter: bool, wait_seconds: Option<u64>) -> TypeInTerminal {
-    TypeInTerminal { text: text.into(), enter, wait_seconds, session_id: Some(rig.session.clone()) }
+pub(super) fn typing(rig: &Rig, text: &str, enter: bool, wait_seconds: Option<u64>) -> TypeInTerminal {
+    TypeInTerminal { text: text.into(), enter, clear: true, wait_seconds, session_id: Some(rig.session.clone()) }
 }
 
 #[tokio::test]
@@ -110,7 +110,10 @@ async fn typing_with_no_job_placed_is_refused() {
 #[tokio::test]
 async fn the_agent_reads_what_the_person_typed_and_a_job_with_no_shell_is_refused() {
     let rig = rig().await;
-    let read = |lines| rig.fleet.read_terminal(None, Some(rig.session.clone()), lines);
+    let read = |lines| {
+        let asked = ipc::ReadTerminal { session_id: Some(rig.session.clone()), lines, ..Default::default() };
+        rig.fleet.read_terminal(None, asked)
+    };
     assert!(matches!(read(None).await, Err(api::Refusal::Unacceptable(_))), "no shell open");
 
     let shell = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
@@ -196,7 +199,7 @@ async fn a_stopped_shell_leaves_well_inside_the_grace_it_is_given() {
 
 /// Until `check` holds, for as long as an interactive login shell may take to start under the
 /// person's own rc files, which is longer than [`eventually`] waits.
-async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {
+pub(super) async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {
     for _ in 0..150 {
         if check().await {
             return true;
@@ -207,7 +210,7 @@ async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() 
 }
 
 /// Stop a shell and wait for it to go: a runtime that shuts down waits on a shell still open.
-async fn ends(rig: &Rig, run_id: &str) {
+pub(super) async fn ends(rig: &Rig, run_id: &str) {
     rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: run_id.into() }).await.expect("in flight");
     eventually(|| async { rig.observes(run_id).await.live.is_err() }).await;
 }

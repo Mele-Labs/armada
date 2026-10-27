@@ -150,7 +150,7 @@ pub use served::Served;
 pub use stream::{
     tally_every, Broadcaster, Next, Subscription, Tally, BACKLOG, TALLIED, TALLY_EVERY,
 };
-pub use watching_session_run::{ObservedSessionRun, SessionRunEvent, SESSION_RUN_BACKLOG};
+pub use watching_session_run::{ObservedSessionRun, SessionRunEnd, SessionRunEvent, SESSION_RUN_BACKLOG};
 pub use watching_run::{
     ObservedCheckoutRun, ObservedServer, RunChunk, RunFeed, RunSeen, RunWatch,
     RUN_BACKLOG,

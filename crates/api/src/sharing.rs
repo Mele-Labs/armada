@@ -12,7 +12,7 @@ use crate::served::Served;
 
 /// Make one package from the pieces chosen.
 pub(crate) async fn share_package<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: ipc::SharePieces = match ipc::decode("the pieces to share", &body) {
+    let asked: ipc::SharePieces = match ipc::decode_body("the pieces to share", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -24,7 +24,7 @@ pub(crate) async fn share_package<D: Commands>(State(served): State<Served<D>>, 
 
 /// List what a package would add. Writes nothing.
 pub(crate) async fn read_package<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: ipc::PackageText = match ipc::decode("a package to read", &body) {
+    let asked: ipc::PackageText = match ipc::decode_body("a package to read", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -36,7 +36,7 @@ pub(crate) async fn read_package<D: Commands>(State(served): State<Served<D>>, b
 
 /// Add every piece a package holds to the person's Kit.
 pub(crate) async fn add_package<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: ipc::AddPackage = match ipc::decode("a package to add", &body) {
+    let asked: ipc::AddPackage = match ipc::decode_body("a package to add", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -56,7 +56,7 @@ pub(crate) async fn list_unbound_pieces<D: Queries>(State(served): State<Served<
 
 /// Choose the repository an unbound piece is for.
 pub(crate) async fn bind_unbound_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let asked: ipc::BindUnboundPiece = match ipc::decode("a piece to bind", &body) {
+    let asked: ipc::BindUnboundPiece = match ipc::decode_body("a piece to bind", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

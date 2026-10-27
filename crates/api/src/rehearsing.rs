@@ -132,7 +132,7 @@ pub(crate) async fn start_checkout_run<D: Rehearsing>(
     body: Bytes,
 ) -> Response {
     let (manifest_id, repository) = scope.scope();
-    let asked: StartCheckoutRun = match ipc::decode("a run to start in the checkout", &body) {
+    let asked: StartCheckoutRun = match ipc::decode_body("a run to start in the checkout", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -158,7 +158,7 @@ pub(crate) async fn start_checkout_verify<D: Rehearsing>(
     let asked = if body.is_empty() {
         ipc::StartCheckoutVerify::default()
     } else {
-        match ipc::decode("a Verify to start", &body) {
+        match ipc::decode_body("a Verify to start", &body) {
             Ok(asked) => asked,
             Err(why) => return undecodable(&why.to_string(), served.run_id()),
         }
@@ -179,7 +179,7 @@ pub(crate) async fn stop_checkout_run<D: Rehearsing>(
     body: Bytes,
 ) -> Response {
     let (manifest_id, repository) = scope.scope();
-    let named: NamedRun = match ipc::decode("a run to stop", &body) {
+    let named: NamedRun = match ipc::decode_body("a run to stop", &body) {
         Ok(named) => named,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -199,7 +199,7 @@ pub(crate) async fn undo_checkout_run<D: Rehearsing>(
     body: Bytes,
 ) -> Response {
     let (manifest_id, repository) = scope.scope();
-    let named: NamedRun = match ipc::decode("a run to undo", &body) {
+    let named: NamedRun = match ipc::decode_body("a run to undo", &body) {
         Ok(named) => named,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

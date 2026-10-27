@@ -110,6 +110,8 @@ mod preferences;
 pub mod settings_file;
 /// What Fleet told a Session about one it follows, so it is told once.
 mod linked_told;
+/// The shell each Job's agent last typed into or read.
+mod job_shells;
 /// A Session dispatched to wait on another, until its condition is met.
 mod run_memory;
 mod session_waits;
