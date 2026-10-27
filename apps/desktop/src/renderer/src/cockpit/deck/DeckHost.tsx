@@ -5,10 +5,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isPressed, pressedSlot, useNow } from "@armada/components";
-import { DECK_TABS, SURFACE, useLayout } from "@armada/shell";
+import { DECK_TABS, SURFACE, jobIdOf, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { useItems, type Hosts } from "../../Dashboard";
+import { pickRepository } from "../../commands";
 import { useQueued } from "../../sessions-draft";
 import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
@@ -101,7 +102,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
   }, [held, ship.calls]);
 
   // A Session asked for on the deck (a link to it, a note sent to it) opens as its row does, once the ship holds it: a new one arrives a
-  // moment after Fleet answers. There is no page for one the ship never holds, Helm's own or one the picked repository leaves out.
+  // moment after Fleet answers. **One of another repository than the picked one picks that repository first**, and opens once the ship holds
+  // it: the ship is built for the picked repository only. There is no page for one the ship never holds, Helm's own.
   const [awaited, setAwaited] = useState<{ id: string; since: number } | undefined>();
   useOpenSessionInCockpitAsked((id) => setAwaited({ id, since: Date.now() }));
   useEffect(() => {
@@ -113,9 +115,14 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       if (!deckNow().here) onGoTo(SURFACE.overview);
       return;
     }
+    // On All the ship holds every Job already, so only a picked repository is moved.
+    // The window's own list is the picked repository's, so the Job is looked up in what Fleet served for all of them.
+    const manifest = state.sessions.state === "read" ? state.sessions.sessions.find((one) => one.id === awaited.id)?.manifest_id : undefined;
+    const root = manifest === undefined ? undefined : state.holds.repositories?.find((one) => jobIdOf(one) === manifest)?.root;
+    if (picked !== null && root !== undefined && root !== picked.root) pickRepository(root);
     const timer = window.setTimeout(() => setAwaited(undefined), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [awaited, ship.subjects, onGoTo]);
+  }, [awaited, ship.subjects, onGoTo, state.sessions, state.holds.repositories, picked]);
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;
