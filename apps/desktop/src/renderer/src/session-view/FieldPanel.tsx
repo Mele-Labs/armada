@@ -5,10 +5,10 @@
 // fading over ten minutes for a write and five for a read (`afterglow.ts`). Nothing here is drawn from what an agent said. The plan is one bar along the foot, and under it a
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
-// thinks, beaming to an outpost while it calls (`field-now.ts`). Pressing a drone on the map pins the card
-// to it. The map rests on the whole repository, and a pick does not move it. A file a drone of the Job is writing lifts as a slab with its minimap, and a
-// small card at the top right shows its newest hunk; the card follows the newest writer, or the drone pressed on the map while it
-// writes (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
+// thinks, beaming to an outpost while it calls (`field-now.ts`). A drone's card shows while it is
+// hovered, and nothing pins it. The map rests on the whole repository, and a pick does not move it. A file a drone of the Job is writing lifts as a slab with its minimap, and a
+// small card at the top right shows its newest hunk; the card follows the newest writer
+// (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
 // (`field-engaged.ts`). While the Job messages another Job, or
 // is messaged by one, an arc runs between their drones with packets travelling from the sender, and the other drone un-fades
 // (`session.messaged`, `field-now.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
