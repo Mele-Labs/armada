@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Check, LoaderCircle, RotateCw, Unplug } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, CircleSlash, LoaderCircle, RotateCw, Unplug } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Select } from "../../primitives/Select/Select";
@@ -35,6 +35,9 @@ const STAGE_SAID: Record<FleetBuildStage, string> = {
 /** A Job whose Drone is working, and so is adopted by a restart. */
 export type FleetBuildDrone = { id: string; label: string };
 
+/** A branch the last Refresh preview did not merge in, and the script's reason in one line. */
+export type FleetBuildLeftOut = { branch: string; why: string };
+
 export type FleetBuild = {
   on: FleetBuildChoice;
   /** Absent where it cannot be counted, which draws no mark: that is not aligned. */
@@ -47,6 +50,8 @@ export type FleetBuild = {
   drones: readonly FleetBuildDrone[];
   /** Why the last restart did not take, in one line. */
   failed?: string;
+  /** The in-flight branches the preview was built without. Drawn only on the preview, with nothing restarting. */
+  leftOut?: readonly FleetBuildLeftOut[];
   /** Restart onto the other build. `adopt` is the person's say-so past a working Drone. */
   onChoose: (build: FleetBuildChoice, adopt: boolean) => void;
   /** Restart onto the build in use: merge the preview again, or move to the latest main. */
@@ -133,6 +138,23 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
         <p className="armada-fleet-build__failed" role="alert">
           {build.failed}
         </p>
+      )}
+      {on !== "preview" || working !== null || build.leftOut === undefined || build.leftOut.length === 0 ? null : (
+        <ul className="armada-fleet-build__left-out" aria-label="Left out of the preview">
+          {build.leftOut.map((one) => (
+            <li key={one.branch} className="armada-fleet-build__left-out-row">
+              <Tooltip label="Left out of the preview">
+                <span className="armada-fleet-build__mark" data-tone="warn" role="img" aria-label="Left out of the preview">
+                  <CircleSlash size={12} strokeWidth={2} aria-hidden="true" />
+                </span>
+              </Tooltip>
+              <span className="armada-fleet-build__branch">{one.branch}</span>
+              <Tooltip label={one.why}>
+                <span className="armada-fleet-build__why">{one.why}</span>
+              </Tooltip>
+            </li>
+          ))}
+        </ul>
       )}
       <div className="armada-fleet-build__position">
         {working === null ? <span className="armada-fleet-build__label">main</span> : null}

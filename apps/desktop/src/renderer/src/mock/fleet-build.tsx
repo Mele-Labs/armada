@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { FleetBuild, FleetBuildChoice, FleetBuildPosition, FleetBuildStage } from "@armada/components";
+import type { FleetBuild, FleetBuildChoice, FleetBuildLeftOut, FleetBuildPosition, FleetBuildStage } from "@armada/components";
 
 import { FleetBuildFrom } from "../fleet-build";
 import { onTimePassing } from "./time-passes";
@@ -15,6 +15,7 @@ type Seed = {
   working: FleetBuildChoice | null;
   stage?: FleetBuildStage;
   failed?: string;
+  leftOut?: FleetBuildLeftOut[];
 };
 
 /** Commits in the preview that main lacks: the in-flight branches, merged. */
@@ -40,6 +41,16 @@ const SEEDS: Record<string, Seed> = {
     position: { ahead: 0, behind: 3 },
     working: null,
     failed: "main cannot fast-forward to origin/main — it has diverged or a local change is in the way",
+  },
+  // The preview as the last refresh left it: two in-flight branches it could not take.
+  "fleet/preview-left-out": {
+    on: "preview",
+    position: { ahead: PREVIEW_AHEAD, behind: 0 },
+    working: null,
+    leftOut: [
+      { branch: "armada/projects-span-repos", why: "breaking migration projects.span_repositories is not on main" },
+      { branch: "armada/issues-list-filters", why: "conflict: apps/desktop/src/renderer/src/issues-tab/list.tsx, packages/shell/src/Palette.tsx" },
+    ],
   },
 };
 
@@ -84,6 +95,8 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
     ...(now.stage === undefined ? {} : { stage: now.stage }),
     drones: [],
     ...(now.failed === undefined ? {} : { failed: now.failed }),
+    ...(now.leftOut === undefined ? {} : { leftOut: now.leftOut }),
+    ...(now.leftOut === undefined ? {} : { leftOut: now.leftOut }),
     onChoose: (on) => restart(on),
     onRestart: () => restart(now.on),
   };
