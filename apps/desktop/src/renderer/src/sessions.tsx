@@ -911,7 +911,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             setMarks([]);
             setReviewing(false);
           },
-          approve: () => approvePlan(),
+          // A plan held behind a walk is not put to him: Approve waits for Fleet to ask, as the thread's card does.
+          ...(planNow.approved || planAsked(session) ? { approve: () => approvePlan() } : {}),
         };
   /** Approve, with what he marked on the plan going to the agent in the same press. */
   const approvePlan = () => {
