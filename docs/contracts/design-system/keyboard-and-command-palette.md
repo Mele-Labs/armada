@@ -114,8 +114,10 @@ l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
 /              describe a query   (issues only)
 s              start a Job on the issue   (issues only)
-l r            go to a part of Projects: the list, the project or the repository's tasks   (projects only)
-N              new project, in the repository you are in   (projects only)
+l r            go to a part of Projects: the left column, the cards   (projects only)
+1 2 3          show all tasks, the ones Fleet asks about, the ones a Job holds   (projects only)
+h              show or hide done tasks   (projects only)
+N              new project   (projects only)
 a              add a task   (projects only)
 A              add a subtask   (projects only)
 Backspace      delete or unlink   (projects only)
@@ -179,13 +181,13 @@ list does; `l r` go to the list and the reader, `L` opens the queries, `/` descr
 starts a Job on the open issue. They stand down in a text field and while a dialog is up.
 
 **The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through
-the repositories' heads, the projects under them and the cards, subtasks included; `l r` go to the list and the
-cards. In the list, `Enter` opens a project, or a repository's own tasks from its head, `N` names a new project in the
-repository you are in, `e` renames the focused project and Backspace deletes it. A ⌘-click on a card selects it and a
+the three views, the projects, the repositories and the cards, subtasks included; `l r` go to the left column and the
+cards, and `1 2 3` show the three views. In the column, `Enter` opens a view, a project or a repository, `N` names a new
+project, `e` renames the focused project and Backspace deletes it. `h` shows or hides the done tasks. A ⌘-click on a card selects it and a
 ⇧-click selects the range from the card last clicked. On a card, Space or `x` selects it, `Enter` edits a task's title in
 place, `d` ticks a task, `a` goes to the field that adds a task and `A` opens one for a subtask inside the focused card,
 `o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
-Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected or the focused one,
+Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected, a request for each repository, or the focused one,
 and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
 field and while a dialog is up.
 
@@ -376,7 +378,7 @@ sheet holding them. The sheet reads the repository from them and asks in its own
 
 **What is typed can also be added to Projects.**
 The query offers a Task and a Project beside the dispatch rows, and Tab to either moves it to the top so ↵ adds.
-A Task then picks its project, and a Project on All asks which repository.
+A Task then picks its project, or none, and goes to the repository the last task did. A Project is his and asks for no repository.
 What a project is: [Project](../../concepts/project.md).
 
 **Contents, in order:** actions available on the current context,

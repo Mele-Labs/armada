@@ -8,6 +8,9 @@ import type { RepositorySummary } from "@armada/protocol";
 import { bandsIn } from "./list";
 import { useProjectsStore } from "./store";
 
+/** The palette row for a task in no project. */
+const NONE = "none:";
+
 export type Filing = {
   /** Where the words need a place chosen, the step listing the places; `undefined` where they go at once. */
   step: (words: string, kind: AddKind) => PaletteStep | undefined;
@@ -28,11 +31,11 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
       return {
         title: `Add “${words}” to`,
         sections: [{ id: "projects", title: "Projects" }],
-        entries: [{ id: "", section: "projects", label: "No project" }, ...projects.map((one) => ({ id: one.id, section: "projects", label: one.name }))],
+        entries: [{ id: NONE, section: "projects", label: "No project" }, ...projects.map((one) => ({ id: one.id, section: "projects", label: one.name }))],
         searched: "your projects",
         onChoose: (entry) => {
           const repo = home();
-          if (repo !== undefined) store.addTask(repo, entry.id === "" ? undefined : entry.id, words);
+          if (repo !== undefined) store.addTask(repo, entry.id === NONE ? undefined : entry.id, words);
         },
       };
     },
