@@ -166,7 +166,7 @@ export const theSessionsOwn: Step[] = [
   { look: inside(tool("Possible bugs"), role("img", /Out of date/)), say: "The kept result is marked out of date, naming the commit it ran on" },
   { press: tool("Possible bugs"), say: "Pressed, it still shows the old result" },
   { look: inside(results("Possible bugs"), role("note", "Ran on an older commit")), say: "With a line saying so. Run again is the act that spends a run" },
-  { press: tool("Comments"), say: "Request changes on a pull request a Job holds reaches the Job too" },
+  { press: inside(reader(1896), tab("Review", { exact: true })), say: "Request changes on a pull request a Job holds reaches the Job too" },
   { type: "The count has to reset when the socket opens. Cap the jitter too.", into: inside(yours, role("textbox", "Summary")), say: "The review" },
   { press: inside(yours, tab("Request changes")), say: "Request changes" },
   { press: inside(yours, button("Submit review")), say: "Submit records it, and sends it to the Job with the review" },

@@ -28,7 +28,7 @@ const fromThePullRequest: Step[] = [
   { press: inside(list, button(/#1907/)), say: "A pull request with a preview deployed" },
   { look: tool, say: "Walk is a tool of Armada's, in the Flight control with the rest. It has a colour of its own" },
   { hover: inside(tool, role("img", "Armada's tool")), say: "Defined where the other tools are" },
-  { key: "5", on: reader(1907), say: "5 presses it. It plays the change, which costs, so it asks first" },
+  { key: "8", on: reader(1907), say: "8 presses it, after the four explanations and the other tools. It plays the change, which costs, so it asks first" },
   { look: dialog("Walk"), say: "The same question every tool that spends asks" },
   { key: " ", on: dialog("Walk"), say: "Space turns the question off on this machine" },
   { key: "Enter", on: dialog("Walk"), say: "↵ runs it" },

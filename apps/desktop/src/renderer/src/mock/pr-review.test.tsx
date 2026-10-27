@@ -151,7 +151,7 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
   await expect.element(reader(1896).getByRole("button", { name: "Job: Fix the reconnect wait" })).toBeVisible();
   const how = reader(1896).getByRole("region", { name: "How it works" });
   await expect.element(how.getByRole("img", { name: /^Kept/ })).toBeVisible();
-  await reader(1896).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "Why" }).click();
+  await tile("Why").click();
   await expect.element(reader(1896).getByRole("region", { name: "Why" }).getByRole("img", { name: /^Kept/ })).toBeVisible();
   await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
 });
