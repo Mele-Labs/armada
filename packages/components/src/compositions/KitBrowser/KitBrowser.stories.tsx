@@ -4,7 +4,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import type { KitSetupRead } from "../KitSetup/KitSetup";
 import { SharedHomeProvider } from "../KitSetup/SharedHome";
-import type { SharedHome, SyncItem } from "../KitSetup/SharedHome";
+import type { SharedHome, HomeSyncItem } from "../KitSetup/SharedHome";
 import { KitBrowser } from "./KitBrowser";
 
 const HOME = "/Users/user/.agent";
@@ -80,7 +80,7 @@ const setItem = fn();
 /** A home where What syncs has Skills on and every plugin off, which `setKind` and `setItem` switch. */
 function WithHome({ children }: { children: React.ReactNode }) {
   const [kinds, setKinds] = useState<readonly string[]>(["skills"]);
-  const [items, setItems] = useState<readonly SyncItem[]>([]);
+  const [items, setItems] = useState<readonly HomeSyncItem[]>([]);
   const home: SharedHome = {
     account: "nickmele",
     repository: "armada-home",

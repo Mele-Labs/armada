@@ -40,13 +40,13 @@ export type SharedRow = {
 };
 
 /** One item switched on by itself, by its row's kind and name. */
-export type SyncItem = { kind: string; name: string };
+export type HomeSyncItem = { kind: string; name: string };
 
 /** What syncs: the kinds switched on, and each item switched on by itself while its kind is off. */
-export type Syncs = { kinds: readonly string[]; items: readonly SyncItem[] };
+export type Syncs = { kinds: readonly string[]; items: readonly HomeSyncItem[] };
 
 /** Whether an item syncs, and whether its own switch can move: not while its whole kind is on. */
-export function itemSyncs(syncs: Syncs, item: SyncItem): { on: boolean; locked: boolean } {
+export function itemSyncs(syncs: Syncs, item: HomeSyncItem): { on: boolean; locked: boolean } {
   const locked = syncs.kinds.includes(item.kind);
   return { on: locked || syncs.items.some((one) => one.kind === item.kind && one.name === item.name), locked };
 }
@@ -83,7 +83,7 @@ export type SharedHomeActs = {
   /** Switch a whole kind on or off. */
   setKind?: (kind: string, on: boolean) => void;
   /** Switch one item on or off by itself. */
-  setItem?: (item: SyncItem, on: boolean) => void;
+  setItem?: (item: HomeSyncItem, on: boolean) => void;
 };
 
 export type SharedHome = SharedHomeRead & SharedHomeActs;

@@ -3,7 +3,7 @@ import type { KitPieceKind } from "@armada/protocol";
 
 import { linesOf, sourceWords, styleFrom } from "../KitSetup/KitSetup";
 import type { KitSetupItem, KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
-import type { SharedHome, SharedRow, SyncItem } from "../KitSetup/SharedHome";
+import type { SharedHome, SharedRow, HomeSyncItem } from "../KitSetup/SharedHome";
 import type { KitServerRowProps } from "../KitServers/KitServers";
 
 /** The kinds Kit draws as a list with the picked item beside it, by the id their sidebar entry has. */
@@ -96,7 +96,7 @@ export type KitRow = {
   brings?: KitRef[];
   sync?: SharedRow | undefined;
   /** The item as What syncs names it, where the home carries its kind. */
-  home?: SyncItem;
+  home?: HomeSyncItem;
   /** A mod: what it changes, and whether Armada ships it. */
   mod?: { kind: "theme" | "layout"; builtIn: boolean };
   /** A server connected outside Armada, or Kit's own. */
