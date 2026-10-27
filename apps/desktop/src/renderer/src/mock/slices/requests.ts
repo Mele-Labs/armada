@@ -1,5 +1,5 @@
 // Requests' members, answered from memory for the life of the window, in the shapes Fleet answers (`get_requests`,
-// `save_request_collection`, `save_request_environment`, `send_request`). Each repository keeps the person's own and the
+// `save_request_collection`, `save_request_environment`, `delete_request_environment`, `send_request`). Each repository keeps the person's own and the
 // repository's collections and environments, the person's winning by collection id and environment name, and each Job's
 // servers as `server:<name>`. A file seeded as not reading lists nothing, and a save into the person's own is refused 409 while
 // it will not. A send fills `{{name}}` and answers 200 unless the scenario's `answer` says otherwise. **No secret is kept
@@ -135,6 +135,14 @@ export const requests: Slice<RequestsApi, Record<string, never>> = {
         );
         const next = { name: environment.name, variables };
         one.environments = before === undefined ? [...one.environments, next] : one.environments.map((it) => (it === before ? next : it));
+        return { ok: true, value: read(sessionId, repository) };
+      },
+      deleteRequestEnvironment: async (name, sessionId, repository) => {
+        const unreadAnswer = refusedUnread(repository);
+        if (unreadAnswer !== undefined) return unreadAnswer;
+        const one = heldOf(repository ?? first);
+        if (!one.environments.some((it) => it.name === name)) return refusal("fleet.no_such_request_environment", `There is no environment of yours named ${name}.`);
+        one.environments = one.environments.filter((it) => it.name !== name);
         return { ok: true, value: read(sessionId, repository) };
       },
       sendRequest: async (send) => {

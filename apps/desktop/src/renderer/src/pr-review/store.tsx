@@ -3,7 +3,7 @@
 //
 // Two halves with a seam between them. **The forge's** (this file): the four lists read from the forge when the tab opens
 // and on Refresh and never polled, a pull request's page read when it is opened, its patches read when a change is
-// shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the quick actions,
+// shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the explanations,
 // Ask and the tools, which are runs Fleet keeps. Natural Search (`store-search.ts`) is a run across every repository, and the
 // Walk (`store-walk.ts`) a run that needs the place a change runs. All three meet a run through `review_run.changed`.
 
@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import type { PullRequestPage, PullRequestState, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
-import { readKept, writeKept } from "@armada/components";
+import { forgetKept, readKept, writeKept } from "@armada/components";
 import { SURFACE } from "@armada/shell";
 
 import type { PullLink } from "../../../shared/pull-link";
@@ -125,6 +125,13 @@ const rowOfStanding = (state: PullRequestState, repository: string): PullReviewR
 const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
 
 export const KEPT_LISTS = "pr-review:lists";
+/** The pull request open in the reader, so a reload opens it again rather than leaving the reader empty. */
+const KEPT_OPEN = "pr-review:open";
+/** The rows of pull requests opened by link, the latest first, so a reload lists them again: no list from the forge holds them. */
+const KEPT_LINKED = "pr-review:linked";
+const LINKED_KEPT = 10;
+/** His pending comments, by pull request, until Submit is taken. */
+const KEPT_DRAFTS = "pr-review:drafts";
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -142,6 +149,7 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     failed: undefined,
     finds: [],
     open: undefined,
+    linked: [],
     searching: false,
     askFirst: true,
     spending: undefined,
@@ -286,12 +294,39 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
 
   const open = (key: string | undefined) => {
     set({ open: key });
-    if (key === undefined) return;
+    if (key === undefined) return forgetKept(KEPT_OPEN);
+    writeKept(KEPT_OPEN, key);
     readPage(key);
     acts.readRuns(key);
     const pr = prOf(key);
     if (pr !== undefined) acts.readTools(pr.manifestId);
   };
+
+  /** A pull request opened by link joins the kept rows, at the top. */
+  const keepLinked = (row: PullReviewRow) => {
+    const rows = [row, ...(readKept<PullReviewRow[]>(KEPT_LINKED) ?? []).filter((one) => keyOf(one) !== keyOf(row))].slice(0, LINKED_KEPT);
+    writeKept(KEPT_LINKED, rows);
+    set({ linked: rows.map(keyOf) });
+  };
+
+  /** His pending comments on a pull request, changed here and kept, so a reload does not lose what he has not submitted. */
+  const setDrafts = (key: string, drafts: readonly Draft[]) => {
+    change(key, { drafts });
+    const { [key]: _, ...others } = readKept<Record<string, readonly Draft[]>>(KEPT_DRAFTS) ?? {};
+    writeKept(KEPT_DRAFTS, drafts.length === 0 ? others : { ...others, [key]: drafts });
+  };
+
+  // What he had open, what he opened by link and what he has not submitted come back after a reload as he left them.
+  const linkedRows = readKept<PullReviewRow[]>(KEPT_LINKED) ?? [];
+  linkedRows.forEach(adopt);
+  set({ linked: linkedRows.map(keyOf) });
+  for (const [key, drafts] of Object.entries(readKept<Record<string, readonly Draft[]>>(KEPT_DRAFTS) ?? {})) {
+    change(key, { drafts });
+    // A comment added from here on is never given the id of one kept.
+    for (const one of drafts) ids = Math.max(ids, Number(one.id.replace(/^\D+/, "")) || 0);
+  }
+  const wasOpen = readKept<string>(KEPT_OPEN);
+  if (wasOpen !== undefined && prOf(wasOpen) !== undefined) open(wasOpen);
 
   return {
     ...acts,
@@ -320,7 +355,9 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
         if (!answer.ok) return { ok: false, said: answer.said };
         const standing = answer.value.state;
         if (standing === "merged" || standing === "closed") return { ok: false, said: `#${link.number} is ${standing}, and only an open pull request is reviewed here.` };
-        adopt(rowOfStanding(answer.value, repository));
+        const row = rowOfStanding(answer.value, repository);
+        adopt(row);
+        keepLinked(row);
       }
       open(held);
       return { ok: true, key: held };
@@ -360,8 +397,8 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
         change(key, { every: answer.ok ? { state: "read", head: on, files: answer.value.files } : { state: "said", said: answer.said } });
       });
     },
-    addDraft: (key, draft) => change(key, { drafts: [...work(key).drafts, { id: nextId("d"), ...draft }] }),
-    removeDraft: (key, id) => change(key, { drafts: work(key).drafts.filter((one) => one.id !== id) }),
+    addDraft: (key, draft) => setDrafts(key, [...work(key).drafts, { id: nextId("d"), ...draft }]),
+    removeDraft: (key, id) => setDrafts(key, work(key).drafts.filter((one) => one.id !== id)),
     resolve: async (key, thread, resolved) => {
       const pr = prOf(key);
       if (pr === undefined) return false;
@@ -398,9 +435,9 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
       }
       const page = answer.value;
       mend(key, { page, body: page.body ?? pr.body, head: page.head ?? pr.head });
+      setDrafts(key, []);
       change(key, {
         submitting: false,
-        drafts: [],
         threads: page.threads ?? [],
         review: page.review,
         submissions: [...work(key).submissions, { verdict, body: body.trim(), comments: comments.length, at: new Date().toISOString(), ...(told === undefined ? {} : { told }) }],
@@ -421,7 +458,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {}, sheet: undefined, places: { state: "unread", list: [], said: undefined } };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, linked: [], searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {}, sheet: undefined, places: { state: "unread", list: [], said: undefined } };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

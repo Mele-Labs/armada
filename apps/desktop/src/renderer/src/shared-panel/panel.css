@@ -256,8 +256,8 @@
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 
-/* Name and value tables. The tracks are this composition's: the name takes a share, the act or the Secret box what it needs,
-   and the value the rest. A long value wraps rather than pushing the table wide. */
+/* Name and value tables. The tracks are this composition's: the name takes a share, the Secret box and the icon act what
+   they need, and the value the rest. A long value wraps rather than pushing the table wide. */
 .side-table {
   table-layout: fixed;
 }
@@ -266,8 +266,12 @@
   width: 38%;
 }
 
-.side-table__act {
-  width: calc(var(--space-12) * 2);
+.side-table__check {
+  width: calc(var(--space-12) + var(--space-6));
+}
+
+.side-table__icon {
+  width: calc(var(--space-12) + var(--space-2));
 }
 
 .side-table__value {

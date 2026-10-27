@@ -97,6 +97,10 @@ export function handleRequests({ ipc, connection }: Hosts): void {
     const environment = environmentOf(body);
     return where === null || environment === null ? unsent : (connection()?.requests.saveEnvironment({ ...where, environment }) ?? unsent);
   });
+  ipc.handle(CHANNELS.deleteRequestEnvironment, (_event, name: unknown, sessionId: unknown, repository: unknown) => {
+    const where = whereOf(sessionId, repository);
+    return where === null || !named(name) ? unsent : (connection()?.requests.deleteEnvironment({ ...where, name }) ?? unsent);
+  });
   ipc.handle(CHANNELS.sendRequest, (_event, body: unknown) => {
     const send = sendOf(body);
     return send === null ? unsent : (connection()?.requests.send(send) ?? unsent);

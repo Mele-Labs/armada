@@ -110,7 +110,7 @@ l r f          go to a part of Reviews: the list, the reader, the review tools  
 L              open the lists   (review only)
 /              search the pull requests   (review only)
 N              Natural Search   (review only)
-Q              go to the quick actions   (review only)
+Q              go to the explanations    (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
@@ -182,7 +182,7 @@ Its key is `/` on each page, and on a page with nothing focused the bar takes it
 
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
 any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,
-`L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the quick actions, `A` the question box, `D` the
+`L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the explanation tiles in Flight control, `A` the question box, `D` the
 description and `W` the places changes run. They stand down in a text field and while a dialog is up.
 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any

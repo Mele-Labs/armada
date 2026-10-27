@@ -21,7 +21,7 @@ type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 export type FleetPanelApi = Pick<
   BridgeApi,
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
-  | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "sendRequest"
+  | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "deleteRequestEnvironment" | "sendRequest"
   | "startTerminalRun" | "writeSessionRun" | "resizeSessionRun" | "stopSessionRun" | "onSessionRunMessage"
 >;
 export type FleetPanelState = Pick<BridgeState, "holds" | "repository" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
@@ -226,6 +226,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
       readRequests: (sessionId, repository) => api.readRequests(sessionId, repository),
       saveRequestCollection: (collection, sessionId, repository) => api.saveRequestCollection(collection, sessionId, repository),
       saveRequestEnvironment: (environment, sessionId, repository) => api.saveRequestEnvironment(environment, sessionId, repository),
+      deleteRequestEnvironment: (name, sessionId, repository) => api.deleteRequestEnvironment(name, sessionId, repository),
       sendRequest: (send) => api.sendRequest(send),
     },
     repositories: () => ({ listed: repositories(), filter: now()?.repository ?? null }),

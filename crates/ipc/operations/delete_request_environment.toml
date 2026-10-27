@@ -1,0 +1,16 @@
+[operations.delete_request_environment]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Delete one environment of variables from the person's own requests file for a repository, forgetting every secret it holds in the Keychain"
+notes = """
+Since 27 Oct 2026. `POST /requests/environments/delete`, body `DeleteRequestEnvironment`: `repository` or `session_id`, as `get_requests` takes them, and `name`, the environment's. Answers `Requests`, both files read again.
+
+**Only the person's own file is written.** An environment the repository commits, or one a Job's server makes, is not the person's to delete. Where the person's own hid one of the repository's, the repository's is listed again.
+
+**Each secret's Keychain item is forgotten first**, then the file is written, so the file never loses an environment whose secrets the Keychain still holds. A secret with no item kept is forgotten as done.
+
+A 404 `fleet.no_such_request_environment` where the person's own holds no environment of that `name`. **A person's own file that will not read is not written over**: a 409 `fleet.requests_unread`. A place that cannot be written is a 500 `fleet.requests_unwritable`, written as `save_request_collection` writes it. **A Keychain that would not forget a secret** is a 500 `fleet.request_secret_unkept`, naming the variable, and the file is not written. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve.
+
+`agent_access` is `No`, as for `save_request_environment`: the variables are the person's.
+"""

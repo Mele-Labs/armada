@@ -563,7 +563,7 @@ notes = "Moves focus to the search bar under the column's head. Typing narrows t
 [actions.review_quick]
 kind = "Action"
 tier = "Contextual"
-verb = "Go to the quick actions"
+verb = "Go to the explanations"
 icon = ""
 icon_absent = "undecided"
 shortcut = "Q"

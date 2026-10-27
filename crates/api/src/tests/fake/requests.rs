@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ipc::{
-    RequestBy, RequestSaved, RequestSent, RequestToSend, Requests as RequestsRead, RunPlace,
+    DeleteRequestEnvironment, RequestBy, RequestSaved, RequestSent, RequestToSend, Requests as RequestsRead, RunPlace,
     SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SessionId,
 };
 
@@ -71,6 +71,14 @@ impl Requests for FakeDaemon {
         save: SaveRequestEnvironment,
     ) -> Result<RequestsRead, Refusal> {
         Ok(empty(save.repository))
+    }
+
+    async fn delete_request_environment(
+        &self,
+        _caller: Option<Caller>,
+        delete: DeleteRequestEnvironment,
+    ) -> Result<RequestsRead, Refusal> {
+        Ok(empty(delete.repository))
     }
 
     async fn save_request_to_collection(
