@@ -14,6 +14,7 @@ export { reachable } from "./phone-source";
 export { createPhoneGatewaySource } from "./phone-gateway-source";
 export type { PhoneAsk } from "./phone-gateway-source";
 export { KeyboardSettings } from "./KeyboardSettings";
+export type { PaletteSettingsProps } from "./PaletteSettings";
 export { openSettingsAt, SETTINGS_PALETTE, SETTINGS_SECTIONS, settingsIn, useSettingsSection, wordsOf as settingWords } from "./sections";
 export { SettingsFile } from "./SchemaSettings";
 export type { SettingsSectionId } from "./sections";

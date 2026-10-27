@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Bell, ClipboardList, FileCog, HardDrive, LayoutDashboard, Settings, Stethoscope, Trash2 } from "lucide-react";
-import { expect, fn, waitFor } from "storybook/test";
+import { expect, fn, waitFor, within } from "storybook/test";
 
 import { actsIn, ALIASES, globalActs, type Action } from "../../actions";
 import { Dialog } from "../Dialog/Dialog";
@@ -265,54 +265,41 @@ export const AnAliasFindsTheLexiconTerm: Story = {
    */
   play: async ({ canvas }) => {
     const row = canvas.getByRole("option", { name: /^Delete/ });
-    await expect(row).toHaveAccessibleName("Delete x");
+    await expect(row).toHaveAccessibleName("Delete");
     await expect(row.querySelector("mark")).toBeNull();
     await expect(canvas.queryByText("terminate")).toBeNull();
   },
 };
 
 /**
- * **The newest surface goes last, so it is the only digit that is new** —
- * true of Cleanup's own arrival on 2026-09-03, which took `⌘5` and pushed Helm
- * to `⌘6`. Job Board reads `⌘2` here, not the `⌘1` that arrival left it: a
- * later, unrelated one — Overview (#921) — broke the rule once and moved
- * every digit but its own.
+ * **⌘ numbers the results, and nothing else.** A row draws no binding of its own at rest: its kind sits flush right, and
+ * while ⌘ is held the digit that opens it sits over the kind (the owner, 27 Oct 2026). The digit is the row's place in
+ * this list, so it is read off the rows in the order they are drawn, never off a registry chord.
  *
- * A published binding moved, and this is where a person finds out: the two
- * rows are read together the next time anybody opens the palette.
- *
- * The query is "disk", the word on the control that has reached this screen
- * since it shipped. The row reads `Worktree Slots`, the screen's own title.
+ * The query is "disk", the word on the control that has reached this screen since it shipped. The row reads
+ * `Worktree Slots`, the screen's own title, and the word is not in it.
  */
-export const TheNewestSurfaceTookTheLastDigit: Story = {
+export const CmdNumbersTheResults: Story = {
   args: { ...board, defaultQuery: "disk" },
   /**
-   * Three things a rendering cannot state: the row was reached by a word that
-   * is not in its label, the digit beside it is the rail position rather than
-   * anything about the row, and Helm has moved off the digit it published. The
-   * last two are read after the query is cleared, because "disk" narrows both
-   * of the rows the claim is against away.
+   * Two things a rendering cannot state: the row was reached by a word that is not in its label, and the digits are the
+   * positions of the rows rather than anything about the rows. Both are read with the query cleared, because "disk"
+   * narrows the list to one.
    *
-   * Broken on purpose twice — by dropping the aliases, which loses the row and
-   * fails on the first line, and by putting `⌘5` back on Helm in the registry,
-   * which fails on the last.
+   * Broken on purpose three times — by dropping the aliases, which loses the row and fails on the first line, by never
+   * drawing the digits, and by drawing them with ⌘ up.
    */
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("option", { name: /Worktree Slots/ })).toBeVisible();
 
     await userEvent.clear(canvas.getByRole("combobox"));
-
-    // A chord is one `Kbd` box; the accessible name joins its keys with the
-    // space the accname algorithm inserts between elements, never a "+".
-    await expect(canvas.getByRole("option", { name: /^Job Board/ })).toHaveAccessibleName(
-      "Job Board ⌘ 2",
-    );
-    await expect(canvas.getByRole("option", { name: /^Worktree Slots/ })).toHaveAccessibleName(
-      "Worktree Slots ⌘ 6",
-    );
-    await expect(canvas.getByRole("option", { name: /^Helm/ })).toHaveAccessibleName(
-      "Helm ⌘ J",
-    );
+    const rows = canvas.getAllByRole("option");
+    await expect(within(rows[0]!).queryByText("1")).toBeNull();
+    // Pressed and held: the digits show for as long as ⌘ is down.
+    await userEvent.keyboard("{Meta>}");
+    for (const [at, row] of rows.slice(0, 3).entries()) await expect(within(row).getByText(String(at + 1))).toBeInTheDocument();
+    await userEvent.keyboard("{/Meta}");
+    await expect(within(rows[0]!).queryByText("1")).toBeNull();
   },
 };
 
@@ -519,6 +506,8 @@ export const EscapeClosesAfterAClickInside: Story = {
   render: () => <Closable />,
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByText("Navigation"));
+    // A press on the panel leaves the field its focus; the claim is for the press that takes it, so it is taken.
+    canvas.getByRole("combobox").blur();
     await expect(canvas.getByRole("combobox")).not.toHaveFocus();
 
     await userEvent.keyboard("{Escape}");

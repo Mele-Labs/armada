@@ -118,14 +118,32 @@ function paneOf(dock: TerminalDockRun, grows?: number): TerminalPaneProps | null
     onStop: run.stop,
     onRerun: () => dock.start(command, dock.inline ?? undefined),
     onClose: dock.hide,
-    children: <XtermScreen out={run.out} run={run.runs} running={phase.state === "running"} write={run.write} onSize={(cols, rows) => dock.sized({ cols, rows })} {...(grows === undefined ? {} : { grows })} />,
+    children: screenOf(run, phase, (cols, rows) => dock.sized({ cols, rows }), grows),
   };
+}
+
+function screenOf(run: CodeRun, phase: CodePhase, onSize: (cols: number, rows: number) => void, grows?: number) {
+  return <XtermScreen out={run.out} run={run.runs} running={phase.state === "running"} write={run.write} onSize={onSize} {...(grows === undefined ? {} : { grows })} />;
 }
 
 /** A block's run, drawn right under the block, as tall as what it has printed up to 24 rows and then scrolling. */
 export function InlineTerminal({ dock }: { dock: TerminalDockRun }) {
   const pane = dock.inline !== null ? paneOf(dock, IN_PLACE_ROWS) : null;
   return pane === null ? null : <TerminalPane {...pane} />;
+}
+
+/**
+ * A run held by what drew the block, such as a Needs you card, drawn under the block as `InlineTerminal` draws a docked one.
+ * The holder starts it with no screen yet, so it starts at the terminal's own size and is told the screen's once it fits.
+ */
+export function HeldTerminal({ command, run }: { command: string; run: CodeRun }) {
+  const { phase } = run;
+  if (phase.state === "idle") return null;
+  return (
+    <TerminalPane command={command} phase={phase} onStop={run.stop} onRerun={() => run.start(command)} onClose={run.close}>
+      {screenOf(run, phase, run.resize, IN_PLACE_ROWS)}
+    </TerminalPane>
+  );
 }
 
 /** What a block shows of its run while the pane is put away: its mark, which a press brings the pane back from. */

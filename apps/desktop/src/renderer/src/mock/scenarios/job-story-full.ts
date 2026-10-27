@@ -45,7 +45,15 @@ const LEDGER: readonly SessionAttachment[] = [
   doc("mod-kinds", "The tracker kind of mod"),
   sketch("Query path"),
   sketch("Mod lifecycle"),
+  // A picture it wrote for him, and two a test run and a look in the browser left behind, which Completed does not list.
+  { kind: "artifact", form: "image", id: "docs/images/issues-tab.png", title: "issues-tab.png" },
+  { kind: "artifact", form: "image", id: "apps/desktop/src/renderer/src/mock/__screenshots__/walks-1of4.test.tsx/the-walk-issues-tab-plays-to-its-last-step-1.png", title: "the-walk-issues-tab-plays-to-its-last-step-1.png" },
+  { kind: "artifact", form: "image", id: ".playwright-mcp/check-issues.png", title: "check-issues.png" },
 ];
+
+/** Walks he approved, oldest first; the first was shown again later, so it stands once, at the end. */
+const WALK_TITLES = ["Issues tab, first look", "Query picker", "Saved queries", "Describe a query", "Tracker mods", "Start a Job from a ticket", "Issues tab, first look"];
+const WALKS = WALK_TITLES.map((title, i) => ({ id: `full-walk-${i}`, at: `2026-10-27T1${i}:00:00Z`, kind: "window" as const, title, url: `http://127.0.0.1:5176/?walk=w${i}`, ended: `2026-10-27T1${i}:30:00Z` }));
 
 export const s334JobStoryFull: Scenario = {
   ...base,
@@ -61,7 +69,7 @@ export const s334JobStoryFull: Scenario = {
           const plan = one.work?.plan;
           if (plan === undefined) return one;
           const groups = plan.groups.map((group): WorkGroup => (ISSUE_OF[group.id] === undefined ? group : { ...group, issue: ISSUE_OF[group.id]!, tasks: group.tasks.map((one): WorkTask => ({ ...one, state: "done" })) }));
-          return { ...one, attachments: [...one.attachments, ...LEDGER], work: { ...one.work, plan: { ...plan, groups: [...groups, ...MORE] } } };
+          return { ...one, attachments: [...one.attachments, ...LEDGER], rows: [...one.rows, ...WALKS], work: { ...one.work, plan: { ...plan, groups: [...groups, ...MORE] } } };
         },
       );
       return store;

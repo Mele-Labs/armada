@@ -51,7 +51,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | Guide card | Centred in the window on both axes |
 | Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
-| Command palette | Horizontally centred across the window, the field top-anchored at 20% of the viewport's height. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
+| Command palette | Opens horizontally centred across the window, the field top-anchored at 20% of the viewport's height, and opens where it was last dragged. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
 | Dispatch sheet | Horizontally centred across the window and wider than the palette, its top at 12% of the viewport's height, over a scrim. The one sheet for `n`, the deck's Dispatch tile, New Job and the palette's `⌘↵` |
 
 **A guide card is framed even though a `?` raised it.** It is the one layer

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import { BadgeCheck, MessageSquarePlus, Pencil, Reply } from "lucide-react";
+import { BadgeCheck, Ban, MessageSquarePlus, Pencil, Reply } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardFooter } from "../../primitives/Card/Card";
@@ -22,6 +22,7 @@ const SETTLED = {
   approved: { said: "Approved", Glyph: BadgeCheck },
   fixed: { said: "Approved with your fixes", Glyph: BadgeCheck },
   sent_back: { said: "Sent back", Glyph: Reply },
+  withdrawn: { said: "Withdrawn", Glyph: Ban },
 } as const;
 
 /** The words selected in the draft, and where the right press on them was. */
@@ -54,10 +55,11 @@ function Text({ text, onContextMenu }: { text: string; onContextMenu?: (event: M
  * A draft the agent put to the person with `propose_draft`, approved where it stands
  * (`.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`): Approve, Edit and Note in fixed places,
  * and once settled how it ended, with nothing left to press. `keep` names it for the text he types, which a settle forgets.
- * Without `onAnswer` the card is read only. **A right press on words selected in the text offers Edit and Add note**: Edit opens
+ * Without `onAnswer` the card is read only. `onWithdraw` adds Withdraw, at the footer's end in read and note mode alike, which in the note
+ * takes what he typed as the reason. **A right press on words selected in the text offers Edit and Add note**: Edit opens
  * the box with those words selected, where they stand in the source, and Add note opens the note with them quoted.
  */
-export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: string; onAnswer?: (rowId: string, answer: DraftAnswer) => void }) {
+export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThreadRow; keep: string; onAnswer?: (rowId: string, answer: DraftAnswer) => void; onWithdraw?: (rowId: string, reason?: string) => void }) {
   const fixedKey = `${keep}:fixed`;
   const noteKey = `${keep}:note`;
   // Text he was typing comes back with its box open.
@@ -93,6 +95,14 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
     setMode("read");
   };
   const state = settled === undefined ? undefined : SETTLED[settled.how];
+  const withdraw =
+    onWithdraw === undefined ? null : (
+      <span className="armada-session-draft__withdraw">
+        <Button size="sm" variant="secondary" onClick={() => onWithdraw(row.id, noting && note.trim() !== "" ? note.trim() : undefined)}>
+          Withdraw
+        </Button>
+      </span>
+    );
   const choose = (chosen: string) => {
     const words = menu?.words ?? "";
     setMenu(undefined);
@@ -135,7 +145,7 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
           </div>
         )}
         {noting ? <Textarea aria-label="Note" rows={3} autoFocus keep={noteKey} value={note} onChange={(event) => setNote(event.currentTarget.value)} /> : null}
-        {settled?.how === "sent_back" && settled.words !== undefined ? <blockquote className="armada-session-draft__note">{settled.words}</blockquote> : null}
+        {(settled?.how === "sent_back" || settled?.how === "withdrawn") && settled.words !== undefined ? <blockquote className="armada-session-draft__note">{settled.words}</blockquote> : null}
         {state === undefined ? null : (
           <p className="armada-session-draft__settled" data-how={settled!.how}>
             <Tooltip label={state.said}>
@@ -165,6 +175,7 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
                 <Button size="sm" variant="ghost" onClick={cancel}>
                   Cancel
                 </Button>
+                {withdraw}
               </>
             ) : (
               <>
@@ -177,6 +188,7 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
                 <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
                   Note
                 </Button>
+                {withdraw}
               </>
             )}
           </CardFooter>

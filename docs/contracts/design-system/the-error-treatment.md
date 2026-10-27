@@ -113,8 +113,8 @@ whether to paste a machine record into a public issue.
 
 **The control carries no glyph and no kbd.** No glyph, because nothing in the
 error treatment carries one and `triangle-alert` and `octagon-alert` are
-spoken for. No kbd, because a binding is discovered in the palette and the
-tooltip, which are the two surfaces this document gives one to — a kbd inside
+spoken for. No kbd, because a binding is discovered in the tooltip and in Settings under
+Keyboard shortcuts, and a kbd inside
 every button that has a binding would put the reference material on the thing
 it describes.
 

@@ -72,6 +72,12 @@
   color: var(--step-advanced);
 }
 
-.armada-session-draft__settled[data-how="sent_back"] .armada-session-draft__mark {
+.armada-session-draft__settled:is([data-how="sent_back"], [data-how="withdrawn"]) .armada-session-draft__mark {
   color: var(--fg-muted);
+}
+
+/* Withdraw keeps the footer's end in read and note mode, so it is where it was when the note opens. */
+.armada-session-draft__withdraw {
+  display: flex;
+  margin-inline-start: auto;
 }

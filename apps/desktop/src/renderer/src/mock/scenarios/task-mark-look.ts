@@ -1,7 +1,6 @@
 // A Job mid-build whose plan holds a task Fleet marked done itself and a task in progress that looks left behind, for the walk `taskMarkLook`. Over the
 // `one-session-view` scenario, with its busy Session given the plan and the Field.
 
-import type { SessionPlanTask } from "@armada/protocol";
 import type { Session, WorkFile, WorkGroup, WorkTask } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -12,9 +11,7 @@ const BUSY = "one-view-3";
 /** Twelve minutes before the scenario loads, which is when the stale task was last touched. */
 const TOUCHED = new Date(Date.now() - 12 * 60_000).toISOString();
 
-/** A task as Fleet puts it on the wire: the screens' `WorkTask` does not carry `marked` and `stale` yet, so this scenario hands them over beside it. */
-type Task = WorkTask & Pick<SessionPlanTask, "marked" | "stale">;
-const group = (id: string, agent: string, title: string, paths: string[], tasks: Task[]): WorkGroup => ({ id, agent, title, paths, tasks });
+const group = (id: string, agent: string, title: string, paths: string[], tasks: WorkTask[]): WorkGroup => ({ id, agent, title, paths, tasks });
 
 const GROUPS: readonly WorkGroup[] = [
   group("t1", "rust-engineer", "Rotate at midnight", ["crates/store"], [

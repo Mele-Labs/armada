@@ -48,6 +48,15 @@ export async function remindLater(draft: SessionsDraft | undefined, sessionId: s
   return (await draft.send(sessionId, { text: remindText(sentence), files: [], sketches: [], tags: [] })) !== false;
 }
 
+/** Parks a Session, or sets a parked one going again. The row menu's Pause and Resume and the palette's all come here. */
+export const toggleSessionPause = (draft: SessionsDraft | undefined, id: string, paused: boolean): Promise<boolean> | undefined => (paused ? draft?.resume : draft?.pause)?.(id);
+
+/** Ends a Session's running turn. The flight deck's Stop and the palette's both come here. */
+export const stopSession = (draft: SessionsDraft | undefined, id: string): void => draft?.stop?.(id);
+
+/** Merges the pull request a Session holds, by number, as Fleet merges it. The flight deck's Merge and the palette's both come here. */
+export const mergeSession = (draft: SessionsDraft | undefined, id: string, number: number): Promise<boolean> | undefined => draft?.act(id, number, "merge");
+
 /** The acts over what they are made of. Pure, so what each does and does not reach is held by a test. */
 export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
   const { onOpenSession } = hosts;
@@ -60,12 +69,12 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
       void draft?.send(subject.id, { text, files: [], sketches: [], tags: [] });
     },
     stop: (subject) => {
-      if (subject.kind === "session") draft?.stop?.(subject.id);
+      if (subject.kind === "session") stopSession(draft, subject.id);
     },
     merge: (subject) => {
       const pr = subject.pr;
       if (pr === undefined) return;
-      if (subject.kind === "session") void draft?.act(subject.id, pr.number, "merge");
+      if (subject.kind === "session") void mergeSession(draft, subject.id, pr.number);
     },
     open: (subject) => {
       if (subject.kind === "session") onOpenSession(subject.id);

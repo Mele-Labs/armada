@@ -53,3 +53,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. Requesting changes is a decision to hold the pull request back, which is what the circle and diagonal says; it is not a failure. In `--status-completed-failed`, tooltip `Changes requested`. The Conversation tab draws the same glyph for that review."
+
+  [[icons.ban.usage]]
+    means = "A draft the person withdrew, on its card in a Job's thread"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 27 Oct 2026 for the draft card's Withdraw (`propose_draft`), on the walk `draft-card`. Withdrawing is his decision that the draft will not go, which is what the circle and diagonal says; it is not a failure. Tooltip `Withdrawn`, with the same word beside it and his reason quoted under the draft where he gave one."

@@ -707,6 +707,14 @@ where
         self.draft_proposed(caller, draft).await
     }
 
+    async fn withdraw_draft(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawDraft,
+    ) -> Result<SessionRecord, Refusal> {
+        self.draft_withdrawn(caller, withdraw).await
+    }
+
     async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
         let id = closed.session_id.as_str().trim().to_string();
         let known = {
