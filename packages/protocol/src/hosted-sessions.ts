@@ -6,7 +6,7 @@
 // `SessionRecord` with `origin: "bridge"` and `hosted` set; its thread is not on
 // the row. Read `get_session` once and follow `session.row`.
 
-import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
+import type { CallKind, HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { ModAim } from "./mods";
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
@@ -112,6 +112,8 @@ export type AnswerSessionAsk = {
   answers?: QuestionAnswer[];
   /** The folder an `always_allow`, `always_block` or `allow_for_session` is for. A 422 `fleet.session_answer_not_a_folder` without one that holds `reaches`. */
   folder?: string;
+  /** The width an `allow_like_this_for_session` allows: the card's own `kind`, or the same with no script. */
+  kind?: CallKind;
 };
 
 /** `POST /sessions/tune`. A model or effort left out is the machine's own. */

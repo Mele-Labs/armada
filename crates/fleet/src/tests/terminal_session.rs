@@ -667,6 +667,7 @@ impl Rig {
                     chosen: vec![chosen.into()],
                 }],
                 folder: None,
+                kind: None,
             })
             .await
             .map(|_| ())

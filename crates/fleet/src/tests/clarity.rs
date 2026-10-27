@@ -98,6 +98,38 @@ fn a_question_that_names_nothing_to_decide_stays_unclear() {
     assert_eq!(unclear("Tests pass.", false), Some(Unclear::Status));
 }
 
+/// Lines refused in a session for want of `dismiss`, `request` and `ping` in the verb list.
+#[test]
+fn a_request_to_dismiss_request_or_ping_is_an_ask() {
+    for text in [
+        "Re-request Ada and Lin's review on #4821 and ping the other teams",
+        "Request review on #4821 from Ada and Lin, then ping the other teams",
+        "Dismiss the old reviews on pull request 4821",
+        "Rotate the deploy key for the mirror",
+        "Upload the signed build to the release page",
+        "Roll back the cache change on staging",
+    ] {
+        assert_eq!(unclear(text, false), None, "{text}");
+    }
+}
+
+/// A `re-` prefix on a verb he is asked to do reads as that verb.
+#[test]
+fn a_re_prefix_reads_as_the_verb_after_it() {
+    for text in ["Re-run the failing job", "Re-review the diff on #12", "Re-open #12 on the board", "Re-request review from Ada"] {
+        assert_eq!(unclear(text, false), None, "{text}");
+    }
+    assert_eq!(unclear("Re-frobnicate", false), Some(Unclear::NoAsk));
+}
+
+/// A status line stays a status, and a line with no verb stays refused, beside the longer list.
+#[test]
+fn a_longer_verb_list_does_not_clear_a_status_or_a_bare_noun() {
+    assert_eq!(unclear("#4821 CI is green", false), Some(Unclear::Status));
+    assert_eq!(unclear("Mirror status for the old reviews", false), Some(Unclear::NoAsk));
+    assert_eq!(unclear("The old reviews", false), Some(Unclear::NoAsk));
+}
+
 /// A command handed to him is the verb and the thing, so a short line with one is clear; a pointer is not.
 #[test]
 fn a_command_handed_over_makes_a_short_line_clear_but_not_a_pointer() {
@@ -115,7 +147,7 @@ fn a_status_phrase_beside_a_verb_for_him_is_an_ask() {
 #[test]
 fn the_first_unclear_item_is_named_with_why_when_the_reader_is_in_force() {
     let list = [("tests", "Run the tests and tell me what fails", false), ("size", "Bigger than it looked?", false), ("done", "Tests pass", false)];
-    assert_eq!(first_unclear(list, true), Some(("size", Unclear::NoAsk)));
+    assert_eq!(first_unclear(list, true), Some(("size", "Bigger than it looked?", Unclear::NoAsk)));
     let clear = [("tests", "Run the tests and tell me what fails", false)];
     assert_eq!(first_unclear(clear, true), None);
 }
@@ -133,12 +165,26 @@ fn the_reader_is_in_force() {
 /// In the voice of the walk refusal: what was refused, why, what to do, and to call again.
 #[test]
 fn the_refusal_names_the_item_and_why_and_says_to_call_again() {
-    let said = unclear_item_refusal("size", Unclear::NoAsk);
+    let said = unclear_item_refusal("size", "Bigger than it looked?", Unclear::NoAsk);
     assert!(said.starts_with("Refused: item \"size\""), "{said}");
     assert!(said.contains(Unclear::NoAsk.why()), "{said}");
     assert!(said.contains("call waiting_for again"), "{said}");
     for why in [Unclear::Pointer, Unclear::Status, Unclear::NoAsk] {
-        assert!(unclear_item_refusal("x", why).contains(why.why()), "{why:?}");
+        assert!(unclear_item_refusal("x", "Bigger than it looked?", why).contains(why.why()), "{why:?}");
+    }
+}
+
+/// The agent reads the word the check took as the lead, so it can reword the line.
+#[test]
+fn a_refusal_for_no_verb_names_the_word_read_first() {
+    let said = unclear_item_refusal("size", "Bigger than it looked?", Unclear::NoAsk);
+    assert!(said.contains("it holds no verb aimed at him with the thing it names (it read \"bigger\" first)"), "{said}");
+    let said = unclear_item_refusal("area", "Also: **Panel** header", Unclear::NoAsk);
+    assert!(said.contains("(it read \"panel\" first)"), "{said}");
+    let said = unclear_item_refusal("x", "Re-frobnicate", Unclear::NoAsk);
+    assert!(said.contains("(it read \"re-frobnicate\" first)"), "{said}");
+    for why in [Unclear::Pointer, Unclear::Status] {
+        assert!(!unclear_item_refusal("x", "Tests pass", why).contains("it read"), "{why:?}");
     }
 }
 
