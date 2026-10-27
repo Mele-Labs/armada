@@ -35,6 +35,13 @@ What he met: System › Kit › Workflows was the Job-era creator. It edited the
 
 The workflow list's search reads *Find workflow* on `F`, apart from System's search on `/`, after he found the two side by side reading the same.
 
+**On the wired walk, 27 Oct.**
+
+| Asked | He chose | The cost he took |
+|---|---|---|
+| Whether Discuss and Walk keep `message-circle-question` and `footprints`, both reserved for other meanings | Keep both; their rows now cover the steps | Each glyph means two things in Bridge |
+| What happens to Triggers, which the old page alone edited and which have not fired since 17 Oct | Deleted end to end: the saved files, the code and the docs | Rebuilding them later starts from nothing |
+
 **Decided for him.** The page groups workflows as Armada, the repository and Yours, and each step says what ends it. The gate boxes, retries and passes leave the editor, since nothing reads them.
 
 **Where it lands:** a mock walk first, on branch `armada/session-887f02f4`.
