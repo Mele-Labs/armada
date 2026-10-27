@@ -222,6 +222,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::ACCOUNT_CLIENT_ID,
         s::STORE_URL,
         s::THEME,
+        s::SPACING,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Text | Kind::Choice(_)),
@@ -248,7 +249,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 13 + 14 + 27 + 2 + 5 + s::prompt_keys().count();
+    let handles = 21 + 13 + 14 + 28 + 2 + 5 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
