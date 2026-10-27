@@ -570,6 +570,15 @@ where
         let done = match owner {
             Owner::Session(id) if settling => {
                 let mut text = text.clone();
+                if cause == Cause::Merged {
+                    let now = self.now();
+                    let marked = crate::plan_keeping::merge_heard(&mut *self.store().lock().await, id, about.number, now.as_str())
+                        .unwrap_or_default();
+                    if !marked.is_empty() {
+                        text.push_str(&marked);
+                        let _ = self.published_hosted(id).await;
+                    }
+                }
                 for taken in self.waits_taken_off(id, &named).await {
                     text.push_str(&format!("\nTaken off Needs you: {taken}"));
                 }

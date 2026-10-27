@@ -33,6 +33,7 @@ export const NOTICES = [
   "taught",
   "issue_lost",
   "document_sketch",
+  "task_marked",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

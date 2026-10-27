@@ -20,8 +20,15 @@ fn the_mods_plan_and_road_facts_are_read_as_it_spells_them() {
     assert_eq!(decode::<SessionFact>("a fact", br#"{"kind":"plan_left"}"#).expect("left"), SessionFact::PlanLeft);
     assert_eq!(
         decode::<SessionFact>("a fact", br#"{"kind":"committed","branch":"armada/topic"}"#).expect("committed"),
-        SessionFact::Committed { branch: Some("armada/topic".to_string()) }
+        SessionFact::Committed { branch: Some("armada/topic".to_string()), commit: String::new(), subject: String::new() }
     );
+    assert_eq!(
+        decode::<SessionFact>("a fact", br#"{"kind":"committed","commit":"1a2b3c4","subject":"Add the audit table"}"#)
+            .expect("committed"),
+        SessionFact::Committed { branch: None, commit: "1a2b3c4".to_string(), subject: "Add the audit table".to_string() },
+        "a mod from 0.3.46 names the commit and its first line"
+    );
+    assert_eq!(decode::<SessionFact>("a fact", br#"{"kind":"calls","calls":10}"#).expect("calls"), SessionFact::Calls { calls: 10 });
     assert_eq!(
         decode::<SessionFact>("a fact", br#"{"kind":"pushed"}"#).expect("pushed"),
         SessionFact::Pushed { branch: None },
