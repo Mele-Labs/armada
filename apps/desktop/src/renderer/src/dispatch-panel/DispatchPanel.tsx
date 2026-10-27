@@ -17,7 +17,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
-import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { AttachmentChip, Button, DropdownMenu, isLargePaste, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -135,6 +135,8 @@ export type PanelProps = {
   onDismiss?: () => void;
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** Pastes too big to send as words, kept as files for the Session to start with. Absent where the kind takes none. */
+  snippets?: { files: readonly File[]; onPaste: (words: string) => void; onRemove: (file: File) => void };
   /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
@@ -185,6 +187,7 @@ export function DispatchPanel({
   onCollapse,
   onDismiss,
   onFieldKeyDown,
+  snippets,
   body,
   fieldRef,
   autoFocus = false,
@@ -208,6 +211,9 @@ export function DispatchPanel({
     onPick(root);
     if (!asking) field.current?.focus();
   };
+
+  // A request is words, or a snippet pasted in their place.
+  const worded = words.trim() !== "" || (snippets?.files.length ?? 0) > 0;
 
   const sessions = wait?.sessions ?? [];
   const at = useAtMenu(words, onWords, kind === "session" ? { ...tags, sessions } : { sessions: [] }, `${useId()}-at`);
@@ -373,6 +379,12 @@ export function DispatchPanel({
             }}
             onSelect={at.onSelect}
             onBlur={at.onBlur}
+            onPaste={(event) => {
+              const pasted = event.clipboardData.getData("text/plain");
+              if (snippets === undefined || !isLargePaste(pasted)) return;
+              event.preventDefault();
+              snippets.onPaste(pasted);
+            }}
             onScroll={(event) => mirror.current !== null && (mirror.current.scrollTop = event.currentTarget.scrollTop)}
             onKeyDown={(event) => {
               if (at.onKeyDown(event)) return;
@@ -396,6 +408,14 @@ export function DispatchPanel({
           <Kbd>N</Kbd>
         </Tooltip>
       </div>
+
+      {snippets === undefined || snippets.files.length === 0 ? null : (
+        <div className="armada-dispatch-panel__snippets" role="group" aria-label="Attached">
+          {snippets.files.map((file, at) => (
+            <AttachmentChip key={`${file.name}-${at}`} filename={file.name} onRemove={() => snippets.onRemove(file)} />
+          ))}
+        </div>
+      )}
 
       {!at.open ? null : <SessionMenu id={at.listId} label={at.label} numbered={at.numbered} rows={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
 
@@ -440,8 +460,8 @@ export function DispatchPanel({
                   </Button>
                 </>
               )}
-              <SendKbd available={words.trim() !== ""} />
-              <Button variant="primary" size="sm" pending={sending} disabled={disabled || queueing || words.trim() === ""} onClick={onAct}>
+              <SendKbd available={worded} />
+              <Button variant="primary" size="sm" pending={sending} disabled={disabled || queueing || !worded} onClick={onAct}>
                 {act}
               </Button>
             </span>

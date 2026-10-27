@@ -226,6 +226,39 @@ async fn an_ask_with_nothing_held_answers_empty_at_its_wait_and_at_once_without_
     assert!(began.elapsed() < Duration::from_millis(250), "{:?}", began.elapsed());
 }
 
+/// **A big file is told with its size, so the agent opens it in parts**; a small one is told by
+/// its path alone.
+#[tokio::test]
+async fn a_big_file_is_sent_with_its_size_and_a_small_one_as_its_path() {
+    use base64::Engine as _;
+    let rig = rig();
+    rig.started().await;
+    rig.mod_asks().await;
+
+    let upload = |name: &str, bytes: usize| ipc::SessionUpload {
+        name: name.into(),
+        media_type: "text/plain".into(),
+        data: base64::engine::general_purpose::STANDARD.encode(vec![b'x'; bytes]),
+    };
+    Arc::clone(&rig.fleet)
+        .send_session_message(SendSessionMessage {
+            session_id: SessionId::carried(ID),
+            text: "look".into(),
+            attachments: vec![upload("small.txt", 1_000), upload("response.txt", 40_000)],
+            mentions: Vec::new(),
+        })
+        .await
+        .expect("held");
+    let held = rig.mod_asks().await;
+    assert_eq!(held.len(), 1);
+    let lines: Vec<&str> = held[0].lines().filter(|line| line.starts_with("Attached file: ")).collect();
+    assert_eq!(lines.len(), 2, "{}", held[0]);
+    let small = lines.iter().find(|line| line.contains("small.txt")).expect("small told");
+    let big = lines.iter().find(|line| line.contains("response.txt")).expect("big told");
+    assert!(small.ends_with("small.txt"), "{small}");
+    assert!(big.contains("39 KB") && big.contains("in parts"), "{big}");
+}
+
 /// A file is saved by Fleet and the terminal is told its path, in the words a
 /// hosted session is told; a session that ended takes nothing.
 #[tokio::test]
