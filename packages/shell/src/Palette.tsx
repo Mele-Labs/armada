@@ -253,6 +253,9 @@ export type PaletteProps = {
   pinned?: readonly string[];
   recent?: readonly string[];
   opens?: PaletteOpens;
+  /** A word he gave a row that finds it, and a key he gave it, by the row's id as the palette drew it. */
+  aliases?: Readonly<Record<string, string>>;
+  hotkeys?: Readonly<Record<string, string>>;
   /** A destructive action on a row was chosen: it confirms over the palette before it runs. */
   onConfirmOn?: (target: string, action: string) => void;
 };
@@ -344,6 +347,8 @@ export function Palette({
   pinned = [],
   recent = [],
   opens = "pinned",
+  aliases: given = {},
+  hotkeys = {},
   onConfirmOn,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
@@ -464,7 +469,12 @@ export function Palette({
       ...(setting.value === undefined ? {} : { value: setting.value }),
       ...(setting.aliases === undefined ? {} : { aliases: setting.aliases }),
     })),
-  ].map((entry) => ({ ...entry, kind: KIND[entry.id.slice(0, entry.id.indexOf(":") + 1) || entry.id] ?? "Action" }));
+  ].map((entry) => ({
+    ...entry,
+    kind: KIND[entry.id.slice(0, entry.id.indexOf(":") + 1) || entry.id] ?? "Action",
+    ...(given[entry.id] === undefined ? {} : { aliases: [...("aliases" in entry ? entry.aliases ?? [] : []), given[entry.id]!] }),
+    ...(hotkeys[entry.id] === undefined ? {} : { shortcut: hotkeys[entry.id]! }),
+  }));
 
   // With nothing typed: Pinned, then Recent; or this page first; or everything, as the setting says.
   const byId = new Map(entries.map((entry) => [entry.id, entry]));

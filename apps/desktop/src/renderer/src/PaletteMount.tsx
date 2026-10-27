@@ -169,6 +169,8 @@ export function PaletteMount({
       pinned={memory.pinned}
       recent={memory.recent}
       opens={memory.opens}
+      aliases={memory.aliases}
+      hotkeys={memory.hotkeys}
       onConfirmAct={(id) => id === "job-stop" && job !== undefined && setStopping(job.id)}
       onConfirmOn={(target, action) => action === "stop" && setStopping(target.slice("session:".length))}
       dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
