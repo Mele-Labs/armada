@@ -1,13 +1,13 @@
-// A Job is a story, and the right column tells it in order: the workflow, the blueprint (the plan), the field it is built on, and what it lands in.
-// The stage is read from data the Job already holds. The Field and the Landing are open at their stage and folded to their bands otherwise. The
-// Blueprint is open until the Job lands: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
-// opens or folds any of them by hand; that holds until the stage moves on. An approved Blueprint shows what is happening now; ⌥N or its button in the band shows the whole plan. The landing kind is the workflow's `lands`, which Fleet resolves; a mock scenario says it in `work.landing`.
+// A Job is a story, and the right column tells it in order: the blueprint (the flight plan, with the workflow's steps), the field it is built on, and
+// what it lands in. The stage is read from data the Job already holds, and **it never folds a panel**: every panel is open at every stage, empty or not,
+// and the panel the stage is at takes the larger share of the column instead (`current`, drawn by `story.css`). A press on a band or its key folds or
+// opens one by hand; that is kept per Job and holds across stages. An approved Blueprint shows what is happening now; ⌥N or its button in the band shows the whole plan. The landing kind is the workflow's `lands`, which Fleet resolves; a mock scenario says it in `work.landing`.
 
 import { useCallback, useSyncExternalStore } from "react";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
 
 export type Stage = "blueprint" | "field" | "landing";
-export type Fold = { open: boolean; toggle: () => void };
+export type Fold = { open: boolean; toggle: () => void; /** The stage is at this panel: it takes the larger share of the column. */ current: boolean };
 
 const done = (state: string) => state === "done" || state === "handed_in";
 
@@ -39,13 +39,12 @@ const hear = new Set<() => void>();
 const keyOf = (session: string, area: Stage) => `${session}:${area}`;
 const changed = () => hear.forEach((one) => one());
 
-// What was pressed is kept per Job in the window's storage, with the stage it was pressed at, so a Job comes back as it was left. A viewer's
+// What was pressed is kept per Job in the window's storage, so a Job comes back as it was left. A viewer's
 // convenience, so a blocked store only forgets it. The first look at a Job reads it; the maps are the truth after that.
 const KEPT = "armada.session-folds";
-type Kept = { stage?: Stage; folds: Partial<Record<Stage, boolean>>; whole: boolean };
+type Kept = { folds: Partial<Record<Stage, boolean>>; whole: boolean };
 const STAGES: readonly Stage[] = ["blueprint", "field", "landing"];
 const loaded = new Set<string>();
-const stages = new Map<string, Stage>();
 
 function load(session: string): void {
   if (loaded.has(session)) return;
@@ -58,9 +57,8 @@ function load(session: string): void {
       if (typeof fold === "boolean") forced.set(keyOf(session, area), fold);
     }
     if (kept.whole === true) whole.set(session, true);
-    if (kept.stage !== undefined) stages.set(session, kept.stage);
   } catch {
-    // Unreadable or blocked: the Job opens as its stage has it.
+    // Unreadable or blocked: the Job opens with every panel open.
   }
 }
 
@@ -70,7 +68,7 @@ function save(session: string): void {
     const fold = forced.get(keyOf(session, area));
     if (fold !== undefined) folds[area] = fold;
   }
-  const kept: Kept = { stage: stages.get(session), folds, whole: whole.get(session) === true };
+  const kept: Kept = { folds, whole: whole.get(session) === true };
   try {
     localStorage.setItem(`${KEPT}.${session}`, JSON.stringify(kept));
   } catch {
@@ -85,35 +83,29 @@ const touched = (session: string) => {
   changed();
 };
 
-/** Open at its own stage. The blueprint stays up through the build too, and folds once the Job lands. */
-const openAt = (session: Session, area: Stage): boolean => {
-  const stage = stageOf(session);
-  return area === "blueprint" ? stage !== "landing" : stage === area;
-};
-
-/** Whether the panel is open: by hand where it was pressed, else as the stage has it. */
+/** Whether the panel is open: folded only where it was pressed, so open at every stage. */
 export function useFold(session: Session, area: Stage): Fold {
   const byHand = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
     () => held(session.id, area),
   );
-  const open = byHand ?? openAt(session, area);
+  const open = byHand ?? true;
   const id = session.id;
   const toggle = useCallback(() => {
     forced.set(keyOf(id, area), !open);
     touched(id);
   }, [id, area, open]);
-  return { open, toggle };
+  return { open, toggle, current: stageOf(session) === area };
 }
 
 /** A press of a panel's key: opens it if folded, folds it if open. */
 export function pressBand(session: Session, area: Stage): void {
-  const was = held(session.id, area) ?? openAt(session, area);
+  const was = held(session.id, area) ?? true;
   forced.set(keyOf(session.id, area), !was);
   touched(session.id);
 }
 
-/** The story moved on: what was opened or folded by hand gives way to the stage again, and the Blueprint to its Now view. */
+/** Forgets what was opened or folded by hand, and the Blueprint's whole-plan view: every panel open again, on its Now view. */
 export function resetFolds(session: string): void {
   let any = false;
   for (const key of [...forced.keys()]) {
@@ -123,22 +115,12 @@ export function resetFolds(session: string): void {
     }
   }
   if (whole.delete(session)) any = true;
-  stages.delete(session);
   try {
     localStorage.removeItem(`${KEPT}.${session}`);
   } catch {
     // Nothing was kept to remove.
   }
   if (any) changed();
-}
-
-/** A Job is opened or its stage changes: what was pressed holds if the Job is at the stage it was pressed at, and gives way to the stage if it has moved on. */
-export function settleFolds(session: string, stage: Stage): void {
-  load(session);
-  const was = stages.get(session);
-  if (was !== undefined && was !== stage) resetFolds(session);
-  stages.set(session, stage);
-  save(session);
 }
 
 // ---- The whole blueprint ------------------------------------------------------------------------------------
@@ -161,7 +143,7 @@ export function useWhole(session: string): { whole: boolean; toggle: () => void 
 /** A press of the whole-blueprint key: opens the Blueprint if it is folded, and swaps its Now view for the whole plan or back. */
 export function pressWhole(session: Session): void {
   const key = keyOf(session.id, "blueprint");
-  if (held(session.id, "blueprint") ?? openAt(session, "blueprint")) {
+  if (held(session.id, "blueprint") ?? true) {
     whole.set(session.id, !heldWhole(session.id));
   } else {
     forced.set(key, true);

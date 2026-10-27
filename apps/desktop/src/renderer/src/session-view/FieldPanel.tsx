@@ -14,10 +14,10 @@
 // (`session.messaged`, `field-now.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Maximize2 } from "lucide-react";
+import { Cpu, GitBranch, Maximize2, Rows3 } from "lucide-react";
 import { Button, Tooltip, agoOf, boundKeyFor, useKeyBindings } from "@armada/components";
 import type { RepositorySummary, TimelineEvent } from "@armada/protocol";
-import type { Session, WorkDrone, WorkFile } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type Session, type WorkDrone, type WorkFile } from "@armada/screens/src/draft/sessions";
 import { jobIdOf } from "@armada/shell";
 
 import { Battlefield } from "../cockpit/deck/Battlefield";
@@ -38,8 +38,10 @@ import { useSessions } from "../sessions-draft";
 import { touchedPlots, workingDrones } from "./field";
 import { flier, mainFileOf, rootedDrone, rootsOf } from "./field-drones";
 import { PlanBar } from "./FieldPlan";
+import { Fact } from "./LedgerRow";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
 import { bandKeyFor, useFold } from "./story";
+import "./flight.css";
 import "./story.css";
 import { FieldStrip } from "./FieldStrip";
 import { FieldLensCard } from "./FieldLensCard";
@@ -265,6 +267,33 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
   );
 }
 
+/** Before any work the Field says what the Job stands on, from what the Session already holds: its bay, its branch and the model. Each stands only where it is held. */
+function Facts({ session }: { session: Session }) {
+  const bay = attachmentsOf(session, "slot").at(-1);
+  const branch = attachmentsOf(session, "branch").at(-1);
+  const model = session.resolvedModel ?? session.model;
+  if (bay === undefined && branch === undefined && model === undefined) return null;
+  return (
+    <ul className="sv-field__facts" aria-label="Facts">
+      {bay === undefined ? null : (
+        <li>
+          <Fact Glyph={Rows3} said="Bay" word={String(bay.slot)} />
+        </li>
+      )}
+      {branch === undefined ? null : (
+        <li>
+          <Fact Glyph={GitBranch} said="Branch" word={branch.name} />
+        </li>
+      )}
+      {model === undefined ? null : (
+        <li>
+          <Fact Glyph={Cpu} said="Model" word={model} />
+        </li>
+      )}
+    </ul>
+  );
+}
+
 export function FieldPanel({ session, repositories, place, live }: { session: Session; repositories: readonly RepositorySummary[]; place: Place; live?: LiveOpen | undefined }) {
   const working = workingDrones(session, session.work?.field);
   const resting = working === undefined || working.length === 0;
@@ -282,6 +311,7 @@ export function FieldPanel({ session, repositories, place, live }: { session: Se
   );
   return (
     <SvPanel label="Field" area="field" place={place} state={state} acts={expand} fold={fold} keycap={bandKeyFor("field")}>
+      {resting ? <Facts session={session} /> : null}
       {session.live === undefined || live === undefined ? null : (
         <div className="sv-field__now">
           <TurnAccountBlock session={session} live={live} />

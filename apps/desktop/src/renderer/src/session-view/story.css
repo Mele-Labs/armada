@@ -1,21 +1,20 @@
-/* The Job's right column as a story: the workflow, the blueprint, the field, the landing. The panel the stage is at is open and the rest stand
-   folded to their bands (`story.ts`). Tokens only; no gradient, glow or sheen. */
+/* The Job's right column as a story: the blueprint, the field, the delivery. Every panel is open at every stage and the one the stage is at (`data-current`)
+   takes the larger share of the column (`story.ts`). Tokens only; no gradient, glow or sheen. */
 
 /* ---- Where the panels stand ------------------------------------------------------------------------------ */
 
-.sv-side > .sv-panel[data-area="workflow"] { flex: 0 0 auto; }
 .sv-side > .sv-panel[data-area="blueprint"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
 .sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 .sv-side > .sv-panel[data-area="landing"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
-/* One panel open takes the column's remaining height and the rest stand folded to their bands. Several open share it by the weights above, and
-   each scrolls inside where it overflows (`.sv-panel__body`). An approved plan is a few lines, so while a later panel is open it takes its own
-   height and that panel has the rest; with none open after it, it is the one panel and grows like the others. */
-.sv-side > .sv-panel[data-area="blueprint"]:has(:is(.sv-plan:not([data-drafting]), .sv-now)):has(~ .sv-panel:not([data-collapsed])) { flex: 0 1 auto; min-height: 0; }
-.sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty),
-.sv-side > .sv-panel[data-area="landing"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+/* The panels share the column by the weights above, and each scrolls inside where it overflows (`.sv-panel__body`). The panel the stage is at takes
+   the larger share. A panel the owner dragged is sized by its kept share instead (`splits.css`). */
+.sv-side > .sv-panel[data-current][data-area] { flex-grow: 5; }
+/* A plan not being drafted is a few rows, so while the stage is at a later panel it takes its own height and that panel has the rest; with none open after it, it grows like the others. */
+.sv-side > .sv-panel[data-area="blueprint"]:not([data-current], :has([data-drafting])):has(~ .sv-panel:not([data-collapsed])) { flex: 0 1 auto; min-height: 0; }
+.sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
 
-/* A folded band is the Workflow band's height, whatever the panel holds: the label and the acts centred in it, and nothing under. Stands over each
-   panel's own size above, and over the `:has` rules that size an approved Blueprint or a Landing with nothing in it. */
+/* A folded band is one height, whatever the panel holds: the label and the acts centred in it, and nothing under. Stands over each
+   panel's own size above, and over the `:has` rules that size an approved Blueprint with nothing in it. */
 .sv-side > .sv-panel[data-collapsed][data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); height: var(--folded); min-height: 0; max-height: var(--folded); }
 .sv-side > .sv-panel[data-collapsed] > .sv-panel__band { height: calc(var(--folded) - var(--border-width) * 2); min-height: 0; border-bottom: 0; }
 

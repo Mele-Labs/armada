@@ -1,8 +1,9 @@
-// Delivery: what the workflow ends in, so it differs by kind. A pull request draws the pull request, its Checks, its place in the merge queue and
+// Delivery: what the workflow ends in, so it differs by kind. It opens on the Job's route (`route.ts`), every step pending from the start and lit as its
+// data arrives, with what the Job has made standing under the step it belongs to. A pull request draws the pull request, its Checks, its place in the merge queue and
 // the merge. A spike and a document draw the doc they made. A report draws the report itself: its title and the first lines of its conclusion, and a
 // press opens the whole of it in the side panel; it has no pull request and no merge. A mod draws the mods it made, each with its switch. Watching and
 // Deferred stand inside, whatever the kind, and so does a page the Job wrote with the document skill, which opens in the reading layer. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, an issue the Job claimed stands here as a row of its own, and the issues it only filed for later stand in Deferred.
-// The stage opens it (`story.ts`); the band or ⌥D does too. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
+// It is open at every stage, and the larger share of the column while the stage is at it (`story.ts`); the band or ⌥D folds it by hand. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
 
 import { useMemo, useRef } from "react";
 import { Tooltip, type LedgerEntry } from "@armada/components";
@@ -10,8 +11,10 @@ import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions"
 
 import { remindLater } from "../cockpit/deck/acts";
 import { useArtifact } from "../session-artifact";
+import { useModsMade } from "../mods-made";
 import { useSessionsDraft } from "../sessions-draft";
 import { artifactsOf, type ArtifactRow } from "./artifacts";
+import { DeliveryRoute } from "./DeliveryRoute";
 import { documentOf } from "./document-state";
 import { readPage } from "./document-page";
 import { showLayer } from "./layers";
@@ -20,6 +23,7 @@ import { LaterBlock } from "./LaterBlock";
 import { PullRow } from "./LedgerRow";
 import { stackedRows } from "./pull-stacks";
 import { ModsMade } from "./ModsPanel";
+import { routeOf } from "./route";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 import { WatchingBlock } from "./WatchingBlock";
 import { bandKeyFor, landingOf, useFold } from "./story";
@@ -107,9 +111,22 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
   const outside = issuesOutsidePlan(session).issues.map(({ issue }) => issue);
   const claimed = outside.filter((issue) => issue.claimed === true);
   const filed = outside.filter((issue) => issue.claimed !== true);
-  const watching = (session.watches ?? []).length > 0;
-  const mine = kind === "pull_request" ? prs.length > 0 : kind === "mod" ? true : kind === "report" ? report !== undefined : docs.length > 0;
-  const empty = !mine && pages.length === 0 && !watching && claimed.length === 0 && later.length === 0 && filed.length === 0;
+  const mods = useModsMade(id).mods;
+  const steps = routeOf(session, kind, { doc: kind === "report" ? report !== undefined : docs.length > 0, mods });
+  const stack =
+    prs.length === 0 ? undefined : (
+      <ul className="sv-landing__prs" aria-label="Pull requests" ref={list}>
+        {stackedRows(prs).map((row) => (
+          <PullRow key={row.pr.number} session={session} pr={row.pr} onJump={jump} {...(row.lane === "none" ? {} : { lane: row.lane })} {...(row.rootBase === undefined ? {} : { rootBase: row.rootBase })} {...(row.chip === undefined ? {} : { chip: row.chip })} />
+        ))}
+      </ul>
+    );
+  const bodies = {
+    "Pull request": stack,
+    Findings: docs.length === 0 ? undefined : <Docs rows={docs} said="Findings" />,
+    Document: kind === "report" ? (report === undefined ? undefined : <Report session={session} row={report} />) : docs.length === 0 ? undefined : <Docs rows={docs} said="Document" />,
+    Mod: kind === "mod" && mods.length > 0 ? <ModsMade id={id} /> : undefined,
+  };
   const state: PanelState | undefined =
     kind === "pull_request"
       ? prs.length === 0
@@ -127,18 +144,9 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
           ? "done"
           : undefined;
   return (
-    <SvPanel label="Delivery" area="landing" place={place} state={state} empty={empty} fold={fold} keycap={bandKeyFor("landing")}>
-      {kind === "pull_request" && prs.length > 0 ? (
-        <ul className="sv-landing__prs" aria-label="Pull requests" ref={list}>
-          {stackedRows(prs).map((row) => (
-            <PullRow key={row.pr.number} session={session} pr={row.pr} onJump={jump} {...(row.lane === "none" ? {} : { lane: row.lane })} {...(row.rootBase === undefined ? {} : { rootBase: row.rootBase })} {...(row.chip === undefined ? {} : { chip: row.chip })} />
-          ))}
-        </ul>
-      ) : null}
-      {docs.length === 0 ? null : <Docs rows={docs} said={kind === "spike" ? "Findings" : "Document"} />}
+    <SvPanel label="Delivery" area="landing" place={place} state={state} fold={fold} keycap={bandKeyFor("landing")}>
+      <DeliveryRoute steps={steps} bodies={bodies} />
       {pages.length === 0 ? null : <Docs rows={pages} said="Document" />}
-      {report === undefined ? null : <Report session={session} row={report} />}
-      {kind === "mod" ? <ModsMade id={id} /> : null}
       {claimed.length === 0 ? null : (
         <ul className="sv-rows" aria-label="Issues">
           {claimed.map((issue) => (
