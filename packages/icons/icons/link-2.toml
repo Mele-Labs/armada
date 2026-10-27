@@ -1,0 +1,6 @@
+[icons.link-2]
+  means = "Two chain links"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Sits beside a Job that a suggested change to a step was drawn from. A link ties the change to the Job it came from. Tooltip `In the suggested change`. Drawn at 14px, stroke 2. Refused: `lightbulb`, reserved to a value the proposer picked on a Session's composer."

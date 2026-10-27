@@ -18,3 +18,10 @@
     size = "16px"
     status = "Specified"
     notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. What an agent carries is stacked on it in layers, from Kit, Armada, the repository and its plugins. Hover opens its inspect card, a press opens the Loadout sheet; the card's kind glyph is the same. The registry has no backpack, and `briefcase`, the case of tools you bring, is reserved to the Kit surface. Refused: `package`, Armada's own workflows; `puzzle`, Mods."
+
+  [[icons.layers.usage]]
+    means = "A workflow row that replaces a copy of the same id in a less specific place: Armada's, then the repository's, then Yours"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Drawn at 14px, stroke 2. Stacked layers, the top one standing over those under it. The tooltip says what it replaces."

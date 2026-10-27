@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "A person owes an attestation on the criteria the record names. Chosen for a silhouette no other badge carries — a plunger over a base line — and because attestation is literally what a stamp performs. The human-figure family was rejected here: user-check already carries awaiting approval in the same hue, and two human figures at 12px is the collision rule 4 exists to prevent."
+
+  [[icons.stamp.usage]]
+    means = "The Approve plan step's mark on a workflow step card"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Drawn at 14px, stroke 2. The step is the person's attestation on the plan, which is what a stamp performs."
