@@ -1074,8 +1074,10 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   // A Session calling him pulses on its row; there is no panel of calls.
   const calling = useMemo(() => new Map(incoming.map((one) => [callOwnerOf(one), one] as const)), [incoming]);
-  // The Field under the Jobs list is the open Job's, else the Cockpit's own map.
+  // The Field under the Jobs list is the open Job's, else the Cockpit's own map, and not a second map while the centre already draws it.
   const selectedJob = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
+  const centreView = useDeck((deck) => deck.view);
+  const docked = selectedJob !== undefined || (sel !== undefined || centreView !== "map");
   const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost } : undefined), [unified, sideHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
@@ -1112,7 +1114,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
-          {panels.has("field") ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
+          {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
