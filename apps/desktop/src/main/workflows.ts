@@ -6,13 +6,33 @@
 // offers every Manifest — so it is named outright; Kit's is machine-wide and
 // takes the pick's.
 
-import type { LeftOutWorkflow, SaveWorkflow, WorkflowDefinition, WorkflowSaved, WorkflowSummary } from "@armada/protocol";
+import type {
+  LeftOutWorkflow,
+  NotADriftMarked,
+  SaveWorkflow,
+  WorkflowCopy,
+  WorkflowCopyDeleted,
+  WorkflowDefinition,
+  WorkflowSaved,
+  WorkflowSteps,
+  WorkflowSummary,
+} from "@armada/protocol";
 
-import type { WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
+import type {
+  NotADriftAnswer,
+  WorkflowCopyDeleteAnswer,
+  WorkflowDefinitionRead,
+  WorkflowSaveAnswer,
+  WorkflowStepsRead,
+  WorkflowsRead,
+} from "../shared/workflows";
 import type { Picked } from "./picked";
 import { ask, NOT_SET_UP } from "./request";
 
-/** `list_workflows`, `list_left_out_workflows`, `get_workflow` and `save_workflow`. */
+/**
+ * `list_workflows`, `list_left_out_workflows`, `get_workflow` and `save_workflow`; and the Workflows
+ * page's `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy` and `mark_not_a_drift`.
+ */
 export class WorkflowCommands {
   private readonly port: () => number | null;
   private readonly picked: Picked;
@@ -60,5 +80,53 @@ export class WorkflowCommands {
     const answer = await ask(port, "POST", path, body);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, saved: answer.body as WorkflowSaved };
+  }
+
+  /** One definition step by step: the words, what ends each step and the nudges that still count. */
+  async steps(workflowId: string, source: string): Promise<WorkflowStepsRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const route = `/workflows/steps?workflow_id=${encodeURIComponent(workflowId)}&source=${encodeURIComponent(source)}`;
+    const path = this.picked.manifest(route);
+    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    const answer = await ask(port, "GET", path);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, steps: answer.body as WorkflowSteps };
+  }
+
+  /** Delete a repository's or Kit's copy. Fleet refuses Armada's own in its own words. */
+  async deleteCopy(manifestId: string | null, copy: WorkflowCopy): Promise<WorkflowCopyDeleteAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const path = this.manifestPath("/workflows/delete", manifestId);
+    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    const answer = await ask(port, "POST", path, copy);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, deleted: answer.body as WorkflowCopyDeleted };
+  }
+
+  /** Rewrite a copy with Armada's definition of the same id. It is a save, so it answers as one. */
+  async resetCopy(manifestId: string | null, copy: WorkflowCopy): Promise<WorkflowSaveAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const path = this.manifestPath("/workflows/reset", manifestId);
+    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    const answer = await ask(port, "POST", path, copy);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, saved: answer.body as WorkflowSaved };
+  }
+
+  /** Mark one nudge not a drift. A nudge is the store's, so no Manifest is named. */
+  async notADrift(nudge: number): Promise<NotADriftAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "POST", "/workflows/not_a_drift", { nudge });
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, marked: answer.body as NotADriftMarked };
+  }
+
+  /** The Manifest an act is under: the one named, or the pick's where Kit's leaves it to the pick. */
+  private manifestPath(route: string, manifestId: string | null): string | null {
+    return manifestId === null ? this.picked.manifest(route) : this.picked.manifestNamed(route, manifestId);
   }
 }

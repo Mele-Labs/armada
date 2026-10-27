@@ -15,13 +15,24 @@ import type { BridgeApi } from "../../../shared/api";
 import { manifesting } from "./manifest-fake";
 import { connected, type Scenario } from "./moment";
 
-type Served = Pick<BridgeApi, "readWorkflows" | "readWorkflowDefinition" | "saveWorkflow">;
+type Served = Pick<
+  BridgeApi,
+  | "readWorkflows"
+  | "readWorkflowDefinition"
+  | "saveWorkflow"
+  | "readWorkflowSteps"
+  | "deleteWorkflowCopy"
+  | "resetWorkflowCopy"
+  | "markNotADrift"
+>;
 
 const refusal = (code: string, message: string): Outcome => ({
   ok: false,
   why: "refused",
   error: { code, message, run_id: "mock", fields: {}, chain: [] },
 });
+
+const unserved = refusal("mock.not_served", "The mock Fleet serves no workflow steps");
 
 const KIT_FOLDER = "~/.armada/workflows";
 const REPOSITORY_FOLDER = ".armada/workflows";
@@ -65,6 +76,11 @@ export function workflowsServed(current: () => string | null): Served {
       if (here) files = [...files.filter((one) => one !== held), { source, id, file, text: body.definition }];
       return { ok: true, saved: { workflow_id: id, scope: body.scope, file, replaced: held !== undefined, runs_from: source } };
     },
+    // The Workflows page is walked on its own fixtures (`mock/workflows-managed.ts`); this Fleet serves none of its reads or acts.
+    readWorkflowSteps: async () => ({ ok: false, outcome: unserved }),
+    deleteWorkflowCopy: async () => ({ ok: false, outcome: unserved }),
+    resetWorkflowCopy: async () => ({ ok: false, outcome: unserved }),
+    markNotADrift: async () => ({ ok: false, outcome: unserved }),
   };
 }
 

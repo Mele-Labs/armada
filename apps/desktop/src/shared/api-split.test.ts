@@ -110,9 +110,13 @@ import type {
 } from "@armada/screens/src/manifest-kit";
 import type { InstallKitPiece, LookAtKitSource, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type {
+  ActingOnWorkflowCopy,
+  NotADriftAnswer,
   SavingWorkflow,
+  WorkflowCopyDeleteAnswer,
   WorkflowDefinitionRead,
   WorkflowSaveAnswer,
+  WorkflowStepsRead,
   WorkflowsRead,
 } from "./workflows";
 import type {
@@ -270,6 +274,10 @@ type OldBridgeApi = {
     readWorkflows: () => Promise<WorkflowsRead>;
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
+    readWorkflowSteps: (workflowId: string, source: string) => Promise<WorkflowStepsRead>;
+    deleteWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowCopyDeleteAnswer>;
+    resetWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowSaveAnswer>;
+    markNotADrift: (nudge: number) => Promise<NotADriftAnswer>;
     readTriggers: () => Promise<TriggersRead>;
     readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
     saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
@@ -588,6 +596,10 @@ const OLD_CHANNELS = {
     readWorkflows: "bridge:read-workflows",
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
+    readWorkflowSteps: "bridge:read-workflow-steps",
+    deleteWorkflowCopy: "bridge:delete-workflow-copy",
+    resetWorkflowCopy: "bridge:reset-workflow-copy",
+    markNotADrift: "bridge:mark-not-a-drift",
     readTriggers: "bridge:read-triggers",
     readTrigger: "bridge:read-trigger",
     saveTrigger: "bridge:save-trigger",

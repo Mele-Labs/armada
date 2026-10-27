@@ -14,7 +14,7 @@ import type { BuildSource, ChangeSlotPool, LandCheckAt, RescueSlot, RetroSubject
 import { useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { SavingWorkflow } from "../../shared/workflows";
+import type { ActingOnWorkflowCopy, SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { Outcome } from "@armada/protocol";
@@ -202,6 +202,11 @@ export const readWorkflows = () => window.armada.readWorkflows();
 export const readWorkflowDefinition = (workflowId: string, source: string) =>
   window.armada.readWorkflowDefinition(workflowId, source);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
+/** The Workflows page beside a definition's text: its steps, a copy deleted or reset to Armada's, a nudge marked not a drift. */
+export const readWorkflowSteps = (workflowId: string, source: string) => window.armada.readWorkflowSteps(workflowId, source);
+export const deleteWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.deleteWorkflowCopy(acting);
+export const resetWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.resetWorkflowCopy(acting);
+export const markNotADrift = (nudge: number) => window.armada.markNotADrift(nudge);
 export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);

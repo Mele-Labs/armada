@@ -87,7 +87,16 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
-import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
+import type {
+  ActingOnWorkflowCopy,
+  NotADriftAnswer,
+  SavingWorkflow,
+  WorkflowCopyDeleteAnswer,
+  WorkflowDefinitionRead,
+  WorkflowSaveAnswer,
+  WorkflowStepsRead,
+  WorkflowsRead,
+} from "../shared/workflows";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { KitFileOpened } from "@armada/manifest/api";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
@@ -277,6 +286,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readWorkflowDefinition, workflowId, source),
   saveWorkflow: (saving: SavingWorkflow): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
+  readWorkflowSteps: (workflowId: string, source: string): Promise<WorkflowStepsRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowSteps, workflowId, source),
+  deleteWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowCopyDeleteAnswer> =>
+    ipcRenderer.invoke(CHANNELS.deleteWorkflowCopy, acting),
+  resetWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowSaveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.resetWorkflowCopy, acting),
+  markNotADrift: (nudge: number): Promise<NotADriftAnswer> => ipcRenderer.invoke(CHANNELS.markNotADrift, nudge),
 
   readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
   readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>

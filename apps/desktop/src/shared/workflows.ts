@@ -3,10 +3,14 @@
 
 import type {
   LeftOutWorkflow,
+  NotADriftMarked,
   Outcome,
   SaveWorkflow,
+  WorkflowCopy,
+  WorkflowCopyDeleted,
   WorkflowDefinition,
   WorkflowSaved,
+  WorkflowSteps,
   WorkflowSummary,
 } from "@armada/protocol";
 
@@ -23,3 +27,15 @@ export type WorkflowSaveAnswer = { ok: true; saved: WorkflowSaved } | { ok: fals
 
 /** One save: the body, and the Manifest it is written under, which Kit leaves to the picked repository's. */
 export type SavingWorkflow = { manifestId: string | null; body: SaveWorkflow };
+
+/** `GET /workflows/steps`: one definition step by step, with the nudges that still count. */
+export type WorkflowStepsRead = { ok: true; steps: WorkflowSteps } | { ok: false; outcome: Outcome };
+
+/** One copy to delete or reset, and the Manifest it is acted under, which Kit's leaves to the picked repository's. */
+export type ActingOnWorkflowCopy = { manifestId: string | null; copy: WorkflowCopy };
+
+/** `POST /workflows/delete`. A refusal carries Fleet's own sentence on `outcome`. */
+export type WorkflowCopyDeleteAnswer = { ok: true; deleted: WorkflowCopyDeleted } | { ok: false; outcome: Outcome };
+
+/** `POST /workflows/not_a_drift`. */
+export type NotADriftAnswer = { ok: true; marked: NotADriftMarked } | { ok: false; outcome: Outcome };

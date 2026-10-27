@@ -371,3 +371,75 @@ export type WorkflowSaved = {
   /** Whose definition of this id runs now: `armada`, `kit` or `repository`. */
   runs_from?: string;
 };
+
+/**
+ * `GET /workflows/steps?workflow_id=&source=&manifest_id=`: one definition step by step, for the
+ * Workflows page. `source` absent is the definition that runs. 422
+ * `fleet.no_such_workflow_definition` where none is held; 422 `fleet.workflow_unfit` where one a more
+ * specific place replaced names a Check this repository does not declare. `crates/ipc/src/workflow_page.rs`.
+ */
+export type WorkflowSteps = {
+  workflow_id: string;
+  /** `armada`, `kit` or `repository`. */
+  source: string;
+  /** In order. */
+  steps: StepReading[];
+};
+
+/** One step of a definition. */
+export type StepReading = {
+  id: string;
+  label: string;
+  /** The words the agent is told on entering the step. Absent where it has none. */
+  instructions?: string;
+  /** What ends the step, as a short fact. Absent where nothing Fleet observes ends it. */
+  ends_when?: string;
+  /** When the step is passed over instead of walked. Absent on a step that is always done. */
+  passed_over_when?: string;
+  /** The newest nudges for this step in this place's definition, newest first, those marked not a drift left out. Absent when there are none. */
+  nudges?: StepNudge[];
+};
+
+/** One time Fleet nudged a Job off a step. */
+export type StepNudge = {
+  /** What `POST /workflows/not_a_drift` takes. */
+  id: number;
+  job_id: string;
+  /** Absent where the Job has no title. */
+  job_title?: string;
+  /** What happened, as a short fact. */
+  fact: string;
+  at: string;
+};
+
+/**
+ * `POST /workflows/delete?manifest_id=` and `POST /workflows/reset?manifest_id=`'s body: a copy, by id and
+ * place. `armada` is refused with 422 `fleet.workflow_is_armadas`.
+ */
+export type WorkflowCopy = {
+  workflow_id: string;
+  /** `repository` or `kit`. */
+  source: string;
+};
+
+/** What `POST /workflows/delete` removed. */
+export type WorkflowCopyDeleted = {
+  workflow_id: string;
+  /** The place it was removed from. */
+  source: string;
+  /** The file deleted, absolute. */
+  file: string;
+  /** Whose definition of this id runs now: `armada`, `kit` or `repository`. Absent where none does. */
+  runs_from?: string;
+};
+
+/** `POST /workflows/not_a_drift`'s body. */
+export type MarkNotADrift = {
+  /** A `StepNudge.id`. */
+  nudge: number;
+};
+
+/** A nudge marked not a drift: kept, and no longer counting. */
+export type NotADriftMarked = {
+  nudge: number;
+};
