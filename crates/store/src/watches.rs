@@ -46,6 +46,23 @@ pub struct KeptWatch {
     pub regex: bool,
 }
 
+/// One part of a reading as kept: its name and state word, and where to look, the exact lines it
+/// failed on and the end of its log, where the line gave them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptWatchPart {
+    pub name: String,
+    pub state: String,
+    pub link: Option<String>,
+    pub error: Option<String>,
+    pub tail: Option<String>,
+}
+
+impl KeptWatchPart {
+    pub fn new(name: impl Into<String>, state: impl Into<String>) -> KeptWatchPart {
+        KeptWatchPart { name: name.into(), state: state.into(), ..KeptWatchPart::default() }
+    }
+}
+
 /// What one reading was.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptWatchTaken {
@@ -54,8 +71,7 @@ pub enum KeptWatchTaken {
         finished: bool,
         says: String,
         link: Option<String>,
-        /// Each part's name and state word.
-        parts: Vec<(String, String)>,
+        parts: Vec<KeptWatchPart>,
     },
     Broken { why: String, output: Option<String> },
 }
@@ -105,8 +121,25 @@ fn written(items: &[String]) -> String {
     serde_json::to_string(items).unwrap_or_else(|_| "[]".into())
 }
 
-fn written_parts(parts: &[(String, String)]) -> String {
-    serde_json::to_string(parts).unwrap_or_else(|_| "[]".into())
+/// Each part as `[name, state, link, error, tail]`, so a row kept before parts carried more, as
+/// `[name, state]`, still reads.
+fn written_parts(parts: &[KeptWatchPart]) -> String {
+    let rows: Vec<[Option<&str>; 5]> = parts
+        .iter()
+        .map(|part| [Some(part.name.as_str()), Some(part.state.as_str()), part.link.as_deref(), part.error.as_deref(), part.tail.as_deref()])
+        .collect();
+    serde_json::to_string(&rows).unwrap_or_else(|_| "[]".into())
+}
+
+pub(crate) fn read_parts(written: &str) -> Vec<KeptWatchPart> {
+    let rows: Vec<Vec<Option<String>>> = serde_json::from_str(written).unwrap_or_default();
+    rows.into_iter()
+        .map(|row| {
+            let mut row = row.into_iter();
+            let mut next = || row.next().flatten();
+            KeptWatchPart { name: next().unwrap_or_default(), state: next().unwrap_or_default(), link: next(), error: next(), tail: next() }
+        })
+        .collect()
 }
 
 fn watch_of(row: &Row<'_>) -> rusqlite::Result<KeptWatch> {
@@ -346,10 +379,7 @@ impl Store {
                         finished: row.get::<_, Option<bool>>(3)?.unwrap_or(false),
                         says: row.get::<_, Option<String>>(4)?.unwrap_or_default(),
                         link: row.get(5)?,
-                        parts: row
-                            .get::<_, Option<String>>(6)?
-                            .and_then(|parts| serde_json::from_str(&parts).ok())
-                            .unwrap_or_default(),
+                        parts: row.get::<_, Option<String>>(6)?.map(|parts| read_parts(&parts)).unwrap_or_default(),
                     },
                     _ => KeptWatchTaken::Broken {
                         why: row.get::<_, Option<String>>(7)?.unwrap_or_default(),

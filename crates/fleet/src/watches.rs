@@ -232,7 +232,13 @@ pub(crate) fn domain(kept: &KeptWatchWhole) -> core_model::Watch {
             link: link.clone(),
             parts: parts
                 .iter()
-                .map(|(name, state)| core_model::Part { name: name.clone(), state: reading_state(state) })
+                .map(|part| core_model::Part {
+                    name: part.name.clone(),
+                    state: reading_state(&part.state),
+                    link: part.link.clone(),
+                    error: part.error.clone(),
+                    tail: part.tail.clone(),
+                })
                 .collect(),
         }),
         KeptWatchTaken::Broken { .. } => None,
@@ -266,7 +272,13 @@ fn wire_reading(one: &KeptWatchReading) -> WatchReading {
             link.clone(),
             parts
                 .iter()
-                .map(|(name, state)| WatchPart { name: name.clone(), state: wire_reading_state(state) })
+                .map(|part| WatchPart {
+                    name: part.name.clone(),
+                    state: wire_reading_state(&part.state),
+                    link: part.link.clone(),
+                    error: part.error.clone(),
+                    tail: part.tail.clone(),
+                })
                 .collect(),
         ),
         KeptWatchTaken::Broken { why, output } => WatchReading::broken(at, why.clone(), output.clone()),

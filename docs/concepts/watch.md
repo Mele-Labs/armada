@@ -40,6 +40,9 @@ Outside its two shipped readers Armada knows no provider: a script the repositor
 | `says` | one sentence | Required. Bridge draws it and a notice quotes it |
 | `link` | an address | Optional |
 | `parts` | a list of name and state | Optional. A run whose overall state misleads is read part by part |
+| `parts[].link` | an address | Optional. Where to look at that part |
+| `parts[].error` | text | Optional. The exact lines that part failed on |
+| `parts[].tail` | text | Optional. The last lines of that part's own log |
 
 > **Rule.** `finished` is a field of its own and is never read from `state`.
 > Why: a run reads `failed` the same mid-run and at its end, so a watch with a failure set aside could not tell it was over.
@@ -113,6 +116,8 @@ Each runs `armada watch-line`, a reader of Armada's own that prints the one line
 |---|---|---|
 | `github-checks` | `sha`, `context` | The commit's check runs and commit statuses whose names start with `context`, each a part, with the token `gh` holds, in the repository the slot's remote names |
 | `buildkite-build` | `organization`, `pipeline`, `build` | One build, each command step a part and a retried step by its latest attempt, with `BUILDKITE_API_TOKEN` from the login shell |
+
+Each reader gives a failed part its link, its exact error lines and the end of its log: a failed check run's failure annotations, else its output's title and summary, and the end of its output's text; a failed status its description; a failed step the error lines in its own log, read from the provider, and the last 50 lines of it.
 
 A provider's name is in the adapters only: `config` reads the files as any recipe.
 

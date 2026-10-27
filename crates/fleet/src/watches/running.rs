@@ -64,7 +64,7 @@ pub(crate) fn due(kept: &KeptWatchWhole, now: &Timestamp) -> bool {
 fn read_as(taken: &KeptWatchTaken) -> String {
     match taken {
         KeptWatchTaken::Read { state, finished, parts, .. } => {
-            let parts: Vec<String> = parts.iter().map(|(name, state)| format!("{name}={state}")).collect();
+            let parts: Vec<String> = parts.iter().map(|part| format!("{}={}", part.name, part.state)).collect();
             format!("{state}/{finished}/{}", parts.join(","))
         }
         KeptWatchTaken::Broken { .. } => String::from("broken"),
@@ -125,7 +125,17 @@ pub(crate) fn reading_of(attempt: &Attempt, budget: Duration) -> KeptWatchTaken 
                 finished: read.finished,
                 says: read.says,
                 link: read.link,
-                parts: read.parts.into_iter().map(|part| (part.name, part.state.as_wire().to_string())).collect(),
+                parts: read
+                    .parts
+                    .into_iter()
+                    .map(|part| store::KeptWatchPart {
+                        state: part.state.as_wire().to_string(),
+                        name: part.name,
+                        link: part.link,
+                        error: part.error,
+                        tail: part.tail,
+                    })
+                    .collect(),
             },
             Err(why) => broken(why.why),
         },
@@ -150,7 +160,16 @@ fn hidden(taken: KeptWatchTaken, secrets: &[(String, String)]) -> KeptWatchTaken
             finished,
             says: hide(says),
             link: link.map(hide),
-            parts: parts.into_iter().map(|(name, state)| (hide(name), state)).collect(),
+            parts: parts
+                .into_iter()
+                .map(|part| store::KeptWatchPart {
+                    name: hide(part.name),
+                    state: part.state,
+                    link: part.link.map(hide),
+                    error: part.error.map(hide),
+                    tail: part.tail.map(hide),
+                })
+                .collect(),
         },
         KeptWatchTaken::Broken { why, output } => KeptWatchTaken::Broken { why: hide(why), output: output.map(hide) },
     }

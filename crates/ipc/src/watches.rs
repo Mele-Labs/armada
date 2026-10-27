@@ -41,11 +41,18 @@ pub enum WatchState {
     Stopped,
 }
 
-/// One named part of a run, and what it says.
+/// One named part of a run, and what it says: where to look at it, the exact lines it failed on
+/// and the end of its own log, where its line gave them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WatchPart {
     pub name: String,
     pub state: WatchReadingState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail: Option<String>,
 }
 
 /// A part the agent weighed as not its change's doing, with its sentence.
@@ -499,6 +506,12 @@ struct Line {
 struct LinePart {
     name: String,
     state: String,
+    #[serde(default)]
+    link: Option<String>,
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    tail: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -516,6 +529,12 @@ struct LineOut<'a> {
 struct PartOut<'a> {
     name: &'a str,
     state: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tail: Option<&'a str>,
 }
 
 /// `reading` as the one line a watch's command prints, which [`read_watch_line`] reads back whole.
@@ -525,7 +544,17 @@ pub fn watch_line(reading: &core_model::Reading) -> Result<String, crate::Unenco
         finished: reading.finished,
         says: &reading.says,
         link: reading.link.as_deref(),
-        parts: reading.parts.iter().map(|part| PartOut { name: &part.name, state: part.state.as_wire() }).collect(),
+        parts: reading
+            .parts
+            .iter()
+            .map(|part| PartOut {
+                name: &part.name,
+                state: part.state.as_wire(),
+                link: part.link.as_deref(),
+                error: part.error.as_deref(),
+                tail: part.tail.as_deref(),
+            })
+            .collect(),
     })
 }
 
@@ -556,7 +585,8 @@ pub fn read_watch_line(stdout: &str) -> Result<core_model::Reading, core_model::
             return Err(broken(format!("`parts[{n}].name` is blank.")));
         }
         let read = state(&part.state, &format!("`parts[{n}].state`"))?;
-        parts.push(core_model::Part { name: part.name, state: read });
+        let given = |text: Option<String>| text.filter(|text| !text.trim().is_empty());
+        parts.push(core_model::Part { name: part.name, state: read, link: given(part.link), error: given(part.error), tail: given(part.tail) });
     }
     Ok(core_model::Reading {
         state: overall,

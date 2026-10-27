@@ -37,7 +37,7 @@ pub(crate) fn log_text(attempt: &Attempt) -> Option<String> {
 pub(crate) fn failed(taken: &KeptWatchTaken) -> bool {
     match taken {
         KeptWatchTaken::Broken { .. } => true,
-        KeptWatchTaken::Read { state, parts, .. } => state == "failed" || parts.iter().any(|(_, state)| state == "failed"),
+        KeptWatchTaken::Read { state, parts, .. } => state == "failed" || parts.iter().any(|part| part.state == "failed"),
     }
 }
 

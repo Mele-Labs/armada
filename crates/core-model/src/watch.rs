@@ -109,6 +109,19 @@ impl From<ReadingState> for WatchState {
 pub struct Part {
     pub name: String,
     pub state: ReadingState,
+    /// Where to look at this part, where the line gave one.
+    pub link: Option<String>,
+    /// The exact lines it failed on, where the line gave them.
+    pub error: Option<String>,
+    /// The end of its own log, where the line gave it.
+    pub tail: Option<String>,
+}
+
+impl Part {
+    /// A part with only its name and state.
+    pub fn new(name: String, state: ReadingState) -> Part {
+        Part { name, state, link: None, error: None, tail: None }
+    }
 }
 
 /// One line a command printed, read.

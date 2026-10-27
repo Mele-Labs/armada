@@ -1,7 +1,7 @@
 //! A watch survives a reopen whole, keeps its newest fifty readings, and is told of once.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, READINGS_KEPT};
+use crate::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, READINGS_KEPT};
 
 const AT: &str = "2026-10-22T10:00:00.000Z";
 
@@ -36,7 +36,7 @@ fn read(n: usize) -> KeptWatchReading {
             finished: false,
             says: format!("reading {n}"),
             link: Some("https://ci.example.com/runs/1".into()),
-            parts: vec![("build".into(), "passed".into()), ("deploy-api".into(), "running".into())],
+            parts: vec![KeptWatchPart::new("build", "passed"), KeptWatchPart::new("deploy-api", "running")],
         },
         log: None,
     }
@@ -161,4 +161,12 @@ fn a_jobs_ended_watches_are_read_by_their_end() {
     store.keep_watch(&ended("w-5", "s1", "not_ours")).unwrap();
     let ids: Vec<String> = store.ended_watches_in("s1", "not_ours").unwrap().into_iter().map(|one| one.watch.id).collect();
     assert_eq!(ids, ["w-1", "w-5"], "ended ones of that Job in that end, the oldest first");
+}
+
+#[test]
+fn a_part_kept_before_parts_carried_evidence_still_reads() {
+    let parts = crate::watches::read_parts(r#"[["build","passed"],["provision","failed","https://ci.example.test/7","Error: no account",null]]"#);
+    assert_eq!(parts[0], KeptWatchPart::new("build", "passed"));
+    assert_eq!(parts[1].link.as_deref(), Some("https://ci.example.test/7"));
+    assert_eq!((parts[1].error.as_deref(), parts[1].tail.as_deref()), (Some("Error: no account"), None));
 }

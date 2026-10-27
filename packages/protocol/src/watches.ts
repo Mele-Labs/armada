@@ -13,7 +13,8 @@ export type WatchReadingState = "waiting" | "running" | "passed" | "failed";
  */
 export type WatchState = WatchReadingState | "not_ours" | "gave_up" | "broken" | "stopped";
 
-export type WatchPart = { name: string; state: WatchReadingState };
+/** One part of a reading: where to look at it, the exact lines it failed on and the end of its own log, where its line gave them. */
+export type WatchPart = { name: string; state: WatchReadingState; link?: string; error?: string; tail?: string };
 
 /** A part the agent weighed as not its change's doing, and why. Drawn struck through. */
 export type WatchSetAside = { part: string; sentence: string };

@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use super::*;
 
 fn part(name: &str, state: ReadingState) -> Part {
-    Part { name: name.to_string(), state }
+    Part::new(name.to_string(), state)
 }
 
 fn reading(state: ReadingState, finished: bool, parts: Vec<Part>) -> Reading {

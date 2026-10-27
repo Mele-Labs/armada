@@ -1,0 +1,4 @@
+[
+  { "path": "infra/qa/provision.tf", "start_line": 12, "annotation_level": "failure", "title": "Provision", "message": "cloud lookup for region qa-east returned no account" },
+  { "path": "infra/qa/provision.tf", "start_line": 3, "annotation_level": "warning", "message": "provider version is not pinned" }
+]

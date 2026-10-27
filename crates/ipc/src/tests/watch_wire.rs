@@ -192,7 +192,7 @@ fn back_to_back_readings_that_read_the_same_are_one_with_first_last_and_count() 
     let running =
         |minute| WatchReading::read(at(minute), WatchReadingState::Running, false, "Deploy running.".into(), None, Vec::new());
     let mut readings: Vec<WatchReading> = (0..9).map(running).collect();
-    let part = vec![WatchPart { name: "build".into(), state: WatchReadingState::Running }];
+    let part = vec![WatchPart { name: "build".into(), state: WatchReadingState::Running, link: None, error: None, tail: None }];
     readings.push(WatchReading::read(at(9), WatchReadingState::Running, false, "Deploy running.".into(), None, part));
     readings.push(WatchReading::broken(at(10), "It exited 1.".into(), Some("first".into())));
     readings.push(WatchReading::broken(at(11), "It exited 1.".into(), Some("second".into())));
