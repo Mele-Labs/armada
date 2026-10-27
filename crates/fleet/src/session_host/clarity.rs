@@ -58,9 +58,9 @@ const CHOICES: &[&str] = &["choices", "options", "questions", "decisions", "ways
 
 const NUMBERS: &[&str] = &["two", "three", "four", "five", "six", "several", "few"];
 
-/// What he is asked to do, as a clause's first word.
+/// What he is asked to do, as a clause's first word. A `re-` prefix reads as the verb after it.
 const VERBS: &[&str] = &[
-    "accept", "add", "allow", "answer", "approve", "ask", "bind", "bring", "build", "cancel", "check", "choose", "clean", "clear", "click", "close", "confirm", "copy", "create", "cut", "decide", "delete", "describe", "disable", "document", "draw", "drop", "enable", "explain", "file", "fix", "fold", "free", "give", "grant", "hide", "hold", "install", "keep", "kill", "land", "let", "log", "look", "make", "merge", "mock", "move", "name", "open", "pause", "paste", "pick", "press", "pull", "push", "quit", "read", "rebase", "rebuild", "refresh", "register", "reject", "release", "reload", "remove", "rename", "reply", "rerun", "restart", "resume", "retry", "revert", "review", "reverse", "run", "save", "say", "select", "send", "set", "share", "show", "sign", "sketch", "skip", "split", "start", "stop", "switch", "tell", "test", "track", "try", "tune", "turn", "update", "use", "verify", "wait", "walk", "watch", "wire", "write",
+    "accept", "add", "allow", "answer", "approve", "ask", "assign", "authorize", "bind", "book", "bring", "build", "call", "cancel", "check", "choose", "clean", "clear", "click", "close", "comment", "confirm", "copy", "create", "cut", "decide", "delete", "deploy", "describe", "disable", "dismiss", "document", "downgrade", "download", "draw", "drop", "email", "enable", "explain", "file", "fix", "fold", "free", "give", "grant", "hide", "hold", "install", "invite", "keep", "kill", "label", "land", "let", "log", "look", "make", "mention", "merge", "message", "mock", "move", "name", "notify", "open", "pause", "paste", "pick", "ping", "post", "press", "publish", "pull", "push", "quit", "read", "rebase", "rebuild", "refresh", "register", "reject", "release", "reload", "remove", "rename", "renew", "reopen", "reply", "request", "rerun", "resolve", "restart", "resume", "retry", "revert", "review", "reverse", "revoke", "roll", "rollback", "rotate", "run", "save", "say", "schedule", "select", "send", "set", "share", "show", "sign", "sketch", "skip", "split", "start", "stop", "switch", "tag", "tell", "test", "track", "try", "tune", "turn", "unassign", "update", "upgrade", "upload", "use", "verify", "wait", "walk", "watch", "wire", "write",
     // A command line handed over: the program is the verb.
     "armada", "cargo", "cd", "gh", "git", "npm", "scripts",
 ];
@@ -139,14 +139,12 @@ fn asks_him(text: &str) -> bool {
         return true;
     }
     clauses.iter().enumerate().any(|(at, clause)| {
-        let mut words = clause.split_whitespace().peekable();
-        while words.next_if(|w| LEADS.contains(&w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase().as_str())).is_some() {}
-        let rest: Vec<&str> = words.collect();
-        let Some(lead) = rest.first().map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase()) else {
+        let rest = after_leads(clause);
+        let Some(lead) = rest.first().map(|w| plain(w)) else {
             return false;
         };
         let here = rest.iter().skip(1).filter(|w| names(w)).count();
-        if VERBS.contains(&lead.as_str()) {
+        if is_verb(&lead) {
             return here >= 1 || all(&clauses[at + 1..clauses.len().min(at + 2)]) >= 1 || all(&clauses[..at]) >= 2;
         }
         if (at == 0 || question) && ASKING.contains(&lead.as_str()) && all(&clauses) >= if question { 2 } else { 3 } {
@@ -154,6 +152,28 @@ fn asks_him(text: &str) -> bool {
         }
         at == 0 && question && opens_like_a_command(&lead, clause) && here >= 2
     })
+}
+
+/// A word without the punctuation around it, lowercased.
+fn plain(word: &str) -> String {
+    word.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase()
+}
+
+/// A clause's words after the words that lead it without being its verb.
+fn after_leads(clause: &str) -> Vec<&str> {
+    let mut words = clause.split_whitespace().peekable();
+    while words.next_if(|w| LEADS.contains(&plain(w).as_str())).is_some() {}
+    words.collect()
+}
+
+/// Whether a lead word is a verb he is asked to do: "re-request" is "request".
+fn is_verb(lead: &str) -> bool {
+    VERBS.contains(&lead) || lead.strip_prefix("re-").is_some_and(|verb| VERBS.contains(&verb))
+}
+
+/// The first word the check took as a clause's lead, the one it looked up in [`VERBS`].
+fn lead_read(text: &str) -> Option<String> {
+    clauses_of(&text.replace(['*', '`'], "")).iter().find_map(|clause| after_leads(clause).first().map(|w| plain(w))).filter(|lead| !lead.is_empty())
 }
 
 /// A line that sets two things beside each other with "or", each naming something: "Sort by name or by version".
@@ -196,18 +216,23 @@ fn clauses_of(text: &str) -> Vec<String> {
 }
 
 /// The first of `items`, each `(id, text, runs)`, that is unclear, with why; `None` while `in_force` is
-/// false. The id is what the agent called it, so the refusal can name it.
-pub(crate) fn first_unclear<'a>(items: impl IntoIterator<Item = (&'a str, &'a str, bool)>, in_force: bool) -> Option<(&'a str, Unclear)> {
+/// false. The id is what the agent called it, so the refusal can name it; the text is what it read.
+pub(crate) fn first_unclear<'a>(items: impl IntoIterator<Item = (&'a str, &'a str, bool)>, in_force: bool) -> Option<(&'a str, &'a str, Unclear)> {
     if !in_force {
         return None;
     }
-    items.into_iter().find_map(|(id, text, runs)| unclear(text, runs).map(|why| (id, why)))
+    items.into_iter().find_map(|(id, text, runs)| unclear(text, runs).map(|why| (id, text, why)))
 }
 
-/// What the agent reads when its list is refused for an item the owner could not act on.
-pub(crate) fn unclear_item_refusal(id: &str, why: Unclear) -> String {
+/// What the agent reads when its list is refused for an item the owner could not act on. A line with no
+/// verb names the word read first, so the agent can reword it.
+pub(crate) fn unclear_item_refusal(id: &str, text: &str, why: Unclear) -> String {
+    let read = match (why, lead_read(text)) {
+        (Unclear::NoAsk, Some(lead)) => format!(" (it read \"{lead}\" first)"),
+        _ => String::new(),
+    };
     format!(
-        "Refused: item \"{id}\" is not clear to the owner: {}. His list shows an item as you word it, so say \
+        "Refused: item \"{id}\" is not clear to the owner: {}{read}. His list shows an item as you word it, so say \
          what he is to do and the thing it names in one line that reads alone, then call waiting_for again \
          with the item reworded.",
         why.why()

@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
-import { BadgeCheck, Reply } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { MouseEvent } from "react";
+import { BadgeCheck, MessageSquarePlus, Pencil, Reply } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardFooter } from "../../primitives/Card/Card";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { forgetKept, readKept } from "../../keep";
+import { quoteOf } from "../ForkFromSelection/ForkFromSelection";
 import type { SessionThreadRow } from "./SessionThread";
 
 export type DraftThreadRow = Extract<SessionThreadRow, { kind: "draft" }>;
@@ -21,10 +24,23 @@ const SETTLED = {
   sent_back: { said: "Sent back", Glyph: Reply },
 } as const;
 
+/** The words selected in the draft, and where the right press on them was. */
+type Opened = { x: number; y: number; words: string };
+
+/** A right press on selected words inside `block`, and what they were. Anywhere else is the press of the row it is in. */
+function pressedOn(event: MouseEvent<HTMLElement>, block: HTMLElement): Opened | undefined {
+  const selection = window.getSelection();
+  if (selection === null || selection.rangeCount === 0 || selection.isCollapsed || !block.contains(selection.anchorNode) || !block.contains(selection.focusNode)) return undefined;
+  const words = selection.toString().trim();
+  const box = selection.getRangeAt(0).getBoundingClientRect();
+  if (words === "" || event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return undefined;
+  return { x: event.clientX, y: event.clientY, words };
+}
+
 /** The draft is text to post, not the agent's commands: a code block in it draws without Run. */
-function Text({ text }: { text: string }) {
+function Text({ text, onContextMenu }: { text: string; onContextMenu?: (event: MouseEvent<HTMLElement>) => void }) {
   return (
-    <div className="armada-session-draft__text">
+    <div className="armada-session-draft__text" {...(onContextMenu === undefined ? {} : { onContextMenu })}>
       <ProseRunner.Provider value={null}>
         <ProseCommand.Provider value={null}>
           <Prose text={text} />
@@ -38,7 +54,8 @@ function Text({ text }: { text: string }) {
  * A draft the agent put to the person with `propose_draft`, approved where it stands
  * (`.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`): Approve, Edit and Note in fixed places,
  * and once settled how it ended, with nothing left to press. `keep` names it for the text he types, which a settle forgets.
- * Without `onAnswer` the card is read only.
+ * Without `onAnswer` the card is read only. **A right press on words selected in the text offers Edit and Add note**: Edit opens
+ * the box with those words selected, where they stand in the source, and Add note opens the note with them quoted.
  */
 export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: string; onAnswer?: (rowId: string, answer: DraftAnswer) => void }) {
   const fixedKey = `${keep}:fixed`;
@@ -48,6 +65,10 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
   const [fixed, setFixed] = useState(() => readKept<string>(fixedKey) ?? row.text);
   const [note, setNote] = useState("");
   const [before, setBefore] = useState(false);
+  const [menu, setMenu] = useState<Opened>();
+  // The words Edit was opened on, selected in the box once it is there.
+  const [pick, setPick] = useState<string>();
+  const home = useRef<HTMLLIElement>(null);
   const settled = row.settled;
   useEffect(() => {
     if (settled === undefined) return;
@@ -57,6 +78,13 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
   const open = settled === undefined && onAnswer !== undefined;
   const editing = open && mode === "edit";
   const noting = open && mode === "note";
+  useEffect(() => {
+    if (!editing || pick === undefined) return;
+    const box = home.current?.querySelector("textarea");
+    const at = fixed.indexOf(pick);
+    if (box !== null && box !== undefined && at >= 0) box.setSelectionRange(at, at + pick.length);
+    setPick(undefined);
+  }, [editing, pick, fixed]);
   const cancel = () => {
     forgetKept(fixedKey);
     forgetKept(noteKey);
@@ -65,8 +93,20 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
     setMode("read");
   };
   const state = settled === undefined ? undefined : SETTLED[settled.how];
+  const choose = (chosen: string) => {
+    const words = menu?.words ?? "";
+    setMenu(undefined);
+    window.getSelection()?.removeAllRanges();
+    if (chosen === "edit") {
+      setPick(words);
+      setMode("edit");
+    } else {
+      setNote(quoteOf(words));
+      setMode("note");
+    }
+  };
   return (
-    <li className="armada-session-draft-row">
+    <li ref={home} className="armada-session-draft-row">
       <Card flat className="armada-session-draft" role="article" aria-label={`Draft: ${row.title}`} data-settled={settled?.how}>
         <div className="armada-session-draft__head">
           <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">Draft</span>
@@ -76,7 +116,15 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
         {editing ? (
           <Textarea aria-label="Draft text" rows={8} grow autoFocus keep={fixedKey} value={fixed} onChange={(event) => setFixed(event.currentTarget.value)} />
         ) : (
-          <Text text={settled?.how === "fixed" ? (settled.words ?? row.text) : row.text} />
+          <Text
+            text={settled?.how === "fixed" ? (settled.words ?? row.text) : row.text}
+            {...(!open ? {} : { onContextMenu: (event: MouseEvent<HTMLElement>) => {
+              const there = pressedOn(event, event.currentTarget);
+              if (there === undefined) return;
+              event.preventDefault();
+              setMenu(there);
+            } })}
+          />
         )}
         {row.before === undefined ? null : (
           <div className="armada-session-draft__before">
@@ -134,6 +182,21 @@ export function DraftRow({ row, keep, onAnswer }: { row: DraftThreadRow; keep: s
           </CardFooter>
         )}
       </Card>
+      {menu === undefined ? null : (
+        <DropdownMenu
+          triggerLabel="Selection"
+          at={{ x: menu.x, y: menu.y }}
+          open
+          entries={[
+            { kind: "item", id: "edit", label: "Edit", icon: Pencil },
+            { kind: "item", id: "note", label: "Add note", icon: MessageSquarePlus },
+          ]}
+          onOpenChange={(now) => {
+            if (!now) setMenu(undefined);
+          }}
+          onSelect={choose}
+        />
+      )}
     </li>
   );
 }
