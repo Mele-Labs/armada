@@ -87,12 +87,19 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
+import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
+  AskingForWorkflowChange,
   NotADriftAnswer,
   SavingWorkflow,
+  SuggestingWorkflowChange,
+  WorkflowChangeAnswer,
+  WorkflowChangeApproveAnswer,
+  WorkflowChangesRead,
   WorkflowCopyDeleteAnswer,
   WorkflowDefinitionRead,
+  WorkflowProposeAnswer,
   WorkflowSaveAnswer,
   WorkflowStepsRead,
   WorkflowsRead,
@@ -293,6 +300,20 @@ const api: BridgeApi = {
   resetWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.resetWorkflowCopy, acting),
   markNotADrift: (nudge: number): Promise<NotADriftAnswer> => ipcRenderer.invoke(CHANNELS.markNotADrift, nudge),
+  askWorkflowChange: (asking: AskingForWorkflowChange): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.askWorkflowChange, asking),
+  suggestWorkflowChange: (suggesting: SuggestingWorkflowChange): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.suggestWorkflowChange, suggesting),
+  readWorkflowChanges: (workflowId: string, source: string): Promise<WorkflowChangesRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowChanges, workflowId, source),
+  approveWorkflowChange: (change: number): Promise<WorkflowChangeApproveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.approveWorkflowChange, change),
+  dismissWorkflowChange: (change: number): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.dismissWorkflowChange, change),
+  sendBackWorkflowChange: (back: SendBackWorkflowChange): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.sendBackWorkflowChange, back),
+  proposeWorkflowToArmada: (proposing: ProposeToArmada): Promise<WorkflowProposeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.proposeWorkflowToArmada, proposing),
 
   readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
   readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>

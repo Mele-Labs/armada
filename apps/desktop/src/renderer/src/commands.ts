@@ -14,8 +14,8 @@ import type { BuildSource, ChangeSlotPool, LandCheckAt, RescueSlot, RetroSubject
 import { useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { ActingOnWorkflowCopy, SavingWorkflow } from "../../shared/workflows";
-import type { EditManifest, SaveManifestFile } from "@armada/protocol";
+import type { ActingOnWorkflowCopy, AskingForWorkflowChange, SavingWorkflow, SuggestingWorkflowChange } from "../../shared/workflows";
+import type { EditManifest, ProposeToArmada, SaveManifestFile, SendBackWorkflowChange } from "@armada/protocol";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { Outcome } from "@armada/protocol";
 import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
@@ -207,6 +207,15 @@ export const readWorkflowSteps = (workflowId: string, source: string) => window.
 export const deleteWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.deleteWorkflowCopy(acting);
 export const resetWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.resetWorkflowCopy(acting);
 export const markNotADrift = (nudge: number) => window.armada.markNotADrift(nudge);
+/** The changes an agent drafts for him to approve: typed, suggested, polled while drafting, then approved, dismissed or sent back. */
+export const askWorkflowChange = (asking: AskingForWorkflowChange) => window.armada.askWorkflowChange(asking);
+export const suggestWorkflowChange = (suggesting: SuggestingWorkflowChange) => window.armada.suggestWorkflowChange(suggesting);
+export const readWorkflowChanges = (workflowId: string, source: string) => window.armada.readWorkflowChanges(workflowId, source);
+export const approveWorkflowChange = (change: number) => window.armada.approveWorkflowChange(change);
+export const dismissWorkflowChange = (change: number) => window.armada.dismissWorkflowChange(change);
+export const sendBackWorkflowChange = (back: SendBackWorkflowChange) => window.armada.sendBackWorkflowChange(back);
+/** A Job on Armada's own repository that lands a definition, so it ships to every install. */
+export const proposeWorkflowToArmada = (proposing: ProposeToArmada) => window.armada.proposeWorkflowToArmada(proposing);
 export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);

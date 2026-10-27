@@ -4,7 +4,13 @@
 import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
-import type { ActingOnWorkflowCopy, SavingWorkflow } from "../shared/workflows";
+import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type {
+  ActingOnWorkflowCopy,
+  AskingForWorkflowChange,
+  SavingWorkflow,
+  SuggestingWorkflowChange,
+} from "../shared/workflows";
 import type {
   AddKitServer,
   InstallKitPiece,
@@ -152,6 +158,27 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   );
   ipc.handle(CHANNELS.markNotADrift, (event, nudge: number) =>
     connection()?.workflowsFor(windowIdOf(event)).notADrift(nudge),
+  );
+  ipc.handle(CHANNELS.askWorkflowChange, (event, asking: AskingForWorkflowChange) =>
+    connection()?.workflowsFor(windowIdOf(event)).askChange(asking.manifestId, asking.body),
+  );
+  ipc.handle(CHANNELS.suggestWorkflowChange, (event, suggesting: SuggestingWorkflowChange) =>
+    connection()?.workflowsFor(windowIdOf(event)).suggestChange(suggesting.manifestId, suggesting.body),
+  );
+  ipc.handle(CHANNELS.readWorkflowChanges, (event, workflowId: string, source: string) =>
+    connection()?.workflowsFor(windowIdOf(event)).changes(workflowId, source),
+  );
+  ipc.handle(CHANNELS.approveWorkflowChange, (event, change: number) =>
+    connection()?.workflowsFor(windowIdOf(event)).approveChange(change),
+  );
+  ipc.handle(CHANNELS.dismissWorkflowChange, (event, change: number) =>
+    connection()?.workflowsFor(windowIdOf(event)).dismissChange(change),
+  );
+  ipc.handle(CHANNELS.sendBackWorkflowChange, (event, back: SendBackWorkflowChange) =>
+    connection()?.workflowsFor(windowIdOf(event)).sendBackChange(back),
+  );
+  ipc.handle(CHANNELS.proposeWorkflowToArmada, (event, proposing: ProposeToArmada) =>
+    connection()?.workflowsFor(windowIdOf(event)).proposeToArmada(proposing),
   );
   // Triggers: the list, one definition, a save and a removal.
   ipc.handle(CHANNELS.readTriggers, (event) => connection()?.triggersFor(windowIdOf(event)).list());

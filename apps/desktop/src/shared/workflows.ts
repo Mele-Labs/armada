@@ -2,10 +2,16 @@
 // `main/workflows.ts` builds these from Fleet's three routes; nothing else does.
 
 import type {
+  ArmadaProposed,
+  AskWorkflowChange,
   LeftOutWorkflow,
   NotADriftMarked,
   Outcome,
   SaveWorkflow,
+  SuggestWorkflowChange,
+  WorkflowChange,
+  WorkflowChangeApproved,
+  WorkflowChanges,
   WorkflowCopy,
   WorkflowCopyDeleted,
   WorkflowDefinition,
@@ -39,3 +45,21 @@ export type WorkflowCopyDeleteAnswer = { ok: true; deleted: WorkflowCopyDeleted 
 
 /** `POST /workflows/not_a_drift`. */
 export type NotADriftAnswer = { ok: true; marked: NotADriftMarked } | { ok: false; outcome: Outcome };
+
+/** The Manifest a change is begun under, which Kit's leaves to the picked repository's, and what is asked. */
+export type AskingForWorkflowChange = { manifestId: string | null; body: AskWorkflowChange };
+
+/** The Manifest a suggestion is begun under, and the step. */
+export type SuggestingWorkflowChange = { manifestId: string | null; body: SuggestWorkflowChange };
+
+/** `POST /workflows/changes/ask`, `.../suggest`, `.../send_back` and `.../dismiss`: the change. A refusal carries Fleet's own sentence. */
+export type WorkflowChangeAnswer = { ok: true; change: WorkflowChange } | { ok: false; outcome: Outcome };
+
+/** `GET /workflows/changes`: the open changes to one workflow in one place. */
+export type WorkflowChangesRead = { ok: true; changes: WorkflowChanges } | { ok: false; outcome: Outcome };
+
+/** `POST /workflows/changes/approve`: the change and the save it made. A refusal says the file changed, or why it does not fit. */
+export type WorkflowChangeApproveAnswer = { ok: true; approved: WorkflowChangeApproved } | { ok: false; outcome: Outcome };
+
+/** `POST /workflows/propose`: the Job started on Armada's repository. */
+export type WorkflowProposeAnswer = { ok: true; proposed: ArmadaProposed } | { ok: false; outcome: Outcome };

@@ -24,6 +24,13 @@ type Served = Pick<
   | "deleteWorkflowCopy"
   | "resetWorkflowCopy"
   | "markNotADrift"
+  | "askWorkflowChange"
+  | "suggestWorkflowChange"
+  | "readWorkflowChanges"
+  | "approveWorkflowChange"
+  | "dismissWorkflowChange"
+  | "sendBackWorkflowChange"
+  | "proposeWorkflowToArmada"
 >;
 
 const refusal = (code: string, message: string): Outcome => ({
@@ -81,6 +88,13 @@ export function workflowsServed(current: () => string | null): Served {
     deleteWorkflowCopy: async () => ({ ok: false, outcome: unserved }),
     resetWorkflowCopy: async () => ({ ok: false, outcome: unserved }),
     markNotADrift: async () => ({ ok: false, outcome: unserved }),
+    askWorkflowChange: async () => ({ ok: false, outcome: unserved }),
+    suggestWorkflowChange: async () => ({ ok: false, outcome: unserved }),
+    readWorkflowChanges: async () => ({ ok: false, outcome: unserved }),
+    approveWorkflowChange: async () => ({ ok: false, outcome: unserved }),
+    dismissWorkflowChange: async () => ({ ok: false, outcome: unserved }),
+    sendBackWorkflowChange: async () => ({ ok: false, outcome: unserved }),
+    proposeWorkflowToArmada: async () => ({ ok: false, outcome: unserved }),
   };
 }
 

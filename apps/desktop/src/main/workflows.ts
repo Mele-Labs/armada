@@ -7,9 +7,17 @@
 // takes the pick's.
 
 import type {
+  ArmadaProposed,
+  AskWorkflowChange,
   LeftOutWorkflow,
   NotADriftMarked,
+  ProposeToArmada,
   SaveWorkflow,
+  SendBackWorkflowChange,
+  SuggestWorkflowChange,
+  WorkflowChange,
+  WorkflowChangeApproved,
+  WorkflowChanges,
   WorkflowCopy,
   WorkflowCopyDeleted,
   WorkflowDefinition,
@@ -20,8 +28,12 @@ import type {
 
 import type {
   NotADriftAnswer,
+  WorkflowChangeAnswer,
+  WorkflowChangeApproveAnswer,
+  WorkflowChangesRead,
   WorkflowCopyDeleteAnswer,
   WorkflowDefinitionRead,
+  WorkflowProposeAnswer,
   WorkflowSaveAnswer,
   WorkflowStepsRead,
   WorkflowsRead,
@@ -31,7 +43,10 @@ import { ask, NOT_SET_UP } from "./request";
 
 /**
  * `list_workflows`, `list_left_out_workflows`, `get_workflow` and `save_workflow`; and the Workflows
- * page's `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy` and `mark_not_a_drift`.
+ * page's `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy` and `mark_not_a_drift`; and the
+ * changes an agent drafts for him: `ask_workflow_change`, `suggest_workflow_change`, `list_workflow_changes`,
+ * `approve_workflow_change`, `dismiss_workflow_change`, `send_back_workflow_change`, and
+ * `propose_workflow_to_armada`.
  */
 export class WorkflowCommands {
   private readonly port: () => number | null;
@@ -123,6 +138,74 @@ export class WorkflowCommands {
     const answer = await ask(port, "POST", "/workflows/not_a_drift", { nudge });
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, marked: answer.body as NotADriftMarked };
+  }
+
+  /** Ask an agent to rewrite a copy as he words it. Answers the change drafting; nothing is saved. */
+  async askChange(manifestId: string | null, body: AskWorkflowChange): Promise<WorkflowChangeAnswer> {
+    return this.beginChange("/workflows/changes/ask", manifestId, body);
+  }
+
+  /** Ask for new words for one step now, from the nudges that count. */
+  async suggestChange(manifestId: string | null, body: SuggestWorkflowChange): Promise<WorkflowChangeAnswer> {
+    return this.beginChange("/workflows/changes/suggest", manifestId, body);
+  }
+
+  /** The open changes to one workflow in one place: drafting, ready or failed. */
+  async changes(workflowId: string, source: string): Promise<WorkflowChangesRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const route = `/workflows/changes?workflow_id=${encodeURIComponent(workflowId)}&source=${encodeURIComponent(source)}`;
+    const path = this.picked.manifest(route);
+    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    const answer = await ask(port, "GET", path);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, changes: answer.body as WorkflowChanges };
+  }
+
+  /** Write a ready change through the save path. Fleet refuses it if the file changed since the draft began. */
+  async approveChange(change: number): Promise<WorkflowChangeApproveAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "POST", "/workflows/changes/approve", { change });
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, approved: answer.body as WorkflowChangeApproved };
+  }
+
+  /** Put an open change aside. */
+  async dismissChange(change: number): Promise<WorkflowChangeAnswer> {
+    return this.actOnChange("/workflows/changes/dismiss", { change });
+  }
+
+  /** Send a ready or failed change back with his notes, to be drafted again. */
+  async sendBackChange(back: SendBackWorkflowChange): Promise<WorkflowChangeAnswer> {
+    return this.actOnChange("/workflows/changes/send_back", back);
+  }
+
+  /** Start a Job on Armada's own repository that lands a definition. */
+  async proposeToArmada(proposing: ProposeToArmada): Promise<WorkflowProposeAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "POST", "/workflows/propose", proposing);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, proposed: answer.body as ArmadaProposed };
+  }
+
+  private async beginChange(route: string, manifestId: string | null, body: unknown): Promise<WorkflowChangeAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const path = this.manifestPath(route, manifestId);
+    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    const answer = await ask(port, "POST", path, body);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, change: answer.body as WorkflowChange };
+  }
+
+  private async actOnChange(route: string, body: unknown): Promise<WorkflowChangeAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "POST", route, body);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, change: answer.body as WorkflowChange };
   }
 
   /** The Manifest an act is under: the one named, or the pick's where Kit's leaves it to the pick. */

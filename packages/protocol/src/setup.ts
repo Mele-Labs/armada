@@ -420,6 +420,11 @@ export type WorkflowCopy = {
   workflow_id: string;
   /** `repository` or `kit`. */
   source: string;
+  /**
+   * The file of a copy that was left out for not fitting, as `LeftOutWorkflow.file` names it. It is found by
+   * that file and not by the id it declares, which may be none Fleet can read. Absent for a copy that runs.
+   */
+  file?: string;
 };
 
 /** What `POST /workflows/delete` removed. */
@@ -442,4 +447,91 @@ export type MarkNotADrift = {
 /** A nudge marked not a drift: kept, and no longer counting. */
 export type NotADriftMarked = {
   nudge: number;
+};
+
+/** Where a workflow change came from: his words, or the nudges a step drifted on. */
+export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] };
+
+/** Where a change stands. `approved` and `dismissed` are never listed. */
+export type ChangeState = "drafting" | "ready" | "approved" | "dismissed" | "failed";
+
+/**
+ * A change to one workflow in one place that an agent drafted for the owner to approve. Nothing is saved until
+ * `POST /workflows/changes/approve`. `crates/ipc/src/workflow_changes.rs`.
+ */
+export type WorkflowChange = {
+  /** What approve, dismiss and send back take. */
+  id: number;
+  workflow_id: string;
+  /** `repository` or `kit`. */
+  source: string;
+  /** The one step a suggestion may change. Absent on a change he asked for. */
+  step_id?: string;
+  origin: ChangeOrigin;
+  /** The definition's text when the change began. */
+  before: string;
+  /** The drafted definition, whole. Present while the change is ready. */
+  after?: string;
+  state: ChangeState;
+  /** Why no draft fit. Present on a failed change. */
+  reason?: string;
+  /** What he said when he sent it back, the latest. */
+  notes?: string;
+  /** When it last moved. */
+  at: string;
+};
+
+/** `POST /workflows/changes/ask?manifest_id=`'s body. 422 `fleet.workflow_is_armadas` for `armada`. */
+export type AskWorkflowChange = {
+  workflow_id: string;
+  /** `repository` or `kit`. */
+  source: string;
+  /** What he wants changed, in his words. */
+  text: string;
+};
+
+/** `POST /workflows/changes/suggest?manifest_id=`'s body. */
+export type SuggestWorkflowChange = {
+  workflow_id: string;
+  /** `repository` or `kit`. */
+  source: string;
+  step_id: string;
+};
+
+/** `GET /workflows/changes?workflow_id=&source=&manifest_id=`: the open changes, oldest first. */
+export type WorkflowChanges = {
+  changes: WorkflowChange[];
+};
+
+/** The body of `POST /workflows/changes/approve` and `POST /workflows/changes/dismiss`. */
+export type WorkflowChangeRef = {
+  change: number;
+};
+
+/** `POST /workflows/changes/send_back`'s body. */
+export type SendBackWorkflowChange = {
+  change: number;
+  /** What was wrong with the draft, in his words. */
+  notes: string;
+};
+
+/** What `POST /workflows/changes/approve` did: the change, approved, and the save it made. */
+export type WorkflowChangeApproved = {
+  change: WorkflowChange;
+  saved: WorkflowSaved;
+};
+
+/** `POST /workflows/propose`'s body. */
+export type ProposeToArmada = {
+  workflow_id: string;
+  /** The definition's text, as it is to be carried. */
+  definition: string;
+};
+
+/** The Job `POST /workflows/propose` started on Armada's own repository. */
+export type ArmadaProposed = {
+  workflow_id: string;
+  session_id: string;
+  /** Why its brief was not sent. Absent where it was. */
+  send_failed?: string;
 };
