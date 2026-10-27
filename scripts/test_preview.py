@@ -381,13 +381,67 @@ class Preview(unittest.TestCase):
         self.assertIn(f"feat/bad   skipped (does not build: {index})", done.stdout)
         self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
 
-    def test_the_retry_is_once_and_a_second_failure_is_reported(self):
+    def test_a_failure_that_names_no_branch_left_is_reported(self):
         self.branch("feat/bad", {"bad.rs": "x\n"})
         self.hold("feat/bad")
         script, runs = self.failing_restart("bad.rs", always=True)
         done = self.preview_restart(script)
         self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 2)
+
+    def guarded_restart(self):
+        """A restart script whose migration guard refuses while `mig.sql` is in the tree, and
+        whose build fails on `bad.rs` as `failing_restart`'s does. Records each run."""
+        runs = os.path.join(self.dir, "restart-runs")
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho run >> "{runs}"\n'
+                    'if [ -f "$2/mig.sql" ]; then\n'
+                    '  echo "restart: leave out feat/mig: breaking migration m.rebuild is not on main" >&2\n'
+                    '  echo "restart: refusing — m.rebuild from feat/mig: breaking" >&2; exit 1\nfi\n'
+                    'if [ -f "$2/bad.rs" ]; then\n'
+                    '  echo "error[E0432]: unresolved import" >&2; echo " --> bad.rs:12:5" >&2; exit 101\nfi\n')
+        os.chmod(script, 0o755)
+        return script, runs
+
+    def test_a_branch_the_migration_guard_names_is_left_out_and_the_restart_run_once_more(self):
+        self.branch("feat/mig", {"mig.sql": "x\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/mig", "feat/good")
+        script, runs = self.guarded_restart()
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("feat/mig   skipped (breaking migration m.rebuild is not on main)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_it_goes_again_until_the_preview_builds(self):
+        self.branch("feat/mig", {"mig.sql": "x\n"})
+        self.branch("feat/bad", {"bad.rs": "x\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/mig", "feat/bad", "feat/good")
+        script, runs = self.guarded_restart()
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 3)
+        self.assertIn("feat/mig   skipped (breaking migration m.rebuild is not on main)", done.stdout)
+        self.assertIn("feat/bad   skipped (does not build: bad.rs)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_the_branches_left_out_are_written_down_for_the_preview_commit(self):
+        self.branch("feat/mig", {"mig.sql": "x\n"})
+        self.branch("feat/bad", {"bad.rs": "x\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/mig", "feat/bad", "feat/good")
+        script, _ = self.guarded_restart()
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        with open(os.path.join(self.home, "Library", "Application Support", "Armada", "preview-left-out")) as f:
+            lines = f.read().splitlines()
+        self.assertEqual(lines[0], run(self.wt, "rev-parse", "HEAD").strip())
+        tip = lambda b: run(self.repo, "rev-parse", f"refs/heads/{b}")
+        self.assertEqual(sorted(lines[1:]), [f"feat/bad\t{tip('feat/bad')}\tdoes not build: bad.rs",
+                                             f"feat/mig\t{tip('feat/mig')}\tbreaking migration m.rebuild is not on main"])
 
     def test_error_paths_are_the_errors_not_the_warnings(self):
         wt = os.path.join(self.dir, "wt")
@@ -804,6 +858,22 @@ class MigrationGuard(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("y.rebuild from fleet/rebuilds-a-table", said)
         self.assertIn("unlanded work", said)
+
+    def test_the_breaking_refusal_keeps_its_migration_and_branch_in_the_line_bridge_shows(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        self.on_branch("projects/rework-notes", "projects.span_repositories", breaking=True)
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        line = RESTART_BUILD_MODULE.one_line(said)
+        self.assertIn("projects.span_repositories from projects/rework-notes", line)
+
+    def test_the_breaking_refusal_names_each_branch_to_leave_out(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        self.on_branch("projects/rework-notes", "projects.span_repositories", breaking=True)
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        self.assertIn("restart: leave out projects/rework-notes: "
+                      "breaking migration projects.span_repositories is not on main\n", said)
 
     def test_a_migration_file_already_on_origin_main_is_not_unlanded(self):
         self.database([("schema.v1", 1), ("x.v2", 1), ("y.rebuild", 1)])
