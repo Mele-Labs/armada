@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { ChevronDown, ChevronRight, FolderGit2, SquareAsterisk, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderGit2, SquareAsterisk, Trash2, TriangleAlert } from "lucide-react";
 import {
   Alert,
   Button,
@@ -378,9 +378,11 @@ function HeaderTable({ label, rows, onRows }: { label: string; rows: readonly He
                 <Input aria-label={`Header ${at + 1} value`} mono value={one.value} spellCheck={false} onChange={(event) => edit(at, { value: event.currentTarget.value })} />
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="sm" aria-label={`Remove header ${at + 1}`} onClick={() => onRows(rows.filter((_, i) => i !== at))}>
-                  Remove
-                </Button>
+                <Tooltip label="Remove" asChild>
+                  <Button variant="ghost" size="sm" iconOnly aria-label={`Remove header ${at + 1}`} onClick={() => onRows(rows.filter((_, i) => i !== at))}>
+                    <Trash2 size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
               </TableCell>
             </TableRow>
           ))}
@@ -757,18 +759,27 @@ export function Environments({ api, read, sessionId, repository, locked, onRead 
 /** A variable as the form holds it. A secret already set is drawn as set until Replace opens its field. */
 type Line = { name: string; secret: boolean; value: string; set: boolean; replacing: boolean };
 
+const blankLine = (): Line => ({ name: "", secret: false, value: "", set: false, replacing: false });
+const empty = (one: Line): boolean => one.name === "" && one.value === "" && !one.set;
+/** The table always ends with one empty row to type into. */
+const endingEmpty = (lines: Line[]): Line[] => {
+  let end = lines.length;
+  while (end > 0 && empty(lines[end - 1]!)) end -= 1;
+  return [...lines.slice(0, end), ...(end < lines.length ? [lines[end]!] : [blankLine()])];
+};
+
 type EnvironmentFormProps = { api: RequestsApi; sessionId: string | undefined; repository: string | undefined; environment: Placed<RequestEnvironmentRead> | undefined; locked: boolean; onSaved: (read: Requests) => void };
 
 function EnvironmentForm({ api, sessionId, repository, environment, locked, onSaved }: EnvironmentFormProps) {
   const [name, setName] = useState(environment?.name ?? "");
   const [lines, setLines] = useState<Line[]>(() =>
-    environment === undefined
-      ? [{ name: "", secret: false, value: "", set: false, replacing: false }]
-      : environment.variables.map((one) => (one.secret ? { name: one.name, secret: true, value: "", set: one.set, replacing: false } : { name: one.name, secret: false, value: one.value, set: false, replacing: false })),
+    endingEmpty(
+      (environment?.variables ?? []).map((one) => (one.secret ? { name: one.name, secret: true, value: "", set: one.set, replacing: false } : { name: one.name, secret: false, value: one.value, set: false, replacing: false })),
+    ),
   );
   const [refused, setRefused] = useState<string | undefined>(undefined);
   const [deleting, setDeleting] = useState(false);
-  const edit = (at: number, patch: Partial<Line>) => setLines((now) => now.map((one, i) => (i === at ? { ...one, ...patch } : one)));
+  const edit = (at: number, patch: Partial<Line>) => setLines((now) => endingEmpty(now.map((one, i) => (i === at ? { ...one, ...patch } : one))));
   const save = async () => {
     const variables: VariableWrite[] = lines
       .filter((one) => one.name.trim() !== "")
@@ -846,23 +857,24 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
                 )}
               </TableCell>
               <TableCell>
-                <Checkbox aria-label={`Secret ${at + 1}`} checked={one.secret} disabled={one.set} onChange={(event) => edit(at, { secret: event.currentTarget.checked, value: "" })}>
+                <Checkbox aria-label={`Secret ${at + 1}`} checked={one.secret} disabled={one.set} onChange={(event) => edit(at, { secret: event.currentTarget.checked })}>
                   {null}
                 </Checkbox>
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="sm" aria-label={`Remove variable ${at + 1}`} disabled={locked} onClick={() => setLines((now) => now.filter((_, i) => i !== at))}>
-                  Remove
-                </Button>
+                {at === lines.length - 1 && empty(one) ? null : (
+                  <Tooltip label="Remove" asChild>
+                    <Button variant="ghost" size="sm" iconOnly aria-label={`Remove variable ${at + 1}`} disabled={locked} onClick={() => setLines((now) => now.filter((_, i) => i !== at))}>
+                      <Trash2 size={16} aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                )}
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
       <div className="side-request__acts">
-        <Button variant="ghost" onClick={() => setLines((now) => [...now, { name: "", secret: false, value: "", set: false, replacing: false }])}>
-          Add variable
-        </Button>
         <Button type="submit" variant="secondary" disabled={name.trim() === "" || locked}>
           Save
         </Button>

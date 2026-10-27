@@ -79,7 +79,9 @@ test("Remove on a variable's row drops that variable from what Save sends", asyn
   await mount(api);
   const test = group("test");
   await press(buttonIn(test, "Remove variable 2"));
-  expect(group("test")?.querySelector('[aria-label="Variable 2"]')).toBeNull();
+  // What is left of the table is base and the empty row after it.
+  expect(field(group("test"), "Variable 2")?.value).toBe("");
+  expect(field(group("test"), "Variable 3")).toBeNull();
   await press(buttonIn(test, "Save"));
   expect(save).toHaveBeenCalledTimes(1);
   expect(save.mock.calls[0]?.[0]).toEqual({ name: "test", variables: [{ name: "base", secret: false, value: "https://api.example.test" }] });
@@ -105,4 +107,55 @@ test("Delete is offered on the person's own environment and on no other", async 
   expect(buttonIn(group("local"), "Delete")).toBeUndefined();
   expect(group("server:web")).not.toBeNull();
   expect(buttonIn(group("server:web"), "Delete")).toBeUndefined();
+});
+
+/** Typed as a person types: the native setter, then the input event React listens for. */
+const typeInto = (field: Element | null | undefined, value: string) =>
+  act(async () => {
+    const input = field as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+const field = (where: HTMLElement | null, label: string) => where?.querySelector<HTMLInputElement>(`[aria-label="${label}"]`);
+
+async function opened() {
+  const made = fakeApi();
+  await mount(made.api);
+  await press(buttonIn(document.body, "Add environment"));
+  return { ...made, form: group("New environment") };
+}
+
+test("Checking Secret keeps what was typed, and Save sends it as a secret's value", async () => {
+  const { save, form } = await opened();
+  await typeInto(field(form, "Environment name") ?? form?.querySelector("input"), "stage");
+  await typeInto(field(form, "Variable 1"), "api");
+  await typeInto(field(form, "Value 1"), "typed-value");
+  await act(async () => field(form, "Secret 1")?.click());
+  expect(field(form, "Value 1")?.value).toBe("typed-value");
+  await press(buttonIn(form, "Save"));
+  expect(save.mock.calls[0]?.[0]).toEqual({ name: "stage", variables: [{ name: "api", secret: true, value: "typed-value" }] });
+});
+
+test("The table ends with an empty row to type into, a new one comes as the last is typed in, and Save sends no blank variable", async () => {
+  const { save, form } = await opened();
+  expect(form?.querySelector('[aria-label="Variable 2"]')).toBeNull();
+  expect(buttonIn(form, "Add variable")).toBeUndefined();
+  await typeInto(field(form, "Environment name") ?? form?.querySelector("input"), "stage");
+  await typeInto(field(form, "Variable 1"), "base");
+  await typeInto(field(form, "Value 1"), "https://api.example.test");
+  expect(field(form, "Variable 2")?.value).toBe("");
+  expect(field(form, "Variable 3")).toBeNull();
+  expect(buttonIn(form, "Remove variable 1")).toBeDefined();
+  expect(buttonIn(form, "Remove variable 2")).toBeUndefined();
+  await press(buttonIn(form, "Save"));
+  expect(save.mock.calls[0]?.[0]).toEqual({ name: "stage", variables: [{ name: "base", secret: false, value: "https://api.example.test" }] });
+});
+
+test("An environment kept shows its variables and one empty row after them", async () => {
+  const { api } = fakeApi();
+  await mount(api);
+  const kept = group("test");
+  expect(field(kept, "Variable 3")?.value).toBe("");
+  expect(field(kept, "Variable 4")).toBeNull();
+  expect(buttonIn(kept, "Remove variable 3")).toBeUndefined();
 });
