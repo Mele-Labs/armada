@@ -171,6 +171,7 @@ pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
+pub use home_kinds::KeptHomeItem;
 pub use home_repositories::KeptHomeRepository;
 pub use job_issues::KeptJobIssue;
 pub use plan_beads::KeptBead;

@@ -852,6 +852,7 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
         note: None,
         answers: Vec::new(),
         folder,
+        kind: None,
     };
 
     let waiting = card("~/Documents/notes-2441/x.md");
@@ -899,6 +900,97 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
         .expect("no card is drawn")
         .unwrap();
     assert!(matches!(next, ipc::RunOrNot::Deny { message } if message.contains("blocked")));
+}
+
+/// A Bash call past the slots names its kind on the card, which offers to allow calls like it for
+/// the job; a Read names none and does not.
+#[tokio::test]
+async fn a_bash_reach_card_names_its_kind_and_offers_to_allow_calls_like_it() {
+    let rig = rig();
+    let id = rig.start().await;
+    let _waiting = bash_call(&rig, &id, "node drive.mjs --out ~/Desktop/shot.png");
+    let ask = asked_on(&rig, &id).await;
+    assert_eq!(ask.kind, kind_named("node", Some("drive.mjs")));
+    assert_eq!(
+        ask.offers,
+        vec![
+            HelmCallAnswer::AllowOnce,
+            HelmCallAnswer::Refuse,
+            HelmCallAnswer::AlwaysAllow,
+            HelmCallAnswer::AllowForSession,
+            HelmCallAnswer::AllowLikeThisForSession,
+            HelmCallAnswer::AlwaysBlock,
+        ]
+    );
+}
+
+/// "Allow calls like this" takes the card's own kind or its program alone, and a folder only where
+/// it holds the path; anything else is refused and the card stays.
+#[tokio::test]
+async fn a_like_this_answer_takes_the_cards_kind_or_its_program_and_a_folder_above() {
+    let rig = rig();
+    let id = rig.start().await;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let shot = "node drive.mjs --out ~/Desktop/shot.png";
+
+    let waiting = bash_call(&rig, &id, shot);
+    let ask = asked_on(&rig, &id).await;
+    for (kind, folder) in [
+        (kind_named("node", Some("cleanup.mjs")), None),
+        (kind_named("python3", Some("drive.mjs")), None),
+        (kind_named("python3", None), None),
+        (None, None),
+        (kind_named("node", Some("drive.mjs")), Some(format!("{home}/code"))),
+    ] {
+        let refused = rig.fleet.answer_session_ask(like_this(&id, &ask.call, kind.clone(), folder.clone())).await;
+        assert!(matches!(refused, Err(api::Refusal::Unacceptable(_))), "{kind:?} {folder:?}: {refused:?}");
+    }
+    let program = like_this(&id, &ask.call, kind_named("node", None), Some(format!("{home}/Desktop")));
+    rig.fleet.answer_session_ask(program).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+
+    let id = rig.start().await;
+    let waiting = bash_call(&rig, &id, shot);
+    let ask = asked_on(&rig, &id).await;
+    rig.fleet.answer_session_ask(like_this(&id, &ask.call, ask.kind.clone(), None)).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+}
+
+/// One Bash line put to `id`'s guard, waiting on whatever it decides.
+fn bash_call(rig: &Rig, id: &SessionId, line: &str) -> tokio::task::JoinHandle<Result<ipc::RunOrNot, api::Refusal>> {
+    let body = format!(r#"{{"tool_name":"Bash","input":{{"command":"{line}"}}}}"#);
+    let asking: ipc::AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
+    tokio::spawn(async move { fleet.session_permission(&session, asking).await })
+}
+
+fn like_this(id: &SessionId, call: &str, kind: Option<ipc::CallKind>, folder: Option<String>) -> AnswerSessionAsk {
+    AnswerSessionAsk {
+        session_id: id.clone(),
+        call: call.to_string(),
+        answer: HelmCallAnswer::AllowLikeThisForSession,
+        note: None,
+        answers: Vec::new(),
+        folder,
+        kind,
+    }
+}
+
+fn kind_named(program: &str, script: Option<&str>) -> Option<ipc::CallKind> {
+    Some(ipc::CallKind { program: program.into(), script: script.map(str::to_string) })
+}
+
+/// The ask a session is waiting on, once it is.
+async fn asked_on(rig: &Rig, id: &SessionId) -> ipc::HelmCallInFlight {
+    let seen = Mutex::new(None);
+    eventually(|| async {
+        let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+        let some = now.is_some();
+        *seen.lock().unwrap() = now;
+        some
+    })
+    .await;
+    seen.into_inner().unwrap().unwrap()
 }
 
 /// A write through `$HOME/x:$PATH` names `$HOME/x`, so its card offers the folder answers and not
@@ -965,6 +1057,7 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
         note: None,
         answers: Vec::new(),
         folder,
+        kind: None,
     };
 
     let waiting = card(&id, "~/Music/a-2441.mp3");
@@ -993,6 +1086,57 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
 
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.unwrap();
     assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_folders.is_empty());
+}
+
+/// "Allow calls like this" lets this session's next call of that kind run, at the width the
+/// owner chose, and is gone when the session closes.
+#[tokio::test]
+async fn allow_calls_like_this_lets_its_kind_run_and_is_gone_when_it_closes() {
+    let rig = rig();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let runs = |id: &SessionId, line: &str| {
+        let waiting = bash_call(&rig, id, line);
+        async move {
+            let ran = tokio::time::timeout(Duration::from_secs(5), waiting).await.expect("no card is drawn");
+            matches!(ran.unwrap().unwrap(), ipc::RunOrNot::Allow { .. })
+        }
+    };
+    let id = rig.start().await;
+
+    let waiting = bash_call(&rig, &id, "node drive.mjs --out ~/Desktop/shot.png");
+    let ask = asked_on(&rig, &id).await;
+    rig.fleet.answer_session_ask(like_this(&id, &ask.call, ask.kind.clone(), None)).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Ask { state: SessionAskState::AllowedForSession, .. })));
+    assert!(runs(&id, "node drive.mjs --browser ~/Library/x").await);
+
+    // Another script still asks; the program alone lets both run.
+    let waiting = bash_call(&rig, &id, "node cleanup.mjs ~/code/other-repo");
+    let ask = asked_on(&rig, &id).await;
+    assert_eq!(ask.kind, kind_named("node", Some("cleanup.mjs")));
+    rig.fleet.answer_session_ask(like_this(&id, &ask.call, kind_named("node", None), None)).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(runs(&id, "node cleanup.mjs ~/code/other-repo").await);
+    assert!(runs(&id, "node drive.mjs ~/Library/y").await);
+
+    // Narrowed to a folder, the same script elsewhere still asks.
+    let narrow = rig.start().await;
+    let waiting = bash_call(&rig, &narrow, "node drive.mjs --out ~/Desktop/shot.png");
+    let ask = asked_on(&rig, &narrow).await;
+    let desktop = like_this(&narrow, &ask.call, ask.kind.clone(), Some(format!("{home}/Desktop")));
+    rig.fleet.answer_session_ask(desktop).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(runs(&narrow, "node drive.mjs --out ~/Desktop/next.png").await);
+    let elsewhere = bash_call(&rig, &narrow, "node drive.mjs --out ~/code/shot.png");
+    let ask = asked_on(&rig, &narrow).await;
+    assert_eq!(ask.reaches, Some(format!("{home}/code/shot.png")));
+    rig.fleet.answer_session_ask(AnswerSessionAsk { answer: HelmCallAnswer::Refuse, ..like_this(&narrow, &ask.call, None, None) }).await.unwrap();
+    assert!(matches!(elsewhere.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.unwrap();
+    assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_kinds.is_empty());
+    let _again = bash_call(&rig, &id, "node drive.mjs --out ~/Desktop/shot.png");
+    assert_eq!(asked_on(&rig, &id).await.kind, kind_named("node", Some("drive.mjs")));
 }
 
 /// A reach that names only the root offers no "always": no folder holds it that Fleet would take,
@@ -1025,6 +1169,7 @@ async fn a_reach_into_the_root_is_asked_once_only() {
             note: None,
             answers: Vec::new(),
             folder: None,
+            kind: None,
         })
         .await
         .unwrap();
@@ -1111,6 +1256,7 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
             note: Some("not that".into()),
             answers: Vec::new(),
             folder: None,
+            kind: None,
         })
         .await
         .unwrap();

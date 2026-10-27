@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use adapter_traits::{HarnessHome, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder};
 use core_model::KitServer;
-use ipc::{HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomeRowAt, HomeSide, SharedHomeRead};
+use ipc::{HomeItem, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomeRowAt, HomeSide, SharedHomeRead};
 
 pub use serving::HomeFittings;
 pub(crate) use serving::HomeHeld;
@@ -50,6 +50,31 @@ pub struct Places<'a> {
     /// Kit's own servers, as the store holds them.
     pub servers: &'a [KitServer],
     pub repositories: &'a [Repository],
+}
+
+/// What syncs for one profile: the kinds switched on, and each item switched on on its own.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Syncs {
+    pub kinds: Vec<HomeKind>,
+    pub items: Vec<HomeItem>,
+}
+
+impl Syncs {
+    /// Every kind on.
+    pub fn every() -> Syncs {
+        Syncs { kinds: HomeKind::ALL.to_vec(), items: Vec::new() }
+    }
+
+    /// The kinds a read or a Sync looks at: each one on, and each with an item on.
+    fn looked_at(&self) -> impl Iterator<Item = HomeKind> + '_ {
+        HomeKind::ALL.iter().copied().filter(|kind| self.kinds.contains(kind) || self.items.iter().any(|item| item.kind == *kind))
+    }
+
+    /// Whether the row or piece `name` of `kind` syncs: its whole kind is on, or it is.
+    fn takes(&self, kind: HomeKind, name: &str, repository: Option<&str>) -> bool {
+        self.kinds.contains(&kind)
+            || self.items.iter().any(|item| item.kind == kind && item.name == name && item.repository.as_deref() == repository)
+    }
 }
 
 /// Why an act did not happen.
@@ -127,22 +152,23 @@ pub fn chosen(profile: &Joined, owner: &str, name: &str) -> Result<HomePlace, Re
 }
 
 /// Make the home at `place` where it does not exist and clone it, or pull the copy here; then write every
-/// row only on this machine, of each kind in `on`, into the copy as [`add`] does, and push them
+/// row only on this machine that `syncs` takes into the copy as [`add`] does, and push them
 /// in one commit. A row `valid` or the home refuses stays here and is named in what this answers;
 /// the others still go. `machine` names this one in the commit.
 pub fn sync(
     places: &Places<'_>,
-    on: &[HomeKind],
+    syncs: &Syncs,
     machine: &str,
     place: &HomePlace,
     valid: &dyn Fn(HomeKind, &str) -> Result<(), Refused>,
 ) -> Result<Vec<HomeLeft>, Refused> {
     places.home.open(place).map_err(Refused::Home)?;
     let (mut paths, mut added, mut left) = (Vec::new(), Vec::new(), Vec::new());
-    for kind in HomeKind::ALL.iter().copied().filter(|kind| on.contains(kind)) {
+    for kind in syncs.looked_at() {
         let there = pieces::home(places, kind).pieces;
         let only_here = pieces::here(places, kind).pieces.into_iter().filter(|here| {
-            !there.iter().any(|piece| piece.name == here.name && piece.repository == here.repository)
+            syncs.takes(kind, &here.name, here.repository.as_deref())
+                && !there.iter().any(|piece| piece.name == here.name && piece.repository == here.repository)
         });
         for here in only_here {
             let at = HomeRowAt { login: String::new(), kind, name: here.name.clone(), repository: here.repository.clone() };
@@ -183,16 +209,16 @@ fn home_named(home: &dyn HomeRepository) -> Option<HomeNamed> {
     Some(HomeNamed { account: account.to_string(), repository: repository.to_string() })
 }
 
-/// Every row of every kind in `on`. **None at all where this machine holds no copy of the home**:
+/// Every row `syncs` takes. **None at all where this machine holds no copy of the home**:
 /// there is nothing to compare against.
-pub fn read(places: &Places<'_>, on: &[HomeKind]) -> SharedHomeRead {
+pub fn read(places: &Places<'_>, syncs: &Syncs) -> SharedHomeRead {
     let Some(home) = home_named(places.home) else {
         return SharedHomeRead { home: None, planned: None, rows: Vec::new(), unreadable: Vec::new() };
     };
     let (mut rows, mut unreadable) = (Vec::new(), Vec::new());
-    for kind in HomeKind::ALL.iter().copied().filter(|kind| on.contains(kind)) {
+    for kind in syncs.looked_at() {
         let (here, there) = (pieces::here(places, kind), pieces::home(places, kind));
-        rows.extend(compare::rows(kind, &here.pieces, &there.pieces));
+        rows.extend(compare::rows(kind, &here.pieces, &there.pieces).into_iter().filter(|row| syncs.takes(kind, &row.name, row.repository.as_deref())));
         unreadable.extend(here.unreadable.into_iter().chain(there.unreadable));
     }
     SharedHomeRead { home: Some(home), planned: None, rows, unreadable }
@@ -264,18 +290,20 @@ pub fn choose(places: &Places<'_>, at: &HomeRowAt, side: HomeSide, machine: &str
     }
 }
 
-/// What syncs for `login`'s home, out of the switches kept: **every kind off until it is turned on.**
-pub fn kinds(login: &str, switched: &BTreeMap<String, bool>) -> HomeKinds {
+/// What syncs for `login`'s home, out of the switches kept: **every kind off until it is turned on**,
+/// and each item switched on by itself.
+pub fn kinds(login: &str, switched: &BTreeMap<String, bool>, items: Vec<HomeItem>) -> HomeKinds {
     HomeKinds {
         login: login.to_string(),
         kinds: HomeKind::ALL
             .iter()
             .map(|kind| HomeKindSwitch { kind: *kind, on: switched.get(kind.as_wire()).copied().unwrap_or(false) })
             .collect(),
+        items,
     }
 }
 
 /// The kinds switched on.
 pub fn on(switched: &BTreeMap<String, bool>) -> Vec<HomeKind> {
-    kinds("", switched).kinds.into_iter().filter(|kind| kind.on).map(|kind| kind.kind).collect()
+    kinds("", switched, Vec::new()).kinds.into_iter().filter(|kind| kind.on).map(|kind| kind.kind).collect()
 }

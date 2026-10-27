@@ -320,7 +320,7 @@ pub use timeline::{
     TimelineSubject, TimelineTone, DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_ITEMS, MOST_TIMELINE_LIMIT,
 };
 pub use helm_call::{
-    AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
+    AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, CallKind, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
     ReachesTo, RunOrNot, handoff_figure, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT,
     HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES,
@@ -366,8 +366,8 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
-    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
-    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SetHomeRepository, SharedHomeRead,
+    ChooseHomeSide, HomeItem, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
+    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeItem, SetHomeKind, SetHomeRepository, SharedHomeRead,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{

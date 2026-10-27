@@ -10,6 +10,9 @@ Where an agent item names the same act and target as one of Fleet's, Fleet's sta
 On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind it and one that stayed after he approved.
 Phrase rules read the act, the id and the text (`walk_asks.rs`; `docs/spikes/walk-item-classifier.md` has them measured), and an item kept before the rule is left off every read.
 **It refuses an item that repeats the plan he has not approved**, such as "Approve plan v4" beside Fleet's own "Plan to approve": once the language model is loaded and while a plan is pending, `plan_asks.rs` compares each item with that text by cosine and names the plan version in the refusal.
+**It refuses an item that repeats a question that lapsed** (`fleet.session_waiting_asked`): a question nobody answered inside the hold, or one kept for a walk, stays in his Needs you whole and his answer comes to the agent as a message.
+The reply to a timed-out question says so, and tells the agent not to ask it again or list it; one that does anyway is refused when its option labels are the question's or its text is the question's, and an item kept before the rule is left off every read while the question stands (`lapsed_asks.rs`).
+Both his answer to a kept question and to a timed-out one start with "Answering your earlier question", which `handoff_answered_later` reads for a handoff card in either case.
 Until the model loads the list is accepted as it was; the walk rules read no model, since it caught no walk they miss.
 **It refuses an item the owner could not act on** (*An item he cannot act on*).
 **Two items that are one ask by two doors are folded to one row on every read**, once the model is loaded (*Items that are one ask*).

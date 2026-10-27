@@ -35,6 +35,21 @@ describe("answering a session's ask", () => {
     expect(answer).toHaveBeenLastCalledWith(expect.objectContaining({ answer: "always_block", folder: "/Users/user/Documents" }));
   });
 
+  it("sends the kind a like-this answer chose, and refuses a malformed one, sending nothing", async () => {
+    const { send, answer } = wired();
+    const like = { session_id: "s", call: "helm-1", answer: "allow_like_this_for_session" } as const;
+    await send({ ...like, kind: { program: "node", script: "drive.mjs" } });
+    expect(answer).toHaveBeenLastCalledWith({ ...like, kind: { program: "node", script: "drive.mjs" } });
+    await send({ ...like, kind: { program: "node" }, folder: "/Users/user/Desktop" });
+    expect(answer).toHaveBeenLastCalledWith({ ...like, kind: { program: "node" }, folder: "/Users/user/Desktop" });
+    answer.mockClear();
+    for (const kind of ["node", null, { script: "drive.mjs" }, { program: 3 }, { program: "node", script: 5 }]) {
+      const said = await send({ ...like, kind } as unknown as AnswerSessionAsk);
+      expect(said).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    }
+    expect(answer).not.toHaveBeenCalled();
+  });
+
   it("sends nothing for a word that is no answer, and says so rather than Fleet not connected", async () => {
     const { send, answer } = wired();
     const said = await send({ session_id: "s", call: "helm-1", answer: "maybe" } as unknown as AnswerSessionAsk);

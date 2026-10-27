@@ -2,7 +2,7 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } fro
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
 import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { DraftSettled } from "@armada/protocol";
+import type { CallKind, DraftSettled } from "@armada/protocol";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -11,6 +11,7 @@ import { Card } from "../../primitives/Card/Card";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
@@ -344,10 +345,12 @@ export type SessionThreadProps = {
    * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
    * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`,
    * `always_block` or `allow_for_session` press hands back the folder chosen. `reachesTo` says whether
-   * the call reads that path or writes to it, in the card's eyebrow and the Always head.
+   * the call reads that path or writes to it, in the card's eyebrow and the Always head. `kind` is the
+   * Bash call's program and script: with an `allow_like_this_for_session` offer the card draws a Calls
+   * like row, and that press hands back the kind chosen.
    */
-  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write" };
-  onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string) => void;
+  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write"; kind?: CallKind };
+  onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string, kind?: CallKind) => void;
   /**
    * A question the agent asked that nobody answered in time, or that was skipped, drawn as the deck under the
    * thread until it is answered or the person says anything else. Not a call: the agent is not held on it, so
@@ -1161,14 +1164,48 @@ const FOLDER_ANSWERS = new Set(["always_allow", "allow_for_session", "always_blo
 /** The Always head, read with the path under it: "reads of" a path, "writes to" one. */
 const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"] } as const;
 
+/** The answer that allows a kind of call, drawn in the Calls like row and only where the ask names its kind. */
+const LIKE_THIS = "allow_like_this_for_session";
+
+/**
+ * A call's kind as its words, `node drive.mjs`, each a press, the way `PathPicker` draws a path:
+ * the word chosen and every word after it are lit, so a press on the program reads as covering any
+ * script. A kind with no script is its program alone.
+ */
+function KindPicker({ kind, wide, onWiden }: { kind: CallKind; wide: boolean; onWiden: (wide: boolean) => void }) {
+  const words = kind.script === undefined ? [{ word: kind.program, wide: true }] : [{ word: kind.program, wide: true }, { word: kind.script, wide: false }];
+  return (
+    <div className="armada-session-thread__kind" role="group" aria-label="Calls like">
+      {words.map((one) => (
+        <button
+          key={one.word}
+          type="button"
+          className="armada-session-thread__kind-word"
+          aria-pressed={one.wide === wide || words.length === 1}
+          data-covered={wide && !one.wide ? true : undefined}
+          onClick={() => onWiden(one.wide)}
+        >
+          {one.word}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** A card's answers: the ones for this call in a row, then **Always** in a panel of its own, the
  * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
- * by the path, so a new ask opens on its whole path. */
-function ReachAnswers({ reaches, reachesTo, offers, onAnswer }: { reaches: string; reachesTo?: "read" | "write"; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
+ * by the path, so a new ask opens on its whole path. A card that names its call's kind adds Calls
+ * like under it, whose answer can be narrowed to the same folder. */
+function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer }: { reaches: string; reachesTo?: "read" | "write"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
   const [folder, setFolder] = useState(reaches);
-  const shown = offers.filter((offer) => offer.id !== "allow_once");
+  const [wide, setWide] = useState(false);
+  // Off at the start: the kind alone is the answer's own width, and a folder narrows it only when asked.
+  const [onlyIn, setOnlyIn] = useState(false);
+  const shown = offers.filter((offer) => offer.id !== "allow_once" && offer.id !== LIKE_THIS);
   const once = shown.filter((offer) => !FOLDER_ANSWERS.has(offer.id));
   const always = shown.filter((offer) => FOLDER_ANSWERS.has(offer.id));
+  const like = kind === undefined ? undefined : offers.find((offer) => offer.id === LIKE_THIS);
+  const chosenKind: CallKind | undefined = kind === undefined ? undefined : wide || kind.script === undefined ? { program: kind.program } : { program: kind.program, script: kind.script };
   const name = folder.split("/").filter((part) => part.length > 0).pop() ?? folder;
   const covers = folder === reaches ? reaches : `${folder}/*`;
   return (
@@ -1203,6 +1240,22 @@ function ReachAnswers({ reaches, reachesTo, offers, onAnswer }: { reaches: strin
             </Tooltip>
           ))}
         </div>
+        {like === undefined || kind === undefined ? null : (
+          <div className="armada-session-thread__like">
+            <span className="armada-session-thread__always-head">Calls like</span>
+            <KindPicker kind={kind} wide={wide} onWiden={setWide} />
+            <div className="armada-session-thread__answers">
+              <Switch size="sm" checked={onlyIn} onChange={(event) => setOnlyIn(event.target.checked)}>
+                Only in <span className="armada-session-thread__always-folder">{name}</span>
+              </Switch>
+              <Tooltip label={like.means}>
+                <Button size="sm" variant="secondary" onClick={() => onAnswer(like.id, undefined, onlyIn ? folder : undefined, chosenKind)}>
+                  {like.label}
+                </Button>
+              </Tooltip>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1501,7 +1554,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
             />
           ) : asked.reaches !== undefined && asked.offers?.some((offer) => FOLDER_ANSWERS.has(offer.id)) === true ? (
-            <ReachAnswers key={asked.reaches} reaches={asked.reaches} {...(asked.reachesTo === undefined ? {} : { reachesTo: asked.reachesTo })} offers={asked.offers} onAnswer={onAnswer} />
+            <ReachAnswers key={asked.reaches} reaches={asked.reaches} {...(asked.reachesTo === undefined ? {} : { reachesTo: asked.reachesTo })} {...(asked.kind === undefined ? {} : { kind: asked.kind })} offers={asked.offers} onAnswer={onAnswer} />
           ) : (
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
             {asked.offers === undefined ? (

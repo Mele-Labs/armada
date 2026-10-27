@@ -141,6 +141,7 @@ pub async fn answer(State(gateway): State<Gateway>, body: Bytes) -> Response {
         note: None,
         answers,
         folder: None,
+        kind: None,
     };
     let Ok(body) = ipc::encode(&sent) else {
         return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
