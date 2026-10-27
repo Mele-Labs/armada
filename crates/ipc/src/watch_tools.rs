@@ -88,7 +88,7 @@ pub enum WatchRecipeSource {
     Armada,
     /// The repository's `.armada/watches/`, as its base branch holds it.
     Repository,
-    /// This Mac's `~/.armada/machine/watches/`.
+    /// This Mac's `~/Library/Application Support/Armada/machine/watches/`.
     Machine,
 }
 
