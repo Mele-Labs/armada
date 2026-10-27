@@ -65,8 +65,10 @@ export type Subject = {
   needs: boolean;
   /** Something is broken: stuck, red. */
   alarm: boolean;
-  /** The call that is about it, where one is raised. */
+  /** The call that is about it, where one is raised. Never on a paused Job. */
   call?: string;
+  /** He parked it: nothing it waits on calls, on the list or on the map, until he resumes it. */
+  paused?: true;
   pr?: Pr;
   slot?: number;
   /** The last lines of what it is doing, for Peek. */
@@ -285,9 +287,11 @@ export function shipOf(input: Inputs): Ship {
       needs,
       alarm,
       ...(stateOf(session).state === "replied" ? { reply: true as const } : {}),
-      ...(call === undefined ? {} : { call }),
+      ...(paused ? { paused: true as const } : {}),
+      ...(call === undefined || paused ? {} : { call }),
       ...(pr === undefined ? {} : { pr }),
-      ...(slot === undefined ? {} : { slot }),
+      // Pause gives the slot back: a paused Job holds no bay.
+      ...(slot === undefined || paused ? {} : { slot }),
       peek: peekOfSession(session),
       stoppable: session.turn.state === "working",
       repliable: session.waits === undefined,
