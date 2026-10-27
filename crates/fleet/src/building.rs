@@ -12,6 +12,7 @@
 //! orphan sweep does not end it: it stops this Fleet, installs the next and
 //! reopens Bridge, all after the process that asked for it is gone.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
@@ -39,6 +40,8 @@ const WRAPPER: &str = "scripts/restart-build";
 const SOURCE: &str = "restart-source";
 /// The commit `scripts/restart` last installed from.
 const COMMIT: &str = "restart-commit";
+/// The branches `scripts/preview` left out of the preview, each with why.
+const LEFT_OUT: &str = "preview-left-out";
 /// What the wrapper is doing, or why it stopped.
 const STATUS: &str = "restart-build.status";
 /// The preview tree's tail, as `scripts/restart` records it.
@@ -114,6 +117,33 @@ pub(crate) fn commit_in(support: &Path) -> Option<String> {
     let recorded = std::fs::read_to_string(support.join(COMMIT)).ok()?;
     let commit = recorded.trim();
     (commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit())).then(|| commit.to_string())
+}
+
+/// A branch `scripts/preview` left out of the build: where its tip stood then, and why.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct LeftOut {
+    pub(crate) tip: String,
+    pub(crate) why: String,
+}
+
+/// The branches `scripts/preview` left out of the build at `commit`: its first line, then
+/// `branch<TAB>tip<TAB>why` lines. **Empty** where the file is missing or was written for another build.
+pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, LeftOut> {
+    let Ok(recorded) = std::fs::read_to_string(support.join(LEFT_OUT)) else {
+        return BTreeMap::new();
+    };
+    let mut lines = recorded.lines();
+    if lines.next().map(str::trim) != Some(commit) {
+        return BTreeMap::new();
+    }
+    lines
+        .filter_map(|line| {
+            let mut fields = line.splitn(3, '\t').map(str::trim);
+            let (branch, tip, why) = (fields.next()?, fields.next()?, fields.next()?);
+            (!branch.is_empty() && !tip.is_empty() && !why.is_empty())
+                .then(|| (branch.to_string(), LeftOut { tip: tip.to_string(), why: why.to_string() }))
+        })
+        .collect()
 }
 
 fn build_named(word: &str) -> Option<BuildSource> {
