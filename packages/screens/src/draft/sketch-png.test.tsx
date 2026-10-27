@@ -112,8 +112,9 @@ describe("the sketch as a PNG", () => {
   });
 
   it("draws the join between the box and the picture, and the line drawn by hand", () => {
-    // The bezier's own middle, between the box's right side and the picture's left.
-    expect(near(at(320, 57), ink.canvas, 8)).toBe(false);
+    // The bezier's own middle, between the box's right side and the picture's left: halfway down from the box's middle (its two-row well and the inset round it) to the picture's (75).
+    const boxHeight = 2 * ink.leading + ink.inset * 4 + ink.hairline * 2;
+    expect(near(at(320, (boxHeight / 2 + 75) / 2), ink.canvas, 8)).toBe(false);
     expect(near(at(120, 120), ink.pen, 8)).toBe(true);
   });
 

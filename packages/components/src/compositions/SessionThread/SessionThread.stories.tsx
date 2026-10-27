@@ -71,13 +71,13 @@ const WORKED: SessionThreadRow[] = [
   { id: "w7", at: "14:03:50", kind: "compaction", text: "This session is being continued from a previous conversation." },
 ];
 
-/** Calls that ran one after another are one closed row naming the tools, and pressing it shows each call. */
+/** Calls that ran one after another are one closed row reading as what they did, and pressing it shows each call. */
 export const ToolCallsFoldIntoOneRow: Story = {
   args: { rows: WORKED },
   play: async ({ canvas }) => {
     const group = canvas.getByLabelText("Tool calls: Read, Bash").closest("details");
     await expect(group).not.toHaveAttribute("open");
-    await expect(canvas.getByText("Read, Bash")).toBeVisible();
+    await expect(canvas.getByText("Read multiple files")).toBeVisible();
     await userEvent.click(canvas.getByLabelText("Tool calls: Read, Bash"));
     await expect(group).toHaveAttribute("open");
     await expect(canvas.getByText("Bash cat /tmp/out.txt")).toBeVisible();
