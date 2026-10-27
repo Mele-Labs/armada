@@ -82,7 +82,7 @@ pub use reach::{reached, Reach};
 pub use run::{
     end_group, run, run_stoppable, run_until, run_words, run_writing, run_writing_with_env, split, Attempt, Output, Stop,
     Writing,
-    GRACE,
+    CAPTURE_LIMIT, GRACE,
 };
 pub use serving::Served;
 pub use slots::{already_held, CheckSlots, Held, InUse, AHEAD_ENV, HELD_ENV};

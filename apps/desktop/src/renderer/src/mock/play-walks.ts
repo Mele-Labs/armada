@@ -89,6 +89,9 @@ export function playWalks(part: number, of: number): void {
         await page.viewport(script.viewport.width, script.viewport.height);
         onTestFinished(() => page.viewport(1440, 900));
       }
+      // The address names the walk, as the window that plays it does, so a page that reads it draws what the walk asks for.
+      window.history.replaceState(null, "", `${window.location.pathname}?walk=${encodeURIComponent(name)}`);
+      onTestFinished(() => window.history.replaceState(null, "", window.location.pathname));
       mount(script.scenario);
       await onScreen();
       await walkThrough(script.steps);

@@ -1,4 +1,4 @@
-//! Fleet's side of the shared home's eight operations: reads what syncs and Kit's servers out of
+//! Fleet's side of the shared home's nine operations: reads what syncs and Kit's servers out of
 //! the store, runs the folder and forge work off the async workers, and spells a refusal.
 
 use std::collections::BTreeSet;
@@ -11,11 +11,11 @@ use adapter_traits::{
 use api::{Refusal, SharedHome};
 use config::settings as keys;
 use ipc::{
-    ChooseHomeSide, HomeKind, HomeKinds, HomePlanned, HomeProfile, HomeRowAt, HomeSide, HomeSynced, SetHomeKind, SetHomeRepository,
-    SharedHomeRead, WireError,
+    ChooseHomeSide, HomeItem, HomeKind, HomeKinds, HomePlanned, HomeProfile, HomeRowAt, HomeSide, HomeSynced, SetHomeItem, SetHomeKind,
+    SetHomeRepository, SharedHomeRead, WireError,
 };
 
-use super::{Places, Refused, Repository};
+use super::{Places, Refused, Repository, Syncs};
 use crate::daemon::Fleet;
 use crate::profiles::Joined;
 
@@ -57,6 +57,11 @@ pub(crate) struct HomeHeld {
     asked: Mutex<BTreeSet<String>>,
 }
 
+/// An item the store keeps, where its kind is one this Fleet knows.
+fn item_of(kept: store::KeptHomeItem) -> Option<HomeItem> {
+    Some(HomeItem { kind: HomeKind::from_wire(&kept.kind)?, name: kept.name, repository: kept.repository })
+}
+
 /// Everything an act reads before it leaves the async workers.
 struct Read {
     fittings: Arc<HomeFittings>,
@@ -64,7 +69,7 @@ struct Read {
     home: Arc<dyn HomeRepository>,
     servers: Vec<core_model::KitServer>,
     repositories: Vec<Repository>,
-    on: Vec<HomeKind>,
+    syncs: Syncs,
     /// Where the home is or will be made: what was chosen or found, else `<login>/armada-home`.
     place: HomePlace,
     /// The forge already had it, found for this login, so it is not a choice.
@@ -157,12 +162,13 @@ where
     async fn home_read(&self, login: &str) -> Result<Read, Refusal> {
         let fittings = self.fittings()?;
         let home = self.home_for(&fittings, login)?;
-        let (servers, switched, kept) = {
+        let (servers, switched, items, kept) = {
             let store = self.store().lock().await;
             // Not defaulted: a server read as missing here would read as only in the home.
             let servers = store.kit_servers().map_err(|why| self.home_not_kept(format!("{why:?}")))?;
             let kept = store.home_repository(login).map_err(|why| self.choice_not_kept(why))?;
-            (servers, store.home_kinds(login).map_err(|why| self.home_not_kept(why))?, kept)
+            let items = store.home_items(login).map_err(|why| self.home_not_kept(why))?;
+            (servers, store.home_kinds(login).map_err(|why| self.home_not_kept(why))?, items, kept)
         };
         let found = kept.as_ref().is_some_and(|it| it.found);
         let place = kept.map_or_else(|| HomePlace::default_for(login), |it| HomePlace { owner: it.owner, name: it.name });
@@ -180,7 +186,7 @@ where
             home,
             servers,
             repositories,
-            on: super::on(&switched),
+            syncs: Syncs { kinds: super::on(&switched), items: items.into_iter().filter_map(item_of).collect() },
             place,
             found,
             machine: self.machine_settings().now().get(keys::MACHINE_NAME),
@@ -254,7 +260,7 @@ where
             let machine = crate::signing_in::this_machine(&read.machine);
             let places = read.places();
             act(&read, &places, &machine).map(|answer| {
-                let mut shown = super::read(&places, &read.on);
+                let mut shown = super::read(&places, &read.syncs);
                 if shown.home.is_none() {
                     let HomePlace { owner, name } = read.place.clone();
                     shown.planned = Some(HomePlanned { account: owner, repository: name, exists: read.found });
@@ -269,8 +275,10 @@ where
 
     async fn home_kinds_read(&self, login: &str) -> Result<HomeKinds, Refusal> {
         self.a_profile(login)?;
-        let switched = self.store().lock().await.home_kinds(login).map_err(|why| self.home_not_kept(why))?;
-        Ok(super::kinds(login, &switched))
+        let store = self.store().lock().await;
+        let switched = store.home_kinds(login).map_err(|why| self.home_not_kept(why))?;
+        let items = store.home_items(login).map_err(|why| self.home_not_kept(why))?;
+        Ok(super::kinds(login, &switched, items.into_iter().filter_map(item_of).collect()))
     }
 }
 
@@ -293,7 +301,7 @@ where
         self.finding_home(&profile.login).await?;
         let (left, read) = self
             .at_home_with(&profile.login, false, |read, places, machine| {
-                super::sync(places, &read.on, machine, &read.place, &|kind, name| read.valid_mod(kind, name))
+                super::sync(places, &read.syncs, machine, &read.place, &|kind, name| read.valid_mod(kind, name))
             })
             .await?;
         Ok(HomeSynced { read, left })
@@ -335,6 +343,14 @@ where
             .await
             .switch_home_kind(&switch.login, switch.kind.as_wire(), switch.on)
             .map_err(|why| self.home_not_kept(why))?;
+        self.home_kinds_read(&switch.login).await
+    }
+
+    async fn set_home_item(&self, switch: SetHomeItem) -> Result<HomeKinds, Refusal> {
+        self.a_profile(&switch.login)?;
+        let HomeItem { kind, name, repository } = switch.item;
+        let kept = store::KeptHomeItem { kind: kind.as_wire().to_string(), name, repository: repository.filter(|_| kind == HomeKind::Memory) };
+        self.store().lock().await.switch_home_item(&switch.login, &kept, switch.on).map_err(|why| self.home_not_kept(why))?;
         self.home_kinds_read(&switch.login).await
     }
 

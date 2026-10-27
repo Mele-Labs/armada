@@ -1,6 +1,10 @@
 //! `buildkite-build`: one Buildkite build, each command step a part, read with
 //! `BUILDKITE_API_TOKEN` from the environment the watch was given.
+//!
+//! **A failed step says what failed**: its own log is read, and the part carries the exact error
+//! lines in it and its last lines (`super::evidence`).
 
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use adapter_traits::Secret;
@@ -9,7 +13,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, AUTHORIZATION};
 use serde::Deserialize;
 
-use super::{folded, Found};
+use super::{evidence, folded, Found};
 
 pub(super) const READER: &str = "buildkite-build";
 pub(super) const TAKES: &[&str] = &["organization", "pipeline", "build"];
@@ -19,6 +23,8 @@ const TOKEN: &str = "BUILDKITE_API_TOKEN";
 const TIMEOUT: Duration = Duration::from_secs(30);
 /// The longest a refusal's own words are kept.
 const SAID_AT_MOST: usize = 300;
+/// The most failed steps whose logs are read, so a build with dozens failing stays one reading.
+const MOST_LOGS: usize = 10;
 
 #[derive(Deserialize)]
 pub(crate) struct Build {
@@ -32,6 +38,8 @@ pub(crate) struct Build {
 
 #[derive(Deserialize)]
 pub(crate) struct Job {
+    #[serde(default)]
+    pub(crate) id: Option<String>,
     #[serde(rename = "type")]
     pub(crate) kind: String,
     #[serde(default)]
@@ -48,6 +56,15 @@ pub(crate) struct Job {
     pub(crate) retried: bool,
     #[serde(default)]
     pub(crate) web_url: Option<String>,
+    #[serde(default)]
+    pub(crate) log_url: Option<String>,
+}
+
+/// A step's log, as the API answers it.
+#[derive(Deserialize)]
+struct Log {
+    #[serde(default)]
+    content: String,
 }
 
 pub(super) fn read(organization: &str, pipeline: &str, build: &str) -> Result<Reading, String> {
@@ -61,34 +78,55 @@ pub(super) fn read(organization: &str, pipeline: &str, build: &str) -> Result<Re
         .connect_timeout(TIMEOUT)
         .build()
         .map_err(|why| why.to_string())?;
+    let fetch = |url: &str| -> Result<Vec<u8>, String> {
+        let response = client
+            .get(url)
+            .header(AUTHORIZATION, format!("Bearer {}", token.expose().trim()))
+            .header(ACCEPT, "application/json")
+            .send()
+            .map_err(|why| format!("Buildkite did not answer: {why}"))?;
+        let status = response.status().as_u16();
+        let body = response.bytes().map_err(|why| format!("Buildkite's answer stopped arriving: {why}"))?;
+        if status >= 400 {
+            let said: String = String::from_utf8_lossy(&body).chars().take(SAID_AT_MOST).collect();
+            return Err(format!("Buildkite answered {status}: {said}"));
+        }
+        Ok(body.to_vec())
+    };
     let url = format!("{API_BASE}/organizations/{organization}/pipelines/{pipeline}/builds/{build}");
-    let response = client
-        .get(&url)
-        .header(AUTHORIZATION, format!("Bearer {}", token.expose().trim()))
-        .header(ACCEPT, "application/json")
-        .send()
-        .map_err(|why| format!("Buildkite did not answer: {why}"))?;
-    let status = response.status().as_u16();
-    let body = response.bytes().map_err(|why| format!("Buildkite's answer stopped arriving: {why}"))?;
-    if status >= 400 {
-        let said: String = String::from_utf8_lossy(&body).chars().take(SAID_AT_MOST).collect();
-        return Err(format!("Buildkite answered {status}: {said}"));
+    let build: Build = ipc::decode("a Buildkite build", &fetch(&url)?).map_err(|why| why.to_string())?;
+    // A log that will not read leaves its part with a link and no lines, never a broken reading.
+    let mut logs = BTreeMap::new();
+    for job in build.jobs.iter().filter(|job| job.kind == "script" && !job.retried && matches!(job.state.as_deref(), Some("failed" | "timed_out")) && !job.soft_failed).take(MOST_LOGS) {
+        let (Some(id), Some(log_url)) = (&job.id, &job.log_url) else { continue };
+        if let Ok(log) = fetch(log_url).and_then(|body| ipc::decode::<Log>("a Buildkite job's log", &body).map_err(|why| why.to_string())) {
+            logs.insert(id.clone(), log.content);
+        }
     }
-    let build: Build = ipc::decode("a Buildkite build", &body).map_err(|why| why.to_string())?;
-    Ok(reading(build, pipeline))
+    Ok(reading(build, pipeline, &logs))
 }
 
-/// What a build comes to: its command steps as parts, a retried step by its latest attempt.
-pub(crate) fn reading(build: Build, pipeline: &str) -> Reading {
+/// What a build comes to: its command steps as parts, a retried step by its latest attempt, and
+/// each failed one with the error lines and end of its log in `logs`, by job id.
+pub(crate) fn reading(build: Build, pipeline: &str, logs: &BTreeMap<String, String>) -> Reading {
     let finished = matches!(build.state.as_str(), "passed" | "failed" | "canceled" | "skipped" | "not_run");
     let found: Vec<Found> = build
         .jobs
         .into_iter()
         .filter(|job| job.kind == "script" && !job.retried)
-        .map(|job| Found {
-            state: step_state(job.state.as_deref().unwrap_or(""), job.soft_failed, finished),
-            name: job.name.or(job.label).or(job.step_key).unwrap_or_else(|| String::from("a step")),
-            link: job.web_url,
+        .map(|job| {
+            let state = step_state(job.state.as_deref().unwrap_or(""), job.soft_failed, finished);
+            let (error, tail) = match job.id.as_ref().and_then(|id| logs.get(id)) {
+                Some(log) if state == ReadingState::Failed => evidence::of_log(log),
+                _ => (None, None),
+            };
+            Found {
+                state,
+                name: job.name.or(job.label).or(job.step_key).unwrap_or_else(|| String::from("a step")),
+                link: job.web_url,
+                error,
+                tail,
+            }
         })
         .collect();
     let of = match build.number {

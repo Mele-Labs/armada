@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Link an issue at the end of a project"
+description = "Link an issue of a repository at the end of a project or of the loose rows"
 notes = """
-`POST /projects/:repository/:project/issues`, body `LinkProjectIssue`: `issue`, the tracker's reference as `IssueReference` reads it (`7` or `#7`, `ABC-12`, `armada-3fz`), kept as `7`, `ABC-12`, `armada-3fz`. Only the reference is kept. The tracker is not asked whether the issue exists. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/issues`, body `NewProjectIssue`: `manifest_id`, the repository the issue is in, `project`, which may be left out for a row in none, and `issue`, the tracker's reference as `IssueReference` reads it (`7` or `#7`, `ABC-12`, `armada-3fz`), kept as `7`, `ABC-12`, `armada-3fz`. Only the reference is kept. The tracker is not asked whether the issue exists. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 422 `fleet.project_issue_unreadable` for anything `IssueReference` refuses. A 404 `fleet.no_such_project` for a `project` the repository has none of, and a 422 for a repository Fleet does not serve.
+A 422 `fleet.project_issue_unreadable` for anything `IssueReference` refuses. A 404 `fleet.no_such_project` for a `project` he has none of, and a 422 for a repository Fleet does not serve.
 """

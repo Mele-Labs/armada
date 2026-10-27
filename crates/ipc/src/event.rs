@@ -172,7 +172,7 @@ pub enum Event {
     // The default model's step down after any change to it, whole. `docs/concepts/machine.md`, *Quota*.
     #[serde(rename = "model_downshift.changed")]
     ModelDownshiftChanged(ModelDownshiftState),
-    // A repository's projects after any write to one, whole, as `list_projects` answers them.
+    // His projects after any write to one, and the tasks in none, whole, as `list_projects` answers them.
     // `docs/practices/protocol/projects.md`.
     #[serde(rename = "projects.changed")]
     ProjectsChanged(Projects),

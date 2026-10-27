@@ -1,5 +1,6 @@
-// What the Projects tab draws. **A project is his own list, kept in Fleet on his Mac**: tasks he writes and issues he links, in
-// one list in his order, each row naming the Job that holds it. `wire.ts` reads what Fleet lists into these shapes.
+// What the Projects tab draws. **A project is his own list, kept in Fleet on his Mac, and it spans repositories**: tasks he
+// writes and issues he links, in one list in his order, each row naming the repository it is in and the Job that holds it. A
+// task in no project is just a task, in the store's `loose` list. `wire.ts` reads what Fleet lists into these shapes.
 
 /** The Job a row was sent to, by id, and its title as it was sent, so a Job that has ended still reads by name. */
 export type Holder = { id: string; title: string };
@@ -18,6 +19,8 @@ export type LinkedPull = { number: number; title: string; url: string; state: "o
 export type TaskRow = {
   kind: "task";
   id: string;
+  /** The repository the task is in, by Manifest id. */
+  manifestId: string;
   title: string;
   notes?: string;
   done: boolean;
@@ -33,15 +36,14 @@ export type TaskRow = {
 export type TaskLinks = Pick<TaskRow, "job" | "issues" | "pulls">;
 
 /** An issue he linked to the project, as a row. It has no tick and no ask. */
-export type IssueRow = Linked & { kind: "issue"; id: string; job?: Holder };
+export type IssueRow = Linked & { kind: "issue"; id: string; manifestId: string; job?: Holder };
 
 export type ProjectRow = TaskRow | IssueRow;
 
 export type Project = {
   id: string;
-  /** The repository it belongs to, by Manifest id. */
-  manifestId: string;
   name: string;
+  /** Rows of every repository it spans, in his order. */
   rows: ProjectRow[];
   /** When he last added to it or opened it, so the palette lists the last used first. */
   usedAt: number;

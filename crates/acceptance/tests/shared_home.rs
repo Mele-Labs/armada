@@ -1,7 +1,8 @@
 //! The shared home's claim: **a mod and a skill added to the home on one Mac read as only in the
 //! home on another; Bring puts them in that Mac's mods folder and its harness's skills folder,
 //! and they then read the same. An MCP server carried across holds its name and its host and no
-//! credential, and reads on the other Mac as needing its key.**
+//! credential, and reads on the other Mac as needing its key. One plugin switched on while
+//! Plugins is off is the only one Sync pushes, and the only plugin with a row.**
 //!
 //! Two machines on one remote, every folder held in memory. Nothing reaches a forge, a disk or a
 //! process: the home is `testkit::FakeRemote`, and each Mac's copy is a `FakeHome` that sees what
@@ -12,12 +13,13 @@
 //! | A mod and a skill added on Mac A are rows only in the home on Mac B | That the home is made private and cloned over HTTPS through the forge CLI's credential. The forge's home adapter in `adapters::shared_home`, against the real forge only |
 //! | Bring writes the mod's two files into B's mods folder and the skill into the harness's skills folder, and both then read the same | That a brought mod is listed by Bridge. `fleet::mods` rescans the folder |
 //! | A server goes into the home as its name and host: neither the userinfo, the path nor the query of its address. On B it reads as needing its key, and Bring refuses it | That the switches in What syncs are kept. `store::tests::home_kinds` |
+//! | One plugin switched on, its kind off, is pushed by Sync and read as the same; the plugin not switched on is neither | That a switched item is kept. `store::tests::home_kinds` |
 //! | | That a row that differs is refused by Add and Bring and settled by a chosen side. `fleet::tests::shared_home` |
 
-use adapter_traits::{HomePlace, HomeRepository};
+use adapter_traits::{HomePlace, HomeRepository, PluginRecord};
 use core_model::{Actor, KitServer, ServerAddress, ServerName, Timestamp};
-use fleet::home::{self, Places, Refused};
-use ipc::{HomeKind, HomeRow, HomeRowAt, HomeRowState};
+use fleet::home::{self, Places, Refused, Syncs};
+use ipc::{HomeItem, HomeKind, HomeRow, HomeRowAt, HomeRowState};
 use testkit::{FakeHarnessHome, FakeHome, FakeRemote, HeldFolder};
 
 const LOGIN: &str = "nick";
@@ -62,7 +64,7 @@ impl Mac {
     }
 
     fn rows(&self) -> Vec<HomeRow> {
-        home::read(&self.places(), HomeKind::ALL).rows
+        home::read(&self.places(), &Syncs::every()).rows
     }
 }
 
@@ -129,4 +131,29 @@ fn a_mod_and_a_skill_added_on_one_mac_are_brought_onto_another_and_a_server_carr
         other => panic!("a server without its key is not brought: {other:?}"),
     }
     assert_eq!(row(&b.rows(), HomeKind::McpServers, "linear").key_here, Some(false));
+}
+
+fn plugin(name: &str) -> PluginRecord {
+    let marketplace = name.split_once('@').map(|(_, it)| it.to_string()).unwrap_or_default();
+    PluginRecord { name: name.to_string(), marketplace, source: None }
+}
+
+#[test]
+fn one_plugin_switched_on_while_plugins_are_off_is_the_only_one_sync_pushes() {
+    let remote = FakeRemote::of(LOGIN);
+    let mut a = Mac::on(&remote);
+    a.harness = FakeHarnessHome::over(a.person.clone())
+        .with_plugin(plugin("impeccable@impeccable"))
+        .with_plugin(plugin("github@claude-plugins-official"));
+    let impeccable = HomeItem { kind: HomeKind::Plugins, name: "impeccable@impeccable".to_string(), repository: None };
+    let syncs = Syncs { kinds: Vec::new(), items: vec![impeccable] };
+
+    let left = home::sync(&a.places(), &syncs, "mac-a", &HomePlace::default_for(LOGIN), &|_, _| Ok(())).expect("Sync runs");
+    assert!(left.is_empty(), "{left:?}");
+    let plugins: Vec<String> = remote.paths().into_iter().filter(|path| path.starts_with("plugins/")).collect();
+    assert_eq!(plugins, vec!["plugins/impeccable@impeccable.toml".to_string()], "only the plugin switched on goes");
+
+    let rows = home::read(&a.places(), &syncs).rows;
+    let named: Vec<(&str, HomeRowState)> = rows.iter().map(|row| (row.name.as_str(), row.state)).collect();
+    assert_eq!(named, vec![("impeccable@impeccable", HomeRowState::Same)], "the plugin not switched on has no row");
 }

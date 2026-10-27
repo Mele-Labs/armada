@@ -70,7 +70,7 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // A repository's projects after any write to one, whole.
+    // His projects, and the tasks in none, after any write to one, whole.
     Route {
         operation: "projects.changed",
         method: "GET",

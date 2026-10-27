@@ -11,7 +11,7 @@ use core_model::{Actor, KitServer, ServerAddress, ServerName, Timestamp};
 use ipc::{HomeKind, HomeLeft, HomeNamed, HomeRow, HomeRowAt, HomeRowState, HomeSide, ModKind};
 use testkit::{FakeHarnessHome, FakeHome, FakeHomes, FakeRemote, HeldFolder};
 
-use crate::home::{self, secrets, Places, Refused, Repository};
+use crate::home::{self, secrets, Places, Refused, Repository, Syncs};
 use crate::profiles::Joined;
 
 const LOGIN: &str = "nick";
@@ -72,12 +72,12 @@ impl Mac {
     }
 
     fn rows(&self) -> Vec<HomeRow> {
-        home::read(&self.places(), HomeKind::ALL).rows
+        home::read(&self.places(), &Syncs::every()).rows
     }
 
     /// Sync, with the kinds in `on` switched on, every mod taken as valid.
     fn synced(&self, on: &[HomeKind]) -> Result<Vec<HomeLeft>, Refused> {
-        home::sync(&self.places(), on, "mac-a", &self.place, &|_, _| Ok(()))
+        home::sync(&self.places(), &Syncs { kinds: on.to_vec(), items: Vec::new() }, "mac-a", &self.place, &|_, _| Ok(()))
     }
 
     /// The memory folder of the one repository it serves.
@@ -318,7 +318,7 @@ fn a_piece_carrying_a_credential_in_an_address_stays_and_is_named_without_it() {
 
 #[test]
 fn every_kind_is_off_until_turned_on_and_a_kind_off_has_no_rows() {
-    let kinds = home::kinds(LOGIN, &BTreeMap::new());
+    let kinds = home::kinds(LOGIN, &BTreeMap::new(), Vec::new());
     assert_eq!(kinds.kinds.len(), HomeKind::ALL.len());
     assert!(kinds.kinds.iter().all(|kind| !kind.on));
 
@@ -326,11 +326,11 @@ fn every_kind_is_off_until_turned_on_and_a_kind_off_has_no_rows() {
     let a = every_kind(&remote).opened();
     let on = home::on(&BTreeMap::from([("skills".to_string(), true), ("mods".to_string(), false)]));
     assert_eq!(on, vec![HomeKind::Skills]);
-    let rows = home::read(&a.places(), &on).rows;
+    let rows = home::read(&a.places(), &Syncs { kinds: on, items: Vec::new() }).rows;
     assert!(!rows.is_empty() && rows.iter().all(|row| row.kind == HomeKind::Skills), "{rows:?}");
 
     let unopened = every_kind(&remote);
-    let read = home::read(&unopened.places(), HomeKind::ALL);
+    let read = home::read(&unopened.places(), &Syncs::every());
     assert_eq!((read.home, read.rows.len()), (None, 0), "no copy here is no rows");
 }
 
@@ -350,7 +350,7 @@ fn each_profile_has_a_home_of_its_own_and_a_login_the_forge_here_does_not_hold_i
 
     assert_eq!(personal.paths(), vec!["skills/tone/SKILL.md".to_string()]);
     assert!(work.paths().is_empty(), "the work home is not the personal one's: {:?}", work.paths());
-    let named = |mac: &Mac| home::read(&mac.places(), HomeKind::ALL).home;
+    let named = |mac: &Mac| home::read(&mac.places(), &Syncs::every()).home;
     assert_eq!(named(&mine), Some(HomeNamed { account: "nick".to_string(), repository: "armada-home".to_string() }));
     assert_eq!(named(&theirs).map(|home| home.account).as_deref(), Some("nick-work"));
     assert!(!theirs.rows().iter().any(|row| row.name == "tone"), "{:?}", theirs.rows());

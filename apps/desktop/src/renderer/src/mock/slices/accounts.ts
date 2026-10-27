@@ -20,6 +20,7 @@ export const accounts: Slice<AccountsApi, Record<string, never>> = {
     chooseSharedHomeSide: async () => ({ ok: false, outcome: unanswered("/shared_home/choose") }),
     getHomeKinds: async () => ({ ok: false, outcome: unanswered("/shared_home/kinds") }),
     setHomeKind: async () => ({ ok: false, outcome: unanswered("/shared_home/kinds/set") }),
+    setHomeItem: async () => ({ ok: false, outcome: unanswered("/shared_home/items/set") }),
     setHomeRepository: async () => ({ ok: false, outcome: unanswered("/shared_home/repository") }),
   }),
 };

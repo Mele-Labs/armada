@@ -40,7 +40,7 @@ use crate::Priority;
 /// **The tail, not the head.** A test runner prints its failures last, and a
 /// runaway command prints forever — so keeping the beginning would keep the
 /// part nobody needs and grow without bound doing it.
-const CAPTURE_LIMIT: usize = 64 * 1024;
+pub const CAPTURE_LIMIT: usize = 64 * 1024;
 
 /// How much of a Check's output is written to the live file before it stops.
 ///

@@ -71,6 +71,10 @@ export type PaletteEntry = {
   icon?: LucideIcon;
   /** A setting's current value, in mono, right of the label. */
   value?: string;
+  /** A quiet second line under the label: where a task stands, as a result of a search says what it is in. Never searched. */
+  detail?: string;
+  /** Drawn only while something is typed, for a long list of results that would bury the acts if it were listed at rest. */
+  searchOnly?: boolean;
   /** Danger is the dropdown-menu treatment: red label and glyph, no fill. */
   destructive?: boolean;
   /**
@@ -141,7 +145,7 @@ type Hit = {
 };
 
 function hit(entry: PaletteEntry, query: string): Hit | null {
-  if (query === "") return { entry, at: null };
+  if (query === "") return entry.searchOnly === true ? null : { entry, at: null };
   const wanted = query.toLowerCase();
   const label = entry.label.toLowerCase();
   const aliases = (entry.aliases ?? []).map((held) => held.toLowerCase());
@@ -453,6 +457,7 @@ function Row({
     active ? "armada-palette__row--active" : "",
     entry.destructive === true ? "armada-palette__row--danger" : "",
     dormant ? "armada-palette__row--dormant" : "",
+    entry.detail === undefined ? "" : "armada-palette__row--detailed",
   ]
     .filter((held) => held !== "")
     .join(" ");
@@ -478,6 +483,7 @@ function Row({
       </span>
       <span className="armada-palette__label">
         <Marked label={entry.label} query={query} at={held.at} />
+        {entry.detail === undefined ? null : <span className="armada-palette__detail">{entry.detail}</span>}
       </span>
       {entry.value === undefined ? null : (
         <span className="armada-palette__value">{entry.value}</span>

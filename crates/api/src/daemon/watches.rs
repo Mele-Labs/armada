@@ -6,8 +6,8 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteWatch, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchRecipeList, WatchRecipeSaved,
-    WatchSummary, WatchTried, WeighWatch,
+    DeleteWatch, ReadWatchLog, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchLog, WatchRecipeList,
+    WatchRecipeSaved, WatchSummary, WatchTried, WeighWatch,
 };
 
 use crate::daemon::Refusal;
@@ -50,6 +50,14 @@ pub trait Watches: Send + Sync + 'static {
         session_id: Option<SessionId>,
         ended: bool,
     ) -> impl Future<Output = Result<WatchList, Refusal>> + Send;
+
+    /// `read_watch_log` — the log a reading of a watch kept, by the path the reading carries. A
+    /// placed Job reads its own; Bridge reads any.
+    fn read_watch_log(
+        &self,
+        caller: Option<crate::Caller>,
+        read: ReadWatchLog,
+    ) -> impl Future<Output = Result<WatchLog, Refusal>> + Send;
 
     /// `try_watch` — run a command or a recipe once, as a watch would, and keep nothing.
     fn try_watch(
