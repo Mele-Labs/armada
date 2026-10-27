@@ -254,6 +254,7 @@
    --row-tint-recent — a mix percentage read inside color-mix(), not a colour
    --status-wash — a mix percentage read inside color-mix(), not a colour
    --dot-idle — a mix percentage read inside color-mix(), not a colour
+   --text-touch-field — a field a phone types in, held at 16px so iOS does not zoom; not a step of the ladder
    --text-switch — a Switch's word, under the ladder's smallest step and not a step of it
    --window-floor — the desktop window's bound, read by the main process and floor.ts
    --touch-floor — the narrowest touch client drawn; no window to bound

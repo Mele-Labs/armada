@@ -121,6 +121,10 @@ pub const THEME: &[(&str, Slot)] = &[
         "--text-switch",
         Slot::CssOnly("a Switch's word, under the ladder's smallest step and not a step of it"),
     ),
+    (
+        "--text-touch-field",
+        Slot::CssOnly("a field a phone types in, held at 16px so iOS does not zoom; not a step of the ladder"),
+    ),
     ("--radius-", Slot::Literal),
     ("--font-sans", Slot::Literal),
     ("--font-mono", Slot::Literal),

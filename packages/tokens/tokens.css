@@ -569,6 +569,10 @@
   --text-xl: 23px;    --leading-xl: 32px;    /* page titles */
   --text-2xl: 28px;   --leading-2xl: 36px;   /* the rare hero number */
 
+  /* A field a phone types in. iOS zooms into a focused field under 16px, so
+     it stays at 16px whatever the ladder's steps are. */
+  --text-touch-field: 16px;
+
   /* The word on a Switch. Under the ladder's smallest step: a Switch's track
      is short, and the word fits it at 10px and no larger. */
   --text-switch: 10px;
