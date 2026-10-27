@@ -23,7 +23,15 @@ const prReviewStaysOpen = walk("pr-review", [
   { look: inside(reader(1905), button(/^Review/)), say: "Review sits in the pull request's head, beside Open on the forge" },
   { press: inside(reader(1905), button(/^Review/)), say: "It opens his review" },
   { look: inside(yours, tab("Approve")), say: "Comment, Approve and Request changes, with a summary" },
-  { look: inside(yours, button("Submit review")), say: "Submit posts it as one review. Comments he adds on lines join it, and their count shows on Review" },
+  { look: inside(yours, button("Submit review")), say: "Submit posts it as one review, with every comment he added" },
+  { press: inside(list, button(/#1899/)), say: "A pull request that already has comments on the forge" },
+  { press: inside(reader(1899), button(/^Review/)), say: "Review" },
+  { look: inside(reader(1899), role("article", /^Thread on/)), say: "Comments already posted sit under his review, on the change they are about, each thread with Reply" },
+  { press: inside(reader(1899), button(/^Comment on /)), say: "Each change has Comment. A line of its hunk has one too, once the change is shown" },
+  { type: "Take the lock after the call.", into: inside(reader(1899), role("textbox", "Comment")), say: "His comment" },
+  { press: inside(reader(1899), button("Add to review")), say: "Add to review. Nothing reaches the forge until Submit" },
+  { look: inside(yours, role("list", "Pending comments")), say: "It waits in his review, with the file it is on, and X takes it out" },
+  { look: inside(reader(1899), button("Review, 1 pending")), say: "Review in the head counts what is waiting" },
 ]);
 
 export { prReviewStaysOpen as "pr-review-stays-open" };
