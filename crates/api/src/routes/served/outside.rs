@@ -245,4 +245,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/requests/environments",
     },
+    Route {
+        operation: "delete_request_environment",
+        method: "POST",
+        path: "/requests/environments/delete",
+    },
 ];
