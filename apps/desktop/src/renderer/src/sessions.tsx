@@ -983,6 +983,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
           ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
           ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
+          ...(session.asked.kind === undefined ? {} : { kind: session.asked.kind }),
         };
   const lapsed: ComponentProps<typeof AskCards>["lapsed"] =
     session.lapsed === undefined || session.lapsed.id === answeredLapse
@@ -1003,7 +1004,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
           text: askText({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
           label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
-          children: <AskCards flat {...(asked === undefined ? {} : { asked, keep: `${session.id}:${session.asked?.call ?? asked.command}` })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
+          children: <AskCards flat {...(asked === undefined ? {} : { asked, keep: `${session.id}:${session.asked?.call ?? asked.command}` })} onAnswer={(answer, answers, folder, kind) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder, kind)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };
   // A judge's concerns wait in the Needs you list too, after the question and before the items.
   const judges = (session.work?.concerns ?? []).map((one) => ({

@@ -1,6 +1,8 @@
 //! What a shell segment names and does, read by [`super::deciding`]: the variables a line set,
 //! the files in the owner's home a read may touch, and the verbs that only look.
 
+use ipc::CallKind;
+
 use super::deciding::{reaches_outside, read_refused, truncating_redirect, Slot};
 
 /// The segments with each variable the line assigned put back where it is used. `$$` is a
@@ -141,6 +143,28 @@ fn script_run(words: &[String]) -> Option<usize> {
         "bash" | "sh" | "zsh" => rest.find(|(_, word)| !word.starts_with('-')).map(|(at, _)| at),
         _ => Some(at),
     }
+}
+
+/// The kind of call a segment is: the program it runs and, for an interpreter, the first operand
+/// that is not a flag, both by basename. **What "Allow calls like this" matches**, so the same
+/// script run with other arguments is the same kind.
+pub(super) fn kind_of(said: &str) -> Option<CallKind> {
+    const INTERPRETERS: &[&str] = &["node", "deno", "bun", "python", "python3", "ruby", "perl", "bash", "sh", "zsh"];
+    let (program, arguments) = command_of(said)?;
+    let mut operands = arguments
+        .iter()
+        .map(|word| word.trim_matches(|c| c == '\'' || c == '"'))
+        .filter(|word| !word.is_empty() && !word.starts_with('-'));
+    let script = match INTERPRETERS.contains(&program) {
+        true => match (program, operands.next()) {
+            // `deno run x.ts` and `bun run x.ts` name the script after the subcommand.
+            ("deno" | "bun", Some("run")) => operands.next(),
+            (_, first) => first,
+        },
+        false => None,
+    };
+    let script = script.map(|script| script.rsplit('/').next().unwrap_or(script).to_string());
+    Some(CallKind { program: program.to_string(), script })
 }
 
 /// `said` cut at blanks outside quotes, each quoted run kept with its quotes.

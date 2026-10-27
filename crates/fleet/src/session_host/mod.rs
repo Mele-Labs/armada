@@ -412,6 +412,9 @@ pub(crate) struct State {
     /// Folders past its slots the owner allowed for this session alone. In memory, never written,
     /// and cleared when the session is closed.
     pub allowed_folders: Vec<String>,
+    /// Kinds of call the owner allowed for this session alone, held and cleared as
+    /// `allowed_folders` are.
+    pub allowed_kinds: Vec<crate::helm::KindAllowed>,
     pub last_active: Instant,
     /// A tune arrived while a turn was running: end the process after it.
     pub restart_after_turn: bool,
@@ -496,6 +499,7 @@ impl State {
             asked: None,
             answered_via: None,
             allowed_folders: Vec::new(),
+            allowed_kinds: Vec::new(),
             last_active: Instant::now(),
             restart_after_turn: false,
             directory: String::new(),

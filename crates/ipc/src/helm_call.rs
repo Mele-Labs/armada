@@ -226,6 +226,10 @@ pub enum HelmCallAnswer {
     /// ends. **Held in Fleet's memory and nowhere else**: nothing is written to the folder list or
     /// to settings, and a folder the owner blocked stays blocked.
     AllowForSession,
+    /// Run it, and let this session's calls of the kind the answer names run with no card until it
+    /// ends, narrowed to the answer's folder where one is given. **Held in Fleet's memory and nowhere
+    /// else**: a folder the owner blocked stays blocked, and a removal or a push is still read as one.
+    AllowLikeThisForSession,
 }
 
 /// Whether a call past a session's slots reads what it names or writes to it.
@@ -234,6 +238,17 @@ pub enum HelmCallAnswer {
 pub enum ReachesTo {
     Read,
     Write,
+}
+
+/// The kind of a shell call: its program, and for an interpreter the script it runs. Wide enough
+/// for a later call to match, where the whole line would match only itself.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallKind {
+    /// The program as the segment names it, `node`.
+    pub program: String,
+    /// The script an interpreter runs, `drive.mjs`. Left out for a program alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub script: Option<String>,
 }
 
 /// One call a Helm session is waiting on a person to answer, right now.
@@ -291,6 +306,10 @@ pub struct HelmCallInFlight {
     /// other call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaches_to: Option<ReachesTo>,
+    /// The program and script of the Bash segment whose reach the card is about, and what
+    /// [`HelmCallAnswer::AllowLikeThisForSession`] matches. Set only on a Bash reach card.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<CallKind>,
 }
 
 /// A person's answer to one Helm call. The request half of `answer_helm_call`.
@@ -309,9 +328,14 @@ pub struct AnswerHelmCall {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
     /// The folder an "always" or a session answer is for: [`HelmCallInFlight::reaches`] or a
-    /// folder above it. Read for those three answers only, and one without it is refused.
+    /// folder above it. Read for those three answers, and one without it is refused; a "like this"
+    /// answer may carry one to narrow its kind to that folder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
+    /// The width a "like this" answer allows: the card's own [`HelmCallInFlight::kind`], or the same
+    /// with no script. Read for that answer only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<CallKind>,
 }
 
 /// `helm.asking_to_run`: a call is waiting on a person. **Absent from
