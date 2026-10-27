@@ -105,7 +105,8 @@ export type SessionNotice =
   | "watch_saw"
   | "taught"
   | "issue_lost"
-  | "document_sketch";
+  | "document_sketch"
+  | "task_marked";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, or a Check. `at` is when the row was written. */

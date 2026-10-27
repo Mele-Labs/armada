@@ -40,3 +40,24 @@ export const Done: Story = {
 };
 export const Failed: Story = { args: { state: "failed" } };
 export const Dropped: Story = { args: { state: "dropped" } };
+
+/** Fleet set the state itself: the same mark, and hovering names the proof under the state word. */
+export const MarkedByFleet: Story = {
+  args: { state: "done", marked: "commit 1a2b3c4 names it" },
+  play: async ({ canvas, userEvent }) => {
+    const mark = canvas.getByRole("img", { name: "Done. Marked by Fleet: commit 1a2b3c4 names it" });
+    await userEvent.hover(mark);
+    await waitFor(() => expect(canvas.getByText("Marked by Fleet: commit 1a2b3c4 names it")).toBeVisible());
+  },
+};
+
+/** In progress and left behind: the mark dimmed, and hovering names why and how long. */
+export const Stale: Story = {
+  args: { state: "working", stale: { why: "edits went to Bridge", since: new Date(Date.now() - 12 * 60_000).toISOString() } },
+  play: async ({ canvas, userEvent }) => {
+    const mark = canvas.getByRole("img", { name: "Working. Stale: edits went to Bridge, 12m ago" });
+    await expect(mark).toHaveAttribute("data-stale");
+    await userEvent.hover(mark);
+    await waitFor(() => expect(canvas.getByText("Stale: edits went to Bridge, 12m ago")).toBeVisible());
+  },
+};
