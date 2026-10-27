@@ -3,7 +3,6 @@
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
-import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
 import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
@@ -179,16 +178,5 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   );
   ipc.handle(CHANNELS.proposeWorkflowToArmada, (event, proposing: ProposeToArmada) =>
     connection()?.workflowsFor(windowIdOf(event)).proposeToArmada(proposing),
-  );
-  // Triggers: the list, one definition, a save and a removal.
-  ipc.handle(CHANNELS.readTriggers, (event) => connection()?.triggersFor(windowIdOf(event)).list());
-  ipc.handle(CHANNELS.readTrigger, (event, reading: ReadingTrigger) =>
-    connection()?.triggersFor(windowIdOf(event)).definition(reading),
-  );
-  ipc.handle(CHANNELS.saveTrigger, (event, saving: SavingTrigger) =>
-    connection()?.triggersFor(windowIdOf(event)).save(saving),
-  );
-  ipc.handle(CHANNELS.removeTrigger, (event, removing: RemovingTrigger) =>
-    connection()?.triggersFor(windowIdOf(event)).remove(removing),
   );
 }
