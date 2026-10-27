@@ -4,6 +4,7 @@ import { ArrowDownToLine, ArrowUpFromLine, Check, CircleDashed, House, Key, Lapt
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { ModKind } from "../ModRow/ModRow";
 import { HomePicker } from "./HomeChoice";
@@ -38,6 +39,18 @@ export type SharedRow = {
   there?: string;
 };
 
+/** One item switched on by itself, by its row's kind and name. */
+export type SyncItem = { kind: string; name: string };
+
+/** What syncs: the kinds switched on, and each item switched on by itself while its kind is off. */
+export type Syncs = { kinds: readonly string[]; items: readonly SyncItem[] };
+
+/** Whether an item syncs, and whether its own switch can move: not while its whole kind is on. */
+export function itemSyncs(syncs: Syncs, item: SyncItem): { on: boolean; locked: boolean } {
+  const locked = syncs.kinds.includes(item.kind);
+  return { on: locked || syncs.items.some((one) => one.kind === item.kind && one.name === item.name), locked };
+}
+
 export type SharedHomeRead = {
   /** The GitHub login the home belongs to, or the organisation it is made under. */
   account: string;
@@ -51,6 +64,8 @@ export type SharedHomeRead = {
   made?: boolean;
   /** The organisations the account belongs to. Where the home is not made and this is given, the chip opens a picker for its owner and name. */
   owners?: readonly string[];
+  /** What syncs. Absent draws no switches. */
+  syncs?: Syncs;
 };
 
 export type Side = "here" | "there";
@@ -65,6 +80,10 @@ export type SharedHomeActs = {
   sync: () => void;
   /** Choose where the home is made: the owner and the repository name. Absent keeps the choice on this window alone. */
   setHome?: (owner: string, name: string) => void;
+  /** Switch a whole kind on or off. */
+  setKind?: (kind: string, on: boolean) => void;
+  /** Switch one item on or off by itself. */
+  setItem?: (item: SyncItem, on: boolean) => void;
 };
 
 export type SharedHome = SharedHomeRead & SharedHomeActs;
@@ -155,8 +174,9 @@ export function SharedHomeChip({ account, repository, made = true }: { account: 
   );
 }
 
-/** The account the home belongs to, and Sync. */
-export function SharedHomeBar({ home }: { home: SharedHome }) {
+/** The account the home belongs to, the open kind's switch where it is one the home carries, and Sync. */
+export function SharedHomeBar({ home, kind }: { home: SharedHome; kind?: string }) {
+  const setKind = home.setKind;
   return (
     <div className="armada-shared-bar">
       {home.made === false && home.owners !== undefined ? (
@@ -167,6 +187,11 @@ export function SharedHomeBar({ home }: { home: SharedHome }) {
         />
       ) : (
         <SharedHomeChip account={home.account} repository={home.repository} made={home.made !== false} />
+      )}
+      {kind === undefined || home.syncs === undefined || setKind === undefined ? null : (
+        <Switch size="sm" checked={home.syncs.kinds.includes(kind)} onChange={(event) => setKind(kind, event.target.checked)}>
+          Sync all
+        </Switch>
       )}
       <Button variant="ghost" size="sm" pending={home.syncing} onClick={home.sync}>
         <RotateCw size={12} strokeWidth={2} aria-hidden="true" className="armada-shared-bar__turn" data-turning={home.syncing ? "" : undefined} />

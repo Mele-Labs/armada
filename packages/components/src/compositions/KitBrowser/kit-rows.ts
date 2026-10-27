@@ -3,7 +3,7 @@ import type { KitPieceKind } from "@armada/protocol";
 
 import { linesOf, sourceWords, styleFrom } from "../KitSetup/KitSetup";
 import type { KitSetupItem, KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
-import type { SharedHome, SharedRow } from "../KitSetup/SharedHome";
+import type { SharedHome, SharedRow, SyncItem } from "../KitSetup/SharedHome";
 import type { KitServerRowProps } from "../KitServers/KitServers";
 
 /** The kinds Kit draws as a list with the picked item beside it, by the id their sidebar entry has. */
@@ -33,6 +33,20 @@ const WORD: Record<KitKindId, KitSetupKindWord> = {
   allowlist: "allowlist",
   mods: "mods",
 };
+
+/** What the shared home calls each kind it carries. Output styles it does not, and Instructions are the global ones. */
+export const HOME_KIND: Partial<Record<KitKindId, string>> = {
+  skills: "skills",
+  plugins: "plugins",
+  "sub-agents": "sub_agents",
+  commands: "commands",
+  servers: "mcp_servers",
+  instructions: "global_instructions",
+  allowlist: "allowlist",
+  mods: "mods",
+};
+
+const HOMED: ReadonlySet<string> = new Set(Object.values(HOME_KIND));
 
 /** A kind's word for one of its items, as a plugin's list of what it brings names it. */
 const ONE: Partial<Record<KitKindId, string>> = {
@@ -81,6 +95,8 @@ export type KitRow = {
   from?: string;
   brings?: KitRef[];
   sync?: SharedRow | undefined;
+  /** The item as What syncs names it, where the home carries its kind. */
+  home?: SyncItem;
   /** A mod: what it changes, and whether Armada ships it. */
   mod?: { kind: "theme" | "layout"; builtIn: boolean };
   /** A server connected outside Armada, or Kit's own. */
@@ -171,7 +187,12 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
     const items = found?.read.what === "read" ? found.read.items : [];
     if (found?.read.what === "not_read") notRead = found.read.why;
     // A kind the home alone carries has nothing read and is not "not read".
-    for (const { item, row } of linesOf(word, items, shared)) rows.push(rowOf(kind, item, row, setup.home));
+    for (const { item, row } of linesOf(word, items, shared)) {
+      const one = rowOf(kind, item, row, setup.home);
+      // A mod Armada ships is on every machine already, so it is not one to sync.
+      if (HOMED.has(word) && one.mod?.builtIn !== true) one.home = { kind: word, name: item.name };
+      rows.push(one);
+    }
   }
   if (kind === "instructions") {
     // The home's copy of a file this machine has is the same row, not a second one.
@@ -179,6 +200,7 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
       const own = rows.find((one) => one !== apart && one.name === apart.name && one.sync === undefined);
       if (own === undefined) continue;
       own.sync = apart.sync;
+      if (apart.home !== undefined) own.home = apart.home;
       rows.splice(rows.indexOf(apart), 1);
     }
   }
@@ -194,7 +216,7 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
   }
   if (kind === "servers") {
     for (const server of kitServers ?? []) {
-      rows.push({ id: `servers:kit:${server.name}`, name: server.name, mark: "Kit", says: server.address, server: { tier: "kit", row: server } });
+      rows.push({ id: `servers:kit:${server.name}`, name: server.name, mark: "Kit", says: server.address, server: { tier: "kit", row: server }, home: { kind: "mcp_servers", name: server.name } });
     }
   }
   // What is applied on top of the rest stands apart at the end.
