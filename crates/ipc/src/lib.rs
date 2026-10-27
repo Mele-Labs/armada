@@ -479,7 +479,7 @@ pub use teaching::{
     ProposedAddress, ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
     TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
-pub use taught_mods::{AddressFound, Condition, Does, FleetFile, FleetRule, Instead, RuleScope, WordsAddress, WordsFile};
+pub use taught_mods::{AddressFound, CommandsFile, Condition, Does, FleetFile, FleetRule, Instead, PaletteCommand, RuleScope, WordsAddress, WordsFile};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,

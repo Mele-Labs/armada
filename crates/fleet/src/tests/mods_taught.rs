@@ -1,4 +1,4 @@
-//! The three kinds a teaching makes: Words, Fleet and Tweak. Each accepts what it should, refuses
+//! The kinds a teaching makes: Words, Fleet and Tweak, and the Commands kind beside them. Each accepts what it should, refuses
 //! with a reason what it should not, is listed like any mod, and is made by a scaffold.
 
 use std::path::Path;
@@ -8,7 +8,7 @@ use ipc::{AddressFound, Does, FleetFile, FleetRule, ModKind, RuleScope, Scaffold
 use testkit::FakeWorkProduct;
 
 use crate::mods::scaffold::{self, Taught};
-use crate::mods::{examine, fleet_rules, scan, stylesheet, words};
+use crate::mods::{commands, examine, fleet_rules, scan, stylesheet, words};
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
@@ -287,4 +287,128 @@ async fn validating_a_taught_mod_hands_bridge_what_it_holds_and_a_broken_one_hol
         let broken = fleet.validate_mod(name.into()).await.expect("answers for a broken mod");
         assert!(!broken.valid && broken.words.is_none() && broken.fleet.is_none(), "{name}: {broken:?}");
     }
+}
+
+const ROWS: &str = "[[command]]\nname = \"Review a pull request for security\"\naliases = [\"sec\", \"audit\"]\nhotkey = \"⌥⌘S\"\n\
+    prompt = \"Review {pr} for security issues in {repo}, then {pr} again\"\n\n\
+    [[command]]\nname = \"Open the board\"\nurl = \"https://grafana.example.com/d/{repo}\"\n\n\
+    [[command]]\nname = \"Audit dependencies\"\nshell = \"pnpm audit\"\n\n\
+    [[command]]\nname = \"Add a task\"\nchain = [\"nav:projects\", \"act:add_task\"]\n";
+
+/// One `[[command]]` of `name` holding `rest`, a line or more.
+fn one(name: &str, rest: &str) -> String {
+    format!("[[command]]\nname = \"{name}\"\n{rest}\n")
+}
+
+fn refused(text: &str, wanted: &str) {
+    let found = commands::problems(text);
+    assert!(said(&found, wanted), "{text:?} should say {wanted:?}, got {found:?}");
+    assert!(found.iter().all(|one| one.starts_with("commands.toml")), "{found:?}");
+}
+
+#[test]
+fn a_commands_file_with_each_kind_of_row_is_accepted_and_reads_back_with_its_blanks() {
+    assert_eq!(commands::problems(ROWS), Vec::<String>::new());
+    let file = commands::read(ROWS).expect("reads");
+    assert_eq!(file.command.len(), 4);
+    let sec = &file.command[0];
+    assert_eq!((sec.name.as_str(), sec.aliases.as_slice(), sec.hotkey.as_deref()), ("Review a pull request for security", &["sec".to_string(), "audit".to_string()][..], Some("⌥⌘S")));
+    assert_eq!(sec.blanks, ["pr", "repo"], "once each, in the order they first appear");
+    assert_eq!(file.command[1].blanks, ["repo"]);
+    assert_eq!(file.command[2].shell.as_deref(), Some("pnpm audit"));
+    assert!(file.command[2].blanks.is_empty());
+    assert_eq!(file.command[3].chain.as_deref(), Some(&["nav:projects".to_string(), "act:add_task".to_string()][..]));
+}
+
+#[test]
+fn a_commands_file_with_no_command_is_refused() {
+    refused("", "at least one `[[command]]`");
+    refused("# nothing\n", "at least one `[[command]]`");
+}
+
+#[test]
+fn a_command_with_no_name_is_refused() {
+    refused(&one("", "shell = \"ls\""), "command 1 has no name");
+    refused(&one("   ", "shell = \"ls\""), "command 1 has no name");
+}
+
+#[test]
+fn a_command_must_do_exactly_one_of_prompt_url_shell_or_chain() {
+    refused(&one("Nothing", ""), "`Nothing` does nothing");
+    refused(&one("Two", "prompt = \"a\"\nshell = \"b\""), "`Two` does more than one");
+    refused(&one("All", "prompt = \"a\"\nurl = \"https://x.example\"\nshell = \"b\"\nchain = [\"nav:x\"]"), "`All` does more than one");
+    refused(&one("Blank", "shell = \"  \""), "`Blank` has an empty shell");
+}
+
+#[test]
+fn a_blank_must_be_spelled_like_a_name_and_only_prompt_url_and_shell_take_one() {
+    refused(&one("Loud", "prompt = \"Review {Pr}\""), "`Loud` has `{Pr}`");
+    refused(&one("Digit", "url = \"https://x.example/{1}\""), "`Digit` has `{1}`");
+    refused(&one("Open", "shell = \"echo {oops\""), "`Open` has a `{` with no `}`");
+    refused(&one("Linked", "chain = [\"nav:{repo}\"]"), "`Linked` takes no blanks in a chain");
+    let braces = one("Awk", "shell = \"awk '{print $1} {a,b}' {pr}\"");
+    assert_eq!(commands::problems(&braces), Vec::<String>::new(), "braces that hold no name are text");
+    assert_eq!(commands::read(&braces).expect("reads").command[0].blanks, ["print", "pr"]);
+}
+
+#[test]
+fn a_chain_must_name_a_row_and_every_one_must_be_a_row_id() {
+    refused(&one("Empty", "chain = []"), "`Empty` has an empty chain");
+    refused(&one("Holes", "chain = [\"nav:projects\", \"\"]"), "`Holes` has an empty row id in its chain");
+}
+
+#[test]
+fn two_commands_may_not_share_a_name() {
+    refused(&format!("{}{}", one("Same", "shell = \"a\""), one("Same", "shell = \"b\"")), "`Same` is named twice");
+}
+
+#[test]
+fn a_hotkey_is_a_chord_of_modifiers_and_at_most_one_key() {
+    for good in ["⌥⌘S", "S", "⇧⌘R", "⌘[", "Esc", "⌘F5", "⌃⌥⇧⌘K", "⌥↑"] {
+        let text = one("Keyed", &format!("shell = \"a\"\nhotkey = \"{good}\""));
+        assert_eq!(commands::problems(&text), Vec::<String>::new(), "{good}");
+    }
+    for (bad, wanted) in [("", "empty hotkey"), ("  ", "empty hotkey"), ("⌘SD", "one key"), ("⌘S⌘", "one key"), ("⌘ S", "one key"), ("⌘Nope", "one key")] {
+        let text = one("Keyed", &format!("shell = \"a\"\nhotkey = \"{bad}\""));
+        refused(&text, wanted);
+    }
+}
+
+#[test]
+fn a_commands_file_that_is_not_the_toml_described_is_refused_with_its_line() {
+    refused("this is not toml", "commands.toml line 1");
+    refused(&one("Extra", "shell = \"a\"\nowner = \"me\""), "unknown field");
+}
+
+#[test]
+fn a_commands_mod_is_listed_validated_and_handed_to_bridge_checked() {
+    let home = TempDir::new();
+    let mods = home.path().join("mods");
+    a_taught_mod(&mods, "rows", "commands", "commands.toml", ROWS);
+    a_taught_mod(&mods, "bad-rows", "commands", "commands.toml", &one("Two", "prompt = \"a\"\nshell = \"b\""));
+    a_taught_mod(&mods, "no-rows", "commands", "words.toml", ROWS);
+    let list = scan(&mods, &Default::default(), &Default::default());
+    let row = |name: &str| list.mods.iter().find(|one| one.name == name).expect(name).clone();
+    let good = row("rows");
+    assert_eq!((good.kind, good.valid, good.reason), (Some(ModKind::Commands), true, None));
+    assert!(row("bad-rows").reason.expect("why").starts_with("commands.toml: `Two` does more than one"));
+    assert_eq!(row("no-rows").reason.as_deref(), Some("commands.toml is missing"));
+    assert!(examine(&mods, "rows").files.is_some() && examine(&mods, "bad-rows").files.is_none());
+}
+
+#[tokio::test]
+async fn fleet_scaffolds_a_commands_mod_that_validates_and_hands_bridge_its_rows() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let made = fleet
+        .scaffold_mod(ScaffoldMod { name: "rows".into(), description: None, kind: Some(ModKind::Commands), session_id: None })
+        .await
+        .expect("scaffolded");
+    let starter = fleet.validate_mod("rows".into()).await.expect("checked");
+    assert!(starter.valid && starter.commands.is_some(), "a starter is a file that passes: {starter:?}");
+    std::fs::write(Path::new(&made.path).join("commands.toml"), ROWS).expect("edited");
+    let checked = fleet.validate_mod("rows".into()).await.expect("checked");
+    assert!(checked.valid && checked.css.is_none() && checked.words.is_none(), "{checked:?}");
+    let rows = checked.commands.expect("rows");
+    assert_eq!((rows.command.len(), rows.command[0].blanks.clone()), (4, vec!["pr".to_string(), "repo".to_string()]));
 }
