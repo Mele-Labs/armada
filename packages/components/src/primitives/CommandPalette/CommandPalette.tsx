@@ -5,7 +5,7 @@ import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
 import { ActionKeys, ActionsPanel, ResultKeys, actionEntryId, actionRowId, type PaletteAction } from "./actions-panel";
 import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, useAnchor, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
-import { LabelMeta, MetaCells, columnsOf, type PaletteColumns, type PaletteMeta } from "./row-meta";
+import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
 
 import { LINK_ROW, LinkRow, type PaletteLink } from "./link-row";
 import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
@@ -92,11 +92,12 @@ export type PaletteEntry = {
    */
   dormant?: string;
   /**
-   * What a Job, a pull request, an issue, a task or a command says beside its label, each in a column of its
-   * own. **Not stuffed into the label**: the label is what is searched for and marked, and the columns keep a
-   * number under the number above it.
+   * What a Job, a pull request, an issue or a task says beside its label. **Not stuffed into the label**: the
+   * label is what is searched for and marked.
    */
   meta?: PaletteMeta;
+  /** What the row is, drawn flush right in a column of its own: Job, Pull request, Page. */
+  kind?: string;
 };
 
 export type PaletteSection = {
@@ -169,7 +170,7 @@ function hit(entry: PaletteEntry, query: string): Hit | null {
   if (query === "") return { entry, at: null };
   const wanted = query.toLowerCase();
   const label = entry.label.toLowerCase();
-  const aliases = [...(entry.aliases ?? []), ...(entry.meta === undefined ? [] : [entry.meta.number, entry.meta.repo, entry.meta.alias].flatMap((one) => one ?? []))].map((held) => held.toLowerCase());
+  const aliases = [...(entry.aliases ?? []), ...(entry.meta === undefined ? [] : [entry.meta.number, entry.meta.repo].flatMap((one) => one ?? []))].map((held) => held.toLowerCase());
   const at = label.indexOf(wanted);
   if (at >= 0) return { entry, at };
   if (aliases.some((held) => held.includes(wanted))) return { entry, at: null };
@@ -244,7 +245,6 @@ export function CommandPalette({
   const under = flat[at];
   const underEntry = typeof under === "object" ? under.entry : undefined;
   const underActions = underEntry === undefined || actionsOf === undefined || stepping !== null ? [] : actionsOf(underEntry);
-  const columns = columnsOf(hits.map((held) => held.entry.meta));
 
   // **The first row is always active**, so a query narrowed to one result is a
   // two-key act. Reset on every change to the query rather than clamped: a
@@ -505,7 +505,6 @@ export function CommandPalette({
                     key={held.entry.id}
                     hit={held}
                     query={query}
-                    columns={columns}
                     active={where === at}
                     ref={where === at ? active : undefined}
                     onEnter={() => setAt(where)}
@@ -549,7 +548,6 @@ function rowId(entry: PaletteEntry): string {
 function Row({
   hit: held,
   query,
-  columns,
   active,
   ref,
   onEnter,
@@ -557,7 +555,6 @@ function Row({
 }: {
   hit: Hit;
   query: string;
-  columns: PaletteColumns;
   active: boolean;
   ref?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
@@ -590,20 +587,21 @@ function Row({
       onClick={onChoose}
     >
       {/* The slot holds its width whether or not there is a glyph, so a
-          section with two icons and six blanks still reads as a column. */}
+          section with two icons and six blanks still reads as a column. A
+          Job's state is its glyph. */}
       <span className="armada-palette__glyph">
-        {Glyph === undefined ? null : <Glyph size={16} strokeWidth={2} aria-hidden />}
+        {entry.meta?.state !== undefined ? <StateGlyph state={entry.meta.state} /> : Glyph === undefined ? null : <Glyph size={16} strokeWidth={2} aria-hidden />}
       </span>
       <span className="armada-palette__label">
-        <Marked label={entry.label} query={query} at={held.at} />
-        <LabelMeta meta={entry.meta} />
+        <span className="armada-palette__title">
+          <Marked label={entry.label} query={query} at={held.at} />
+        </span>
+        <Subtitle meta={entry.meta} value={entry.value} dormant={entry.dormant} />
       </span>
-      <MetaCells meta={entry.meta} columns={columns} />
-      {entry.value === undefined ? null : (
-        <span className="armada-palette__value">{entry.value}</span>
-      )}
-      {dormant ? <span className="armada-palette__dormant">{entry.dormant}</span> : null}
-      {entry.shortcut === undefined ? null : <Shortcut shortcut={entry.shortcut} />}
+      {/* Flush right, in two fixed columns, so every binding and every kind
+          ends on the same edge as the rows above it. */}
+      <span className="armada-palette__keys-col">{entry.shortcut === undefined ? null : <Shortcut shortcut={entry.shortcut} />}</span>
+      <span className="armada-palette__kind">{entry.kind}</span>
     </div>
   );
 }

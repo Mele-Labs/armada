@@ -13,10 +13,10 @@ export type PaletteLink = {
 
 export const LINK_ROW = "armada-palette-row-link";
 
-const ROWS = { pull: { label: "Open review", Glyph: GitPullRequest }, issue: { label: "Open issue", Glyph: CircleDot } } as const;
+const ROWS = { pull: { label: "Open review", Glyph: GitPullRequest, kind: "Pull request" }, issue: { label: "Open issue", Glyph: CircleDot, kind: "Issue" } } as const;
 
 export function LinkRow({ kind, link, active, ref, onEnter, onChoose }: { kind: PaletteLinkKind; link: string; active: boolean; ref?: React.Ref<HTMLDivElement> | undefined; onEnter: () => void; onChoose: () => void }) {
-  const { label, Glyph } = ROWS[kind];
+  const { label, Glyph, kind: drawn } = ROWS[kind];
   return (
     <div
       ref={ref}
@@ -31,8 +31,12 @@ export function LinkRow({ kind, link, active, ref, onEnter, onChoose }: { kind: 
         <Glyph size={16} strokeWidth={2} aria-hidden />
       </span>
       <span className="armada-palette__label">
-        {label} <span className="armada-palette__words">{link}</span>
+        <span className="armada-palette__title">
+          {label} <span className="armada-palette__words">{link}</span>
+        </span>
       </span>
+      <span className="armada-palette__keys-col" />
+      <span className="armada-palette__kind">{drawn}</span>
     </div>
   );
 }

@@ -430,7 +430,7 @@ export function Palette({
       icon: COMMAND_GLYPH[command.kind],
       ...(command.hotkey === undefined ? {} : { shortcut: command.hotkey }),
       ...(command.value === undefined ? {} : { value: command.value }),
-      ...(command.alias === undefined ? {} : { meta: { alias: command.alias } }),
+      ...(command.alias === undefined ? {} : { aliases: [command.alias] }),
     })),
     ...runnables.map((runnable) => ({
       id: `run:${runnable.id}`,
@@ -462,7 +462,7 @@ export function Palette({
       ...(setting.value === undefined ? {} : { value: setting.value }),
       ...(setting.aliases === undefined ? {} : { aliases: setting.aliases }),
     })),
-  ];
+  ].map((entry) => ({ ...entry, kind: KIND[entry.id.slice(0, entry.id.indexOf(":") + 1) || entry.id] ?? "Action" }));
 
   // With nothing typed: Pinned, then Recent; or this page first; or everything, as the setting says.
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
@@ -584,6 +584,24 @@ function metaOfJob(session: PaletteSession): PaletteMeta {
     ...(session.state === undefined ? {} : { state: session.state }),
   };
 }
+
+/**
+ * What each row is, by the prefix its section gave its id, drawn flush right as Raycast draws a row's kind: in
+ * Pinned and Recent the rows are of every kind, and this is what tells a Job from a page of the same name.
+ */
+const KIND: Readonly<Record<string, string>> = {
+  "session:": "Job",
+  "pull:": "Pull request",
+  "issue:": "Issue",
+  "task:": "Task",
+  "cmd:": "Command",
+  "nav:": "Page",
+  "set:": "Setting",
+  "run:": "Check",
+  "repo:": "Repository",
+  [ALL_REPOSITORIES]: "Repository",
+  "tab:": "Filter",
+};
 
 const COMMAND_GLYPH: Record<PaletteCommand["kind"], LucideIcon> = { url: Globe, shell: FileTerminal, chain: Route, prompt: MessageSquarePlus };
 

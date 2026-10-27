@@ -70,21 +70,22 @@ export function ActionsPanel({
 export function ActionKeys() {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span><KbdChord keys={["↵"]} /> run</span>
-      <span><KbdChord keys={["Esc"]} /> back</span>
+      <span>Run <KbdChord keys={["↵"]} /></span>
+      <span>Back <KbdChord keys={["Esc"]} /></span>
     </div>
   );
 }
 
 /** `⌘K Actions`, which the foot adds while the row under the cursor has any. */
 export function ActionsKey() {
-  return <span><KbdChord keys={["⌘", "K"]} /> Actions</span>;
+  return <span>Actions <KbdChord keys={["⌘", "K"]} /></span>;
 }
 
 /** The foot of a plain result list whose row under the cursor has acts. */
 export function ResultKeys() {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
+      <span>Open <KbdChord keys={["↵"]} /></span>
       <ActionsKey />
     </div>
   );

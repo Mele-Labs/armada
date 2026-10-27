@@ -195,20 +195,6 @@
   text-underline-offset: calc(var(--space-1) / 2);
 }
 
-/* A setting states its current value, in mono, right of the label. Metadata
- * rather than a second label, so it steps down. */
-.armada-palette__value {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 35%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
 .armada-palette__dormant {
   flex: none;
   color: var(--fg-subtle);
@@ -290,6 +276,7 @@
   flex: none;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2) var(--space-4);
   padding: var(--space-2) var(--space-3);
   border-top: var(--border-width) solid var(--border-subtle);
@@ -305,42 +292,63 @@
   gap: var(--space-1);
 }
 
-/* A rich row's columns: the Job's state, a number, the repository. Each holds its width whether or not
- * the row has one, so a number sits under the number above it however long the title runs. */
-.armada-palette__col {
+/* A row as Raycast lays one: the title, then a muted subtitle that gives way first when the row is
+ * short of room, then two fixed columns flush right, the binding and the kind. Fixed, so a key and a
+ * kind end on the same edge as the rows above and below whether or not this row has one. */
+.armada-palette__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+/* Never shrunk while the subtitle has room to give, which a shrink weight would still do by a pixel and
+ * cost the title its last letters. Capped at the label so a title longer than the row still ends in an ellipsis. */
+.armada-palette__title {
   flex: none;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
-  color: var(--fg-subtle);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.armada-palette__col--state {
+.armada-palette__subtitle {
+  flex: 0 1 auto;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--armada-glyph);
-  color: var(--fg-muted);
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
-.armada-palette__col--number {
-  width: var(--space-12);
+.armada-palette__subtitle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-palette__mono {
   font-family: var(--font-mono);
-  text-align: right;
 }
 
-.armada-palette__col--repo {
+.armada-palette__keys-col {
+  flex: none;
+  display: inline-flex;
+  justify-content: flex-end;
   width: calc(var(--space-12) * 2);
 }
 
-/* An alias is found by, so it is drawn small and quiet after the label. */
-.armada-palette__alias {
-  margin-left: var(--space-2);
+.armada-palette__kind {
+  flex: none;
+  width: calc(var(--space-12) * 2);
+  overflow: hidden;
   color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ⌘K on a row: what can be done to it, over the lower right of the results. The list keeps the height

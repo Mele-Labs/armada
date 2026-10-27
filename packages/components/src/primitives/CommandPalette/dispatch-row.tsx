@@ -98,12 +98,16 @@ export function DispatchRow({
         <Plus size={16} strokeWidth={2} aria-hidden />
       </span>
       <span className="armada-palette__label">
-        {OFFER[kind]}
-        <span className="armada-palette__words">“{words}”</span>
+        <span className="armada-palette__title">
+          {OFFER[kind]}
+          <span className="armada-palette__words">“{words}”</span>
+        </span>
       </span>
-      <span className="armada-palette__keys">
+      {/* The result rows' two columns, so its key ends on their keys' edge. */}
+      <span className="armada-palette__keys-col">
         <KbdChord keys={["⌘", "↵"]} />
       </span>
+      <span className="armada-palette__kind">{KIND[kind]}</span>
     </div>
   );
 }
@@ -126,12 +130,12 @@ export function useAnchor(open: boolean, anchor: string | undefined): CSSPropert
 
 /** The keys the one bar answers, along the palette's foot while there is something typed to send. */
 export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispatch; sends: boolean; acts: boolean }) {
-  const verb = adds(dispatch.kind) ? "add" : "dispatch";
+  const verb = adds(dispatch.kind) ? "Add" : "Dispatch";
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span><KbdChord keys={["↵"]} /> {sends ? verb : "open"}</span>
-      <span><KbdChord keys={["⌘", "↵"]} /> {verb}</span>
-      {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> {(dispatch.kinds ?? ["session"]).map((kind) => KIND[kind]).join(" / ")}</span>}
+      <span>{sends ? verb : "Open"} <KbdChord keys={["↵"]} /></span>
+      <span>{verb} <KbdChord keys={["⌘", "↵"]} /></span>
+      {dispatch.onKind === undefined ? null : <span>{KIND[nextKind(dispatch)]} <KbdChord keys={["⇥"]} /></span>}
       {acts ? <ActionsKey /> : null}
     </div>
   );
@@ -141,8 +145,8 @@ export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispa
 export function StepKeys() {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span><KbdChord keys={["↵"]} /> add</span>
-      <span><KbdChord keys={["Esc"]} /> back</span>
+      <span>Add <KbdChord keys={["↵"]} /></span>
+      <span>Back <KbdChord keys={["Esc"]} /></span>
     </div>
   );
 }
