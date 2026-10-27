@@ -106,13 +106,13 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
  * A row for each group of an approved plan. The group being worked is open, else the first not yet done, so a Job just started shows where it begins;
  * a press opens or shuts any group and holds until the group being worked moves on.
  */
-export function FlightRows({ groups, workingGroup, now, session, manifestId, onOpenSession, calm = false }: { calm?: boolean; groups: readonly ViewGroup[]; workingGroup: string | undefined; now: string | undefined; session: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function FlightRows({ groups, workingGroup, now, session, manifestId, onOpenSession, calm = false, all = false }: { calm?: boolean; /** Whole plan: every group open. */ all?: boolean; groups: readonly ViewGroup[]; workingGroup: string | undefined; now: string | undefined; session: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
   const [pressed, setPressed] = useState<Readonly<Record<string, boolean>>>({});
   const steps = stepsOf(groups, true, workingGroup);
   // `calm` opens none by default: the groups still to come, which are read as titles.
   // Every group being worked stands open, since marks that lag can leave several in progress at once.
   const current = calm ? [] : groups.filter((group) => steps.get(group.id) === "current");
-  const lit = new Set(calm ? [] : current.length > 0 ? current.map((group) => group.id) : groups.filter((group) => steps.get(group.id) !== "done").slice(0, 1).map((group) => group.id));
+  const lit = new Set(all ? groups.map((group) => group.id) : calm ? [] : current.length > 0 ? current.map((group) => group.id) : groups.filter((group) => steps.get(group.id) !== "done").slice(0, 1).map((group) => group.id));
   return (
     <ul className="sv-flight__groups" aria-label="Groups">
       {groups.map((group) => {

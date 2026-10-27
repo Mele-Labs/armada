@@ -60,15 +60,18 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const planned = plan !== undefined && ed !== undefined;
   const drafting = planned && !plan.approved;
   const approved = planned && plan.approved;
-  // The plan stands whole in Now while it is drafted, with marks on it, or when he asked to see all of it; its groups are not drawn again in Completed and Next.
-  const whole = planned && (drafting || everything.whole || ed.marks.length > 0);
+  // The plan stands whole in Now, to edit, while it is drafted or has marks on it; its groups are not drawn again in Completed and Next. **Whole plan** on
+  // an approved plan leaves each group in its own zone and opens every one, so finished work never reads as Now.
+  const editing = planned && (drafting || ed.marks.length > 0);
+  const whole = planned && (editing || everything.whole);
+  const all = !editing && everything.whole;
   const workingGroup = accountGroupOf(session)?.id;
   // What Fleet sees the Job doing leads Now. Without calls to read it from, the account's line stands under the task being worked as before.
   const detected = detectedOf(session);
   const now = detected === undefined ? accountNowOf(session) : undefined;
   const groups = planned ? viewOf(plan, ed.marks) : [];
   const steps = stepsOf(groups, approved, workingGroup);
-  const by = (step: "done" | "current" | "upcoming") => (whole ? [] : groups.filter((group) => steps.get(group.id) === step));
+  const by = (step: "done" | "current" | "upcoming") => (editing ? [] : groups.filter((group) => steps.get(group.id) === step));
   const finished = by("done");
   // The group with the freshest mark in progress leads; groups with no age keep the plan's order.
   const working = by("current").sort((a, b) => (freshestOf(a) === freshestOf(b) ? 0 : freshestOf(b) > freshestOf(a) ? 1 : -1));
@@ -147,7 +150,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
               return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} /> })} />;
             })}
             {finished.map((group) => (
-              <DoneGroup key={group.id} group={group} session={session} onOpenSession={onOpenSession} />
+              <DoneGroup key={group.id} group={group} open={all} session={session} onOpenSession={onOpenSession} />
             ))}
             {loose.length === 0 ? null : (
               <li className="sv-beat sv-beat--made">
@@ -217,8 +220,8 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           <TurnAccountBlock session={session} live={live} />
         </div>
       )}
-      {working.length === 0 ? null : <FlightRows groups={working} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
-      {!planned || !whole ? null : (
+      {working.length === 0 ? null : <FlightRows all={all} groups={working} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
+      {!editing ? null : (
         <div className="sv-plan" data-drafting={drafting || undefined}>
           {drafting && plan.summary !== undefined ? <p className="sv-blueprint__summary">{plan.summary}</p> : null}
           <div className="sv-plan__groups">
@@ -257,7 +260,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     <SvPanel label="Next" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
       {!hasNext ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
-        {upcoming.length === 0 ? null : <FlightRows calm groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
+        {upcoming.length === 0 ? null : <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
         {workflowNext.length === 0 && ahead.length === 0 ? null : (
           <ol className="sv-beats" aria-label="Ahead">
             {workflowNext.map((name) => (

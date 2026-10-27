@@ -15,7 +15,7 @@ import type { Made } from "./ledger";
 import { PullRow } from "./LedgerRow";
 import { Report } from "./LandingPanel";
 import { ModsMade } from "./ModsPanel";
-import { GroupIssue, StepMark } from "./PlanGroup";
+import { GroupIssue, StepMark, TaskLine } from "./PlanGroup";
 import { stackedRows } from "./pull-stacks";
 import type { RouteStep } from "./route";
 import type { ViewGroup } from "./plan-marks";
@@ -51,12 +51,17 @@ function Lead({ Glyph, said, pulse = false }: { Glyph: LucideIcon; said: string;
 }
 
 /** A step of the workflow: done, the one the Job is at, or to come. What the step made, or still owes, stands under it. */
+/** A workflow step's name alone does not say it is one: the name's tooltip does. */
+const STEP_SAID = { done: "A workflow step, done", now: "The workflow step the Job is on", next: "A workflow step still to come" } as const;
+
 export function StepBeat({ name, state, under }: { name: string; state: "done" | "now" | "next"; under?: ReactNode }) {
   const { Glyph, said } = MARK[state];
   return (
     <li className="sv-beat" data-state={state} data-workflow="">
       <Lead Glyph={Glyph} said={said} pulse={state === "now"} />
-      <span className="sv-beat__label">{name}</span>
+      <Tooltip asChild label={STEP_SAID[state]}>
+        <span className="sv-beat__label">{name}</span>
+      </Tooltip>
       {under === undefined ? null : <div className="sv-beat__made">{under}</div>}
     </li>
   );
@@ -222,7 +227,7 @@ export function MadeList({ session, list, label }: { session: Session; list: rea
 }
 
 /** A finished group: its mark, its title and its tasks as one track, with what it produced beneath it (the issue it worked, its pull requests, the Job it was handed to). */
-export function DoneGroup({ group, session, onOpenSession }: { group: ViewGroup; session: Session; onOpenSession: (id: string) => void }) {
+export function DoneGroup({ group, open = false, session, onOpenSession }: { group: ViewGroup; /** Whole plan: its tasks listed under it. */ open?: boolean; session: Session; onOpenSession: (id: string) => void }) {
   const sessions = useSessions();
   const named = issueOfGroup(session, group.issue);
   const child = childrenOf(sessions, session).find((one) => one.group === group.id)?.session;
@@ -230,7 +235,16 @@ export function DoneGroup({ group, session, onOpenSession }: { group: ViewGroup;
     <li className="sv-beat sv-beat--group" data-state="done" data-group={group.id}>
       <StepMark step="done" />
       <span className="sv-beat__label">{group.title}</span>
-      <TaskTrack tasks={group.tasks} />
+      {open ? null : <TaskTrack tasks={group.tasks} />}
+      {!open ? null : (
+        <div className="sv-beat__made">
+          <ul className="sv-group__tasks" aria-label="Tasks">
+            {group.tasks.map((task) => (
+              <TaskLine key={task.id} task={task} here={false} now={undefined} />
+            ))}
+          </ul>
+        </div>
+      )}
       {named === undefined && child === undefined ? null : (
         <div className="sv-beat__made">
           {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={session.manifestId} />}
