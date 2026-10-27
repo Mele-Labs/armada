@@ -258,8 +258,10 @@ export type ReviewSnapshot = {
   failed: string | undefined;
   /** The finds he asked a Drone for, each a list in the dropdown. Fleet keeps them. */
   finds: readonly Find[];
-  /** `key` of the pull request open in the reader. */
+  /** `key` of the pull request open in the reader. Kept across a reload, and changed only by opening another. */
   open: string | undefined;
+  /** `key`s of the pull requests he opened by link, the latest first. Each is a row above whichever list is chosen, and is kept across a reload. */
+  linked: readonly string[];
   /** The Natural Search box is up, in place of the list. */
   searching: boolean;
   /** Asking before anything that spends tokens runs. One setting for all of it, turned off by "Don't ask again". Machine-local. */

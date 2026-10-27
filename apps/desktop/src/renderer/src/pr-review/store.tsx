@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import type { PullRequestPage, PullRequestState, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
-import { readKept, writeKept } from "@armada/components";
+import { forgetKept, readKept, writeKept } from "@armada/components";
 import { SURFACE } from "@armada/shell";
 
 import type { PullLink } from "../../../shared/pull-link";
@@ -125,6 +125,11 @@ const rowOfStanding = (state: PullRequestState, repository: string): PullReviewR
 const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
 
 export const KEPT_LISTS = "pr-review:lists";
+/** The pull request open in the reader, so a reload opens it again rather than leaving the reader empty. */
+const KEPT_OPEN = "pr-review:open";
+/** The rows of pull requests opened by link, the latest first, so a reload lists them again: no list from the forge holds them. */
+const KEPT_LINKED = "pr-review:linked";
+const LINKED_KEPT = 10;
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -142,6 +147,7 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     failed: undefined,
     finds: [],
     open: undefined,
+    linked: [],
     searching: false,
     askFirst: true,
     spending: undefined,
@@ -286,12 +292,27 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
 
   const open = (key: string | undefined) => {
     set({ open: key });
-    if (key === undefined) return;
+    if (key === undefined) return forgetKept(KEPT_OPEN);
+    writeKept(KEPT_OPEN, key);
     readPage(key);
     acts.readRuns(key);
     const pr = prOf(key);
     if (pr !== undefined) acts.readTools(pr.manifestId);
   };
+
+  /** A pull request opened by link joins the kept rows, at the top. */
+  const keepLinked = (row: PullReviewRow) => {
+    const rows = [row, ...(readKept<PullReviewRow[]>(KEPT_LINKED) ?? []).filter((one) => keyOf(one) !== keyOf(row))].slice(0, LINKED_KEPT);
+    writeKept(KEPT_LINKED, rows);
+    set({ linked: rows.map(keyOf) });
+  };
+
+  // What he had open, and what he opened by link, comes back after a reload as he left it.
+  const linkedRows = readKept<PullReviewRow[]>(KEPT_LINKED) ?? [];
+  linkedRows.forEach(adopt);
+  set({ linked: linkedRows.map(keyOf) });
+  const wasOpen = readKept<string>(KEPT_OPEN);
+  if (wasOpen !== undefined && prOf(wasOpen) !== undefined) open(wasOpen);
 
   return {
     ...acts,
@@ -320,7 +341,9 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
         if (!answer.ok) return { ok: false, said: answer.said };
         const standing = answer.value.state;
         if (standing === "merged" || standing === "closed") return { ok: false, said: `#${link.number} is ${standing}, and only an open pull request is reviewed here.` };
-        adopt(rowOfStanding(answer.value, repository));
+        const row = rowOfStanding(answer.value, repository);
+        adopt(row);
+        keepLinked(row);
       }
       open(held);
       return { ok: true, key: held };
@@ -421,7 +444,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {}, sheet: undefined, places: { state: "unread", list: [], said: undefined } };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, linked: [], searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {}, sheet: undefined, places: { state: "unread", list: [], said: undefined } };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

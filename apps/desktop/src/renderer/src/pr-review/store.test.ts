@@ -837,6 +837,29 @@ test("a pull request a list already holds is opened as it is, not taken twice", 
   expect(store.get().open).toBe(key);
 });
 
+test("a pull request opened by link is still listed and open in the next store, and stays through a fetch", async () => {
+  const first = createReviewStore(fake({ pull: async (_id, number) => ({ ok: true, value: standing(number, { title: "Not on a list" }) }) }).source);
+  await first.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 77 });
+  await settle();
+  const next = createReviewStore(fake().source);
+  await settle();
+  expect(next.get().open).toBe("Mele-Labs/armada#77");
+  expect(next.get().linked).toEqual(["Mele-Labs/armada#77"]);
+  expect(next.get().prs.find((one) => one.key === "Mele-Labs/armada#77")).toMatchObject({ title: "Not on a list", lists: [] });
+  expect(next.get().work["Mele-Labs/armada#77"]!.page.state).toBe("read");
+  next.fetch();
+  await settle();
+  expect(next.get().prs.map((one) => one.key)).toEqual(["Mele-Labs/armada#77"]);
+  expect(next.get().open).toBe("Mele-Labs/armada#77");
+});
+
+test("the pull request open from a list is open again in the next store, and one closed stays closed", async () => {
+  const { store } = await opened();
+  expect(createReviewStore(fake().source).get().open).toBe("Mele-Labs/armada#1");
+  store.open(undefined);
+  expect(createReviewStore(fake().source).get().open).toBeUndefined();
+});
+
 test("a link to a pull request the forge would not give, or one that is no longer open, opens nothing and says why", async () => {
   const gone = createReviewStore(fake({ pull: async () => said("No such pull request") }).source);
   expect(await gone.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 9 })).toEqual({ ok: false, said: "No such pull request" });
