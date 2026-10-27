@@ -216,4 +216,24 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/watches/stop",
     },
+    Route {
+        operation: "delete_watch",
+        method: "POST",
+        path: "/watches/delete",
+    },
+    Route {
+        operation: "try_watch",
+        method: "POST",
+        path: "/watches/try",
+    },
+    Route {
+        operation: "list_watch_recipes",
+        method: "GET",
+        path: "/watches/recipes",
+    },
+    Route {
+        operation: "save_watch_recipe",
+        method: "POST",
+        path: "/watches/recipes/save",
+    },
 ];

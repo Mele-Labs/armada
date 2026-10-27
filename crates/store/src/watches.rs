@@ -40,6 +40,10 @@ pub struct KeptWatch {
     pub ended_at: Option<String>,
     /// The notice it owes its Job and has not told.
     pub unsaid: Option<String>,
+    /// What a terminal watch waits for in its Job's terminal. Its `command` is empty.
+    pub in_terminal: Option<String>,
+    /// `in_terminal` is a regular expression.
+    pub regex: bool,
 }
 
 /// What one reading was.
@@ -88,7 +92,8 @@ pub struct KeptWatchWhole {
 }
 
 const COLUMNS: &str = "id, session_id, name, command, recipe, environment, every_seconds, \
-    gives_up_after_seconds, follows, state, live, started_at, reported, changed_at, ended_at, unsaid";
+    gives_up_after_seconds, follows, state, live, started_at, reported, changed_at, ended_at, unsaid, \
+    in_terminal, regex";
 
 fn texts(written: String) -> Vec<String> {
     serde_json::from_str(&written).unwrap_or_default()
@@ -120,6 +125,8 @@ fn watch_of(row: &Row<'_>) -> rusqlite::Result<KeptWatch> {
         changed_at: row.get(13)?,
         ended_at: row.get(14)?,
         unsaid: row.get(15)?,
+        in_terminal: row.get(16)?,
+        regex: row.get(17)?,
     })
 }
 
@@ -129,7 +136,7 @@ impl Store {
         self.conn
             .execute(
                 &format!(
-                    "INSERT INTO watches ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16) \
+                    "INSERT INTO watches ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18) \
                      ON CONFLICT (id) DO UPDATE SET state = ?10, live = ?11, reported = ?13, changed_at = ?14, \
                      ended_at = ?15, unsaid = ?16"
                 ),
@@ -150,6 +157,8 @@ impl Store {
                     watch.changed_at,
                     watch.ended_at,
                     watch.unsaid,
+                    watch.in_terminal,
+                    watch.regex,
                 ],
             )
             .map_err(fault("keeping a watch"))?;
@@ -268,6 +277,19 @@ impl Store {
             )
             .optional()
             .map_err(fault("reading a Job's first live watch"))?)
+    }
+
+    /// Forget `id` and everything kept of it: readings, set-asides, verdicts and notices. `false`
+    /// where nothing held it. Whether it may go, live or not, is Fleet's.
+    pub fn delete_watch(&mut self, id: &str) -> Result<bool, WriteError> {
+        let doing = "deleting a watch";
+        let tx = self.conn.transaction().map_err(fault(doing))?;
+        for table in ["watch_readings", "watch_set_aside", "watch_verdicts", "watch_notices"] {
+            tx.execute(&format!("DELETE FROM {table} WHERE watch_id = ?1"), [id]).map_err(fault(doing))?;
+        }
+        let deleted = tx.execute("DELETE FROM watches WHERE id = ?1", [id]).map_err(fault(doing))?;
+        tx.commit().map_err(fault(doing))?;
+        Ok(deleted == 1)
     }
 
     /// Every watch that owes its Job a notice, the oldest first.

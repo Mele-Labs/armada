@@ -114,8 +114,9 @@ fn reachable(inventory: &str, source: &Path) -> String {
         };
         let kind = field(body, "kind").unwrap_or_default();
         let description = field(body, "description").unwrap_or_default();
+        let always_loaded = field(body, "always_loaded").as_deref() == Some("true");
         into.push_str(&format!(
-            "    Reachable {{ operation: {}, kind: {}, description: {} }},\n",
+            "    Reachable {{ operation: {}, kind: {}, description: {}, always_loaded: {always_loaded} }},\n",
             quoted(name),
             quoted(&kind),
             quoted(&description),

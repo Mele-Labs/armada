@@ -1,0 +1,15 @@
+[operations.delete_watch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Delete one of this Job's ended watches, with its readings, verdicts and parts set aside, when it is no longer worth reading. Body: watch (its id). A live watch is refused: stop it first"
+notes = """
+`POST /watches/delete`, body `DeleteWatch`: `watch` and an optional `session_id`. Answers 200 with the Job's `WatchList` after, live and ended, as `watches.changed` carries it, and publishes that event.
+
+**An ended watch only.** A live one is a 409 `fleet.watch_live`, "This watch is live. Stop it first."; `stop_watch` ends it. A notice an ended watch still owed goes with it.
+
+**Whose watch**, as `stop_watch`'s: a placed Job deletes its own only, and another Job's id or one nothing holds is a 404 `fleet.no_such_watch`. Bridge places no Job, so the person's delete control deletes any.
+
+`agent_access` is `Yes`, and Bridge's delete control is the same route.
+"""
+always_loaded = true
