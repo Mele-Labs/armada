@@ -1,5 +1,5 @@
-// A command a Session gave the person opens a terminal that takes keys, docked above the Session's message
-// box with a handle on its top edge. Over the `session-run-in-terminal` scenario.
+// A command a Session gave the person opens a terminal that takes keys right under the command, in place,
+// as tall as what it has printed up to 24 lines. Over the `session-run-in-terminal` scenario.
 
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
@@ -18,7 +18,7 @@ const steps: Step[] = [
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened" },
   { look: inside(run, button("Run", { exact: true })), say: "Under Commands, the command with Run" },
   { press: inside(run, button("Run", { exact: true })), say: "Run" },
-  { look: screen, say: "The terminal docks above the box, and takes the keys" },
+  { look: screen, say: "The terminal opens under the command, and takes the keys" },
   { look: inside(pane, text(/dash\.cloudflare\.com\/oauth2\/auth/)), say: "The sign in link" },
   { later: inside(pane, text("Successfully logged in.")), say: "Signed in" },
   { look: inside(pane, text("Would you like to register a workers.dev subdomain now?")), say: "The first prompt waits for a key" },
@@ -33,8 +33,8 @@ const steps: Step[] = [
   { press: inside(thread, button(/^Exit 0/)), say: "The lines it was sent" },
   { look: inside(thread, role("log", "Sent to the Job")), say: "The last lines, as plain text" },
   { look: inside(thread, text(/The store is live at https:\/\/armada-store\.mele-labs\.workers\.dev/)), say: "The Job acts on it" },
-  { press: inside(pane, button("Close")), say: "Closed" },
-  { press: inside(thread, button("Show terminal")), say: "The block's mark brings it back" },
+  { press: inside(pane, button("Close")), say: "Closed, and the command keeps its mark" },
+  { press: inside(run, button("Show terminal")), say: "The command's mark brings it back" },
   { look: pane, say: "The same run, ended" },
 ];
 

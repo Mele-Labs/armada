@@ -863,7 +863,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const batched = useMemo(() => batchNotices(shown, noticeRules), [shown, noticeRules]);
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
-  // A run drawn as a terminal: the pane is the view's own, docked above its box.
+  // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner, dockRunKey(session.id, "page")), dockRunKey(session.id, "page")), draft?.terminalRuns !== undefined, deck?.shell === true);
   if (draft === undefined) return null;
