@@ -95,7 +95,7 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     layout === "a" && project === undefined ? (
       <GroupedPane
         {...hosts}
-        label={VIEW_MARKS[view].said}
+        label={`View ${VIEW_MARKS[view].said}`}
         head={<h2 className="deck-pane__title">{VIEW_MARKS[view].said}</h2>}
         groups={groupsOf(snap.projects, bands, { view, by: "project", repo: undefined, prefix: mixed, keepEmpty: false })}
         bands={bands}
@@ -106,7 +106,7 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     ) : layout === "b" ? (
       <GroupedPane
         {...hosts}
-        label="Tasks"
+        label="Tasks grouped"
         head={<Toolbar bands={bands} repo={repo} by={by} onBy={setBy} />}
         below={<NamingProject bands={bands} />}
         groups={groupsOf(snap.projects, bands, { view, by, repo, prefix: mixed && repo === undefined, keepEmpty: view === "all" })}
