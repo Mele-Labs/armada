@@ -164,7 +164,7 @@ A copy Fleet left out for not fitting is reached by its file.
 
 **A workflow is drawn as its steps**, top to bottom.
 Each step shows its label, what ends it, when it is passed over, and the words the agent is told there.
-The page carries none of the gate boxes, retries or passes the old editor offered, since nothing reads them, and it edits no Trigger.
+The page carries none of the gate boxes, retries or passes the old editor offered, since nothing reads them.
 
 | To | He |
 |---|---|

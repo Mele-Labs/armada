@@ -20,7 +20,7 @@ The settings that describe **this installation** — its resources, its timing, 
 
 There is no project-level version of *how loudly Armada notifies you*; the notion does not parse.
 
-**Your Kit travels. The Machine does not.** A [Trigger](trigger.md) set for this machine is Machine's, kept in `~/Library/Application Support/Armada/machine/triggers/`.
+**Your Kit travels. The Machine does not.**
 
 **Port block granule is the one knowing exception.** A project-level version does parse — a monorepo of compose stacks wants a larger granule than a repo of libraries — so the test above says Kit.
 

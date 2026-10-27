@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *Steps added to one Job*.
+`docs/concepts/trigger.md (deleted)`, *Steps added to one Job*.
 **Additive only**: one optional field on `AddedStep`, one on `ChooseTriggerFix`, one 422 and no new operation.
 A failed added Script with `repair` on is repaired as a Trigger is, and the repair branch is deleted once its fix is placed.
 

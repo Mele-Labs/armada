@@ -41,7 +41,7 @@ A reset checks Armada's definition as a save does before it removes the file and
 A `file` that is not left out in that place is 422 `fleet.no_such_workflow_definition`.
 Fleet reads the three places again before answering, as `save_workflow` does. No store migration, no event.
 
-**Agents.** The read is `Yes`, `get_workflow`'s terms; the three acts are `Bridge only`, `remove_trigger`'s reason: they are the person's press.
+**Agents.** The read is `Yes`, `get_workflow`'s terms; the three acts are `Bridge only`: they are the person's press.
 
 **The event stream is untouched**, so this makes the unbounded sink neither better nor worse.
 

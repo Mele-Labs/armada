@@ -133,4 +133,4 @@ If teams want one set of pieces across many repositories without committing to e
 **That a person reads what they import.**
 Add is the one ask, so a package from someone careless is trusted on one press.
 
-Out of scope: Triggers keep their own levels (`docs/concepts/trigger.md`), and a machine's settings stay in `settings.json`.
+Out of scope: a machine's settings stay in `settings.json`.

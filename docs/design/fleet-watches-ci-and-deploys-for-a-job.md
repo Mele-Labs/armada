@@ -73,7 +73,7 @@ Two rules every script keeps, because the line has no word for either (`docs/spi
 ### Recipes
 
 A recipe names the command, how often to run it, and when to give up.
-It sits where a [Trigger](../concepts/trigger.md) does: in the repository's `.armada/watches/`, read from `main` only, or in `~/Library/Application Support/Armada/machine/watches/`, which does not travel.
+It sits in the repository's `.armada/watches/`, read from `main` only, or in `~/Library/Application Support/Armada/machine/watches/`, which does not travel.
 The most specific level wins, and its copy replaces the others whole.
 
 ```yaml
