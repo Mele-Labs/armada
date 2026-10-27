@@ -10,13 +10,13 @@
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #
-# **A merge that does not build is left out and the restart run once more.**
-# Git merges branches cut before something was deleted without a word, and
-# `cargo install` then fails on code no branch of its own would have. When
-# `--restart` fails with compiler errors, the branches that changed the files
-# they name are dropped (`skipped (does not build: <files>)`), the rest merged
-# again, and `scripts/restart` run a second time. Nothing in that touches a file
-# the errors name, or a second failure, is reported as it is.
+# **What a restart cannot take is left out, and it goes again until it builds.**
+# A failed `--restart` drops the branches its output names: the migration
+# guard's `leave out <branch>: <why>` lines, else the branches that changed a
+# file the compiler errors name (git merges branches cut before a deletion
+# without a word). The rest are merged again and `scripts/restart` run again.
+# A failure that names no branch still merged is reported as it is. Before each
+# restart, `Armada/preview-left-out` records the commit and why each was skipped.
 #
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, and `ARMADA_PREVIEW_RESTART` the
