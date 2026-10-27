@@ -267,7 +267,7 @@ pub use amending::{
 };
 pub use building::{
     BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging,
-    FleetBuildReport,
+    FleetBuildReport, LeftOutBranch,
 };
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,

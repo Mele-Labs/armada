@@ -85,6 +85,16 @@ impl Rig {
         }
     }
 
+    /// `scripts/preview` has recorded the branches it left out of the build at `commit`, and why.
+    fn left_out(&self, commit: &str, reasons: &[(&str, &str)]) {
+        let mut text = format!("{commit}\n");
+        for (branch, why) in reasons {
+            let tip = git(self.home.path(), &["rev-parse", branch]);
+            text.push_str(&format!("{branch}\t{tip}\t{why}\n"));
+        }
+        fs::write(self.support().join("preview-left-out"), text).unwrap();
+    }
+
     fn manifest(&self) -> String {
         self.fleet.repositories().first().expect("served").manifest().id().as_str().to_string()
     }
@@ -304,6 +314,51 @@ async fn a_session_is_told_when_its_branch_drops_out_of_the_build() {
     let said = rig.thread_of(&holding).await;
     assert_eq!(said.len(), 2, "{said:?}");
     assert!(said[1].ends_with("\narmada/work is not in it."), "{}", said[1]);
+}
+
+#[tokio::test]
+async fn a_session_whose_branch_is_left_out_is_told_why_even_when_never_told_it_was_in() {
+    let rig = a_rig();
+    let holding = rig.a_hosted_session().await;
+    rig.holds_branch(&holding, "armada/work").await;
+    rig.holds_branch(&holding, "armada/other").await;
+    rig.on_file(true);
+    rig.left_out(&rig.build, &[("armada/other", "conflict: apps/a.ts, apps/b.ts")]);
+
+    rig.fleet.builds_told().await;
+
+    let short = &rig.build[..7];
+    let said = rig.thread_of(&holding).await;
+    let [said] = said.as_slice() else { panic!("one notice: {said:?}") };
+    assert!(
+        said.contains(&format!(
+            "Fleet and Bridge now run the preview at {short}.\n\
+             armada/other is not in it: conflict: apps/a.ts, apps/b.ts.\n\
+             armada/work is in it."
+        )),
+        "{said}"
+    );
+
+    let root = rig.home.path();
+    let rebuilt = commit_on(root, "preview", &rig.build, "another branch merged");
+    rig.on_file_at(&rebuilt, true);
+    rig.left_out(&rebuilt, &[("armada/other", "conflict: apps/a.ts, apps/b.ts")]);
+    rig.fleet.builds_told().await;
+    assert_eq!(rig.thread_of(&holding).await.len(), 1, "it was told this branch was out");
+}
+
+#[tokio::test]
+async fn a_reason_recorded_for_another_build_is_not_told() {
+    let rig = a_rig();
+    let holding = rig.a_hosted_session().await;
+    rig.holds_branch(&holding, "armada/other").await;
+    rig.on_file(true);
+    let older = git(rig.home.path(), &["rev-parse", "main"]);
+    rig.left_out(&older, &[("armada/other", "conflict: apps/a.ts")]);
+
+    rig.fleet.builds_told().await;
+
+    assert!(rig.thread_of(&holding).await.is_empty());
 }
 
 #[tokio::test]

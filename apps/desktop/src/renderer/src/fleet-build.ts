@@ -27,6 +27,7 @@ export function fleetBuildOf(
     ...(report.stage === undefined ? {} : { stage: report.stage }),
     drones: [],
     ...(report.failed === undefined ? {} : { failed: report.failed }),
+    ...(report.left_out === undefined ? {} : { leftOut: report.left_out }),
     onChoose: change,
     onRestart: (adopt) => change(report.on, adopt),
   };

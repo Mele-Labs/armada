@@ -1,7 +1,7 @@
 // The Fleet panel's build section in the states it takes: aligned with main, behind it, a preview
 // ahead of it, a restart under way, and a restart that failed. The seeds are `../fleet-build.tsx`'s,
 // by name. The walks `fleetBuildAligned`, `fleetBuildBehind`, `fleetBuildPreviewAhead`,
-// `fleetBuildRefreshing` and `fleetBuildFailed` play them.
+// `fleetBuildRefreshing`, `fleetBuildFailed` and `preview-left-out` play them.
 
 import { repository, workflow } from "@armada/screens/src/fixtures/repository";
 
@@ -19,3 +19,4 @@ export const s085FleetBuildBehind = quiet("fleet/build-behind", "Fleet runs on m
 export const s086FleetBuildPreviewAhead = quiet("fleet/build-preview-ahead", "Fleet runs on the preview, four commits ahead of main");
 export const s087FleetBuildRefreshing = quiet("fleet/build-refreshing", "The preview is being refreshed and Fleet restarts on it");
 export const s089FleetBuildFailed = quiet("fleet/build-failed", "The last restart did not take");
+export const s332FleetPreviewLeftOut = quiet("fleet/preview-left-out", "Fleet runs on the preview, built without two in-flight branches");
