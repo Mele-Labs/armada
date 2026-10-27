@@ -59,10 +59,12 @@ export class SessionAttention {
     const entered: Entered[] = [];
     for (const session of sessions) {
       if (session.state !== "live") continue;
+      // A paused Job is parked by him: what it waits on is read, so Resume does not tell it again, but nothing is told while it is paused.
+      const paused = session.hosted?.paused !== undefined;
       for (const item of waitsOf(session)) {
         const key = `${session.id}:${item.id}`;
         now.add(key);
-        if (this.seeded && !this.waiting.has(key)) {
+        if (this.seeded && !paused && !this.waiting.has(key)) {
           entered.push({ sessionId: session.id, name: session.title ?? "Job", item });
         }
       }

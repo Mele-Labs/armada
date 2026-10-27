@@ -13,7 +13,7 @@ import { attachmentsOf, type Session, type SessionAttachment } from "@armada/scr
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
 import { accountNowOf } from "../../session-activity";
-import { stateOf } from "../../session-state";
+import { beneathPause, stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
 import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
@@ -142,6 +142,11 @@ const one = (text: string) => text.split("\n")[0]!.trim();
 
 function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
+  // A paused Job keeps the glyph of what it was doing beside its pause mark, drawn calm: nothing is asked of him.
+  if (state === "paused") {
+    const beneath = beneathPause(session);
+    return { Glyph: sessionGlyphOf(beneath.state), said: `Paused, ${beneath.said.toLowerCase()}`, tone: "calm" };
+  }
   const tone: Tone = state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
@@ -258,7 +263,9 @@ export function shipOf(input: Inputs): Ship {
     const stuck = stateOf(session).state === "stuck";
     const redPr = pr !== undefined && pr.stage === "red";
     const idle = session.turn.state === "idle";
-    const alarm = mark.tone === "bad" || (redPr && idle);
+    const paused = session.paused === true && session.dead === undefined;
+    // A paused Job is parked by him: a red pull request on it alarms nothing until he resumes it.
+    const alarm = !paused && (mark.tone === "bad" || (redPr && idle));
     const slot = slots.find((one) => one.held.state === "hosted_session" && one.held.session_id === session.id)?.slot ?? attachmentsOf(session, "branch")[0]?.slot;
     const root = rootOf(session.manifestId);
     const call = callOf((item) => sessionIdOf(item.key) === session.id);
@@ -274,7 +281,7 @@ export function shipOf(input: Inputs): Ship {
       ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       ...(session.mod === true ? { mod: true as const } : {}),
       mark,
-      phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
+      phase: needs || (alarm && !stuck) ? "needs" : stuck || paused || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
       needs,
       alarm,
       ...(stateOf(session).state === "replied" ? { reply: true as const } : {}),
@@ -363,7 +370,7 @@ export function shipOf(input: Inputs): Ship {
     subjects
       .filter((one) => {
         const session = one.kind === "session" ? sessions.find((s) => s.id === one.id) : undefined;
-        return session !== undefined && (stateOf(session).state === "waiting" || session.start !== undefined);
+        return session !== undefined && session.paused !== true && (stateOf(session).state === "waiting" || session.start !== undefined);
       })
       .map((one) => one.key),
   );
