@@ -213,8 +213,10 @@ chain = ["nav:projects", "act:add_task"]
 `hotkey` is a chord in the registry's spelling, modifiers in the order `⌃⌥⇧⌘` and then one key: `⇧⌘F`, `⌥↑`, `Esc`, `F5`.
 **A blank is `{name}`**, lower case letters, digits and `_` starting with a letter, in a prompt, an address or a line.
 Fleet reads them off the text and hands each row's `blanks` to Bridge once each, in the order they first appear, so Bridge never parses a prompt to find them.
-A brace that holds anything else, such as `awk '{print $1}'` or `{a,b}`, is text.
+A brace that holds anything else, such as `awk '{print $1}'` or `{a,b}`, is text, and so is one right after a `$`, as in `${HOME}`.
+A row that writes `blanks` itself is refused, because they are read off the text.
 A chain names rows and takes no blanks.
+**A mod row's palette id is `cmd:<mod name>:<slug of its name>`**, lower case with each run of anything but letters and digits one `-`, and a chain that names its own row's id is refused.
 
 Each of these is a problem that names the row and the line its `[[command]]` opens on: a row with no name or with none of the four keys, a row with more than one, an empty prompt, address, line or chain, a blank spelled `{Pr}` or a `{` with no `}`, an address that is not `http` or `https` or whose host holds a blank, a name or an alias that another row already has, and a hotkey that is not a chord.
 At least one `[[command]]` and at most 16 KiB. Bridge draws the rows from `commands` in `validate_mod`'s answer; nothing here runs a row.
