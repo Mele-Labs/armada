@@ -182,6 +182,8 @@ export * from "./foundations/Tokens/Tokens";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export * from "./compositions/WorkflowCreator/exports";
+export * from "./compositions/WorkflowManager/WorkflowManager";
+export * from "./compositions/WorkflowManager/types";
 export { EveryMark, LevelMark, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export type { TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
