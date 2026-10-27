@@ -22,6 +22,40 @@ impl Authoring for FakeDaemon {
         })
     }
 
+    async fn delete_workflow_copy(
+        &self,
+        copy: ipc::WorkflowCopy,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowCopyDeleted, Refusal> {
+        Ok(ipc::WorkflowCopyDeleted {
+            workflow_id: copy.workflow_id,
+            source: copy.source,
+            file: String::from("bug.json"),
+            runs_from: None,
+        })
+    }
+
+    async fn reset_workflow_copy(
+        &self,
+        copy: ipc::WorkflowCopy,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<WorkflowSaved, Refusal> {
+        Ok(WorkflowSaved {
+            workflow_id: copy.workflow_id,
+            scope: ipc::WorkflowScope::Kit,
+            file: String::from("bug.json"),
+            replaced: true,
+            runs_from: None,
+        })
+    }
+
+    async fn mark_not_a_drift(
+        &self,
+        marked: ipc::MarkNotADrift,
+    ) -> Result<ipc::NotADriftMarked, Refusal> {
+        Ok(ipc::NotADriftMarked { nudge: marked.nudge })
+    }
+
     async fn save_trigger(
         &self,
         save: ipc::SaveTrigger,

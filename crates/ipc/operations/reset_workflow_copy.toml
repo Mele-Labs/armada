@@ -1,0 +1,16 @@
+[operations.reset_workflow_copy]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Rewrite the file of a repository's or Kit's copy of a workflow with Armada's definition of the same id"
+notes = """
+`POST /workflows/reset`, since 27 Oct 2026, with `?manifest_id=`. The body is `WorkflowCopy`, as `delete_workflow_copy` takes it. The answer is a `WorkflowSaved`, since a reset is a save: the copy's file replaced with Armada's text, and `runs_from`.
+
+**Checked as a save is.** Armada's definition is fitted against this repository's Checks and this machine's models before anything is written, so a reset is refused with the loader's own sentence, 422 `fleet.workflow_unfit`, where it names a Check the repository does not declare; nothing is written. Fleet reads the three places again before answering.
+
+422 `fleet.workflow_is_armadas` where `source` is `armada`. 422 `fleet.workflow_not_carried` where Armada carries no definition of the id: a copy of something Armada does not ship has nothing to be reset to. 422 `fleet.no_such_workflow_definition` where that place holds no definition of the id; a reset never makes a copy, which `save_workflow` does. 500 `fleet.workflow_unwritable`.
+
+**Making Kit's copy of one of Armada's needs no route of its own.** `get_workflow` with `source=armada` reads the text, and `save_workflow` with `scope: kit` and `overwrite: false` writes it under the same id; 422 `fleet.workflow_exists` where Kit already holds one.
+
+`agent_access` is `Bridge only`: what is written decides what every Job here is asked, and the person has asked for this one.
+"""

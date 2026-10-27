@@ -60,6 +60,8 @@ pub mod door;
 /// repository**, where `reading` is a read of the file — a `run` line naming a
 /// deleted script parses perfectly and says nothing.
 mod drift;
+/// What the Workflows page reads beside a definition's text, and its acts on a copy.
+mod workflow_page;
 /// The Manifest file itself, read and written — the half of Journey 9's
 /// *Editing* a person acts with, where `reading` is the half that reports.
 mod editing;
@@ -283,6 +285,9 @@ pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
 };
 pub use configured::ManifestConfig;
+pub use workflow_page::{
+    MarkNotADrift, NotADriftMarked, StepNudge, StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
+};
 pub use drift::{
     Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed,
 };

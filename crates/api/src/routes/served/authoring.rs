@@ -21,12 +21,32 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/workflows/left_out",
     },
+    Route {
+        operation: "get_workflow_steps",
+        method: "GET",
+        path: "/workflows/steps",
+    },
     // The act in the last segment, beside `/manifest/save_file`'s. Under
     // `/workflows` with the reads, since what it writes is what they list.
     Route {
         operation: "save_workflow",
         method: "POST",
         path: "/workflows/save",
+    },
+    Route {
+        operation: "delete_workflow_copy",
+        method: "POST",
+        path: "/workflows/delete",
+    },
+    Route {
+        operation: "reset_workflow_copy",
+        method: "POST",
+        path: "/workflows/reset",
+    },
+    Route {
+        operation: "mark_not_a_drift",
+        method: "POST",
+        path: "/workflows/not_a_drift",
     },
     Route {
         operation: "list_triggers",

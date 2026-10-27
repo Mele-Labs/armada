@@ -156,6 +156,73 @@ pub(crate) async fn get_workflow<D: Queries>(
     }
 }
 
+/// One definition step by step: the words, what ends each, and the nudges that still count.
+/// A 422 where this repository holds none by that id and source.
+pub(crate) async fn get_workflow_steps<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<OneWorkflow>,
+) -> Response {
+    match served
+        .daemon()
+        .get_workflow_steps(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Delete a repository's or Kit's copy of a workflow.
+pub(crate) async fn delete_workflow_copy<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::WorkflowCopy = match ipc::decode_body("a workflow copy to delete", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().delete_workflow_copy(asked, scope.manifest()).await {
+        Ok(deleted) => answer(StatusCode::OK, &deleted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Rewrite a copy with Armada's definition of the same id. **200**, for `save_workflow`'s reason.
+pub(crate) async fn reset_workflow_copy<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::WorkflowCopy = match ipc::decode_body("a workflow copy to reset", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().reset_workflow_copy(asked, scope.manifest()).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Mark one nudge not a drift.
+pub(crate) async fn mark_not_a_drift<D: Authoring>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::MarkNotADrift = match ipc::decode_body("a nudge to mark", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().mark_not_a_drift(asked).await {
+        Ok(marked) => answer(StatusCode::OK, &marked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What one repository's catalogue left out of its workflows, each with why — #425.
 pub(crate) async fn list_left_out_workflows<D: Queries>(
     State(served): State<Served<D>>,

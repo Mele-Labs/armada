@@ -148,14 +148,12 @@ where
     }
 
     /// The newest nudges sent for one step of a workflow, newest first, those marked not a drift
-    /// included (they do not count). For the workflow's page, which another route serves.
-    #[allow(dead_code)]
+    /// included (they do not count). For the workflow's page.
     pub(crate) async fn step_nudges(&self, workflow: &str, source: &str, step: &str) -> Vec<KeptWorkflowNudge> {
         self.store().lock().await.workflow_nudges(workflow, source, step, RECENT_NUDGES).unwrap_or_default()
     }
 
     /// Mark a nudge not a drift, so it stops counting. Whether there was one.
-    #[allow(dead_code)]
     pub(crate) async fn nudge_not_a_drift(&self, id: i64) -> bool {
         let at = self.now().as_str().to_string();
         self.store().lock().await.dismiss_workflow_nudge(id, &at).unwrap_or(false)

@@ -334,6 +334,15 @@ impl Queries for FakeDaemon {
         Err(self.fault("the fake holds no definition files"))
     }
 
+    async fn get_workflow_steps(
+        &self,
+        _workflow_id: ipc::WorkflowId,
+        _source: Option<String>,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowSteps, Refusal> {
+        Err(self.fault("the fake holds no definition files"))
+    }
+
     async fn list_left_out_workflows(
         &self,
         _manifest_id: Option<ipc::ManifestId>,

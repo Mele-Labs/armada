@@ -236,6 +236,16 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<ipc::WorkflowDefinition, Refusal>> + Send;
 
+    /// `get_workflow_steps` — one definition step by step, for the Workflows page: each step's
+    /// words, what ends it, and the nudges that still count. `source` reads as on
+    /// [`Queries::get_workflow`].
+    fn get_workflow_steps(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ipc::WorkflowSteps, Refusal>> + Send;
+
     /// `list_left_out_workflows` — the Kit and carried definitions one repository runs
     /// without, and why. Absent `manifest_id` is the repository Fleet started in.
     fn list_left_out_workflows(

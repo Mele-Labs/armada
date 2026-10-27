@@ -223,6 +223,15 @@ pub struct SavedWorkflow {
     pub replaced: bool,
 }
 
+/// Why a workflow copy was not deleted. **Nothing was left half deleted** in either.
+#[derive(Debug)]
+pub enum WorkflowNotRemoved {
+    /// That place holds no file that defines the id.
+    NotHere,
+    /// A file could not be deleted.
+    Unwritable { file: String, cause: std::io::Error },
+}
+
 /// Why a Trigger was not saved. **Nothing was written** in any of these.
 #[derive(Debug)]
 pub enum TriggerNotSaved {
@@ -277,6 +286,17 @@ pub trait Locating: Send + Sync {
         _asked: &ipc::SaveWorkflow,
     ) -> Result<(), WorkflowNotSaved> {
         Ok(())
+    }
+    /// Delete every file in `scope`'s folder that defines `id`, and answer the first. **Found by
+    /// the id a file declares**, as a save finds the one it replaces. **Nothing is deleted by
+    /// default**, so a locator that holds no files refuses.
+    fn remove_workflow(
+        &self,
+        _root: &Path,
+        _scope: ipc::WorkflowScope,
+        _id: &str,
+    ) -> Result<String, WorkflowNotRemoved> {
+        Err(WorkflowNotRemoved::NotHere)
     }
     /// Read the three places again, leniently: a definition that does not fit
     /// is set aside with its reason and the rest stand.

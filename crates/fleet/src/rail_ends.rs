@@ -3,9 +3,7 @@
 
 use crate::rail::{Fit, RailStep};
 
-/// What ends the step at `at`, or `None` where nothing observable does. Served by the workflow's page,
-/// which another route adds.
-#[allow(dead_code)]
+/// What ends the step at `at`, or `None` where nothing observable does. Served by the workflow's page.
 pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<&'static str> {
     let step = steps.get(at)?;
     if step.delivers {
@@ -40,7 +38,6 @@ fn entry(step: &RailStep) -> Option<&'static str> {
 }
 
 /// When a step is passed over instead of walked, for a step that can be.
-#[allow(dead_code)]
 pub(crate) fn passed_over_when(step: &RailStep) -> Option<&'static str> {
     step.walks.then_some("nothing would be seen")
 }

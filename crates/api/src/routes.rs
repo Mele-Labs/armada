@@ -115,8 +115,24 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::repositories::list_left_out_workflows::<D>),
         )
         .route(
+            "/workflows/steps",
+            get(crate::repositories::get_workflow_steps::<D>),
+        )
+        .route(
             "/workflows/save",
             post(crate::repositories::save_workflow::<D>),
+        )
+        .route(
+            "/workflows/delete",
+            post(crate::repositories::delete_workflow_copy::<D>),
+        )
+        .route(
+            "/workflows/reset",
+            post(crate::repositories::reset_workflow_copy::<D>),
+        )
+        .route(
+            "/workflows/not_a_drift",
+            post(crate::repositories::mark_not_a_drift::<D>),
         )
         .route("/triggers", get(crate::repositories::list_triggers::<D>))
         .route(

@@ -62,7 +62,7 @@ const LANDS_LEGAL: &[&str] = &["pull_request", "report", "spike", "document"];
 /// to know whether those names resolve; [`crate::ResolvedWorkflow`] is the type
 /// that has been checked against a Manifest, and it is the only one that can be
 /// built from this.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkflowDef {
     path: PathBuf,
     id: WorkflowId,
