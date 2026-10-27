@@ -2,6 +2,7 @@
 // its own that names the command, and finishing with the act's verb. The mod list and the `commands` Fleet checked are served by a
 // fake window the way the real one serves them; the rows are not handed to the palette.
 
+import { Eye } from "lucide-react";
 import { createRoot, type Root } from "react-dom/client";
 import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -97,8 +98,8 @@ function mount(open = true, picked: string | null = null) {
     onClose: () => {},
     shownStudio: null,
     surfaces: [
-      { id: "reviews", label: "Reviews" },
-      { id: "projects", label: "Projects" },
+      { id: "reviews", label: "Reviews", icon: Eye },
+      { id: "projects", label: "Projects", icon: Eye },
     ],
     checkoutRunSheet: NOTHING_YET.checkoutRunSheet,
     failing: null,
@@ -212,7 +213,7 @@ test("a key the file names runs a row that has blanks by opening the palette on 
   // The rows load behind the window; the key is allowed once they have.
   await vi.waitFor(async () => {
     await userEvent.keyboard("{Meta>}{Alt>}s{/Alt}{/Meta}");
-    await expect.element(page.getByRole("combobox", { name: "Pull request" })).toBeVisible({ timeout: 300 });
+    await expect.element(page.getByRole("combobox", { name: "Pull request" }), { timeout: 300 }).toBeVisible();
   });
   await expect.element(dialog()).toHaveTextContent("Security pass on a pull request");
   await expect.element(dialog()).toHaveTextContent(/Next\s*↵/);
@@ -223,7 +224,7 @@ test("a key he recorded for another row wins over the file's key, which then run
   mount(false, "/Users/me/armada");
   await vi.waitFor(async () => {
     await userEvent.keyboard("{Meta>}{Alt>}s{/Alt}{/Meta}");
-    await expect.element(panel()).toHaveTextContent('"command":"pnpm audit"', { timeout: 300 });
+    await expect.element(panel(), { timeout: 300 }).toHaveTextContent('"command":"pnpm audit"');
   });
   expect(page.getByRole("dialog", { name: "Command palette" }).elements()).toHaveLength(0);
 });

@@ -1,6 +1,7 @@
 // A key given to a palette row runs that row from anywhere in Bridge, with the palette down, as ↵ would. The window reads it
 // before a field or a terminal can keep it, and leaves a key that is being recorded in Settings to the recorder.
 
+import { Eye } from "lucide-react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -36,7 +37,7 @@ function mountClosed(open = false) {
     open,
     onClose: () => {},
     shownStudio: null,
-    surfaces: [{ id: "reviews", label: "Reviews" }],
+    surfaces: [{ id: "reviews", label: "Reviews", icon: Eye }],
     checkoutRunSheet: NOTHING_YET.checkoutRunSheet,
     failing: null,
     live: true,
