@@ -31,7 +31,7 @@ function steps(): Step[] {
     { look: button(/^Pull request #2874 /), say: "A pull request linked to the task, on its second line. Its glyph says open" },
     { press: button("Unlink #2874"), say: "A chip's own x unlinks it" },
     { key: "Enter", on: role("group", "Draft the App Store text"), say: "Keys only. Enter on a card edits its title in place" },
-    { type: " @", into: role("textbox", "Title of Draft the App Store text"), say: "Tags work in a title too: @ a Job already at work on it" },
+    { type: "Draft the App Store text @", into: role("textbox", "Title of Draft the App Store text"), say: "Tags work in a title too: @ a Job already at work on it" },
     { press: role("option", "Write the App Store listing"), say: "Pick one" },
     { key: "Enter", on: role("textbox", "Title of Draft the App Store text"), say: "Enter keeps it. The Job holds the task now, as Dispatch would: its chip on the second line, and the done ask when it finishes" },
     { key: "u", on: role("group", "Draft the App Store text"), say: "u unlinks its Job" },

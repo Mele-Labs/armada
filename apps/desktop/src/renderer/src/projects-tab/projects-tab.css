@@ -92,8 +92,16 @@
 .projects-add { display: flex; align-items: flex-start; gap: var(--space-2); }
 .projects-add .armada-textarea-field { flex: 1 1 0; min-width: 0; }
 /* The field at rest is one line; as a composer it is a few, with its row of buttons under the words. */
-.projects-add__box { position: relative; display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.projects-add__tools { display: flex; gap: var(--space-1); }
+.projects-add__box { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; }
+/* As a composer the box is the field: one frame round the words and the buttons, the field's own ring on the frame. */
+.projects-add[data-composer] .projects-add__box {
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+.projects-add[data-composer] .projects-add__box:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); background: var(--bg-raised); }
+.projects-add[data-composer] .projects-add__box .armada-textarea { border: 0; background: transparent; outline: 0; }
+.projects-add__tools { display: flex; gap: var(--space-1); padding: 0 var(--space-1) var(--space-1); }
 .projects-add__tool { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); height: var(--h-control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--fg-subtle); cursor: pointer; }
 .projects-add__tool:hover { background: var(--bg-hover); color: var(--fg-default); }
 .projects-add__tool:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
