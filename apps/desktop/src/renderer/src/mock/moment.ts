@@ -60,6 +60,8 @@ export type MockDraft = {
   issuesTab?: IssuesSeed;
   /** Each repository's projects as Fleet lists them, which the mock Fleet answers the Projects routes from. A window with none has no Projects tab. */
   projectsTab?: ProjectsSeed;
+  /** The pull requests, issues, tasks and commands the palette lists, and what it starts with pinned and opened. Mock only: Fleet serves the palette none of them yet. */
+  palette?: import("../palette-fixtures").PaletteFixtures;
   /** Each repository's pull requests, by Manifest id, which the Projects tab's link search offers. */
   projectsPulls?: Readonly<Record<string, readonly import("../projects-tab/model").LinkedPull[]>>;
   /** The pages of pull requests a Session's ledger holds, as `readReviewPage` serves them and `writeReview` moves them, built per window. Mock only. */

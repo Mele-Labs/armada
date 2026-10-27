@@ -746,6 +746,7 @@ export function App() {
           live={live}
           repositories={repositories.map((one) => ({ root: one.root, label: repositoryLabel(one, repositories) }))}
           picked={state.repository}
+          showing={showingNow}
           acts={{
             pickRepository: pick,
             compose: () => newSession(),

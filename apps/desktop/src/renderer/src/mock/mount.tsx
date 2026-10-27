@@ -70,6 +70,8 @@ import { issuesTabSource } from "./slices/issues";
 import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
+import { PaletteFixturesFrom } from "../palette-fixtures";
+import { seedPaletteMemory } from "../palette-memory";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
 export type Mounted = {
@@ -192,6 +194,8 @@ export function mountApp(
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
+  // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
+  seedPaletteMemory({ pinned: chosen.draft?.palette?.pinned ?? [], recent: chosen.draft?.palette?.recent ?? [] });
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -217,6 +221,7 @@ export function mountApp(
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
+                                  <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
@@ -245,6 +250,7 @@ export function mountApp(
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>
                                     </AccountFrom>
+                                  </PaletteFixturesFrom>
                                   </AreasFrom>
                               </ClashesFrom>
                             </SessionsHere>

@@ -6,9 +6,18 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { Puzzle } from "lucide-react";
-import { Palette, type PaletteRepository, type PaletteSurface } from "@armada/shell";
-import type { PaletteDispatch } from "@armada/components";
+import { useState } from "react";
+import { GitPullRequest, Puzzle } from "lucide-react";
+import { Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSession, type PaletteSurface } from "@armada/shell";
+import { Dialog, sessionGlyphOf, type PaletteDispatch, type PaletteStep } from "@armada/components";
+import type { Session } from "@armada/screens/src/draft/sessions";
+import { useSessionsDraft } from "./sessions-draft";
+import { useDeck } from "./cockpit/deck/store";
+import { stateOf } from "./session-state";
+import { usePaletteFixtures } from "./palette-fixtures";
+import { nextOpens, opensLabel, remember, rowOf, usePaletteMemory } from "./palette-memory";
+import { pageOf } from "./palette-page";
+import { carryOutRow } from "./palette-rows";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
 import { SETTINGS_PALETTE } from "@armada/settings";
@@ -41,6 +50,8 @@ export type PaletteMountProps = {
    * `App` holds nothing for them.
    */
   acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
+  /** The page showing, by its surface id: the palette heads its results with that page's own acts. */
+  showing?: string;
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
   /** What a typed link names, and opening it. `link-routes.ts`. */
@@ -61,6 +72,7 @@ export function PaletteMount({
   live,
   repositories,
   picked,
+  showing,
   acts,
   dispatch,
   linkRoutes,
@@ -68,7 +80,44 @@ export function PaletteMount({
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
   const sessions = useSessions();
+  const draft = useSessionsDraft();
+  const fixtures = usePaletteFixtures();
+  const memory = usePaletteMemory();
+  const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
+  const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
+  // A Job that asks to be stopped is confirmed over the palette, which stays up behind it.
+  const [stopping, setStopping] = useState<string | null>(null);
+  const stopped = stopping === null ? undefined : sessions.find((one) => one.id === stopping);
+
+  const world = {
+    fixtures, jobs: sessions, draft, job,
+    openSession: askToOpenSession, compose: acts.compose, surface: acts.surface,
+    openLink: (address: string) => linkRoutes.open(address),
+    startJob: (words: string) => dispatch.onDispatch(words, "session"),
+  };
+  // A command with a blank asks for it in the palette's second step, listing what can fill it.
+  const commandStep = (id: string): PaletteStep | undefined =>
+    id !== SECURITY_REVIEW
+      ? undefined
+      : {
+          title: "Pull request to review",
+          sections: [{ id: "pulls", title: "Open pull requests" }],
+          entries: fixtures.pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: "pulls", label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
+          searched: "every open pull request",
+          onChoose: (entry) => {
+            const one = fixtures.pulls.find((held) => `pull:${held.repo}:${held.number}` === entry.id);
+            if (one !== undefined) dispatch.onDispatch(`Review #${one.number} ${one.title} for security`, "session");
+          },
+        };
+  const choose = (choice: PaletteChoice): void => {
+    if (choice.of === "setting" && choice.id === PALETTE_OPENS_ROW) return nextOpens();
+    const row = rowOf(choice);
+    if (row !== undefined) remember(row);
+    if (choice.of === "pull" || choice.of === "issue" || choice.of === "task" || choice.of === "command" || choice.of === "page" || choice.of === "on") return carryOutRow(choice, world);
+    carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) });
+  };
   return (
+    <>
     <Palette
       open={open}
       onClose={onClose}
@@ -103,17 +152,60 @@ export function PaletteMount({
       picked={picked}
       // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
-      sessions={sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
+      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
-      settings={SETTINGS_PALETTE}
+      settings={[...SETTINGS_PALETTE, { id: PALETTE_OPENS_ROW, label: "Palette opens with", value: opensLabel(memory.opens) }]}
+      page={pageOf(showing ?? "", job)}
+      pulls={fixtures.pulls}
+      issues={fixtures.issues}
+      tasks={fixtures.tasks}
+      commands={fixtures.commands}
+      commandStep={commandStep}
+      pinned={memory.pinned}
+      recent={memory.recent}
+      opens={memory.opens}
+      onConfirmAct={(id) => id === "job-stop" && job !== undefined && setStopping(job.id)}
+      onConfirmOn={(target, action) => action === "stop" && setStopping(target.slice("session:".length))}
       dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
       absent={absentIn({ failing: failing !== null })}
-      onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) })
-      }
+      onChoose={choose}
     />
+    <Dialog
+      open={stopped !== undefined}
+      title={`Stop ${stopped?.title ?? "this Job"}?`}
+      confirmLabel="Stop"
+      onConfirm={() => {
+        if (stopping !== null) draft?.stop?.(stopping);
+        setStopping(null);
+        onClose();
+      }}
+      onCancel={() => setStopping(null)}
+    >
+      The running turn ends. The Job rests and takes the next message.
+    </Dialog>
+    </>
   );
 }
 
+/** The row `Settings` carries for what the empty query shows, which cycles on a press until the setting has a page. */
+const PALETTE_OPENS_ROW = "palette-opens";
+
+/** The command whose blank is a pull request. */
+const SECURITY_REVIEW = "security-review";
+
+/** A Job as a palette row: where it works, how it stands, and the pull request it holds. */
+function jobRow(one: Session): PaletteSession {
+  const { state, said } = stateOf(one);
+  const held = one.attachments.find((attachment) => attachment.kind === "pull_request");
+  return {
+    id: one.id,
+    label: one.title ?? one.address ?? one.id,
+    aliases: [one.id, ...(one.address === undefined ? [] : [one.address])],
+    ...(one.manifestId === undefined ? {} : { repo: one.manifestId }),
+    state: { icon: sessionGlyphOf(state), said, ...(state === "working" ? { pulsing: true as const } : {}) },
+    ...(one.paused === true ? { paused: true } : {}),
+    ...(held === undefined || held.kind !== "pull_request" ? {} : { pull: held.number }),
+  };
+}
