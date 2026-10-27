@@ -168,6 +168,12 @@ impl Step {
         self.instructions.as_deref()
     }
 
+    /// This step, told `from`'s words in place of its own. For comparing two reads of a definition
+    /// that may differ in a step's words and in nothing else.
+    pub(crate) fn told_words_of(&self, from: &Step) -> Step {
+        Step { instructions: from.instructions.clone(), ..self.clone() }
+    }
+
     pub fn evidence_type(&self) -> Option<EvidenceType> {
         self.evidence_type
     }

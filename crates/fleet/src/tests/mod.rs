@@ -128,6 +128,7 @@ mod start_card;
 mod session_rail;
 mod walk_rail;
 mod workflow_page;
+mod workflow_changes;
 mod auto_land;
 mod session_pause;
 mod session_pause_waiting;

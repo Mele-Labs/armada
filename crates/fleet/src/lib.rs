@@ -347,6 +347,8 @@ mod worktrees_kept;
 /// keep those files, rather than their helpers, the thing that grows.
 mod wire;
 mod workflow_page;
+/// A change to a workflow an agent drafts for the owner to approve.
+mod workflow_changes;
 pub mod workspaces;
 
 #[cfg(test)]

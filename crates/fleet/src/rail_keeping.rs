@@ -133,17 +133,27 @@ where
     }
 
     /// Keep a nudge against the step it was sent for, so the workflow's page can list it. A fault is
-    /// the page's loss and not the Job's, so it is said and nothing more.
-    pub(crate) async fn nudge_kept(&self, manifest: &str, workflow: &str, step: &RailStep, session: &str, skip: rail::Skip) {
-        let Some(source) = self.repositories().serving(manifest).and_then(|served| {
+    /// the page's loss and not the Job's, so it is said and nothing more. **The place the definition
+    /// came from, where the nudge was new**: a Job drifts from a step in one way once.
+    pub(crate) async fn nudge_kept(
+        &self,
+        manifest: &str,
+        workflow: &str,
+        step: &RailStep,
+        session: &str,
+        skip: rail::Skip,
+    ) -> Option<&'static str> {
+        let source = self.repositories().serving(manifest).and_then(|served| {
             served.workflows().get(&WorkflowId::carried(Ulid::carried(workflow))).map(|found| found.source().as_wire())
-        }) else {
-            return;
-        };
+        })?;
         let at = self.now().as_str().to_string();
         let kept = self.store().lock().await.keep_workflow_nudge(workflow, source, &step.id, session, skip.fact(), &at);
-        if let Err(why) = kept {
-            self.session_warned(session, "the nudge was not kept against its step", why);
+        match kept {
+            Ok(new) => new.then_some(source),
+            Err(why) => {
+                self.session_warned(session, "the nudge was not kept against its step", why);
+                None
+            }
         }
     }
 

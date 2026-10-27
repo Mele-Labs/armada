@@ -298,6 +298,17 @@ pub trait Locating: Send + Sync {
     ) -> Result<String, WorkflowNotRemoved> {
         Err(WorkflowNotRemoved::NotHere)
     }
+    /// Delete one file in `scope`'s folder, a copy that was left out, and answer its name. **Found by
+    /// the file and not by the id it declares**: a file that will not parse declares none. A file
+    /// outside that folder is refused. **Nothing is deleted by default.**
+    fn remove_workflow_file(
+        &self,
+        _root: &Path,
+        _scope: ipc::WorkflowScope,
+        _file: &Path,
+    ) -> Result<String, WorkflowNotRemoved> {
+        Err(WorkflowNotRemoved::NotHere)
+    }
     /// Read the three places again, leniently: a definition that does not fit
     /// is set aside with its reason and the rest stand.
     fn workflows(&self, root: &Path, manifest: &Manifest, workspaces: &[Manifest]) -> Catalogued;

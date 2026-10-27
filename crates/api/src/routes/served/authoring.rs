@@ -49,6 +49,41 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workflows/not_a_drift",
     },
     Route {
+        operation: "list_workflow_changes",
+        method: "GET",
+        path: "/workflows/changes",
+    },
+    Route {
+        operation: "ask_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/ask",
+    },
+    Route {
+        operation: "suggest_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/suggest",
+    },
+    Route {
+        operation: "approve_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/approve",
+    },
+    Route {
+        operation: "dismiss_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/dismiss",
+    },
+    Route {
+        operation: "send_back_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/send_back",
+    },
+    Route {
+        operation: "propose_workflow_to_armada",
+        method: "POST",
+        path: "/workflows/propose",
+    },
+    Route {
         operation: "list_triggers",
         method: "GET",
         path: "/triggers",

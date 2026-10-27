@@ -18,7 +18,7 @@ use crate::tests::repositories::{a_fleet_reading, code, served, Fixture, Planted
 use crate::tests::tmp::TempDir;
 
 /// Propose waits for a reply, Plan records the plan, Walk is walked or passed over, Deliver merges.
-const STAGED: &str = "version: 1\nworkflow_id: staged\nname: staged\nsteps:
+pub(super) const STAGED: &str = "version: 1\nworkflow_id: staged\nname: staged\nsteps:
   - id: propose
     label: Propose
     instructions: \"Say what you took the request to mean.\"
@@ -48,12 +48,12 @@ const STAGED: &str = "version: 1\nworkflow_id: staged\nname: staged\nsteps:
     advance_gate: auto
 ";
 
-fn at(place: &str, file: &str) -> PathBuf {
+pub(super) fn at(place: &str, file: &str) -> PathBuf {
     PathBuf::from(format!("/{place}/workflows/{file}"))
 }
 
 /// The three places read: Armada's carried set, then whatever `written` adds.
-fn read(written: Vec<config::Written>) -> Catalogued {
+pub(super) fn read(written: Vec<config::Written>) -> Catalogued {
     let mut all = config::carried();
     all.extend(written);
     let (workflows, left_out, files) = config::Catalogue::of(all, &config::Roster::of(["haiku", "sonnet", "opus"]))
@@ -75,7 +75,7 @@ async fn holding(written: Vec<config::Written>) -> (TempDir, Arc<Planted>, Arc<F
     (home, planted, fleet, app)
 }
 
-fn staged_in_repository() -> Vec<config::Written> {
+pub(super) fn staged_in_repository() -> Vec<config::Written> {
     vec![config::Written::in_repository(at("repo", "staged.json"), STAGED.to_string())]
 }
 
@@ -87,7 +87,7 @@ fn decoded(body: &[u8]) -> ipc::WorkflowSteps {
     ipc::decode("steps", body).expect("a workflow's steps")
 }
 
-async fn nudged(fleet: &Fixture, workflow: &str, source: &str, step: &str, job: &str, fact: &str, when: &str) {
+pub(super) async fn nudged(fleet: &Fixture, workflow: &str, source: &str, step: &str, job: &str, fact: &str, when: &str) {
     fleet.store().lock().await.keep_workflow_nudge(workflow, source, step, job, fact, when).expect("a nudge is kept");
 }
 
@@ -340,7 +340,7 @@ async fn a_copy_is_reset_with_armadas_text_replacing_it() {
     );
 }
 
-fn carried_id(id: &str) -> core_model::WorkflowId {
+pub(super) fn carried_id(id: &str) -> core_model::WorkflowId {
     core_model::WorkflowId::carried(core_model::Ulid::carried(id))
 }
 
@@ -371,4 +371,83 @@ async fn a_reset_armadas_definition_does_not_fit_is_refused_with_the_loaders_sen
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(code(&body), "fleet.workflow_unfit");
     assert!(String::from_utf8_lossy(&body).contains("needs `lint`"));
+}
+
+/// **A copy that was left out for not fitting is reached by its file**, since it declares no id Fleet can
+/// read. It is found among the ones left out in that place, and no other file is touched.
+#[tokio::test]
+async fn a_copy_left_out_is_deleted_by_its_file_and_a_file_not_left_out_is_not() {
+    let (home, planted, fleet, app) = holding(Vec::new()).await;
+    let mut catalogue = read(Vec::new());
+    catalogue.left_out.push(ipc::LeftOutWorkflow {
+        id: None,
+        source: "repository".to_string(),
+        file: "/repo/.armada/workflows/broken.json".to_string(),
+        said: "will not parse".to_string(),
+        instead: None,
+    });
+    planted.will_read(catalogue);
+    fleet.workflows_changed(&home.path().to_string_lossy());
+    planted.will_remove(Ok("/repo/.armada/workflows/broken.json".to_string()));
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/workflows/delete",
+        r#"{"workflow_id":"broken","source":"repository","file":"/repo/.armada/workflows/broken.json"}"#,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let deleted: ipc::WorkflowCopyDeleted = ipc::decode("deleted", &body).expect("an answer");
+    assert_eq!(deleted.file, "/repo/.armada/workflows/broken.json");
+    assert_eq!(planted.removals(), [(ipc::WorkflowScope::Repository, "/repo/.armada/workflows/broken.json".to_string())]);
+
+    for (source, file) in [("repository", "/repo/.armada/workflows/other.json"), ("kit", "/repo/.armada/workflows/broken.json")] {
+        let asked = format!(r#"{{"workflow_id":"broken","source":"{source}","file":"{file}"}}"#);
+        let (status, body) = call(&app, "POST", "/workflows/delete", &asked).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{source} {file}");
+        assert_eq!(code(&body), "fleet.no_such_workflow_definition");
+    }
+    assert_eq!(planted.removals().len(), 1, "only the left-out file was asked to go");
+}
+
+/// **A reset of a copy left out checks Armada's definition before the copy goes**, so Armada's not
+/// fitting here leaves what was there; and then removes that file and writes Armada's in its place.
+#[tokio::test]
+async fn a_copy_left_out_is_reset_after_armadas_definition_is_checked_and_before_it_is_written() {
+    let carried = config::carried().into_iter().find(|one| one.text().contains("\"workflow_id\": \"feature\"")).expect("carried");
+    let file = "/kit/workflows/feature.json";
+    let asked = format!(r#"{{"workflow_id":"feature","source":"kit","file":"{file}"}}"#);
+    let left_out = |planted: &Planted, fleet: &Fixture, home: &TempDir| {
+        let mut catalogue = read(Vec::new());
+        catalogue.left_out.push(ipc::LeftOutWorkflow {
+            id: None,
+            source: "kit".to_string(),
+            file: file.to_string(),
+            said: "will not parse".to_string(),
+            instead: None,
+        });
+        planted.will_read(catalogue);
+        fleet.workflows_changed(&home.path().to_string_lossy());
+    };
+
+    let (home, planted, fleet, app) = holding(Vec::new()).await;
+    left_out(&planted, &fleet, &home);
+    planted.will_check(vec![Err(WorkflowNotSaved::Unfit { why: "step `build` needs `lint`".to_string() })]);
+    let (status, body) = call(&app, "POST", "/workflows/reset", &asked).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{}", String::from_utf8_lossy(&body));
+    assert_eq!(code(&body), "fleet.workflow_unfit");
+    assert!(planted.removals().is_empty(), "the copy stays where Armada's does not fit");
+    assert!(planted.saves().is_empty());
+
+    planted.will_remove(Ok(file.to_string()));
+    planted.will_save(Ok(SavedWorkflow { id: carried_id("feature"), file: file.to_string(), replaced: false }));
+    let (status, body) = call(&app, "POST", "/workflows/reset", &asked).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    assert_eq!(planted.removals(), [(ipc::WorkflowScope::Kit, file.to_string())]);
+    assert_eq!(
+        planted.saves(),
+        [ipc::SaveWorkflow { scope: ipc::WorkflowScope::Kit, definition: carried.text().to_string(), overwrite: true }]
+    );
 }

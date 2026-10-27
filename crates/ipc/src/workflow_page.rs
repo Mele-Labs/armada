@@ -59,6 +59,10 @@ pub struct WorkflowCopy {
     pub workflow_id: WorkflowId,
     /// `repository` or `kit`. `armada` is refused: Armada's own is not a copy.
     pub source: String,
+    /// The file of a copy that was left out for not fitting, as `list_left_out_workflows` names it. A
+    /// copy left out is found by its file and not by the id it declares, which may be none Fleet can read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
 }
 
 /// What `delete_workflow_copy` removed.

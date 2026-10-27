@@ -223,6 +223,114 @@ pub(crate) async fn mark_not_a_drift<D: Authoring>(
     }
 }
 
+/// `?workflow_id=` and `?source=` on `list_workflow_changes`, beside `?manifest_id=`.
+#[derive(serde::Deserialize)]
+pub(crate) struct ChangesOf {
+    workflow_id: String,
+    source: String,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// The open changes to one workflow in one place.
+pub(crate) async fn list_workflow_changes<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ChangesOf>,
+) -> Response {
+    match served
+        .daemon()
+        .list_workflow_changes(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Ask an agent to rewrite a workflow as the owner words it. **200**: the change is drafting.
+pub(crate) async fn ask_workflow_change<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::AskWorkflowChange = match ipc::decode_body("a change to ask for", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().ask_workflow_change(asked, scope.manifest()).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Ask for new words for one step.
+pub(crate) async fn suggest_workflow_change<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SuggestWorkflowChange = match ipc::decode_body("a change to suggest", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().suggest_workflow_change(asked, scope.manifest()).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write a ready change.
+pub(crate) async fn approve_workflow_change<D: Authoring>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::WorkflowChangeRef = match ipc::decode_body("a change to approve", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().approve_workflow_change(asked).await {
+        Ok(approved) => answer(StatusCode::OK, &approved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Put an open change aside.
+pub(crate) async fn dismiss_workflow_change<D: Authoring>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::WorkflowChangeRef = match ipc::decode_body("a change to dismiss", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().dismiss_workflow_change(asked).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Send a change back with notes.
+pub(crate) async fn send_back_workflow_change<D: Authoring>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::SendBackWorkflowChange = match ipc::decode_body("a change to send back", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_back_workflow_change(asked).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Start a Job on Armada's own repository that lands a definition.
+pub(crate) async fn propose_workflow_to_armada<D: Authoring>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::ProposeToArmada = match ipc::decode_body("a workflow to propose", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().propose_workflow_to_armada(asked).await {
+        Ok(proposed) => answer(StatusCode::OK, &proposed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What one repository's catalogue left out of its workflows, each with why — #425.
 pub(crate) async fn list_left_out_workflows<D: Queries>(
     State(served): State<Served<D>>,

@@ -92,6 +92,23 @@ pub fn remove(
     Ok(first.display().to_string())
 }
 
+/// Delete one file of `scope`'s folder: a copy that was left out, found by its name. **A file that is not
+/// in that folder is not this one's to delete**, whatever it is called.
+pub fn remove_file(root: &Path, kit: &Path, scope: WorkflowScope, file: &Path) -> Result<String, WorkflowNotRemoved> {
+    let dir = match scope {
+        WorkflowScope::Repository => root.join(WORKFLOWS),
+        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
+    };
+    if file.parent() != Some(dir.as_path()) || !file.is_file() {
+        return Err(WorkflowNotRemoved::NotHere);
+    }
+    std::fs::remove_file(file).map_err(|cause| WorkflowNotRemoved::Unwritable {
+        file: file.display().to_string(),
+        cause,
+    })?;
+    Ok(file.display().to_string())
+}
+
 fn checked(
     root: &Path,
     kit: &Path,

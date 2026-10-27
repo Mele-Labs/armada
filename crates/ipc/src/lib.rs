@@ -62,6 +62,8 @@ pub mod door;
 mod drift;
 /// What the Workflows page reads beside a definition's text, and its acts on a copy.
 mod workflow_page;
+/// A change to a workflow an agent drafts for the owner to approve.
+mod workflow_changes;
 /// The Manifest file itself, read and written — the half of Journey 9's
 /// *Editing* a person acts with, where `reading` is the half that reports.
 mod editing;
@@ -285,6 +287,10 @@ pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
 };
 pub use configured::ManifestConfig;
+pub use workflow_changes::{
+    AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ProposeToArmada, SendBackWorkflowChange, SuggestWorkflowChange,
+    WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+};
 pub use workflow_page::{
     MarkNotADrift, NotADriftMarked, StepNudge, StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
 };

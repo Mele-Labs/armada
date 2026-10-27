@@ -151,12 +151,16 @@ where
         }
     }
 
-    /// Whether this repository holds a definition of the id in that place.
+    /// Whether this repository holds the copy: a definition of the id in that place or, where the copy
+    /// names its file, one that was left out for not fitting and is at that file in that place.
     fn holds_copy(&self, served: &Served, copy: &WorkflowCopy) -> bool {
-        served
-            .files()
-            .iter()
-            .any(|file| file.id().as_str() == copy.workflow_id.as_str() && file.source().as_wire() == copy.source)
+        match &copy.file {
+            Some(file) => served.left_out().iter().any(|left| left.source == copy.source && &left.file == file),
+            None => served
+                .files()
+                .iter()
+                .any(|file| file.id().as_str() == copy.workflow_id.as_str() && file.source().as_wire() == copy.source),
+        }
     }
 
     /// Delete the copy's file, and hold what is left.
@@ -170,9 +174,11 @@ where
         if !self.holds_copy(served, &copy) {
             return Err(self.no_such_definition(id, Some(&copy.source)));
         }
-        let file = self
-            .locating()
-            .remove_workflow(Path::new(served.root()), scope, id)
+        let removed = match &copy.file {
+            Some(file) => self.locating().remove_workflow_file(Path::new(served.root()), scope, Path::new(file)),
+            None => self.locating().remove_workflow(Path::new(served.root()), scope, id),
+        };
+        let file = removed
             .map_err(|why| match why {
                 WorkflowNotRemoved::NotHere => self.no_such_definition(id, Some(&copy.source)),
                 WorkflowNotRemoved::Unwritable { file, cause } => Refusal::Fault(
@@ -207,10 +213,21 @@ where
                 .with_field("workflow_id", WireValue::Str(id.to_string())),
             ));
         };
-        self.save_workflow_file(
-            ipc::SaveWorkflow { scope, definition: armadas.text().to_string(), overwrite: true },
-            served,
-        )
+        let save = ipc::SaveWorkflow { scope, definition: armadas.text().to_string(), overwrite: true };
+        if let Some(left_out) = &copy.file {
+            // **Checked before the copy goes**, so Armada's not fitting here leaves what was there.
+            self.check_workflow_file(&save, served)?;
+            self.locating()
+                .remove_workflow_file(Path::new(served.root()), scope, Path::new(left_out))
+                .map_err(|why| match why {
+                    WorkflowNotRemoved::NotHere => self.no_such_definition(id, Some(&copy.source)),
+                    WorkflowNotRemoved::Unwritable { file, cause } => Refusal::Fault(
+                        WireError::raised(UNWRITABLE, format!("{file} could not be deleted: {cause}"), self.run_id())
+                            .with_field("file", WireValue::Str(file)),
+                    ),
+                })?;
+        }
+        self.save_workflow_file(save, served)
     }
 
     /// Mark a nudge not a drift.

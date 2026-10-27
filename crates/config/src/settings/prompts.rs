@@ -27,6 +27,7 @@ pub const PROMPT_HELM_VOICE: Words = Words("prompts.helmVoice");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
 pub const PROMPT_TEST_MAP_READING: Words = Words("prompts.testMapReading");
+pub const PROMPT_WORKFLOW_CHANGE: Words = Words("prompts.workflowChange");
 
 /// Every prompt handle in the table, so a caller supplying or reading them
 /// all cannot miss one.
@@ -48,17 +49,19 @@ pub enum PromptSection {
     Helm,
     Retros,
     TestMap,
+    Workflows,
 }
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 6] = [
+    pub const ORDER: [PromptSection; 7] = [
         PromptSection::Judge,
         PromptSection::Scouts,
         PromptSection::Autopilot,
         PromptSection::Helm,
         PromptSection::Retros,
         PromptSection::TestMap,
+        PromptSection::Workflows,
     ];
 
     /// Where the section stands in [`PromptSection::ORDER`]. Exhaustive, so a
@@ -71,6 +74,7 @@ impl PromptSection {
             PromptSection::Helm => 3,
             PromptSection::Retros => 4,
             PromptSection::TestMap => 5,
+            PromptSection::Workflows => 6,
         }
     }
 
@@ -83,6 +87,7 @@ impl PromptSection {
             PromptSection::Helm => "Helm",
             PromptSection::Retros => "Retros",
             PromptSection::TestMap => "Test map",
+            PromptSection::Workflows => "Workflows",
         }
     }
 }
@@ -222,5 +227,12 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Reading a file",
         "What the model is asked when main moves and a changed file no collector can measure is read for the tests that exercise it. {file} is the file's path, {text} its text, {tests} the test files it may choose from, {bytes} how much of the text it is shown and {most} how many test files it is offered. Its answer is read as one path a line, so keep that.",
         &["file", "text", "tests", "bytes", "most"],
+    ),
+    prompt(
+        PromptSection::Workflows,
+        PROMPT_WORKFLOW_CHANGE,
+        "Changing a workflow",
+        "What the model is asked when the owner types a change to a workflow, or Armada drafts new words for a step that keeps drifting. {definition} is the workflow's file as it stands, {request} what is wanted of it and {attempt} an earlier draft with what was wrong with it, empty the first time. Its answer is read as the whole new definition, so keep that.",
+        &["definition", "request", "attempt"],
     ),
 ];

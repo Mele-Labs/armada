@@ -239,6 +239,20 @@ impl Locating for Planted {
             .expect("a case that removes says what the removal answers")
     }
 
+    fn remove_workflow_file(
+        &self,
+        _root: &Path,
+        scope: ipc::WorkflowScope,
+        file: &Path,
+    ) -> Result<String, WorkflowNotRemoved> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, file.display().to_string()));
+        self.removing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that removes says what the removal answers")
+    }
+
     fn check_workflow(
         &self,
         _root: &Path,

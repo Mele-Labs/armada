@@ -10,7 +10,7 @@ use fleet::repositories::{WorkflowNotRemoved, WorkflowNotSaved};
 use ipc::{SaveWorkflow, WorkflowScope};
 use tokio::sync::mpsc;
 
-use crate::authoring::{check, remove, save};
+use crate::authoring::{check, remove, remove_file, save};
 use crate::setup::{workflows_again, Setup, KIT_WORKFLOWS, WORKFLOWS};
 use crate::tests::setup::{a_repository, roster};
 use crate::tests::TempDir;
@@ -544,6 +544,35 @@ fn removing_from_a_place_with_no_folder_or_only_a_broken_file_deletes_nothing() 
     let broken = remove(repository.path(), kit.path(), &roster(), WorkflowScope::Kit, "x").expect_err("defines nothing");
     assert!(matches!(broken, WorkflowNotRemoved::NotHere), "{broken:?}");
     assert_eq!(files_in(&in_kit), ["x.json"]);
+}
+
+/// **A copy that will not parse is deleted by its file**, which `remove` by id cannot reach, and only a
+/// file in that place's folder: a path elsewhere, or a folder, is not this one's to delete.
+#[test]
+fn removing_a_file_deletes_a_broken_copy_in_that_place_and_nothing_outside_it() {
+    let repository = a_repository();
+    let kit = TempDir::new();
+    let in_kit = kit.path().join(KIT_WORKFLOWS);
+    let in_repository = repository.path().join(WORKFLOWS);
+    std::fs::create_dir_all(&in_kit).expect("kit folder");
+    std::fs::create_dir_all(&in_repository).expect("repository folder");
+    std::fs::write(in_kit.join("broken.json"), "workflow_id: [").expect("a broken file");
+    std::fs::write(in_repository.join("broken.json"), "workflow_id: [").expect("a broken file");
+
+    let elsewhere = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_repository.join("broken.json"))
+        .expect_err("another place's file");
+    assert!(matches!(elsewhere, WorkflowNotRemoved::NotHere), "{elsewhere:?}");
+    let escaping = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_kit.join("../broken.json"))
+        .expect_err("not in the folder");
+    assert!(matches!(escaping, WorkflowNotRemoved::NotHere), "{escaping:?}");
+    assert_eq!(files_in(&in_kit), ["broken.json"]);
+
+    let gone = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_kit.join("broken.json")).expect("removed");
+    assert!(gone.ends_with("broken.json"));
+    assert!(files_in(&in_kit).is_empty());
+    assert_eq!(files_in(&in_repository), ["broken.json"], "the other place is not touched");
+    let again = remove_file(repository.path(), kit.path(), WorkflowScope::Kit, &in_kit.join("broken.json")).expect_err("gone");
+    assert!(matches!(again, WorkflowNotRemoved::NotHere), "{again:?}");
 }
 
 /// **Making my copy of one of Armada's needs no route of its own**: its text saved to Kit under the

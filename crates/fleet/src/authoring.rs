@@ -11,6 +11,7 @@
 //! writes has settled.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Authoring, Refusal};
@@ -175,6 +176,56 @@ where
 
     async fn mark_not_a_drift(&self, marked: ipc::MarkNotADrift) -> Result<ipc::NotADriftMarked, Refusal> {
         self.nudge_marked(marked).await
+    }
+
+    async fn ask_workflow_change(
+        self: Arc<Self>,
+        asked: ipc::AskWorkflowChange,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_asked(asked, manifest_id).await
+    }
+
+    async fn suggest_workflow_change(
+        self: Arc<Self>,
+        asked: ipc::SuggestWorkflowChange,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_suggested(asked, manifest_id).await
+    }
+
+    async fn list_workflow_changes(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChanges, Refusal> {
+        self.workflow_changes_listed(&workflow_id, &source, manifest_id.as_ref()).await
+    }
+
+    async fn approve_workflow_change(
+        &self,
+        change: ipc::WorkflowChangeRef,
+    ) -> Result<ipc::WorkflowChangeApproved, Refusal> {
+        self.workflow_change_approved(change).await
+    }
+
+    async fn dismiss_workflow_change(&self, change: ipc::WorkflowChangeRef) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_dismissed(change).await
+    }
+
+    async fn send_back_workflow_change(
+        self: Arc<Self>,
+        back: ipc::SendBackWorkflowChange,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_sent_back(back).await
+    }
+
+    async fn propose_workflow_to_armada(
+        self: Arc<Self>,
+        proposed: ipc::ProposeToArmada,
+    ) -> Result<ipc::ArmadaProposed, Refusal> {
+        self.workflow_proposed_to_armada(proposed).await
     }
 
     async fn save_trigger(

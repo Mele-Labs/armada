@@ -159,6 +159,15 @@ impl Locating for Locator {
         crate::authoring::remove(root, &self.kit, &self.roster(), scope, id)
     }
 
+    fn remove_workflow_file(
+        &self,
+        root: &Path,
+        scope: ipc::WorkflowScope,
+        file: &Path,
+    ) -> Result<String, fleet::repositories::WorkflowNotRemoved> {
+        crate::authoring::remove_file(root, &self.kit, scope, file)
+    }
+
     fn workflows(
         &self,
         root: &Path,

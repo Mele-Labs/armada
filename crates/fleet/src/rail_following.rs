@@ -110,7 +110,9 @@ where
             let sent = self.told_by_fleet(&id, &rail::nudge(&name, step, skip), ipc::Notice::RailNudge).await;
             if matches!(sent, Ok(true)) {
                 self.rail_nudged(&id, at as u32).await;
-                self.nudge_kept(manifest.as_str(), workflow, step, &id, skip).await;
+                if let Some(source) = self.nudge_kept(manifest.as_str(), workflow, step, &id, skip).await {
+                    self.drift_suggested(manifest.as_str(), workflow, source, &step.id).await;
+                }
             }
         }
     }
