@@ -1,7 +1,7 @@
 // The cards of the Projects tab and the field that adds a task. A card is a neutral tile: its state's glyph and its title, with
 // the issues a task carries beside the title and its repository as a quiet chip where the list holds more than one; on the right,
-// in columns that hold their place, a done ask's two answers and its acts: Dispatch, add a subtask, delete. The Job holding it
-// and the pull requests it carries stand on a line under the title. A task's subtasks stand under it as smaller cards, one level
+// in columns that hold their place, a done ask's two answers and its acts: Dispatch (a subtask has it too), add a subtask, delete.
+// The Job holding it and the pull requests it carries stand on a line under the title. A task's subtasks stand under it as smaller cards, one level
 // deep. A ⌘-click on a card selects it and a ⇧-click selects the range from the card last clicked, in any repository. A card is
 // dragged to move it among its own project's, as ⌥↑ and ⌥↓ do. Links are made by the tags written in the add field and in a
 // title being edited. The add field names the repository the task is in and, optionally, its project.
@@ -188,24 +188,23 @@ function Card({ row, sub, repository, movable, adding, editing, state, sessions,
       ) : null}
       {/* The acts, always drawn, each in its own column at the card's right edge; a card without one keeps its place. */}
       <span className="projects-row__acts">
-        {row.kind === "task" && !sub ? (
-          <>
-            <Tooltip label="Dispatch" shortcut={PROJECTS_KEYS.dispatch} asChild>
-              <button type="button" tabIndex={-1} className="projects-row__act" data-dispatch-task aria-label={`Dispatch ${row.title}`} onClick={() => onDispatch([row])}>
-                <Send size={16} strokeWidth={2} aria-hidden />
-              </button>
-            </Tooltip>
-            <Tooltip label="Add a subtask" shortcut={PROJECTS_KEYS.addSubtask} asChild>
-              <button type="button" tabIndex={-1} className="projects-row__act" data-add-subtask aria-label={`Add a subtask to ${row.title}`} onClick={() => store.subtasking(row.id)}>
-                <ListTree size={16} strokeWidth={2} aria-hidden />
-              </button>
-            </Tooltip>
-          </>
+        {row.kind === "task" ? (
+          <Tooltip label="Dispatch" shortcut={PROJECTS_KEYS.dispatch} asChild>
+            <button type="button" tabIndex={-1} className="projects-row__act" data-dispatch-task aria-label={`Dispatch ${row.title}`} onClick={() => onDispatch([row])}>
+              <Send size={16} strokeWidth={2} aria-hidden />
+            </button>
+          </Tooltip>
         ) : (
-          <>
-            <span className="projects-row__act" aria-hidden="true" />
-            <span className="projects-row__act" aria-hidden="true" />
-          </>
+          <span className="projects-row__act" aria-hidden="true" />
+        )}
+        {row.kind === "task" && !sub ? (
+          <Tooltip label="Add a subtask" shortcut={PROJECTS_KEYS.addSubtask} asChild>
+            <button type="button" tabIndex={-1} className="projects-row__act" data-add-subtask aria-label={`Add a subtask to ${row.title}`} onClick={() => store.subtasking(row.id)}>
+              <ListTree size={16} strokeWidth={2} aria-hidden />
+            </button>
+          </Tooltip>
+        ) : (
+          <span className="projects-row__act" aria-hidden="true" />
         )}
         <Tooltip label={row.kind === "task" ? "Delete" : "Unlink"} shortcut={PROJECTS_KEYS.remove} asChild>
           <button type="button" tabIndex={-1} className="projects-row__act" data-remove aria-label={`${row.kind === "task" ? "Delete" : "Unlink"} ${label}`} onClick={() => store.remove(row.id)}>

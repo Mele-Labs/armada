@@ -52,6 +52,10 @@ const LOOSE = "";
 /** Every row of a list, each subtask after its parent. */
 export const allRows = (list: { rows: readonly ProjectRow[] }): ProjectRow[] => list.rows.flatMap((row): ProjectRow[] => (row.kind === "task" ? [row, ...(row.subtasks ?? [])] : [row]));
 
+/** The task a subtask stands under, or none where the row is not a subtask. */
+export const parentOf = (snap: Pick<ProjectsSnapshot, "projects" | "loose">, rowId: string): TaskRow | undefined =>
+  [...snap.loose, ...snap.projects.flatMap((one) => one.rows)].find((row): row is TaskRow => row.kind === "task" && (row.subtasks ?? []).some((one) => one.id === rowId));
+
 /** A row done: a task ticked, or an issue its tracker closed. */
 export const isDone = (row: ProjectRow): boolean => rowState(row) === "done" || rowState(row) === "closed";
 

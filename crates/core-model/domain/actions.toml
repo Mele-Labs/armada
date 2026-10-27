@@ -656,6 +656,18 @@ destructive = false
 confirms = false
 notes = "Puts up the name field of a new project in the left column. A project is his and spans repositories, so it asks for none. The `+` beside the Projects label does the same. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
 
+[actions.projects_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the tasks"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves focus to the search field at the top of the left column. Typing shows every task and subtask, across all projects and repositories, whose title, notes or linked issue reference or title match, grouped by project as a view is; done tasks are included only while done is shown. Esc clears the search and returns to what was open. ↓ from the field moves to the first result. While a search is active the column marks no view, project or repository as open. `/` is the Issues tab's Describe a query and the Reviews tab's Natural Search in their own scopes."
+
 [actions.projects_add_task]
 kind = "Action"
 tier = "Contextual"
@@ -798,7 +810,7 @@ shortcut = "s"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Opens the dispatch sheet holding the cards selected, one request for each repository they stand in, or the focused card where none is selected, as the Dispatch icon on a task's card does: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
+notes = "Opens the dispatch sheet holding the cards selected, one request for each repository they stand in, or the focused card where none is selected, as the Dispatch icon on a task's card does: tasks as lines and issues as tags. A subtask has the act too: it opens the sheet with the subtask as the work, and its parent's title, notes and issues as context; the Job holds only the subtask. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
 
 [actions.projects_view]
 kind = "Action"

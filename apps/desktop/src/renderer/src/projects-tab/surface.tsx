@@ -1,7 +1,7 @@
 // The Projects page: the left column (views, his projects, the repositories) beside the pane in the Cockpit's grid. A view or a
 // repository lists its tasks grouped by project; a project lists its own, across repositories, in his order. Dispatching cards
-// opens the one dispatch sheet on a repository, tasks as lines and issues as tags; the sheet's own act starts the Job, with the
-// rows, which Fleet holds for it. Cards picked in several repositories open one request for each, the next once the one before
+// opens the one dispatch sheet on a repository, tasks as lines and issues as tags; a subtask sent without its parent carries the
+// parent as context. The sheet's own act starts the Job, with the rows, which Fleet holds for it. Cards picked in several repositories open one request for each, the next once the one before
 // has started or been put away.
 
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import { ProjectsKeys } from "./keys";
 import { bandsIn } from "./list";
 import type { ProjectRow } from "./model";
 import { Pane } from "./pane";
-import { allRows, useProjects, useProjectsStore } from "./store";
+import { allRows, parentOf, useProjects, useProjectsStore } from "./store";
 import { VIEW_MARKS, groupOf, groupsOf, type View } from "./views";
 import "../cockpit/cockpit.css";
 import "../cockpit/deck/deck.css";
@@ -59,15 +59,23 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
   };
 
   // Tasks ride as lines, each with its subtasks listed under it, and each issue as a tag, as a `#` chosen in the request
-  // would: its reference and title in the words, and the tag with them. An issue a task carries rides as a tag too. The rows
-  // sent stand in one repository, which the sheet opens on.
+  // would: its reference and title in the words, and the tag with them. An issue a task carries rides as a tag too. A subtask
+  // sent without its parent (`parentOf`) rides as its own title, then `Part of:` and the parent's title and notes, and the
+  // parent's issues as tags: the parent is context, and the Job holds the subtask only. The rows sent stand in one
+  // repository, which the sheet opens on.
   const send = (rows: readonly ProjectRow[]) => {
     const first = rows[0];
     if (dispatching === undefined || first === undefined) return;
     const root = bands.find((one) => one.manifestId === first.manifestId)?.root;
-    const issues = rows.flatMap((row) => (row.kind === "issue" ? [row] : (row.issues ?? [])));
-    const tags = issues.map((one) => issueHit({ reference: one.reference, title: one.title, url: one.url }).tag);
-    const lines = rows.flatMap((row) => (row.kind === "task" ? [row.title, ...(row.subtasks ?? []).map((one) => `  - ${one.title}`)] : []));
+    const issues = rows.flatMap((row) => (row.kind === "issue" ? [row] : (parentOf(snap, row.id)?.issues ?? row.issues ?? [])));
+    const tags = [...new Map(issues.map((one) => [one.reference, issueHit({ reference: one.reference, title: one.title, url: one.url }).tag] as const)).values()];
+    const lines = rows.flatMap((row) => {
+      if (row.kind !== "task") return [];
+      const parent = parentOf(snap, row.id);
+      if (parent === undefined) return [row.title, ...(row.subtasks ?? []).map((one) => `  - ${one.title}`)];
+      const notes = parent.notes?.trim() ?? "";
+      return [row.title, `Part of: ${parent.title}`, ...(notes === "" ? [] : [notes]), "Only the subtask is to be done."];
+    });
     const words = [...lines, ...tags.map((tag) => tag.title)].join("\n");
     dispatching.choose("session");
     dispatching.openSheet(
