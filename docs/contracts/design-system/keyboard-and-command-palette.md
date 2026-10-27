@@ -211,8 +211,8 @@ the Dashboard panel's `[ ]` and `⌥1–3`: the deck has no filter to step.
 
 **This is the map, not a pattern.** It was settled by drawing the Job
 Board and the command palette together, which is what forced the two
-halves into one artifact — the palette displays a binding beside every
-entry, so an unreconciled map is a palette that cannot be drawn.
+halves into one artifact — the palette's actions panel and Settings draw a
+binding beside every act, so an unreconciled map is a palette that cannot be drawn.
 
 **Both blocks are transcribed from
 `crates/core-model/domain/actions.toml`**, which is the artifact above
@@ -237,7 +237,7 @@ removed. `j`/`k` are the list's alone, and expand-and-collapse has no key.
 
 **`not built` means the binding is registered and nothing answers it.**
 The map was settled by drawing, so it holds acts nobody has written, and
-the palette displays a binding beside every entry — a row a person
+the palette lists every act by name — a row a person
 presses and gets nothing from is worse than one that is absent. The
 registry's `unbuilt` column names the issue that gives each of them an
 act, and the gate holds the annotation and the column to each other. So
@@ -282,14 +282,15 @@ moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform
 preferences. Doctor left the System page the same day for the title bar's menu (*"Doctor
 should live in the menu in the top right"*). Every other page is reached from a System
 entry, a link on the deck or the palette by name, and takes no key.
+While the palette is up, `⌘1` to `⌘9` open its results instead.
 
 **The rail's digits are gone with the rail (#2301).** Until then `⌘1`–`⌘9` followed the
 rail's rows, and each arrival of a row moved the digits behind it: Held worktrees (now
 Worktree Slots) took `⌘5` on 2026-09-03, Overview took `⌘1` on 2026-09-13, Settings took
 `⌘7` on 2026-09-14, Studios took `⌘3` on 2026-09-17, and Kit took `⌘8` on 2026-09-18. A
 learned key does not move quietly, and this paragraph is the noise: a person who
-pressed `⌘3` for Studios now presses it for Sessions, and the palette, which displays
-the binding beside every entry, is where they find out. **Helm moved from `⌘6` to `⌘J`
+pressed `⌘3` for Studios now presses it for Sessions, and Settings, which draws
+the binding beside every act under Keyboard shortcuts, is where they find out. **Helm moved from `⌘6` to `⌘J`
 on 2026-09-13** (#948) and keeps it.
 
 **`1`–`6` and `⌘1`–`⌘6` are different acts on one row of keys.** One is
@@ -344,7 +345,7 @@ around a full-width table row is nearly invisible, so the row does
 something stronger.
 
 ```
-focused row   2px --accent left edge bar + --bg-hover
+focused row   2px --accent left edge bar + --bg-hover   (the palette's rows are the exception)
 selected row  --accent-muted fill
 focused ctrl  2px --accent ring at 2px offset, per the global focus rule
 ```
@@ -360,16 +361,17 @@ A floating layer, so `--bg-overlay` and a shadow.
 ```
 surface    glass (Depth): --bg-overlay at 78%, blurred · 1px light edge ·
            --radius-lg · --shadow-overlay
-width      560px · max-height 400px · scroll-area beyond
-anchor     horizontally centred across the window; field top-aligned at
-           20% of viewport height; never vertically centered
+width      1.2 × --palette-width (560px) · max-height 400px · scroll-area beyond
+anchor     opens horizontally centred across the window; field top-aligned at
+           20% of viewport height; never vertically centered; stays where
+           it was dragged (Where it sits, below)
 input      --text-base · no border · --fg-default · placeholder --fg-subtle
            bottom rule --border-subtle
 input row  48px · --text-base · set off by a hairline
 row        32px · --radius-md · --text-sm · --fg-default
-           16px leading icon · shortcut right-aligned as kbd
+           16px leading glyph · title · muted subtitle · kind right-aligned
 hover row  one flat step, --bg-step
-active row 16% accent wash and a 2px accent bar, no fill block
+active row --fg-default at 10%, a neutral tint · no left bar, no accent
 section    28px · mono caps --text-2xs · --fg-subtle
 ```
 
@@ -393,16 +395,26 @@ What a project is: [Project](../../concepts/project.md).
 Tasks and subtasks of the Projects tab are listed while something is typed, in a Tasks block after the Jobs, each with its project or No project and its repository on a quiet second line.
 Choosing one goes to the Projects tab on that task's project, or All tasks for a task in no project, shows done tasks if it is done, and scrolls its card into view with the focus on it.
 
-**Contents, in order:** actions available on the current context,
-navigation, jobs by id or name, sessions by any word of the title or by id,
-tasks by title (while something is typed), settings. Only work in hand is listed: a Job that is not over, a Session
-that is live.
+**Contents, in order**, as `packages/shell/src/Palette.tsx` lays its sections:
+
+1. The open page's commands, titled with the page.
+2. Acts on the current context, titled with what they act on, or *Nothing focused*.
+3. Navigation.
+4. Commands, where a Commands mod brings any.
+5. Run in the checkout, where the page showing declares Checks or Commands.
+6. Repositories, where there is more than one to pick.
+7. Jobs, by any word of the title or by id.
+8. Pull requests, Issues and Tasks, found by title or number. Tasks are listed only while something is typed.
+9. Settings.
+
+A section with no row is not drawn.
+Only work in hand is listed: a Job that is not over.
 
 **The palette obeys the lexicon.** Displayed labels always use the
 lexicon term — Kill, Drone, Job Board. The search index may carry aliases
 so that "terminate" finds Kill, but the alias never renders. This is
 where the lexicon earns its keep: one vocabulary, searchable, with the
-shortcut shown beside every entry.
+same terms in the actions panel and in Settings.
 
 **A matched span is marked by contrast**: `--fg-default` against the rest
 of its label at `--fg-muted`, and never by a hue or a fill. Status hue is
@@ -421,8 +433,8 @@ the band above them below that size. The record was wrong rather than
 holding a second opinion, so it is the record that moved. A 32px row
 takes 16px comfortably.
 
-**A row that cannot act draws dimmed and says why**, in `--fg-subtle` at
-`--text-2xs`, beside its binding. Two kinds reach it: a binding the
+**A row that cannot act draws dimmed and says why**, in `--fg-subtle` in its
+subtitle, where the repository would be. Two kinds reach it: a binding the
 registry carries that nothing answers, where `unbuilt` names the issue,
 and an act the app cannot reach from where you are standing. Both are
 facts rather than a list of exceptions, which is the same reasoning the
@@ -433,13 +445,134 @@ Open and Close need a row to act on. With nothing under the cursor, dimmed rows
 all saying *nothing focused* led the palette and told a person nothing they could
 act on. A `not built` row is never left out. Settled 2026-09-17.
 
-**The palette is the discovery surface.** It is how a person learns
-forty shortcuts without a cheat sheet, which is why every entry displays
-its binding and why no action may exist outside it.
+**The palette is the discovery surface.** It lists every action by name, so no
+action may exist outside it. A binding is not drawn on a row at rest; it is read
+in the actions panel, in Settings under Keyboard shortcuts, and from a tooltip.
+
+### Row layout
+
+> **Rule.** A row reads left to right: the state glyph or icon, the title, a muted subtitle, and the kind in a fixed column at the right edge.
+> Why: one column per fact keeps a list of mixed kinds scannable, and the kind tells a Job from a page of the same name in Pinned and Recent.
+
+| Part | Holds |
+|---|---|
+| Glyph | A Job's state as its registry glyph, with a tooltip naming it; else the row's icon. The slot keeps its width when empty |
+| Title | The lexicon term, with the matched span marked |
+| Subtitle | Repository, number, detail, a setting's value, or why the row is dormant. It gives way first when the row is short |
+| Kind | One word per kind of row: `KIND` in `packages/shell/src/Palette.tsx` |
+
+> **Rule.** No binding is drawn on a row at rest.
+> Why: a key on every row competed with the title, and a binding is read where a person asks for it.
+
+> **Rule.** Holding ⌘ lays 1 to 9 over the kind of the first nine results, which blurs, and ⌘ with a digit opens that row as ↵ would.
+> Why: a row is one press away for a person already holding the modifier, and nothing is drawn for anyone else.
+
+> **Rule.** While the palette is up, ⌘1 to ⌘9 open its results and the tab digits stand down.
+> Why: the palette takes the press first, in the capture phase, so one key never does two things.
+
+> **Rule.** The foot names Open ↵, and Actions ⌘K where the row under the cursor has acts.
+> Why: the two keys that always work are the two on screen.
+
+> **Rule.** The row under the cursor is one neutral tint, with no left bar and no accent.
+> Why: the highlight says where the cursor is rather than what state a row is in, and the accent is reserved to interactive affordance.
+
+### Actions panel
+
+> **Rule.** ⌘K on a row opens its actions panel inside the palette, and ⌘K again closes it.
+> Why: an act belongs to the row under the cursor, so the panel is one key from it and not a second surface.
+
+The panel draws the row's title, then its acts with their chords at the right, a rule between groups, and a field at the foot that narrows the acts by label.
+↑ ↓ move through the acts and ↵ runs the one under the cursor.
+Esc goes back to the results with the query kept; while an act is taking its answer, Esc goes back to the acts first.
+
+> **Rule.** An act's chord runs it on the row under the cursor, from the results or from the panel.
+> Why: a person who knows the chord never opens the panel. None is a Global binding, because a chord the palette took from the window would go deaf everywhere else.
+
+> **Rule.** A destructive act confirms over the palette, which stays up behind the confirmation.
+> Why: every destructive action confirms, even from the keyboard, and the confirmation answers Esc and a click while it is up.
+
+The acts of each row are `actionsOf` in `packages/shell/src/Palette.tsx`:
+
+| Row | Acts and chords |
+|---|---|
+| Job | Open ↵, Pause or Resume ⌘P, Fork ⌥⌘F, Copy Job id ⇧⌘C, Pin or Unpin ⇧⌘F, Stop ⌘⌫ |
+| Job holding a pull request | Adds Open pull request ⇧⌘P and Merge pull request ⇧⌘M |
+| Pull request | Open in Reviews ↵, Open on GitHub ⇧⌘O, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
+| Issue | Open ↵, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
+| Task | Open ↵, Dispatch ⇧⌘N, Tick ⌘D, Pin ⇧⌘F |
+| Command | Run ↵, Pin ⇧⌘F |
+| Any other row | Set alias and Record hotkey only |
+
+Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin return to the results with the palette still up.
+
+### Alias and hotkey
+
+> **Rule.** Every openable row offers Set alias and Record hotkey in its panel, and Remove alias and Remove hotkey once it holds one.
+> Why: a person names the rows they open most so they are reached without searching. A dormant row cannot be opened and offers neither.
+
+> **Rule.** A destructive row takes an alias and no hotkey.
+> Why: a destroying act is never one keystroke away.
+
+> **Rule.** An alias is one word that no other row holds, and typed whole it puts its row first, under no section head.
+> Why: the list is never ranked, so this is the one order a person sets on purpose. A refusal reads *Needs a word*, *One word* or *Used by* and the row's name.
+
+> **Rule.** A hotkey needs ⌘ or ⌃ and is refused for each reason below, by the one function the panel and Settings' table both call.
+> Why: a key one refuses, both do. The function is `refuseHotkey` in `packages/components/src/primitives/CommandPalette/hotkey.ts`.
+
+| Refusal | Reason |
+|---|---|
+| Needs ⌘ or ⌃ | A bare or shifted key types into a field |
+| ⌘1 to ⌘9 open results | Those chords open the first nine results |
+| Bound to an act | An act answers it somewhere in Bridge, ⌘K included |
+| Kept by the system | `SYSTEM` in `hotkey.ts`: copy, paste, cut, select all, undo, redo, quit, close, minimise, hide, Settings |
+| Bound to another row | One key opens one row |
+
+> **Rule.** A refusal is drawn at the right of the field that took the key.
+> Why: it is read where the person is looking, and the key being recorded is read whole by that field, ⌘K included, so nothing under it hears the press.
+
+> **Rule.** A hotkey runs its row anywhere in Bridge with the palette closed, as ↵ on the row would.
+> Why: the palette exists to reach a row, and a key given to one should not need the palette.
+> It is taken in the capture phase so a terminal or a field does not keep it, and it stands down while a key is recorded in Settings.
+
+### What the empty query shows
+
+> **Rule.** What the empty query shows is the setting *Palette opens with*, and it defaults to Pinned and recent.
+> Why: the rows a person returns to are the ones to offer before they type.
+
+| Setting | The empty query shows |
+|---|---|
+| Pinned and recent | Pinned, then Recent; the full list while both are empty |
+| This page first | The full list, headed by the open page's commands |
+| Everything | The full list without the open page's commands |
+
+> **Rule.** The Settings section *Command palette* holds that setting and a table of every row that holds a pin, an alias or a hotkey, each editable in place.
+> Why: what was given in a panel needs one place to be read together and changed without finding the row.
+> Pins, aliases, hotkeys and the setting are kept on this machine, in `apps/desktop/src/renderer/src/palette-memory.ts`, and are not Fleet's.
+
+### Where it sits
+
+> **Rule.** The palette is dragged by any bare part of it, which is any part that is not a field, a row, a link or a button.
+> Why: it covers what a person is reading, and the grab should not cost a handle.
+
+> **Rule.** A drag snaps to the window's middle, across and down, and draws a guide in the accent while it is on that line.
+> Why: the middle is the one place worth finding without looking.
+
+> **Rule.** Where it is dropped is kept on this machine, as a share of the window, and a double click on a bare part puts it back.
+> Why: it reopens where it was left, across a resize and a restart, and the default is one gesture away. `packages/components/src/primitives/CommandPalette/place.ts` owns the distances.
+
+### Page commands and Commands mods
+
+> **Rule.** The first block follows the open page: it is titled with the page, and a Job open on the Cockpit's deck replaces the page's commands with its own.
+> Why: what a person is looking at is what they most often mean to act on. A page with none draws no block, and `apps/desktop/src/renderer/src/palette-page.ts` owns the list.
+
+> **Rule.** A command a Commands mod brings is a row under Commands with the id `cmd:<mod>:<slug>`, its glyph chosen by its kind, and the acts Run ↵ and Pin.
+> Why: the row is a palette row like any other, so it takes an alias and a hotkey. The file is described in `docs/concepts/mods.md`.
+
+A command with a blank, a prompt, asks for it in a second step before it dispatches.
 
 ## kbd
 
-The one non-shadcn primitive. Used in palette rows, dropdown-menu items,
+The one non-shadcn primitive. Used in the palette's actions panel and quick digits, dropdown-menu items,
 and tooltips.
 
 ```
