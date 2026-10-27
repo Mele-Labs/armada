@@ -293,18 +293,26 @@
 .deck-row[data-hover],
 .deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-/* A Session handed a plan group stands under its parent, one step in, with the line it hangs from. */
-.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: var(--space-3); }
-.deck-list__item:has(> .deck-row[data-linked])::before {
+/* A Session another started stands under it, one step further in per level. One line runs down from under the parent's title, turns into
+   each of its Jobs, and runs on past a Job's own Jobs to the next; `--deck-rail` is the level a line passing this row belongs to. */
+.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: calc(var(--space-4) * var(--deck-depth, 1)); }
+/* No hairline inside a parent's block: one starting at the indent would meet the line and read as a bracket. */
+.deck-list__item + .deck-list__item:has(> .deck-row[data-linked]) { border-top: 0; }
+.deck-list__item:has(> .deck-row[data-linked])::before,
+.deck-list__rail {
   content: "";
   position: absolute;
-  inset-block: calc(var(--space-1) * -1) 50%;
-  inset-inline-start: calc(var(--space-3) * -1);
-  width: var(--space-3);
+  inset-block: calc(var(--border-width) * -1) 0;
+  inset-inline-start: calc(var(--space-4) * (var(--deck-rail, 0) - var(--deck-depth, 1)));
   border-inline-start: var(--border-width) solid var(--border-strong);
+  pointer-events: none;
+}
+.deck-list__item:has(> .deck-row[data-linked])::before {
+  inset-block-end: 50%;
+  inset-inline-start: 0;
+  width: var(--space-2);
   border-block-end: var(--border-width) solid var(--border-strong);
   border-end-start-radius: var(--radius-sm);
-  pointer-events: none;
 }
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
