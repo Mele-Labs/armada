@@ -76,6 +76,18 @@ impl FirstTurn {
         FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), instead: None, ahead: None }
     }
 
+    /// A turn already on the thread, kept for a Resume. Its row is written, so `from` is not read again.
+    pub(crate) fn kept_of(held: &Held) -> FirstTurn {
+        FirstTurn {
+            from: SessionVoice::You,
+            text: held.text.clone(),
+            files: held.kept.files.clone(),
+            tags: held.addressed.iter().map(|(tag, _)| tag.clone()).collect(),
+            instead: held.instead.clone(),
+            ahead: held.ahead.clone(),
+        }
+    }
+
     /// What the agent reads of it, short of the lines a turn starts with.
     pub(crate) fn reads(&self) -> &str {
         self.instead.as_deref().unwrap_or(&self.text)
@@ -139,7 +151,7 @@ pub(crate) struct StartReads {
 }
 
 /// A kept first turn read back. One that will not read is none: the card shows an empty box.
-fn first_turn_of(body: &str) -> Option<FirstTurn> {
+pub(super) fn first_turn_of(body: &str) -> Option<FirstTurn> {
     ipc::decode::<FirstTurn>("a held job's first turn", body.as_bytes()).ok()
 }
 
@@ -348,7 +360,7 @@ where
         let row = SessionRow::Message {
             id: self.row_id(id),
             at: self.instant(),
-            from,
+            from: from.clone(),
             text: text.clone(),
             files: files.clone(),
             tags: tags.clone(),
@@ -365,6 +377,12 @@ where
                 self.session_warned(id, "a job's latest message was not kept", format!("{why:?}"));
             }
         }
+        self.held_again(id, FirstTurn { from, text, files, tags, instead, ahead }).await
+    }
+
+    /// A kept turn as the agent is sent it, its row not written again.
+    pub(crate) async fn held_again(&self, id: &str, turn: FirstTurn) -> Result<Held, Refusal> {
+        let FirstTurn { text, files, tags, instead, ahead, .. } = turn;
         let addressed = self.addressed(&tags).await?;
         Ok(Held { text, kept: self.uploads_again(id, &files), addressed, ahead, instead })
     }

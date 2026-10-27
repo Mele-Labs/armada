@@ -179,7 +179,7 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 
-    async fn resume_session(&self, _asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
+    async fn resume_session(self: std::sync::Arc<Self>, _asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 

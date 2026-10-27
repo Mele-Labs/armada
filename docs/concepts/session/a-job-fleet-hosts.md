@@ -57,7 +57,7 @@ address, `s-` and the first eight characters of its id, starts a turn in it. A
 turn that opens with no message of the person's outstanding is a wake, and the
 thread says whose. **A job whose process was ended is resumed by the
 message**, written for the sender, which is a hosted job Fleet can read the
-send of. `settings.session-quiet-timeout` is how long a process may sit idle.
+send of. **A paused job is not woken by it**: the message is kept and read after the person resumes it (*Pausing a Job*). `settings.session-quiet-timeout` is how long a process may sit idle.
 [Spike 26](../../spikes/026-does-a-message-from-another-session-wake-a-live-process.md).
 
 **The lease is taken by a hook, and nothing writes the main checkout before it.**

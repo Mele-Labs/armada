@@ -122,3 +122,22 @@ describe("the done ask on his project tasks holds the Session on him", () => {
     expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [ask] }))).toEqual({ state: "waiting", said: "Waiting on you" });
   });
 });
+
+describe("a Job he parked", () => {
+  const paused = { paused: true, waitingFor: [{ id: "ask:1", text: "Which grid?", since: TURN_ENDED, source: "ask_card" }] };
+
+  test("reads as paused ahead of waiting, done and failing", () => {
+    expect(stateOf(session({ ...paused }))).toEqual({ state: "paused", said: "Paused" });
+    expect(stateOf(session({ paused: true, standing: "done" })).state).toBe("paused");
+    expect(stateOf(session({ paused: true, attachments: [{ kind: "pull_request", number: 7, title: "t", branch: "b", address: "", checks: { state: "failed", failing: "ci" }, state: "open", auto: false }] })).state).toBe("paused");
+  });
+
+  test("a Job that ended or is not reachable reads as that", () => {
+    expect(stateOf(session({ paused: true, dead: "ended" })).state).toBe("ended");
+    expect(stateOf(session({ paused: true, dead: "quiet" })).state).toBe("quiet");
+  });
+
+  test("resumed, it waits on him again", () => {
+    expect(stateOf(session({ waitingFor: paused.waitingFor })).state).toBe("waiting");
+  });
+});

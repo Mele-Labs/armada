@@ -55,3 +55,16 @@ fn a_target_told_at_the_end_replaces_the_one_told_at_the_start() {
     assert_eq!(target(changed).as_deref(), Some("--changed fleet, ipc"));
     assert_eq!(target(whole), None);
 }
+
+#[test]
+fn the_running_runs_of_one_job_are_listed_and_an_ended_one_is_not() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let first = store.start_session_check("s1", "armada", 6, "a", None, "t1").expect("begins");
+    let ended = store.start_session_check("s1", "armada", 6, "b", None, "t2").expect("begins");
+    store.start_session_check("s2", "armada", 7, "c", None, "t3").expect("begins");
+    store.end_session_check(ended, "passed", "t4", 1, "", None).expect("ends");
+
+    let running: Vec<i64> = store.running_session_checks("s1").expect("reads").iter().map(|run| run.id).collect();
+    assert_eq!(running, vec![first]);
+}

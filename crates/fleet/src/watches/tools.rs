@@ -92,6 +92,11 @@ where
                 let login = LoginEnvironment::fallen_back(String::from("Nothing ran, so no shell was read."));
                 (store::KeptWatchTaken::Broken { why, output: None }, String::new(), login)
             }
+            Folder::Paused => {
+                let why = String::from("This Job is paused, so nothing runs for it until the person resumes it.");
+                let login = LoginEnvironment::fallen_back(String::from("Nothing ran, so no shell was read."));
+                (store::KeptWatchTaken::Broken { why, output: None }, String::new(), login)
+            }
             Folder::JobEnded => {
                 let why = String::from("This Job has ended, so it has no folder to run in.");
                 let login = LoginEnvironment::fallen_back(String::from("Nothing ran, so no shell was read."));
