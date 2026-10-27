@@ -8,7 +8,7 @@ const places = role("navigation", "Places");
 const list = region("Projects", { exact: true });
 const pocket = region("Project Pocket launch");
 const results = region("Search results");
-const search = role("textbox", "Search the tasks");
+const search = role("searchbox", "Search the tasks");
 const bar = inside(dialog("Command palette"), role("combobox"));
 
 function steps(): Step[] {

@@ -4,8 +4,8 @@
 // project, a branch for a repository. Selected is told by shape (`--select-ground`, `--select-frame`), never a band. While a
 // search is active nothing in the column is selected: the search is what the pane shows.
 
-import { Folder, GitBranch, Plus, Search } from "lucide-react";
-import { Input, Tooltip } from "@armada/components";
+import { Folder, GitBranch, Plus } from "lucide-react";
+import { SearchField, Tooltip } from "@armada/components";
 
 import { NameProject, RenameProject, type Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
@@ -33,11 +33,8 @@ export function Column({ bands, view, repo, query, searching, onQuery, onView, o
   return (
     <section className="deck-panel deck-list projects-list" aria-label="Projects" tabIndex={-1}>
       <ul className="deck-list__rows projects-list__rows">
-        <li className="projects-search">
-          <Search size={16} strokeWidth={2} aria-hidden />
-          <Tooltip label="Search the tasks" shortcut={PROJECTS_KEYS.search}>
-            <Input aria-label="Search the tasks" placeholder={`Search tasks (${PROJECTS_KEYS.search})`} autoComplete="off" value={query} onChange={(event) => onQuery(event.target.value)} />
-          </Tooltip>
+        <li>
+          <SearchField label="Search the tasks" value={query} onValue={onQuery} cap={PROJECTS_KEYS.search} />
         </li>
         <li>
           <ul className="deck-list__group projects-views" aria-label="Views">

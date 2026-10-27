@@ -66,7 +66,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   };
 
   // The search field: Esc clears the words and goes back to the view that was open, ↓ goes to the first result.
-  if (holdsText(target) && target.closest(".projects-search") !== null) {
+  if (holdsText(target) && target.closest(".projects-list [data-search-field]") !== null) {
     if (isPressed("close", event)) {
       take();
       (target as HTMLElement).blur();
@@ -151,7 +151,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   const view = pressedSlot("projects_view", event);
   if (view !== -1 && VIEW_IDS[view] !== undefined) return take(), goToView(VIEW_IDS[view]!);
   if (isPressed("projects_search", event)) {
-    const field = document.querySelector<HTMLElement>(".projects-search input");
+    const field = document.querySelector<HTMLElement>(".projects-list [data-search-field]");
     if (field === null) return;
     take();
     return field.focus();

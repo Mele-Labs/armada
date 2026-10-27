@@ -1,0 +1,4 @@
+/* Standalone, the bar is `--h-control` tall, the Input's own. Inside a panel it steps down to `--h-control-sm`, so it sits in the column as the panel's other controls do. */
+.deck-panel .armada-input-field__well:has([data-search-field]) {
+  height: var(--h-control-sm);
+}

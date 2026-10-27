@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, SearchField, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
@@ -25,6 +25,15 @@ const BUILT_INS = [
 ];
 
 const DESCRIBE_KEEP = "issues:describe";
+const SEARCH_KEEP = "issues:search";
+
+/** Whether a ticket answers the words in the bar: its title, number or labels, in any case. */
+const matches = (ticket: Ticket, words: string): boolean => {
+  const wanted = words.trim().toLowerCase();
+  if (wanted === "") return true;
+  const labels = ticket.fields.filter((one) => /^labels?$/i.test(one.name)).flatMap((one) => one.values);
+  return [ticket.title, ticket.reference, ...labels].some((one) => one.toLowerCase().includes(wanted));
+};
 
 /** The query chosen for a scope, kept across leaving the tab: a repository's Manifest id, or All. */
 export function useChoice(picked: RepositorySummary | null): [string, (next: string) => void] {
@@ -36,6 +45,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
   const store = useIssuesStore()!;
   const snap = useIssues();
   const [kept, choose] = useChoice(picked);
+  const [narrow, setNarrow] = useKept<string>(SEARCH_KEEP, "");
   const scope = (picked === null ? repositories : [picked]).flatMap((one) => jobIdOf(one) ?? []);
   const scopeKey = scope.join("\n");
   useEffect(() => store.readTrackers(scope), [store, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,7 +83,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
     ...(names.length === 0 ? [] : [{ kind: "separator", id: "saved-rule" } as const, { kind: "label", id: "saved-label", label: "Saved" } as const]),
     ...names.map((name): DropdownMenuEntry => ({ kind: "item", id: savedChoice(name), label: name, selected: here === savedChoice(name) })),
     { kind: "separator", id: "describe-rule" },
-    { kind: "item", id: DESCRIBE, label: "Describe a query…", selected: here === DESCRIBE, shortcut: ISSUES_KEYS.describe },
+    { kind: "item", id: DESCRIBE, label: "Describe a query…", selected: here === DESCRIBE, shortcut: capOf(ISSUES_KEYS.describe) },
   ];
   const triggerLabel = here === DESCRIBE ? "Describe a query" : (BUILT_INS.find((one) => one.id === choice)?.label ?? savedName(choice) ?? "");
 
@@ -90,6 +100,9 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
         <Refused band={only} onTeach={onTeach} />
       ) : (
         <>
+          <div className="issues-list__search">
+            <SearchField label="Search the issues" value={narrow} onValue={setNarrow} cap={ISSUES_KEYS.search} />
+          </div>
           <div className="deck-scope issues-list__pick">
             <DropdownMenu
               align="start"
@@ -121,7 +134,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
               {only !== undefined ? (
                 <>
                   {asked[0]?.asked === undefined ? null : <QueryHead band={only} asked={asked[0].asked} />}
-                  <Rows band={only} asked={asked[0]?.asked} />
+                  <Rows band={only} asked={asked[0]?.asked} narrow={narrow} />
                 </>
               ) : (
                 <ul className="deck-list__rows issues-list__rows">
@@ -137,7 +150,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                         ) : (
                           <>
                             {one === undefined ? null : <QueryHead band={band} asked={one} />}
-                            <Rows band={band} asked={one} nested />
+                            <Rows band={band} asked={one} narrow={narrow} nested />
                           </>
                         )}
                       </li>
@@ -351,7 +364,7 @@ function SaveWritten({ words, onSaved }: { words: string; onSaved: (name: string
   );
 }
 
-function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | undefined; nested?: boolean }) {
+function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Asked | undefined; narrow: string; nested?: boolean }) {
   const store = useIssuesStore()!;
   const snap = useIssues();
   if (band.tracker.state !== "read" || asked?.state !== "query") return null;
@@ -360,7 +373,7 @@ function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | unde
     const tool = run.missing ?? run.needsSetup;
     return tool === undefined ? <p className="issues-list__said" role="alert">{run.said}</p> : <MissingTool manifestId={band.manifestId} query={asked.query} said={run.said} tool={tool} setup={run.missing === undefined} />;
   }
-  const tickets = run?.state === "read" ? run.tickets : [];
+  const tickets = run?.state === "read" ? run.tickets.filter((one) => matches(one, narrow)) : [];
   return (
     <ul className={nested ? "deck-list__group" : "deck-list__rows issues-list__rows"}>
       {tickets.map((ticket) => (

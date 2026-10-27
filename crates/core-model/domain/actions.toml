@@ -474,7 +474,7 @@ shortcut = "/"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_search` on the Reviews tab: a different scope, so neither is the other's conflict."
+notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_filter` on the Reviews tab: a different scope, so neither is the other's conflict."
 
 [actions.deck_reorder]
 kind = "Action"
@@ -530,11 +530,23 @@ tier = "Contextual"
 verb = "Natural Search"
 icon = ""
 icon_absent = "undecided"
+shortcut = "N"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Puts up the box a Natural Search is written in, in place of the list. Sending it asks first, since a Drone looks across every repository. `N` for natural: the plain `/` went to the search bar, `review_filter`, on 27 Oct 2026, so the tabs that have a bar all answer `/` the same way."
+
+[actions.review_filter]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the pull requests"
+icon = ""
+icon_absent = "undecided"
 shortcut = "/"
 scope = "review"
 destructive = false
 confirms = false
-notes = "Puts up the box a Natural Search is written in, in place of the list. Sending it asks first, since a Drone looks across every repository."
+notes = "Moves focus to the search bar under the column's head. Typing narrows the rows of the list on show by title, `#number`, repository and author, on this Mac, with no Drone asked. Esc clears the words, and a second Esc leaves the bar. The same bar and key as System, Projects and Issues."
 
 [actions.review_quick]
 kind = "Action"
@@ -614,11 +626,23 @@ tier = "Contextual"
 verb = "Describe a query"
 icon = ""
 icon_absent = "undecided"
+shortcut = "D"
+scope = "issues"
+destructive = false
+confirms = false
+notes = "Puts up the box a query is described in, in place of the list. Sending it asks first, since a model writes the query in the tracker's own language. `D` for describe: the plain `/` went to the search bar, `issues_search`, on 27 Oct 2026. Reviews' `N` for Natural Search."
+
+[actions.issues_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the issues"
+icon = ""
+icon_absent = "undecided"
 shortcut = "/"
 scope = "issues"
 destructive = false
 confirms = false
-notes = "Puts up the box a query is described in, in place of the list. Sending it asks first, since a model writes the query in the tracker's own language. Reviews' `/` for Natural Search."
+notes = "Moves focus to the search bar under the column's head. Typing narrows the loaded rows, of one repository or of every repository on All, by title, number and labels, on this Mac, with no model asked. Esc clears the words, and a second Esc leaves the bar. The same bar and key as System, Projects and Reviews."
 
 [actions.issues_start]
 kind = "Action"
@@ -666,7 +690,7 @@ shortcut = "/"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Moves focus to the search field at the top of the left column. Typing shows every task and subtask, across all projects and repositories, whose title, notes or linked issue reference or title match, grouped by project as a view is; done tasks are included only while done is shown. Esc clears the search and returns to what was open. ↓ from the field moves to the first result. While a search is active the column marks no view, project or repository as open. `/` is the Issues tab's Describe a query and the Reviews tab's Natural Search in their own scopes."
+notes = "Moves focus to the search field at the top of the left column. Typing shows every task and subtask, across all projects and repositories, whose title, notes or linked issue reference or title match, grouped by project as a view is; done tasks are included only while done is shown. Esc clears the search and returns to what was open. ↓ from the field moves to the first result. While a search is active the column marks no view, project or repository as open. `/` is the same search bar on the Issues and Reviews tabs and System, in their own scopes."
 
 [actions.projects_add_task]
 kind = "Action"

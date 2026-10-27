@@ -105,14 +105,16 @@ t              show the timeline   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
 l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
 L              open the lists   (review only)
-/              Natural Search   (review only)
+/              search the pull requests   (review only)
+N              Natural Search   (review only)
 Q              go to the quick actions   (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
 l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
-/              describe a query   (issues only)
+/              search the issues   (issues only)
+D              describe a query   (issues only)
 s              start a Job on the issue   (issues only)
 l r            go to a part of Projects: the left column, the cards   (projects only)
 /              search the tasks   (projects only)
@@ -172,13 +174,16 @@ Its keys answer wherever focus is on the plan card or in the plan in full.
 `j`, `k` and the arrows move between the findings not yet acted on, in the order the plan draws them; `Enter` sends the one in focus to the agent and `d` or Backspace dismisses it.
 They stand down in a text field.
 
+**System, Projects, Reviews and Issues share one search bar,** `SearchField` in `packages/components`: "Search" with the key drawn inside it, Esc clearing the words and a second Esc leaving it.
+Its key is `/` on each page, and on a page with nothing focused the bar takes it.
+
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
 any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,
-`L` opens the lists, `/` is Natural Search, `Q` the quick actions, `A` the question box, `D` the
+`L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the quick actions, `A` the question box, `D` the
 description and `W` the places changes run. They stand down in a text field and while a dialog is up.
 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
-list does; `l r` go to the list and the reader, `L` opens the queries, `/` describes a query and `s`
+list does; `l r` go to the list and the reader, `L` opens the queries, `/` goes to the search bar that narrows the loaded rows, `D` describes a query and `s`
 starts a Job on the open issue. They stand down in a text field and while a dialog is up.
 
 **The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through

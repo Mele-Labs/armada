@@ -21,6 +21,7 @@
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
+.issues-list__search { padding: 0 var(--space-2) var(--space-2); }
 .issues-list__pick { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
 .issues-list__pick .armada-dropdown-menu__trigger { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .issues-list__mod { display: inline-flex; color: var(--fg-muted); text-transform: none; }
