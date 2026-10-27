@@ -211,6 +211,19 @@ test("a Job started from another stands right under its parent, whether or not i
   expect(listed.map((one) => one.key)).toEqual(["session:p", "session:grouped", "session:plain", "session:j"]);
 });
 
+test("a Job started from a Job that was itself started from another stands under its own parent", () => {
+  const all = [subject("session", "p"), { ...subject("session", "k"), linked: { parent: "session:p" } }, { ...subject("session", "g"), linked: { parent: "session:k" } }, subject("session", "j")];
+  const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => one.key)).toEqual(["session:p", "session:k", "session:g", "session:j"]);
+  expect(listed.map((one) => one.linked?.depth)).toEqual([undefined, 1, 2, undefined]);
+});
+
+test("a loop of started Jobs is listed once each and never hangs the list", () => {
+  const all = [{ ...subject("session", "a"), linked: { parent: "session:b" } }, { ...subject("session", "b"), linked: { parent: "session:a" } }, subject("session", "j")];
+  const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => one.key).sort()).toEqual(["session:a", "session:b", "session:j"]);
+});
+
 test("a linked Session whose parent is not listed stands in the list where it would", () => {
   const orphan: Subject = { ...subject("session", "c"), linked: { parent: "session:gone" } };
   const listed = listOf({ subjects: [subject("session", "j"), orphan], running: new Set() } as unknown as Ship, deckNow());
@@ -222,7 +235,7 @@ test("a linked Session whose parent is not listed is drawn as a plain top-level 
   const child: Subject = { ...subject("session", "k"), linked: { parent: "session:p" } };
   const listed = listOf({ subjects: [subject("session", "j"), orphan, subject("session", "p"), child], running: new Set() } as unknown as Ship, deckNow());
   expect(listed.find((one) => one.key === "session:c")?.linked).toBeUndefined();
-  expect(listed.find((one) => one.key === "session:k")?.linked).toEqual({ parent: "session:p" });
+  expect(listed.find((one) => one.key === "session:k")?.linked).toEqual({ parent: "session:p", depth: 1 });
 });
 
 // ---- The order he placed ------------------------------------------------------------------------------

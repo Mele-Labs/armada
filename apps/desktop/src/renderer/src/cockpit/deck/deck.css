@@ -253,8 +253,8 @@
 .deck-row[data-hover],
 .deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-/* A Session handed a plan group stands under its parent, one step in, with the line it hangs from. */
-.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: var(--space-3); }
+/* A Session handed a plan group stands under its parent, one step further in per level, with the line it hangs from. */
+.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: calc(var(--space-3) * var(--deck-depth, 1)); }
 .deck-list__item:has(> .deck-row[data-linked])::before {
   content: "";
   position: absolute;
