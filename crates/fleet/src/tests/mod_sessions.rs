@@ -243,6 +243,7 @@ async fn an_empty_mod_jobs_first_message_names_what_he_is_aiming_for_between_the
         (ModAim::Words, "He is aiming for: words (a pattern Bridge links, and where it opens)."),
         (ModAim::Fleet, "He is aiming for: a Fleet rule (what Fleet does with a notice it would send)."),
         (ModAim::Tracker, "He is aiming for: a tracker (an issue tracker Armada has no adapter for)."),
+        (ModAim::Commands, "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows)."),
         (ModAim::Source, "He is aiming for: a change to Armada's source."),
     ];
     for (aim, line) in aims {

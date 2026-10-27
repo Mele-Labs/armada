@@ -141,6 +141,7 @@ fn aim_line(aim: ModAim, in_mods_folder: bool) -> &'static str {
         ModAim::Words => "He is aiming for: words (a pattern Bridge links, and where it opens).",
         ModAim::Fleet => "He is aiming for: a Fleet rule (what Fleet does with a notice it would send).",
         ModAim::Tracker => "He is aiming for: a tracker (an issue tracker Armada has no adapter for).",
+        ModAim::Commands => "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows).",
         ModAim::Source if in_mods_folder => {
             "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it."
         }
