@@ -31,7 +31,7 @@ export function columnKeys(event: KeyboardEvent<HTMLElement>, root: HTMLElement 
   const target = event.target as HTMLElement;
   const typing = target.closest(OWN_KEYS) !== null;
   if (event.key === "/" && !typing) {
-    const search = root.querySelector<HTMLInputElement>("[data-system-search]");
+    const search = root.querySelector<HTMLInputElement>("[data-search-field]");
     if (search === null) return;
     event.preventDefault();
     search.focus();

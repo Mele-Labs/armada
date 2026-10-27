@@ -255,6 +255,7 @@ export * from "./compositions/KitBrowser/KitBrowser";
 export * from "./compositions/KitModels/KitModels";
 export { KIT_KINDS, namesOf, holds } from "./compositions/KitBrowser/kit-rows";
 export type { KitKindId, KitRef } from "./compositions/KitBrowser/kit-rows";
+export * from "./compositions/SearchField/SearchField";
 export * from "./compositions/SystemSidebar/SystemSidebar";
 // Kit against the shared home: how each row stands, and the two versions of one that differs.
 export * from "./compositions/KitSetup/SharedHome";

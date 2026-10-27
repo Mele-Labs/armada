@@ -2,20 +2,20 @@
 //!
 //! **A task is held from the Job's start**, and only a written task: a linked issue row keeps no
 //! state and is only named, so the Job's brief can carry it. Every move here publishes the
-//! repository's projects whole, as a person's own write does.
+//! projects whole, as a person's own write does.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    Instant, ManifestId, TaskPullState, ProjectRowRef, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption,
+    Instant, TaskPullState, ProjectRowRef, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption,
     WaitingSource,
 };
-use store::{KeptAsked, KeptProject, KeptRowItem, SessionState, Store};
+use store::{KeptAsked, KeptProjects, KeptRowItem, SessionState, Store, LOOSE_PROJECT};
 
 use crate::daemon::Fleet;
 use crate::session_host::NO_SUCH_SESSION;
 
-/// A start names a project of another repository. A 422.
+/// A start names a row of another repository. A 422.
 const OTHER_REPOSITORY: &str = "fleet.project_row_other_repository";
 
 /// A Job to hold a task is another repository's. A 422.
@@ -23,25 +23,29 @@ const JOB_OTHER_REPOSITORY: &str = "fleet.project_job_other_repository";
 /// A Job to hold a task has ended. A 422.
 const JOB_ENDED: &str = "fleet.project_job_ended";
 
-/// The ids of the subtasks of task `row` in `project`.
-pub(crate) fn subtasks_of<'k>(project: &'k KeptProject, row: &'k str) -> impl Iterator<Item = String> + 'k {
-    project
-        .rows
+/// The ids of the subtasks of task `row`.
+pub(crate) fn subtasks_of<'k>(kept: &'k KeptProjects, row: &'k str) -> impl Iterator<Item = String> + 'k {
+    kept.projects
         .iter()
+        .flat_map(|project| &project.rows)
+        .chain(&kept.loose)
         .filter(move |sub| matches!(&sub.item, KeptRowItem::Task { parent: Some(of), .. } if of == row))
         .map(|sub| sub.id.clone())
 }
 
-/// The id of the ask about one project's tasks: `task_done:<project>`.
+/// The id of the ask about one project's tasks: `task_done:<project>`, and `task_done:loose` for the tasks in none.
 const TASK_DONE: &str = "task_done:";
+const LOOSE_ASK: &str = "loose";
 
 /// What the person is asked about the tasks a Job finished in one project. Choice 0 and 1 are the
 /// options in this order: `answer_waiting` takes the index.
 pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
     let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
-    let id = format!("{TASK_DONE}{}", asked.project_id);
+    let which = if asked.project_id == LOOSE_PROJECT { LOOSE_ASK } else { asked.project_id.as_str() };
+    let id = format!("{TASK_DONE}{which}");
     let text = match asked.tasks.as_slice() {
         [(_, title)] => format!("Mark {title} done?"),
+        _ if asked.project_id == LOOSE_PROJECT => "Mark the tasks done?".to_string(),
         _ => format!("Mark the {} tasks done?", asked.project_name),
     };
     WaitingItem {
@@ -69,34 +73,25 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The written tasks among `named`, as `(project, row)`, once every row is known to be one of
+    /// The written tasks among `named`, by row id, once every row is known to be one of
     /// `manifest`'s. **All or nothing**: one row that is missing, or another repository's, refuses
     /// the start. An issue row passes and is not returned.
-    pub(crate) async fn project_rows_checked(
-        &self,
-        manifest: &str,
-        named: &[ProjectRowRef],
-    ) -> Result<Vec<(String, String)>, Refusal> {
+    pub(crate) async fn project_rows_checked(&self, manifest: &str, named: &[ProjectRowRef]) -> Result<Vec<String>, Refusal> {
         let store = self.store().lock().await;
-        let kept = store.projects(manifest).map_err(|why| self.ledger_fault(why))?;
+        let kept = store.projects().map_err(|why| self.ledger_fault(why))?;
         let mut tasks = Vec::new();
         for one in named {
-            if let Err(missing) = self.project_in(&kept, &one.project) {
-                let elsewhere = store.project_manifest(&one.project).map_err(|why| self.ledger_fault(why))?;
-                return Err(match elsewhere {
-                    Some(_) => Refusal::Unacceptable(self.project_refusal(
-                        OTHER_REPOSITORY,
-                        format!("project {} is another repository's", one.project),
-                    )),
-                    None => missing,
-                });
+            let (_, row) = self.row_in(&kept, &one.row)?;
+            if row.manifest_id != manifest {
+                return Err(Refusal::Unacceptable(
+                    self.project_refusal(OTHER_REPOSITORY, format!("row {} is another repository's", one.row)),
+                ));
             }
-            let row = self.row_in(&kept, &one.project, &one.row)?;
             if matches!(row.item, store::KeptRowItem::Task { .. }) {
-                tasks.push((one.project.clone(), one.row.clone()));
+                tasks.push(one.row.clone());
             }
             // A task held with its subtasks: naming a parent names them all.
-            tasks.extend(subtasks_of(self.project_in(&kept, &one.project)?, &one.row).map(|sub| (one.project.clone(), sub)));
+            tasks.extend(subtasks_of(&kept, &one.row));
         }
         let mut seen = std::collections::HashSet::new();
         tasks.retain(|one| seen.insert(one.clone()));
@@ -119,23 +114,23 @@ where
         Ok(())
     }
 
-    /// `session` holds `tasks` from now, and the repository's projects are published.
-    pub(crate) async fn project_tasks_held(&self, session: &str, manifest: &str, tasks: &[(String, String)]) {
+    /// `session` holds `tasks`, by row id, from now, and his projects are published.
+    pub(crate) async fn project_tasks_held(&self, session: &str, tasks: &[String]) {
         let held = self.store().lock().await.hold_project_tasks(session, tasks);
         if let Err(why) = held {
             self.session_warned(session, "a job's project tasks were not held", format!("{why:?}"));
             return;
         }
-        self.projects_published(manifest).await;
+        self.projects_published().await;
     }
 
-    /// The repository's projects as they stand, published as `projects.changed`.
-    pub(crate) async fn projects_published(&self, manifest: &str) {
-        let kept = self.store().lock().await.projects(manifest);
+    /// His projects as they stand, published as `projects.changed`.
+    pub(crate) async fn projects_published(&self) {
+        let kept = self.store().lock().await.projects();
         let Ok(kept) = kept else {
             return;
         };
-        let projects = self.projects_on_the_wire(ManifestId::carried(manifest), kept).await;
+        let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects));
     }
 
@@ -158,7 +153,8 @@ where
             }
         };
         let project = item.strip_prefix(TASK_DONE).unwrap_or(item);
-        let (record, manifest) = {
+        let project = if project == LOOSE_ASK { LOOSE_PROJECT } else { project };
+        let record = {
             let mut store = self.store().lock().await;
             let kept = store.session(session).map_err(|why| self.ledger_fault(why))?;
             let kept = kept.ok_or_else(|| self.settled_already())?;
@@ -166,10 +162,10 @@ where
             if changed == 0 {
                 return Err(self.settled_already());
             }
-            (self.ledger_row(&store, &kept)?, kept.manifest_id.unwrap_or_default())
+            self.ledger_row(&store, &kept)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
-        self.projects_published(&manifest).await;
+        self.projects_published().await;
         Ok(record)
     }
 
@@ -177,15 +173,12 @@ where
     /// the Job and the projects are published. Nothing happens for a Job holding no task.
     pub(crate) async fn project_tasks_asked(&self, session: &str) {
         let at = self.now().as_str().to_string();
-        let manifest = {
-            let mut store = self.store().lock().await;
-            match store.ask_held_project_tasks(session, &at) {
-                Ok(0) | Err(_) => return,
-                Ok(_) => store.session(session).ok().flatten().and_then(|one| one.manifest_id).unwrap_or_default(),
-            }
-        };
+        match self.store().lock().await.ask_held_project_tasks(session, &at) {
+            Ok(0) | Err(_) => return,
+            Ok(_) => {}
+        }
         let _ = self.published_hosted(session).await;
-        self.projects_published(&manifest).await;
+        self.projects_published().await;
     }
 
     /// Pull request `number` merged: every Job that held it is asked about its held tasks. **Held, not
@@ -227,19 +220,16 @@ where
         for session in jobs {
             let _ = self.published_hosted(session).await;
         }
-        self.projects_published(manifest).await;
+        self.projects_published().await;
         true
     }
 
     /// `session` is over: what it held and did not finish is open again. What it asked about stays asked.
     pub(crate) async fn project_tasks_freed(&self, session: &str) {
-        let manifest = {
-            let mut store = self.store().lock().await;
-            match store.free_held_project_tasks(session) {
-                Ok(0) | Err(_) => return,
-                Ok(_) => store.session(session).ok().flatten().and_then(|one| one.manifest_id).unwrap_or_default(),
-            }
-        };
-        self.projects_published(&manifest).await;
+        match self.store().lock().await.free_held_project_tasks(session) {
+            Ok(0) | Err(_) => return,
+            Ok(_) => {}
+        }
+        self.projects_published().await;
     }
 }

@@ -52,7 +52,6 @@ where
             }
             _ => Vec::new(),
         };
-        let repository = manifest.clone().unwrap_or_default();
         // A root that has a Manifest by now is a plain start on it, not Setup's.
         let setup = rooted && manifest.is_none();
         let id = new_id();
@@ -125,7 +124,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         if !held_tasks.is_empty() {
-            self.project_tasks_held(&id, &repository, &held_tasks).await;
+            self.project_tasks_held(&id, &held_tasks).await;
         }
         if held {
             {

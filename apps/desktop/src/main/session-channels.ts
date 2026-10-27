@@ -63,9 +63,9 @@ function noticeMute(value: unknown): SetNoticeMute | undefined {
   return undefined;
 }
 
-/** The project rows a start names, each a project and a row; none where there are none or the list is not one. */
+/** The project rows a start names, each by its id; none where there are none or the list is not one. */
 const rowsOf = (rows: unknown): ProjectRowRef[] | undefined =>
-  Array.isArray(rows) && rows.length > 0 && rows.every((one) => text(one?.project) && text(one?.row)) ? rows.map((one): ProjectRowRef => ({ project: one.project, row: one.row })) : undefined;
+  Array.isArray(rows) && rows.length > 0 && rows.every((one) => text(one?.row)) ? rows.map((one): ProjectRowRef => ({ row: one.row })) : undefined;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }: Hosts): void {
   ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: unknown) => {

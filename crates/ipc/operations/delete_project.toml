@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Delete a project and its rows"
 notes = """
-`POST /projects/:repository/:project/delete`, no body. `docs/practices/protocol/projects.md`. The issues it linked are untouched on the tracker. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/project/:project/delete`, no body. `docs/practices/protocol/projects.md`. The issues it linked are untouched on the tracker. The loose tasks are no project's, and stay. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 404 `fleet.no_such_project` for a `project` the repository has none of, and a 422 for a repository Fleet does not serve.
+A 404 `fleet.no_such_project` for a `project` he has none of.
 """

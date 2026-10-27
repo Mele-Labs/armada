@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Write a task at the end of a project"
+description = "Write a task in a repository, at the end of a project or of the loose tasks"
 notes = """
-`POST /projects/:repository/:project/tasks`, body `ProjectTask`: `title` and `notes`, which may be left out; both trimmed. The task starts `open`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/tasks`, body `NewProjectTask`: `manifest_id`, the repository the task is in, `project`, the project it goes into, which may be left out for a task in none, `title` and `notes`, which may be left out; both trimmed. The task starts `open`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 422 `fleet.project_blank` for a blank title. A 404 `fleet.no_such_project` for a `project` the repository has none of, and a 422 for a repository Fleet does not serve.
+A 422 `fleet.project_blank` for a blank title. A 404 `fleet.no_such_project` for a `project` he has none of, and a 422 for a repository Fleet does not serve.
 """

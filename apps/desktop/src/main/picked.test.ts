@@ -372,7 +372,7 @@ describe("the start a Session sends", () => {
     expect(startOn(SET_UP, undefined, SET_UP.root, "fix the log reader")).toEqual({ manifest_id: "store-01", request: "fix the log reader" });
     expect(startOn(SET_UP, "T", undefined, "fix it")).toEqual({ manifest_id: "store-01", title: "T", request: "fix it" });
     // The rows of his projects ride with the start, and none are sent for none.
-    const rows = [{ project: "p1", row: "t1" }];
+    const rows = [{ row: "t1" }];
     expect(startOn(SET_UP, undefined, undefined, "fix it", undefined, undefined, undefined, rows)).toEqual({ manifest_id: "store-01", request: "fix it", project_rows: rows });
     expect(startOn(SET_UP, undefined, undefined, "fix it", undefined, undefined, undefined, [])).toEqual({ manifest_id: "store-01", request: "fix it" });
   });

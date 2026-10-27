@@ -63,6 +63,8 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
 
   // The first Esc leaves a box, as on Reviews; the describe box closes with it. The next one backs out a level.
   if (holdsText(target)) {
+    // The search bar clears its words on the first Esc, in its own handler, and is left on the next.
+    if (target.matches("[data-search-field]") && (target as HTMLInputElement).value !== "") return;
     if (isPressed("close", event) && here !== undefined) {
       take();
       (target as HTMLElement).blur();
@@ -102,6 +104,12 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
   if (isPressed("issues_queries", event)) {
     take();
     return document.querySelector<HTMLElement>(".issues-list__pick button")?.click();
+  }
+  if (isPressed("issues_search", event)) {
+    const field = document.querySelector<HTMLElement>(".issues-list [data-search-field]");
+    if (field === null) return;
+    take();
+    return field.focus();
   }
   if (isPressed("issues_describe", event)) {
     take();
