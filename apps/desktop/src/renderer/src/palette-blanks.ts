@@ -58,6 +58,7 @@ export function blankStep(row: ModRow, at: number, filled: Filled, world: BlankW
     const section = pulls ? "pulls" : "issues";
     return {
       title: pulls ? "Pull request" : "Issue",
+      of: row.command.name,
       sections: [{ id: section, title: pulls ? "Open pull requests" : "Issues" }],
       entries: from.map((one) => ticket(one, pulls ? GitPullRequest : CircleDot, section, name)),
       searched: pulls ? "every open pull request" : "every open issue",
@@ -71,6 +72,7 @@ export function blankStep(row: ModRow, at: number, filled: Filled, world: BlankW
   if (name === "repo") {
     return {
       title: "Repository",
+      of: row.command.name,
       sections: [{ id: "repos", title: "Repositories" }],
       entries: world.repositories.map((one) => ({ id: `repo:${one.root}`, section: "repos", label: one.label })),
       searched: "every repository",
@@ -78,5 +80,5 @@ export function blankStep(row: ModRow, at: number, filled: Filled, world: BlankW
       onChoose: (entry) => next(entry.label, entry.label, entry.id.slice("repo:".length)),
     };
   }
-  return { title: titled(name), sections: [], entries: [], searched: "", word: true, act, onChoose: (entry) => next(entry.label, entry.label) };
+  return { title: titled(name), of: row.command.name, sections: [], entries: [], searched: "", word: true, act, onChoose: (entry) => next(entry.label, entry.label) };
 }

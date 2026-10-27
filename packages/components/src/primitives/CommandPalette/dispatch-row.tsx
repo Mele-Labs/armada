@@ -25,6 +25,8 @@ export const adds = (kind: BarKind): kind is AddKind => kind === "task" || kind 
 export type PaletteStep = {
   /** What is being filed, said over the list while the step is up. */
   title: string;
+  /** The command the step is asking for, drawn at the start of the field with the title as its placeholder, so the person sees where a key or a chain has put them. */
+  of?: string;
   sections: readonly PaletteSection[];
   entries: readonly PaletteEntry[];
   /** What was searched, for the state where nothing matched. */

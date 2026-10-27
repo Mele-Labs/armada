@@ -53,18 +53,44 @@
   overflow: hidden;
 }
 
-.armada-palette__input {
+/* The field's row: the input, and while a command asks for something, the command's name before it. */
+.armada-palette__field {
+  display: flex;
   flex: none;
+  align-items: center;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-palette__of {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--space-6);
+  margin-left: var(--space-3);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.armada-palette__input {
+  flex: 1;
+  min-width: 0;
   height: var(--h-control);
   padding: 0 var(--space-3);
   border: none;
-  border-bottom: var(--border-width) solid var(--border-subtle);
   border-radius: 0;
   background: transparent;
   color: var(--fg-default);
   font-family: var(--font-sans);
   font-size: var(--text-lg);
   line-height: var(--leading-lg);
+}
+
+.armada-palette__of + .armada-palette__input {
+  padding-left: var(--space-2);
 }
 
 .armada-palette__input::placeholder {

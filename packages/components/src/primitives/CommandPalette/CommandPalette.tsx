@@ -580,6 +580,8 @@ export function CommandPalette({
         onPointerDown={place.onPointerDown}
         onDoubleClick={place.onDoubleClick}
       >
+        <div className="armada-palette__field">
+        {stepping?.step.of === undefined ? null : <span className="armada-palette__of">{stepping.step.of}</span>}
         <input
           ref={input}
           className="armada-palette__input"
@@ -589,14 +591,15 @@ export function CommandPalette({
           aria-controls="armada-palette-list"
           aria-activedescendant={acting !== null || current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={stepping?.step.title ?? placeholder}
-          placeholder={stepping === null ? placeholder : ""}
+          placeholder={stepping === null ? placeholder : stepping.step.of === undefined ? "" : stepping.step.title}
           value={query}
           readOnly={acting !== null}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}
         />
+        </div>
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
-          {stepping === null ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
+          {stepping === null || stepping.step.of !== undefined ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
           {typedKind === null ? null : <LinkRow kind={typedKind} link={query.trim()} active={current === "link"} ref={current === "link" ? active : undefined} onEnter={() => setAt(0)} onChoose={openLink} />}
           {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
           {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
