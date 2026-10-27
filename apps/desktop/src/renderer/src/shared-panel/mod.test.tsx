@@ -13,6 +13,7 @@ test("the box opens on the change, named by the mod's kind, the caret after the 
     words: "Change the Dusk words: ",
     fleet: "Change the Dusk Fleet rule: ",
     tracker: "Change the Dusk tracker: ",
+    commands: "Change the Dusk Commands: ",
   };
   for (const [kind, words] of Object.entries(said)) expect(changeWords("Dusk", kind as ModKind)).toBe(words);
 });

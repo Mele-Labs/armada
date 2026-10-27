@@ -279,7 +279,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
                 Some(ModKind::Layout) => ipc::layout::problems(&text),
                 Some(ModKind::Words) => words::problems(&text),
                 Some(ModKind::Fleet) => fleet_rules::problems(&text),
-                Some(ModKind::Commands) => commands::problems(&text),
+                Some(ModKind::Commands) => commands::problems(&text, name),
                 Some(ModKind::Tweak) => stylesheet::problems_in(&text, TWEAK),
                 Some(ModKind::Theme | ModKind::Tracker) | None => stylesheet::problems(&text),
             });

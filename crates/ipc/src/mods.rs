@@ -172,6 +172,7 @@ pub enum ModAim {
     Words,
     Fleet,
     Tracker,
+    Commands,
     Source,
 }
 

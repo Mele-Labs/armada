@@ -24,11 +24,15 @@ enum Brace {
 }
 
 /// The blanks in `text`, once each in the order they first appear, and the first brace that is neither
-/// a blank nor plain text. **A brace holding anything but letters, digits and `_` is text**, so a
-/// shell's `{a,b}` and `awk '{print $1}'` pass as they are.
+/// a blank nor plain text. **A brace holding anything but letters, digits and `_` is text**, and so is one
+/// right after a `$`, so a shell's `{a,b}`, `${HOME}` and `awk '{print $1}'` pass as they are.
 fn blanks_of(text: &str) -> (Vec<String>, Option<Brace>) {
     let (mut blanks, mut fault) = (Vec::new(), None);
     for (at, _) in text.match_indices('{') {
+        // `${HOME}` is a shell's own expansion.
+        if text[..at].ends_with('$') {
+            continue;
+        }
         let after = &text[at + 1..];
         let Some(end) = after.find('}') else {
             fault.get_or_insert(Brace::Unclosed);
@@ -113,8 +117,31 @@ fn address_fault(address: &str) -> Option<&'static str> {
     None
 }
 
+/// `name` as a palette id spells it: lower case, each run of anything but letters and digits one `-`, none at either end.
+fn slug_of(name: &str) -> String {
+    let mut slug = String::new();
+    for c in name.chars().flat_map(char::to_lowercase) {
+        if c.is_alphanumeric() {
+            slug.push(c);
+        } else if !slug.is_empty() && !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    slug.trim_end_matches('-').to_string()
+}
+
+/// The line of a `blanks` key in the `[[command]]` table that opens on line `open` and ends before `close`.
+fn blanks_line(text: &str, open: usize, close: usize) -> Option<usize> {
+    text.lines()
+        .enumerate()
+        .skip(open)
+        .take(close.saturating_sub(open + 1))
+        .find(|(_, line)| line.trim_start().strip_prefix("blanks").is_some_and(|rest| rest.trim_start().starts_with('=')))
+        .map(|(at, _)| at + 1)
+}
+
 /// Every problem in `text`, empty where Bridge may act on it. Each names its row and the line it opens on.
-pub(crate) fn problems(text: &str) -> Vec<String> {
+pub(crate) fn problems(text: &str, mod_name: &str) -> Vec<String> {
     let file = match read(text) {
         Ok(file) => file,
         Err(why) => return vec![why],
@@ -123,11 +150,23 @@ pub(crate) fn problems(text: &str) -> Vec<String> {
         return vec!["commands.toml: it needs at least one `[[command]]`".to_string()];
     }
     let opens = lines_of(text);
+    let raw = toml::from_str::<toml::Table>(text)
+        .ok()
+        .and_then(|mut table| match table.remove("command") {
+            Some(toml::Value::Array(rows)) => Some(rows.into_iter().filter_map(|row| row.try_into::<toml::Table>().ok()).collect::<Vec<_>>()),
+            _ => None,
+        })
+        .unwrap_or_default();
     let mut found = Vec::new();
     let mut names: Vec<String> = Vec::new();
     let mut aliases: Vec<String> = Vec::new();
     for (at, one) in file.command.iter().enumerate() {
         let on = opens.get(at).map(|line| format!(" on line {line}")).unwrap_or_default();
+        if raw.get(at).is_some_and(|row| row.contains_key("blanks")) {
+            let line = opens.get(at).and_then(|open| blanks_line(text, *open, opens.get(at + 1).copied().unwrap_or(usize::MAX)));
+            let on = line.or(opens.get(at).copied()).map(|line| format!(" on line {line}")).unwrap_or_default();
+            found.push(format!("commands.toml: `{}` sets `blanks`, which Fleet reads off the text,{on}", one.name.trim()));
+        }
         let mut say = |said: String| found.push(format!("commands.toml: {said}{on}"));
         let name = one.name.trim();
         if name.is_empty() {
@@ -172,6 +211,9 @@ pub(crate) fn problems(text: &str) -> Vec<String> {
             }
             if chain.iter().any(|id| id.contains(['{', '}'])) {
                 say(format!("`{name}` takes no blanks in a chain"));
+            }
+            if chain.iter().any(|id| *id == format!("cmd:{mod_name}:{}", slug_of(name))) {
+                say(format!("`{name}` chains itself"));
             }
         }
         for alias in &one.aliases {

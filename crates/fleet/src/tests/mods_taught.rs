@@ -301,14 +301,14 @@ fn one(name: &str, rest: &str) -> String {
 }
 
 fn refused(text: &str, wanted: &str) {
-    let found = commands::problems(text);
+    let found = commands::problems(text, "rows");
     assert!(said(&found, wanted), "{text:?} should say {wanted:?}, got {found:?}");
     assert!(found.iter().all(|one| one.starts_with("commands.toml")), "{found:?}");
 }
 
 #[test]
 fn a_commands_file_with_each_kind_of_row_is_accepted_and_reads_back_with_its_blanks() {
-    assert_eq!(commands::problems(ROWS), Vec::<String>::new());
+    assert_eq!(commands::problems(ROWS, "rows"), Vec::<String>::new());
     let file = commands::read(ROWS).expect("reads");
     assert_eq!(file.command.len(), 4);
     let sec = &file.command[0];
@@ -347,7 +347,7 @@ fn a_blank_must_be_spelled_like_a_name_and_only_prompt_url_and_shell_take_one() 
     refused(&one("Open", "shell = \"echo {oops\""), "`Open` has a `{` with no `}`");
     refused(&one("Linked", "chain = [\"nav:{repo}\"]"), "`Linked` takes no blanks in a chain");
     let braces = one("Awk", "shell = \"awk '{print $1} {a,b}' {pr}\"");
-    assert_eq!(commands::problems(&braces), Vec::<String>::new(), "braces that hold no name are text");
+    assert_eq!(commands::problems(&braces, "rows"), Vec::<String>::new(), "braces that hold no name are text");
     assert_eq!(commands::read(&braces).expect("reads").command[0].blanks, ["pr"]);
 }
 
@@ -380,10 +380,31 @@ fn an_address_is_http_or_https_with_a_host_that_holds_no_blank_and_a_problem_nam
 }
 
 #[test]
+fn a_chain_may_not_name_its_own_row() {
+    refused(&one("Add a task", "chain = [\"nav:projects\", \"cmd:rows:add-a-task\"]"), "`Add a task` chains itself on line 1");
+    refused(&one("Review: PR  #2!", "chain = [\"cmd:rows:review-pr-2\"]"), "`Review: PR  #2!` chains itself");
+    let others = format!("{}{}", one("First", "shell = \"a\""), one("Second", "chain = [\"cmd:rows:first\", \"cmd:other:second\", \"cmd:rows:second-b\"]"));
+    assert_eq!(commands::problems(&others, "rows"), Vec::<String>::new(), "another row, another mod, another slug");
+}
+
+#[test]
+fn a_blanks_key_is_refused_because_blanks_are_read_off_the_text() {
+    refused(&one("Keyed", "prompt = \"a {x}\"\nblanks = [\"x\"]"), "`Keyed` sets `blanks`, which Fleet reads off the text, on line 4");
+    refused(&one("Empty", "shell = \"a\"\nblanks = []"), "`Empty` sets `blanks`");
+}
+
+#[test]
+fn a_brace_right_after_a_dollar_is_shell_text_and_not_a_blank() {
+    let shell = one("Home", "shell = \"echo ${HOME} ${oops {pr}\"");
+    assert_eq!(commands::problems(&shell, "rows"), Vec::<String>::new());
+    assert_eq!(commands::read(&shell).expect("reads").command[0].blanks, ["pr"]);
+}
+
+#[test]
 fn a_hotkey_is_a_chord_of_modifiers_and_at_most_one_key() {
     for good in ["⌥⌘S", "S", "⇧⌘R", "⌘[", "Esc", "⌘F5", "⌃⌥⇧⌘K", "⌥↑"] {
         let text = one("Keyed", &format!("shell = \"a\"\nhotkey = \"{good}\""));
-        assert_eq!(commands::problems(&text), Vec::<String>::new(), "{good}");
+        assert_eq!(commands::problems(&text, "rows"), Vec::<String>::new(), "{good}");
     }
     for (bad, wanted) in [("", "empty hotkey"), ("  ", "empty hotkey"), ("⌘SD", "one key"), ("⌘S⌘", "one key"), ("⌘ S", "one key"), ("⌘Nope", "one key")] {
         let text = one("Keyed", &format!("shell = \"a\"\nhotkey = \"{bad}\""));
