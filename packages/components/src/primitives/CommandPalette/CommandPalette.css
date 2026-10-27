@@ -198,7 +198,12 @@
 /* A setting states its current value, in mono, right of the label. Metadata
  * rather than a second label, so it steps down. */
 .armada-palette__value {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 35%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--fg-subtle);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -356,4 +361,10 @@
 
 .armada-palette[data-acting] .armada-palette__list {
   min-height: calc(var(--h-menu-item) * 8 + var(--space-4));
+}
+
+/* A confirmation raised from the palette, Stop on a Job, is the top layer: above the palette that asked,
+ * which is above every modal. */
+:root:has(.armada-palette-layer) .armada-dialog-scrim {
+  z-index: calc(var(--z-palette) + 1);
 }

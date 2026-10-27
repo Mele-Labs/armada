@@ -52,6 +52,8 @@ export type PaletteMountProps = {
   acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
   /** The page showing, by its surface id: the palette heads its results with that page's own acts. */
   showing?: string;
+  /** The name a Job's repository goes by in the title row's picker, from the Manifest id the Job carries. */
+  repoOf?: (manifestId: string) => string | undefined;
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
   /** What a typed link names, and opening it. `link-routes.ts`. */
@@ -73,6 +75,7 @@ export function PaletteMount({
   repositories,
   picked,
   showing,
+  repoOf,
   acts,
   dispatch,
   linkRoutes,
@@ -152,7 +155,7 @@ export function PaletteMount({
       picked={picked}
       // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
-      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one))}
+      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one, repoOf))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
@@ -196,14 +199,15 @@ const PALETTE_OPENS_ROW = "palette-opens";
 const SECURITY_REVIEW = "security-review";
 
 /** A Job as a palette row: where it works, how it stands, and the pull request it holds. */
-function jobRow(one: Session): PaletteSession {
+function jobRow(one: Session, repoOf: PaletteMountProps["repoOf"]): PaletteSession {
+  const repo = one.manifestId === undefined ? undefined : repoOf?.(one.manifestId);
   const { state, said } = stateOf(one);
   const held = one.attachments.find((attachment) => attachment.kind === "pull_request");
   return {
     id: one.id,
     label: one.title ?? one.address ?? one.id,
     aliases: [one.id, ...(one.address === undefined ? [] : [one.address])],
-    ...(one.manifestId === undefined ? {} : { repo: one.manifestId }),
+    ...(repo === undefined ? {} : { repo }),
     state: { icon: sessionGlyphOf(state), said, ...(state === "working" ? { pulsing: true as const } : {}) },
     ...(one.paused === true ? { paused: true } : {}),
     ...(held === undefined || held.kind !== "pull_request" ? {} : { pull: held.number }),

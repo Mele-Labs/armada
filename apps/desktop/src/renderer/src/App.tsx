@@ -30,7 +30,7 @@ import { useCopied, useSaid } from "@armada/shell";
 import { useRefreshKey } from "@armada/shell";
 import { sessionsHidden } from "./sessions";
 import { fleetPanelClocked } from "./left-column";
-import { repositoryLabel } from "@armada/shell";
+import { jobIdOf, repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
 import { openSettingsAt } from "@armada/settings";
 import { SystemSurface } from "./system-surface";
@@ -747,6 +747,10 @@ export function App() {
           repositories={repositories.map((one) => ({ root: one.root, label: repositoryLabel(one, repositories) }))}
           picked={state.repository}
           showing={showingNow}
+          repoOf={(manifestId) => {
+            const one = repositories.find((held) => jobIdOf(held) === manifestId);
+            return one === undefined ? undefined : repositoryLabel(one, repositories);
+          }}
           acts={{
             pickRepository: pick,
             compose: () => newSession(),
