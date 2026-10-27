@@ -40,12 +40,13 @@ use api::{HostedSessions, Refusal};
 use ipc::{
     AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
-    WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
+    DraftHow, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
 use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
+use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
@@ -511,6 +512,25 @@ where
                         confirmed: false,
                     })
                 }
+                SessionRow::Draft { id, at, title, settled: None, .. } => {
+                    let id = format!("{DRAFT_PREFIX}{id}");
+                    (!dismissed.contains(&id)).then(|| WaitingItem {
+                        act: Some(WaitingAct {
+                            kind: WaitingActKind::Answer,
+                            target: id.clone(),
+                        }),
+                        id,
+                        text: title,
+                        since: at,
+                        source: WaitingSource::Draft,
+                        options: vec![WaitingOption { label: String::from("Approve"), description: None }],
+                        steps: Vec::new(),
+                        place: None,
+                        concern: None,
+                        cites: Vec::new(),
+                        confirmed: false,
+                    })
+                }
                 _ => None,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
@@ -525,6 +545,7 @@ where
                         | WaitingSource::Walk
                         | WaitingSource::Permission
                         | WaitingSource::WindowAsk
+                        | WaitingSource::Draft
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
@@ -736,8 +757,13 @@ where
             .hosts()
             .settling(&id, &item.id)
             .ok_or_else(|| self.settled_already())?;
+        if said.fixed.is_some() && item.source != WaitingSource::Draft {
+            return Err(self.hosted_refusal(FIXED_NOT_A_DRAFT, "fixed text is an answer to a draft only"));
+        }
+        let fixed = said.fixed.as_deref().map(str::trim).filter(|t| !t.is_empty());
         let nothing = said.choice.is_none()
             && said.mode.is_none()
+            && fixed.is_none()
             && said.text.as_deref().map_or(true, |t| t.trim().is_empty());
         if nothing && item.source != WaitingSource::Walk {
             return Err(self.hosted_refusal(
@@ -777,11 +803,16 @@ where
         // The card routes answer through `answer_session_ask`, which enters its own; the rest are
         // a message to the agent, entered here once it is sent.
         let (source, fleet) = (item.source, Arc::clone(&self));
-        let says = match (picked.as_deref().or(words), said.mode) {
+        let says = match (item.source, fixed, said.choice, words) {
+            (WaitingSource::Draft, Some(_), ..) => "Approved with fixes".to_string(),
+            (WaitingSource::Draft, None, Some(_), _) => "Approved".to_string(),
+            (WaitingSource::Draft, None, None, Some(note)) => format!("Sent back: {note}"),
+            _ => match (picked.as_deref().or(words), said.mode) {
             (Some(chosen), _) => format!("Answered: {chosen}"),
             (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
             (None, Some(ipc::WaitingMode::Quick)) => "Answered: get it done".to_string(),
             (None, None) => "Approved".to_string(),
+            },
         };
         let settled = match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
@@ -899,6 +930,24 @@ where
             }
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
+            // Settled only once the message is sent, so a failed send leaves the draft standing.
+            WaitingSource::Draft => {
+                let (body, how, kept) = match (fixed, said.choice, words) {
+                    (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
+                    (None, Some(_), words) => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                    (None, None, Some(note)) => (drafting::sent_back(&item.text, note), DraftHow::SentBack, Some(note)),
+                    (None, None, None) => {
+                        return Err(self.hosted_refusal(
+                            SESSION_WAITING_EMPTY,
+                            "a draft is approved, approved with fixed text, or sent back with a note",
+                        ))
+                    }
+                };
+                let body = [Some(body.as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
+                Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
+                self.draft_settled(&id, row, how, kept.map(str::to_string)).await
+            }
         };
         if let (Ok(record), false) = (
             &settled,

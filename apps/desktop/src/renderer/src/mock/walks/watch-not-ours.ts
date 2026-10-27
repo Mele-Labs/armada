@@ -4,7 +4,7 @@
 
 import { button, deckRow, dialog, inside, region, role, tab, text, walk } from "../walk";
 
-const landing = region("Landing", { exact: true });
+const landing = region("Delivery", { exact: true });
 const watchingBlock = inside(landing, region("Watching"));
 const panel = dialog("Watch QA deploy");
 const needs = region("Needs you");

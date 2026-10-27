@@ -288,6 +288,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/open",
     },
     Route {
+        operation: "start_terminal_run",
+        method: "POST",
+        path: "/sessions/terminal/run",
+    },
+    Route {
         operation: "type_in_terminal",
         method: "POST",
         path: "/sessions/terminal/type",
@@ -388,6 +393,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window/ask",
     },
     Route {
+        operation: "propose_draft",
+        method: "POST",
+        path: "/sessions/draft",
+    },
+    Route {
         operation: "window_closed",
         method: "POST",
         path: "/sessions/window/closed",
@@ -428,6 +438,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/done",
     },
     Route {
+        operation: "defer_later",
+        method: "POST",
+        path: "/sessions/defer_later",
+    },
+    Route {
         operation: "settle_later",
         method: "POST",
         path: "/sessions/settle_later",
@@ -461,6 +476,11 @@ const ROUTES: &[Route] = &[
         operation: "confirm_waiting",
         method: "POST",
         path: "/sessions/waiting/confirm",
+    },
+    Route {
+        operation: "confirm_later",
+        method: "POST",
+        path: "/sessions/later/confirm",
     },
     Route {
         operation: "list_manifests",

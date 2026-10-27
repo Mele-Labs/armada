@@ -1,4 +1,4 @@
-// The Landing draws a Job's watches in a Watching block below its pull requests, the agent's verdict under the reading it weighed. A press opens a
+// Delivery draws a Job's watches in a Watching block below its pull requests, the agent's verdict under the reading it weighed. A press opens a
 // watch in the side panel: its readings, its parts with the one set aside struck through, its command. A Job a live watch alone holds open wears
 // the watch's glyph on its Cockpit row and in its header, named Held open by on hover, and Stop on that watch lets it go. Ended watches show on
 // Show ended. Over `watching`.
@@ -7,7 +7,7 @@ import { button, deckRow, dialog, inside, region, role, tab, walk } from "../wal
 
 const showEnded = role("switch", "Show ended");
 
-const landing = region("Landing", { exact: true });
+const landing = region("Delivery", { exact: true });
 const watchingBlock = inside(landing, region("Watching"));
 const jobs = region("Jobs", { exact: true });
 const panel = dialog("Watch QA deploy");

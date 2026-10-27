@@ -5,16 +5,44 @@
 
 /* ---- The page ------------------------------------------------------------------------------------------- */
 
+/* The Cockpit's measure: one gutter between panels and as far from the window's edge, a header band of 26px, and the Job's head a step over it. */
+.armada-screen__mounted[data-deck],
+.deck {
+  --deck-gutter: calc(var(--space-1) * 1.5);
+  --deck-band: calc(var(--space-6) + var(--space-1) / 2);
+  --deck-head: calc(var(--space-8) + var(--space-1));
+}
 .deck {
   --hue: var(--status-awaiting-review);
+  /* The controls are the dense pair here, and a header band is the band's. */
+  --h-control: var(--h-control-dense);
+  --h-control-sm: var(--h-control-sm-dense);
+  --h-row-header: var(--deck-band);
+  /* The Cockpit's type ladder, a step under the rest of the app's. */
+  --text-2xs: var(--text-2xs-dense);
+  --leading-2xs: var(--leading-2xs-dense);
+  --text-xs: var(--text-xs-dense);
+  --leading-xs: var(--leading-xs-dense);
+  --text-sm: var(--text-sm-dense);
+  --leading-sm: var(--leading-sm-dense);
+  --text-base: var(--text-base-dense);
+  --leading-base: var(--leading-base-dense);
+  /* The row's title and its meta are roles of the look, set beside the ladder and not on it: a step down as the rest. */
+  --text-row: var(--text-xs-dense);
+  --size-meta: var(--text-2xs-dense);
+  /* What the look reads of the Job's panels and head (`depth.css`): a band's side padding, the head's height and padding, the body's padding. */
+  --band-pad: 0 var(--space-3);
+  --head-min: var(--deck-head);
+  --head-pad: 0 var(--space-3);
+  --body-pad: var(--space-2) var(--space-3);
   position: relative;
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  margin: 0 var(--space-3) var(--space-3);
-  gap: var(--space-3);
+  margin: 0 var(--deck-gutter) var(--deck-gutter);
+  gap: var(--deck-gutter);
 }
 /* The shell keeps a gutter round every screen (the work's leading margin, the panel's trailing one, the mount's top, the
    overview's left and foot) that the rail it was drawn for needed. The deck has no rail: its panels run to the one gap the
@@ -22,7 +50,7 @@
 /* The deck marks the containers it sits in (`DECK_MARKS`): `:has(.deck)` on them restyled each one whenever anything beneath it was inserted. */
 .armada-shell__body[data-deck] > .armada-shell__work { margin-left: 0; }
 .armada-shell__work[data-deck] > .armada-shell__panel { margin-right: 0; }
-.armada-screen__mounted[data-deck] { padding-top: var(--space-3); }
+.armada-screen__mounted[data-deck] { padding-top: var(--deck-gutter); }
 .armada-screen__overview[data-deck] { padding: 0; }
 .deck [data-hue="ask"],
 .deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }
@@ -37,13 +65,13 @@
   min-height: 0;
   grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr) var(--deck-right, calc(var(--space-12) * 5.75));
   grid-template-rows: minmax(0, 1fr);
-  gap: var(--space-3);
+  gap: var(--deck-gutter);
 }
 /* A layout that hides every panel of the right column takes the column away. */
 .deck-grid[data-bare] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
 .deck-left,
 .deck-centre,
-.deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
+.deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--deck-gutter); }
 
 /* A side column's resize handle, on the middle of the gap beside it and out of the flow, so drawing it moves nothing. */
 .deck-left,
@@ -54,8 +82,8 @@
   inset-block: 0;
   margin: 0;
 }
-.deck-left > .deck-handle { inset-inline-end: calc((var(--space-3) + var(--space-2)) / -2); }
-.deck-right > .deck-handle { inset-inline-start: calc((var(--space-3) + var(--space-2)) / -2); }
+.deck-left > .deck-handle { inset-inline-end: calc((var(--deck-gutter) + var(--space-2)) / -2); }
+.deck-right > .deck-handle { inset-inline-start: calc((var(--deck-gutter) + var(--space-2)) / -2); }
 
 .deck-panel,
 .deck-pane {
@@ -66,8 +94,8 @@
   border: var(--border-width) solid var(--border-glass);
   overflow: hidden;
 }
-.deck-centre { gap: var(--space-3); }
-.deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--space-3); }
+.deck-centre { gap: var(--deck-gutter); }
+.deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--deck-gutter); }
 .deck-stage > .deck-pane { flex: 1 1 0; }
 
 /* Ending a Job: a copy of its pane leaves over the stage while the timeline is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
@@ -95,7 +123,7 @@
   gap: var(--space-3);
   min-height: var(--h-row-header);
   /* No padding above or below: the band's own height centres the line, so there is as much space over the title as under it. */
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -106,12 +134,46 @@
 }
 .deck-band .armada-kbd { margin-left: auto; }
 
+/* A Cockpit panel has no name band. Its acts are a small chip in the top corner that comes on a hover or on focus inside, and the name is the panel's `aria-label` only.
+   A folded panel, or one that is only a band, keeps its band. The chip's ground is the glass itself, so what is under it does not show through.
+   An open Job's own panels keep their bands: each band is the panel's fold, and the panels stack open and folded under them. So do the Reviews and Issues pages,
+   which are drawn on the deck and were not part of the take. */
+.deck:not(.pr-surface, .issues-surface) {
+  --deck-hole: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
+  & .deck-panel:not([data-collapsed], [data-band-only], .deck-autopilot) {
+    position: relative;
+    overflow: visible;
+    & > :is(.deck-band, .sv-panel__band) {
+      position: absolute;
+      inset-block-start: var(--space-1);
+      inset-inline-end: var(--space-1);
+      z-index: 2;
+      width: auto;
+      min-height: 0;
+      padding: 0 var(--space-1);
+      gap: var(--space-1);
+      border-radius: var(--glass-radius-control, var(--radius-md));
+      background: var(--deck-hole);
+      box-shadow: 0 0 0 var(--border-width) var(--glass-edge);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--duration-fast) var(--ease);
+      & > .sv-panel__state { display: none; }
+      /* The name is not drawn but still names the band, which is the fold's button. */
+      & > :is(.deck-band__name, .sv-panel__label) { position: absolute; width: var(--border-width); height: var(--border-width); overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      & > * { margin-inline-start: 0; }
+    }
+    &:is(:hover, :focus-within) > :is(.deck-band, .sv-panel__band) { opacity: 1; pointer-events: auto; }
+  }
+}
+
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
-/* Filter, in the list's band: plain text and a chevron at the right, ahead of the panel's key. Small caps are the band's own and not the trigger's. */
-.deck-list > .deck-band .armada-dropdown-menu { margin-left: auto; }
-.deck-list > .deck-band .armada-dropdown-menu + .armada-kbd { margin-left: 0; }
-.deck-list > .deck-band .armada-dropdown-menu__trigger { font-family: var(--font-sans); font-size: var(--text-xs); letter-spacing: normal; text-transform: none; }
+/* Filter, in the list's band: the glyph, lit in the accent while the list is narrowed, ahead of the panel's key. */
+.deck-filter { display: inline-flex; margin-left: auto; }
+.deck-filter[data-narrowed] .armada-button { color: var(--accent); }
+.deck-filter + .armada-kbd,
+.deck-filter + .armada-tooltip { margin-left: 0; }
 
 /* A Session Fleet cannot reach, or that ended: read quieter than one in flight. */
 .deck-row[data-past] .deck-row__title { color: var(--fg-muted); }
@@ -122,7 +184,23 @@
 .deck-list__more svg { animation: deck-spin 1s linear infinite; }
 @keyframes deck-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
-.deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+/* Rows are divided by a hairline, with no card to each. The look reads a row's height, padding and radius from the list (`depth.css`): 28px, with room above and below for Now or Active PRs. */
+.deck-list__rows {
+  --deck-line: var(--h-control-dense);
+  --row-min: var(--deck-line);
+  --row-pad: 0 var(--space-3);
+  --row-radius: 0;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
 /* A row picked up is dimmed where it stood; the line is where it would be put down. Nothing else moves while it is held. */
 .deck-list__rows[data-reordering],
 .deck-list__rows[data-reordering] .deck-row { cursor: grabbing; user-select: none; }
@@ -130,11 +208,12 @@
 .deck-list__item[data-drop]::after { content: ""; position: absolute; inset-inline: 0; height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: var(--accent); pointer-events: none; }
 .deck-list__item[data-drop="before"]::after { top: calc(var(--space-1) / -2 - var(--border-width)); }
 .deck-list__item[data-drop="after"]::after { bottom: calc(var(--space-1) / -2 - var(--border-width)); }
-.deck-list__band { display: flex; flex-direction: column; gap: var(--space-1); }
-.deck-list__band + .deck-list__band { margin-top: var(--space-2); }
-.deck-list__group { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-/* Quieter than the band above the list: the same small caps, one step down and subtle. */
-.deck-list__repository { margin: 0; padding: var(--space-1) var(--space-2) 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.deck-list__band { display: flex; flex-direction: column; }
+/* A repository's heading stands apart: room above it and a hairline, no box. */
+.deck-list .deck-list__band + .deck-list__band { margin-top: var(--space-3); border-top: var(--border-width) solid var(--border-default); }
+.deck-list__group { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+/* Quieter than the band above the list: the same small caps, one step down and subtle. The look sets its padding and line (`--repository-pad`, `--repository-leading`). */
+.deck-list__repository { --repository-pad: var(--space-2) var(--space-3) var(--space-1); --repository-leading: var(--leading-head); margin: 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
 /* An idea saved to start later: the row of a Session not started, dashed in its hue, with the repository and the model where a Session's phase and mark would be. */
 .deck-row[data-queued] {
   grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
@@ -142,7 +221,8 @@
 }
 .deck-row[data-queued] .deck-row__kind { color: var(--status-not-started); }
 .deck-row__tags { display: inline-flex; gap: var(--space-2); min-width: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); white-space: nowrap; }
-.deck-list__item { display: flex; align-items: center; gap: var(--space-2); }
+.deck-list__item { display: flex; align-items: center; }
+.deck-list__item + .deck-list__item { border-top: var(--border-width) solid color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-list__item > .deck-row { flex: 1 1 0; width: auto; min-width: 0; }
 .deck-row {
   position: relative;
@@ -154,8 +234,8 @@
   min-height: var(--h-control-sm);
   padding: 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
+  border-radius: var(--row-radius, var(--radius-md));
+  background: transparent;
   color: var(--fg-default);
   font: inherit;
   font-family: var(--font-sans);
@@ -169,7 +249,7 @@
 .deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 /* A Session handed a plan group stands under its parent, one step in, with the line it hangs from. */
-.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: var(--space-4); }
+.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: var(--space-3); }
 .deck-list__item:has(> .deck-row[data-linked])::before {
   content: "";
   position: absolute;
@@ -198,49 +278,53 @@
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 .deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
 
-/* A Work row is two lines on one left edge. Line 1: the title, and the marks in a fixed column (the clash, the phase glyph, the state), which line up
-   from row to row. Line 2: what it last said, quiet and cut, and its age in a column of its own under the marks. The row's own left edge and
-   its `::before` are left free for the linked rows' indent and the calling bar. */
-.deck-list__item { --deck-slot: var(--space-4); position: relative; }
+/* A Work row is one line, the name and then the fields the person's View menu has on (`row-view.tsx`). Each field is a column of a fixed width, in the menu's order, so a row
+   without the field leaves its place empty: the default, Conflicts and Status, is the clash mark's slot, the phase's and the state's. Now is a second line under all of them,
+   and Active PRs a line of its own under that (or under the name where Now is off); the row is as tall as it is. A column no row of the list fills is taken to nothing
+   (`--deck-w-<field>`, `row-view.tsx`), and a row whose field is empty lets its name run on over the empty column: the columns stay where they are. */
+.deck-list__item { position: relative; }
 .deck-row:not([data-queued]) {
-  --deck-slot: var(--space-4);
-  --deck-marks: calc(var(--deck-slot) * 3 + var(--space-1) * 2);
-  grid-template-columns: minmax(0, 1fr) var(--deck-marks);
-  grid-template-rows: auto auto;
-  row-gap: calc(var(--space-1) / 2);
+  grid-template-columns: var(--deck-cols, minmax(0, 1fr));
+  grid-template-rows: auto;
+  column-gap: var(--space-1);
   align-items: center;
-  min-height: 0;
-  padding: var(--space-2) var(--space-3);
 }
+.deck-list__rows:is([data-now], [data-pr]) .deck-row:not([data-queued]) { grid-template-rows: var(--deck-line) auto auto; }
 .deck-row:not([data-queued]) .deck-row__title { grid-column: 1; grid-row: 1; line-height: var(--leading-xs); }
-.deck-row__marks { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: repeat(3, var(--deck-slot)); column-gap: var(--space-1); align-items: center; justify-items: center; }
-.deck-row__says { grid-column: 1; grid-row: 2; min-height: var(--leading-xs); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-xs); }
-.deck-row:not([data-queued]) .deck-row__said { grid-column: 2; grid-row: 2; justify-self: end; font-family: var(--font-mono); line-height: var(--leading-xs); white-space: nowrap; }
-/* The clash mark is a button, so it sits beside the row and over the first slot of its marks. */
-.deck-row__clash {
-  position: absolute;
-  top: var(--space-2);
-  right: calc(var(--space-3) + (var(--deck-slot) + var(--space-1)) * 2);
-  display: flex;
-  flex-direction: row-reverse;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-4);
-  height: var(--leading-xs);
-  pointer-events: none;
+.deck-row__title:has(+ .deck-row__cell[data-field="issue"]:empty) { margin-inline-end: calc((var(--deck-w-issue, var(--space-12)) + var(--space-1)) * -1); }
+.deck-row__title:has(+ .deck-row__cell[data-field="time"]:empty) { margin-inline-end: calc((var(--deck-w-time, calc(var(--space-12) + var(--space-1))) + var(--space-1)) * -1); }
+.deck-row__title:has(+ .deck-row__cell[data-field="issue"]:empty + .deck-row__cell[data-field="time"]:empty) {
+  margin-inline-end: calc((var(--deck-w-issue, var(--space-12)) + var(--deck-w-time, calc(var(--space-12) + var(--space-1))) + var(--space-1) * 2) * -1);
 }
-.deck-row__clash > * { pointer-events: auto; }
-/* The earlier Job behind a row that took its place: a button on the first slot of its marks, where the clash mark sits. */
+.deck-list__rows:not(:has(.deck-row__cell[data-field="issue"]:not(:empty))) { --deck-w-issue: calc(var(--space-1) * 0); }
+.deck-list__rows:not(:has(.deck-row__cell[data-field="time"]:not(:empty))) { --deck-w-time: calc(var(--space-1) * 0); }
+.deck-list__rows:not(:has(.deck-row__cell[data-field="workflow"]:not(:empty))) { --deck-w-workflow: calc(var(--space-1) * 0); }
+.deck-row__cell { display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); }
+.deck-row__cell[data-field="time"] { justify-content: flex-end; }
+.deck-row__cell[data-field="status"] { display: grid; grid-template-columns: repeat(2, var(--space-4)); column-gap: var(--space-1); justify-items: center; overflow: visible; }
+.deck-row__cell > .armada-tooltip { min-width: 0; max-width: 100%; }
+.deck-row__chip,
+.deck-row__issue,
+.deck-row__flow { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.deck-row__chip { padding: 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); }
+.deck-row__flow { font-family: var(--font-sans); }
+.deck-row__says { grid-column: 1 / -1; grid-row: 2; min-height: var(--leading-head); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-head); }
+.deck-row__prs { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; }
+/* The clash mark is a button, so it sits beside the row, over the marks' first slot, set from the trailing edge by the columns after its own. The earlier Job behind a row that took its place is
+   a button on the same slot. */
+.deck-row__clash,
 .deck-row__earlier {
   position: absolute;
-  top: var(--space-2);
-  right: calc(var(--space-3) + (var(--deck-slot) + var(--space-1)) * 2);
+  inset-block: 0;
+  right: var(--deck-clash-right, calc(var(--space-3) + (var(--space-4) + var(--space-1)) * 2));
   display: flex;
   align-items: center;
   justify-content: center;
   width: var(--space-4);
-  height: var(--leading-xs);
 }
+.deck-row__clash { flex-direction: row-reverse; pointer-events: none; }
+.deck-row__clash > * { pointer-events: auto; }
+.deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
@@ -277,6 +361,30 @@
 /* A Session: its own thread, and the box to answer it. */
 /* A Session's pane is a sheet like any other: the thread's frame inside it draws no edge of its own (`depth.css`). */
 .deck-pane[data-frame] { gap: var(--space-2); }
+/* The Job's head: its name and state, then the views, the context figure, the menu and the way out at the far end. */
+.deck .deck-pane[data-frame] .armada-session-frame__head { justify-content: flex-end; }
+/* The Job's panels: the title as tracked caps over a hairline, the body close under it. */
+.deck .sv-panel__band {
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-head);
+  line-height: var(--leading-head);
+  letter-spacing: var(--tracking-head);
+}
+.deck .sv-panel__body { gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+/* The composer is a line tall at rest and grows as it is typed in, its controls at 28px. */
+.deck .armada-session-composer__bar { gap: var(--space-1); padding: var(--space-1); }
+.deck .armada-session-composer__bar .armada-select,
+.deck .armada-session-composer__bar .armada-button { height: var(--h-control); }
+.deck .armada-session-composer__bar .armada-button[data-icon-only="true"] { width: var(--h-control); }
+/* The thread: lines of a fold at a 24px pitch, and a Check's line a step under the prose with its mono a step under that. */
+.deck .armada-helm-thread__rows { gap: var(--space-2); }
+.deck .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold { margin-block-start: calc((var(--space-2) - var(--space-1) / 2) * -1); }
+.deck .armada-session-fold__head--press { font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck .armada-session-fold__head--press .mono { font-size: var(--text-2xs); }
+/* The glyphs a step lighter, and the switch's ON and OFF a step smaller. */
+.deck svg.lucide { stroke-width: 1.5; }
+.deck .armada-switch { --switch-text: var(--text-switch-dense); }
 /* The map is not a panel: no edge, fill, shadow or header, so the shell's grid shows round its floor. Focus is the repo's outline. */
 .deck-pane[data-bare] { border: 0; border-radius: 0; overflow: visible; }
 .deck-pane[data-bare]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
@@ -299,7 +407,7 @@
 
 /* ---- The merge queue: one row in a glass panel under the stage, as dots or as chips -------------------- */
 
-.deck-queue { flex: none; min-height: var(--h-control); justify-content: center; }
+.deck-queue { flex: none; justify-content: center; }
 /* ViewSheet draws a diff row with the same class name and is loaded after the Cockpit's: the belt's row is put back. */
 .deck-queue .armada-view__line { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding-inline: 0; white-space: normal; color: var(--fg-muted); }
 .deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
@@ -307,15 +415,15 @@
 .deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
 .deck-queue__gap { flex: none; width: var(--space-4); }
 /* On All, one repository's line at a time: the stack scrolls down a row at a time and snaps, each row scrolls across. */
-/* 48px holds the 32px queue track over a thin classic scrollbar, the single line's own height; at 36 a row scrolled down inside the stack and stopped it between rows. */
-.deck-queue__stack { flex: 1 1 auto; min-width: 0; height: var(--space-12); overflow-x: hidden; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain; scrollbar-width: none; }
-.deck-queue__stack > .deck-chips { box-sizing: border-box; height: 100%; padding-block: 0; overflow-y: hidden; scroll-snap-align: start; scroll-snap-stop: always; }
+/* The merge line is one row, 34px: a control's height and a little over, which holds the queue track. */
+.deck-queue__stack { flex: 1 1 auto; min-width: 0; height: calc(var(--h-control) + var(--space-1)); overflow-x: hidden; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain; scrollbar-width: none; }
+.deck-queue__stack > .deck-chips { box-sizing: border-box; height: 100%; overflow-y: hidden; scroll-snap-align: start; scroll-snap-stop: always; }
 
-.deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
-.deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.deck-queue__row { display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--h-control) + var(--space-1)); padding: 0 var(--space-3); color: var(--fg-subtle); }
+.deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .deck-chips > li { flex: none; }
 /* The forge's merge queue, in its order: one tinted track, each pull request led by its place. */
-.deck-queue__track { display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-1); list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: calc(var(--h-badge) / 2 + var(--space-1)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: calc(var(--h-badge) / 2 + var(--space-1)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .deck-queue__rule { flex: none; width: var(--border-width); height: var(--h-badge); background: var(--border-default); }
 .deck-chip__place { color: var(--accent); font-weight: var(--weight-heading); }
 .deck-chips > .deck-queue__gap { width: var(--space-2); }
@@ -324,7 +432,7 @@
   align-items: center;
   gap: var(--space-2);
   height: var(--h-badge);
-  padding: 0 var(--space-3) 0 var(--space-2);
+  padding: 0 var(--space-4) 0 var(--space-3);
   border: var(--border-width) solid var(--border-glass);
   border-radius: calc(var(--h-badge) / 2);
   background: color-mix(in srgb, var(--fg-default) 6%, transparent);
@@ -449,10 +557,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bay:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .deck-bay .armada-tooltip,
 .deck-bay .armada-tooltip > span { min-width: 0; }
-.deck-bay__state { display: inline-flex; flex: none; color: var(--hue); }
-.deck-bay[data-bay="stranded"] .deck-bay__state { animation: deck-bay-pulse calc(var(--duration-pulse) * 3) ease-in-out infinite; }
-.deck-bay[data-bay="leased"][data-live] .deck-bay__state { animation: deck-bay-pulse calc(var(--duration-pulse) * 2.4) ease-in-out infinite; }
-@keyframes deck-bay-pulse { 50% { opacity: 0.4; } }
 .deck-bay__name { flex: none; font-family: var(--font-mono); font-weight: var(--weight-medium); letter-spacing: 0; text-transform: none; }
 .deck-bay__prefix { font-weight: var(--weight-body); }
 .deck-bay__mark { display: inline-flex; flex: none; color: var(--fg-muted); }
@@ -466,9 +570,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bay__who[data-gone] { flex: 1 1 auto; color: var(--fg-muted); font-weight: var(--weight-body); }
 .deck-bay__branch { font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted); }
 .deck-bay__foot { margin-top: auto; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-subtle); }
-.deck-bay__time { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-.deck-bay__line > .armada-tooltip:has(> .deck-bay__time) { flex: none; margin-left: auto; }
-.deck-bay__foot > .armada-tooltip:has(> .deck-bay__time) { flex: none; }
 .deck-bay__marks { display: inline-flex; flex: none; align-items: center; gap: var(--space-2); }
 /* The frame's edge by state, for all three takes: solid held, dashed free, hatched stranded, shuttered closed. */
 .deck-bay[data-bay="free"] { --edge-style: dashed; }
@@ -494,23 +595,17 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bay[data-hover] { border-color: var(--hue); background-color: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
 .deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); background-color: var(--accent-muted); }
 .deck-bay__door { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); width: calc(var(--space-12) + var(--space-2)); background: color-mix(in srgb, var(--hue) 12%, transparent); color: var(--hue); }
-.deck-bay__door .deck-bay__state,
 .deck-bay__door .deck-bay__name { color: var(--hue); }
 .deck-bay[data-bay="stranded"] .deck-bay__door { background: color-mix(in srgb, var(--hue) 22%, transparent); }
 .deck-bay[data-bay="free"] .deck-bay__door { background: none; border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
-.deck-bay[data-bay="free"] .deck-bay__door .deck-bay__state,
 .deck-bay[data-bay="free"] .deck-bay__door .deck-bay__name { color: var(--hue); }
 .deck-bay[data-bay="closed"] .deck-bay__door { background: var(--slot-closed-bg); }
-.deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__state,
 .deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__name { color: var(--slot-closed); }
 .deck-bay__name { font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); }
 .deck-bay__prefix { display: none; }
 .deck-bay__body { justify-content: center; padding: var(--space-2) var(--space-3); }
 .deck-bay__foot { margin-top: 0; }
-.deck-bay__foot > .armada-tooltip:has(> .deck-bay__time) { margin-left: auto; }
 /* The bays of a repository, under its heading as the Jobs and Sessions list draws its own. */
-.deck-bays__rows .deck-list__band { gap: var(--space-2); }
-.deck-bays__rows .deck-list__band + .deck-list__band { margin-top: var(--space-2); }
 .deck-bays__rows .deck-list__group { gap: var(--space-2); }
 .deck-bays__rows .deck-list__group > li { display: flex; min-width: 0; }
 /* A repository's heading with the act that adds a slot to its pool at the far end; a refusal wraps under both. */
@@ -520,13 +615,30 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 
 /* ---- The foot: flight controls ------------------------------------------------- */
 
-/* The foot: the controls and Autopilot, side by side across the centre column. */
-.deck-foot { --tile: calc(var(--space-12) + var(--space-2)); --controls-min: calc(var(--tile) * 6 + var(--space-2) * 5 + var(--space-3) * 2 + var(--border-width) * 2); display: flex; flex: none; flex-wrap: wrap; gap: var(--space-3); }
+/* The foot: the controls and Dispatch, side by side across the centre column. The two share the row's width as 6 to 1 over what each holds besides its tiles (the controls' gaps and
+   padding, Dispatch's padding). What is left is shared equally, so a tile of the one is a tile of the other, and the room Dispatch gives up goes to the controls. */
+.deck-foot {
+  --tile: calc(var(--space-12) + var(--space-2));
+  --deck-inset-controls: calc(var(--border-width) * 2 + var(--space-3) * 2 + var(--space-2) * 5);
+  --deck-inset-dispatch: calc(var(--border-width) * 2 + var(--space-3) * 2);
+  /* A key stands off the panel on a crisp dark edge under it and a faint light one on its top (`box-shadow`, no blur). */
+  --deck-key-hi: color-mix(in srgb, var(--fg-default) 18%, transparent);
+  --deck-key-lo: color-mix(in srgb, var(--bg-base) 90%, transparent);
+  --deck-key-seat: color-mix(in srgb, var(--bg-base) 90%, transparent);
+  --deck-key-face: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--deck-gutter);
+}
+/* Compact's steps are smaller than a key's glyph and name, so its keys keep Default's height: Compact's steps are three quarters of Default's. */
+:root[data-spacing="compact"] .deck-foot { --tile: calc((var(--space-12) + var(--space-2)) * 4 / 3); }
 
-/* One row of six equal tiles. A tile is a glyph over its word, rounded and a little raised. */
-/* Six tiles never get narrower than a tile is tall: a panel that does not fit beside them wraps under them instead. */
-.deck-controls { flex: 6 1 var(--controls-min); }
+/* One row of six equal tiles. A tile is a glyph over its word. */
+.deck-controls { flex: 6 1 var(--deck-inset-controls); min-width: 0; }
 .deck-controls__block { display: grid; flex: 1 1 auto; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: var(--tile); align-content: center; gap: var(--space-2); padding: var(--space-1) var(--space-3) var(--space-3); }
+/* With no Job open the room above the tiles is the room below. */
+.deck-controls__block:not([data-subject]) { padding-block: var(--space-2); }
 .deck-tile {
   display: flex;
   flex-direction: column;
@@ -534,23 +646,84 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   justify-content: center;
   gap: var(--space-1);
   padding: 0;
-  border: var(--border-width) solid var(--border-glass);
-  border-radius: calc(var(--radius-lg) * 1.5);
-  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
-  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight);
+  border: var(--border-width) solid var(--chip-edge);
+  border-radius: var(--glass-radius-chip);
+  background: var(--chip);
   color: var(--fg-muted);
   font: inherit;
   cursor: pointer;
 }
-.deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
+.deck-tile:hover:not([aria-disabled="true"]) { background: var(--chip-hover); color: var(--fg-default); }
 .deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .deck-tile__text { max-width: 100%; overflow: hidden; font-size: var(--text-2xs); line-height: var(--leading-xs); text-overflow: ellipsis; white-space: nowrap; }
 /* Drawn off: it is still there to be read, its tooltip says why, and a press does nothing. */
 .deck-tile[aria-disabled="true"] { opacity: 0.5; cursor: default; }
-.deck-tile[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
-/* Pressed is lit. */
+/* Pressed is lit: the accent's edge and tint. */
 .deck-tile[aria-pressed="true"],
-.deck-tile[data-on] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
+.deck-tile[data-on] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+
+/* The keys of the Flight control and of Dispatch are raised. Pressed or on, a key is seated: the edge under it goes, the top is shadowed inside, the face is a pixel lower, and a switch's lamp,
+   a short bar on the top edge, is lit in the accent. A key that is off is flat and recessed. The Job's tiles and the deck's are the one class. */
+:is(.deck-controls__block:not([data-subject="edit"]), .deck-dispatch__block) .deck-tile {
+  background: var(--deck-key-face);
+  box-shadow: inset 0 var(--border-width) 0 var(--deck-key-hi), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
+  &:hover { background: color-mix(in srgb, var(--fg-default) 13%, transparent); }
+  &:is([aria-pressed="true"], [data-on], :active) {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+    box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
+    /* Moved by `top`, not a transform: a transform makes the key the box its fixed tooltip is placed in, and the tooltip then covers the key. */
+    top: var(--border-width);
+  }
+  /* A press that is answered by nothing is not a press. */
+  &[aria-disabled="true"] {
+    border-color: var(--border-subtle);
+    background: color-mix(in srgb, var(--bg-base) 35%, transparent);
+    box-shadow: inset 0 var(--border-width) 0 color-mix(in srgb, var(--bg-base) 55%, transparent);
+    top: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.deck-controls__block:not([data-subject="edit"]), .deck-dispatch__block) .deck-tile:is([aria-pressed="true"], [data-on], :active) { top: 0; }
+}
+/* Every key in the block starts its glyph lower by the same amount, so the lamp has room above it and the glyphs stay level across the row. */
+.deck-controls__block:not([data-subject="edit"]) .deck-tile { padding-block: calc(var(--space-2) + var(--space-1)) var(--space-1); }
+/* The lamp: Auto land's and Pause's own mark, drawn as a bar and not as its ring or dot. */
+.deck-controls__block .deck-tile__state {
+  top: calc(var(--space-1) + var(--border-width));
+  left: 50%;
+  display: block;
+  width: var(--space-4);
+  height: calc(var(--space-1) - var(--border-width));
+  margin-inline-start: calc(var(--space-4) / -2);
+  border-radius: var(--border-width);
+  background: var(--border-subtle);
+}
+.deck-controls__block .deck-tile__state[data-on] { background: var(--accent); }
+.deck-controls__block .deck-tile__state > svg { display: none; }
+/* A key's tooltip floats above the panel, clear of the key and of the merge line under it. */
+@supports (anchor-name: --a) {
+  :is(.deck-controls__block, .deck-dispatch__block) .armada-tooltip__bubble:not([data-beside]) {
+    position-area: block-start span-inline-end;
+    margin-block-end: var(--space-2);
+  }
+}
+/* The glass's blur is on a layer behind the keys, not on the panel (`depth.css`): a backdrop filter on the panel makes the panel the box a fixed tooltip is placed in, and the tooltip could then not
+   leave it. The panel isolates, so the layer stays behind the keys without becoming that box. */
+:is(.deck-controls, .deck-dispatch) {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+    pointer-events: none;
+  }
+}
 
 /* Report: the box takes the tiles' place, the words fill it and Send sits at its foot. */
 .deck-report { grid-template-columns: minmax(0, 1fr) auto; grid-auto-rows: auto; align-content: stretch; align-items: end; }
@@ -571,32 +744,18 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-holds-done__lists { display: grid; gap: var(--space-2); min-width: 0; }
 .deck-holds-done__head { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-heading); color: var(--fg-muted); }
 
-/* Autopilot: compact, the height of the controls beside it: the switch is its title, then the repository and how it stands over a thin bar. */
-/* Dispatch: between the controls and Autopilot. Its tile is a control's, lit in the accent as a pressed one is, in the heading weight. */
-.deck-dispatch { flex: 3 1 calc(var(--space-12) * 2); }
-.deck-dispatch__block { display: grid; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr); grid-auto-rows: var(--tile); align-content: center; padding: var(--space-1) var(--space-3) var(--space-3); }
-.deck-dispatch__tile { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
-.deck-dispatch__tile:hover { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+/* Dispatch: beside the controls, as wide as one of their tiles. Its tile is a control's, raised and seated when pressed as the others are, with its glyph in the accent and its name in the heading weight.
+   An accent face would read as a key held down. */
+.deck-dispatch { flex: 1 1 var(--deck-inset-dispatch); min-width: 0; }
+.deck-dispatch__block { display: grid; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr); grid-auto-rows: var(--tile); align-content: center; padding: var(--space-2) var(--space-3); }
+.deck-dispatch__tile > svg { color: var(--accent); }
 .deck-dispatch__tile .deck-tile__text { font-weight: var(--weight-heading); }
 .deck-dispatch__tile .deck-tile__key { opacity: 0.9; }
 
-.deck-autopilot { flex: 4 1 calc(var(--space-12) * 3); }
-.deck-autopilot > .deck-band { justify-content: space-between; }
+/* Autopilot is one row, its name and its switch. */
+.deck-autopilot { flex: 0 0 auto; align-self: flex-start; }
+.deck-autopilot > .deck-band { justify-content: space-between; gap: var(--space-4); }
 .deck-autopilot > .deck-band .armada-switch { min-height: 0; gap: var(--space-3); color: var(--fg-muted); font: inherit; letter-spacing: inherit; text-transform: inherit; }
-.deck-autopilot__body { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: var(--space-3); padding: var(--space-1) var(--space-3) var(--space-3); }
-.deck-autopilot__repo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: calc(var(--tile) - var(--space-3) - var(--space-1)); padding: var(--space-2) var(--space-3); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
-.deck-autopilot__name { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
-.deck-autopilot__bar { height: var(--space-1); border-radius: var(--space-1); background: color-mix(in srgb, var(--fg-default) 10%, transparent); overflow: hidden; }
-.deck-autopilot__fill { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--fg-subtle); }
-.deck-autopilot__bar[data-state="paused"] .deck-autopilot__fill { width: 40%; }
-.deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 35%; background: var(--status-completed-success); animation: deck-autopilot-run calc(var(--duration-pulse) * 3) var(--ease) infinite; }
-@keyframes deck-autopilot-run {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(290%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 60%; animation: none; }
-}
 
 .deck-bays,
 .deck-ledger { flex: 3 1 0; }
@@ -623,13 +782,13 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* One focus state: the panel's edge and shadow lift (`depth.css`), the heading not filled. The thing focused inside keeps its own ring. */
 .deck-panel:focus,
 .deck-pane:focus { outline: none; }
+/* A cap leaves no room behind it until ⌘ is held: it is not drawn, not hidden, so nothing moves when it comes. `DeckBody` sets `data-reveal` on the root while ⌘ is down. */
+:root:not([data-reveal]) .deck :is(.deck-band, .sv-panel__band, .deck-controls, .deck-dispatch, .deck-queue, .deck-flight) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) { display: none; }
 /* A key is a quiet cap at the end of a heading, and in the corner of a tile. */
 .deck-band .armada-kbd { opacity: 0.7; }
 .deck-band .armada-kbd + .armada-kbd { margin-left: 0; }
 .deck-tile { position: relative; }
 .deck-tile__key { position: absolute; top: var(--space-1); right: var(--space-1); opacity: 0.6; }
-/* A write clash on the Bays key, where a key with a digit has its keycap: the clash mark's glyph and amber. */
-.deck-tile__clash { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--status-awaiting-review); }
 .deck-tile[aria-pressed="true"] .deck-tile__key,
 .deck-tile[data-on] .deck-tile__key { opacity: 0.9; }
 
@@ -637,11 +796,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-6) var(--space-6); }
 .deck-keys .armada-keys__row { grid-template-columns: calc(var(--space-12) * 1.75) minmax(0, 1fr); }
 .deck-keys .armada-keys__row dt { flex-wrap: wrap; }
-
-@media (prefers-reduced-motion: reduce) {
-  .deck-bay[data-bay="stranded"] .deck-bay__state,
-  .deck-bay[data-live] .deck-bay__state { animation: none; }
-}
 
 /* A bay's pane: its acts in a frame in the bay's own hue, as the bay's tile is framed, over the facts. The acts, their confirms and
    the Scout's finding are the tile panel's own (`BayManage`); the frame only holds them. */
@@ -776,7 +930,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .sv-panel__band[role="button"]:hover { color: var(--fg-default); }
 .deck-band[role="button"]:focus-visible,
 .sv-panel__band[role="button"]:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
-.deck-panel { --folded: calc(var(--h-row-header) + var(--border-width) * 2); }
+.deck-panel,
+.deck .sv-panel { --folded: calc(var(--h-row-header) + var(--border-width) * 2); }
 .deck-panel,
 .sv-panel {
   transition: flex-grow calc(var(--duration-sheet) * 1.6) var(--ease), flex-basis calc(var(--duration-sheet) * 1.6) var(--ease), min-height calc(var(--duration-sheet) * 1.6) var(--ease), max-height calc(var(--duration-sheet) * 1.6) var(--ease), height calc(var(--duration-sheet) * 1.6) var(--ease), margin-top calc(var(--duration-sheet) * 1.6) var(--ease);
@@ -793,36 +948,32 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 
 /* ---- A Session's flight controls fill the panel ------------------------------------------------------------- */
 
-/* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. The tiles are in pages of six
-   columns and two rows that sit side by side in a strip and snap into view one page at a time, as iPhone home screens do, with a dot for each page
-   (`FlightBlock.tsx`, `flight-pages.ts`); while every tile fits on one page it has the columns it needs. Each tile sizes its glyph and its word from
-   its own box. The owner's ask of 23 Oct 2026. */
+/* The Job's tiles are one row of keys in the block; the block is sized by its place and the grid fills it. Editing lays every tile, the hidden ones and `+` too, six to a row. */
 .deck-controls__block[data-subject="session"],
 .deck-controls__block[data-subject="edit"] { display: block; position: relative; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
 .deck-controls__block[data-subject="session"] { overflow-y: auto; }
-/* The strip stands inside the block's padding, so a tile of the next page is never seen at its edge, and the dots stand over the padding under it. */
-.deck-controls__pages { height: 100cqh; overflow: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
-.deck-controls__pages::-webkit-scrollbar { display: none; }
-/* `--cols` is the columns of a page and `--span` the columns of every page. Each column is its share of the block's width, so a page is the block's
-   width wide and the next starts one gap past it, and the grid is every column wide, so the last page can be reached though it is not full. Each
-   tile has its cell set inline. */
-.deck-controls__tiles { --column: calc((100cqw - var(--space-2) * (var(--cols) - 1)) / var(--cols)); display: grid; width: calc(var(--span) * var(--column) + var(--space-2) * (var(--span) - 1)); grid-template-columns: repeat(var(--span), var(--column)); grid-template-rows: repeat(2, calc((100cqh - var(--space-2)) / 2)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); gap: var(--space-2); }
-.deck-controls__tiles > .deck-tile[data-page-first] { scroll-snap-align: start; scroll-snap-stop: always; }
-.deck-controls__dots { position: absolute; inset-inline: 0; bottom: 0; height: var(--space-3); display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.deck-controls__dots > button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); cursor: pointer; pointer-events: auto; border-radius: var(--radius-sm); }
-.deck-controls__dots > button > span { width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-subtle); }
-.deck-controls__dots > button[aria-current] > span { background: var(--fg-default); }
-.deck-controls__dots > button:focus-visible { outline: var(--border-width) solid var(--accent); }
-/* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
-.deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
-.deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }
-/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height; the top as much, so glyph and word sit centred.
-   The word's box keeps its height in a tile 48px tall: its glyph, gap and word need 36px between the paddings, and a box that shrank cut the descenders. */
+/* The Job's flight control is a grid of the deck's own tiles. The columns are the deck's: a sixth of the block's width less the five gaps, so a tile here is the size of Checks, Calls, Map or
+   Timeline in the block with no Job open. Seven or more tiles do not fit at that size in one row, so they share the one row in equal widths, a little narrower than the deck's. */
+.deck-controls__block.deck-flight[data-subject="session"] {
+  container: none;
+  flex: 1 1 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: none;
+  grid-auto-rows: var(--tile);
+  align-content: center;
+  align-items: stretch;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow: visible;
+  padding: var(--space-2) var(--space-3);
+}
+.deck-controls__tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: var(--tile); gap: var(--space-2); }
+/* Each tile sizes its glyph and its word from its own box. */
 .deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-block: var(--space-1); }
 .deck-controls__tiles > .deck-tile svg,
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
-/* The clash glyph keeps the mark's own size, not the key's. */
-.deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
 /* A tile of the person's that hides the repository's of the same id: a badge on the corner Auto land's state takes, which a custom
    tile never carries. Filled in the accent with the glyph knocked out, so it reads as a mark on the tile and never as a second icon. */
 .deck-tile__hides { position: absolute; top: var(--space-1); left: var(--space-1); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: var(--radius-lg); background: var(--accent); color: var(--fg-inverse); box-shadow: 0 0 0 var(--border-width) var(--bg-base); }
@@ -836,30 +987,18 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 
 /* ---- Flight controls the owner shaped ------------------------------------------------------------------------ */
 
-/* The panel's key stays beside the title; Edit sits at the band's right end as plain text, then Done and Cancel in its place while editing. */
-.deck-controls > .deck-band > .armada-button,
+/* The panel's key stays beside the title; Edit is a glyph at the band's right end, then Done and Cancel in its place while editing. */
 .deck-controls > .deck-band .deck-band__acts { font-family: var(--font-sans); letter-spacing: normal; text-transform: none; }
-.deck-controls > .deck-band > .armada-button { margin-left: auto; }
+.deck-controls > .deck-band > .armada-tooltip { margin-left: auto; }
 .deck-band__acts { display: inline-flex; align-items: center; gap: var(--space-2); }
 .deck-band__acts:not(:empty) { margin-left: auto; }
-.deck-controls > .deck-band .armada-kbd { margin-left: 0; }
+.deck-controls > .deck-band > .armada-tooltip + .deck-band__acts { margin-left: 0; }
 
-/* Facts on a tile. The context window's fill is a thin rule along the foot of Compact, under its word, filling from the left. */
-.deck-tile__meter { position: absolute; inset-inline: var(--space-3); bottom: var(--space-1); height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 14%, transparent); overflow: hidden; }
-.deck-tile__meter > span { display: block; height: 100%; background: var(--fg-muted); }
-.deck-tile__meter[data-high] > span { background: var(--status-awaiting-review); }
-/* The number of subagents running, in the corner opposite the key. */
-.deck-tile__count { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
 /* Pressed and not yet answered: the turning glyph in the corner the clash mark takes, until Fleet's row carries the press. */
 .deck-tile__going { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--fg-muted); }
 .deck-tile__going > svg { animation: deck-going-turn var(--duration-pulse) linear infinite; }
 @keyframes deck-going-turn { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .deck-tile__going > svg { animation: none; } }
-/* Checks breathes while any of the Job's Checks runs: opacity alone, as a bay's state does. */
-.deck-tile[data-running] { color: var(--status-running); }
-.deck-tile[data-running] svg { animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .deck-tile[data-running] svg { animation: none; } }
-
 /* Editing: the same tiles, arranged. Selection is the edge alone; a lifted tile takes the accent; a hidden one is drawn quiet and dashed. */
 /* Editing keeps the shown tiles' columns and rows; hidden tiles and `+` wrap after them as more tiles do outside it. */
 .deck-controls__block.deck-flight-edit { overflow-y: auto; }
@@ -874,7 +1013,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-flight-edit__said { grid-column: 1 / -1; margin: 0; padding: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-default); }
 .deck-flight-edit .deck-tile { cursor: grab; }
 .deck-flight-edit .deck-tile[data-add] { cursor: pointer; }
-.deck-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.deck-sr { position: absolute; width: var(--border-width); height: var(--border-width); overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* A Shell action's output stands where the tiles were. */
 .deck-controls__block.deck-shell[data-subject="session"] { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); align-items: end; gap: var(--space-2); }

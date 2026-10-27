@@ -41,6 +41,8 @@ test("each operation reaches its own route", async () => {
   await askGateway({ op: "devices" }, base);
   await askGateway({ op: "unpair", id: "d 1" }, base);
   await askGateway({ op: "status" }, base);
+  await askGateway({ op: "setup" }, base);
+  await askGateway({ op: "funnel" }, base);
   expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual([
     "POST /admin/pair/start",
     "GET /admin/pair/pending",
@@ -48,6 +50,8 @@ test("each operation reaches its own route", async () => {
     "GET /admin/devices",
     "DELETE /admin/devices/d%201",
     "GET /admin/status",
+    "GET /admin/setup",
+    "POST /admin/setup/funnel",
   ]);
   expect(JSON.parse(seen[2]!.body)).toEqual({ code: "ab12" });
 });

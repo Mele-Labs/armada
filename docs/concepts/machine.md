@@ -40,7 +40,7 @@ The owner decided it on 10 Oct 2026, `.claude/decisions/2026-10-10-settings-json
 | A file Fleet will not take | An unknown key, a wrong type or a value out of range refuses it whole. The last good settings stay in force, and Bridge shows the refusal |
 | What wins over it | An environment variable such as `ARMADA_MODEL`; and a repository's own value, as before |
 
-**A person's Bridge preferences are keys too**: theme, layout, key bindings, time format and whether *Where things are* opens.
+**A person's Bridge preferences are keys too**: theme, spacing (`spacing.density`, Compact, Default or Roomy), layout, key bindings, time format, the fields a Job's row draws (`bridge.rowView`) and whether *Where things are* opens.
 A mod's on-off switch is not, and stays in Fleet's store.
 The binding rules are `../contracts/configuration.md`, *The Machine tier is one file*.
 
@@ -65,6 +65,8 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 - Landing Manifest
 - Notification routing: `features.notifications`, on or off for every job that needs you
 - Interface sounds: `features.uiSounds`
+- Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge
+- Autopilot panel: `features.autopilotPanel`, whether the Cockpit draws it; off ships
 - Voice/tone
 - Helm budget soft-warning threshold
 - Helm action authority

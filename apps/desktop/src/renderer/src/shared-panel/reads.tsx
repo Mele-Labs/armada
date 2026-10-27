@@ -10,6 +10,7 @@ import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draf
 
 import type { RequestsApi } from "../../../shared/api/requests";
 
+import type { TerminalRunApi } from "./terminal-run";
 import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
 import type { PanelItem } from "./store";
 
@@ -72,7 +73,8 @@ export type CheckRead = {
 export type PatchesRead = { ok: true; files: PullRequestFilePatches["files"] } | { ok: false; said: string };
 
 /** The page was refused: Fleet's own words, with the forge's reason and what to do. */
-export type PullRequestRefused = { refused: string };
+/** The forge's refusal in Fleet's words. `root` is the repository's checkout, where a command the words name is run. */
+export type PullRequestRefused = { refused: string; root?: string };
 
 export type PanelReads = {
   pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | PullRequestRefused | undefined>;
@@ -95,6 +97,8 @@ export type PanelReads = {
   leaveCheck?: () => void;
   /** Moves each time the log being followed does, so a Check panel reads its lines again. */
   followed?: number;
+  /** Runs a command in a directory with no Job behind it. Absent where Fleet serves none, and a refusal's command is only named. */
+  terminalRun?: TerminalRunApi;
   /** Takes a pull request's address where `links.openPullRequestsIn` sends them to the browser, and answers whether it did. */
   browse?: (address: string) => boolean;
   /** What the merge lines say of the place a pull request holds. */

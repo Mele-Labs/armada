@@ -1,8 +1,8 @@
-// Landing: what the workflow ends in, so it differs by kind. A pull request draws the pull request, its Checks, its place in the merge queue and
+// Delivery: what the workflow ends in, so it differs by kind. A pull request draws the pull request, its Checks, its place in the merge queue and
 // the merge. A spike and a document draw the doc they made. A report draws the report itself: its title and the first lines of its conclusion, and a
 // press opens the whole of it in the side panel; it has no pull request and no merge. A mod draws the mods it made, each with its switch. Watching and
 // Deferred stand inside, whatever the kind, and so does a page the Job wrote with the document skill, which opens in the reading layer. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, an issue the Job claimed stands here as a row of its own, and the issues it only filed for later stand in Deferred.
-// The stage opens it (`story.ts`); the band or ⌥L does too. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
+// The stage opens it (`story.ts`); the band or ⌥D does too. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
 
 import { useMemo, useRef } from "react";
 import { Tooltip, type LedgerEntry } from "@armada/components";
@@ -127,7 +127,7 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
           ? "done"
           : undefined;
   return (
-    <SvPanel label="Landing" area="landing" place={place} state={state} empty={empty} fold={fold} keycap={bandKeyFor("landing")}>
+    <SvPanel label="Delivery" area="landing" place={place} state={state} empty={empty} fold={fold} keycap={bandKeyFor("landing")}>
       {kind === "pull_request" && prs.length > 0 ? (
         <ul className="sv-landing__prs" aria-label="Pull requests" ref={list}>
           {stackedRows(prs).map((row) => (
@@ -149,7 +149,7 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
         </ul>
       )}
       <WatchingBlock key={session.id} session={session} />
-      {later.length === 0 && filed.length === 0 ? null : <LaterBlock later={later} issues={filed} manifestId={session.manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onDrop={(one) => draft?.dropLater?.(id, one.id)} />}
+      {later.length === 0 && filed.length === 0 ? null : <LaterBlock later={later} issues={filed} manifestId={session.manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
     </SvPanel>
   );
 }

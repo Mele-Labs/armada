@@ -239,7 +239,8 @@ where
                     }
                     // Nothing to decide: sending it is his, and it stays on the list for the morning.
                     // A plan is his to approve, and a concern his to send or dismiss, so they wait the same way.
-                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan | WaitingSource::Judge | WaitingSource::SlotChoice | WaitingSource::Delivery | WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::TaskDone | WaitingSource::WatchNotOurs => {
+                    // A draft is text he puts his name to, so it waits too.
+                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Judge | WaitingSource::SlotChoice | WaitingSource::Delivery | WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::TaskDone | WaitingSource::WatchNotOurs => {
                         continue
                     }
                     WaitingSource::Permission => {
@@ -263,6 +264,7 @@ where
                             choice: Some(choice as u32),
                             text: None,
                             mode: None,
+                            fixed: None,
                         };
                         if Arc::clone(&self).settle_waiting(said).await.is_err() {
                             continue;

@@ -197,7 +197,7 @@ async fn ignore_settles_a_not_ours_ending_and_tells_the_agent_nothing() {
 }
 
 fn answer(job: &SessionId, item: &str, choice: u32) -> ipc::AnswerWaiting {
-    ipc::AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None }
+    ipc::AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
 }
 
 async fn not_ours_items(rig: &Rig, job: &SessionId) -> Vec<ipc::WaitingItem> {

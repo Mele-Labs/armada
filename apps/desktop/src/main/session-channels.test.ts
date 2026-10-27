@@ -14,11 +14,15 @@ function wired() {
   const answer = vi.fn(async () => ({ ok: true }));
   const muteNotice = vi.fn(async () => ({ ok: true }));
   const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
-  const connection = () => ({ sessions: { answer, muteNotice } });
+  const settleLater = vi.fn(async () => ({ ok: true }));
+  const confirmLater = vi.fn(async () => ({ ok: true }));
+  const connection = () => ({ sessions: { answer, muteNotice, settleLater, confirmLater } });
   handleSessions({ ipc, connection, windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
   const send = (body: AnswerSessionAsk) => handlers.get(CHANNELS.answerSessionAsk)?.({}, body);
   const mute = (body: unknown) => handlers.get(CHANNELS.muteNotice)?.({}, body);
-  return { send, answer, mute, muteNotice };
+  const drop = (body: unknown) => handlers.get(CHANNELS.settleLater)?.({}, body);
+  const confirm = (body: unknown) => handlers.get(CHANNELS.confirmLater)?.({}, body);
+  return { send, answer, mute, muteNotice, drop, confirm, settleLater, confirmLater };
 }
 
 describe("answering a session's ask", () => {
@@ -182,5 +186,21 @@ describe("a Job held on its start card", () => {
     expect(await call(CHANNELS.beginSession, { session_id: "", delivery: "open_pr" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
     expect(await call(CHANNELS.beginSession, { session_id: "s", delivery: "merge_now" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
     expect(begin).not.toHaveBeenCalled();
+  });
+});
+
+describe("the thumbs on a follow-up", () => {
+  it("passes the misread of a thumbs down on to Fleet", async () => {
+    const { drop, settleLater } = wired();
+    await drop({ id: "later-2", how: "dropped", misread: true, session_id: "a" });
+    expect(settleLater).toHaveBeenCalledWith({ id: "later-2", how: "dropped", misread: true, session_id: "a" });
+  });
+
+  it("sends a thumbs up by id, and refuses one with no id", async () => {
+    const { confirm, confirmLater } = wired();
+    await confirm({ id: "later-2", session_id: "a" });
+    expect(confirmLater).toHaveBeenCalledWith({ id: "later-2", session_id: "a" });
+    expect(await confirm({ session_id: "a" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(confirmLater).toHaveBeenCalledTimes(1);
   });
 });

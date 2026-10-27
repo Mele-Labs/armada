@@ -34,6 +34,7 @@ import { AgentSignInSourceProvider } from "./agent-sign-in";
 import { createFleetClashes } from "./fleet-clashes";
 import { ReviewsFrom, createReviewStore } from "./pr-review/store";
 import { IssuesFrom, createIssuesStore } from "./issues-tab/store";
+import { ProjectsFrom, createProjectsStore } from "./projects-tab/store";
 import { issuesSourceOf } from "./issues-tab/source";
 import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
@@ -81,7 +82,11 @@ wireFleetKeymap(withState(window.armada));
 /** How the owner has a time drawn, over Fleet. Not a mod, so safe mode keeps it. */
 wireFleetTimeFormat(withState(window.armada));
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
-const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
+const PHONE = createPhoneGatewaySource(
+  (request) => window.armada.phone(request),
+  Date.now,
+  (page) => void window.armada.openLink(page),
+);
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
 const SLEEP = createFleetSleep(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */
@@ -99,6 +104,8 @@ const TERRITORY = createFleetTerritory(withState(window.armada));
 const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 /** A repository's issues and the queries saved for its tracker, read from the tracker by Fleet when the Issues tab opens. */
 const ISSUES = createIssuesStore(issuesSourceOf(window.armada));
+/** His projects, kept in Fleet and read when the window opens, then kept current by `projects.changed`. */
+const PROJECTS = createProjectsStore(window.armada);
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
 const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
 /** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
@@ -140,10 +147,12 @@ function Root() {
                               <FleetEventsOver source={TIMELINE}>
                                 <ReviewsFrom store={REVIEWS}>
                                   <IssuesFrom store={ISSUES}>
-                                    <WiredSharedPanel>
-                                      <App />
-                                      <TweaksApplied />
-                                    </WiredSharedPanel>
+                                    <ProjectsFrom store={PROJECTS}>
+                                      <WiredSharedPanel>
+                                        <App />
+                                        <TweaksApplied />
+                                      </WiredSharedPanel>
+                                    </ProjectsFrom>
                                   </IssuesFrom>
                                 </ReviewsFrom>
                               </FleetEventsOver>

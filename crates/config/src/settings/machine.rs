@@ -17,6 +17,10 @@ pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
 pub const UI_SOUNDS: Flag = Flag("features.uiSounds");
+/// Read by Bridge alone: whether Armada claims `armada://` from the OS and opens a pull request's review from a link.
+pub const DEEP_LINKS: Flag = Flag("features.deepLinks");
+/// Read by Bridge alone: whether the Cockpit draws the Autopilot panel.
+pub const AUTOPILOT_PANEL: Flag = Flag("features.autopilotPanel");
 /// The folders every session may reach past its slots with no card, and the ones it may not:
 /// `ipc::reach_folders`. Written by an "always" answer on a session's card.
 pub const REACH_FOLDERS: Json = Json("features.reachFolders");
@@ -179,6 +183,30 @@ pub(super) const FEATURES: &[Entry] = &[
         description: "A quiet tick when you move through a list or press a control.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: DEEP_LINKS.0,
+        section: Section::Features,
+        title: "Open pull request links",
+        description: "A link that starts armada://pull opens Bridge on that pull request's review. Off, Armada does not claim the link from macOS and ignores one it is handed.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: AUTOPILOT_PANEL.0,
+        section: Section::Features,
+        title: "Autopilot panel",
+        description: "Shows the Autopilot panel in the Cockpit",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: None,
         env: None,

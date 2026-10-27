@@ -54,6 +54,7 @@ const SOURCES: &[(&str, Source)] = &[
     ("motion.css", Source::Tokens),
     ("semantic.css", Source::Tokens),
     ("light.css", Source::Theme),
+    ("spacing-sets.css", Source::Theme),
     ("base.css", Source::Stylesheet),
 ];
 
@@ -116,6 +117,14 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--text-lg", Slot::Literal),
     ("--text-xl", Slot::Literal),
     ("--text-2xl", Slot::Literal),
+    ("--text-2xs-dense", Slot::Literal),
+    ("--text-xs-dense", Slot::Literal),
+    ("--text-sm-dense", Slot::Literal),
+    ("--text-base-dense", Slot::Literal),
+    (
+        "--text-switch-dense",
+        Slot::CssOnly("a Switch's word at the Cockpit's density, not a step of the ladder"),
+    ),
     ("--radius-", Slot::Literal),
     ("--font-sans", Slot::Literal),
     ("--font-mono", Slot::Literal),

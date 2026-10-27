@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 25 Oct 2026. The Job view's right column ends in the Landing, which draws differently by kind.
+Since 25 Oct 2026. The Job view's right column ends in Delivery, which draws differently by kind.
 **Additive**: one field on an existing type and one enum; no operation, route or event kind.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
@@ -16,7 +16,7 @@ Prototype declares `spike` and Code Review `report`; every other shipped workflo
 **`mod` is not one of the four.** Bridge reads a Mod Job off `SessionRecord.mod`, and that wins over the workflow's word.
 
 **Bridge reads it where it already reads the Session's workflow**: `workOf` in `packages/screens/src/session-work.ts` finds the `WorkflowSummary` the record's `workflow` names and sets `work.landing`, which `landingOf` in `session-view/story.ts` reads.
-The same read carries the resolved `phase` of the step at `workflow_step`, from `WorkflowStep.phase` (protocol 23.19), and `stageOf` opens the Landing on a step in `delivery`.
+The same read carries the resolved `phase` of the step at `workflow_step`, from `WorkflowStep.phase` (protocol 23.19), and `stageOf` opens Delivery on a step in `delivery`.
 Neither adds a field to `SessionRecord`.
 
 **The workflow file gains `lands:`**, a word refused outside the four.

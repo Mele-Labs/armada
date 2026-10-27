@@ -1,0 +1,14 @@
+[operations.propose_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Put a draft to the person for approval: a pull request description, a comment, a message, any text they should OK before you use it. Body: title, one short line naming what it is and where it goes; text, the draft in markdown; before, optional, the text it replaces. Returns at once; end your turn. The answer comes as a message: approved as written, approved with their fixes and the exact text to use, or sent back with a note to rewrite and propose again."
+notes = """
+`POST /sessions/draft`, body `ProposeDraft`: `title`, one short line naming what the draft is and where it goes; `text`, the draft in markdown; an optional `before`, the text it replaces; and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `draft`, the item's `draft:<row id>`, because the row grows with every attachment and an agent keeps each answer.
+
+**It does not wait.** Fleet keeps a `draft` row on the thread with `title`, `text` and `before`, answers at once, and the job ends its turn. The open draft is `draft:<row id>` in `SessionRecord.waiting_for`, source `draft`, so it shows under Waiting on you as well as on the thread. `answer_waiting` settles it: a `choice` of 0 approves it as written, `fixed` approves it with the person's text, and `text` alone sends it back with that note. The job gets the person's message saying which, with the exact text to use or the note to rewrite by, and the row is replaced by id with its `settled`: `how` (`approved`, `fixed` or `sent_back`), `words` (the fixed text or the note, absent for `approved`) and `at`. `dismiss_waiting` drops it with nothing sent.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_window`'s is.
+
+`agent_access` is `Yes`: the job is the one with the draft, and the one that uses the text once it is settled.
+"""

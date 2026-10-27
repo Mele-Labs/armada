@@ -38,7 +38,7 @@ import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
-import type { Action, ActionContext, PaletteDispatch, PalettePath, PaletteEntry, PaletteSection } from "@armada/components";
+import type { Action, ActionContext, PaletteDispatch, PaletteLink, PalettePath, PaletteEntry, PaletteSection } from "@armada/components";
 
 /** A Session as a search result: found by any word of its title, or by its id. */
 export type PaletteSession = { id: string; label: string; aliases: readonly string[] };
@@ -110,7 +110,7 @@ export type PaletteSetting = { id: string; label: string; value?: string; aliase
  *
  * **They appear as rows and the registry's single `state_filter` does not.**
  * That row spells its binding `1–5` over five tabs, for the reason
- * `deck_tabs` spells `⌘1–⌘6` over its destinations — the rule is tab
+ * `deck_tabs` spells `⌘1–⌘7` over its destinations — the rule is tab
  * order rather than the digits. A palette drawing that one row would name no
  * filter and set none, which would leave `1`–`5` the one part of the app
  * learnable only by finding the tabs.
@@ -193,6 +193,8 @@ export type PaletteProps = {
   dispatch?: PaletteDispatch;
   /** A typed path, offered as a file to open. */
   path?: PalettePath;
+  /** A typed link to a pull request or an issue, offered as the page to open. */
+  link?: PaletteLink;
   /** The title bar's field, which the palette opens over. */
   anchor?: string;
 };
@@ -265,6 +267,7 @@ export function Palette({
   onConfirmAct,
   dispatch,
   path,
+  link,
   anchor,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
@@ -367,6 +370,7 @@ export function Palette({
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
       {...(path === undefined ? {} : { path })}
+      {...(link === undefined ? {} : { link })}
       {...(anchor === undefined ? {} : { anchor })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.

@@ -48,6 +48,8 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
       onHistory: () => () => undefined,
       // Nothing in the mock presses a notification.
       onSummoned: () => () => undefined,
+      // Nothing in the mock opens a link from outside.
+      onPullLink: () => () => undefined,
       // The mock provides no haptics, so nothing calls this; answered for the type.
       tap: () => undefined,
       dockCount: () => undefined,

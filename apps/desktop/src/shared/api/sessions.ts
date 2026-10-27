@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AdversarialReview, DismissFinding, ModSessionStarted, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -12,6 +12,7 @@ import type {
   CheckoutSentAsPullRequest,
   ClaimIssue,
   LaterSettled,
+  ConfirmLater,
   SettleLater,
   ClaimPullRequest,
   DismissConcern,
@@ -83,8 +84,9 @@ export type SessionsApi = {
    * dispatched**, which Fleet reads once to fill in the title, workflow, model and effort; the answer is not waited on.
    * **`after` makes the Session wait on another**: `request` is then its brief, kept, and nothing is sent until the condition is met.
    * **`held` starts it on a card before any agent moves**: the Session carries `hosted.start` until `beginSession`.
+   * **`projectRows` are the rows of the repository's projects it starts with**: each written task among them is held by the Job.
    */
-  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]) => Promise<SessionActed>;
   /** Begins a held Session: the agent starts, and how the work lands is the choice sent, or the one `hosted.start.picked` names. Answers the record with `start` gone. */
   beginSession: (begin: BeginSession) => Promise<SessionActed>;
   /** Fleet's proposer reads a brief that tags `sessionId` for the wait it names. A reading it could not make is `ends`, from main. */
@@ -128,6 +130,8 @@ export type SessionsApi = {
   readWatchLog: (read: ReadWatchLog) => Promise<SessionActed<WatchLog>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+  /** Thumbs up on a follow-up Fleet read from a reply: the row stays open and reads `confirmed`. Fleet refuses an id that names no open follow-up. */
+  confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
   /** Thumbs up on a question Fleet read from a reply: the item stays and reads `confirmed`. Fleet refuses an item of any other source. */
   confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
   /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
@@ -263,6 +267,8 @@ export type SessionsApi = {
   startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
   /** Opens the Job's shell, or is handed the one already open, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without, used only where it opens now). Answers with its run id: what it prints arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
   openTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+  /** Runs `command` in the directory `dir` with no Job behind it, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
+  startTerminalRun: (command: string, dir: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
   /** Ends a run's process group. */
   stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Types into a run's terminal: the keys as a string, written as they are. Refused where the run has ended. */
@@ -349,6 +355,7 @@ export const SESSIONS_CHANNELS = {
   startWaitingNow: "bridge:start-waiting-now",
   dismissWaiting: "bridge:dismiss-waiting",
   confirmWaiting: "bridge:confirm-waiting",
+  confirmLater: "bridge:confirm-later",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
   judgeSession: "bridge:judge-session",
@@ -400,6 +407,7 @@ export const SESSIONS_CHANNELS = {
   writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
   openTerminal: "bridge:open-terminal",
+  startTerminalRun: "bridge:start-terminal-run",
   stopSessionRun: "bridge:stop-session-run",
   writeSessionRun: "bridge:write-session-run",
   resizeSessionRun: "bridge:resize-session-run",

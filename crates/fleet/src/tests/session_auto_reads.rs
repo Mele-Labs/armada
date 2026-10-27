@@ -292,4 +292,8 @@ fn the_jobs_scratch_folder_is_written_removed_and_chmodded_as_a_slot_is() {
     ] {
         assert_eq!(bash_holding_scratch(line), Some(Because::Destructive), "{line} should be refused");
     }
+    // It is no one's working directory: a relative removal runs in the owner's checkout.
+    let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: "rm -rf build" } }).expect("an ask");
+    let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    assert_eq!(because_in_a_session(&ask, &[SCRATCH]), Some(Because::Destructive));
 }

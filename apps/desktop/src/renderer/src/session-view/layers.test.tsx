@@ -173,7 +173,9 @@ test("Bays lists the write clashes first, then every bay the Session holds drawn
   expect(groups).toEqual(["Write clashes", "slot-3", "slot-5"]);
   const marks = (name: string) => [...host.querySelectorAll(`section[aria-label="${name}"] [role="img"]`)].map((one) => one.getAttribute("aria-label"));
   const text = (name: string) => host.querySelector(`section[aria-label="${name}"]`)?.textContent ?? "";
-  expect(marks("slot-3")).toEqual(expect.arrayContaining(["Stranded", "1 commit not pushed", "31 behind main"]));
+  expect(marks("slot-3")).toEqual(expect.arrayContaining(["1 commit not pushed", "31 behind main"]));
+  // The bay's state is no glyph of its own: the number cell's colour, named by its tooltip.
+  expect(text("slot-3")).toContain("Stranded");
   expect(marks("slot-5")).toEqual(expect.arrayContaining(["2 behind main"]));
   expect(text("slot-5")).toContain("armada/retry-wire");
   const clashRows = [...host.querySelectorAll('table[aria-label="Write clashes"] tbody tr')].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent));

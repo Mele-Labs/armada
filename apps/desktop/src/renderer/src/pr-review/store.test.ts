@@ -5,7 +5,7 @@
 // repository, kept under his words, and the Walk finds where a change runs before it writes a walk. Nothing here touches `window.armada`.
 
 import { forgetAllKept, writeKept } from "@armada/components";
-import type { PullRequestPage, PullReviewLists, PullReviewRow, RememberedPlace, ReviewPlace, ReviewRun, ReviewTools, ReviewWalk, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
+import type { PullRequestPage, PullRequestState, PullReviewLists, PullReviewRow, RememberedPlace, ReviewPlace, ReviewRun, ReviewTools, ReviewWalk, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import { beforeEach, expect, test } from "vitest";
 
 import type { ToolDef } from "./model";
@@ -51,12 +51,26 @@ const page = (number: number, over: Partial<PullRequestPage> = {}): PullRequestP
   ...over,
 });
 
+const standing = (number: number, over: Partial<PullRequestState> = {}): PullRequestState => ({
+  manifest_id: "m1",
+  number,
+  state: "open",
+  auto_merge: false,
+  checks: { state: "passed" },
+  title: `Pull request ${number}`,
+  branch: `branch-${number}`,
+  address: `https://forge.example/Mele-Labs/armada/pull/${number}`,
+  ...over,
+});
+
 const said = (words: string): Read<never> => ({ ok: false, said: words });
 
 type Calls = {
   writes: WritePullRequest[];
   resolves: { thread: string; resolved: boolean }[];
   files: string[];
+  /** How many times every file's patch was asked for at once. */
+  patches: number;
   starts: StartReviewRun[];
   saves: string[];
   searches: StartReviewSearch[];
@@ -97,6 +111,7 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
     writes: [],
     resolves: [],
     files: [],
+    patches: 0,
     starts: [],
     saves: [],
     searches: [],
@@ -112,9 +127,14 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
   const source: ReviewSource = {
     lists: async () => ({ ok: true, value: lists() }),
     page: async (_id, number) => ({ ok: true, value: page(number) }),
+    pull: async (_id, number) => ({ ok: true, value: standing(number) }),
     file: async (_id, number, path) => {
       calls.files.push(path);
       return { ok: true, value: { manifest_id: "m1", number, path, patch: "@@ -1,2 +1,2 @@\n keep\n-old\n+new" } };
+    },
+    patches: async () => {
+      calls.patches += 1;
+      return { ok: true, value: { files: [{ manifest_id: "m1", number: 1, path: "a.rs", patch: "@@ -1,2 +1,2 @@\n keep\n-old\n+new" }, { manifest_id: "m1", number: 1, path: "b.rs", patch: "@@ -1 +1 @@\n-x\n+y" }] } };
     },
     write: async (_id, write) => {
       calls.writes.push(write);
@@ -283,6 +303,49 @@ test("a file's patch is read once, the first time its change is shown", async ()
   expect(calls.files).toEqual(["a.rs"]);
   const read = store.get().work[key]!.patches["a.rs"];
   expect(read?.state).toBe("read");
+});
+
+test("every file's patch is read in one call, the first time Files is shown, and not again for the same commit", async () => {
+  const { store, calls, key } = await opened();
+  store.readPatches(key);
+  store.readPatches(key);
+  await settle();
+  expect(calls.patches).toBe(1);
+  const read = store.get().work[key]!.every;
+  expect(read.state).toBe("read");
+  expect(read.state === "read" && read.files.map((file) => file.path)).toEqual(["a.rs", "b.rs"]);
+});
+
+test("a patch read that the forge refused says so in Fleet's words, and is asked again on the next press", async () => {
+  let answer: Read<{ files: [] }> = said("The forge did not answer");
+  const { store, calls, key } = await opened({ patches: async () => ((calls.patches += 1), answer) });
+  store.readPatches(key);
+  await settle();
+  expect(store.get().work[key]!.every).toEqual({ state: "said", said: "The forge did not answer" });
+  answer = { ok: true, value: { files: [] } };
+  store.readPatches(key);
+  await settle();
+  expect(calls.patches).toBe(2);
+  expect(store.get().work[key]!.every.state).toBe("read");
+});
+
+test("a commit pushed after every patch was read drops them, and they are read again on the new commit", async () => {
+  let head = "head1";
+  const { store, calls, key } = await opened({
+    lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z", { head })] }) }),
+    page: async (_id, number) => ({ ok: true, value: page(number, { head }) }),
+  });
+  store.readPatches(key);
+  await settle();
+  expect(store.get().work[key]!.every.state).toBe("read");
+  head = "head2";
+  store.fetch();
+  await settle();
+  expect(store.get().work[key]!.every).toEqual({ state: "unread" });
+  store.readPatches(key);
+  await settle();
+  expect(calls.patches).toBe(2);
+  expect(store.get().work[key]!.every.state).toBe("read");
 });
 
 test("a commit pushed after a patch was read drops the patch, and the file is read again on the new commit", async () => {
@@ -752,4 +815,35 @@ test("a place Fleet would not read says why, and a place it would not keep leave
   refused.store.findPlace(refused.key);
   await settle();
   expect(refused.store.get().work[refused.key]!.walk.find).toEqual({ state: "said", said: "Fleet does not serve this repository" });
+});
+
+test("a pull request met by link that is on none of the lists is taken, opened and its page read", async () => {
+  const { source } = fake({ pull: async (_id, number) => ({ ok: true, value: standing(number, { title: "Not on a list", state: "draft", checks: { state: "failed", failing: ["ci"] } }) }) });
+  const store = createReviewStore(source);
+  const answer = await store.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 77 });
+  await settle();
+  expect(answer).toEqual({ ok: true, key: "Mele-Labs/armada#77" });
+  expect(store.get().open).toBe("Mele-Labs/armada#77");
+  expect(store.get().prs.find((one) => one.key === "Mele-Labs/armada#77")).toMatchObject({ title: "Not on a list", branch: "branch-77", draft: true, checks: "failed", lists: [] });
+  expect(store.get().work["Mele-Labs/armada#77"]!.page.state).toBe("read");
+});
+
+test("a pull request a list already holds is opened as it is, not taken twice", async () => {
+  const { store, key } = await opened();
+  store.open(undefined);
+  expect(await store.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 1 })).toEqual({ ok: true, key });
+  expect(store.get().prs).toHaveLength(1);
+  expect(store.get().prs[0]!.lists).toEqual(["requested"]);
+  expect(store.get().open).toBe(key);
+});
+
+test("a link to a pull request the forge would not give, or one that is no longer open, opens nothing and says why", async () => {
+  const gone = createReviewStore(fake({ pull: async () => said("No such pull request") }).source);
+  expect(await gone.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 9 })).toEqual({ ok: false, said: "No such pull request" });
+  expect(gone.get().prs).toEqual([]);
+  expect(gone.get().open).toBeUndefined();
+
+  const merged = createReviewStore(fake({ pull: async (_id, number) => ({ ok: true, value: standing(number, { state: "merged" }) }) }).source);
+  expect(await merged.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 9 })).toEqual({ ok: false, said: "#9 is merged, and only an open pull request is reviewed here." });
+  expect(merged.get().prs).toEqual([]);
 });

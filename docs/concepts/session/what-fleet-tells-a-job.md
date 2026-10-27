@@ -95,8 +95,14 @@ A notice the Job disputed by the call is marked read there, and one whose Job en
 | `features.disputeReviews` | Whether a dispute starts a review and replies are read for one. Off as shipped, live |
 
 **Dispute reviews are off as shipped.** Off, `dispute_fleet` still keeps the dispute and writes its `disputed` row, but no review is started or joined.
-No notice is kept to be read and no kept one is read, so no model call is made.
+No notice is kept to be read and no kept one is read, so no model call reads replies; a disputed reminder is still checked (below).
 A notice kept while the switch was on stays unread and is read once it is on again; one sent while it was off is never read.
+
+**A disputed walk or done reminder is learnt from, and starts no review.** Where the notice is one of the two reminders of *Waiting on the person*, one call to `models.dispute` reads the sentences of the agent's reply that set it off, with the Job's reason, and answers whether they made the claim.
+Where it says they did not, they are kept for good (`claim_misreads`), and in every Job the reminder holds off a sentence with the same words, or within the Needs you fold's cosine of one once the language model is loaded.
+No review is started, since the reminder is already corrected; where the call says they did, or fails, the dispute goes on to a review as any other.
+This is done whether dispute reviews are on or off.
+The owner asked for it on 27 Oct 2026, after a plan's line "Once you approve the walk, Fleet keeps one task list per repo" was reminded to show a walk, disputed, and would have been again.
 
 **A dispute starts a review Job in Armada's own repository**, where dispute reviews are on.
 It is on the `bug` workflow, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.

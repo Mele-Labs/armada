@@ -141,7 +141,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -168,10 +168,12 @@ import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
+import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
+import type { PullLink } from "./pull-link";
 
 type OldBridgeState = {
     connection: Connection;
@@ -348,6 +350,7 @@ type OldBridgeApi = {
         sendNotes: () => Promise<Outcome>;
     };
     onSummoned: (onGo: (to: Summons) => void) => () => void;
+    onPullLink: (onLink: (link: PullLink) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
@@ -374,6 +377,7 @@ type OldBridgeApi = {
     changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
     startWaitingNow: (sessionId: string) => Promise<SessionActed>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+    confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
     confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
@@ -476,6 +480,7 @@ type OldBridgeApi = {
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     openTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+    startTerminalRun: (command: string, dir: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
     sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
     readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
@@ -490,7 +495,7 @@ type OldBridgeApi = {
     readTerminalSoFar: (runId: string) => Promise<string | null>;
     moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
     onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & ProjectsApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -608,6 +613,7 @@ const OLD_CHANNELS = {
     askLesson: "bridge:ask-lesson",
     readHeld: "bridge:read-held",
     summoned: "bridge:summoned",
+    pullLinked: "bridge:pull-linked",
     history: "bridge:history",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",
@@ -688,6 +694,7 @@ const OLD_CHANNELS = {
     changeWaiting: "bridge:change-waiting",
     startWaitingNow: "bridge:start-waiting-now",
     dismissWaiting: "bridge:dismiss-waiting",
+    confirmLater: "bridge:confirm-later",
     confirmWaiting: "bridge:confirm-waiting",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",
@@ -788,6 +795,7 @@ const OLD_CHANNELS = {
     writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
     openTerminal: "bridge:open-terminal",
+    startTerminalRun: "bridge:start-terminal-run",
     catchUpCheckout: "bridge:catch-up-checkout",
     sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
     readCheckoutDiff: "bridge:read-checkout-diff",
@@ -812,6 +820,7 @@ const OLD_CHANNELS = {
     ...SHARING_CHANNELS,
     ...LOGBOOK_CHANNELS,
     ...TEACHING_CHANNELS,
+    ...PROJECTS_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

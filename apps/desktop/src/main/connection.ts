@@ -12,7 +12,7 @@
 // a narrow view of this file rather than a copy of it.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
-import type { StartAfter } from "@armada/protocol";
+import type { ProjectRowRef, StartAfter } from "@armada/protocol";
 import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
@@ -47,6 +47,7 @@ import { SleepHost } from "./sleep";
 import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
+import { ProjectsHost } from "./projects";
 import { AgentSignInHost } from "./agent-sign-in";
 import { ClashesHost } from "./clashes";
 import { TeachingHost } from "./teaching";
@@ -159,6 +160,8 @@ export class FleetConnection {
   readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
   /** The default model's step down — `model-downshift.ts`. */
   readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(() => this.connected()?.port ?? null);
+  /** A repository's projects — `projects.ts`. */
+  readonly projects: ProjectsHost = new ProjectsHost(() => this.connected()?.port ?? null);
   /** The agents' sign-in — `agent-sign-in.ts`. */
   readonly agentSignIn: AgentSignInHost = new AgentSignInHost(() => this.connected()?.port ?? null);
   /** What happened across the Fleet — `timeline.ts`. */
@@ -271,6 +274,7 @@ export class FleetConnection {
       sleep: this.sleep,
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
+      projects: this.projects,
       agentSignIn: this.agentSignIn,
       timeline: this.timeline,
       acts: this.acts,
@@ -496,10 +500,10 @@ export class FleetConnection {
    * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
    * several: a session starts in a repository, and guessing one would put it somewhere unseen.
    */
-  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean): Promise<SessionActed> {
+  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<SessionActed> {
     const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    const start = startOn(repository, title, root, request, tuning, after, held);
+    const start = startOn(repository, title, root, request, tuning, after, held, projectRows);
     if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start(start);
   }

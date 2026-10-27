@@ -190,7 +190,7 @@ export type SessionRecord = {
 };
 
 /** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */
-export type SessionLater = { id: string; sentence: string; said_at: string };
+export type SessionLater = { id: string; sentence: string; said_at: string; /** Thumbs up on it (`confirm_later`). Absent where not. */ confirmed?: boolean };
 
 /** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
 export type LaterHow = "done" | "filed" | "dropped";
@@ -201,7 +201,19 @@ export type LaterHow = "done" | "filed" | "dropped";
  * Fleet refuses 422 `fleet.later_not_settleable` for a `filed` with no issue it can read or an agent's drop with no reason, and
  * 409 `fleet.later_not_open` for an id that names no open follow-up.
  */
-export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string };
+export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string; /** Thumbs down, Not deferred: the person's `dropped` only; keeps the sentence as no follow-up. */ misread?: boolean };
+
+/** `POST /sessions/later/confirm`: thumbs up on an open follow-up; answered with the `SessionRecord`. */
+export type ConfirmLater = { id: string; session_id?: string };
+
+/**
+ * `POST /sessions/defer_later`: the agent keeps one follow-up for itself, as a sentence. `session_id` names the Session only where the
+ * connection places none. Fleet refuses 422 `fleet.later_not_deferrable` for an empty sentence and 409 `fleet.later_not_open` for one settled already.
+ */
+export type DeferLater = { sentence: string; session_id?: string };
+
+/** What `defer_later` answers: the follow-up kept and the ones open with it. */
+export type LaterDeferred = { id: string; sentence: string; open: SessionLater[] };
 
 /** What `settle_later` answers: the follow-up settled and the ones still open. */
 export type LaterSettled = { id: string; sentence: string; open: SessionLater[] };
@@ -247,12 +259,13 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `Mark the <project> tasks done?` for several, act `answer`) is Fleet asking whether the written project tasks a
  * finished Job was started with are done: `Mark done` (choice 0) or `Keep open` (choice 1), answered with `answer_waiting` and a
  * `choice`. No message goes to the agent and it cannot be dismissed. It is listed while the Job is live; the ask stands on the
- * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it. `watch_not_ours` (id `watch_not_ours:<watch id>`,
+ * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it. `draft` (id `draft:<row>`) is a draft the
+ * session proposed with `propose_draft`, read off its row and settled by `answer_waiting`. `watch_not_ours` (id `watch_not_ours:<watch id>`,
  * text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id) is Fleet asking about a watch that ended `not_ours`:
  * `Ignore` (choice 0) settles it and tells the agent nothing, `Fix it` (choice 1) sends the agent the part, its sentence and its link.
  * Words alone go to the agent as a message. Each settles it, as dismissing does. It is listed while the Job is live.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -285,8 +298,20 @@ export type AskInWindow = {
 };
 
 /**
+ * `POST /sessions/draft`, the agent's: a draft put to the person for approval. `title` names what it is and where it
+ * goes, `text` is the draft in markdown, `before` the text it replaces. Answered at once with the `SessionRecord`; the
+ * person's answer comes back as their message.
+ */
+export type ProposeDraft = {
+  title: string;
+  text: string;
+  before?: string;
+  session_id?: string;
+};
+
+/**
  * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
- * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>`, `unsent:<session>` where Fleet derived it. `options` is
+ * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>`, `draft:<row>`, `unsent:<session>` where Fleet derived it. `options` is
  * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
  * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
@@ -312,6 +337,7 @@ export type WaitingItem = {
  * `POST /sessions/waiting/answer`: settle one item. A `choice` (an index into its `options`), `text` of
  * the person's own, or a `mode` that leaves it to the agent: `best` thinks it through, `quick` takes the
  * reasonable path and keeps moving. A walk item needs none of the three, and approving is its default.
+ * `fixed` is the person's corrected text for a `draft` item, which approves it with their words; on any other item it is a 422.
  */
 export type AnswerWaiting = {
   session_id: string;
@@ -319,6 +345,7 @@ export type AnswerWaiting = {
   choice?: number;
   text?: string;
   mode?: "best" | "quick";
+  fixed?: string;
 };
 
 /**
@@ -551,6 +578,9 @@ export type SessionRunMessage =
 
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = { session_id: string; cols?: number; rows?: number };
+
+/** `start_terminal_run`: the person runs `command` in `dir` with no Job behind it. `POST /sessions/terminal/run`. Answered 200 with `SessionRunUnderway`; what it prints is `observe_session_run`'s. `dir` must exist; `cols` and `rows` are the size in cells, absent is 80 by 24. */
+export type StartTerminalRun = { command: string; dir: string; cols?: number; rows?: number };
 
 /** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
 export type TypeInTerminal = { text: string; enter?: boolean; wait_seconds?: number; session_id?: string };

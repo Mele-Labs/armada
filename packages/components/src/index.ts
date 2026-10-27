@@ -37,6 +37,7 @@ export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
 export * from "./primitives/Stamp/Stamp";
 export * from "./primitives/Inspect/Inspect";
+export * from "./primitives/SelectMark/SelectMark";
 
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/BoardEmptyState/BoardEmptyState";
@@ -416,6 +417,7 @@ export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/PullRequestPanel/PullRequestPanel";
 export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/PullRequestComposer";
+export { PullRequestFilesView } from "./compositions/PullRequestPanel/PullRequestFiles";
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
 export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";

@@ -40,6 +40,7 @@ import type {
   SessionSubagent,
   SessionLoadout,
   StartAfter,
+  ProjectRowRef,
   BeginSession,
   TuneSession,
   WaitReading,
@@ -140,6 +141,8 @@ export type Calls = {
   startedIn: (string | undefined)[];
   /** The wait each start carried, in order: `after` as the window sent it. */
   startedAfter: StartAfter[];
+  /** The project rows each start carried, in order: absent where it carried none. */
+  startedRows: (readonly ProjectRowRef[] | undefined)[];
   /** The briefs read for a wait, and the Session each tagged. */
   readWaits: { sessionId: string; request: string }[];
   changedWaits: ChangeWaiting[];
@@ -189,7 +192,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0, reviewed: [], findingsSent: [], findingsDismissed: [] };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], startedRows: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0, reviewed: [], findingsSent: [], findingsDismissed: [] };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -307,8 +310,9 @@ export class FakeSessionsFleet {
         // (it clears the hook of a scenario with no `later`, right after this returns), and the latest wins.
         if (this.retroHeld) queueMicrotask(() => onTimePassing(() => this.releaseRetro?.()));
         return {
-          startSession: async (_title, root, request, _tuning, after, held) => {
+          startSession: async (_title, root, request, _tuning, after, held, projectRows) => {
             this.calls.started += 1;
+            this.calls.startedRows.push(projectRows);
             this.calls.startedIn.push(root);
             if (after !== undefined) this.calls.startedAfter.push(after);
             // Fleet records the Manifest of the repository a Session starts in, and the window narrows by it.

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use api::Refusal;
-use ipc::{AllDone, LaterHow, SessionId, SessionRecord, SettleLater};
+use ipc::{AllDone, DeferLater, LaterHow, SessionId, SessionRecord, SettleLater};
 
 use super::agent_starts::{caller, rig, Rig};
 
@@ -47,7 +47,7 @@ async fn a_followup_survives_the_next_reply_and_the_same_sentence_is_one_item() 
 }
 
 fn settle(id: &SessionId, which: &str, how: LaterHow, issue: Option<&str>, reason: Option<&str>) -> SettleLater {
-    SettleLater { id: which.into(), how, issue: issue.map(str::to_string), reason: reason.map(str::to_string), session_id: Some(id.clone()) }
+    SettleLater { id: which.into(), how, issue: issue.map(str::to_string), reason: reason.map(str::to_string), session_id: Some(id.clone()), misread: false }
 }
 
 fn open_ids(record: &SessionRecord) -> Vec<&str> {
@@ -111,6 +111,50 @@ async fn the_persons_drop_needs_no_reason() {
     assert!(read(&rig, &id).await.later.is_empty());
 }
 
+fn defer(id: &SessionId, sentence: &str) -> DeferLater {
+    DeferLater { sentence: sentence.into(), session_id: Some(id.clone()) }
+}
+
+#[tokio::test]
+async fn the_job_defers_a_followup_with_a_call_and_the_same_sentence_is_one_item() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+
+    let first = rig.fleet.defer_later(caller(), defer(&id, SLOW)).await.unwrap();
+    assert_eq!((first.id.as_str(), first.sentence.as_str()), ("later-1", SLOW));
+    let second = rig.fleet.defer_later(caller(), defer(&id, DOCS)).await.unwrap();
+    assert_eq!(second.id, "later-2");
+    assert_eq!(second.open.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["later-1", "later-2"]);
+
+    // Said again, even with stray space round it, it is the item it was.
+    let again = rig.fleet.defer_later(caller(), defer(&id, &format!("  {SLOW}\n"))).await.unwrap();
+    assert_eq!(again.id, "later-1");
+    assert_eq!(open_ids(&read(&rig, &id).await), ["later-1", "later-2"]);
+}
+
+#[tokio::test]
+async fn a_defer_with_nothing_to_keep_or_no_job_to_keep_it_on_is_refused() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+
+    let empty = rig.fleet.defer_later(caller(), defer(&id, "  \n")).await.expect_err("nothing said");
+    let Refusal::Unacceptable(why) = empty else { panic!("{empty:?}") };
+    assert_eq!(why.code.to_string(), "fleet.later_not_deferrable");
+    assert!(read(&rig, &id).await.later.is_empty());
+
+    // No connection places the call and it names no job.
+    let placed_nowhere = rig.fleet.defer_later(None, DeferLater { sentence: SLOW.into(), session_id: None }).await;
+    assert!(matches!(placed_nowhere, Err(Refusal::Unacceptable(_))), "{placed_nowhere:?}");
+
+    // The refusal is for the empty sentence, not for the job.
+    rig.fleet.defer_later(caller(), defer(&id, SLOW)).await.expect("a sentence is kept");
+
+    Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: id.clone() }).await.expect("ended");
+    let ended = rig.fleet.defer_later(caller(), defer(&id, DOCS)).await.expect_err("an ended job keeps nothing");
+    let Refusal::IllegalMove(why) = ended else { panic!("{ended:?}") };
+    assert_eq!(why.code.to_string(), "fleet.session_closed");
+}
+
 fn done(id: &SessionId) -> AllDone {
     AllDone { session_id: Some(id.clone()) }
 }
@@ -146,4 +190,89 @@ async fn the_persons_end_job_is_never_held_by_an_open_followup() {
 
     let ended = Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: id.clone() }).await.expect("ended");
     assert_eq!(ended.state, ipc::SessionState::Ended);
+}
+
+/// The person's thumbs on a follow-up. `Fake` puts a sentence about the store on one axis, others on the other.
+mod thumbs {
+    use super::*;
+    use adapter_traits::{NotEmbedded, TextModel, TextReading};
+    use ipc::ConfirmLater;
+
+    struct Fake;
+
+    impl TextModel for Fake {
+        fn model(&self) -> &str {
+            "fake@0"
+        }
+
+        fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
+            Ok(texts.iter().map(|text| if text.to_lowercase().contains("store") { vec![1.0, 0.0] } else { vec![0.0, 1.0] }).collect())
+        }
+
+        fn read(&self, _: TextReading, _: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
+            Err(NotEmbedded(String::from("not read here")))
+        }
+    }
+
+    const STORE: &str = "I will tidy the store after this lands.";
+    const STORE_AGAIN: &str = "I will clean up the store once the merge is in.";
+
+    fn down(id: &SessionId, which: &str) -> SettleLater {
+        SettleLater { misread: true, ..settle(id, which, LaterHow::Dropped, None, None) }
+    }
+
+    #[tokio::test]
+    async fn thumbs_down_settles_the_row_and_keeps_its_sentence_as_no_follow_up() {
+        let rig = rig(None);
+        let id = rig.an_agent().await;
+        rig.fleet.later_kept(id.as_str(), &said(&[SLOW]), FIRST).await;
+        rig.fleet.settle_later(None, down(&id, "later-1")).await.unwrap();
+        assert!(read(&rig, &id).await.later.is_empty());
+        assert_eq!(rig.fleet.store().lock().await.later_misreads().unwrap(), [SLOW]);
+    }
+
+    #[tokio::test]
+    async fn an_agents_settle_marked_misread_is_refused_and_the_row_stands() {
+        let rig = rig(None);
+        let id = rig.an_agent().await;
+        rig.fleet.later_kept(id.as_str(), &said(&[SLOW]), FIRST).await;
+        // With the reason an agent owes, so only the misread can refuse it.
+        let with_reason = SettleLater { reason: Some("not needed".into()), ..down(&id, "later-1") };
+        let refused = rig.fleet.settle_later(caller(), with_reason).await;
+        assert_eq!(code(refused), "fleet.later_not_settleable");
+        assert_eq!(open_ids(&read(&rig, &id).await), ["later-1"]);
+        assert!(rig.fleet.store().lock().await.later_misreads().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_follow_up_near_one_marked_not_deferred_is_not_kept() {
+        let rig = rig(None);
+        rig.fleet.language_model().loaded(Arc::new(Fake));
+        let id = rig.an_agent().await;
+        rig.fleet.later_kept(id.as_str(), &said(&[STORE]), FIRST).await;
+        rig.fleet.settle_later(None, down(&id, "later-1")).await.unwrap();
+        // The vectors are embedded on a blocking thread; wait until both are in.
+        let model: Arc<dyn TextModel> = Arc::new(Fake);
+        super::super::session_host::eventually(|| async {
+            rig.fleet.item_vectors().known(Arc::clone(&model), id.as_str(), &[STORE, STORE_AGAIN, DOCS]).len() == 3
+        })
+        .await;
+        assert!(!rig.fleet.later_kept(id.as_str(), &said(&[STORE_AGAIN]), SECOND).await, "near the marked one");
+        assert!(rig.fleet.later_kept(id.as_str(), &said(&[DOCS]), SECOND).await, "far from it");
+        assert_eq!(open_ids(&read(&rig, &id).await), ["later-2"]);
+    }
+
+    #[tokio::test]
+    async fn thumbs_up_keeps_the_row_open_confirmed_and_keeps_its_sentence() {
+        let rig = rig(None);
+        let id = rig.an_agent().await;
+        rig.fleet.later_kept(id.as_str(), &said(&[SLOW]), FIRST).await;
+        let row = rig.fleet.confirm_later(ConfirmLater { id: "later-1".into(), session_id: Some(id.clone()) }).await.unwrap();
+        assert_eq!(row.later.iter().map(|one| (one.id.as_str(), one.confirmed)).collect::<Vec<_>>(), [("later-1", true)]);
+        assert_eq!(open_ids(&read(&rig, &id).await), ["later-1"]);
+        assert!(read(&rig, &id).await.later[0].confirmed);
+        assert_eq!(rig.fleet.store().lock().await.later_confirmed().unwrap(), [SLOW]);
+        // Still deferred work: it holds all_done.
+        assert!(rig.fleet.all_done(caller(), done(&id)).await.is_err());
+    }
 }

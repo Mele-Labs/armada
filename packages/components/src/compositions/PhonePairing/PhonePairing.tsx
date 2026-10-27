@@ -1,3 +1,4 @@
+import { Check, CircleDashed } from "lucide-react";
 import { encode } from "uqr";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -10,6 +11,20 @@ export type PairedPhone = {
   name: string;
   /** When Fleet's Gateway last heard from it, in milliseconds since the epoch. */
   seenAt: number;
+};
+
+/**
+ * How far this Mac is along the way in a phone reaches it by. `named` is an address the owner wrote in
+ * `pocket-address` for a tunnel of his own, and then the Tailscale steps are not his to take.
+ */
+export type PhoneWayIn = {
+  tailscale: "missing" | "signed_out" | "running";
+  /** What stands in front of the Gateway: nothing, `tailscale serve` (phones need Tailscale), or Funnel. */
+  served: "none" | "tailnet" | "funnel";
+  named: boolean;
+  address?: string;
+  /** A press of Turn on Funnel: waiting on it, the page the tailnet needs it allowed on, or Tailscale's refusal. */
+  funnel?: { state: "turning" } | { state: "approve"; page: string } | { state: "said"; said: string };
 };
 
 /** Why there is nothing to pair with. Absent where the Gateway answers. */
@@ -29,6 +44,11 @@ export type PhoneProblem =
  * printed under it for a phone that cannot scan. A claim shows once a phone has posted the code,
  * and Confirm is the only press that lets it in. Nothing is drawn for an empty slot: no phones
  * paired draws no list, no code drawn draws no square.
+ *
+ * **The way in comes first.** With access on, the steps a phone needs before it can reach this Mac are
+ * a row each, done or not, and only the first one not done carries its press. Pair a phone waits until
+ * something stands in front of the Gateway. Once Funnel is on and a phone is paired, the steps fold to
+ * one line.
  */
 export type PhonePairingProps = {
   /** Fleet's switch, `turning` while a press waits on it. Absent until Fleet has said, which draws no switch. */
@@ -47,7 +67,14 @@ export type PhonePairingProps = {
   onUnpair: (id: string) => void;
   /** A clipboard write is silent, so the surface confirms it. */
   onCopied?: (value: string) => void;
+  /** The way in, as the Gateway says it. Absent until it has, which draws no steps. */
+  wayIn?: PhoneWayIn;
+  onFunnel?: () => void;
+  /** Open a page in the browser: Tailscale's download, or the tailnet's page to allow Funnel. */
+  onOpen?: (page: string) => void;
 };
+
+const TAILSCALE_DOWNLOAD = "https://tailscale.com/download/mac";
 
 /** The figure for time left: `4:32`. */
 export function timeLeft(seconds: number): string {
@@ -56,7 +83,8 @@ export function timeLeft(seconds: number): string {
 }
 
 export function PhonePairing(props: PhonePairingProps) {
-  const { access, onTurn, problem } = props;
+  const { access, onTurn, problem, wayIn } = props;
+  const reachable = wayIn === undefined || wayIn.named || wayIn.served !== "none";
   return (
     <div className="armada-phone">
       {access === undefined ? null : (
@@ -72,8 +100,117 @@ export function PhonePairing(props: PhonePairingProps) {
       {problem === undefined ? null : (
         <Alert tone="neutral">{problem.kind === "not_running" ? "The Gateway is not running." : problem.said}</Alert>
       )}
-      {problem !== undefined || access?.on !== true ? null : <Pairing {...props} />}
+      {problem !== undefined || access?.on !== true ? null : (
+        <>
+          {wayIn === undefined ? null : <WayIn {...props} wayIn={wayIn} />}
+          {reachable ? <Pairing {...props} /> : null}
+        </>
+      )}
     </div>
+  );
+}
+
+type StepId = "install" | "sign_in" | "funnel" | "phone";
+
+/** The steps to Funnel on, each with whether it is done and the one line that says how. */
+function stepsOf(wayIn: PhoneWayIn, paired: boolean): readonly { id: StepId; name: string; why: string; done: boolean }[] {
+  const where = wayIn.address ?? "this Mac's tailnet address";
+  return [
+    { id: "install", name: "Install Tailscale on this Mac", why: "Tailscale gives this Mac an https address.", done: wayIn.tailscale !== "missing" },
+    { id: "sign_in", name: "Sign in to Tailscale", why: "From its icon in the menu bar.", done: wayIn.tailscale === "running" },
+    {
+      id: "funnel",
+      name: "Turn on Funnel",
+      why:
+        wayIn.served === "tailnet"
+          ? "Phones reach this Mac now only with Tailscale on them. With Funnel, any phone reaches it with nothing installed."
+          : "Funnel puts this Mac's phone app on the internet at its tailnet address. Only a phone you paired here can use it.",
+      done: wayIn.served === "funnel",
+    },
+    { id: "phone", name: "Add Armada to the iPhone", why: `In Safari on the iPhone, open ${where}, then Share, Add to Home Screen.`, done: paired },
+  ];
+}
+
+/** The way in: one row a step, or one line once it is all done or the owner brought his own. */
+function WayIn({ wayIn, phones, onFunnel, onOpen, onCopied }: PhonePairingProps & { wayIn: PhoneWayIn }) {
+  if (wayIn.named)
+    return (
+      <p className="armada-phone__way">
+        Phones reach this Mac at <span className="armada-phone__address">{wayIn.address}</span>, the address pocket-address names.
+      </p>
+    );
+  const steps = stepsOf(wayIn, phones.length > 0);
+  if (steps.every((step) => step.done))
+    return (
+      <p className="armada-phone__way">
+        Phones reach this Mac at <span className="armada-phone__address">{wayIn.address}</span> through Tailscale Funnel.
+      </p>
+    );
+  const current = steps.find((step) => !step.done)?.id;
+  const funnel = wayIn.funnel;
+  return (
+    <section className="armada-phone__steps" aria-label="Way in">
+      <p className="armada-phone__steps-title">Set up the way in</p>
+      <ol className="armada-phone__list">
+        {steps.map((step) => (
+          <li key={step.id} className="armada-phone__step" aria-label={step.name} data-state={step.done ? "done" : step.id === current ? "current" : "waiting"}>
+            {step.done ? (
+              <Tooltip beside label="Done">
+                <span className="armada-phone__done" role="img" aria-label="Done">
+                  <Check size={16} strokeWidth={2} aria-hidden="true" />
+                </span>
+              </Tooltip>
+            ) : (
+              <Tooltip beside label="Not done yet">
+                <span className="armada-phone__unset" role="img" aria-label="Not done yet">
+                  <CircleDashed size={16} strokeWidth={2} aria-hidden="true" />
+                </span>
+              </Tooltip>
+            )}
+            <div className="armada-phone__step-text">
+              <span className="armada-phone__name">{step.name}</span>
+              {step.done || step.id !== current ? null : (
+                <span className="armada-phone__why">
+                  {step.id === "funnel" && funnel?.state === "approve"
+                    ? "Your tailnet has not allowed Funnel for this Mac. Allow it on Tailscale's page, and this step finishes by itself."
+                    : step.why}
+                </span>
+              )}
+              {step.id === "funnel" && step.id === current && funnel?.state === "said" ? <Alert tone="neutral">{funnel.said}</Alert> : null}
+            </div>
+            <span className="armada-phone__act">
+              {step.id !== current ? null : step.id === "install" ? (
+                <Button variant="secondary" size="sm" onClick={() => onOpen?.(TAILSCALE_DOWNLOAD)}>
+                  Get Tailscale
+                </Button>
+              ) : step.id === "funnel" && funnel?.state === "approve" ? (
+                <Button variant="primary" size="sm" onClick={() => onOpen?.(funnel.page)}>
+                  Allow Funnel
+                </Button>
+              ) : step.id === "funnel" ? (
+                <Button variant="primary" size="sm" disabled={funnel?.state === "turning"} onClick={() => onFunnel?.()}>
+                  Turn on Funnel
+                </Button>
+              ) : step.id === "phone" && wayIn.address !== undefined ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const address = wayIn.address!;
+                    void navigator.clipboard.writeText(address).then(
+                      () => onCopied?.("The address"),
+                      () => onCopied?.("The address"),
+                    );
+                  }}
+                >
+                  Copy address
+                </Button>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
