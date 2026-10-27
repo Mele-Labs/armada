@@ -283,7 +283,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       >
         {/* A press the Job made and Fleet refused is said here, where it was pressed; one nobody holds is a toast. */}
         {owner === undefined || refused === undefined || refused === "" ? null : <Alert tone="escalated">{refused}</Alert>}
-        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : <NotesBar count={unsent.length} held={owner !== undefined} others={others} onSend={sendNotes} />}
+        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : <NotesBar count={unsent.length} holder={owner === undefined ? undefined : (owner.title ?? owner.address ?? owner.id)} others={others} onSend={sendNotes} />}
       </PullRequestPanel>
     </PrOwnersOnTheWire>
   );

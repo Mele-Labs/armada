@@ -407,7 +407,7 @@ test("a note is edited in place and removed, until it is sent", async () => {
 /** A window holding one Job, which holds the pull request, and the messages it was sent. */
 function heldJob(others: readonly { id: string; title: string; dead?: "ended" }[] = []) {
   const send = vi.fn(async (_id: string, _message: { text: string }) => true);
-  const session = { id: "job-1", attachments: [{ kind: "pull_request", number: 418, title: "Keep the tide tables a day", branch: "ines/tide-cache", address: ADDRESS, checks: { state: "passed" }, state: "open", auto: false }], waitingFor: [], rows: [] };
+  const session = { id: "job-1", title: "Tide cache", attachments: [{ kind: "pull_request", number: 418, title: "Keep the tide tables a day", branch: "ines/tide-cache", address: ADDRESS, checks: { state: "passed" }, state: "open", auto: false }], waitingFor: [], rows: [] };
   const sessions = [session, ...others.map((one) => ({ ...one, attachments: [], waitingFor: [], rows: [] }))];
   const held = { get: () => sessions, subscribe: () => () => undefined, send } as unknown as SessionsDraft;
   return { send, held };
@@ -442,6 +442,8 @@ test("Send to job sends one numbered message naming each note's file and line, a
   expect(sendButton()).toBeUndefined();
   await noteOn("+let days = 2;", "Name the unit.");
   await noteOn("+pub struct Cache;", "Why public?");
+  // The bar says which Job the press goes to.
+  expect(document.querySelector('[role="group"][aria-label="Notes for the job"]')?.textContent).toContain("2 notes for Tide cache");
   await act(async () => sendButton()!.click());
   expect(job.send).toHaveBeenCalledTimes(1);
   expect(job.send.mock.calls[0]![0]).toBe("job-1");

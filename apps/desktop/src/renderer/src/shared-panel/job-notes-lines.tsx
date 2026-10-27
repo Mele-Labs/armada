@@ -82,11 +82,12 @@ export type NoteTarget = { id: string; title: string };
  * What waits to be sent, and where it goes. **The face sends to the Job that holds the pull request**, and the caret lists the other
  * running Jobs. Where none holds it the face is off and the caret alone is live.
  */
-export function NotesBar({ count, held, others, onSend }: { count: number; held: boolean; others: readonly NoteTarget[]; onSend: (to?: string) => void }) {
+export function NotesBar({ count, holder, others, onSend }: { count: number; holder: string | undefined; others: readonly NoteTarget[]; onSend: (to?: string) => void }) {
+  const notes = count === 1 ? "1 note" : `${count} notes`;
   return (
     <div className="pr-notes-bar" role="group" aria-label="Notes for the job">
-      <span>{count === 1 ? "1 note kept for the job" : `${count} notes kept for the job`}</span>
-      <SplitButton size="sm" menuLabel="Send to a job" faceDisabled={!held} onAction={() => onSend()} items={others.map((one) => ({ label: one.title, onSelect: () => onSend(one.id) }))}>
+      <span>{holder === undefined ? `${notes} kept, choose a job` : `${notes} for ${holder}`}</span>
+      <SplitButton size="sm" menuLabel="Send to a job" faceDisabled={holder === undefined} onAction={() => onSend()} items={others.map((one) => ({ label: one.title, onSelect: () => onSend(one.id) }))}>
         Send to job
       </SplitButton>
     </div>
