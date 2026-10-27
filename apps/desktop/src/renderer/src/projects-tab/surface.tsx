@@ -1,11 +1,12 @@
-// The Projects page: the left column (views, his projects, the repositories) beside the pane in the Cockpit's grid. A view or a
-// repository lists its tasks grouped by project; a project lists its own, across repositories, in his order. Dispatching cards
+// The Projects page: the left column (a search, views, his projects, the repositories) beside the pane in the Cockpit's grid. A view or a
+// repository lists its tasks grouped by project; a project lists its own, across repositories, in his order; words in the search
+// list every task and subtask they match, in all of them, grouped by project, until Esc clears them and the view that was open is back. Dispatching cards
 // opens the one dispatch sheet on a repository, tasks as lines and issues as tags; a subtask sent without its parent carries the
 // parent as context. The sheet's own act starts the Job, with the rows, which Fleet holds for it. Cards picked in several repositories open one request for each, the next once the one before
 // has started or been put away.
 
 import { useEffect, useRef, useState } from "react";
-import { DockHandle } from "@armada/components";
+import { DockHandle, forgetKept, useKept } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
 import { useColumns } from "../cockpit/deck/columns";
@@ -17,7 +18,7 @@ import { bandsIn } from "./list";
 import type { ProjectRow } from "./model";
 import { Pane } from "./pane";
 import { allRows, parentOf, useProjects, useProjectsStore } from "./store";
-import { VIEW_MARKS, groupOf, groupsOf, type View } from "./views";
+import { SEARCH_KEEP, VIEW_MARKS, groupOf, groupsOf, searchGroupsOf, type View } from "./views";
 import "../cockpit/cockpit.css";
 import "../cockpit/deck/deck.css";
 import "./projects-tab.css";
@@ -46,16 +47,25 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
   const project = snap.projects.find((one) => one.id === snap.open);
   const [view, setView] = useState<View>("all");
   const [repo, setRepo] = useState<string | undefined>(undefined);
+  // The words kept in the search field. Choosing a view, a repository or a project leaves the search.
+  const [query, setQuery] = useKept(SEARCH_KEEP, "");
+  const searching = query.trim() !== "";
   // A view or a repository takes the stage back from a project open.
   const chooseView = (next: View) => {
+    forgetKept(SEARCH_KEEP);
     store.open(undefined);
     setRepo(undefined);
     setView(next);
   };
   const chooseRepo = (manifestId: string) => {
+    forgetKept(SEARCH_KEEP);
     store.open(undefined);
     setView("all");
     setRepo(manifestId);
+  };
+  const chooseProject = (id: string) => {
+    forgetKept(SEARCH_KEEP);
+    store.open(id);
   };
 
   // Tasks ride as lines, each with its subtasks listed under it, and each issue as a tag, as a `#` chosen in the request
@@ -110,7 +120,9 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
   const repository = bands.find((one) => one.manifestId === repo);
   // A task added on Needs you or In a Job would not show there, so those panes have no field.
   const pane =
-    project !== undefined ? (
+    searching ? (
+      <Pane key="search" {...hosts} label="Search results" title="Search" groups={searchGroupsOf(snap, query)} bands={bands} scope={undefined} />
+    ) : project !== undefined ? (
       <Pane key={`project:${project.id}`} {...hosts} label={`Project ${project.name}`} title={project.name} groups={groupOf(project, snap.showDone)} bands={bands} scope={{ key: project.id, project: project.id }} />
     ) : repository !== undefined ? (
       <Pane key={`repo:${repository.manifestId}`} {...hosts} label={`Repository ${repository.label}`} title={repository.label} groups={groupsOf(snap, "all", repository.manifestId)} bands={bands} scope={{ key: `repo:${repository.manifestId}`, repo: repository.manifestId }} />
@@ -123,7 +135,7 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     <div className="armada-cockpit deck projects-surface">
       <div ref={grid} className="deck-grid" data-projects style={widths}>
         <div className="deck-left">
-          <Column bands={bands} view={view} repo={repo} onView={chooseView} onRepo={chooseRepo} />
+          <Column bands={bands} view={view} repo={repo} query={query} searching={searching} onQuery={setQuery} onView={chooseView} onRepo={chooseRepo} onProject={chooseProject} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">

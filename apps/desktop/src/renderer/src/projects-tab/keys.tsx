@@ -1,16 +1,16 @@
 // The Projects tab's keys, so every act on it is reachable without the mouse. **They are acts of `actions.toml`**
 // (`projects_*`, scope `projects`), so Settings → Keyboard lists and rebinds them. The list motions (`move_focus`, `open`,
 // `close`) are the registry's `list` rows, as on Issues. Two parts, the left column and the cards of what is open, a key to
-// each; Esc backs out a level. A key stands down in a text field and while a dialog is up. The column's stops are the three
-// views, the projects and the repositories, each of which opens its cards.
+// each; Esc backs out a level, the search's words first. `/` goes to the search field. A key stands down in a text field and
+// while a dialog is up. The column's stops are the three views, the projects and the repositories, each of which opens its cards.
 
 import { useEffect, useRef } from "react";
-import { isPressed, pressedSlot } from "@armada/components";
+import { forgetKept, isPressed, pressedSlot, readKept } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { allRows, useProjectsStore, type ProjectsStore } from "./store";
-import { VIEW_IDS, type View } from "./views";
+import { SEARCH_KEEP, VIEW_IDS, type View } from "./views";
 
 const ZONES = [".projects-list", ".projects-pane"] as const;
 const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
@@ -32,6 +32,8 @@ function focusList(): void {
   const items = all(STOPS);
   (items.find((one) => one.hasAttribute("data-selected")) ?? items[0] ?? document.querySelector<HTMLElement>(".projects-list"))?.focus();
 }
+/** The column's stop once the search is gone and the view that was open is marked again. */
+const clearedList = (): void => void window.requestAnimationFrame(focusList);
 function focusRows(): void {
   (document.querySelector<HTMLElement>(".projects-pane .projects-row") ?? document.querySelector<HTMLElement>(".projects-pane"))?.focus();
 }
@@ -62,6 +64,21 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
     event.preventDefault();
     event.stopPropagation();
   };
+
+  // The search field: Esc clears the words and goes back to the view that was open, ↓ goes to the first result.
+  if (holdsText(target) && target.closest(".projects-search") !== null) {
+    if (isPressed("close", event)) {
+      take();
+      (target as HTMLElement).blur();
+      forgetKept(SEARCH_KEEP);
+      return clearedList();
+    }
+    if (event.key === "ArrowDown") {
+      take();
+      focusRows();
+    }
+    return;
+  }
 
   // The first Esc leaves a field, and the field closes with it: a subtask field, a title or a name being
   // edited goes back as it was; the task field folds if it holds no words. Focus lands where the field was opened from. The next Esc backs out a level.
@@ -111,6 +128,12 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (event.metaKey || event.ctrlKey || event.altKey) return;
 
   if (isPressed("close", event)) {
+    // Words in the search are the first thing Esc puts away.
+    if (here !== undefined && (readKept<string>(SEARCH_KEEP) ?? "").trim() !== "") {
+      take();
+      forgetKept(SEARCH_KEEP);
+      return clearedList();
+    }
     if (here === ".projects-pane") {
       take();
       return focusList();
@@ -127,6 +150,12 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (part === 1) return take(), focusRows();
   const view = pressedSlot("projects_view", event);
   if (view !== -1 && VIEW_IDS[view] !== undefined) return take(), goToView(VIEW_IDS[view]!);
+  if (isPressed("projects_search", event)) {
+    const field = document.querySelector<HTMLElement>(".projects-search input");
+    if (field === null) return;
+    take();
+    return field.focus();
+  }
   if (isPressed("projects_new", event)) return take(), store.name(true);
   if (paned && isPressed("projects_done", event)) return take(), store.showDone(!snap.showDone);
   if (paned && isPressed("projects_add_task", event)) {

@@ -15,6 +15,9 @@ export const PROJECTS_KEYS = {
   get rows() {
     return capOfSlot("projects_panel", 1);
   },
+  get search() {
+    return capOfSlot("projects_search", 0);
+  },
   get newProject() {
     return capOfSlot("projects_new", 0);
   },

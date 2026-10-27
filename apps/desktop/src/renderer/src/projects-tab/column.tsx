@@ -1,10 +1,11 @@
-// The left column: three views of every task (all, the ones Fleet asks about, the ones a Job holds), a hairline, his projects as
+// The left column: a search over every task, then three views of every task (all, the ones Fleet asks about, the ones a Job holds), a hairline, his projects as
 // name-only rows with a `+` for a new one, a hairline, and the repositories. A project is his and spans repositories, so a new one
 // asks for none. A repository is a view, all the tasks in it, and is not a list added to. Glyphs tell the two apart: a folder for a
-// project, a branch for a repository. Selected is told by shape (`--select-ground`, `--select-frame`), never a band.
+// project, a branch for a repository. Selected is told by shape (`--select-ground`, `--select-frame`), never a band. While a
+// search is active nothing in the column is selected: the search is what the pane shows.
 
-import { Folder, GitBranch, Plus } from "lucide-react";
-import { Tooltip } from "@armada/components";
+import { Folder, GitBranch, Plus, Search } from "lucide-react";
+import { Input, Tooltip } from "@armada/components";
 
 import { NameProject, RenameProject, type Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
@@ -16,22 +17,33 @@ type Props = {
   view: View;
   /** The repository open as a view, by Manifest id. */
   repo: string | undefined;
+  /** The words in the search field, and whether they make a search. */
+  query: string;
+  searching: boolean;
+  onQuery: (words: string) => void;
   onView: (view: View) => void;
   onRepo: (manifestId: string) => void;
+  onProject: (id: string) => void;
 };
 
-export function Column({ bands, view, repo, onView, onRepo }: Props) {
+export function Column({ bands, view, repo, query, searching, onQuery, onView, onRepo, onProject }: Props) {
   const store = useProjectsStore()!;
   const snap = useProjects();
   const home = bands[0]?.manifestId;
   return (
     <section className="deck-panel deck-list projects-list" aria-label="Projects" tabIndex={-1}>
       <ul className="deck-list__rows projects-list__rows">
+        <li className="projects-search">
+          <Search size={16} strokeWidth={2} aria-hidden />
+          <Tooltip label="Search the tasks" shortcut={PROJECTS_KEYS.search}>
+            <Input aria-label="Search the tasks" placeholder={`Search tasks (${PROJECTS_KEYS.search})`} autoComplete="off" value={query} onChange={(event) => onQuery(event.target.value)} />
+          </Tooltip>
+        </li>
         <li>
           <ul className="deck-list__group projects-views" aria-label="Views">
             {VIEW_IDS.map((id, at) => {
               const { Glyph, said } = VIEW_MARKS[id];
-              const here = snap.open === undefined && repo === undefined && view === id;
+              const here = !searching && snap.open === undefined && repo === undefined && view === id;
               return (
                 <li key={id} className="deck-list__item">
                   <Tooltip label={said} shortcut={PROJECTS_KEYS.view(at)} asChild>
@@ -63,7 +75,7 @@ export function Column({ bands, view, repo, onView, onRepo }: Props) {
                 {snap.renaming === one.id ? (
                   <RenameProject id={one.id} name={one.name} />
                 ) : (
-                  <button type="button" className="projects-item" data-project={one.id} data-selected={snap.open === one.id || undefined} aria-current={snap.open === one.id || undefined} onClick={() => store.open(one.id)}>
+                  <button type="button" className="projects-item" data-project={one.id} data-selected={(!searching && snap.open === one.id) || undefined} aria-current={(!searching && snap.open === one.id) || undefined} onClick={() => onProject(one.id)}>
                     <Folder size={16} strokeWidth={2} aria-hidden />
                     <span className="projects-item__name">{one.name}</span>
                   </button>
@@ -80,7 +92,7 @@ export function Column({ bands, view, repo, onView, onRepo }: Props) {
           </div>
           <ul className="deck-list__group">
             {bands.map((band) => {
-              const here = snap.open === undefined && repo === band.manifestId;
+              const here = !searching && snap.open === undefined && repo === band.manifestId;
               return (
                 <li key={band.manifestId} className="deck-list__item">
                   <button type="button" className="projects-item" data-repo={band.manifestId} data-selected={here || undefined} aria-current={here || undefined} onClick={() => onRepo(band.manifestId)}>

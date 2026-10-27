@@ -1,6 +1,6 @@
-// The main pane, for whatever is open: a view, a repository or a project. Its head holds the title, Dispatch (drawn only once cards
+// The main pane, for whatever is open: a view, a repository, a project or a search. Its head holds the title, Dispatch (drawn only once cards
 // are picked), the toggle that shows done tasks and the key that goes to the cards; under it the field that adds a task, then the
-// cards. A view or a repository is cut into groups by project under small quiet heads, the tasks in no project first; a project is
+// cards. A view, a repository or a search is cut into groups by project under small quiet heads, the tasks in no project first; a project is
 // one list in his order, moved by a drag and ⌥↑ ⌥↓. A card names its repository only where the list holds more than one.
 
 import { ListChecks } from "lucide-react";
@@ -64,7 +64,7 @@ export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSes
         {groups.map((group) => {
           const rows = (
             <ul className="projects-rows" aria-label={group.title === undefined ? "Rows" : `Rows of ${group.title}`}>
-              {group.rows.map((row) => item(row, group.key, { movable: group.movable, many }))}
+              {group.rows.map((row) => item(row, group.key, { movable: group.movable, many }, group.lone?.get(row.id)))}
             </ul>
           );
           return group.title === undefined ? (

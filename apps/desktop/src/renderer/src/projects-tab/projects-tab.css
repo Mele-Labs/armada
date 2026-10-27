@@ -13,6 +13,13 @@
 .projects-list > .deck-band > :is(.armada-kbd, .armada-tooltip) { margin-left: auto; }
 .projects-surface .projects-list__rows { gap: var(--space-2); padding: var(--space-2); }
 
+/* The search at the head of the column: a glyph over the left of the field, which fills the row. */
+.projects-search { position: relative; display: flex; list-style: none; }
+.projects-search > svg { position: absolute; top: 50%; inset-inline-start: var(--space-3); z-index: 1; color: var(--fg-subtle); transform: translateY(-50%); pointer-events: none; }
+.projects-search > .armada-tooltip { flex: 1 1 0; min-width: 0; }
+.projects-search .armada-input-field { flex: 1 1 0; min-width: 0; }
+.projects-search .armada-input { padding-inline-start: var(--space-8); }
+
 /* Hairlines between the three parts of the column, and a quiet small-caps label over each of the last two. */
 .projects-rule { height: 0; margin: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); list-style: none; }
 .projects-section { display: flex; flex-direction: column; }
