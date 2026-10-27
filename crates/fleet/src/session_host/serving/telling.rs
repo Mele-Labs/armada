@@ -224,6 +224,12 @@ where
         self.fleet_word(session, text, false, Some(Written::Row(row))).await
     }
 
+    /// Fleet's word to a Job the person has just resumed, kept from no mute or rule: it is the answer
+    /// to his own press, and a Job that missed it would not carry on.
+    pub(crate) async fn told_of_a_resume(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, None).await
+    }
+
     /// [`Self::told_by_fleet`] for a run that ended. **A hosted thread keeps a `ran` row** in place
     /// of Fleet's message, and the agent is sent the same words; a terminal Session's thread is
     /// not Fleet's to write, so it holds the words as it holds any other.

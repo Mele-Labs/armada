@@ -449,7 +449,7 @@ pub(crate) async fn resume_session<D: HostedSessions>(
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().resume_session(asked).await {
+    match served.shared().resume_session(asked).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }

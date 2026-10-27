@@ -128,6 +128,11 @@ where
                 (process, directory)
             }
             None if !may_start => return Ok(false),
+            // **The one place a paused Job's agent is kept from starting**, whoever wrote to it:
+            // only the person's Resume lifts a pause, and it starts nothing itself.
+            None if hosting.paused_at.is_some() => {
+                return Err(String::from("the job is paused, and only the person resumes it"));
+            }
             None => {
                 let (directory, resuming, resumed, served) = match served {
                     Ok(served) => {
