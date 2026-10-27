@@ -87,7 +87,13 @@
 }
 .projects-add[data-composer] .projects-add__box:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); background: var(--bg-raised); }
 .projects-add[data-composer] .projects-add__box .armada-textarea { border: 0; background: transparent; outline: 0; }
-.projects-add__tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-1) var(--space-1); }
+.projects-add__tools { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-1) var(--space-1); }
+.projects-add__tools > .projects-add__where { margin-inline-start: auto; }
+/* The key that goes to the field sits inside it: over the right edge of the first line at rest, where the words are padded off it, and
+   after the buttons as a composer. */
+.projects-add__hint { display: inline-flex; flex: none; align-items: center; }
+.projects-add__box > .projects-add__hint { position: absolute; top: var(--space-2); inset-inline-end: var(--space-2); height: var(--leading-sm); }
+.projects-add:not([data-sub], [data-composer]) .armada-textarea { padding-inline-end: var(--space-12); }
 .projects-add__tags,
 .projects-add__where { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
 .projects-add__where .armada-dropdown-menu__trigger { border-color: transparent; background: transparent; color: var(--fg-muted); }

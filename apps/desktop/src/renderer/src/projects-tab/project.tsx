@@ -4,7 +4,7 @@
 // The Job holding it and the pull requests it carries stand on a line under the title. A task's subtasks stand under it as smaller cards, one level
 // deep. A ⌘-click on a card selects it and a ⇧-click selects the range from the card last clicked, in any repository. A card is
 // dragged to move it among its own project's, as ⌥↑ and ⌥↓ do. Links are made by the tags written in the add field and in a
-// title being edited. The add field names the repository the task is in and, optionally, its project.
+// title being edited. The add field names the repository the task is in and, optionally, its project, and holds the key that goes to it.
 
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleDashed, CircleDot, File, Folder, GitPullRequest, ListTree, MessageCircleQuestion, Send, SquareTerminal, Ticket, Trash2, X, type LucideIcon } from "lucide-react";
@@ -359,6 +359,15 @@ export function AddTask({ bands, scope, parent }: { bands?: readonly Band[]; sco
   const said = parent === undefined ? "Add a task" : `Add a subtask to ${parent.title}`;
   const repoName = (bands ?? []).find((band) => band.manifestId === repo)?.label ?? repo;
   const projectName = projects.find((one) => one.id === project)?.name;
+  // The key that goes to the field, inside it: at the right of the line at rest, at the right of the tool row as a composer.
+  const hint =
+    parent === undefined ? (
+      <span className="projects-add__hint">
+        <Tooltip label="Add a task" shortcut={PROJECTS_KEYS.addTask}>
+          <Kbd>{PROJECTS_KEYS.addTask}</Kbd>
+        </Tooltip>
+      </span>
+    ) : null;
   return (
     <form
       ref={form}
@@ -398,6 +407,7 @@ export function AddTask({ bands, scope, parent }: { bands?: readonly Band[]; sco
           }}
         />
         {tags.menu}
+        {composer ? null : hint}
         {composer ? (
           <div className="projects-add__tools">
             <div className="projects-add__tags" role="group" aria-label="Tag">
@@ -453,14 +463,10 @@ export function AddTask({ bands, scope, parent }: { bands?: readonly Band[]; sco
                 />
               )}
             </div>
+            {hint}
           </div>
         ) : null}
       </div>
-      {parent === undefined ? (
-        <Tooltip label="Add a task" shortcut={PROJECTS_KEYS.addTask}>
-          <Kbd>{PROJECTS_KEYS.addTask}</Kbd>
-        </Tooltip>
-      ) : null}
     </form>
   );
 }
