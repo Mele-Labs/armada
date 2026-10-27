@@ -64,7 +64,7 @@ async function mount(source: ReturnType<typeof fleet>) {
   );
   store.load(["armada"]);
   await expect.poll(() => source.listProjects.mock.calls.length).toBe(1);
-  await expect.poll(() => store.get().projects.filter((one) => one.own !== true).length).toBe(1);
+  await expect.poll(() => store.get().projects.length).toBe(1);
   store.open("p1");
   await expect.element(card("Pair a phone")).toBeVisible();
   return store;

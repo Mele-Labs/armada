@@ -1,16 +1,18 @@
-// The Projects tab on All, two repositories served: armada keeps Pocket launch and Cockpit trust, site keeps Docs refresh.
-// Pocket launch mixes tasks he wrote with issues he linked: one task a live Job holds, one held by a Job that finished and is
+// The Projects tab on All, two repositories served. **A project spans repositories**: Pocket launch has tasks in armada and in
+// site, Cockpit trust is armada's and Docs refresh is site's. Some tasks are in no project, in each repository, and two are done.
+// Pocket launch's armada tasks mix tasks he wrote with issues he linked: one task a live Job holds, one held by a Job that finished and is
 // still live (its Needs you item asks the same question as the row), one whose Job has ended and still asks on the row, a done
 // task, a closed issue and an open one. The pairing task carries an issue and two subtasks.
-// site also keeps two tasks of its own, in no project; armada keeps none yet. Both repositories' issues are read from their
-// trackers, as the Issues tab reads them. Played by the walks `projects` and `projects-rework`.
+// Both repositories' issues are read from their trackers, as the Issues tab reads them. Played by the walks `projects` and
+// `projects-pass-3`.
 
 import type { Projects, RepositorySummary, WaitingItem } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { TicketRead } from "../../issues-tab/model";
-import { ownId, type LinkedPull } from "../../projects-tab/model";
+import type { LinkedPull } from "../../projects-tab/model";
+import { ownWire } from "../../projects-tab/wire";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
@@ -160,6 +162,14 @@ const PROJECTS: Projects[] = [
         ],
       },
       {
+        id: ownWire("armada"),
+        name: "",
+        rows: [
+          { kind: "task", id: "task-own-changelog", title: "Update the changelog", notes: "", state: "open" },
+          { kind: "task", id: "task-own-key", title: "Rotate the signing key", notes: "", state: "done" },
+        ],
+      },
+      {
         id: "cockpit-trust",
         name: "Cockpit trust",
         rows: [
@@ -173,11 +183,20 @@ const PROJECTS: Projects[] = [
     manifest_id: "site",
     projects: [
       {
-        id: ownId("site"),
+        id: ownWire("site"),
         name: "",
         rows: [
           { kind: "task", id: "task-own-sitemap", title: "Fix the sitemap dates", notes: "", state: "open" },
           { kind: "task", id: "task-own-404", title: "Check the 404 page", notes: "", state: "open" },
+          { kind: "task", id: "task-own-footer", title: "Fix the footer links", notes: "", state: "done" },
+        ],
+      },
+      {
+        id: "pocket-launch",
+        name: "Pocket launch",
+        rows: [
+          { kind: "task", id: "task-site-badge", title: "Add the App Store badge to the home page", notes: "", state: "open" },
+          { kind: "task", id: "task-pairing-page", title: "Write the pairing page", notes: "", state: "open" },
         ],
       },
       {
@@ -185,7 +204,7 @@ const PROJECTS: Projects[] = [
         name: "Docs refresh",
         rows: [
           { kind: "issue", id: "issue-143", issue: "143", title: "Search misses pages under guides", state: "open" },
-          { kind: "task", id: "task-pairing-page", title: "Write the pairing page", notes: "", state: "open" },
+          { kind: "task", id: "task-docs-nav", title: "Reorder the docs navigation", notes: "", state: "open" },
         ],
       },
     ],
@@ -198,7 +217,7 @@ const TRACKERS: IssuesSeed = [
 ];
 
 function build(name: string): Scenario {
-  const base = holding(name, `Projects on All: armada's Pocket launch and Cockpit trust, site's Docs refresh, with tasks held by a live, a finished and an ended Job`, [ARMADA, SITE]);
+  const base = holding(name, `Projects on All: Pocket launch across armada and site, armada's Cockpit trust, site's Docs refresh, tasks in no project, with tasks held by a live, a finished and an ended Job`, [ARMADA, SITE]);
   return {
     ...base,
     state: { ...base.state, repository: null },

@@ -1,13 +1,14 @@
-// The project open, or a repository's own tasks: the field that adds a task under its head, then its rows as cards, tasks
-// he wrote and issues he linked, in his order. A card is its state's glyph and its title, with the issues a task carries
-// beside the title; on the right, in columns that hold their place, a done ask's two answers, the Job holding it as a
-// chip, and its acts: Dispatch, add a subtask, delete. A task's subtasks stand under it as smaller cards, one level deep.
-// A ⌘-click on a card selects it and a ⇧-click selects the range from the card last clicked. A card is dragged to move it
-// among its own list, as ⌥↑ and ⌥↓ do. Links are made by the tags written in the add field and in a title being edited.
+// The cards of the Projects tab and the field that adds a task. A card is a neutral tile: its state's glyph and its title, with
+// the issues a task carries beside the title and its repository as a quiet chip where the list holds more than one; on the right,
+// in columns that hold their place, a done ask's two answers and its acts: Dispatch, add a subtask, delete. The Job holding it
+// and the pull requests it carries stand on a line under the title. A task's subtasks stand under it as smaller cards, one level
+// deep. A ⌘-click on a card selects it and a ⇧-click selects the range from the card last clicked, in any repository. A card is
+// dragged to move it among its own project's, as ⌥↑ and ⌥↓ do. Links are made by the tags written in the add field and in a
+// title being edited. The add field names the repository the task is in and, optionally, its project.
 
 import { useEffect, useRef, useState } from "react";
-import { Check, CircleDashed, CircleDot, File, GitPullRequest, ListTree, MessageCircleQuestion, Send, SquareTerminal, Ticket, Trash2, X, type LucideIcon } from "lucide-react";
-import { Button, Kbd, PullRequestChip, RepositoryChip, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Check, CircleDashed, CircleDot, File, Folder, GitPullRequest, ListTree, MessageCircleQuestion, Send, SquareTerminal, Ticket, Trash2, X, type LucideIcon } from "lucide-react";
+import { Button, DropdownMenu, Kbd, PullRequestChip, RepositoryChip, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
@@ -15,11 +16,12 @@ import { JobMark } from "../issues-tab/marks";
 import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
-import type { Holder, Linked, LinkedPull, Project, ProjectRow, RowState, TaskRow } from "./model";
+import type { Holder, Linked, LinkedPull, ProjectRow, RowState, TaskRow } from "./model";
 import { rowState, useProjects, useProjectsStore } from "./store";
+import { NO_PROJECT, shown } from "./views";
 import { useTagField } from "./tagging";
 
-export type Hosts = { onOpenSession: (id: string) => void; onOpenLink: (address: string) => void; onDispatch: (project: Project, rows: readonly ProjectRow[]) => void };
+export type Hosts = { onOpenSession: (id: string) => void; onOpenLink: (address: string) => void; onDispatch: (rows: readonly ProjectRow[]) => void };
 
 /** Each state's glyph and the word its tooltip names it by. An issue's open is its ticket; closed is its tracker's tick. */
 function markOf(row: ProjectRow, state: RowState): { Glyph: LucideIcon; said: string } {
@@ -36,40 +38,40 @@ export const rowLabel = (row: ProjectRow): string => (row.kind === "issue" ? [ro
 /** The cards a drag moves among: this project's, each holding its `[data-row]`. */
 const CARDS = ".projects-item-card[data-movable]";
 
-/** With nothing open the pane is empty: an empty slot stays empty. */
-export function ProjectPane({ band, project, ...hosts }: Hosts & { band: Band | undefined; project: Project | undefined }) {
-  if (band === undefined || project === undefined) return <section className="deck-pane projects-pane" aria-label="Project" tabIndex={-1} />;
-  return <Pane key={project.id} band={band} project={project} {...hosts} />;
-}
+/** What Dispatch sends from a list: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not. */
+export const chosenOf = (rows: readonly ProjectRow[], selected: readonly string[]): ProjectRow[] =>
+  rows.flatMap((row): ProjectRow[] => (selected.includes(row.id) ? [row] : row.kind === "task" ? (row.subtasks ?? []).filter((one) => selected.includes(one.id)) : []));
 
-/** What Dispatch sends from a project: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not. */
-export const chosenIn = (project: Project, selected: readonly string[]): ProjectRow[] =>
-  project.rows.flatMap((row): ProjectRow[] =>
-    selected.includes(row.id) ? [row] : row.kind === "task" ? (row.subtasks ?? []).filter((one) => selected.includes(one.id)) : [],
-  );
+/** How a list draws its cards. */
+export type CardOptions = {
+  /** The cards are moved among their own project's by a drag. */
+  movable: boolean;
+  /** Each card names its repository: the list holds more than one. */
+  many: boolean;
+};
 
 /**
  * The cards of any list: `item` draws a row as a card with its subtasks under it, moved among the rows of its own project by a
- * drag. `from` is a small line above the card naming where it stands, for a list that mixes projects.
+ * drag where the list is a project's pane. `labels` are the repositories' names, by Manifest id.
  */
-export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts) {
+export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts, labels: ReadonlyMap<string, string>) {
   const store = useProjectsStore()!;
-  const { selected, subtasking, editing } = useProjects();
+  const { selected, subtasking, editing, showDone } = useProjects();
   const sessions = useSessions();
   const { dragging, grab, swallowed } = useReorder((key, target, after) => store.place(key, target, after), CARDS);
-  const item = (project: Project, row: ProjectRow, list: string, parent?: TaskRow, from?: string): React.ReactNode => (
+  const item = (row: ProjectRow, list: string, options: CardOptions, parent?: TaskRow): React.ReactNode => (
     <li
       key={row.id}
       className="projects-item-card"
-      data-movable={list}
+      data-movable={options.movable ? list : undefined}
       data-lifted={dragging?.key === row.id || undefined}
       data-drop={dragging?.drop?.key === row.id ? (dragging.drop.after ? "after" : "before") : undefined}
     >
-      {from === undefined ? null : <span className="projects-item-card__from">{from}</span>}
       <Card
         row={row}
         sub={parent !== undefined}
-        project={project}
+        repository={options.many && parent === undefined ? labels.get(row.manifestId) : undefined}
+        movable={options.movable}
         adding={subtasking === row.id}
         editing={editing === row.id}
         state={rowState(row)}
@@ -78,12 +80,12 @@ export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts) {
         onOpenSession={onOpenSession}
         onOpenLink={onOpenLink}
         onDispatch={onDispatch}
-        onGrab={(event) => grab(event, row.id, list)}
+        onGrab={(event) => options.movable && grab(event, row.id, list)}
         swallowed={swallowed}
       />
-      {parent === undefined && row.kind === "task" && (row.subtasks ?? []).length > 0 ? (
+      {parent === undefined && row.kind === "task" && (row.subtasks ?? []).some((one) => shown(one, showDone)) ? (
         <ul className="projects-subtasks" aria-label={`Subtasks of ${row.title}`}>
-          {(row.subtasks ?? []).map((one) => item(project, one, row.id, row))}
+          {(row.subtasks ?? []).filter((one) => shown(one, showDone)).map((one) => item(one, row.id, options, row))}
         </ul>
       ) : null}
     </li>
@@ -91,42 +93,13 @@ export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts) {
   return { item, dragging };
 }
 
-function Pane({ band, project, ...hosts }: Hosts & { band: Band; project: Project }) {
-  const { selected } = useProjects();
-  const { onDispatch } = hosts;
-  const chosen = chosenIn(project, selected);
-  const { item, dragging } = useCards(hosts);
-  return (
-    <section className="deck-pane projects-pane" aria-label={project.own === true ? `Tasks of ${band.label}` : `Project ${project.name}`} tabIndex={-1}>
-      <header className="deck-band deck-pane__head">
-        <h2 className="deck-pane__title">{project.own === true ? band.label : project.name}</h2>
-        {project.own === true ? null : <RepositoryChip name={band.label} />}
-        <span className="deck-pane__acts">
-          <Tooltip label={project.own === true ? "Go to the tasks" : "Go to the project"} shortcut={PROJECTS_KEYS.rows}>
-            <Kbd>{PROJECTS_KEYS.rows}</Kbd>
-          </Tooltip>
-          <Tooltip label="Dispatch the rows selected to one Job" shortcut={PROJECTS_KEYS.dispatch}>
-            <Button variant="secondary" size="sm" data-dispatch disabled={chosen.length === 0} onClick={() => onDispatch(project, chosen)}>
-              Dispatch
-            </Button>
-          </Tooltip>
-        </span>
-      </header>
-      <div className="projects-top">
-        <AddTask project={project} />
-      </div>
-      <ul className="projects-rows" aria-label="Rows" data-reordering={dragging === undefined ? undefined : ""}>
-        {project.rows.map((row) => item(project, row, project.id))}
-      </ul>
-    </section>
-  );
-}
-
 type CardProps = {
   row: ProjectRow;
   /** A subtask: its parent's selection takes it, and it holds no subtasks or issues of its own. */
   sub: boolean;
-  project: Project;
+  /** The repository's name, drawn as a chip: the list holds more than one. */
+  repository: string | undefined;
+  movable: boolean;
   /** Its subtask field is up, inside the card. */
   adding: boolean;
   /** Its title is being edited in place. */
@@ -141,14 +114,14 @@ type CardProps = {
   swallowed: () => boolean;
 };
 
-function Card({ row, sub, project, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onDispatch, onGrab, swallowed }: CardProps) {
+function Card({ row, sub, repository, movable, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onDispatch, onGrab, swallowed }: CardProps) {
   const store = useProjectsStore()!;
   const { Glyph, said } = markOf(row, state);
   const label = rowLabel(row);
   // A pull request Fleet listed has its number only: where it is on the forge is read when it is pressed.
   const openPull = (one: LinkedPull) => {
     if (one.url !== "") return onOpenLink(one.url);
-    void window.armada.getPullRequest(project.manifestId, one.number).then((read) => read.ok && onOpenLink(read.value.address));
+    void window.armada.getPullRequest(row.manifestId, one.number).then((read) => read.ok && onOpenLink(read.value.address));
   };
   const interactive = (target: EventTarget) => target instanceof Element && target.closest("button, a, textarea, input") !== null;
   const picking = (event: React.MouseEvent | React.PointerEvent) => event.metaKey || event.ctrlKey || event.shiftKey;
@@ -158,6 +131,7 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
       data-row={row.id}
       data-state={state}
       data-sub={sub || undefined}
+      data-fixed={movable ? undefined : ""}
       data-asking={state === "asking" || undefined}
       data-selected={selected || undefined}
       tabIndex={0}
@@ -193,8 +167,9 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
       )}
       <span className="projects-row__title">
         {row.kind === "issue" ? <span className="projects-row__reference">{row.reference}</span> : null}
-        {editing && row.kind === "task" ? <EditTitle row={row} manifestId={project.manifestId} /> : <span className="projects-row__words">{row.title}</span>}
+        {editing && row.kind === "task" ? <EditTitle row={row} /> : <span className="projects-row__words">{row.title}</span>}
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
+        {repository === undefined ? null : <RepositoryChip name={repository} />}
       </span>
       {/* The done ask's answers, in a column of their own; a card with no ask leaves it to the title. */}
       {state === "asking" ? (
@@ -216,7 +191,7 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
         {row.kind === "task" && !sub ? (
           <>
             <Tooltip label="Dispatch" shortcut={PROJECTS_KEYS.dispatch} asChild>
-              <button type="button" tabIndex={-1} className="projects-row__act" data-dispatch-task aria-label={`Dispatch ${row.title}`} onClick={() => onDispatch(project, [row])}>
+              <button type="button" tabIndex={-1} className="projects-row__act" data-dispatch-task aria-label={`Dispatch ${row.title}`} onClick={() => onDispatch([row])}>
                 <Send size={16} strokeWidth={2} aria-hidden />
               </button>
             </Tooltip>
@@ -240,7 +215,7 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
       </span>
       {adding && row.kind === "task" ? (
         <span className="projects-row__subadd">
-          <AddTask project={project} parent={row} />
+          <AddTask parent={row} />
         </span>
       ) : null}
       {/* The Job holding it and the pull requests it carries, on a line of their own under the title, each with its own Unlink. */}
@@ -255,7 +230,7 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
           {row.kind === "task"
             ? (row.pulls ?? []).map((one) => (
                 <span key={one.number} className="projects-row__linked">
-                  <PullRequestChip framed number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} />
+                  <PullRequestChip number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} />
                   <Unlink pull said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
                 </span>
               ))
@@ -315,20 +290,38 @@ const TOOLS = [
   { Glyph: GitPullRequest, said: "Pull request", trigger: "#" },
 ] as const;
 
+/** Where the top field writes a task: the pane fixes what it is open on, and the field offers the rest. */
+export type AddScope = {
+  /** The draft's name, so each pane keeps its own words. */
+  key: string;
+  /** The repository the pane is open on: fixed. */
+  repo?: string;
+  /** The project the pane is open on: fixed. */
+  project?: string;
+};
+
 /**
- * A task, written under the project's head: Enter adds it at the top of the list and the field stays for the next, ⇧Enter is
- * a new line. The top field is one line at rest and grows into a composer, a few lines with a button each for a Job, a file,
- * an issue and a pull request, while it has the focus or holds words; with no words, Esc or leaving it folds it back. Under a
- * task (`parent`), inside its card, the field adds its subtasks the same way, always one line, and Enter on it empty puts it
- * away. A draft is kept across leaving the panel.
+ * A task, written at the head of a pane: Enter adds it at the top of the list and the field stays for the next, ⇧Enter is a new
+ * line. The top field is one line at rest and grows into a composer, a few lines with a button each for a Job, a file, an issue
+ * and a pull request, and two chips: the repository the task is in, which it must name, and the project, which it may. Both are
+ * fixed by the pane that fixes them and a menu otherwise. The repository starts as the one open, else the one the last task went
+ * to, else the first; the project as the one open, else none. While it has the focus or holds words the composer stays up; with no
+ * words, Esc or leaving it folds it back. Under a task (`parent`), inside its card, the field adds its subtasks the same way, always
+ * one line, in the task's own repository, and Enter on it empty puts it away. A draft is kept across leaving the panel.
  */
-export function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
+export function AddTask({ bands, scope, parent }: { bands?: readonly Band[]; scope?: AddScope; parent?: TaskRow }) {
   const store = useProjectsStore()!;
-  const keep = parent === undefined ? `projects:task:${project.id}` : `projects:subtask:${parent.id}`;
+  const { projects, lastRepo } = useProjects();
+  const [pickedRepo, pickRepo] = useState<string | undefined>(undefined);
+  const [pickedProject, pickProject] = useState<string | undefined>(undefined);
+  const known = (id: string | undefined) => (id !== undefined && (bands ?? []).some((band) => band.manifestId === id) ? id : undefined);
+  const repo = parent?.manifestId ?? known(scope?.repo) ?? known(pickedRepo) ?? known(lastRepo) ?? bands?.[0]?.manifestId ?? "";
+  const project = scope?.project ?? (projects.some((one) => one.id === pickedProject) ? pickedProject : undefined);
+  const keep = parent === undefined ? `projects:task:${scope?.key ?? ""}` : `projects:subtask:${parent.id}`;
   const [title, setTitle] = useState("");
   const [focused, setFocused] = useState(false);
   const form = useRef<HTMLFormElement>(null);
-  const tags = useTagField(project.manifestId, title, setTitle);
+  const tags = useTagField(repo, title, setTitle);
   const composer = parent === undefined && (focused || title !== "");
   // A press that takes the focus elsewhere folds the field once the press is over, so the card pressed is still under it.
   const pressing = useRef(false);
@@ -358,12 +351,15 @@ export function AddTask({ project, parent }: { project: Project; parent?: TaskRo
       return refocusRow(parent.id);
     }
     const written = tags.resolve(title);
-    if (parent === undefined) store.addTask(project.id, written.title, written.links);
+    if (parent === undefined) store.addTask(repo, project, written.title, written.links);
     else store.addSubtask(parent.id, written.title, written.links);
     forgetKept(keep);
     setTitle("");
+    pickRepo(undefined);
   };
   const said = parent === undefined ? "Add a task" : `Add a subtask to ${parent.title}`;
+  const repoName = (bands ?? []).find((band) => band.manifestId === repo)?.label ?? repo;
+  const projectName = projects.find((one) => one.id === project)?.name;
   return (
     <form
       ref={form}
@@ -404,24 +400,60 @@ export function AddTask({ project, parent }: { project: Project; parent?: TaskRo
         />
         {tags.menu}
         {composer ? (
-          <div className="projects-add__tools" role="group" aria-label="Tag">
-            {TOOLS.map(({ Glyph, said: name, trigger }) => (
-              <Tooltip key={name} label={name} shortcut={trigger} asChild>
-                <button
-                  type="button"
-                  className="projects-add__tool"
-                  aria-label={name}
-                  // The field keeps the focus, so the caret the trigger lands at is the one it had.
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    const box = form.current?.querySelector("textarea");
-                    if (box) tags.insert(box, trigger);
-                  }}
-                >
-                  <Glyph size={16} strokeWidth={2} aria-hidden />
-                </button>
-              </Tooltip>
-            ))}
+          <div className="projects-add__tools">
+            <div className="projects-add__tags" role="group" aria-label="Tag">
+              {TOOLS.map(({ Glyph, said: name, trigger }) => (
+                <Tooltip key={name} label={name} shortcut={trigger} asChild>
+                  <button
+                    type="button"
+                    className="projects-add__tool"
+                    aria-label={name}
+                    // The field keeps the focus, so the caret the trigger lands at is the one it had.
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      const box = form.current?.querySelector("textarea");
+                      if (box) tags.insert(box, trigger);
+                    }}
+                  >
+                    <Glyph size={16} strokeWidth={2} aria-hidden />
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+            <div className="projects-add__where" role="group" aria-label="Where">
+              {scope?.repo !== undefined ? (
+                <RepositoryChip name={repoName} />
+              ) : (
+                <DropdownMenu
+                  align="start"
+                  triggerLabel={repoName}
+                  triggerAriaLabel="Repository"
+                  triggerTooltip="Repository"
+                  entries={(bands ?? []).map((band) => ({ kind: "item" as const, id: band.manifestId, label: band.label, selected: band.manifestId === repo }))}
+                  onSelect={pickRepo}
+                />
+              )}
+              {scope?.project !== undefined ? (
+                <Tooltip label="Project">
+                  <span className="projects-add__fixed" role="img" aria-label={`Project ${projectName ?? ""}`}>
+                    <Folder size={12} strokeWidth={2} aria-hidden />
+                    {projectName}
+                  </span>
+                </Tooltip>
+              ) : (
+                <DropdownMenu
+                  align="start"
+                  triggerLabel={projectName ?? NO_PROJECT}
+                  triggerAriaLabel="Project"
+                  triggerTooltip="Project"
+                  entries={[
+                    { kind: "item" as const, id: "", label: NO_PROJECT, selected: project === undefined },
+                    ...projects.map((one) => ({ kind: "item" as const, id: one.id, label: one.name, selected: one.id === project })),
+                  ]}
+                  onSelect={(id) => pickProject(id === "" ? undefined : id)}
+                />
+              )}
+            </div>
           </div>
         ) : null}
       </div>
@@ -435,11 +467,11 @@ export function AddTask({ project, parent }: { project: Project; parent?: TaskRo
 }
 
 /** A task's title, edited in place. Enter keeps it; Esc, which the tab's keys read, leaves it as it was. */
-function EditTitle({ row, manifestId }: { row: TaskRow; manifestId: string }) {
+function EditTitle({ row }: { row: TaskRow }) {
   const store = useProjectsStore()!;
   const keep = `projects:edit:${row.id}`;
   const [title, setTitle] = useState(row.title);
-  const tags = useTagField(manifestId, title, setTitle);
+  const tags = useTagField(row.manifestId, title, setTitle);
   return (
     <span className="projects-tag">
     <Textarea

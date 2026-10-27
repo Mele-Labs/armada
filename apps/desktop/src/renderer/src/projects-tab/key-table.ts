@@ -57,8 +57,8 @@ export const PROJECTS_KEYS = {
   get keepOpen() {
     return capOfSlot("projects_keep_open", 0);
   },
-  get group() {
-    return capOfSlot("projects_group", 0);
+  get done() {
+    return capOfSlot("projects_done", 0);
   },
   /** The key of the view at `at`: 0 all, 1 needs you, 2 in a Job. */
   view: (at: number): string => capOfSlot("projects_view", at),

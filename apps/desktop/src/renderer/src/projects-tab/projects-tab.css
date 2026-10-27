@@ -1,9 +1,9 @@
-/* The Projects tab: his projects in the Cockpit's grid, drawn to the Issues tab's bar. A repository's heading is a band with
-   weight, the Jobs list's (`.deck-list__head`), and a press on it opens the repository's own tasks; what is open is framed
-   by its shape. A project's rows are cards, in fixed columns: the state's glyph and the title on the left; the done ask, the Job
-   holding it and the acts on the right, each column held where a card has nothing for it. A card is picked with ⌘-click and
-   ⇧-click and framed by its shape. Subtasks are smaller cards set in under their parent. Tokens only; no gradient, no glow,
-   no grain. */
+/* The Projects tab: the left column and the pane in the Cockpit's grid, drawn to the Issues tab's bar. The column is views, his
+   projects and the repositories, told apart by glyph and two quiet small-caps labels; what is open is told by its shape
+   (`--select-ground`, `--select-frame`), never by a band or the accent. A pane's cards are neutral tiles in fixed columns: the
+   state's glyph and the title on the left; the done ask and the acts on the right, each column held where a card has nothing
+   for it. State is the glyph's colour and nothing else. A card is picked with ⌘-click, ⇧-click and Space and framed by its
+   shape. Subtasks are smaller tiles set in under their parent. Tokens only; no gradient, no glow, no grain. */
 
 .deck-grid[data-projects] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
 .deck-grid[data-projects] .deck-handle { display: revert; }
@@ -12,31 +12,13 @@
 
 .projects-list > .deck-band > :is(.armada-kbd, .armada-tooltip) { margin-left: auto; }
 .projects-surface .projects-list__rows { gap: var(--space-2); }
-.projects-surface .projects-list .deck-list__band + .deck-list__band { margin-top: var(--space-4); }
 
-/* A repository's heading: the shared band (`.deck-list__head`) with a press that opens its own tasks and a `+` for a new project. */
-.projects-band__head { padding-inline-end: var(--space-1); }
-.projects-band__head:hover { background: color-mix(in srgb, var(--fg-default) 12%, transparent); }
-.projects-band__head[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
-.projects-band__open {
-  flex: 1 1 0;
-  align-self: stretch;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-align: left;
-  text-transform: inherit;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.projects-band__open:focus-visible,
-.projects-band__new:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+/* Hairlines between the three parts of the column, and a quiet small-caps label over each of the last two. */
+.projects-rule { height: 0; margin: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); list-style: none; }
+.projects-section { display: flex; flex-direction: column; }
+.projects-section__head { display: flex; align-items: center; justify-content: space-between; min-height: var(--h-control-sm); padding-inline: var(--space-3) var(--space-1); }
+.projects-section__label { margin: 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+
 .projects-band__new {
   display: inline-flex;
   flex: none;
@@ -52,10 +34,12 @@
   cursor: pointer;
 }
 .projects-band__new:hover { background: var(--bg-hover); color: var(--fg-default); }
+.projects-band__new:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 
 .projects-item {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   width: 100%;
   min-width: 0;
   min-height: var(--h-row);
@@ -73,7 +57,9 @@
   cursor: pointer;
 }
 .projects-item:hover { background: var(--bg-hover); }
-.projects-item[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); font-weight: var(--weight-heading); }
+.projects-item > svg { flex: none; color: var(--fg-muted); }
+.projects-item__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projects-item[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); font-weight: var(--weight-heading); }
 .projects-item:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 
 .projects-name { padding: 0; }
@@ -101,7 +87,12 @@
 }
 .projects-add[data-composer] .projects-add__box:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); background: var(--bg-raised); }
 .projects-add[data-composer] .projects-add__box .armada-textarea { border: 0; background: transparent; outline: 0; }
-.projects-add__tools { display: flex; gap: var(--space-1); padding: 0 var(--space-1) var(--space-1); }
+.projects-add__tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-1) var(--space-1); }
+.projects-add__tags,
+.projects-add__where { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.projects-add__where .armada-dropdown-menu__trigger { border-color: transparent; background: transparent; color: var(--fg-muted); }
+.projects-add__where .armada-dropdown-menu__trigger:hover { background: var(--bg-hover); color: var(--fg-default); }
+.projects-add__fixed { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); max-width: 20ch; height: var(--space-6); padding: 0 var(--space-2); overflow: hidden; color: var(--fg-subtle); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
 .projects-add__tool { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); height: var(--h-control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--fg-subtle); cursor: pointer; }
 .projects-add__tool:hover { background: var(--bg-hover); color: var(--fg-default); }
 .projects-add__tool:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
@@ -120,19 +111,18 @@
   box-shadow: var(--shadow-overlay);
 }
 
-/* The right-hand columns, the same width on every card so nothing on one card stands where another card's act does. */
+/* The groups scroll in the pane's body; a group is a quiet head over its cards. The right-hand columns are the same width on every card so nothing on one card stands where another card's act does. */
+.projects-groups { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-4); min-height: 0; padding: var(--space-3); overflow-y: auto; overscroll-behavior: contain; }
+.projects-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.projects-group__title { margin: 0; padding-inline: var(--space-1); color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: var(--leading-xs); }
 .projects-rows {
   --projects-ask: calc(var(--space-12) * 4);
   --projects-acts: calc(var(--h-control-sm) * 3);
   display: flex;
-  flex: 1 1 0;
   flex-direction: column;
   gap: var(--space-2);
-  min-height: 0;
   margin: 0;
-  padding: var(--space-3);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  padding: 0;
   list-style: none;
 }
 
@@ -140,14 +130,14 @@
 .projects-subtasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-8); list-style: none; }
 
 /* Drag: the card picked up is dimmed where it stood, and the accent line is where it would go down, as the Cockpit's list draws it. */
-.projects-rows[data-reordering],
-.projects-rows[data-reordering] .projects-row { cursor: grabbing; user-select: none; }
+.projects-groups[data-reordering],
+.projects-groups[data-reordering] .projects-row { cursor: grabbing; user-select: none; }
 .projects-item-card[data-lifted] > .projects-row { opacity: 0.55; }
 .projects-item-card[data-drop]::after { content: ""; position: absolute; inset-inline: 0; height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: var(--accent); pointer-events: none; }
 .projects-item-card[data-drop="before"]::after { top: calc(var(--space-1) * -1 - var(--border-width)); }
 .projects-item-card[data-drop="after"]::after { bottom: calc(var(--space-1) * -1 - var(--border-width)); }
 
-/* A card. Its hue is its state's, and its frame wears it. */
+/* A card: a neutral tile. State is the glyph's colour (`--hue`) and nothing else: no edge, no fill, no frame. */
 .projects-row {
   --hue: var(--fg-subtle);
   display: grid;
@@ -157,32 +147,31 @@
   row-gap: var(--space-1);
   min-height: var(--h-row);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-inset, var(--radius-sm));
+  background: var(--chip, var(--bg-raised));
   color: var(--fg-default);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   cursor: grab;
 }
+.projects-row[data-fixed] { cursor: default; }
 .projects-row[data-state="held"] { --hue: var(--status-running); }
 .projects-row[data-state="asking"] { --hue: var(--status-awaiting-review); }
 .projects-row[data-state="done"],
 .projects-row[data-state="closed"] { --hue: var(--step-advanced); }
 .projects-row:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.projects-row:hover { background: var(--chip-hover, var(--bg-hover)); }
+/* A card Fleet asks about may keep a faint tint. */
+.projects-row[data-asking] { background: color-mix(in srgb, var(--status-awaiting-review) 6%, var(--chip, var(--bg-raised))); }
+.projects-row[data-asking]:hover { background: var(--chip-hover, var(--bg-hover)); }
 
-/* The shared Job card's frame: a heavier left edge in the hue and a ground that takes a little of it. */
-.projects-row {
-  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
-  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
-  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
-  box-shadow: var(--shadow-card);
-}
-.projects-row:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-
-/* A subtask: a smaller card, quieter, with no shadow of its own. */
-.projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); box-shadow: none; background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
-/* A card picked is told by its shape, never the accent: a hairline frame in the text colour on a raised ground. After the subtask's, so a subtask picked keeps it. */
+/* A subtask: a smaller tile. */
+.projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); }
+/* A card picked is told by its shape: a hairline frame in the text colour on the selected ground. After the rest, so a subtask or an asked card picked keeps it. */
 .projects-row[data-selected],
-.projects-row[data-selected][data-sub] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
+.projects-row[data-selected]:hover,
+.projects-row[data-selected][data-asking] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 
 .projects-row__mark {
   display: inline-flex;
@@ -199,6 +188,8 @@
 button.projects-row__mark { cursor: pointer; }
 button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row[data-state="open"] .projects-row__mark { color: var(--fg-muted); }
+/* The repository, a quiet chip after the title. */
+.projects-row__title .armada-repository-chip { margin-inline-start: auto; border-color: transparent; background: transparent; color: var(--fg-subtle); }
 
 /* The title runs up to the acts, over the done ask's column where the card has no ask. */
 .projects-row__title { grid-column: 2 / 4; grid-row: 1; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
@@ -207,9 +198,9 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row[data-state="done"] .projects-row__words,
 .projects-row[data-state="closed"] .projects-row__words { color: var(--fg-muted); }
 .projects-row__reference,
-.projects-row__issue { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.projects-row__issue { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
 .projects-row__issues { display: inline-flex; flex: none; gap: var(--space-1); }
-.projects-row__issue { padding: 0 var(--space-1); background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--border-default); color: var(--fg-muted); font-weight: var(--weight-medium); }
+.projects-row__issue { padding: 0 var(--space-1); color: var(--fg-muted); font-weight: var(--weight-medium); }
 .projects-row__issue[data-state="closed"] { color: var(--fg-subtle); text-decoration: line-through; }
 
 /* The first line's right-hand columns: the done ask, then the acts flush to the card's right padding. The Job is the second line. */
@@ -230,16 +221,16 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
   min-width: 0;
   height: var(--h-control-sm);
   padding: 0 var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
   color: var(--fg-default);
   font: inherit;
   font-size: var(--text-2xs);
   cursor: pointer;
 }
 .projects-row[data-sub] .projects-row__job { height: var(--space-6); }
-.projects-row__job:hover { border-color: var(--border-strong); }
+.projects-row__job:hover { background: color-mix(in srgb, var(--fg-default) 14%, transparent); }
 .projects-row__job .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
 .projects-row__job-title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 
@@ -262,3 +253,9 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__act:hover { background: var(--bg-hover); color: var(--fg-default); }
 .projects-row__act[data-remove]:hover { color: var(--status-completed-failed); }
 span.projects-row__act { cursor: default; }
+
+/* The pane's head: the toggle that shows done tasks. On is told by shape, as a selected row is. */
+.projects-head__act { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); height: var(--h-control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--fg-subtle); cursor: pointer; }
+.projects-head__act:hover { background: var(--bg-hover); color: var(--fg-default); }
+.projects-head__act[data-on] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); color: var(--fg-default); }
+.projects-head__act:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }

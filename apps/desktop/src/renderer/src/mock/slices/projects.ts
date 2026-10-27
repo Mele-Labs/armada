@@ -1,7 +1,9 @@
 // The Projects routes, answered from a scenario. A scenario hands each repository's projects as Fleet would list them
 // (`MockDraft.projectsTab`), and every write below changes this window's copy and answers it whole, then publishes it as
-// `projects.changed`, as Fleet does. A repository's own tasks are a project with the id `ownId(manifest)`, made by the first task
-// written to it. **Only a reference or a number is kept on a row**: an issue's or a pull request's title
+// `projects.changed`, as Fleet does. A repository's tasks in no project are a project with the id `ownWire(manifest)`, made by the
+// first task written to it. **A project spans repositories here**: a task written to a project in a repository that does not hold it
+// yet makes the project there, under the same id and name, as a Fleet that keeps projects across repositories would. Today's Fleet
+// refuses that write. **Only a reference or a number is kept on a row**: an issue's or a pull request's title
 // and state are read when the rows are, from what the scenario's trackers and pull requests say.
 //
 // **A done ask is one question in two places**: on the rows, and while the Job that held them is live, as a `task_done` Needs you
@@ -11,7 +13,8 @@
 import type { ProjectRow, ProjectRowRef, ProjectTaskState, Projects, WaitingItem } from "@armada/protocol";
 
 import type { ProjectsApi } from "../../../../shared/api/projects";
-import { ownId, type LinkedPull } from "../../projects-tab/model";
+import type { LinkedPull } from "../../projects-tab/model";
+import { ownWire } from "../../projects-tab/wire";
 import type { Slice } from "../fake-context";
 import type { SessionsStore } from "../sessions/script";
 
@@ -190,8 +193,10 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
         }),
       addProjectTask: (manifestId, project, { title, notes }) =>
         write(manifestId, (kept) => {
-          // A repository's own tasks are made by the first one written to them.
-          if (project === ownId(manifestId) && inProject(kept, project) === undefined) kept.projects.push({ id: project, name: "", rows: [] });
+          // A repository's tasks in no project are made by the first one written to them; a project of another repository is made here by its first.
+          if (project === ownWire(manifestId) && inProject(kept, project) === undefined) kept.projects.push({ id: project, name: "", rows: [] });
+          const elsewhere = [...held.values()].find((one) => one.manifest_id !== manifestId && inProject(one, project) !== undefined);
+          if (elsewhere !== undefined && inProject(kept, project) === undefined) kept.projects.push({ id: project, name: inProject(elsewhere, project)!.name, rows: [] });
           const one = inProject(kept, project);
           if (one === undefined) return noProject();
           if (title.trim() === "") return blank("A task");

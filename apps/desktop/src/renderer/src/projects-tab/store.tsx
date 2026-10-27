@@ -1,37 +1,44 @@
-// The Projects tab's state for one window: his projects and their rows, the project open, the rows selected, and whether
-// a new project's name field is up. Each repository also has its own tasks, a project marked `own` that the store keeps
-// ready for it and Fleet makes on its first task. **Kept in Fleet**: every write goes to its route and the repository's
-// projects come back whole, as `projects.changed` carries them too. A change that only moves what is already drawn (a tick, a
-// move, a delete, a rename) is drawn at once and then replaced by what Fleet answers; one that makes a row (a task, a link)
-// waits for the answer, since Fleet gives the row its id. Writes go one after another, so a key pressed twice acts twice.
+// The Projects tab's state for one window: his projects, the tasks in no project (`loose`), the project open, the rows selected,
+// and whether a new project's name field is up. **A project spans repositories**: each row names its own, so a project is merged
+// here from what each repository's Fleet lists under one id. A repository's tasks in no project are the wire's project
+// `ownWire(manifest)`, read here as loose tasks. **Kept in Fleet**: every write goes to its route and the repository's projects
+// come back whole, as `projects.changed` carries them too. A change that only moves what is already drawn (a tick, a move, a
+// delete, a rename) is drawn at once and then replaced by what Fleet answers; one that makes a row (a task, a link) waits for the
+// answer, since Fleet gives the row its id. Writes go one after another, so a key pressed twice acts twice.
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import type { Projects, RepositorySummary } from "@armada/protocol";
+import type { ProjectRowRef, Projects, RepositorySummary } from "@armada/protocol";
 import { SURFACE, jobIdOf } from "@armada/shell";
 
 import type { ProjectsActed, ProjectsApi } from "../../../shared/api/projects";
-import { ownId, type Holder, type Linked, type LinkedPull, type Project, type ProjectRow, type RowState, type TaskLinks, type TaskRow } from "./model";
-import { projectsOf } from "./wire";
+import type { Holder, Linked, LinkedPull, Project, ProjectRow, RowState, TaskLinks, TaskRow } from "./model";
+import { looseOf, ownWire, projectsOf } from "./wire";
 
 export type ProjectsSnapshot = {
   projects: readonly Project[];
+  /** The tasks in no project, of every repository. */
+  loose: readonly ProjectRow[];
   /** The project open on the right, by id. */
   open: string | undefined;
-  /** The rows of the open project he has selected, by id. A parent selected takes its subtasks with it. */
+  /** The rows he has selected, by id, in any list and any repository. A parent selected takes its subtasks with it. */
   selected: readonly string[];
   /** The card last clicked or selected, by row id: where a ⇧-click's range starts. */
   anchor: string | undefined;
   /** The task whose subtask field is up under its subtasks, by row id. */
   subtasking: string | undefined;
-  /** What was deleted last, while the toast offers it back: a row where it stood, under its parent where it had one, or a project. */
-  removed: { kind: "row"; projectId: string; parent: string | undefined; row: ProjectRow; at: number } | { kind: "project"; project: Project; at: number } | undefined;
+  /** What was deleted last, while the toast offers it back: a row where it stood, under its parent where it had one, or a project. `list` is the project's id, empty for a loose task. */
+  removed: { kind: "row"; list: string; parent: string | undefined; row: ProjectRow; at: number; slice: number } | { kind: "project"; project: Project; homes: string[]; at: number } | undefined;
   /** The task whose title is being edited in place, by row id. */
   editing: string | undefined;
   /** The project whose name is being edited in the list, by id. */
   renaming: string | undefined;
-  /** The repository a new project's name field is up in, by Manifest id. */
-  naming: string | undefined;
+  /** The new project's name field is up in the list. */
+  naming: boolean;
+  /** The repository the last task was added to, by Manifest id: the composer offers it first. */
+  lastRepo: string | undefined;
+  /** Done tasks are drawn. Off, they are hidden in every list. */
+  showDone: boolean;
 };
 
 export type ProjectsStore = ReturnType<typeof createProjectsStore>;
@@ -39,21 +46,30 @@ export type ProjectsStore = ReturnType<typeof createProjectsStore>;
 /** What the store reaches Fleet through: `window.armada` in the app, the mock Fleet's in a walk. */
 export type ProjectsSource = ProjectsApi;
 
-/** Every row of a project, each subtask after its parent. */
-export const allRows = (project: Project): ProjectRow[] => project.rows.flatMap((row): ProjectRow[] => (row.kind === "task" ? [row, ...(row.subtasks ?? [])] : [row]));
+/** The key of the tasks in no project, among the lists a row can stand in. */
+const LOOSE = "";
 
-/** The list a row stands in, its parent's subtasks or the project's rows, and the parent's id where it has one. */
-function siblingsOf(project: Project, rowId: string): { parent: string | undefined; rows: readonly ProjectRow[] } | undefined {
-  if (project.rows.some((row) => row.id === rowId)) return { parent: undefined, rows: project.rows };
-  for (const row of project.rows) if (row.kind === "task" && (row.subtasks ?? []).some((one) => one.id === rowId)) return { parent: row.id, rows: row.subtasks ?? [] };
+/** Every row of a list, each subtask after its parent. */
+export const allRows = (list: { rows: readonly ProjectRow[] }): ProjectRow[] => list.rows.flatMap((row): ProjectRow[] => (row.kind === "task" ? [row, ...(row.subtasks ?? [])] : [row]));
+
+/** A row done: a task ticked, or an issue its tracker closed. */
+export const isDone = (row: ProjectRow): boolean => rowState(row) === "done" || rowState(row) === "closed";
+
+/** The list a row stands in, its parent's subtasks or the list's rows, and the parent's id where it has one. */
+function siblingsOf(rows: readonly ProjectRow[], rowId: string): { parent: string | undefined; rows: readonly ProjectRow[] } | undefined {
+  if (rows.some((row) => row.id === rowId)) return { parent: undefined, rows };
+  for (const row of rows) if (row.kind === "task" && (row.subtasks ?? []).some((one) => one.id === rowId)) return { parent: row.id, rows: row.subtasks ?? [] };
   return undefined;
 }
 
-/** A project with the list `parent` names (its own rows where undefined) changed. */
-function withList(project: Project, parent: string | undefined, change: (rows: ProjectRow[]) => ProjectRow[]): Project {
-  if (parent === undefined) return { ...project, rows: change([...project.rows]) };
-  return { ...project, rows: project.rows.map((row) => (row.id === parent && row.kind === "task" ? { ...row, subtasks: change([...(row.subtasks ?? [])]) as TaskRow[] } : row)) };
+/** A list's rows with the list `parent` names (its own rows where undefined) changed. */
+function withList(rows: readonly ProjectRow[], parent: string | undefined, change: (rows: ProjectRow[]) => ProjectRow[]): ProjectRow[] {
+  if (parent === undefined) return change([...rows]);
+  return rows.map((row) => (row.id === parent && row.kind === "task" ? { ...row, subtasks: change([...(row.subtasks ?? [])]) as TaskRow[] } : row));
 }
+
+/** Where a row stands among those of its own repository in a list: the place Fleet knows it by. */
+const sliceOf = (rows: readonly ProjectRow[], row: ProjectRow): number => rows.filter((one) => one.manifestId === row.manifestId).findIndex((one) => one.id === row.id);
 
 /** The pull requests of each repository the search offers, by Manifest id. Only the mock serves them; the app offers the numbered ones. */
 export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
@@ -61,7 +77,7 @@ export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
 const idsOf = (wire: Projects | undefined, projectId: string): Set<string> => new Set(wire?.projects.find((one) => one.id === projectId)?.rows.map((row) => row.id));
 
 export function createProjectsStore(source: ProjectsSource, pulls: PullsServed = {}) {
-  let snap: ProjectsSnapshot = { projects: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
+  let snap: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
     snap = { ...snap, ...next };
@@ -70,19 +86,39 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
   /** What Fleet last said of each repository, whole, and when each project was last used on this Mac. */
   const wire = new Map<string, Projects>();
   const used = new Map<string, number>();
+  /** The order of a list that spans repositories, by its key: each repository's Fleet orders only its own rows. */
+  const order = new Map<string, string[]>();
   /** Writes in flight. While any is, what Fleet says waits: the drawing already shows where they end up. */
   let pending = 0;
   let tail: Promise<void> = Promise.resolve();
 
+  /** A list's rows in the order last shown where they span repositories, and in Fleet's own where they do not. New rows come first. */
+  const ordered = (key: string, rows: ProjectRow[]): ProjectRow[] => {
+    if (new Set(rows.map((one) => one.manifestId)).size < 2) {
+      order.delete(key);
+      return rows;
+    }
+    const kept = order.get(key) ?? [];
+    const at = (row: ProjectRow) => kept.indexOf(row.id);
+    const out = [...rows.filter((row) => at(row) < 0), ...rows.filter((row) => at(row) >= 0).sort((a, b) => at(a) - at(b))];
+    order.set(key, out.map((row) => row.id));
+    return out;
+  };
+
   const rebuild = () => {
-    // Every repository read has its own tasks ready, though Fleet makes the list only when the first is written.
-    const projects = [...wire.values()].flatMap((one) => {
-      const listed = projectsOf(one, used);
-      const own = ownId(one.manifest_id);
-      return listed.some((project) => project.id === own) ? listed : [...listed, { id: own, manifestId: one.manifest_id, name: "", rows: [], usedAt: used.get(own) ?? 0, own: true as const }];
-    });
-    const rows = new Set(projects.flatMap((one) => allRows(one).map((row) => row.id)));
-    set({ projects, selected: snap.selected.filter((one) => rows.has(one)) });
+    const merged = new Map<string, Project>();
+    const loose: ProjectRow[] = [];
+    for (const manifestId of [...wire.keys()].sort()) {
+      const one = wire.get(manifestId)!;
+      for (const project of projectsOf(one, used)) {
+        const was = merged.get(project.id);
+        merged.set(project.id, was === undefined ? project : { ...was, rows: [...was.rows, ...project.rows], usedAt: Math.max(was.usedAt, project.usedAt) });
+      }
+      loose.push(...looseOf(one));
+    }
+    const projects = [...merged.values()].map((one) => ({ ...one, rows: ordered(one.id, one.rows) }));
+    const rows = new Set([...allRows({ rows: loose }), ...projects.flatMap(allRows)].map((row) => row.id));
+    set({ projects, loose: ordered(LOOSE, loose), selected: snap.selected.filter((one) => rows.has(one)) });
   };
   const heard = (projects: Projects) => {
     wire.set(projects.manifest_id, projects);
@@ -116,33 +152,48 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     return result;
   };
 
-  const edit = (projectId: string, change: (one: Project) => Project) => set({ projects: snap.projects.map((one) => (one.id === projectId ? change(one) : one)) });
-  const holding = (rowId: string) => snap.projects.find((one) => allRows(one).some((row) => row.id === rowId));
-  const find = (rowId: string) => snap.projects.flatMap(allRows).find((row) => row.id === rowId);
   const projectOf = (projectId: string) => snap.projects.find((one) => one.id === projectId);
+  const lists = (): { key: string; rows: readonly ProjectRow[] }[] => [{ key: LOOSE, rows: snap.loose }, ...snap.projects.map((one) => ({ key: one.id, rows: one.rows }))];
+  const rowsIn = (key: string): readonly ProjectRow[] => lists().find((one) => one.key === key)?.rows ?? [];
+  /** The list a row stands in: a project's id, or the empty key for a task in no project. */
+  const holding = (rowId: string): string | undefined => lists().find((one) => allRows(one).some((row) => row.id === rowId))?.key;
+  const find = (rowId: string) => lists().flatMap(allRows).find((row) => row.id === rowId);
+  /** Where Fleet knows a row: its repository, and the project it is under there. */
+  const homeOf = (rowId: string): { key: string; row: ProjectRow; manifestId: string; wireId: string } | undefined => {
+    const key = holding(rowId);
+    const row = find(rowId);
+    return key === undefined || row === undefined ? undefined : { key, row, manifestId: row.manifestId, wireId: key === LOOSE ? ownWire(row.manifestId) : key };
+  };
+  /** The repositories whose Fleet holds this project. */
+  const homes = (projectId: string): string[] => [...wire.values()].filter((one) => one.projects.some((project) => project.id === projectId)).map((one) => one.manifest_id);
+
+  /** A list changed where it stands. */
+  const edit = (key: string, change: (rows: ProjectRow[]) => ProjectRow[]) => {
+    if (key === LOOSE) return set({ loose: change([...snap.loose]) });
+    set({ projects: snap.projects.map((one) => (one.id === key ? { ...one, rows: change([...one.rows]) } : one)) });
+  };
+  const remember = (key: string) => {
+    if (new Set(rowsIn(key).map((one) => one.manifestId)).size > 1) order.set(key, rowsIn(key).map((one) => one.id));
+  };
   const touch = (projectId: string) => {
     used.set(projectId, Date.now());
-    edit(projectId, (one) => ({ ...one, usedAt: used.get(projectId)! }));
+    set({ projects: snap.projects.map((one) => (one.id === projectId ? { ...one, usedAt: used.get(projectId)! } : one)) });
   };
   /** Changes one row wherever it stands, a subtask included. */
   const editRow = (rowId: string, change: (row: ProjectRow) => ProjectRow) => {
-    const project = holding(rowId);
-    const where = project === undefined ? undefined : siblingsOf(project, rowId);
-    if (project === undefined || where === undefined) return;
-    edit(project.id, (one) => withList(one, where.parent, (rows) => rows.map((row) => (row.id === rowId ? change(row) : row))));
+    const key = holding(rowId);
+    const where = key === undefined ? undefined : siblingsOf(rowsIn(key), rowId);
+    if (key === undefined || where === undefined) return;
+    edit(key, (rows) => withList(rows, where.parent, (list) => list.map((row) => (row.id === rowId ? change(row) : row))));
   };
   const closed = { selected: [], anchor: undefined, subtasking: undefined, editing: undefined } as const;
-  /** The rows selected that stand in this row's repository. A Job runs in one, so a pick in another starts a selection of its own. */
-  const inRepository = (rowId: string): readonly string[] => {
-    const manifestId = holding(rowId)?.manifestId;
-    return snap.selected.filter((one) => holding(one)?.manifestId === manifestId);
-  };
 
-  /** Where a row stands after a change drawn: its place among the rows of the list it is in, for the route that puts it there. */
-  const placed = (rowId: string): { project: Project; position: number } | undefined => {
-    const project = holding(rowId);
-    const where = project === undefined ? undefined : siblingsOf(project, rowId);
-    return project === undefined || where === undefined ? undefined : { project, position: where.rows.findIndex((row) => row.id === rowId) };
+  /** Where a row stands after a change drawn: its place among the rows of its repository in the list it is in, for the route that puts it there. */
+  const placed = (rowId: string): number | undefined => {
+    const key = holding(rowId);
+    const where = key === undefined ? undefined : siblingsOf(rowsIn(key), rowId);
+    const row = find(rowId);
+    return where === undefined || row === undefined ? undefined : sliceOf(where.rows, row);
   };
 
   /** The links a task was written with, put on the row Fleet made. Stops at the first refusal. */
@@ -201,18 +252,34 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
         });
       }
     },
+    /** The rows `rowId` and its kin are asked for by Fleet: the project it is under there, for a Job started with them. */
+    refOf: (rowId: string): ProjectRowRef | undefined => {
+      const home = homeOf(rowId);
+      return home === undefined ? undefined : { project: home.wireId, row: rowId };
+    },
     open: (projectId: string | undefined) => {
       if (projectId !== undefined) touch(projectId);
       set({ open: projectId, ...closed });
     },
-    /** A new project in a repository. It opens only where `open` says so: the palette adds one without leaving the page he is on. */
-    addProject: async (manifestId: string, name: string, open = true): Promise<string | undefined> => {
-      set({ naming: undefined });
+    /** Done tasks drawn, or hidden. */
+    showDone: (shown: boolean) =>
+      set({
+        showDone: shown,
+        selected: shown
+          ? snap.selected
+          : snap.selected.filter((one) => {
+              const row = find(one);
+              return row === undefined || !isDone(row);
+            }),
+      }),
+    /** A new project, kept in the repository `home`, which only Fleet's storage needs: the project is his. It opens only where `open` says so: the palette adds one without leaving the page he is on. */
+    addProject: async (name: string, home: string, open = true): Promise<string | undefined> => {
+      set({ naming: false });
       let before = new Set<string>();
-      const answer = await queue(manifestId, async () => {
-        if (!wire.has(manifestId)) await reread(manifestId);
-        before = new Set(wire.get(manifestId)?.projects.map((one) => one.id));
-        return source.addProject(manifestId, { name });
+      const answer = await queue(home, async () => {
+        if (!wire.has(home)) await reread(home);
+        before = new Set(wire.get(home)?.projects.map((one) => one.id));
+        return source.addProject(home, { name });
       });
       const id = answer?.projects.find((one) => !before.has(one.id))?.id;
       if (id !== undefined && open) {
@@ -222,208 +289,208 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
       }
       return id;
     },
-    name: (manifestId: string | undefined) => set({ naming: manifestId }),
-    /** A task joins the top of the list, under the field it was written in. */
-    addTask: (projectId: string, title: string, links: TaskLinks = {}) => {
-      const project = projectOf(projectId);
-      if (project === undefined) return;
-      const manifestId = project.manifestId;
-      touch(projectId);
+    name: (naming: boolean) => set({ naming }),
+    /** A task joins the top of the list, in the repository `manifestId` and under the project, or none. */
+    addTask: (manifestId: string, projectId: string | undefined, title: string, links: TaskLinks = {}) => {
+      const wireId = projectId ?? ownWire(manifestId);
+      if (projectId !== undefined) touch(projectId);
+      set({ lastRepo: manifestId });
       void queue(manifestId, async () => {
-        const before = idsOf(wire.get(manifestId), projectId);
-        const added = await source.addProjectTask(manifestId, projectId, { title });
+        const before = idsOf(wire.get(manifestId), wireId);
+        const added = await source.addProjectTask(manifestId, wireId, { title });
         if (!added.ok) return added;
-        const id = made(added.value, projectId, before);
+        const id = made(added.value, wireId, before);
         if (id === undefined) return added;
-        const moved = await source.moveProjectRow(manifestId, projectId, id, { position: 0 });
-        return moved.ok ? linking(manifestId, projectId, id, links, moved) : moved;
+        const moved = await source.moveProjectRow(manifestId, wireId, id, { position: 0 });
+        return moved.ok ? linking(manifestId, wireId, id, links, moved) : moved;
       });
     },
     /** A subtask joins the foot of its parent's. A subtask holds none, so one asked of a subtask is not added. */
     addSubtask: (parentId: string, title: string, links: TaskLinks = {}) => {
-      const project = holding(parentId);
-      if (project === undefined || !project.rows.some((row) => row.id === parentId && row.kind === "task")) return;
-      const manifestId = project.manifestId;
-      touch(project.id);
+      const home = homeOf(parentId);
+      if (home === undefined || !rowsIn(home.key).some((row) => row.id === parentId && row.kind === "task")) return;
+      const { manifestId, wireId } = home;
+      if (home.key !== LOOSE) touch(home.key);
       void queue(manifestId, async () => {
-        const before = idsOf(wire.get(manifestId), project.id);
-        const added = await source.addProjectSubtask(manifestId, project.id, parentId, { title });
+        const before = idsOf(wire.get(manifestId), wireId);
+        const added = await source.addProjectSubtask(manifestId, wireId, parentId, { title });
         if (!added.ok) return added;
-        const id = made(added.value, project.id, before);
-        return id === undefined ? added : linking(manifestId, project.id, id, links, added);
+        const id = made(added.value, wireId, before);
+        return id === undefined ? added : linking(manifestId, wireId, id, links, added);
       });
     },
     /** The field that adds a subtask under a task's subtasks, or none. */
     subtasking: (parentId: string | undefined) => set({ subtasking: parentId }),
     /** An issue on a task's card. One the task already carries stays where it is. */
     linkToTask: (rowId: string, issue: Linked) => {
-      const project = holding(rowId);
-      const row = find(rowId);
-      if (project === undefined || row?.kind !== "task" || (row.issues ?? []).some((one) => one.reference === issue.reference)) return;
-      void queue(project.manifestId, () => source.linkTaskIssue(project.manifestId, project.id, rowId, { issue: issue.reference }));
+      const home = homeOf(rowId);
+      if (home === undefined || home.row.kind !== "task" || (home.row.issues ?? []).some((one) => one.reference === issue.reference)) return;
+      void queue(home.manifestId, () => source.linkTaskIssue(home.manifestId, home.wireId, rowId, { issue: issue.reference }));
     },
     /** A Job linked to a task holds it as Dispatch would; one already holding it is let go. */
     linkJob: (rowId: string, job: Holder) => {
-      const project = holding(rowId);
-      if (project !== undefined) void queue(project.manifestId, () => source.linkTaskJob(project.manifestId, project.id, rowId, { session_id: job.id }));
+      const home = homeOf(rowId);
+      if (home !== undefined) void queue(home.manifestId, () => source.linkTaskJob(home.manifestId, home.wireId, rowId, { session_id: job.id }));
     },
     unlinkJob: (rowId: string) => {
-      const project = holding(rowId);
-      if (project === undefined) return;
+      const home = homeOf(rowId);
+      if (home === undefined) return;
       editRow(rowId, (row) => {
         if (row.kind !== "task") return row;
         const { job: _gone, ...rest } = row;
         void _gone;
         return rest;
       });
-      void queue(project.manifestId, () => source.unlinkTaskJob(project.manifestId, project.id, rowId));
+      void queue(home.manifestId, () => source.unlinkTaskJob(home.manifestId, home.wireId, rowId));
     },
     linkPull: (rowId: string, pull: LinkedPull) => {
-      const project = holding(rowId);
-      const row = find(rowId);
-      if (project === undefined || row?.kind !== "task" || (row.pulls ?? []).some((one) => one.number === pull.number)) return;
-      void queue(project.manifestId, () => source.linkTaskPull(project.manifestId, project.id, rowId, { number: pull.number }));
+      const home = homeOf(rowId);
+      if (home === undefined || home.row.kind !== "task" || (home.row.pulls ?? []).some((one) => one.number === pull.number)) return;
+      void queue(home.manifestId, () => source.linkTaskPull(home.manifestId, home.wireId, rowId, { number: pull.number }));
     },
     unlinkPull: (rowId: string, number: number) => {
-      const project = holding(rowId);
-      if (project === undefined) return;
+      const home = homeOf(rowId);
+      if (home === undefined) return;
       editRow(rowId, (row) => (row.kind === "task" ? { ...row, pulls: (row.pulls ?? []).filter((one) => one.number !== number) } : row));
-      void queue(project.manifestId, () => source.unlinkTaskPull(project.manifestId, project.id, rowId, { number }));
+      void queue(home.manifestId, () => source.unlinkTaskPull(home.manifestId, home.wireId, rowId, { number }));
     },
     /** Moves a row one place up or down the list it stands in: a subtask among its parent's. */
     move: (rowId: string, by: 1 | -1) => {
-      const project = holding(rowId);
-      const where = project === undefined ? undefined : siblingsOf(project, rowId);
-      if (project === undefined || where === undefined) return;
+      const home = homeOf(rowId);
+      const where = home === undefined ? undefined : siblingsOf(rowsIn(home.key), rowId);
+      if (home === undefined || where === undefined) return;
       const at = where.rows.findIndex((row) => row.id === rowId);
       if (at < 0 || at + by < 0 || at + by >= where.rows.length) return;
-      edit(project.id, (one) =>
-        withList(one, where.parent, (rows) => {
-          [rows[at], rows[at + by]] = [rows[at + by]!, rows[at]!];
-          return rows;
+      edit(home.key, (rows) =>
+        withList(rows, where.parent, (list) => {
+          [list[at], list[at + by]] = [list[at + by]!, list[at]!];
+          return list;
         }),
       );
-      void queue(project.manifestId, () => source.moveProjectRow(project.manifestId, project.id, rowId, { position: at + by }));
+      remember(home.key);
+      const position = placed(rowId);
+      if (position !== undefined) void queue(home.manifestId, () => source.moveProjectRow(home.manifestId, home.wireId, rowId, { position }));
     },
     /** Puts a row down before or after another of the same list, as a drag drops it. */
     place: (rowId: string, target: string, after: boolean) => {
-      const project = holding(rowId);
-      const where = project === undefined ? undefined : siblingsOf(project, rowId);
-      if (project === undefined || where === undefined || rowId === target) return;
-      edit(project.id, (one) =>
-        withList(one, where.parent, (rows) => {
-          const row = rows.find((it) => it.id === rowId);
-          const rest = rows.filter((it) => it.id !== rowId);
+      const home = homeOf(rowId);
+      const where = home === undefined ? undefined : siblingsOf(rowsIn(home.key), rowId);
+      if (home === undefined || where === undefined || rowId === target) return;
+      edit(home.key, (rows) =>
+        withList(rows, where.parent, (list) => {
+          const row = list.find((it) => it.id === rowId);
+          const rest = list.filter((it) => it.id !== rowId);
           const at = rest.findIndex((it) => it.id === target);
-          if (row === undefined || at < 0) return rows;
+          if (row === undefined || at < 0) return list;
           rest.splice(after ? at + 1 : at, 0, row);
           return rest;
         }),
       );
-      const now = placed(rowId);
-      if (now !== undefined) void queue(project.manifestId, () => source.moveProjectRow(project.manifestId, project.id, rowId, { position: now.position }));
+      remember(home.key);
+      const position = placed(rowId);
+      if (position !== undefined) void queue(home.manifestId, () => source.moveProjectRow(home.manifestId, home.wireId, rowId, { position }));
     },
-    /** Done, or open again. On a row Fleet asks about, it answers the ask. */
+    /** Done, or open again. On a row Fleet asks about, it answers the ask. A task that is done and hidden leaves the selection. */
     tick: (rowId: string) => {
-      const project = holding(rowId);
-      const row = find(rowId);
-      if (project === undefined || row?.kind !== "task") return;
-      const done = !row.done;
+      const home = homeOf(rowId);
+      if (home === undefined || home.row.kind !== "task") return;
+      const done = !home.row.done;
       editRow(rowId, (one) => {
         if (one.kind !== "task") return one;
         const { asked: _asked, ...rest } = one;
         void _asked;
         return { ...rest, done };
       });
-      void queue(project.manifestId, () => source.tickProjectTask(project.manifestId, project.id, rowId, { done }));
+      if (done && !snap.showDone) set({ selected: snap.selected.filter((one) => one !== rowId) });
+      void queue(home.manifestId, () => source.tickProjectTask(home.manifestId, home.wireId, rowId, { done }));
     },
-    select: (rowId: string) => {
-      const kept = inRepository(rowId);
-      set({ selected: kept.includes(rowId) ? kept.filter((one) => one !== rowId) : [...kept, rowId], anchor: rowId });
-    },
-    /** The cards from the one last clicked to this one join the selection, when both stand in the same list; otherwise this one alone does. */
+    select: (rowId: string) => set({ selected: snap.selected.includes(rowId) ? snap.selected.filter((one) => one !== rowId) : [...snap.selected, rowId], anchor: rowId }),
+    /** The cards from the one last clicked to this one join the selection, when both stand in the same list; otherwise this one alone does. Hidden done cards are passed over. */
     selectTo: (rowId: string) => {
-      const project = holding(rowId);
-      const where = project === undefined ? undefined : siblingsOf(project, rowId);
+      const key = holding(rowId);
+      const where = key === undefined ? undefined : siblingsOf(rowsIn(key), rowId);
       const from = where?.rows.findIndex((row) => row.id === snap.anchor) ?? -1;
       const to = where?.rows.findIndex((row) => row.id === rowId) ?? -1;
-      const kept = inRepository(rowId);
-      if (where === undefined || from < 0 || to < 0) return set({ selected: kept.includes(rowId) ? kept : [...kept, rowId], anchor: rowId });
-      const between = where.rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((row) => row.id);
-      set({ selected: [...kept, ...between.filter((one) => !kept.includes(one))], anchor: rowId });
+      if (where === undefined || from < 0 || to < 0) return set({ selected: snap.selected.includes(rowId) ? snap.selected : [...snap.selected, rowId], anchor: rowId });
+      const between = where.rows
+        .slice(Math.min(from, to), Math.max(from, to) + 1)
+        .filter((row) => snap.showDone || !isDone(row))
+        .map((row) => row.id);
+      set({ selected: [...snap.selected, ...between.filter((one) => !snap.selected.includes(one))], anchor: rowId });
     },
     /** A click that selects nothing still marks where a range will start. */
     anchorAt: (rowId: string) => set({ anchor: rowId }),
     clearSelection: () => set({ selected: [], anchor: undefined }),
     /** A task deleted, or an issue unlinked, with no question: the toast offers it back for a moment. */
     remove: (rowId: string) => {
-      const project = holding(rowId);
-      const where = project === undefined ? undefined : siblingsOf(project, rowId);
-      if (project === undefined || where === undefined) return;
+      const home = homeOf(rowId);
+      const where = home === undefined ? undefined : siblingsOf(rowsIn(home.key), rowId);
+      if (home === undefined || where === undefined) return;
       const at = where.rows.findIndex((row) => row.id === rowId);
-      edit(project.id, (one) => withList(one, where.parent, (rows) => rows.filter((row) => row.id !== rowId)));
-      set({ selected: snap.selected.filter((one) => one !== rowId), removed: { kind: "row", projectId: project.id, parent: where.parent, row: where.rows[at]!, at } });
-      void queue(project.manifestId, () => source.removeProjectRow(project.manifestId, project.id, rowId));
+      const slice = sliceOf(where.rows, where.rows[at]!);
+      edit(home.key, (rows) => withList(rows, where.parent, (list) => list.filter((row) => row.id !== rowId)));
+      set({ selected: snap.selected.filter((one) => one !== rowId), removed: { kind: "row", list: home.key, parent: where.parent, row: where.rows[at]!, at, slice } });
+      void queue(home.manifestId, () => source.removeProjectRow(home.manifestId, home.wireId, rowId));
     },
     /** A project deleted from the list, with no question: the toast offers it back, rows and all. */
     removeProject: (projectId: string) => {
-      const at = snap.projects.findIndex((one) => one.id === projectId);
-      if (at < 0 || snap.projects[at]!.own === true) return;
-      const project = snap.projects[at]!;
-      set({ projects: snap.projects.filter((one) => one.id !== projectId), removed: { kind: "project", project, at }, renaming: undefined, ...(snap.open === projectId ? { open: undefined, ...closed } : {}) });
-      void queue(project.manifestId, () => source.deleteProject(project.manifestId, projectId));
+      const project = projectOf(projectId);
+      if (project === undefined) return;
+      const where = homes(projectId);
+      set({ projects: snap.projects.filter((one) => one.id !== projectId), removed: { kind: "project", project, homes: where, at: snap.projects.indexOf(project) }, renaming: undefined, ...(snap.open === projectId ? { open: undefined, ...closed } : {}) });
+      for (const manifestId of where) void queue(manifestId, () => source.deleteProject(manifestId, projectId));
     },
-    /** What he deleted comes back as new rows in Fleet, a project at the foot of its repository's, since projects keep no place of their own. */
+    /** What he deleted comes back as new rows in Fleet, a project at the foot of the list, since projects keep no place of their own. */
     undo: () => {
       const gone = snap.removed;
       if (gone === undefined) return;
       set({ removed: undefined });
       if (gone.kind === "project") {
-        const { manifestId, name, rows } = gone.project;
-        void queue(manifestId, async () => {
-          const before = new Set(wire.get(manifestId)?.projects.map((one) => one.id));
-          let answer = await source.addProject(manifestId, { name });
+        const { name, rows } = gone.project;
+        const home = gone.homes[0] ?? rows[0]?.manifestId ?? [...wire.keys()].sort()[0];
+        if (home === undefined) return;
+        void queue(home, async () => {
+          const before = new Set(wire.get(home)?.projects.map((one) => one.id));
+          let answer = await source.addProject(home, { name });
           if (!answer.ok) return answer;
           const id = answer.value.projects.find((one) => !before.has(one.id))?.id;
           if (id === undefined) return answer;
           for (const row of rows) {
             if (!answer.ok) return answer;
-            answer = await recreate(manifestId, id, undefined, row, undefined, answer.value);
+            answer = await recreate(row.manifestId, id, undefined, row, undefined, row.manifestId === home ? answer.value : wire.get(row.manifestId));
           }
           return answer;
         });
         return;
       }
-      const project = projectOf(gone.projectId);
-      if (project === undefined) return;
-      edit(gone.projectId, (one) => withList(one, gone.parent, (rows) => [...rows.slice(0, gone.at), gone.row, ...rows.slice(gone.at)]));
-      void queue(project.manifestId, () => recreate(project.manifestId, gone.projectId, gone.parent, gone.row, gone.at, wire.get(project.manifestId)));
+      if (gone.list !== LOOSE && projectOf(gone.list) === undefined) return;
+      edit(gone.list, (rows) => withList(rows, gone.parent, (list) => [...list.slice(0, gone.at), gone.row, ...list.slice(gone.at)]));
+      const manifestId = gone.row.manifestId;
+      void queue(manifestId, () => recreate(manifestId, gone.list === LOOSE ? ownWire(manifestId) : gone.list, gone.parent, gone.row, gone.slice, wire.get(manifestId)));
     },
     /** A task's title edited in place, or none. */
     editing: (rowId: string | undefined) => set({ editing: rowId }),
     retitle: (rowId: string, title: string) => {
-      const project = holding(rowId);
-      const row = find(rowId);
+      const home = homeOf(rowId);
       set({ editing: undefined });
-      if (project === undefined || row?.kind !== "task") return;
+      if (home === undefined || home.row.kind !== "task") return;
+      const notes = home.row.notes ?? "";
       editRow(rowId, (one) => (one.kind === "task" ? { ...one, title } : one));
-      void queue(project.manifestId, () => source.editProjectTask(project.manifestId, project.id, rowId, { title, notes: row.notes ?? "" }));
+      void queue(home.manifestId, () => source.editProjectTask(home.manifestId, home.wireId, rowId, { title, notes }));
     },
     /** A project's name edited in the list, or none. */
     renaming: (projectId: string | undefined) => set({ renaming: projectId }),
     renameProject: (projectId: string, name: string) => {
-      const project = projectOf(projectId);
       set({ renaming: undefined });
-      if (project === undefined || project.own === true) return;
-      edit(projectId, (one) => ({ ...one, name }));
-      void queue(project.manifestId, () => source.renameProject(project.manifestId, projectId, { name }));
+      if (projectOf(projectId) === undefined) return;
+      set({ projects: snap.projects.map((one) => (one.id === projectId ? { ...one, name } : one)) });
+      for (const manifestId of homes(projectId)) void queue(manifestId, () => source.renameProject(manifestId, projectId, { name }));
     },
     forgetRemoved: () => set({ removed: undefined }),
     /** His answer to a done ask: Mark done, or Keep open. Fleet takes the same ask off the Job that raised it. */
     settle: (rowId: string, done: boolean) => {
-      const project = holding(rowId);
-      const row = find(rowId);
-      if (project === undefined || row?.kind !== "task" || row.asked !== true) return;
+      const home = homeOf(rowId);
+      if (home === undefined || home.row.kind !== "task" || home.row.asked !== true) return;
       editRow(rowId, (one) => {
         if (one.kind !== "task") return one;
         const { asked: _asked, job: _job, ...rest } = one;
@@ -431,7 +498,8 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
         void _job;
         return { ...rest, done };
       });
-      void queue(project.manifestId, () => source.tickProjectTask(project.manifestId, project.id, rowId, { done }));
+      if (done && !snap.showDone) set({ selected: snap.selected.filter((one) => one !== rowId) });
+      void queue(home.manifestId, () => source.tickProjectTask(home.manifestId, home.wireId, rowId, { done }));
     },
   };
 }
@@ -455,7 +523,7 @@ export function useProjectsStore(): ProjectsStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
+const NEVER: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false };
 const NONE = () => () => undefined;
 
 export function useProjects(): ProjectsSnapshot {
