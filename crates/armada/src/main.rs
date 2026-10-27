@@ -91,6 +91,32 @@ async fn main() -> ExitCode {
         },
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
+        Verb::WatchLine { reader, values } => watch_line(reader, values).await,
+    }
+}
+
+/// One reading by an Armada watch reader, in the folder Fleet ran it in, printed as its line.
+/// **Off the runtime's workers**: a reader calls its provider with a blocking client.
+async fn watch_line(reader: String, values: Vec<String>) -> ExitCode {
+    let Ok(cwd) = std::env::current_dir() else {
+        eprintln!("the working directory could not be read");
+        return ExitCode::FAILURE;
+    };
+    let read = tokio::task::spawn_blocking(move || adapters::read_watch(&reader, &values, &cwd)).await;
+    let line = match read {
+        Ok(Ok(reading)) => ipc::watch_line(&reading).map_err(|why| why.to_string()),
+        Ok(Err(why)) => Err(why),
+        Err(why) => Err(why.to_string()),
+    };
+    match line {
+        Ok(line) => {
+            println!("{line}");
+            ExitCode::SUCCESS
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
     }
 }
 

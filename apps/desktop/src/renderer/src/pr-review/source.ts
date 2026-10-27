@@ -6,6 +6,7 @@ import type {
   ForgetReviewSearch,
   OpenReviewWalk,
   PullRequestFilePatch,
+  PullRequestFilePatches,
   PullRequestPage,
   PullRequestState,
   PullReviewLists,
@@ -39,6 +40,8 @@ export type ReviewSource = {
   /** Where a pull request stands and what it is called: all a link to one that is on no list tells of it before its page is read. */
   pull: (manifestId: string, number: number) => Promise<Read<PullRequestState>>;
   file: (manifestId: string, number: number, path: string) => Promise<Read<PullRequestFilePatch>>;
+  /** Every file's patch, in the forge's order, from one read: what the Files tab draws. */
+  patches: (manifestId: string, number: number) => Promise<Read<PullRequestFilePatches>>;
   write: (manifestId: string, write: WritePullRequest) => Promise<Read<PullRequestPage>>;
   resolve: (manifestId: string, resolve: ResolvePullThread) => Promise<Read<PullThreadResolved>>;
   tools: (manifestId: string) => Promise<Read<ReviewTools>>;
@@ -77,6 +80,7 @@ export const reviewSourceOf = (api: ReviewsApi & Pick<IssuesApi, "getPullRequest
   page: async (manifestId, number) => worded(await api.readReviewPage(manifestId, number)),
   pull: async (manifestId, number) => worded(await api.getPullRequest(manifestId, number)),
   file: async (manifestId, number, path) => worded(await api.readReviewFile(manifestId, number, path)),
+  patches: async (manifestId, number) => worded(await api.readReviewPatches(manifestId, number)),
   write: async (manifestId, write) => worded(await api.writeReview(manifestId, write)),
   resolve: async (manifestId, resolve) => worded(await api.resolveReviewThread(manifestId, resolve)),
   tools: async (manifestId) => worded(await api.listReviewTools(manifestId)),

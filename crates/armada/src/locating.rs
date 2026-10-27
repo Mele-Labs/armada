@@ -196,12 +196,25 @@ impl Locating for Locator {
             .into_iter()
             .map(|(path, text)| config::WatchRecipeWritten::in_repository(path, text))
             .collect();
+        written.extend(self.machine_watch_recipes());
+        written
+    }
+
+    fn machine_watch_recipes(&self) -> Vec<config::WatchRecipeWritten> {
+        let mut written: Vec<_> = adapters::carried_watch_recipes()
+            .into_iter()
+            .map(|(path, text)| config::WatchRecipeWritten::by_armada(path, text))
+            .collect();
         let machine = self.machine.join("machine").join("watches");
         written.extend(crate::trigger_authoring::listed(&machine).into_iter().filter_map(|path| {
             let text = std::fs::read_to_string(&path).ok()?;
             Some(config::WatchRecipeWritten::on_machine(path, text))
         }));
         written
+    }
+
+    fn machine_watch_folder(&self) -> Option<PathBuf> {
+        Some(self.machine.join("machine").join("watches"))
     }
 
     fn started(&self, folder: &Path) -> Result<(), NotLocated> {

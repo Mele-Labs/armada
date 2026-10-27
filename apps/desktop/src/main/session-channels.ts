@@ -6,7 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
-import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch } from "@armada/protocol";
+import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
@@ -139,6 +139,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.stopWatch, (_event, stop: StopWatch) => {
     if (!text(stop?.watch) || (stop.session_id !== undefined && !text(stop.session_id))) return unread;
     return connection()?.sessions.stopWatch({ watch: stop.watch, ...(stop.session_id === undefined ? {} : { session_id: stop.session_id }) }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.deleteWatch, (_event, remove: DeleteWatch) => {
+    if (!text(remove?.watch) || (remove.session_id !== undefined && !text(remove.session_id))) return unread;
+    return connection()?.sessions.deleteWatch({ watch: remove.watch, ...(remove.session_id === undefined ? {} : { session_id: remove.session_id }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;

@@ -267,3 +267,33 @@ fn an_escaped_pipe_and_a_quoted_path_with_a_space_are_text() {
     refused(&[r#"cat "/Users/user/Documents/My Notes/a.txt""#], Because::ReachesOutside);
     refused(&[r#"sqlite3 "/Users/user/Library/Application Support/Tool/x.db" "delete from t""#], Because::ReachesOutside);
 }
+
+/// The Job's scratch folder, as `crate::scratch` names it.
+const SCRATCH: &str = "/Users/user/.armada/machine/attachments/job-scratch/job-1";
+
+fn bash_holding_scratch(line: &str) -> Option<Because> {
+    let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: line } }).expect("an ask");
+    let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    because_in_a_session(&ask, &[SLOT, SCRATCH])
+}
+
+#[test]
+fn the_jobs_scratch_folder_is_written_removed_and_chmodded_as_a_slot_is() {
+    for line in [
+        "cat > /Users/user/.armada/machine/attachments/job-scratch/job-1/state.sh <<'EOF'\n#!/bin/sh\necho hi\nEOF",
+        "chmod +x /Users/user/.armada/machine/attachments/job-scratch/job-1/state.sh",
+        "rm -rf /Users/user/.armada/machine/attachments/job-scratch/job-1/old",
+    ] {
+        assert_eq!(bash_holding_scratch(line), None, "{line} should run");
+    }
+    for line in [
+        "chmod +x /Users/user/.armada/machine/attachments/job-scratch/job-2/state.sh",
+        "rm -rf /Users/user/.armada/machine/attachments/job-scratch/job-1",
+    ] {
+        assert_eq!(bash_holding_scratch(line), Some(Because::Destructive), "{line} should be refused");
+    }
+    // It is no one's working directory: a relative removal runs in the owner's checkout.
+    let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: "rm -rf build" } }).expect("an ask");
+    let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    assert_eq!(because_in_a_session(&ask, &[SCRATCH]), Some(Because::Destructive));
+}

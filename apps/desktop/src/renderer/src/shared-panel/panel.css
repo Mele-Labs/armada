@@ -308,7 +308,7 @@
 /* The verdicts sit in the sentence's column, under it. */
 .side-watch__reading {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-1) var(--space-2);
   padding: var(--space-2) 0;
@@ -324,6 +324,18 @@
 
 .side-watch__at {
   color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
+/* A run's first time above its last. */
+.side-watch__span {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.side-watch__count {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 

@@ -24,6 +24,12 @@ pub trait Admitting: Send + Sync + 'static {
     /// did before a Helm session could be told apart — a person's own agent
     /// session keeps every row the inventory marks `Yes`.
     fn helm_at(&self, caller: Caller) -> Option<HelmReach>;
+
+    /// The key on a tool's `_meta` the agent's harness reads as loading it at the start, for the
+    /// rows the inventory marks `always_loaded`. **`None` by default**, which marks none.
+    fn always_loads(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 /// What one Helm session may call through the door.

@@ -649,6 +649,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   flex-wrap: wrap;
   gap: var(--deck-gutter);
 }
+/* Compact's steps are smaller than a key's glyph and name, so its keys keep Default's height: Compact's steps are three quarters of Default's. */
+:root[data-spacing="compact"] .deck-foot { --tile: calc((var(--space-12) + var(--space-2)) * 4 / 3); }
 
 /* One row of six equal tiles. A tile is a glyph over its word. */
 .deck-controls { flex: 6 1 var(--deck-inset-controls); min-width: 0; }

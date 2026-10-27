@@ -1,0 +1,5 @@
+# A commit's check runs and commit statuses whose names start with `context`, read as parts.
+# `armada watch-line` reads GitHub with the token `gh` holds, in the repository the Job's slot names.
+name: github-checks
+command: [armada, watch-line, github-checks, "{sha}", "{context}"]
+every: 60s

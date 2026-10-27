@@ -148,7 +148,7 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
           ))}
         </ul>
       )}
-      <WatchingBlock session={session} />
+      <WatchingBlock key={session.id} session={session} />
       {later.length === 0 && filed.length === 0 ? null : <LaterBlock later={later} issues={filed} manifestId={session.manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
     </SvPanel>
   );
