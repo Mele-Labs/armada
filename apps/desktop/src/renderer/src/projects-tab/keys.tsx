@@ -10,12 +10,15 @@ import { holdsText } from "@armada/screens/src/keys";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { allRows, useProjectsStore, type ProjectsStore } from "./store";
+import { VIEW_IDS, type View } from "./views";
 
 const ZONES = [".projects-list", ".projects-pane"] as const;
 const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
 
 /** The list's stops, in the order drawn: each repository's head, then its projects. */
-const STOPS = ".projects-list :is(.projects-band__open, .projects-item)";
+const STOPS = ".projects-list :is(.projects-band__open, .projects-item, .projects-repo__fold, [data-stop])";
+/** What j and k pass along the pane: its cards, and the heads of a grouped list's projects. */
+const PANE_STOPS = ".projects-pane :is(.projects-row, .projects-group__head)";
 
 const all = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter((one) => !one.hasAttribute("disabled"));
 
@@ -35,19 +38,24 @@ function focusRows(): void {
 /** The row a moved row is drawn at once the list has drawn again. */
 const refocus = (rowId: string): void => void window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`)?.focus());
 
-export function ProjectsKeys({ onDispatchRow }: { onDispatchRow: (rowId: string) => void }) {
+/** The layout takes' own acts: `onView` picks a view and `onGroup` cycles the grouping, where the layout has them. */
+type Takes = { onView?: (view: View) => void; onGroup?: () => void };
+
+export function ProjectsKeys({ onDispatchRow, onView, onGroup }: { onDispatchRow: (rowId: string) => void } & Takes) {
   const store = useProjectsStore()!;
   const latest = useRef(onDispatchRow);
   latest.current = onDispatchRow;
+  const takes = useRef<Takes>({});
+  takes.current = { ...(onView === undefined ? {} : { onView }), ...(onGroup === undefined ? {} : { onGroup }) };
   useEffect(() => {
-    const listen = (event: KeyboardEvent) => press(event, store, (id) => latest.current(id));
+    const listen = (event: KeyboardEvent) => press(event, store, (id) => latest.current(id), takes.current);
     window.addEventListener("keydown", listen, true);
     return () => window.removeEventListener("keydown", listen, true);
   }, [store]);
   return null;
 }
 
-function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: string) => void): void {
+function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: string) => void, takes: Takes): void {
   if (document.querySelector(".projects-surface") === null) return;
   if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
   if (event.key === "Escape" && popupIsOpen()) return;
@@ -76,7 +84,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       if (target.closest(".projects-rename") !== null) {
         const renamed = snap.renaming;
         store.renaming(undefined);
-        return void window.requestAnimationFrame(() => (renamed === undefined ? focusList() : document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(renamed)}"]`)?.focus()));
+        return void window.requestAnimationFrame(() => (renamed === undefined ? focusList() : document.querySelector<HTMLElement>(`:is(.projects-item, .projects-group__head)[data-project="${CSS.escape(renamed)}"]`)?.focus()));
       }
       if (card !== undefined) return refocus(card);
       focusRows();
@@ -88,11 +96,15 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   const row = target.closest<HTMLElement>(".projects-pane .projects-row");
   const rowId = row?.dataset.row;
   const open = snap.projects.find((one) => one.id === snap.open);
+  // A grouped list (the layout takes) has no project open: its rows stand in every project, and a head is a project's.
+  const head = target.closest<HTMLElement>(".projects-pane .projects-group__head");
+  const paned = document.querySelector(".projects-pane") !== null;
+  const rowEntry = rowId === undefined ? undefined : snap.projects.flatMap(allRows).find((one) => one.id === rowId);
 
   // ⌥↑ and ⌥↓ move the row under focus, as the deck moves its own.
   const shove = event.altKey && !event.metaKey && !event.ctrlKey ? pressedSlot("projects_reorder", event) : -1;
   if (shove !== -1) {
-    if (open === undefined || rowId === undefined) return;
+    if (!paned || rowId === undefined) return;
     take();
     store.move(rowId, shove === 0 ? -1 : 1);
     return refocus(rowId);
@@ -114,19 +126,26 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   const part = pressedSlot("projects_panel", event);
   if (part === 0) return take(), focusList();
   if (part === 1) return take(), focusRows();
+  const view = takes.onView === undefined ? -1 : pressedSlot("projects_view", event);
+  if (view !== -1 && VIEW_IDS[view] !== undefined) return take(), takes.onView?.(VIEW_IDS[view]!);
+  if (takes.onGroup !== undefined && isPressed("projects_group", event)) return take(), takes.onGroup();
   if (isPressed("projects_new", event)) {
     take();
+    // The grouped list has one New project in its toolbar, a menu of repositories while the rail is on All.
+    const toolbar = document.querySelector<HTMLElement>("[data-new-project] button");
+    if (toolbar !== null) return toolbar.click();
     // The repository he is in: the head or project focused in the list, else the project open, else the first listed.
     const bands = all(".projects-list .projects-band");
     const manifest =
       target.closest<HTMLElement>(".projects-band")?.dataset.manifest ?? open?.manifestId ?? bands[0]?.dataset.manifest;
     return all(".projects-list .projects-band__new").find((one) => one.closest<HTMLElement>(".projects-band")?.dataset.manifest === manifest)?.click();
   }
-  if (open !== undefined && isPressed("projects_add_task", event)) {
+  if (paned && isPressed("projects_add_task", event)) {
     take();
-    return document.querySelector<HTMLElement>(".projects-add textarea")?.focus();
+    // The field of the group the focus is in, else the first drawn.
+    return (target.closest(".projects-group")?.querySelector<HTMLElement>(".projects-add textarea") ?? document.querySelector<HTMLElement>(".projects-add textarea"))?.focus();
   }
-  if (open !== undefined && isPressed("projects_dispatch", event)) {
+  if (paned && isPressed("projects_dispatch", event)) {
     if (snap.selected.length > 0) {
       take();
       return document.querySelector<HTMLElement>(".projects-pane [data-dispatch]")?.click();
@@ -155,7 +174,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
     if (isPressed("projects_tick", event)) return take(), store.tick(rowId);
     // Enter edits a task's title in place; an issue's is its tracker's.
     if (isPressed("projects_edit", event) && target === row) {
-      if (open === undefined || allRows(open).find((one) => one.id === rowId)?.kind !== "task") return;
+      if (rowEntry?.kind !== "task") return;
       take();
       return store.editing(rowId);
     }
@@ -194,6 +213,19 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   const vertical = slot !== -1 || event.key === "ArrowDown" || event.key === "ArrowUp";
   const by = slot === 0 || slot === 2 || event.key === "ArrowDown" ? 1 : -1;
 
+  // A project's head in a grouped list renames and deletes it as its row in the list does.
+  if (head !== null && target === head) {
+    const project = head.dataset.project;
+    if (project !== undefined && isPressed("projects_rename", event)) return take(), store.renaming(project);
+    if (project !== undefined && isPressed("projects_delete", event)) {
+      take();
+      const stops = all(PANE_STOPS);
+      const next = stops[stops.indexOf(head) + 1] ?? stops[stops.indexOf(head) - 1];
+      store.removeProject(project);
+      return next?.focus();
+    }
+  }
+
   if (here === ".projects-list") {
     const item = target.closest<HTMLElement>(".projects-item");
     const project = item?.dataset.project;
@@ -209,7 +241,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       take();
       return step(all(STOPS), target, by);
     }
-    const stop = target.closest<HTMLElement>(".projects-band__open, .projects-item");
+    const stop = target.closest<HTMLElement>(".projects-band__open, .projects-item, .projects-repo__fold, [data-stop]");
     if ((event.key === "Enter" || isPressed("open", event)) && stop !== null) {
       take();
       return stop.click();
@@ -219,6 +251,6 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
 
   if (here === ".projects-pane" && vertical) {
     take();
-    return step(all(".projects-pane .projects-row"), target, by);
+    return step(all(PANE_STOPS), target, by);
   }
 }

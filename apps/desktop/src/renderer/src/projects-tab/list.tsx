@@ -70,7 +70,7 @@ export function ProjectsList({ bands }: { bands: readonly Band[] }) {
 }
 
 /** A project's name, edited in its place in the list. Enter keeps it; Esc leaves it as it was. */
-function RenameProject({ id, name }: { id: string; name: string }) {
+export function RenameProject({ id, name }: { id: string; name: string }) {
   const store = useProjectsStore()!;
   const keep = `projects:rename:${id}`;
   const [words, setWords] = useState(name);
@@ -93,7 +93,7 @@ function RenameProject({ id, name }: { id: string; name: string }) {
             forgetKept(keep);
             if (words.trim() === "") store.renaming(undefined);
             else store.renameProject(id, words.trim());
-            window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(id)}"]`)?.focus());
+            window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`:is(.projects-item, .projects-group__head)[data-project="${CSS.escape(id)}"]`)?.focus());
           }
         }}
       />
@@ -102,13 +102,13 @@ function RenameProject({ id, name }: { id: string; name: string }) {
 }
 
 /** The new project's name, at the foot of its repository's panel. Enter adds it and opens it; Esc puts the field away. */
-function NameProject({ band }: { band: Band }) {
+export function NameProject({ band, open = true }: { band: Band; open?: boolean }) {
   const store = useProjectsStore()!;
   const keep = `projects:name:${band.manifestId}`;
   const [name, setName] = useState("");
   const add = () => {
     if (name.trim() === "") return;
-    store.addProject(band.manifestId, name.trim());
+    store.addProject(band.manifestId, name.trim(), open);
     forgetKept(keep);
     setName("");
   };

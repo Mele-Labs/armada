@@ -800,6 +800,30 @@ destructive = false
 confirms = false
 notes = "Opens the dispatch sheet on the project's repository holding the cards selected, or the focused card where none is, as the Dispatch icon on a task's card does: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
 
+[actions.projects_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a view"
+icon = ""
+icon_absent = "undecided"
+shortcut = "1 2 3"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Shows every task of every project (`1`), the tasks Fleet asks about as done (`2`), or the tasks a Job holds (`3`). Mock-backed layout takes of the Projects tab: the views sit on top of the list in one and in a rail in the other."
+
+[actions.projects_group]
+kind = "Action"
+tier = "Contextual"
+verb = "Group the tasks"
+icon = ""
+icon_absent = "undecided"
+shortcut = "G"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Cycles how the grouped list is grouped: by project, by repository, by state. Mock-backed layout take of the Projects tab."
+
 [actions.projects_mark_done]
 kind = "Action"
 tier = "Contextual"

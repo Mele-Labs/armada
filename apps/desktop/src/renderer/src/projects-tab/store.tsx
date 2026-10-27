@@ -132,6 +132,11 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     edit(project.id, (one) => withList(one, where.parent, (rows) => rows.map((row) => (row.id === rowId ? change(row) : row))));
   };
   const closed = { selected: [], anchor: undefined, subtasking: undefined, editing: undefined } as const;
+  /** The rows selected that stand in this row's repository. A Job runs in one, so a pick in another starts a selection of its own. */
+  const inRepository = (rowId: string): readonly string[] => {
+    const manifestId = holding(rowId)?.manifestId;
+    return snap.selected.filter((one) => holding(one)?.manifestId === manifestId);
+  };
 
   /** Where a row stands after a change drawn: its place among the rows of the list it is in, for the route that puts it there. */
   const placed = (rowId: string): { project: Project; position: number } | undefined => {
@@ -332,16 +337,20 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
       });
       void queue(project.manifestId, () => source.tickProjectTask(project.manifestId, project.id, rowId, { done }));
     },
-    select: (rowId: string) => set({ selected: snap.selected.includes(rowId) ? snap.selected.filter((one) => one !== rowId) : [...snap.selected, rowId], anchor: rowId }),
+    select: (rowId: string) => {
+      const kept = inRepository(rowId);
+      set({ selected: kept.includes(rowId) ? kept.filter((one) => one !== rowId) : [...kept, rowId], anchor: rowId });
+    },
     /** The cards from the one last clicked to this one join the selection, when both stand in the same list; otherwise this one alone does. */
     selectTo: (rowId: string) => {
       const project = holding(rowId);
       const where = project === undefined ? undefined : siblingsOf(project, rowId);
       const from = where?.rows.findIndex((row) => row.id === snap.anchor) ?? -1;
       const to = where?.rows.findIndex((row) => row.id === rowId) ?? -1;
-      if (where === undefined || from < 0 || to < 0) return set({ selected: snap.selected.includes(rowId) ? snap.selected : [...snap.selected, rowId], anchor: rowId });
+      const kept = inRepository(rowId);
+      if (where === undefined || from < 0 || to < 0) return set({ selected: kept.includes(rowId) ? kept : [...kept, rowId], anchor: rowId });
       const between = where.rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((row) => row.id);
-      set({ selected: [...snap.selected, ...between.filter((one) => !snap.selected.includes(one))], anchor: rowId });
+      set({ selected: [...kept, ...between.filter((one) => !kept.includes(one))], anchor: rowId });
     },
     /** A click that selects nothing still marks where a range will start. */
     anchorAt: (rowId: string) => set({ anchor: rowId }),

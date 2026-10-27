@@ -19,7 +19,7 @@ import type { Holder, Linked, LinkedPull, Project, ProjectRow, RowState, TaskRow
 import { rowState, useProjects, useProjectsStore } from "./store";
 import { useTagField } from "./tagging";
 
-type Hosts = { onOpenSession: (id: string) => void; onOpenLink: (address: string) => void; onDispatch: (project: Project, rows: readonly ProjectRow[]) => void };
+export type Hosts = { onOpenSession: (id: string) => void; onOpenLink: (address: string) => void; onDispatch: (project: Project, rows: readonly ProjectRow[]) => void };
 
 /** Each state's glyph and the word its tooltip names it by. An issue's open is its ticket; closed is its tracker's tick. */
 function markOf(row: ProjectRow, state: RowState): { Glyph: LucideIcon; said: string } {
@@ -42,16 +42,22 @@ export function ProjectPane({ band, project, ...hosts }: Hosts & { band: Band | 
   return <Pane key={project.id} band={band} project={project} {...hosts} />;
 }
 
-function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & { band: Band; project: Project }) {
+/** What Dispatch sends from a project: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not. */
+export const chosenIn = (project: Project, selected: readonly string[]): ProjectRow[] =>
+  project.rows.flatMap((row): ProjectRow[] =>
+    selected.includes(row.id) ? [row] : row.kind === "task" ? (row.subtasks ?? []).filter((one) => selected.includes(one.id)) : [],
+  );
+
+/**
+ * The cards of any list: `item` draws a row as a card with its subtasks under it, moved among the rows of its own project by a
+ * drag. `from` is a small line above the card naming where it stands, for a list that mixes projects.
+ */
+export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts) {
   const store = useProjectsStore()!;
   const { selected, subtasking, editing } = useProjects();
   const sessions = useSessions();
-  // What Dispatch sends: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not.
-  const chosen = project.rows.flatMap((row): ProjectRow[] =>
-    selected.includes(row.id) ? [row] : row.kind === "task" ? (row.subtasks ?? []).filter((one) => selected.includes(one.id)) : [],
-  );
   const { dragging, grab, swallowed } = useReorder((key, target, after) => store.place(key, target, after), CARDS);
-  const item = (row: ProjectRow, list: string, parent?: TaskRow) => (
+  const item = (project: Project, row: ProjectRow, list: string, parent?: TaskRow, from?: string): React.ReactNode => (
     <li
       key={row.id}
       className="projects-item-card"
@@ -59,6 +65,7 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
       data-lifted={dragging?.key === row.id || undefined}
       data-drop={dragging?.drop?.key === row.id ? (dragging.drop.after ? "after" : "before") : undefined}
     >
+      {from === undefined ? null : <span className="projects-item-card__from">{from}</span>}
       <Card
         row={row}
         sub={parent !== undefined}
@@ -76,11 +83,19 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
       />
       {parent === undefined && row.kind === "task" && (row.subtasks ?? []).length > 0 ? (
         <ul className="projects-subtasks" aria-label={`Subtasks of ${row.title}`}>
-          {(row.subtasks ?? []).map((one) => item(one, row.id, row))}
+          {(row.subtasks ?? []).map((one) => item(project, one, row.id, row))}
         </ul>
       ) : null}
     </li>
   );
+  return { item, dragging };
+}
+
+function Pane({ band, project, ...hosts }: Hosts & { band: Band; project: Project }) {
+  const { selected } = useProjects();
+  const { onDispatch } = hosts;
+  const chosen = chosenIn(project, selected);
+  const { item, dragging } = useCards(hosts);
   return (
     <section className="deck-pane projects-pane" aria-label={project.own === true ? `Tasks of ${band.label}` : `Project ${project.name}`} tabIndex={-1}>
       <header className="deck-band deck-pane__head">
@@ -101,7 +116,7 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
         <AddTask project={project} />
       </div>
       <ul className="projects-rows" aria-label="Rows" data-reordering={dragging === undefined ? undefined : ""}>
-        {project.rows.map((row) => item(row, project.id))}
+        {project.rows.map((row) => item(project, row, project.id))}
       </ul>
     </section>
   );
@@ -307,7 +322,7 @@ const TOOLS = [
  * task (`parent`), inside its card, the field adds its subtasks the same way, always one line, and Enter on it empty puts it
  * away. A draft is kept across leaving the panel.
  */
-function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
+export function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
   const store = useProjectsStore()!;
   const keep = parent === undefined ? `projects:task:${project.id}` : `projects:subtask:${parent.id}`;
   const [title, setTitle] = useState("");
