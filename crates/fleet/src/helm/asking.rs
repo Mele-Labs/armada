@@ -19,7 +19,7 @@ use std::time::Duration;
 use adapter_traits::CallDetail;
 use core_model::Timestamp;
 use ipc::{
-    AnswerHelmCall, AskingToRun, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId,
+    AnswerHelmCall, AskingToRun, CallKind, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId,
     QuestionAnswer, ReachesTo, RunOrNot,
 };
 use tokio::sync::oneshot;
@@ -89,6 +89,9 @@ pub enum NotAnswerable {
     /// An "always" answer naming no folder, or one that does not hold the path asked about. The
     /// ask stays on the table.
     NotAFolderAbove,
+    /// A "like this" answer naming neither the card's kind nor its program alone, or a card with
+    /// no kind. The ask stays on the table.
+    NotItsKind,
 }
 
 /// What the guard read about a call that reaches past a session's slots, for its card.
@@ -254,6 +257,15 @@ impl Asks {
         if always && !folder_above(said.folder.as_deref(), held.in_flight.reaches.as_deref()) {
             return Err(NotAnswerable::NotAFolderAbove);
         }
+        if said.answer == HelmCallAnswer::AllowLikeThisForSession {
+            if !kind_within(said.kind.as_ref(), held.in_flight.kind.as_ref()) {
+                return Err(NotAnswerable::NotItsKind);
+            }
+            // The folder narrows the kind and is optional; one given must hold the path.
+            if said.folder.is_some() && !folder_above(said.folder.as_deref(), held.in_flight.reaches.as_deref()) {
+                return Err(NotAnswerable::NotAFolderAbove);
+            }
+        }
         let held = waiting
             .remove(&said.call)
             .ok_or(NotAnswerable::NothingWaiting)?;
@@ -326,6 +338,15 @@ fn reaching_offers(kind: bool) -> Vec<HelmCallAnswer> {
         offers.insert(after, HelmCallAnswer::AllowLikeThisForSession);
     }
     offers
+}
+
+/// Whether `said` is the card's own kind, or its program with no script: the two widths a card
+/// offers. A card with no kind takes neither.
+fn kind_within(said: Option<&CallKind>, card: Option<&CallKind>) -> bool {
+    let (Some(said), Some(card)) = (said, card) else {
+        return false;
+    };
+    said.program == card.program && (said.script.is_none() || said.script == card.script)
 }
 
 /// Whether `folder` is `reaches` or a folder above it, compared a part at a time. The root holds

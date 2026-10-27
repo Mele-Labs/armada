@@ -908,13 +908,9 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
 async fn a_bash_reach_card_names_its_kind_and_offers_to_allow_calls_like_it() {
     let rig = rig();
     let id = rig.start().await;
-    let line = r#"{"tool_name":"Bash","input":{"command":"node drive.mjs --out ~/Desktop/shot.png"}}"#;
-    let asking: ipc::AskingToRun = ipc::decode("an ask", line.as_bytes()).expect("an ask");
-    let fleet = Arc::clone(&rig.fleet);
-    let session = id.as_str().to_string();
-    let _waiting = tokio::spawn(async move { fleet.session_permission(&session, asking).await });
+    let _waiting = bash_call(&rig, &id, "node drive.mjs --out ~/Desktop/shot.png");
     let ask = asked_on(&rig, &id).await;
-    assert_eq!(ask.kind, Some(ipc::CallKind { program: "node".into(), script: Some("drive.mjs".into()) }));
+    assert_eq!(ask.kind, kind_named("node", Some("drive.mjs")));
     assert_eq!(
         ask.offers,
         vec![
@@ -926,6 +922,62 @@ async fn a_bash_reach_card_names_its_kind_and_offers_to_allow_calls_like_it() {
             HelmCallAnswer::AlwaysBlock,
         ]
     );
+}
+
+/// "Allow calls like this" takes the card's own kind or its program alone, and a folder only where
+/// it holds the path; anything else is refused and the card stays.
+#[tokio::test]
+async fn a_like_this_answer_takes_the_cards_kind_or_its_program_and_a_folder_above() {
+    let rig = rig();
+    let id = rig.start().await;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let shot = "node drive.mjs --out ~/Desktop/shot.png";
+
+    let waiting = bash_call(&rig, &id, shot);
+    let ask = asked_on(&rig, &id).await;
+    for (kind, folder) in [
+        (kind_named("node", Some("cleanup.mjs")), None),
+        (kind_named("python3", Some("drive.mjs")), None),
+        (kind_named("python3", None), None),
+        (None, None),
+        (kind_named("node", Some("drive.mjs")), Some(format!("{home}/code"))),
+    ] {
+        let refused = rig.fleet.answer_session_ask(like_this(&id, &ask.call, kind.clone(), folder.clone())).await;
+        assert!(matches!(refused, Err(api::Refusal::Unacceptable(_))), "{kind:?} {folder:?}: {refused:?}");
+    }
+    let program = like_this(&id, &ask.call, kind_named("node", None), Some(format!("{home}/Desktop")));
+    rig.fleet.answer_session_ask(program).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+
+    let id = rig.start().await;
+    let waiting = bash_call(&rig, &id, shot);
+    let ask = asked_on(&rig, &id).await;
+    rig.fleet.answer_session_ask(like_this(&id, &ask.call, ask.kind.clone(), None)).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+}
+
+/// One Bash line put to `id`'s guard, waiting on whatever it decides.
+fn bash_call(rig: &Rig, id: &SessionId, line: &str) -> tokio::task::JoinHandle<Result<ipc::RunOrNot, api::Refusal>> {
+    let body = format!(r#"{{"tool_name":"Bash","input":{{"command":"{line}"}}}}"#);
+    let asking: ipc::AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
+    tokio::spawn(async move { fleet.session_permission(&session, asking).await })
+}
+
+fn like_this(id: &SessionId, call: &str, kind: Option<ipc::CallKind>, folder: Option<String>) -> AnswerSessionAsk {
+    AnswerSessionAsk {
+        session_id: id.clone(),
+        call: call.to_string(),
+        answer: HelmCallAnswer::AllowLikeThisForSession,
+        note: None,
+        answers: Vec::new(),
+        folder,
+        kind,
+    }
+}
+
+fn kind_named(program: &str, script: Option<&str>) -> Option<ipc::CallKind> {
+    Some(ipc::CallKind { program: program.into(), script: script.map(str::to_string) })
 }
 
 /// The ask a session is waiting on, once it is.

@@ -126,8 +126,8 @@ where
                 "that call does not offer that answer",
                 self.run_id(),
             ))),
-            // Helm offers no folder answer, so one never reaches the folder check.
-            Err(NotAnswerable::Incomplete | NotAnswerable::NotAFolderAbove) => Err(Refusal::IllegalMove(WireError::raised(
+            // Helm offers no folder or "like this" answer, so one never reaches those checks.
+            Err(NotAnswerable::Incomplete | NotAnswerable::NotAFolderAbove | NotAnswerable::NotItsKind) => Err(Refusal::IllegalMove(WireError::raised(
                 HELM_ANSWER_NOT_OFFERED,
                 "that call asked questions, and each needs an answer",
                 self.run_id(),
