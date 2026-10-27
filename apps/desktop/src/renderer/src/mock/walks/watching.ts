@@ -1,4 +1,4 @@
-// Delivery draws a Job's watches in a Watching block below its pull requests, the agent's verdict under the reading it weighed. A press opens a
+// Now draws a Job's watches in a Watching block, the agent's verdict under the reading it weighed. A press opens a
 // watch in the side panel: its readings, its parts with the one set aside struck through, its command. A Job a live watch alone holds open wears
 // the watch's glyph on its Cockpit row and in its header, named Held open by on hover, and Stop on that watch lets it go. Ended watches show on
 // Show ended. Over `watching`.
@@ -7,7 +7,7 @@ import { button, deckRow, dialog, inside, region, role, tab, walk } from "../wal
 
 const showEnded = role("switch", "Show ended");
 
-const landing = region("Delivery", { exact: true });
+const landing = region("Now", { exact: true });
 const watchingBlock = inside(landing, region("Watching"));
 const jobs = region("Jobs", { exact: true });
 const panel = dialog("Watch QA deploy");
@@ -15,7 +15,7 @@ const staging = dialog("Watch Staging deploy");
 
 const watching = walk("watching", [
   { press: deckRow("Ship the rate limit to QA"), say: "A Job in the middle of a QA deploy" },
-  { look: watchingBlock, say: "Watching, below its pull request: each live watch's state, name, last sentence and age" },
+  { look: watchingBlock, say: "Watching, in Now: each live watch's state, name, last sentence and age" },
   { press: inside(watchingBlock, showEnded), say: "Show ended draws the ended ones too, and under the failed one what the agent made of it" },
   { hover: inside(watchingBlock, role("img", "Failed")), say: "A state is its glyph, named on hover" },
   { press: inside(landing, button("Watch QA deploy", { exact: true })), say: "The failed watch opens in the side panel" },
