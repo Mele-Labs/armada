@@ -307,6 +307,11 @@
   display: none;
 }
 
+/* A run drawn in place, under its block. */
+.armada-prose__run[data-docked] > .armada-terminal {
+  margin-top: var(--space-1);
+}
+
 .armada-prose__run-panel {
   margin-top: var(--space-1);
   border: var(--border-width) solid var(--border-default);

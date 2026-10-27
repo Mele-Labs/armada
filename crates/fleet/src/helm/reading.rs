@@ -282,8 +282,8 @@ const KEYWORDS: &[&str] = &[
 /// The program a segment runs, and its arguments: the first word that is not an assignment, a
 /// leading `env` or `command`, or the keyword that opens a clause (`do rm x` is an `rm`).
 pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
-    let mut rest = said
-        .split_whitespace()
+    let mut rest = words_in(said)
+        .into_iter()
         .skip_while(|word| assignment(word).is_some() || KEYWORDS.contains(word))
         .peekable();
     let program = rest.next()?;
@@ -291,6 +291,30 @@ pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
     let program = program.trim_start_matches('(');
     let program = program.rsplit('/').next().unwrap_or(program);
     Some((program, rest.collect()))
+}
+
+/// [`words_of`], each word a slice of `said`. **A quoted path with a space is one operand**: a
+/// chmod of `"…/Application Support/…"` was read as two, and refused (27 Oct 2026).
+fn words_in(said: &str) -> Vec<&str> {
+    let (mut words, mut from, mut quote) = (Vec::new(), None::<usize>, None::<char>);
+    for (at, c) in said.char_indices() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            None if c == '\'' || c == '"' => quote = Some(c),
+            None if c.is_whitespace() => {
+                if let Some(start) = from.take() {
+                    words.push(&said[start..at]);
+                }
+                continue;
+            }
+            _ => {}
+        }
+        from.get_or_insert(at);
+    }
+    if let Some(start) = from {
+        words.push(&said[start..]);
+    }
+    words
 }
 
 /// `chmod` and `chown` naming only files in a slot the session holds, as `rm` does. The first

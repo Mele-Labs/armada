@@ -10,13 +10,13 @@
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #
-# **A merge that does not build is left out and the restart run once more.**
-# Git merges branches cut before something was deleted without a word, and
-# `cargo install` then fails on code no branch of its own would have. When
-# `--restart` fails with compiler errors, the branches that changed the files
-# they name are dropped (`skipped (does not build: <files>)`), the rest merged
-# again, and `scripts/restart` run a second time. Nothing in that touches a file
-# the errors name, or a second failure, is reported as it is.
+# **What a restart cannot take is left out, and it goes again until it builds.**
+# A failed `--restart` drops the branches its output names: the migration
+# guard's `leave out <branch>: <why>` lines, else the branches that changed a
+# file the compiler errors name (git merges branches cut before a deletion
+# without a word). The rest are merged again and `scripts/restart` run again.
+# A failure that names no branch still merged is reported as it is. Before each
+# restart, `Armada/preview-left-out` records the commit and why each was skipped.
 #
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, and `ARMADA_PREVIEW_RESTART` the
@@ -219,7 +219,7 @@ def prepare(root, wt, base):
 
 def merge_pass(root, only, skip, dropped=None):
     """Merge once; returns the worktree, the base and the table's rows.
-    `dropped` is {branch: files}: branches a build showed do not compile."""
+    `dropped` is {branch: why}: branches a restart showed it cannot take."""
     dropped = dropped or {}
     wt = os.path.join(root, ".armada", "preview")
     git(root, "fetch", "--quiet", "origin", check=False)
@@ -231,7 +231,7 @@ def merge_pass(root, only, skip, dropped=None):
     rows = []
     for branch in branches:
         if branch in dropped:
-            rows.append((branch, "skipped (does not build: " + ", ".join(dropped[branch]) + ")", ""))
+            rows.append((branch, f"skipped ({dropped[branch]})", ""))
             continue
         # A branch that merged main can have several merge bases; one alone misses main's migrations.
         before = {v for mb in out(wt, "merge-base", "--all", "HEAD", branch).split() for v in migrations_in(wt, mb)}
@@ -346,6 +346,36 @@ def does_not_build(root, base, rows, output, wt):
     return culprits
 
 
+LEAVE_OUT = re.compile(r"^restart: leave out (\S+): (.+)$")
+
+
+def write_left_out(wt, rows):
+    """`Armada/preview-left-out`: the preview commit, then a `branch<TAB>tip<TAB>why` line for
+    each branch it skipped. Once that commit is the build it runs, Fleet tells each branch's
+    Job why, and refreshes the preview when a branch moves past its tip."""
+    support = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
+    os.makedirs(support, exist_ok=True)
+    lines = [out(wt, "rev-parse", "HEAD")]
+    lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}\t{what[len('skipped ('):-1]}"
+              for branch, what, _ in rows if what.startswith("skipped (")]
+    path = os.path.join(support, "preview-left-out")
+    with open(path + ".tmp", "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(path + ".tmp", path)
+
+
+def cannot_take(root, base, rows, output, wt):
+    """{branch: why} for the merged branches this restart's output says it cannot take: the
+    ones the migration guard names, else the ones the compiler errors name."""
+    merged = {branch for branch, what, _ in rows if what == "merged"}
+    guarded = {m.group(1): m.group(2) for m in map(LEAVE_OUT.match, output.splitlines()) if m}
+    named = {branch: why for branch, why in guarded.items() if branch in merged}
+    if named:
+        return named
+    return {branch: "does not build: " + ", ".join(files)
+            for branch, files in does_not_build(root, base, rows, output, wt).items()}
+
+
 def restart(root, wt, dry_run, adopt):
     """Run the restart script with its output flowing on as it always did, and
     return its exit code with all it said, for the errors to be read from."""
@@ -408,14 +438,16 @@ def main():
         except KeyboardInterrupt:
             return 0
     if args.restart:
-        code, output = restart(root, wt, args.dry_run, args.adopt)
-        dropped = does_not_build(root, base, rows, output, wt) if code != 0 else {}
-        if dropped:
-            print("\n".join(f"{b} does not build ({', '.join(f)}); merging again without it"
-                            for b, f in dropped.items()), flush=True)
+        dropped = {}
+        while True:
+            write_left_out(wt, rows)
+            code, output = restart(root, wt, args.dry_run, args.adopt)
+            more = cannot_take(root, base, rows, output, wt) if code != 0 else {}
+            if not more:
+                return code
+            print("\n".join(f"{b}: {why}; merging again without it" for b, why in more.items()), flush=True)
+            dropped.update(more)
             wt, base, rows = merge_pass(root, only, skip, dropped)
-            code = restart(root, wt, args.dry_run, args.adopt)[0]
-        return code
     return 0
 
 

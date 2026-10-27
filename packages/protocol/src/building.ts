@@ -43,6 +43,11 @@ export type FleetBuildReport = {
   stage?: BuildStage;
   /** Why the last restart did not take, in one line of plain facts. Absent when it took. */
   failed?: string;
+  /**
+   * The branches the preview left out of this build, and why each was. Omitted when none were,
+   * on `main`, and where the record was written for another build. Sorted by branch.
+   */
+  left_out?: { branch: string; why: string }[];
 };
 
 /** `POST /fleet/build/change`. */

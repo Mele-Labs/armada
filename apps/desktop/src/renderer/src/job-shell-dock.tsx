@@ -40,9 +40,9 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
   if (!served) return { dock: run, terminal: undefined, pane: null };
   const dock: TerminalDockRun = {
     ...run,
-    start: (command) => {
+    start: (command, inline) => {
       setFront("run");
-      run.start(command);
+      run.start(command, inline);
     },
     show: () => {
       setFront("run");

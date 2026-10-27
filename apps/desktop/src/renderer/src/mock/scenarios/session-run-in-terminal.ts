@@ -1,5 +1,5 @@
 // A Session waiting on the person to sign in to Cloudflare and deploy, with the one command in its message
-// and in Needs you. Run, it opens a terminal that takes keys, docked above the box: wrangler's login, then
+// and in Needs you. Run, it opens a terminal under the command, in place, that takes keys and grows with its output: wrangler's login, then
 // its three prompts. When it ends the Session is told the exit and the last lines, as a `ran` row, and
 // answers. Over the `sessions` scenario. The walk `run-in-terminal-docked` plays it.
 

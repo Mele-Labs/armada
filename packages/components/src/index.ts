@@ -50,7 +50,7 @@ export * from "./compositions/HelmThread/HelmThread";
 export * from "./compositions/HelmComposer/HelmComposer";
 export * from "./compositions/HelmHolds/HelmHolds";
 export * from "./compositions/FleetPanel/FleetPanel";
-export type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildPosition, FleetBuildStage } from "./compositions/FleetBuild/FleetBuild";
+export type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildLeftOut, FleetBuildPosition, FleetBuildStage } from "./compositions/FleetBuild/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";
 export * from "./compositions/FailureNotice/FailureNotice";
 export * from "./compositions/JobDiffSheet/JobDiffSheet";
