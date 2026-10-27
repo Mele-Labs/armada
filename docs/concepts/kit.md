@@ -495,13 +495,14 @@ Where `gh` does not hold that login, Sync refuses and names `gh auth login`.
 Where an organisation will not let the login make the repository, or the repository exists and the login cannot push to it, Sync refuses in a sentence naming both and what to choose instead.
 Git runs over HTTPS with `gh`'s own credential, never SSH.
 
-**Sync also adds.** Once the copy here is up to date, Sync adds every row only on this machine, of each kind switched on, to the home in one commit and one push.
+**Sync also adds.** Once the copy here is up to date, Sync adds every row only on this machine, of each kind switched on and each item switched on by itself, to the home in one commit and one push.
 A row Add to the home would refuse stays on this machine and keeps its mark: a piece holding a credential, a mod that is not valid here.
 Each one that stays is told in a toast of its own, naming the row and why, never the credential.
 A row that differs is left for the person to settle, and a row only in the home stays there until it is brought.
 
-**What syncs is chosen per kind and per machine, and is kept in the machine's store.** [Account](account.md), *What syncs*.
-A kind switched off has no rows in Kit, and every kind is off until it is turned on.
+**What syncs is chosen per kind and per item, per machine, and is kept in the machine's store.** [Account](account.md), *What syncs*.
+A kind switched off has no rows in Kit but the items switched on by themselves, and every kind is off until it is turned on.
+A Sync with nothing switched on says so in a toast.
 
 **A row is one of four things.** It is the same, it differs, it is only on this machine, or it is only in the home.
 A server also carries whether its key is here.
@@ -518,7 +519,9 @@ A row only on this machine goes into the home at the next Sync, or at once by th
 A server whose key is not on this machine is marked as needing one; the home does not carry the key, so adding it here is the person's.
 
 **The page.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
-A bar names the repository and offers Sync.
+A bar names the repository and offers Sync, and under it a Sync all switch turns the open kind on or off.
+An item's detail carries a Sync to home switch that sends it alone; while its kind is on, the switch reads on and cannot be moved.
+A row that does not sync keeps the mark and act columns, so the rows stay in line.
 A differing row opens a compare sheet with both versions and a button for each.
 A row on one side only offers an icon act, *Add to the home* or *Add to this machine*.
 Every Kit kind is a list with the picked item's detail beside it, and the list scrolls inside its column when it is long.
