@@ -446,7 +446,9 @@
 /* The glass material above, an input row set off by a hairline, small-caps sections, rows of 32px with a flat wash and a 2px bar for
    the active one. Keycaps are the Kbd the inspect card uses. The layout, keys and labels are the palette's own. */
 :root[data-look="new"] .armada-palette {
-  --palette-row: var(--h-control-sm);
+  /* A spacing step, not a control height: the rows stay at the 32px the owner walked when control heights tighten, and still follow
+     the Spacing choice. */
+  --palette-row: var(--space-8);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-overlay), var(--glass-highlight);
   animation: armada-palette-in 120ms var(--ease);
