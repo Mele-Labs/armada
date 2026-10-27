@@ -277,17 +277,10 @@ function SyncSwitch({ row, shared }: { row: KitRow; shared: SharedHome | undefin
   if (row.home === undefined || shared?.syncs === undefined || setItem === undefined) return null;
   const item = row.home;
   const { on, locked } = itemSyncs(shared.syncs, item);
-  const control = (
+  return (
     <Switch size="sm" checked={on} disabled={locked} onChange={(event) => setItem(item, event.target.checked)}>
       Sync to home
     </Switch>
-  );
-  return locked ? (
-    <Tooltip beside label="Sync all is on">
-      <span>{control}</span>
-    </Tooltip>
-  ) : (
-    control
   );
 }
 
