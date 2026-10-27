@@ -29,7 +29,10 @@ export type PaletteStep = {
   entries: readonly PaletteEntry[];
   /** What was searched, for the state where nothing matched. */
   searched: string;
-  onChoose: (entry: PaletteEntry) => void;
+  /** Filing the choice closes the palette. A step returned is asked next, in the palette, with the choice not yet filed. */
+  onChoose: (entry: PaletteEntry) => PaletteStep | void;
+  /** Takes what is typed: a row for the typed word is listed, with the id `word:` and the word as its label. */
+  word?: true;
 };
 
 export type PaletteDispatch = {

@@ -1,12 +1,15 @@
 // What a chosen Job, pull request, issue, task, command or page row does, and what its actions do. **Each act is the
 // code the Cockpit's row menu, the flight deck and the Projects page already run** (`cockpit/deck/acts.ts`, the Projects
-// store); nothing here is a second copy. A command's shell line and chain have no runner yet. Apart from `palette.ts`
-// because these rows are the palette's own, not the registry's.
+// store); nothing here is a second copy. A Commands mod's rows run here too (`runModRow`): a prompt starts a Job, an address
+// opens, a chain runs the rows it names. A shell line has no terminal to run in yet, so its row is drawn dormant. Apart from
+// `palette.ts` because these rows are the palette's own, not the registry's.
 
 import { SURFACE, type PaletteChoice, type PaletteCommand } from "@armada/shell";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { mergeSession, stopSession, toggleSessionPause } from "./cockpit/deck/acts";
+import { fill, NO_TERMINAL, type ModRow } from "./mod-commands";
+import { knownRows } from "./palette-known";
 import { setView } from "./cockpit/deck/store";
 import type { PaletteFixtures, PaletteLinked } from "./palette-fixtures";
 import { JOB_PAGE } from "./palette-page";
@@ -33,7 +36,16 @@ export type RowWorld = {
   projects?: ProjectsStore | undefined;
   /** The title a task row went by, for the Job that starts on it. */
   taskTitle: (rowId: string) => string | undefined;
+  /** The rows of every Commands mod that is on. */
+  modRows: readonly ModRow[];
+  /** Says a sentence as the window's toast. */
+  tell: (sentence: string) => void;
+  /** Runs a palette row by its id, as pressing ↵ on it would. */
+  runRow: (id: string) => void;
 };
+
+/** What a blank was filled with: as a prompt reads it, and as an address does (`#1899` and `1899`). */
+export type Filled = Readonly<Record<string, { text: string; bare: string }>>;
 
 const pullOf = (world: RowWorld, id: string): PaletteLinked | undefined => world.fixtures.pulls.find((one) => `${one.repo}:${one.number}` === id);
 const issueOf = (world: RowWorld, id: string): PaletteLinked | undefined => world.fixtures.issues.find((one) => `${one.repo}:${one.number}` === id);
@@ -60,13 +72,65 @@ export function carryOutRow(choice: PaletteChoice, world: RowWorld): void {
       world.task?.(choice.id);
       return;
     case "command":
-      runCommand(world.fixtures.commands.find((one) => one.id === choice.id), world);
+      runCommandId(choice.id, world);
       return;
     case "page":
       onPage(choice.id, world);
       return;
     case "on":
       on(choice.target, choice.action, world, choice.value);
+  }
+}
+
+/** A command by its id: a mod's row, or else one a scenario handed the palette. */
+function runCommandId(id: string, world: RowWorld): void {
+  const mod = world.modRows.find((one) => one.id === id);
+  if (mod !== undefined) return runModRow(mod, {}, world);
+  runCommand(world.fixtures.commands.find((one) => one.id === id), world);
+}
+
+const blanksOf = (row: ModRow): readonly string[] => row.command.blanks ?? [];
+const view = (filled: Filled, key: "text" | "bare", encode = (word: string) => word): Record<string, string> =>
+  Object.fromEntries(Object.entries(filled).map(([name, one]) => [name, encode(one[key])]));
+
+/** Rows being chained now, so a chain that comes back to a row it is running stops there. */
+const chaining = new Set<string>();
+
+/**
+ * A Commands mod's row, with the blanks it was asked. A row run without them (a key, a chain) says which it needs: they are
+ * asked in the palette's second step and nowhere else.
+ */
+export function runModRow(row: ModRow, filled: Filled, world: RowWorld): void {
+  const { command } = row;
+  const missing = blanksOf(row).filter((name) => filled[name] === undefined);
+  if (missing.length > 0) return world.tell(`${command.name}: fill ${missing.map((one) => `{${one}}`).join(" ")} in the palette`);
+  if (command.prompt !== undefined) return world.startJob(fill(command.prompt, view(filled, "text")));
+  if (command.url !== undefined) {
+    const address = fill(command.url, view(filled, "bare", encodeURIComponent));
+    // A forge address opens where Bridge opens it; any other goes to the browser.
+    if (!world.openLink(address)) void window.armada.openLink(address).then((followed) => followed.ok || world.tell(`${command.name}: ${address} did not open`));
+    return;
+  }
+  if (command.shell !== undefined) return world.tell(`${command.name}: ${NO_TERMINAL}`);
+  if (command.chain !== undefined) runChain(row, command.chain, world);
+}
+
+/** The rows named, in order. A row that is missing, cannot run or asks for a blank stops it, and the sentence names which. */
+function runChain(row: ModRow, chain: readonly string[], world: RowWorld): void {
+  const name = row.command.name;
+  if (chaining.has(row.id)) return world.tell(`${name} chains back to itself`);
+  chaining.add(row.id);
+  try {
+    for (const id of chain) {
+      const known = knownRows().find((one) => one.id === id);
+      if (known === undefined) return world.tell(`${name} stopped: no row ${id}`);
+      if (known.dormant) return world.tell(`${name} stopped at ${known.label}: it cannot run`);
+      const nested = world.modRows.find((one) => `cmd:${one.id}` === id);
+      if (nested !== undefined && blanksOf(nested).length > 0) return world.tell(`${name} stopped at ${known.label}: it asks for ${blanksOf(nested).map((one) => `{${one}}`).join(" ")}`);
+      world.runRow(id);
+    }
+  } finally {
+    chaining.delete(row.id);
   }
 }
 
@@ -123,5 +187,5 @@ function on(target: string, action: string, world: RowWorld, value = ""): void {
     else if (action === "tick") world.projects?.tick(id);
     return;
   }
-  if (kind === "cmd" && action === "run") runCommand(world.fixtures.commands.find((one) => one.id === id), world);
+  if (kind === "cmd" && action === "run") runCommandId(id, world);
 }

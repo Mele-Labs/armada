@@ -233,7 +233,7 @@ export function CommandPalette({
   // The act that is taking its answer in that field, in place of the search.
   const [taking, setTaking] = useState<PaletteTaking | null>(null);
   const bare = query.trim() === "";
-  const listed = stepping !== null ? stepping.step : home !== undefined && bare ? home : { entries, sections };
+  const listed = stepping !== null ? withWord(stepping.step, query) : home !== undefined && bare ? home : { entries, sections };
 
   // Grouped by section in the caller's order, and in the caller's order inside
   // each. Nothing is ranked: the contract fixes what comes first, and a
@@ -452,7 +452,12 @@ export function CommandPalette({
     // invented.
     if (held.entry.dormant !== undefined) return;
     if (stepping !== null) {
-      stepping.step.onChoose(held.entry);
+      const next = stepping.step.onChoose(held.entry);
+      if (next) {
+        setStepping({ words: stepping.words, step: next });
+        setQuery("");
+        return;
+      }
       onClose?.();
       return;
     }
@@ -587,7 +592,7 @@ export function CommandPalette({
           {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
           {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
           {leading ? sendRow : null}
-          {hits.length === 0 && typedPath === null && typedKind === null ? (
+          {hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
@@ -651,6 +656,13 @@ export function CommandPalette({
     </div>
     </ShortcutRevealProvider>
   );
+}
+
+/** A step that takes a typed word lists it as a row once something is typed. */
+function withWord(step: PaletteStep, query: string): Pick<PaletteStep, "sections" | "entries"> {
+  const word = query.trim();
+  if (step.word !== true || word === "") return step;
+  return { sections: [...step.sections, { id: "word", title: "" }], entries: [...step.entries, { id: `word:${word}`, section: "word", label: word }] };
 }
 
 /** The dom id of a row, so `aria-activedescendant` can name it. */

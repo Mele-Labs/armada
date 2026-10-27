@@ -65,7 +65,18 @@ export type PaletteTicket = { number: number; title: string; repo: string };
  * A row a Commands mod brings: opening a URL, running a shell line, a chain of palette steps, or a prompt that
  * waits on a blank. **A `prompt` with a blank asks for it in a second step** before it dispatches.
  */
-export type PaletteCommand = { id: string; label: string; kind: "url" | "shell" | "chain" | "prompt"; value?: string; alias?: string; hotkey?: string };
+export type PaletteCommand = {
+  id: string;
+  label: string;
+  kind: "url" | "shell" | "chain" | "prompt";
+  value?: string;
+  alias?: string;
+  /** Searched, never drawn: a mod row's own words. */
+  aliases?: readonly string[];
+  hotkey?: string;
+  /** Why the row cannot run, drawn as any dormant row's reason is. */
+  dormant?: string;
+};
 
 /** What the page showing offers: its title heads the block, and its rows are the acts of that page. */
 export type PalettePage = { title: string; rows: readonly (PaletteBoardRow & { shortcut?: string })[] };
@@ -446,7 +457,8 @@ export function Palette({
       icon: COMMAND_GLYPH[command.kind],
       ...(command.hotkey === undefined ? {} : { shortcut: command.hotkey }),
       ...(command.value === undefined ? {} : { value: command.value }),
-      ...(command.alias === undefined ? {} : { aliases: [command.alias] }),
+      ...(command.alias === undefined && command.aliases === undefined ? {} : { aliases: [...(command.alias === undefined ? [] : [command.alias]), ...(command.aliases ?? [])] }),
+      ...(command.dormant === undefined ? {} : { dormant: command.dormant }),
     })),
     ...runnables.map((runnable) => ({
       id: `run:${runnable.id}`,
