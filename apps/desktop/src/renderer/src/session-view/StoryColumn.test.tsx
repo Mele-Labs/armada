@@ -44,13 +44,13 @@ const session = (turn: "working" | "idle"): Session =>
     ],
   }) as unknown as Session;
 
-function mount(one: Session): HTMLElement {
+function mount(one: Session, own: { work: SessionWork; ed: PlanEditing } = { work, ed }): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   act(() =>
     root.render(
-      <StoryColumn session={one} entries={[]} work={work} id={ID} manifestId={undefined} acts={undefined} ed={ed} onOpenSketch={() => undefined} onOpenSession={() => undefined} live={undefined} />,
+      <StoryColumn session={one} entries={[]} work={own.work} id={ID} manifestId={undefined} acts={undefined} ed={own.ed} onOpenSketch={() => undefined} onOpenSession={() => undefined} live={undefined} />,
     ),
   );
   roots.push({ root, host });
@@ -69,4 +69,27 @@ test("Now leads with the line the calls make, and not with a task the agent mark
 
 test("with no turn running nothing is detected, and Now leads with the agent", () => {
   expect(beats(mount(session("idle")))[0]).toBe("Agent");
+});
+
+test("Whole plan opens every group where it stands, and keeps a finished one out of Now", () => {
+  const three = {
+    scope: [],
+    approved: true,
+    groups: [
+      { id: "g0", title: "Read the lease", agent: "rust-engineer", paths: [], tasks: [{ id: "t0", text: "Find where it drops", state: "done" as const }] },
+      plan.groups[0]!,
+      { id: "g2", title: "Docs follow", agent: "docs-writer", paths: [], tasks: [{ id: "t3", text: "Say when it retries", state: "open" as const }] },
+    ],
+  };
+  const whole = { plan: three } as unknown as SessionWork;
+  const host = mount({ ...session("working"), work: whole } as unknown as Session, { work: whole, ed: { ...ed, plan: three } });
+  const zone = (label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`)?.textContent ?? "";
+  // Folded, a finished group is a title and a bar in Completed, its tasks not listed.
+  expect(zone("Completed")).toContain("Read the lease");
+  expect(zone("Completed")).not.toContain("Find where it drops");
+  act(() => host.querySelector<HTMLButtonElement>('button[aria-label="Whole plan"]')!.click());
+  expect(zone("Completed")).toContain("Find where it drops");
+  expect(zone("Now")).not.toContain("Read the lease");
+  expect(zone("Now")).toContain("Retry once");
+  expect(zone("Next")).toContain("Say when it retries");
 });
