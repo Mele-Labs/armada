@@ -586,6 +586,17 @@ pub struct ProposeDraft {
     pub session_id: Option<SessionId>,
 }
 
+/// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the
+/// person's Needs you list and its row settles `withdrawn`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WithdrawDraft {
+    /// The id `propose_draft`'s receipt gave, `draft:<row id>`. The bare row id reads the same.
+    pub draft: String,
+    /// Which session withdraws it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// `withdraw_window`: a session takes back a walk it showed with `show_window`, so it leaves the
 /// person's Needs you list and stops holding the session's pending plan. Showing the page again
 /// makes it wait again.

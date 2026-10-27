@@ -398,6 +398,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/draft",
     },
     Route {
+        operation: "withdraw_draft",
+        method: "POST",
+        path: "/sessions/withdraw_draft",
+    },
+    Route {
         operation: "window_closed",
         method: "POST",
         path: "/sessions/window/closed",

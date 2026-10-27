@@ -1,17 +1,19 @@
 //! `propose_draft`: a session puts a draft to the person for approval, kept as a `draft` row that
-//! waits as `draft:<row id>` until `answer_waiting` settles it.
+//! waits as `draft:<row id>` until `answer_waiting`, his Dismiss or `withdraw_draft` settles it.
 //!
 //! **It does not wait**, as `ask_in_window` does not: the row is kept and the call answers, and the
 //! open draft is read back off the thread (`waiting.rs`).
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{DraftHow, DraftSettled, ProposeDraft, SessionRecord, SessionRow};
+use ipc::{DraftHow, DraftSettled, ProposeDraft, SessionRecord, SessionRow, WithdrawDraft};
 
 use crate::daemon::Fleet;
 
 const DRAFT_UNNAMED: &str = "fleet.draft_unnamed";
 const DRAFT_EMPTY: &str = "fleet.draft_empty";
+const DRAFT_WITHDRAW_UNNAMED: &str = "fleet.draft_withdraw_unnamed";
+const DRAFT_WITHDRAW_NOT_OPEN: &str = "fleet.draft_withdraw_not_open";
 pub(crate) const FIXED_NOT_A_DRAFT: &str = "fleet.fixed_not_a_draft";
 
 /// The id a draft's waiting item goes by, from its row's.
@@ -100,6 +102,43 @@ where
         )
         .await;
         self.draft_record(&id).await
+    }
+
+    /// `withdraw_draft`: the session takes back an open draft of its own. The row settles `withdrawn`
+    /// with no words and the session is sent nothing, since it withdrew it. **Only an open draft on
+    /// this job's thread**, placed by the connection as `propose_draft` places it.
+    pub(crate) async fn draft_withdrawn(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: WithdrawDraft,
+    ) -> Result<SessionRecord, Refusal> {
+        let named = withdraw.draft.trim();
+        let row = named.strip_prefix(DRAFT_PREFIX).unwrap_or(named).trim().to_string();
+        let id = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| withdraw.session_id.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(DRAFT_WITHDRAW_UNNAMED, "a job to withdraw it for"))?;
+        if self.store().lock().await.session(&id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            return Err(self.hosted_refusal(DRAFT_WITHDRAW_UNNAMED, "a job Fleet knows"));
+        }
+        let not_open = || {
+            self.hosted_refusal(
+                DRAFT_WITHDRAW_NOT_OPEN,
+                &format!("this job has no open draft {named}. Name the draft id propose_draft gave you, for a draft not yet settled"),
+            )
+        };
+        // Held as an answer holds it, so his answer and this cannot both settle the row.
+        let _settling = self.hosts().settling(&id, &format!("{DRAFT_PREFIX}{row}")).ok_or_else(not_open)?;
+        let open = self
+            .rows_of(&id)
+            .await?
+            .iter()
+            .any(|one| matches!(one, SessionRow::Draft { id, settled: None, .. } if *id == row));
+        if row.is_empty() || !open {
+            return Err(not_open());
+        }
+        self.draft_settled(&id, &row, DraftHow::Withdrawn, None).await
     }
 
     /// Keep how a draft was settled on its row, and publish the session so the item leaves the list.
