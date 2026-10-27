@@ -349,6 +349,19 @@ def does_not_build(root, base, rows, output, wt):
 LEAVE_OUT = re.compile(r"^restart: leave out (\S+): (.+)$")
 
 
+def write_left_out(wt, rows):
+    """`Armada/preview-left-out`: the preview commit, then a `branch<TAB>why` line for each
+    branch it skipped. Fleet tells each branch's Job why, once that commit is the build it runs."""
+    support = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada")
+    os.makedirs(support, exist_ok=True)
+    lines = [out(wt, "rev-parse", "HEAD")]
+    lines += [f"{branch}\t{what[len('skipped ('):-1]}" for branch, what, _ in rows if what.startswith("skipped (")]
+    path = os.path.join(support, "preview-left-out")
+    with open(path + ".tmp", "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(path + ".tmp", path)
+
+
 def cannot_take(root, base, rows, output, wt):
     """{branch: why} for the merged branches this restart's output says it cannot take: the
     ones the migration guard names, else the ones the compiler errors name."""
@@ -425,6 +438,7 @@ def main():
     if args.restart:
         dropped = {}
         while True:
+            write_left_out(wt, rows)
             code, output = restart(root, wt, args.dry_run, args.adopt)
             more = cannot_take(root, base, rows, output, wt) if code != 0 else {}
             if not more:
