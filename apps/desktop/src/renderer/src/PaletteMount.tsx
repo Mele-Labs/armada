@@ -13,7 +13,7 @@ import { Dialog, type PaletteDispatch, type PaletteStep } from "@armada/componen
 import { useSessionsDraft, useSessionsEverywhere } from "./sessions-draft";
 import { useDeck } from "./cockpit/deck/store";
 import { jobRow } from "./palette-job-row";
-import { usePaletteFixtures } from "./palette-fixtures";
+import { usePaletteRows } from "./palette-fixtures";
 import { nextOpens, opensLabel, remember, rowOf, usePaletteMemory } from "./palette-memory";
 import { pageOf } from "./palette-page";
 import { carryOutRow } from "./palette-rows";
@@ -83,7 +83,7 @@ export function PaletteMount({
   // Every repository's Jobs, whatever the title row has picked: the palette jumps to work anywhere.
   const sessions = useSessionsEverywhere();
   const draft = useSessionsDraft();
-  const fixtures = usePaletteFixtures();
+  const fixtures = usePaletteRows(open, repoOf);
   const memory = usePaletteMemory();
   const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
   const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
