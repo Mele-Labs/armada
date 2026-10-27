@@ -1,0 +1,8 @@
+[operations.set_home_item]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Switch one Kit item on or off in what this machine syncs with the shared home, whatever its kind's switch says"
+notes = """
+`POST /shared_home/items/set`, body `SetHomeItem` `{ login, kind, name, repository?, on }`, answered with that profile's `HomeKinds`, whose `items` lists each item switched on. Kept in this machine's store, a profile at a time. An item switched on while its kind is off has its row in `get_shared_home` and is added by `sync_shared_home`; while its kind is on the item's switch changes nothing. Turning it off removes nothing from either side. `agent_access` is `No`: the owner's press.
+"""

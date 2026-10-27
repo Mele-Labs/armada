@@ -366,8 +366,8 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
-    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
-    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SetHomeRepository, SharedHomeRead,
+    ChooseHomeSide, HomeItem, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
+    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeItem, SetHomeKind, SetHomeRepository, SharedHomeRead,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
@@ -375,7 +375,7 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use projects::{
-    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Project, ProjectHolder, ProjectRow,
+    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, Project, ProjectHolder, ProjectRow,
     ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState, TickProjectTask,
 };
 pub use issues::{
@@ -600,7 +600,7 @@ pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
     PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
-    TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
+    TaskStale, TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };
 pub use session_rail::{
     ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading,
@@ -659,7 +659,7 @@ pub use triggers::{
 pub use watches::{
     collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
     WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
-    WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+    ReadWatchLog, WatchEvidence, WatchLog, WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };
 pub use watch_tools::{
     SaveWatchRecipe, TryWatch, WatchRecipeList, WatchRecipeListed, WatchRecipeSaved,

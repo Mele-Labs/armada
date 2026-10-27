@@ -17,6 +17,9 @@ use crate::daemon::Fleet;
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
 use crate::session_links::LinkedBy;
+
+/// How many of a hosted agent's calls are added to its plan's count at once, as its mod would.
+const CALLS_KEPT_EVERY: u32 = 10;
 use crate::timeline::{Doer, FileAct, Seen};
 
 /// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
@@ -184,6 +187,24 @@ where
     /// build record, whichever tool made it.
     async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent, subagent: Option<&str>) {
         self.touch_heard(id, event, subagent).await;
+        // The agent's own calls are counted for the plan's stale reading, ten at a time so a call
+        // costs no write; a subagent's are its own work.
+        if subagent.is_none() && matches!(event, DroneEvent::Called { .. }) {
+            let (ten, owed) = {
+                let runtime = self.hosts().of(id);
+                let mut state = runtime.state();
+                state.calls += 1;
+                let ten = (state.calls == CALLS_KEPT_EVERY).then(|| std::mem::take(&mut state.calls));
+                (ten, std::mem::take(&mut state.marks_owed))
+            };
+            let counted = match ten {
+                Some(calls) => crate::plan_keeping::calls_counted(&mut *self.store().lock().await, id, calls).unwrap_or(false),
+                None => false,
+            };
+            if counted || owed {
+                self.task_marks_told(id).await;
+            }
+        }
         self.background_heard(id, event).await;
         // A terminal session's own mod tells these; a hosted one is heard here.
         if let Some(done) = crate::timeline::tool_of(&**self.harness(), event) {
@@ -237,6 +258,23 @@ where
             let step = self.hosts().of(id).state().activity.changed(self.hosts().activity_every());
             self.publish_step(id.to_string(), step);
         }
+        self.task_marks_told(id).await;
+    }
+
+    /// Tell the agent of the tasks Fleet marked or saw go stale that it has not been told of, at its
+    /// next tool call, and publish the row they show on. A mark heard from its mod is told here too.
+    async fn task_marks_told(self: &Arc<Self>, id: &str) {
+        let said = crate::plan_keeping::marks_untold(&mut *self.store().lock().await, id).ok().flatten();
+        let Some(said) = said else { return };
+        let _ = self.told_by_fleet(id, &said, ipc::Notice::TaskMarked).await;
+        let _ = self.published_hosted(id).await;
+    }
+
+    /// [`Self::task_marks_told`] for a terminal session: the words are held for its mod, as a reply
+    /// claim's are, and dropped where the mod is not listening.
+    pub(crate) fn terminal_marks_told(&self, id: &str, said: String) {
+        let said = format!("{}: {said}", super::serving::FLEET_NAME);
+        self.hosts().terminals().hold(id, said, super::terminal::LISTENING_FOR);
     }
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Mark a task done, or open again"
 notes = """
-`POST /projects/:repository/:project/rows/:row/tick`, body `TickProjectTask`: `done`, true for `done` and false for `open`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/rows/:row/tick`, body `TickProjectTask`: `done`, true for `done` and false for `open`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 422 `fleet.project_row_not_a_task` for an issue row, whose state is its tracker's. A 404 `fleet.no_such_project` for a `project` the repository has none of, a 404 `fleet.no_such_project_row` for a `row` the project has none of, and a 422 for a repository Fleet does not serve.
+A 422 `fleet.project_row_not_a_task` for an issue row, whose state is its tracker's. A a 404 `fleet.no_such_project_row` for a `row` there is none of.
 """

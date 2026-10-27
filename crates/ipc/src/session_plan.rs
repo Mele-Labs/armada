@@ -285,6 +285,26 @@ pub struct SessionPlanTask {
     /// An edit was seen under its group's paths. Absent when none was.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub seen: bool,
+    /// Fleet set the state itself, from what it saw: the proof, as a person reads it ("commit 1a2b3c4
+    /// names it"). Absent where the agent's own list set it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub marked: Option<String>,
+    /// In progress, and the work looks to be elsewhere. Absent while it is not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stale: Option<TaskStale>,
+    /// When it was put in progress, or completed, by the agent's list or Fleet's mark. Absent while it
+    /// is open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changed_at: Option<Instant>,
+}
+
+/// Why a task in progress looks left behind, and since when it was last touched.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskStale {
+    /// One line, as a person reads it: "edits went to Bridge", "40 calls with no update".
+    pub why: String,
+    /// When its mark last moved, or Fleet last saw work under its group's paths.
+    pub since: Instant,
 }
 
 /// One group of the plan.

@@ -1,7 +1,7 @@
 //! A watch survives a reopen whole, keeps its newest fifty readings, and is told of once.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, READINGS_KEPT};
+use crate::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, READINGS_KEPT};
 
 const AT: &str = "2026-10-22T10:00:00.000Z";
 
@@ -36,8 +36,9 @@ fn read(n: usize) -> KeptWatchReading {
             finished: false,
             says: format!("reading {n}"),
             link: Some("https://ci.example.com/runs/1".into()),
-            parts: vec![("build".into(), "passed".into()), ("deploy-api".into(), "running".into())],
+            parts: vec![KeptWatchPart::new("build", "passed"), KeptWatchPart::new("deploy-api", "running")],
         },
+        log: None,
     }
 }
 
@@ -52,13 +53,22 @@ fn a_watch_and_all_it_kept_survive_a_reopen() {
     let broken = KeptWatchReading {
         at: AT.into(),
         taken: KeptWatchTaken::Broken { why: "It printed nothing.".into(), output: Some("boom".into()) },
+        log: Some("/state/watch-logs/s1/w-1/reading.log".into()),
     };
     store.keep_watch_reading("w-1", &broken).unwrap();
     let aside = KeptWatchSetAside { part: "deploy-api".into(), sentence: "Another team's.".into(), at: AT.into() };
     store.keep_watch_set_aside("w-1", &aside).unwrap();
     let again = KeptWatchSetAside { sentence: "Flaky upstream.".into(), ..aside.clone() };
     store.keep_watch_set_aside("w-1", &again).unwrap();
-    let verdict = KeptWatchVerdict { at: AT.into(), ours: false, sentence: "Flaky upstream.".into(), parts: vec!["deploy-api".into()] };
+    let verdict = KeptWatchVerdict {
+        at: AT.into(),
+        ours: false,
+        sentence: "Flaky upstream.".into(),
+        parts: vec!["deploy-api".into()],
+        links: vec!["https://ci.example.test/runs/7".into()],
+        logs: vec!["/scratch/deploy-api.log".into()],
+        errors: vec!["Error: upstream answered 503".into()],
+    };
     store.keep_watch_verdict("w-1", &verdict).unwrap();
     let mut ended = watch("w-1", "s1");
     ended.state = "failed".into();
@@ -130,7 +140,7 @@ fn a_deleted_watch_takes_everything_kept_of_it_and_nothing_else() {
         store.keep_watch_reading(id, &read(1)).unwrap();
         let aside = KeptWatchSetAside { part: "deploy-api".into(), sentence: "Another team's.".into(), at: AT.into() };
         store.keep_watch_set_aside(id, &aside).unwrap();
-        let verdict = KeptWatchVerdict { at: AT.into(), ours: true, sentence: "Mine.".into(), parts: Vec::new() };
+        let verdict = KeptWatchVerdict { at: AT.into(), ours: true, sentence: "Mine.".into(), parts: Vec::new(), links: Vec::new(), logs: Vec::new(), errors: Vec::new() };
         store.keep_watch_verdict(id, &verdict).unwrap();
         store.keep_watch_notice(id, "failed:", AT).unwrap();
     }
@@ -145,4 +155,26 @@ fn a_deleted_watch_takes_everything_kept_of_it_and_nothing_else() {
     let kept = store.watch_whole("w-2").unwrap().expect("the other is kept");
     assert_eq!((kept.readings.len(), kept.set_aside.len(), kept.verdicts.len()), (1, 1, 1));
     assert!(store.watch_notice_kept("w-2", "failed:").unwrap());
+}
+
+#[test]
+fn a_jobs_ended_watches_are_read_by_their_end() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let ended = |id: &str, session: &str, state: &str| KeptWatch { state: state.into(), live: false, ..watch(id, session) };
+    store.keep_watch(&ended("w-1", "s1", "not_ours")).unwrap();
+    store.keep_watch(&ended("w-2", "s1", "passed")).unwrap();
+    store.keep_watch(&KeptWatch { state: "not_ours".into(), ..watch("w-3", "s1") }).unwrap();
+    store.keep_watch(&ended("w-4", "s2", "not_ours")).unwrap();
+    store.keep_watch(&ended("w-5", "s1", "not_ours")).unwrap();
+    let ids: Vec<String> = store.ended_watches_in("s1", "not_ours").unwrap().into_iter().map(|one| one.watch.id).collect();
+    assert_eq!(ids, ["w-1", "w-5"], "ended ones of that Job in that end, the oldest first");
+}
+
+#[test]
+fn a_part_kept_before_parts_carried_evidence_still_reads() {
+    let parts = crate::watches::read_parts(r#"[["build","passed"],["provision","failed","https://ci.example.test/7","Error: no account",null]]"#);
+    assert_eq!(parts[0], KeptWatchPart::new("build", "passed"));
+    assert_eq!(parts[1].link.as_deref(), Some("https://ci.example.test/7"));
+    assert_eq!((parts[1].error.as_deref(), parts[1].tail.as_deref()), (Some("Error: no account"), None));
 }

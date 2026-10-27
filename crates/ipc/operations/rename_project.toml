@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Rename a project"
 notes = """
-`POST /projects/:repository/:project/rename`, body `NameProject`: `name`, trimmed. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/project/:project/rename`, body `NameProject`: `name`, trimmed. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 422 `fleet.project_blank` for a blank name. A 404 `fleet.no_such_project` for a `project` the repository has none of, and a 422 for a repository Fleet does not serve.
+A 422 `fleet.project_blank` for a blank name. A 404 `fleet.no_such_project` for a `project` he has none of.
 """

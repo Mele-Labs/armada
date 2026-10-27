@@ -1,4 +1,4 @@
-//! The shared home's seven routes: the rows, Sync, the three acts on a row, and what syncs.
+//! The shared home's routes: the rows, Sync, the three acts on a row, and what syncs.
 //! `accounting`'s shape: a home is a profile's, so no `Resolved` extractor and no path
 //! parameter; a read names the profile on its query string, an act in its body.
 
@@ -66,6 +66,13 @@ pub(crate) async fn get_home_kinds<D: SharedHome>(
 pub(crate) async fn set_home_kind<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
     match ipc::decode_body("a kind and whether it syncs", &body) {
         Ok(switch) => answered(served.daemon().set_home_kind(switch).await, served.run_id()),
+        Err(why) => undecodable(&why.to_string(), served.run_id()),
+    }
+}
+
+pub(crate) async fn set_home_item<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    match ipc::decode_body("an item and whether it syncs", &body) {
+        Ok(switch) => answered(served.daemon().set_home_item(switch).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
 }

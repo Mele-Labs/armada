@@ -721,6 +721,10 @@ export class WiredStore {
     confirmLater: (id, later) => void this.plain(this.api.confirmLater({ session_id: id, id: later })),
     stopWatch: (id, watch) => void this.plain(this.api.stopWatch({ session_id: id, watch })),
     deleteWatch: (id, watch) => void this.plain(this.api.deleteWatch({ session_id: id, watch })),
+    readWatchLog: async (watch, log) => {
+      const read = await this.api.readWatchLog({ watch, log });
+      return read.ok ? { ok: true, text: read.value.text } : { ok: false, said: refusalWords(read.outcome) };
+    },
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),

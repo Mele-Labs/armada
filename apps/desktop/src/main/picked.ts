@@ -36,7 +36,7 @@ export function startOn(repository: RepositorySummary, title?: string, root?: st
     ...(after === undefined ? {} : { after }),
     // Held on its start card: only a request Fleet reads, never a wait's brief.
     ...(held === true && request !== undefined && after === undefined ? { held } : {}),
-    // The rows of his projects it starts with: a start in a repository, since a row belongs to one.
+    // The rows of his projects it starts with: a start in a repository, since a row is in one.
     ...(projectRows === undefined || projectRows.length === 0 ? {} : { project_rows: [...projectRows] }),
   };
   if (repository.manifest !== undefined) return { manifest_id: repository.manifest.id, ...given };

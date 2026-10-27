@@ -7,7 +7,7 @@
 // thing; the object is the shape that function already agrees on.
 
 import { Puzzle } from "lucide-react";
-import { Palette, type PaletteRepository, type PaletteSurface } from "@armada/shell";
+import { Palette, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
 import type { PaletteDispatch } from "@armada/components";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
@@ -41,6 +41,8 @@ export type PaletteMountProps = {
    * `App` holds nothing for them.
    */
   acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
+  /** The Projects tab's tasks and subtasks, found by title. `projects-tab/palette.ts`. */
+  tasks?: readonly PaletteTask[];
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
   /** What a typed link names, and opening it. `link-routes.ts`. */
@@ -62,6 +64,7 @@ export function PaletteMount({
   repositories,
   picked,
   acts,
+  tasks,
   dispatch,
   linkRoutes,
 }: PaletteMountProps) {
@@ -104,6 +107,8 @@ export function PaletteMount({
       // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
       sessions={sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
+      // Tasks and subtasks by title, listed only while something is typed.
+      {...(tasks === undefined ? {} : { tasks })}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.

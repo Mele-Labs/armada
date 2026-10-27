@@ -2,7 +2,8 @@
 // lands in a spike's findings doc and one that only investigates and lands in a report. Approving a plan starts the build (the Field opens), and
 // each time the walk lets time pass the build comes closer to its landing: for the pull request, Checks passed, the queue, an issue filed, a watch,
 // a follow-up and a page of the Job's own; for the spike, the findings doc; for the report, the report, a page of the Job's own with a sketch in it, and a second
-// revision once notes on it are sent. A fourth Job holds another pull request so the Merge line has width.
+// revision once notes on it are sent. A fourth Job holds another pull request so the Merge line has width. A fifth follows a design plan, which
+// lands a doc, and has opened a pull request beside it.
 // The repository serves a merge line. Groups g1 and g2 work issues LEASE-20481 (a key from another tracker, longer than a forge number) and 2367; the issues no group works (2374, and 2402 once filed) stand in Deferred. Mock only: the stage is read in Bridge from the Job's data
 // (`session-view/story.ts`), and `work.landing` names the kind. The walks `jobStory`, `jobStorySpike`, `jobStoryReport` and `jobDocument` play it.
 
@@ -26,13 +27,15 @@ const PR_JOB = "story-1";
 const SPIKE_JOB = "story-2";
 const REPORT_JOB = "story-3";
 const OTHER_JOB = "story-4";
+const DESIGN_JOB = "story-5";
 const BRANCH = "armada/lease-retry";
 const PR_DOC_PATH = `${ROOT}/.armada/slots/slot-3/.armada/documents/lease-retry.html`;
 
 const FEATURE: WorkflowChoice = { id: "Feature", name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] };
 const SPIKE: WorkflowChoice = { id: "Spike", name: "Spike", steps: ["Plan", "Measure", "Write up"] };
 const INVESTIGATE: WorkflowChoice = { id: "Investigate", name: "Investigate", steps: ["Plan", "Investigate", "Report"] };
-const WORKFLOWS = [FEATURE, SPIKE, INVESTIGATE];
+const DESIGN: WorkflowChoice = { id: "Design plan", name: "Design plan", steps: ["Explore", "Write the design", "Present"] };
+const WORKFLOWS = [FEATURE, SPIKE, INVESTIGATE, DESIGN];
 
 const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
 const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
@@ -240,6 +243,36 @@ const reportJob: Session = {
   attachments: [],
 };
 
+// ---- The design plan Job: it lands a doc, and opened a pull request beside it ---------------------------------
+
+const designJob: Session = {
+  id: DESIGN_JOB,
+  title: "Design how a watch ends",
+  manifestId: OWNER,
+  cwd: ROOT,
+  model: "opus",
+  effort: "high",
+  mode: "auto",
+  turn: { state: "idle" },
+  lastTurnAt: ago(5),
+  standing: "idle",
+  rows: [
+    you("s5-1", "13:40:00", "Design how a watch ends when its failure is not ours, and build the first piece."),
+    agent("s5-2", "13:58:00", "The design is written, and its first piece is in a pull request."),
+  ],
+  attachments: [
+    { kind: "branch", name: "armada/watch-ends", slot: 5 },
+    { kind: "artifact", form: "doc", id: "docs/design/how-a-watch-ends.md", title: "How a watch ends" },
+    { kind: "pull_request", number: 2393, title: "End a watch not ours instead of green", branch: "armada/watch-ends", address: "https://git.example/armada/pull/2393", checks: { state: "passed" }, state: "open", auto: true, queued: true },
+  ],
+  work: {
+    proposal: { workflow: DESIGN.name },
+    landing: "document",
+    workflow: { ...DESIGN, at: 2 },
+    plan: { scope: ["crates/fleet"], approved: true, after: "s5-1", groups: [{ id: "d1", agent: "general-purpose", title: "Design how a watch ends", paths: ["docs/design"], tasks: [task("D1", "Write the design", "done"), task("D2", "Build its first piece", "done")] }] },
+  },
+};
+
 // ---- Another Job's pull request, so the Merge line has more than this Job's own -----------------------------
 
 const otherJob: Session = {
@@ -284,7 +317,7 @@ function line(joined: boolean): MergeLine {
 const AT: Record<string, (stage: number) => Partial<Session>> = { [PR_JOB]: prAt, [SPIKE_JOB]: spikeAt, [REPORT_JOB]: reportAt };
 
 function sessions() {
-  const base = sessionsStore([{ ...prJob, ...prAt(0) }, { ...spikeJob, ...spikeAt(0) }, { ...reportJob, ...reportAt(0) }, otherJob], [], new Map(), []);
+  const base = sessionsStore([{ ...prJob, ...prAt(0) }, { ...spikeJob, ...spikeAt(0) }, { ...reportJob, ...reportAt(0) }, designJob, otherJob], [], new Map(), []);
   const stage = new Map<string, number>([[PR_JOB, 0], [SPIKE_JOB, 0], [REPORT_JOB, 0]]);
   let rowId = 0;
   const row = (text: string, from: "you" | "agent"): SessionRow => {

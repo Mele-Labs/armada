@@ -61,7 +61,7 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
   let starts: () => AccountsActed = () => ({ ok: true, value: (held = { ...held, flow: CODE }) });
   // What syncs, by login: every kind off until one is switched on.
   const on = new Map<string, Set<HomeKind>>();
-  const kindsOf = (login: string): HomeKinds => ({ login, kinds: KINDS.map((kind) => ({ kind, on: on.get(login)?.has(kind) === true })) });
+  const kindsOf = (login: string): HomeKinds => ({ login, kinds: KINDS.map((kind) => ({ kind, on: on.get(login)?.has(kind) === true })), items: [] });
   const fleet: FleetAccounts = {
     state: async () => ({ connection: { state } }) as never,
     subscribe: (on) => ((hear = on as never), () => undefined),

@@ -72,7 +72,7 @@ mod fleet_calls;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
-/// The projects a person keeps, per repository: tasks he wrote and linked issues, in order.
+/// The projects a person keeps, across repositories: tasks he wrote and linked issues, in order.
 mod projects;
 mod session_waiting;
 mod sleep_night;
@@ -170,17 +170,18 @@ pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEP
 pub use session_tells::KeptTell;
 pub use workflow_nudges::KeptWorkflowNudge;
 pub use session_later::KeptLater;
-pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
+pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
+pub use home_kinds::KeptHomeItem;
 pub use home_repositories::KeptHomeRepository;
 pub use job_issues::KeptJobIssue;
 pub use plan_beads::KeptBead;
 pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
 pub use fleet_calls::KeptCall;
 pub use issue_queries::KeptIssueQuery;
-pub use projects::{KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState};
+pub use projects::{KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, LOOSE as LOOSE_PROJECT};
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};

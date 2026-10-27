@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Laptop } from "lucide-react";
 import type { KitPieceKind } from "@armada/protocol";
 
 import { useKept } from "../../keep";
@@ -7,15 +7,16 @@ import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { KitServerAddForm, KIT_HERE_LABEL } from "../KitServers/KitServers";
 import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
 import type { KitServerKind, KitServerRowProps } from "../KitServers/KitServers";
 import { KIT_KIND_LABEL } from "../KitSetup/KitSetup";
 import type { KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
-import { SharedHomeBar, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "../KitSetup/SharedHome";
-import type { SharedRow } from "../KitSetup/SharedHome";
-import { holds, rowsOf } from "./kit-rows";
+import { itemSyncs, SharedHomeBar, SyncMarks, SyncSheet, useSharedHome } from "../KitSetup/SharedHome";
+import type { SharedHome, SharedRow } from "../KitSetup/SharedHome";
+import { HOME_KIND, holds, rowsOf } from "./kit-rows";
 import type { KitKindId, KitRef, KitRow } from "./kit-rows";
 
 /** Add, Remove and Undo for skills and plugins. Add opens the link panel, which is the shell's. */
@@ -142,21 +143,24 @@ export function KitBrowser({
           )}
           {one.mark === undefined ? null : <span className="armada-kit-browser__mark">{one.mark}</span>}
           {one.mod === undefined ? null : <ModMarks mod={one.mod} />}
+          {/* Where it stands against the home, inside the row; what settles it is in the detail. A row that does not
+              sync holds the mark's place, so the versions stay in one column. */}
+          {one.sync !== undefined && shared !== undefined ? (
+            <SyncMarks row={one.sync} />
+          ) : shared?.syncs === undefined || one.home === undefined ? null : (
+            <span className="armada-kit-browser__unmarked" aria-hidden="true">
+              <Laptop size={16} strokeWidth={2} />
+            </span>
+          )}
         </span>
       </button>
-      {one.sync === undefined || shared === undefined ? null : (
-        <span className="armada-kit-browser__sync">
-          <SyncMarks row={one.sync} onCompare={setComparing} />
-          {one.sync.state === "here" || one.sync.state === "home" ? <SyncAct row={one.sync} acts={shared} /> : null}
-        </span>
-      )}
     </li>
   );
 
   return (
     <div className="armada-kit-browser">
       <section className="armada-kit-browser__list" aria-label={label} data-col="list">
-        {shared === undefined ? null : <SharedHomeBar home={shared} />}
+        {shared === undefined ? null : <SharedHomeBar home={shared} {...(HOME_KIND[kind] === undefined ? {} : { kind: HOME_KIND[kind] })} />}
         <Input
           type="search"
           aria-label={`Filter ${label}`}
@@ -240,6 +244,8 @@ export function KitBrowser({
         ) : row === undefined ? null : (
           <Detail
             row={row}
+            shared={shared}
+            onCompare={setComparing}
             pieces={pieces}
             servers={servers}
             onJump={onJump}
@@ -269,8 +275,41 @@ function ModMarks({ mod }: { mod: NonNullable<KitRow["mod"]> }) {
   );
 }
 
+/**
+ * An item against the home: its own switch in What syncs, on and fixed while its whole kind is on, which sends it to
+ * the home as it turns on; then Add to this machine for an item only the home has, and Compare for one that differs.
+ */
+function SyncActs({ row, shared, onCompare }: { row: KitRow; shared: SharedHome | undefined; onCompare: (row: SharedRow) => void }) {
+  if (shared === undefined) return null;
+  const { setItem, syncs } = shared;
+  const { home, sync } = row;
+  // An item only the home has is brought, not synced from here.
+  const switched = home === undefined || syncs === undefined || setItem === undefined || sync?.state === "home" ? undefined : itemSyncs(syncs, home);
+  return (
+    <>
+      {switched === undefined ? null : (
+        <Switch size="sm" checked={switched.on} disabled={switched.locked} onChange={(event) => setItem!(home!, event.target.checked)}>
+          Sync to home
+        </Switch>
+      )}
+      {sync?.state !== "home" ? null : (
+        <Button variant="secondary" size="sm" ground="card" onClick={() => shared.bring(sync)}>
+          Add to this machine
+        </Button>
+      )}
+      {sync?.state !== "differs" ? null : (
+        <Button variant="secondary" size="sm" ground="card" onClick={() => onCompare(sync)}>
+          Compare with the home
+        </Button>
+      )}
+    </>
+  );
+}
+
 function Detail({
   row,
+  shared,
+  onCompare,
   pieces,
   servers,
   onJump,
@@ -281,6 +320,8 @@ function Detail({
   openRefused,
 }: {
   row: KitRow;
+  shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
   pieces: KitPiecesProps | undefined;
   servers: KitBrowserProps["servers"];
   onJump: (to: KitRef) => void;
@@ -311,6 +352,7 @@ function Detail({
       {pieces?.refused === undefined || piece === undefined ? null : <p className="armada-kit-browser__refused">{pieces.refused}</p>}
     </>
   );
+  const sync = <SyncActs row={row} shared={shared} onCompare={onCompare} />;
   // The file is the detail, so what the file already says is not said twice. A server's own words are not in it.
   const inline = row.opens !== undefined && fileView !== undefined;
   const head = (
@@ -345,7 +387,12 @@ function Detail({
       {/* A file's own acts are the view's, so Remove rides above it with the rest of the head. */}
       {inline ? (
         <>
-          {remove === null ? null : <div className="armada-kit-browser__acts">{remove}</div>}
+          {remove === null && shared === undefined ? null : (
+            <div className="armada-kit-browser__acts">
+              {sync}
+              {remove}
+            </div>
+          )}
           {notes}
         </>
       ) : null}
@@ -415,6 +462,7 @@ function Detail({
       )}
 
       <div className="armada-kit-browser__acts">
+        {sync}
         {row.path === undefined ? null : (
           <Button variant="secondary" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
             Show in Finder
