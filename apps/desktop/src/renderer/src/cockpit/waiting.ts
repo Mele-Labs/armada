@@ -79,7 +79,8 @@ export const touchedAt = (session: Session, viewedAt: (sessionId: string) => num
  */
 export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessionId: string) => number = () => 0): WaitingCall[] {
   return sessions
-    .filter((session) => session.dead === undefined)
+    // A paused Job is parked by him: nothing it waits on calls until he resumes it.
+    .filter((session) => session.dead === undefined && session.paused !== true)
     .flatMap((session) => {
       const touched = touchedAt(session, viewedAt);
       return waitingOf(session)

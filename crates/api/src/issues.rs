@@ -58,7 +58,7 @@ pub(crate) async fn search_issues<D: Issues>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let search: ipc::SearchIssues = match ipc::decode("an issue search", &body) {
+    let search: ipc::SearchIssues = match ipc::decode_body("an issue search", &body) {
         Ok(search) => search,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -74,7 +74,7 @@ pub(crate) async fn install_tool<D: Issues>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let install: ipc::InstallTool = match ipc::decode("a tool to install", &body) {
+    let install: ipc::InstallTool = match ipc::decode_body("a tool to install", &body) {
         Ok(install) => install,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -99,7 +99,7 @@ pub(crate) async fn write_issue_query<D: Issues>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let write: ipc::WriteIssueQuery = match ipc::decode("words for an issue query", &body) {
+    let write: ipc::WriteIssueQuery = match ipc::decode_body("words for an issue query", &body) {
         Ok(write) => write,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -114,7 +114,7 @@ pub(crate) async fn save_issue_query<D: Issues>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let save: ipc::SaveIssueQuery = match ipc::decode("an issue query to save", &body) {
+    let save: ipc::SaveIssueQuery = match ipc::decode_body("an issue query to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

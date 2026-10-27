@@ -37,6 +37,7 @@ const jobStartCardEverywhere = walk("job-start-card-everywhere", [
   { key: "Alt+Meta+a", on: jobs, say: "⌥⌘A turns the annotation layer on over a note already pinned" },
   { press: inside(bar, button("Start job")), say: "On the annotation layer, Start job on a note" },
   { look: inside(composer, text(/Pointed at:/)), say: "The composer holds the note as the agent will read it: his words, then where he pointed. Workflow and Delivery are set" },
+  { hover: role("img", "Picked by the proposer"), say: "The proposer read his note, as it reads a dispatch, and picked the Workflow" },
   { key: "Alt+Meta+a", on: jobs, say: "⌥⌘A turns the layer off, so the press on Start is a press" },
   { press: start, say: "Start" },
   { look: inside(thread, text(/Pointed at:/)), say: "The note is the first message in the thread" },

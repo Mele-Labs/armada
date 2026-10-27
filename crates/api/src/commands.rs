@@ -50,7 +50,7 @@ pub(crate) async fn catch_up_checkout<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::CatchUpCheckout = match ipc::decode("a catch-up for a checkout", &body) {
+    let asked: ipc::CatchUpCheckout = match ipc::decode_body("a catch-up for a checkout", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -66,7 +66,7 @@ pub(crate) async fn checkout_to_pull_request<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::CheckoutToPullRequest = match ipc::decode("a checkout to send as a pull request", &body) {
+    let asked: ipc::CheckoutToPullRequest = match ipc::decode_body("a checkout to send as a pull request", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -86,7 +86,7 @@ pub(crate) async fn change_slot_pool<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::ChangeSlotPool = match ipc::decode("a change to the slot pool", &body) {
+    let asked: ipc::ChangeSlotPool = match ipc::decode_body("a change to the slot pool", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -108,7 +108,7 @@ pub(crate) async fn rescue_slot<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::RescueSlot = match ipc::decode("an act on a stranded slot", &body) {
+    let asked: ipc::RescueSlot = match ipc::decode_body("an act on a stranded slot", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

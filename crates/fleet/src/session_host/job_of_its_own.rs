@@ -62,7 +62,7 @@ where
             },
             Taken::Full => Err(format!("Every slot of {} is leased.", served.root())),
             Taken::Refused(why) => Err(why),
-            Taken::Gone => Err(String::from("The Job ended before a slot was leased.")),
+            Taken::Gone | Taken::Resumed => Err(String::from("The Job ended before a slot was leased.")),
         };
         match leased {
             Ok(tree) => Ok(Ok((id, tree))),

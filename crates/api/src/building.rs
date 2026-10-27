@@ -27,7 +27,7 @@ pub(crate) async fn change_fleet_build<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ChangeFleetBuild = match ipc::decode("build to change to", &body) {
+    let asked: ChangeFleetBuild = match ipc::decode_body("build to change to", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -22,7 +22,7 @@ pub(crate) struct Listing {
 
 /// Read what a person pressed Teach on into a proposal. Nothing is kept.
 pub(crate) async fn read_teaching<D: Teaching>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let teach: ipc::ReadTeaching = match ipc::decode("something to teach", &body) {
+    let teach: ipc::ReadTeaching = match ipc::decode_body("something to teach", &body) {
         Ok(teach) => teach,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -34,7 +34,7 @@ pub(crate) async fn read_teaching<D: Teaching>(State(served): State<Served<D>>, 
 
 /// Keep a teaching: the Logbook entry for its note and the mods it changes, and tell a live Session.
 pub(crate) async fn save_teaching<D: Teaching>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let save: ipc::SaveTeaching = match ipc::decode("a teaching to keep", &body) {
+    let save: ipc::SaveTeaching = match ipc::decode_body("a teaching to keep", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

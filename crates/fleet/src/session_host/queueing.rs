@@ -214,7 +214,7 @@ where
                 continue;
             };
             while let Some(id) = queue.head(&manifest) {
-                match self.take_lease(&id, &served).await {
+                match self.take_lease_resuming(&id, &served).await {
                     Taken::Full => break,
                     taken => self.granted(&id, taken).await,
                 }
@@ -274,7 +274,7 @@ where
         }
         queue.choose_want(id, Choice::Waiting);
         let served = self.served_named(Some(&manifest))?;
-        match self.take_lease(id, &served).await {
+        match self.take_lease_resuming(id, &served).await {
             Taken::Full => {
                 queue.choose(id, Choice::Waiting);
             }
@@ -291,6 +291,11 @@ where
             // Ended, or leased a slot some other way: nothing to give it.
             Taken::Gone | Taken::Held { .. } => self.line_left(id).await,
             Taken::Full => {}
+            // A paused Job whose Resume waited for the slot: now it carries on.
+            Taken::Resumed => {
+                self.line_left(id).await;
+                self.pause_lifted(id).await;
+            }
             Taken::Refused(why) => {
                 self.line_left(id).await;
                 self.fleet_note(id, format!("Could not lease the slot it was waiting for: {why}")).await;

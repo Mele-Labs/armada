@@ -92,6 +92,7 @@ import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, planAsked } from "@armada/screens/src/draft/sessions";
+import { usePausedSend } from "./paused-send";
 import type { ChipRef, DrawnSketch, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -128,7 +129,7 @@ import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
-import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
+import { bangOf, dockRunKey, hostedCommands, opensMcp, runnerOf, waitingRunKey } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
@@ -575,8 +576,8 @@ export function entriesOf(
             },
           }),
       ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
-      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, ...(runner === undefined ? {} : { runner }) } } : {}),
-      ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
+      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, keep: waitingRunKey(session.id, one.id), ...(runner === undefined ? {} : { runner }) } } : {}),
+      ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner, keep: waitingRunKey(session.id, one.id) } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
         : {
@@ -747,8 +748,12 @@ const NO_ROWS: SessionThreadRow[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
+/** A draft that serves nothing, for a hook that must run where there is none. */
+const NO_DRAFT: Pick<SessionsDraft, "resume"> = {};
+
 export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES, trailing }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[]; trailing?: ReactNode }) {
   const draft = useSessionsDraft();
+  const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const runBook = useRunBook();
   const account = useAccount();
   const sessions = useSessions();
@@ -862,7 +867,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
-  const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner), session.id), draft?.terminalRuns !== undefined, deck?.shell === true);
+  const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner, dockRunKey(session.id, "page")), dockRunKey(session.id, "page")), draft?.terminalRuns !== undefined, deck?.shell === true);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
@@ -1271,14 +1276,17 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                   terminal.dock.start(bang);
                   return Promise.resolve(true);
                 }
-                const sketches = drawn;
-                const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
-                setDrawn(NO_SKETCHES);
-                // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
-                if (draft.retry !== undefined) return Promise.resolve(true);
-                return done?.then((went) => {
-                  if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
-                  return went;
+                // A paused Job asks first: Cancel gives the box its words back.
+                return pausedSend.ask(() => {
+                  const sketches = drawn;
+                  const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
+                  setDrawn(NO_SKETCHES);
+                  // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
+                  if (draft.retry !== undefined) return Promise.resolve(true);
+                  return done?.then((went) => {
+                    if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
+                    return went;
+                  });
                 });
               }}
             />
@@ -1288,6 +1296,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         </div>
       </SessionFrame>
       </SessionWorkspace>
+      {pausedSend.layer}
       {session.work?.plan === undefined || !planDrawn ? null : (
         <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} {...(adversarial !== undefined && adversary !== undefined ? { findings: { review: adversarial, onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding) } } : {})} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
@@ -1332,15 +1341,17 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
  */
 export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void; onOpenLoadout?: LedgerGoes["onOpenLoadout"] | undefined }) {
   const draft = useSessionsDraft();
+  const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const numbered = useNumbered(session.manifestId);
   // A `! command` typed here runs in a pane of this box's own, as the Session page's does.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
-  const { dock, pane } = useJobDock(session.id, "card", useTerminalDock(useCodeRun(runner), session.id), draft?.terminalRuns !== undefined);
+  const { dock, pane } = useJobDock(session.id, "card", useTerminalDock(useCodeRun(runner, dockRunKey(session.id, "card")), dockRunKey(session.id, "card")), draft?.terminalRuns !== undefined);
   if (draft === undefined || session.dead !== undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   return (
     <>
       {pane}
+      {pausedSend.layer}
       <SessionComposer
         modeLocked={session.terminal === true}
         modeHidden={session.terminal === true && session.mode === undefined}
@@ -1375,9 +1386,11 @@ export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session
             dock.start(bang);
             return Promise.resolve(true);
           }
-          const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
-          // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
-          return draft.retry === undefined ? done : Promise.resolve(true);
+          return pausedSend.ask(() => {
+            const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
+            // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
+            return draft.retry === undefined ? done : Promise.resolve(true);
+          });
         }}
       />
     </>

@@ -14,7 +14,7 @@ use crate::daemon::Watches;
 use crate::served::Served;
 
 pub(crate) async fn start_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let start: ipc::StartWatch = match ipc::decode("a watch to start", &body) {
+    let start: ipc::StartWatch = match ipc::decode_body("a watch to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -25,7 +25,7 @@ pub(crate) async fn start_watch<D: Watches>(State(served): State<Served<D>>, bod
 }
 
 pub(crate) async fn weigh_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let weigh: ipc::WeighWatch = match ipc::decode("a watch weighed", &body) {
+    let weigh: ipc::WeighWatch = match ipc::decode_body("a watch weighed", &body) {
         Ok(weigh) => weigh,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -36,7 +36,7 @@ pub(crate) async fn weigh_watch<D: Watches>(State(served): State<Served<D>>, bod
 }
 
 pub(crate) async fn stop_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let stop: ipc::StopWatch = match ipc::decode("a watch to stop", &body) {
+    let stop: ipc::StopWatch = match ipc::decode_body("a watch to stop", &body) {
         Ok(stop) => stop,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -47,7 +47,7 @@ pub(crate) async fn stop_watch<D: Watches>(State(served): State<Served<D>>, body
 }
 
 pub(crate) async fn delete_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let delete: ipc::DeleteWatch = match ipc::decode("a watch to delete", &body) {
+    let delete: ipc::DeleteWatch = match ipc::decode_body("a watch to delete", &body) {
         Ok(delete) => delete,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -111,7 +111,7 @@ pub(crate) async fn read_watch_log<D: Watches>(
 }
 
 pub(crate) async fn try_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let tried: ipc::TryWatch = match ipc::decode("a watch to try", &body) {
+    let tried: ipc::TryWatch = match ipc::decode_body("a watch to try", &body) {
         Ok(tried) => tried,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -136,7 +136,7 @@ pub(crate) async fn list_watch_recipes<D: Watches>(
 }
 
 pub(crate) async fn save_watch_recipe<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let save: ipc::SaveWatchRecipe = match ipc::decode("a watch recipe to save", &body) {
+    let save: ipc::SaveWatchRecipe = match ipc::decode_body("a watch recipe to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

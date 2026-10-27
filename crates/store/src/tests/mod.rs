@@ -7,6 +7,7 @@ mod corrupt;
 mod devices;
 mod helm_sessions;
 mod helm_tuning;
+mod job_shells;
 mod delivery_picks;
 mod home_kinds;
 mod home_repositories;

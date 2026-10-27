@@ -11,6 +11,7 @@ import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const AT = "2026-10-12T14:00:00.000Z";
+const READ_MS = 700;
 const BACKFILL = "01SESSIONAAAAAAAAAAAAAAAAA";
 
 const sessions = () => [
@@ -56,13 +57,21 @@ function build(): Scenario {
     says: "Debug Bridge opens a Session with its note as a draft and no turn running; Stop ends a running turn",
     // A Fleet of its own for each window, so a walk told twice starts from the same Session.
     behaves: (handle) => {
-      const own = new FakeSessionsFleet(sessions(), threads()).scenario(board).behaves!(handle);
+      const fake = new FakeSessionsFleet(sessions(), threads());
+      const own = fake.scenario(board).behaves!(handle);
       return {
         ...own,
         // A Session Fleet starts takes its title from the call, so the fake names it here.
-        startSession: async (title) => {
-          const started = await own.startSession!(title);
-          if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
+        // Held on its start card with the note's words as the request: the proposer reads them for a moment and picks the Workflow.
+        startSession: async (title, root, request, tuning, after, holds) => {
+          const started = await own.startSession!(title, root, request, tuning, after, holds);
+          if (!started.ok) return started;
+          if (title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
+          if (request !== undefined && holds === true) {
+            const id = started.value.id;
+            fake.proposes(id, { reading: true });
+            window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
+          }
           return started;
         },
         readSessionFile: async () => ({ ok: true, bytes: await windowShot(), type: "image/png" }),

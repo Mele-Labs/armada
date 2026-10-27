@@ -37,6 +37,8 @@ export type DroneIn = {
   hover: boolean;
   /** Holds a call: a beacon pings from it. */
   ping: boolean;
+  /** Parked by him: no beacon, whatever it waits on. */
+  paused?: true;
   /** Working and silent: its rotors stall and an amber ring breathes. */
   stuck: boolean;
   /** A Check is failing. */
@@ -72,9 +74,10 @@ export type DroneIn = {
 };
 
 export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
+  const parked = subject.paused === true;
   const stuck = subject.kind === "session" && subject.phase === "held" && subject.alarm;
-  const failing = !stuck && (subject.alarm || subject.mark.tone === "bad");
-  const ask = owed || subject.needs;
+  const failing = !stuck && !parked && (subject.alarm || subject.mark.tone === "bad");
+  const ask = !parked && (owed || subject.needs);
   const working = subject.phase === "working";
   return {
     key: subject.key,
@@ -93,6 +96,7 @@ export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string 
     ...(extra.file === undefined ? {} : { file: extra.file }),
     shown: extra.shown,
     touches: extra.touches ?? [],
+    ...(parked ? { paused: true as const } : {}),
   };
 }
 

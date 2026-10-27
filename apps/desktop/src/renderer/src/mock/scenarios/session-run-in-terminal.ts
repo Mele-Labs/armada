@@ -79,7 +79,7 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
         (code) => {
           running.delete(program);
           told(id, command, code, printed);
-          on({ kind: "end", code });
+          on(code === null ? { kind: "end", code, stopped: true } : { kind: "end", code });
         },
       );
       running.add(program);

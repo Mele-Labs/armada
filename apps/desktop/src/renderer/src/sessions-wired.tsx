@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
 import type { ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
-import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE, type RefusedAct } from "./tell";
 import { taggedIn } from "./dispatch-panel/waits";
@@ -587,13 +587,13 @@ export class WiredStore {
    * A shell block run, on a terminal. Messages are listened for before the run starts and held until its id
    * is known, so output that beat the answer is not lost; so are the keys and the size the pane gave in the
    * meantime. The terminal's bytes go on as they came, escapes and all: the pane draws them. A refusal ends
-   * the run with code 1 and its words as one line; a stop ends it with `null`, which is how Fleet reports a
-   * stopped process group.
+   * the run with code 1 and its words as one line; a stop ends it with `null` and `stopped`, and a
+   * signal with `null` alone.
    */
   private running(
     id: string,
     command: string,
-    on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void,
+    on: (event: RunEvent) => void,
     size?: { cols: number; rows: number },
   ): { stop: () => void; write: (data: string) => void; resize: (cols: number, rows: number) => void } {
     const change = buildChangeOf(command);
@@ -603,17 +603,17 @@ export class WiredStore {
     const held: { runId: string; message: SessionRunMessage }[] = [];
     let typed = "";
     let resized: { cols: number; rows: number } | null = null;
-    const finish = (code: number | null): void => {
+    const finish = (code: number | null, stopped: boolean): void => {
       if (over) return;
       over = true;
       off();
-      on({ kind: "end", code });
+      on(code === null ? { kind: "end", code, stopped } : { kind: "end", code });
     };
     const take = (from: string, message: SessionRunMessage): void => {
       if (over || from !== runId) return;
       if (message.kind === "output") {
         if (message.text !== "") on({ kind: "out", text: message.text });
-      } else if (message.kind === "exited") finish(message.code);
+      } else if (message.kind === "exited") finish(message.code, message.stopped);
     };
     const off = this.api.onSessionRunMessage((from, message) => {
       if (runId === null) held.push({ runId: from, message });
@@ -623,7 +623,7 @@ export class WiredStore {
       if (over) return;
       if (!started.ok) {
         on({ kind: "out", text: `${refusalWords(started.outcome)}\r\n` });
-        finish(1);
+        finish(1, false);
         return;
       }
       runId = started.value.run_id;
@@ -633,7 +633,7 @@ export class WiredStore {
     });
     return {
       stop: () => {
-        if (runId === null) return finish(null);
+        if (runId === null) return finish(null, true);
         void this.api.stopSessionRun(runId);
       },
       write: (data) => {
@@ -650,7 +650,7 @@ export class WiredStore {
   }
 
   /** A restart onto main or the preview, pressed as the Fleet panel presses it; where it stands is the panel's to show. */
-  private switching(change: BuildChange, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void): { stop: () => void } {
+  private switching(change: BuildChange, on: (event: RunEvent) => void): { stop: () => void } {
     void this.api.changeFleetBuild(change.build, change.adopt).then((done) => {
       on({ kind: "out", text: `${done.ok ? change.label : refusalWords(done)}\r\n` });
       on({ kind: "end", code: done.ok ? 0 : 1 });
