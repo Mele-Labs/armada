@@ -4,7 +4,7 @@
 // `walks/pausing-a-session.ts` and `walks/pausing-quiets-a-call.ts`.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
-import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
@@ -69,7 +69,7 @@ function build(): Scenario {
           },
           // The slot goes back with the work committed; the Session keeps its branch.
           pause: async (id) => {
-            store.edit(id, ({ paused: _, ...one }) => ({ ...one, paused: true, turn: { state: "idle" }, standing: "idle", attachments: one.attachments.flatMap((it): SessionAttachment[] => (it.kind === "slot" ? [] : it.kind === "branch" ? [{ kind: "branch", name: it.name }] : [it])) }));
+            store.edit(id, ({ paused: _, ...one }) => ({ ...one, paused: true, turn: { state: "idle" }, standing: "idle", attachments: one.attachments.filter((it) => it.kind !== "slot") }));
             // Fleet tells the Job something while it is parked: the notice waits in its thread, and the Job stays paused.
             if (id === ASKING.id) {
               window.setTimeout(() => store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: "g-n", at: new Date().toISOString(), kind: "message", from: { kind: "session", id: "fleet", title: "Fleet" }, text: "main moved 3 commits ahead of fix/stage-grid.", notice: "behind_base" }] })), 1200);
@@ -90,7 +90,7 @@ function build(): Scenario {
             // Resume starts no turn: the Job that was waiting on him is waiting again, and the one that was working works.
             const waiting = id === ASKING.id;
             const bay = waiting ? 5 : 4;
-            store.edit(id, ({ paused: _, ...one }) => ({ ...one, turn: { state: waiting ? "idle" : "working" }, standing: waiting ? "idle" : "working", attachments: [{ kind: "slot", slot: bay }, ...one.attachments.map((it): SessionAttachment => (it.kind === "branch" ? { ...it, slot: bay } : it))] }));
+            store.edit(id, ({ paused: _, ...one }) => ({ ...one, turn: { state: waiting ? "idle" : "working" }, standing: waiting ? "idle" : "working", attachments: [{ kind: "slot", slot: bay }, ...one.attachments] }));
             return true;
           },
         };
