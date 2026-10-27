@@ -142,7 +142,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
     const drone = flier(session, one, root, at === undefined ? "live" : "then");
     return at === undefined && one.agent === undefined ? placedNow(drone, mainState) : drone;
   }), [drones, root, session, at === undefined, mainState]));
-  const { drones: own, plays } = useLiftsAndReturns(placed, at === undefined);
+  const { drones: own, plays } = useLiftsAndReturns(session.id, placed, at === undefined);
   const outposts = useSteady(useMemo(() => outpostsOf(job, Math.max(clock, Date.now())), [job, clock]));
   // The drones of every other live Job in the repository, faded.
   const ghosts = useSteady(

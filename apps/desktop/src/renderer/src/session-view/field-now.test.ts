@@ -1,12 +1,11 @@
-// What the strip over a Job's Field says of each drone, the subagents that lift off and fly back as the ledger starts and ends them, and the
+// What the Drones menu over a Job's Field says of a message, the subagents that lift off and fly back as the ledger starts and ends them, and the
 // arcs to the other Jobs this one is messaging.
 
 import { expect, test } from "vitest";
-import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { DroneIn } from "../cockpit/deck/layout";
 import type { Message } from "../cockpit/deck/off-floor";
-import { liftsAndReturns, placedNow, stripOf, talkOf, withLeaving } from "./field-now";
+import { liftsAndReturns, placedNow, talkOf, withLeaving } from "./field-now";
 
 const drone = (key: string, extra: Partial<DroneIn> = {}): DroneIn => ({ key, kind: "session", title: key, root: "/r", said: "Working", hue: "calm", spin: true, hover: true, ping: false, stuck: false, flare: false, working: true, touches: [], shown: true, ...extra });
 
@@ -28,23 +27,6 @@ test("a subagent that ends twice before its return has played flies back once", 
   const shown = withLeaving([own], [{ ...a, spin: false }, a]);
   expect(shown.map((one) => one.key)).toEqual([own.key, a.key]);
   expect(withLeaving([own, a], [a])).toEqual([own, a]);
-});
-
-test("the strip lists the Job's drone first, then each subagent by its task in the order it started, a finished one kept and marked done", () => {
-  const session = {
-    id: "j",
-    title: "Draw the pad",
-    attachments: [
-      { kind: "subagent", id: "a", task: "Check the wire types", state: "done" },
-      { kind: "subagent", id: "b", task: "Read the layout", state: "running", call: "toolu_b" },
-    ],
-  } as unknown as Session;
-  const strip = stripOf(session, { kind: "checks" }, [{ id: "toolu_b", agent: "Explore", path: "apps/desktop", doing: "write", file: "apps/desktop/src/layout.ts" }]);
-  expect(strip).toEqual([
-    { key: "session:j", name: "Draw the pad", word: "Running checks", done: false },
-    { key: "session:j/a", name: "Check the wire types", word: "Done", done: true },
-    { key: "session:j/b", name: "Read the layout", word: "Writing layout.ts", done: false },
-  ]);
 });
 
 test("the Job's drone leaves the floor for the pad, rises to think with no action, and waits on you amber", () => {
@@ -71,12 +53,8 @@ test("an arc runs from the sender's drone to the receiver's, and none to a Job w
   expect(talkOf("a", [said("b", true, "Is the index rebuilt?")], [], (id) => titles[id]).links).toEqual([]);
 });
 
-test("the strip says who the Job is messaging or is messaged by while fresh, with or without a drone here, unless it is waiting on you", () => {
-  const session = { id: "a", title: "Rotate the audit log", attachments: [] } as unknown as Session;
-  const sending = talkOf("a", [said("b", true, "Is the index rebuilt?")], [], (id) => titles[id]).word;
-  expect(stripOf(session, { kind: "think" }, undefined, sending)[0]!.word).toBe("Messaging Rebuild the store index");
-  const receiving = talkOf("a", [said("x", false, "Hello", "Elsewhere")], [], () => undefined).word;
-  expect(stripOf(session, { kind: "write", file: "a/b.rs" }, undefined, receiving)[0]!.word).toBe("Messaged by Elsewhere");
-  expect(stripOf(session, { kind: "ask" }, undefined, sending)[0]!.word).toBe("Waiting on you");
-  expect(stripOf(session, { kind: "think" }, undefined, talkOf("a", [], [], () => undefined).word)[0]!.word).toBe("Thinking");
+test("the Drones menu says who the Job is messaging or is messaged by while fresh, with or without a drone here, and nothing when there is no message", () => {
+  expect(talkOf("a", [said("b", true, "Is the index rebuilt?")], [], (id) => titles[id]).word).toBe("Messaging Rebuild the store index");
+  expect(talkOf("a", [said("x", false, "Hello", "Elsewhere")], [], () => undefined).word).toBe("Messaged by Elsewhere");
+  expect(talkOf("a", [], [], () => undefined).word).toBeUndefined();
 });
