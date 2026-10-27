@@ -34,7 +34,7 @@ export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): bo
 
 export function ReviewList({ picked, repositories }: { picked: RepositorySummary | null; repositories: readonly RepositorySummary[] }) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
+  const { prs, tab, finds, open, linked, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   const [address, setAddress] = useState("");
@@ -46,13 +46,19 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
   }, [store]);
 
   const find = finds.find((one) => one.id === tab);
-  const rows: { pr: ReviewPr; reason?: string }[] =
+  const chosen: { pr: ReviewPr; reason?: string }[] =
     find === undefined
       ? prs.filter((one) => one.lists.some((list) => list === tab) && inRepository(one, picked)).map((pr) => ({ pr, ...(tab === "team" && pr.team !== undefined ? { reason: pr.team } : {}) }))
       : find.hits.flatMap((hit) => {
           const pr = prs.find((one) => one.key === hit.key);
           return pr === undefined || !inRepository(pr, picked) ? [] : [{ pr, reason: hit.reason }];
         });
+  // What he opened by its link is on no list the forge keeps, so it sits above whichever one is chosen, where he can click back to it.
+  const byLink = linked.flatMap((key) => {
+    const pr = prs.find((one) => one.key === key);
+    return pr === undefined || !inRepository(pr, picked) || chosen.some((one) => one.pr.key === key) ? [] : [{ pr, reason: "Opened by its link" }];
+  });
+  const rows = [...byLink, ...chosen];
   const fetched = fetchedAt === undefined ? "Not fetched" : `Fetched ${agoOf(new Date(fetchedAt).toISOString())}`;
   const here = asking ? ASK : tab;
   const entries: DropdownMenuEntry[] = [
