@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use api::{HostedSessions, Sessions, Watches};
+use api::{HostedSessions, Watches};
 use ipc::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState, SessionCheckStop, StartWatch,
     WatchStarts,
