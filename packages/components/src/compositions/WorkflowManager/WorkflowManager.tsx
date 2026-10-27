@@ -1,4 +1,4 @@
-import { Check, CornerUpRight, Layers, LoaderCircle, Minus, PencilLine, Plus } from "lucide-react";
+import { Check, Lightbulb, Layers, LoaderCircle, Minus, PencilLine, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -538,7 +538,7 @@ function Step({
                     {suggestion?.from.includes(one.id) ? (
                       <Tooltip label="In the suggested change">
                         <span role="img" aria-label="In the suggested change">
-                          <CornerUpRight size={14} strokeWidth={2} aria-hidden />
+                          <Lightbulb size={14} strokeWidth={2} aria-hidden />
                         </span>
                       </Tooltip>
                     ) : null}
