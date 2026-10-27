@@ -429,6 +429,20 @@ test("Submit posts the drafts as one review: a reply, a line, a file, and the co
   expect(work.submitting).toBe(false);
 });
 
+test("pending comments are still in the review in the next store, and gone from it once Submit is taken", async () => {
+  const { store, key } = await opened();
+  store.addDraft(key, { path: "a.rs", line: 12, side: "right", body: "Take the lock after the call" });
+  store.addDraft(key, { path: "b.rs", body: "Whole file note" });
+  store.removeDraft(key, store.get().work[key]!.drafts[1]!.id);
+  const next = createReviewStore(fake().source);
+  expect(next.get().work[key]!.drafts).toEqual([expect.objectContaining({ path: "a.rs", line: 12, side: "right", body: "Take the lock after the call" })]);
+  // One added after a reload is not given an id a kept one already has.
+  next.addDraft(key, { path: "c.rs", body: "Another" });
+  expect(new Set(next.get().work[key]!.drafts.map((one) => one.id)).size).toBe(2);
+  await next.submit(key, "comment", "");
+  expect(createReviewStore(fake().source).get().work[key]!.drafts).toEqual([]);
+});
+
 test("an approval with nothing to say posts no body and no comments", async () => {
   const { store, calls, key } = await opened();
   await store.submit(key, "approve", "");

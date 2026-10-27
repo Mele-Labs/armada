@@ -130,6 +130,8 @@ const KEPT_OPEN = "pr-review:open";
 /** The rows of pull requests opened by link, the latest first, so a reload lists them again: no list from the forge holds them. */
 const KEPT_LINKED = "pr-review:linked";
 const LINKED_KEPT = 10;
+/** His pending comments, by pull request, until Submit is taken. */
+const KEPT_DRAFTS = "pr-review:drafts";
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -307,10 +309,22 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     set({ linked: rows.map(keyOf) });
   };
 
-  // What he had open, and what he opened by link, comes back after a reload as he left it.
+  /** His pending comments on a pull request, changed here and kept, so a reload does not lose what he has not submitted. */
+  const setDrafts = (key: string, drafts: readonly Draft[]) => {
+    change(key, { drafts });
+    const { [key]: _, ...others } = readKept<Record<string, readonly Draft[]>>(KEPT_DRAFTS) ?? {};
+    writeKept(KEPT_DRAFTS, drafts.length === 0 ? others : { ...others, [key]: drafts });
+  };
+
+  // What he had open, what he opened by link and what he has not submitted come back after a reload as he left them.
   const linkedRows = readKept<PullReviewRow[]>(KEPT_LINKED) ?? [];
   linkedRows.forEach(adopt);
   set({ linked: linkedRows.map(keyOf) });
+  for (const [key, drafts] of Object.entries(readKept<Record<string, readonly Draft[]>>(KEPT_DRAFTS) ?? {})) {
+    change(key, { drafts });
+    // A comment added from here on is never given the id of one kept.
+    for (const one of drafts) ids = Math.max(ids, Number(one.id.replace(/^\D+/, "")) || 0);
+  }
   const wasOpen = readKept<string>(KEPT_OPEN);
   if (wasOpen !== undefined && prOf(wasOpen) !== undefined) open(wasOpen);
 
@@ -383,8 +397,8 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
         change(key, { every: answer.ok ? { state: "read", head: on, files: answer.value.files } : { state: "said", said: answer.said } });
       });
     },
-    addDraft: (key, draft) => change(key, { drafts: [...work(key).drafts, { id: nextId("d"), ...draft }] }),
-    removeDraft: (key, id) => change(key, { drafts: work(key).drafts.filter((one) => one.id !== id) }),
+    addDraft: (key, draft) => setDrafts(key, [...work(key).drafts, { id: nextId("d"), ...draft }]),
+    removeDraft: (key, id) => setDrafts(key, work(key).drafts.filter((one) => one.id !== id)),
     resolve: async (key, thread, resolved) => {
       const pr = prOf(key);
       if (pr === undefined) return false;
@@ -421,9 +435,9 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
       }
       const page = answer.value;
       mend(key, { page, body: page.body ?? pr.body, head: page.head ?? pr.head });
+      setDrafts(key, []);
       change(key, {
         submitting: false,
-        drafts: [],
         threads: page.threads ?? [],
         review: page.review,
         submissions: [...work(key).submissions, { verdict, body: body.trim(), comments: comments.length, at: new Date().toISOString(), ...(told === undefined ? {} : { told }) }],
