@@ -34,7 +34,6 @@ The Job is the one whose process holds the connection, an ended Job is refused, 
 **Bridge's call** reads the notes again when the Files tab is entered, and folds the resolved ones away behind Show resolved.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge words as a read or a save that failed.
+Were a pair to meet anyway, a Fleet without the routes answers 404, and Bridge keeps the notes it last held and draws no new ones.
 
-**The event stream.** Untouched: resolving a note pushes no event, so Bridge sees it only on its next read.
-The open risk below is no worse.
+**The event stream.** Untouched: resolving a note pushes no event, so Bridge sees it only on its next read, which is each time the Files tab is entered.
