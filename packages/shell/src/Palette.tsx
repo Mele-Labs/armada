@@ -53,6 +53,8 @@ export type PaletteSession = {
   state?: { icon: LucideIcon; said: string; pulsing?: true };
   paused?: boolean;
   pull?: number;
+  /** Acts of its ⌘K panel that nothing answers here, by act id: left out rather than drawn dead. */
+  without?: readonly string[];
 };
 
 /** An open pull request, an issue: found by its number or any word of its title. */
@@ -626,7 +628,7 @@ function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSessio
   const pin: PaletteAction = held.pinned.includes(entry.id) ? { id: "unpin", label: "Unpin", shortcut: "⇧⌘F", apart: true, stays: true } : { id: "pin", label: "Pin", shortcut: "⇧⌘F", apart: true, stays: true };
   if (entry.id.startsWith("session:")) {
     const job = held.sessions.find((one) => `session:${one.id}` === entry.id);
-    return [
+    const acts: PaletteAction[] = [
       { id: "open", label: "Open", shortcut: "↵" },
       job?.paused === true ? { id: "resume", label: "Resume", icon: Play, shortcut: "⌘P" } : { id: "pause", label: "Pause", icon: Pause, shortcut: "⌘P" },
       { id: "fork", label: "Fork", icon: GitFork, shortcut: "⌥⌘F" },
@@ -640,6 +642,7 @@ function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSessio
       pin,
       { id: "stop", label: "Stop", icon: Ban, shortcut: "⌘⌫", destructive: true, apart: true },
     ];
+    return acts.filter((one) => job?.without?.includes(one.id) !== true);
   }
   if (entry.id.startsWith("pull:")) {
     return [

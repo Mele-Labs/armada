@@ -154,7 +154,7 @@ export function PaletteMount({
       picked={picked}
       // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
-      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one, repoOf))}
+      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one, repoOf, draft))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.

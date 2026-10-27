@@ -33,4 +33,25 @@ describe("a Job as a palette row", () => {
     expect(jobRow(job({ attachments: [pull] }), repoOf).pull).toBe(1899);
     expect(jobRow(job({}), repoOf).pull).toBeUndefined();
   });
+
+  const draft = (over: Record<string, unknown>) => over as unknown as NonNullable<Parameters<typeof jobRow>[2]>;
+  const held = (state: string) => ({ kind: "pull_request", number: 7, title: "t", branch: "b", address: "a", checks: { state: "passed" }, state, auto: false }) as Session["attachments"][number];
+
+  test("offers every act where nothing is said of what the draft can do, as the mock's does", () => {
+    expect(jobRow(job({}), repoOf).without).toBeUndefined();
+  });
+
+  test("leaves out the acts the draft has nothing behind", () => {
+    const all = draft({ pause: async () => true, resume: async () => true, fork: async () => "x", stop: () => undefined, act: async () => true });
+    expect(jobRow(job({}), repoOf, all).without).toBeUndefined();
+    expect(jobRow(job({}), repoOf, draft({})).without).toEqual(["pause", "resume", "fork", "stop", "merge-pull"]);
+    expect(jobRow(job({}), repoOf, draft({ stop: () => undefined })).without).toEqual(["pause", "resume", "fork", "merge-pull"]);
+  });
+
+  test("offers a merge only on a pull request that is open", () => {
+    const all = draft({ pause: async () => true, resume: async () => true, fork: async () => "x", stop: () => undefined, act: async () => true });
+    expect(jobRow(job({ attachments: [held("open")] }), repoOf, all).without).toBeUndefined();
+    expect(jobRow(job({ attachments: [held("draft")] }), repoOf, all).without).toEqual(["merge-pull"]);
+    expect(jobRow(job({ attachments: [held("merged")] }), repoOf, all).without).toEqual(["merge-pull"]);
+  });
 });
