@@ -345,10 +345,12 @@ around a full-width table row is nearly invisible, so the row does
 something stronger.
 
 ```
-focused row   2px --accent left edge bar + --bg-hover   (the palette's rows are the exception)
+focused row   2px --accent left edge bar + --bg-hover
 selected row  --accent-muted fill
 focused ctrl  2px --accent ring at 2px offset, per the global focus rule
 ```
+
+The command palette's rows are the exception: the row under the cursor is a neutral tint with no bar, per the Command palette spec below.
 
 Focus is visible at all times during keyboard navigation, not only on
 `:focus-visible` heuristics — if the person is driving with `j`/`k`, the
