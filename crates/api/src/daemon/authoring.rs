@@ -8,9 +8,13 @@
 
 use std::future::Future;
 
+use std::sync::Arc;
+
 use ipc::{
-    ManifestId, RemoveTrigger, SaveTrigger, SaveWorkflow,
-    TriggerRemoved, TriggerSaved, WorkflowSaved,
+    ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeToArmada, RemoveTrigger,
+    SaveTrigger, SaveWorkflow, SendBackWorkflowChange, SuggestWorkflowChange, TriggerRemoved, TriggerSaved,
+    WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
+    WorkflowId, WorkflowSaved,
 };
 
 use crate::daemon::Refusal;
@@ -30,6 +34,85 @@ pub trait Authoring: Send + Sync + 'static {
         save: SaveWorkflow,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowSaved, Refusal>> + Send;
+
+    /// `delete_workflow_copy` — delete the file in a repository's or Kit's folder that defines
+    /// one workflow. [`Refusal::Unacceptable`] for Armada's own, which is carried in the binary,
+    /// and where that place holds no such definition. The three places are read again first.
+    fn delete_workflow_copy(
+        &self,
+        copy: WorkflowCopy,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowCopyDeleted, Refusal>> + Send;
+
+    /// `reset_workflow_copy` — rewrite a copy's file with Armada's definition of the same id,
+    /// checked as [`Authoring::save_workflow`] checks. [`Refusal::Unacceptable`] for Armada's own,
+    /// where Armada carries no such id, and where that place holds no copy.
+    fn reset_workflow_copy(
+        &self,
+        copy: WorkflowCopy,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowSaved, Refusal>> + Send;
+
+    /// `mark_not_a_drift` — mark one kept nudge so it stops counting.
+    /// [`Refusal::Unacceptable`] where Fleet kept none by that id.
+    fn mark_not_a_drift(
+        &self,
+        marked: MarkNotADrift,
+    ) -> impl Future<Output = Result<NotADriftMarked, Refusal>> + Send;
+
+    /// `ask_workflow_change` — begin a change an agent drafts from the owner's words, and answer it
+    /// `drafting` at once. **Takes the `Arc`** because the draft is a task of its own.
+    /// [`Refusal::Unacceptable`] for Armada's own definition, one this place does not hold, blank words,
+    /// and where no model could be asked.
+    fn ask_workflow_change(
+        self: Arc<Self>,
+        asked: AskWorkflowChange,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
+
+    /// `suggest_workflow_change` — the same, for new words for one step, from the nudges that count.
+    /// [`Refusal::Unacceptable`] as `ask_workflow_change`'s, for a step the definition lacks, for a step
+    /// that already has an open change, and where no nudge counts there.
+    fn suggest_workflow_change(
+        self: Arc<Self>,
+        asked: SuggestWorkflowChange,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
+
+    /// `list_workflow_changes` — the open changes to one workflow in one place.
+    fn list_workflow_changes(
+        &self,
+        workflow_id: WorkflowId,
+        source: String,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowChanges, Refusal>> + Send;
+
+    /// `approve_workflow_change` — write a ready change through the save path, with overwrite.
+    /// [`Refusal::NotFound`] for an unknown change, [`Refusal::IllegalMove`] for one that is not ready or
+    /// whose file changed since it began.
+    fn approve_workflow_change(
+        &self,
+        change: WorkflowChangeRef,
+    ) -> impl Future<Output = Result<WorkflowChangeApproved, Refusal>> + Send;
+
+    /// `dismiss_workflow_change` — put an open change aside.
+    fn dismiss_workflow_change(
+        &self,
+        change: WorkflowChangeRef,
+    ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
+
+    /// `send_back_workflow_change` — draft a ready or failed change again with the owner's notes.
+    fn send_back_workflow_change(
+        self: Arc<Self>,
+        back: SendBackWorkflowChange,
+    ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
+
+    /// `propose_workflow_to_armada` — start a Job on Armada's own repository that lands a definition.
+    /// [`Refusal::Unacceptable`] where this Fleet does not serve it.
+    fn propose_workflow_to_armada(
+        self: Arc<Self>,
+        proposed: ProposeToArmada,
+    ) -> impl Future<Output = Result<ArmadaProposed, Refusal>> + Send;
 
     /// `save_trigger` — check one Trigger against the repository's Commands and
     /// write it in the scope named. **Checked before anything is written**, with

@@ -47,7 +47,7 @@ Putting everything in `~/.armada` would mean copying a setup that already exists
 A definition in `~/.armada/workflows/` replaces the one Armada carries and a repository's own `.armada/workflows/` one with the same `workflow_id`, in every repository on this machine, and says so where it hides a repository's that differs.
 [Workflow](workflow.md) holds the rule. #425.
 **A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
-Bridge's Workflows row lists a Kit file beside the carried and repository ones, marks it with the Kit case, and writes one the same way, with scope Kit.
+Bridge's Workflows page lists a Kit file under Yours, beside the carried and repository ones, and writes one the same way, with scope Kit.
 
 **Review tools are the second.** `~/.armada/review-tools/` holds one `.md` file for each review tool or explanation a person defines for every repository on this machine: front matter naming `kind` (`tool` or `explanation`) and `name`, then the prompt.
 Kit's replaces a repository's own `.armada/review-tools/` and Armada's of the same id (the name lower cased, words joined by a dash), and says so where it hides a repository's that differs.

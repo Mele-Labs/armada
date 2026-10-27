@@ -21,12 +21,67 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/workflows/left_out",
     },
+    Route {
+        operation: "get_workflow_steps",
+        method: "GET",
+        path: "/workflows/steps",
+    },
     // The act in the last segment, beside `/manifest/save_file`'s. Under
     // `/workflows` with the reads, since what it writes is what they list.
     Route {
         operation: "save_workflow",
         method: "POST",
         path: "/workflows/save",
+    },
+    Route {
+        operation: "delete_workflow_copy",
+        method: "POST",
+        path: "/workflows/delete",
+    },
+    Route {
+        operation: "reset_workflow_copy",
+        method: "POST",
+        path: "/workflows/reset",
+    },
+    Route {
+        operation: "mark_not_a_drift",
+        method: "POST",
+        path: "/workflows/not_a_drift",
+    },
+    Route {
+        operation: "list_workflow_changes",
+        method: "GET",
+        path: "/workflows/changes",
+    },
+    Route {
+        operation: "ask_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/ask",
+    },
+    Route {
+        operation: "suggest_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/suggest",
+    },
+    Route {
+        operation: "approve_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/approve",
+    },
+    Route {
+        operation: "dismiss_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/dismiss",
+    },
+    Route {
+        operation: "send_back_workflow_change",
+        method: "POST",
+        path: "/workflows/changes/send_back",
+    },
+    Route {
+        operation: "propose_workflow_to_armada",
+        method: "POST",
+        path: "/workflows/propose",
     },
     Route {
         operation: "list_triggers",

@@ -87,7 +87,23 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
-import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
+import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type {
+  ActingOnWorkflowCopy,
+  AskingForWorkflowChange,
+  NotADriftAnswer,
+  SavingWorkflow,
+  SuggestingWorkflowChange,
+  WorkflowChangeAnswer,
+  WorkflowChangeApproveAnswer,
+  WorkflowChangesRead,
+  WorkflowCopyDeleteAnswer,
+  WorkflowDefinitionRead,
+  WorkflowProposeAnswer,
+  WorkflowSaveAnswer,
+  WorkflowStepsRead,
+  WorkflowsRead,
+} from "../shared/workflows";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { KitFileOpened } from "@armada/manifest/api";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
@@ -277,6 +293,27 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readWorkflowDefinition, workflowId, source),
   saveWorkflow: (saving: SavingWorkflow): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
+  readWorkflowSteps: (workflowId: string, source: string): Promise<WorkflowStepsRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowSteps, workflowId, source),
+  deleteWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowCopyDeleteAnswer> =>
+    ipcRenderer.invoke(CHANNELS.deleteWorkflowCopy, acting),
+  resetWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowSaveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.resetWorkflowCopy, acting),
+  markNotADrift: (nudge: number): Promise<NotADriftAnswer> => ipcRenderer.invoke(CHANNELS.markNotADrift, nudge),
+  askWorkflowChange: (asking: AskingForWorkflowChange): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.askWorkflowChange, asking),
+  suggestWorkflowChange: (suggesting: SuggestingWorkflowChange): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.suggestWorkflowChange, suggesting),
+  readWorkflowChanges: (workflowId: string, source: string): Promise<WorkflowChangesRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowChanges, workflowId, source),
+  approveWorkflowChange: (change: number): Promise<WorkflowChangeApproveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.approveWorkflowChange, change),
+  dismissWorkflowChange: (change: number): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.dismissWorkflowChange, change),
+  sendBackWorkflowChange: (back: SendBackWorkflowChange): Promise<WorkflowChangeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.sendBackWorkflowChange, back),
+  proposeWorkflowToArmada: (proposing: ProposeToArmada): Promise<WorkflowProposeAnswer> =>
+    ipcRenderer.invoke(CHANNELS.proposeWorkflowToArmada, proposing),
 
   readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
   readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>

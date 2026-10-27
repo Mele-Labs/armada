@@ -91,7 +91,7 @@ fn refused_for(answer: Result<ipc::SessionRecord, api::Refusal>) -> String {
 #[tokio::test]
 async fn an_item_that_repeats_the_pending_plan_is_refused_and_names_it() {
     let (rig, id) = loaded().await;
-    rig.fleet.record_plan(None, plan(&id)).await.expect("recorded");
+    rig.fleet.record_plan(None, plan(&id), false).await.expect("recorded");
     let why = refused_for(rig.fleet.waiting_for(None, say(&id, &[("ask", "Which key opens the card?"), ("go", "Approve the store plan")])).await);
     assert!(why.contains("\"go\"") && why.contains("version 1") && why.contains("Plan to approve"), "{why}");
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
@@ -101,7 +101,7 @@ async fn an_item_that_repeats_the_pending_plan_is_refused_and_names_it() {
 #[tokio::test]
 async fn an_item_about_something_else_is_kept_while_a_plan_is_pending() {
     let (rig, id) = loaded().await;
-    rig.fleet.record_plan(None, plan(&id)).await.expect("recorded");
+    rig.fleet.record_plan(None, plan(&id), false).await.expect("recorded");
     rig.fleet.waiting_for(None, say(&id, &[("ask", "Which key opens the card?")])).await.expect("kept");
 }
 
@@ -109,7 +109,7 @@ async fn an_item_about_something_else_is_kept_while_a_plan_is_pending() {
 async fn the_same_words_are_kept_once_no_plan_waits() {
     let (rig, id) = loaded().await;
     rig.fleet.waiting_for(None, say(&id, &[("go", "Approve the store plan")])).await.expect("no plan is recorded");
-    rig.fleet.record_plan(None, plan(&id)).await.expect("recorded");
+    rig.fleet.record_plan(None, plan(&id), false).await.expect("recorded");
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.expect("approved");
     rig.fleet.waiting_for(None, say(&id, &[("go", "Approve the store plan")])).await.expect("an approved plan waits on nothing");
 }
@@ -118,7 +118,7 @@ async fn the_same_words_are_kept_once_no_plan_waits() {
 async fn until_the_model_is_loaded_the_list_is_accepted_as_it_was() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    rig.fleet.record_plan(None, plan(&id)).await.expect("recorded");
+    rig.fleet.record_plan(None, plan(&id), false).await.expect("recorded");
     rig.fleet.waiting_for(None, say(&id, &[("go", "Approve the store plan")])).await.expect("the rules have no phrase for it");
 }
 

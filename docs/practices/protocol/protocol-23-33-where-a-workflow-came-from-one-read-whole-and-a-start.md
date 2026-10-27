@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-The Workflow creator needs to draw each definition's place, the ones a more specific place replaced, and the one it is editing. A workflow file that does not fit stops refusing Fleet's start.
+The Workflows page needs to draw each definition's place, the ones a more specific place replaced, and the one it is editing. A workflow file that does not fit stops refusing Fleet's start.
 
 **Additive.** `WorkflowSummary` gains `file` and `overrides` (each an `OverriddenWorkflow { source, file }`, one per replaced place, absent where none).
 A new route, `GET /workflows/definition?workflow_id=&source=&manifest_id=`, `get_workflow`, answers a `WorkflowDefinition { workflow_id, source, file, definition, overridden_by? }`, where `definition` is the file's text in the shape `save_workflow` takes back.

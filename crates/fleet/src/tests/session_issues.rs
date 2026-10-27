@@ -401,15 +401,15 @@ async fn an_issue_a_plan_group_names_is_held_once_and_a_group_naming_none_adds_n
     let rig = a_rig();
     let id = rig.start().await;
 
-    rig.fleet.record_plan(None, plan_naming(&id, &[Some("31"), None])).await.expect("recorded");
-    rig.fleet.record_plan(None, plan_naming(&id, &[Some("31"), None])).await.expect("recorded again");
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some("31"), None]), false).await.expect("recorded");
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some("31"), None]), false).await.expect("recorded again");
     assert_eq!(targets(&issues(&*rig.fleet, id.as_str()).await), vec!["31"]);
 
-    rig.fleet.record_plan(None, plan_naming(&id, &[None, None])).await.expect("recorded without it");
+    rig.fleet.record_plan(None, plan_naming(&id, &[None, None]), false).await.expect("recorded without it");
     assert_eq!(targets(&issues(&*rig.fleet, id.as_str()).await), vec!["31"]);
 
     let other = rig.start().await;
-    rig.fleet.record_plan(None, plan_naming(&other, &[None])).await.expect("recorded");
+    rig.fleet.record_plan(None, plan_naming(&other, &[None]), false).await.expect("recorded");
     assert!(issues(&*rig.fleet, other.as_str()).await.is_empty());
 }
 
@@ -420,7 +420,7 @@ async fn a_plan_group_naming_a_trackers_key_holds_it_and_the_plan_keeps_the_key(
     let rig = a_rig();
     let id = rig.start().await;
 
-    rig.fleet.record_plan(None, plan_naming(&id, &[Some("ABC-12"), Some("#7")])).await.expect("recorded");
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some("ABC-12"), Some("#7")]), false).await.expect("recorded");
 
     let mut held = targets(&issues(&*rig.fleet, id.as_str()).await).into_iter().map(str::to_string).collect::<Vec<_>>();
     held.sort();
@@ -437,7 +437,7 @@ async fn a_plan_group_naming_neither_a_number_nor_a_key_is_refused() {
     let rig = a_rig();
     let id = rig.start().await;
 
-    let refused = rig.fleet.record_plan(None, plan_naming(&id, &[None, Some("abc-1")])).await;
+    let refused = rig.fleet.record_plan(None, plan_naming(&id, &[None, Some("abc-1")]), false).await;
 
     let said = format!("{:?}", refused.expect_err("refused"));
     assert!(said.contains("groups[1]") && said.contains("abc-1"), "{said}");

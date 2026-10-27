@@ -36,7 +36,7 @@ fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
 }
 
 async fn record(rig: &Rig, id: &SessionId, walk: Option<&str>) {
-    rig.fleet.record_plan(None, plan(id, walk)).await.expect("recorded");
+    rig.fleet.record_plan(None, plan(id, walk), false).await.expect("recorded");
 }
 
 async fn show(rig: &Rig, id: &SessionId, shown: ShowWindow) {

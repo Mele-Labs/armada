@@ -70,12 +70,9 @@ Nothing is held, so a save is on the next `list_triggers`.
 
 ## In Bridge
 
-| Where | What it draws |
-|---|---|
-| A workflow's canvas | A Trigger that applies to every workflow is a leaf off the step it names, on each workflow's canvas, marked with the every-workflow glyph. It opens the editor: When, Step, Applies to, Set in, Runs, and the two switches under If it fails |
-| A workflow's step | The Triggers set for this workflow that name it, one line a moment (On start, On pass, PR opened) |
+The Workflows page draws and edits no Trigger.
 
-A copy a more specific level replaced is drawn struck through under the one that applies.
+Wherever Bridge draws one, a copy a more specific level replaced is struck through under the one that applies.
 A repository's save is marked as waiting for `main`, and a machine Trigger on a Command the repository lacks is marked skipped.
 
 The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.

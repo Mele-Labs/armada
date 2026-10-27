@@ -28,7 +28,7 @@ fn asked_of(judge: &FakeJudge) -> Vec<String> {
     judge.asked().into_iter().filter(|one| !one.starts_with("You are deciding what kind of work")).collect()
 }
 
-fn criterion() -> JudgeCriterion {
+pub(super) fn criterion() -> JudgeCriterion {
     JudgeCriterion {
         criterion_id: CriterionId::new("c1"),
         question: "Does the reader stop at the end?".into(),
@@ -36,8 +36,9 @@ fn criterion() -> JudgeCriterion {
     }
 }
 
-fn step(label: &str) -> RailStep {
+pub(super) fn step(label: &str) -> RailStep {
     RailStep {
+        id: label.to_lowercase().replace(' ', "_"),
         label: label.into(),
         about: None,
         instructions: None,
@@ -45,32 +46,34 @@ fn step(label: &str) -> RailStep {
         follows_plan: false,
         delivers: false,
         asks_delivery: false,
+        walks: false,
+        awaits_reply: false,
         criteria: Vec::new(),
         fit: None,
     }
 }
 
-fn plan_step() -> RailStep {
+pub(super) fn plan_step() -> RailStep {
     RailStep { records_plan: true, ..step("Plan the change") }
 }
 
-fn follows(label: &str) -> RailStep {
+pub(super) fn follows(label: &str) -> RailStep {
     RailStep { follows_plan: true, criteria: vec![criterion()], ..step(label) }
 }
 
-fn delivers(label: &str) -> RailStep {
+pub(super) fn delivers(label: &str) -> RailStep {
     RailStep { delivers: true, ..step(label) }
 }
 
-fn fitted(label: &str, fit: Fit) -> RailStep {
+pub(super) fn fitted(label: &str, fit: Fit) -> RailStep {
     RailStep { fit: Some(fit), ..step(label) }
 }
 
-fn approved() -> Facts {
+pub(super) fn approved() -> Facts {
     Facts { plan_approved: true, ..Facts::default() }
 }
 
-fn at(steps: &[RailStep], facts: Facts) -> Option<usize> {
+pub(super) fn at(steps: &[RailStep], facts: Facts) -> Option<usize> {
     rail::current(steps, &facts)
 }
 
@@ -176,7 +179,7 @@ fn a_cited_line_of_the_diff_part_is_placed_in_its_file_as_the_change_leaves_it()
 
 // ---- Through a Fleet ----
 
-const REQUEST: &str = "the log reader drops the last line of every file";
+pub(super) const REQUEST: &str = "the log reader drops the last line of every file";
 
 pub(super) fn workflow() -> config::ResolvedWorkflow {
     let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
@@ -193,6 +196,13 @@ pub(super) fn workflow() -> config::ResolvedWorkflow {
         .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
 }
 
+pub(super) fn ruled_on(judge: Arc<FakeJudge>, workflow: config::ResolvedWorkflow) -> Rig {
+    rig_fitted(|fittings| {
+        fittings.judge = judge;
+        fittings.starting().workflows = super::daemon::one(workflow);
+    })
+}
+
 fn ruled(judge: Arc<FakeJudge>) -> Rig {
     rig_fitted(|fittings| {
         fittings.judge = judge;
@@ -200,12 +210,12 @@ fn ruled(judge: Arc<FakeJudge>) -> Rig {
     })
 }
 
-async fn record(rig: &Rig, id: &SessionId) -> SessionRecord {
+pub(super) async fn record(rig: &Rig, id: &SessionId) -> SessionRecord {
     Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session
 }
 
 /// A Session on the workflow with its process running, and the rail watching.
-async fn on_the_rail(rig: &Rig) -> SessionId {
+pub(super) async fn on_the_rail(rig: &Rig) -> SessionId {
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
     crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
     let id = rig.start().await;
@@ -218,7 +228,7 @@ async fn on_the_rail(rig: &Rig) -> SessionId {
     id
 }
 
-fn plan(id: &SessionId) -> RecordPlan {
+pub(super) fn plan(id: &SessionId) -> RecordPlan {
     RecordPlan {
         summary: "You get a plan.".into(),
         groups: vec![PlanGroupInput {
@@ -236,16 +246,21 @@ fn plan(id: &SessionId) -> RecordPlan {
     }
 }
 
-async fn approved_plan(rig: &Rig, id: &SessionId) {
-    rig.fleet.record_plan(None, plan(id)).await.expect("recorded");
+pub(super) async fn approved_plan(rig: &Rig, id: &SessionId) {
+    approved_plan_saying(rig, id, false).await;
+}
+
+/// As [`approved_plan`], the agent saying `seen`: the person would see the change.
+pub(super) async fn approved_plan_saying(rig: &Rig, id: &SessionId, seen: bool) {
+    rig.fleet.record_plan(None, plan(id), seen).await.expect("recorded");
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.expect("approved");
 }
 
-fn edit(path: &str) -> DroneEvent {
+pub(super) fn edit(path: &str) -> DroneEvent {
     DroneEvent::Called { tool: testkit::EDITS.into(), call: "toolu_1".into(), detail: CallDetail::of(path) }
 }
 
-fn told(rig: &Rig, containing: &str) -> usize {
+pub(super) fn told(rig: &Rig, containing: &str) -> usize {
     rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
 }
 

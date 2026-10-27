@@ -94,12 +94,12 @@ fn an_earlier_sweeping_step_does_not_gate_on_a_handoff_check() {
 fn the_step_before_handoff_is_the_one_that_runs_it() {
     let feature = resolved(FEATURE);
     assert_eq!(
-        names(step(&feature, "implement").checks()),
+        names(step(&feature, "refine").checks()),
         ["build", "storybook", "e2e"]
     );
     assert!(feature
         .frozen()
-        .held_for_handoff(&StepId::new("implement"))
+        .held_for_handoff(&StepId::new("refine"))
         .is_empty());
     let taking: usize = feature
         .steps()

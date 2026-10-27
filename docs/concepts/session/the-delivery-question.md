@@ -15,7 +15,7 @@ The usual, the picks it is read from and the Jobs that are held are in that page
 **A Job that is not held is asked at its plan step.**
 A start with `root` and Helm's are not held, and the question below stands for them.
 
-**A step asks, a workflow does not.** The step key is `asks_delivery`, false where absent, and `bug` and `feature` set it on their plan step.
+**A step asks, a workflow does not.** The step key is `asks_delivery`, false where absent, and `bug` and `feature` set it on their first step.
 Entering that step is the start: Fleet does not send the step's `instructions` then.
 It tells the agent to stop and not to edit, commit or push, and puts the question on the Job's `waiting_for` as a `delivery` item.
 It tells the agent the question is asked already, so the agent never puts a second copy on `waiting_for` or asks it with AskUserQuestion.
@@ -36,4 +36,4 @@ It asks once a commit: a commit it saw queued or on auto-merge is not asked agai
 Fleet otherwise acts on it only by telling the agent. The agent delivers by it at `land`, the last step of `bug` and `feature`, whose instructions name what each answer means.
 A change the owner would see in Bridge is walked and approved before any of the three runs.
 `land` is declared `human_always`, and nothing in Fleet blocks on that gate.
-The agent reads the answer from the `land` step's instructions: Auto land merges on a green `ci` without asking, and a change the owner would see still waits for his walk.
+The agent reads the answer from the `deliver` step's instructions: Auto land merges on a green `ci` without asking, and a change the owner would see has already been walked and approved before it.

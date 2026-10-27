@@ -18,7 +18,7 @@
 use std::path::{Path, PathBuf};
 
 use config::{Manifest, Roster, WorkflowDef};
-use fleet::repositories::{SavedWorkflow, WorkflowNotSaved};
+use fleet::repositories::{SavedWorkflow, WorkflowNotRemoved, WorkflowNotSaved};
 use ipc::{SaveWorkflow, WorkflowScope};
 
 use crate::setup::{listed, KIT_WORKFLOWS, WORKFLOWS};
@@ -61,6 +61,52 @@ pub fn save(
         file: target.display().to_string(),
         replaced,
     })
+}
+
+/// Delete every file in `scope`'s folder that defines `id`, and answer the first. **Found by the id a
+/// file declares**, as [`save`] finds the one it replaces, so a copy under another name goes too.
+pub fn remove(
+    root: &Path,
+    kit: &Path,
+    roster: &Roster,
+    scope: WorkflowScope,
+    id: &str,
+) -> Result<String, WorkflowNotRemoved> {
+    let dir = match scope {
+        WorkflowScope::Repository => root.join(WORKFLOWS),
+        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
+    };
+    let held = holding(&dir, id, roster).map_err(|why| WorkflowNotRemoved::Unwritable {
+        file: dir.display().to_string(),
+        cause: std::io::Error::other(why),
+    })?;
+    let Some(first) = held.first() else {
+        return Err(WorkflowNotRemoved::NotHere);
+    };
+    for path in &held {
+        std::fs::remove_file(path).map_err(|cause| WorkflowNotRemoved::Unwritable {
+            file: path.display().to_string(),
+            cause,
+        })?;
+    }
+    Ok(first.display().to_string())
+}
+
+/// Delete one file of `scope`'s folder: a copy that was left out, found by its name. **A file that is not
+/// in that folder is not this one's to delete**, whatever it is called.
+pub fn remove_file(root: &Path, kit: &Path, scope: WorkflowScope, file: &Path) -> Result<String, WorkflowNotRemoved> {
+    let dir = match scope {
+        WorkflowScope::Repository => root.join(WORKFLOWS),
+        WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
+    };
+    if file.parent() != Some(dir.as_path()) || !file.is_file() {
+        return Err(WorkflowNotRemoved::NotHere);
+    }
+    std::fs::remove_file(file).map_err(|cause| WorkflowNotRemoved::Unwritable {
+        file: file.display().to_string(),
+        cause,
+    })?;
+    Ok(file.display().to_string())
 }
 
 fn checked(

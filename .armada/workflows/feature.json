@@ -1,50 +1,20 @@
-# Feature, reduced to what M1's parser accepts. `bug.json` beside this file
-# carries what all eight hold to, and where the schema, the catalogue and the
-# Check reasoning live.
+# Feature, as the owner chose it on 27 Oct 2026: Propose, Discuss, Approve plan, Walk, Refine, Deliver.
+# The walk comes before any test, and Fleet places each step from what it saw and nudges once if a
+# test is written before the walk is approved. `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`
+# has the reasoning; `crates/core-model/domain/workflowdef-fields.toml` has `awaits_reply` and `walks`.
+# `bug.json` beside this file carries what all of them hold to. This file is also what Armada ships.
 #
-# The designed `feature.json` runs seven steps in a loop. This form keeps
-# `scope` and `implement`, and folds `review`, `merge` and `close` into one
-# `land` -- Bug's fold. The designed `tests` step is folded into `implement`
-# too: its Drone-per-task already writes the tests as plan tasks, so a step after
-# it had nothing left to move and `diff_nonempty` refused it (Job 3). Its
-# `tests_exercise_behaviour` criterion is carried onto `implement`. `regression_verify`'s question does not vanish
-# with its step: it is carried as `implement`'s second criterion, on the diff it
-# was asking about.
+# **`deliver` is gated `human_always`.** New behaviour is the case where the engineer looks every
+# time (`workflows.toml` has the reason). The owner decided on 19 Oct 2026 that Auto land does not stop
+# there; Fleet declares the gate and does not enforce it, and the step's instructions carry the stop.
 #
-# **`land` is gated `human_always`, and here that is the folded `review`
-# step's own gate.** Of the three the fold swallows, `review`'s is the
-# strictest; the other two reach for a Manifest rule the parser still defers.
-# Feature is where the designed file spells `human_always` as a literal rather
-# than reaching a Manifest for it, and `workflows.toml` gives the reason: new
-# behaviour is the case where the engineer looks every time. The owner decided
-# on 19 Oct 2026 that Auto land does not stop at `land`. Fleet declares the gate
-# value and does not enforce it; the step's instructions carry the stop.
+# **`asks_delivery` is on `propose`**, the first step: the start card's answer is carried only on the
+# first turn, so a later step would lose it.
 #
-# **`implements_the_scope` tolerates an unscoped restructure, and its sibling is
-# why it can.** Its *and nothing outside it* clause refused a Job whose Drone
-# built the scoped feature and also split a module that had reached the 900-line
-# hard refusal -- while `no_behaviour_beyond_scope` had already answered the
-# question that mattered, and answered it `met`. #190 removed the clause.
-#
-# **The two must not converge.** Narrowing this one to behaviour makes it a
-# second spelling of the criterion beside it, and the two disagreeing is what
-# made that refusal legible at all: *the behaviour is exactly what you scoped;
-# the diff contains work you did not scope*. Widening its sibling is the same
-# mistake from the other end -- `no_behaviour_beyond_scope` is what caught a
-# Drone doing three steps' work in one PR, which is `docs/scope.md`'s fourth
-# pain.
-#
-# **`scope` carries two criteria rather than one.** A note can address the
-# request and still be too vague to scope anything, and the two failures look
-# nothing alike to whoever reads the refusal.
-#
-# **`addresses_the_request` names what every change here carries, because the
-# Judge cannot see the repository's rules.** Owner's call, 1 Oct 2026: a plan
-# to retire two guides was refused on *"scope expands beyond what was
-# requested"* for its task to fix the prose that pointed at them -- prose the
-# docs gate refuses to leave behind. Docs the change makes wrong, tests that
-# prove it and files it regenerates are the request; an unasked-for feature or
-# refactor is still refused.
+# **`implements_the_scope` tolerates an unscoped restructure, and its sibling is why it can.** Its
+# criterion once refused a Job that split a module at the 900-line refusal while
+# `no_behaviour_beyond_scope` had answered `met` (#190). The two must not converge: narrowing this one
+# to behaviour makes it a second spelling of its sibling.
 {
   "version": 1,
   "workflow_id": "feature",
@@ -52,12 +22,32 @@
   "for_requests": "Adding, removing or changing what the software does or shows: a new screen, option or command, a change to how something behaves, or taking away something people could see or use, meant to land and stay. Fixing something broken is a bug, and moving code around while nothing anyone sees changes is a refactor.",
   "steps": [
     {
-      "id": "plan",
-      "label": "Plan the change",
-      "about": "Reads the request and the code, asks what is unclear, and writes down the change as tasks, with a walk proposed where you would see it. Nothing is changed yet. The tasks are what Implement works from.",
-      "instructions": "Scope the change: read the request and every link in it, and the code it touches. Put what the code and the request leave open to the person with ask_the_person, one question at a time.\nIf the person would see the change in Bridge, propose a walk of it with the plan: say what the walk shows. It is shown before anything lands.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen, each with the test that proves it. Every new test is shown failing before the change makes it pass.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan, with a summary of a few lines in the person's own words saying what he gets (no file names or types) and a gives line per group, and wait for the person to approve it. If he says he is not ready for a plan, keep talking and record no plan until he asks for one. Edit nothing before then.",
+      "id": "propose",
+      "label": "Propose",
+      "about": "Says what it took the request to mean and a first idea, then stops until you reply.",
+      "instructions": "Say in a few lines what you took the request to mean and a first idea. Read only what that needs. Then stop and wait for the person's reply.",
+      "awaits_reply": true,
+      "asks_delivery": true,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "discuss",
+      "label": "Discuss",
+      "about": "Settles the scope with you, with sketches and ideas, and a rough walk when the idea is about the look. Nothing on the branch changes but a mock.",
+      "instructions": "Ask what is unclear, one question at a time. Show ideas as sketches. Where the idea is about how something looks, a rough walk may come now. Edit nothing on the branch but a mock.\nPut what the code and the request leave open to the person with ask_the_person. Read the request and every link in it, and the code it touches.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nIf he says he is not ready for a plan, keep talking and record no plan until he asks for one.",
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "approve_plan",
+      "label": "Approve plan",
+      "about": "Writes down the change as tasks, with a walk named for each piece you would see. Nothing is changed yet. The tasks are what Refine works from.",
+      "instructions": "Record the plan: what the person gets, in his words, the groups in order, and a walk for each piece he would see. Wait for approval.\nSay `seen: true` in record_plan when the person would see any piece of the change.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan, with a summary of a few lines in the person's own words saying what he gets (no file names or types) and a gives line per group, and wait for the person to approve it. Edit nothing before then but a mock.",
       "evidence": {
-        "submitted": { "type": "plan" }
+        "submitted": {
+          "type": "plan"
+        }
       },
       "mechanical_checks": [
         {
@@ -85,16 +75,26 @@
         }
       ],
       "delivers": false,
-      "asks_delivery": true,
       "advance_gate": "auto_if_judge_passes"
     },
     {
-      "id": "implement",
-      "label": "Implement",
-      "about": "Builds the change and its tests from the plan, one Drone per task, and runs the repository's checks on the result.",
-      "instructions": "Work the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built, how tests are named.\nEvery new test is shown failing without the change, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
+      "id": "walk",
+      "label": "Walk",
+      "about": "Builds the mock in the real Bridge on fixtures and shows it to you as a walk. No tests until you approve it. Passed over when nothing would be seen.",
+      "instructions": "Build the mock in the real Bridge on fixtures and show it as a walk. Write no tests until it is approved. Notes come back as another take.\nShow it with show_window and wait for the person's approval. A change nobody would see in Bridge needs no walk.",
+      "walks": true,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "refine",
+      "label": "Refine",
+      "about": "Wires it for real and writes the tests, from the plan, then runs the repository's checks on the result.",
+      "instructions": "Wire it to the real thing and write the tests now. Show a new walk only if the look changed.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built, how tests are named.\nEvery new test is shown failing without the change, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
       "evidence": {
-        "submitted": { "type": "diff" },
+        "submitted": {
+          "type": "diff"
+        },
         "captured": true
       },
       "retry_limit": 2,
@@ -132,10 +132,10 @@
               "criterion_id": "tasks_match_the_diff",
               "question": "Does the diff do every task set to done or handed in, and does each dropped task's reason hold?"
             },
-          {
-            "criterion_id": "the_evidence_accounts_for_itself",
-            "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
-          },
+            {
+              "criterion_id": "the_evidence_accounts_for_itself",
+              "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
+            },
             {
               "criterion_id": "tests_exercise_behaviour",
               "question": "Do the tests in this diff exercise the behaviour the scope note described, rather than restating the implementation?"
@@ -147,12 +147,14 @@
       "advance_gate": "auto_if_judge_passes"
     },
     {
-      "id": "land",
-      "label": "Land the change",
-      "about": "Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch. A change you would see in Bridge waits for your walk and approval first.",
-      "instructions": "Land the change by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.\nIf the change is something the person would see in Bridge, stop before any delivery: serve a walk of it, show it with show_window, and wait for their approval. Nothing below runs until they approve. A change nobody would see in Bridge needs no walk.\nReview the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.\nAuto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.\nOpen PR only: push the branch and open the pull request. Stop there and do not merge.\nKeep local: stop at the commit on the Job's branch. Push nothing and open no pull request.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
+      "id": "deliver",
+      "label": "Deliver",
+      "about": "Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch.",
+      "instructions": "Open the pull request and merge it on a green ci. Say what landed.\nDeliver by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.\nReview the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.\nAuto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.\nOpen PR only: push the branch and open the pull request. Stop there and do not merge.\nKeep local: stop at the commit on the Job's branch. Push nothing and open no pull request.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
       "evidence": {
-        "submitted": { "type": "review" }
+        "submitted": {
+          "type": "review"
+        }
       },
       "delivers": true,
       "advance_gate": "human_always"

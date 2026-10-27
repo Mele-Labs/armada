@@ -449,7 +449,7 @@ impl Rig {
     async fn a_parent_with_a_plan(&self) -> SessionId {
         crate::linked_following::keep_the_linked(Arc::clone(&self.fleet));
         let agent = self.an_agent().await;
-        self.fleet.record_plan(None, two_groups(&agent)).await.expect("recorded");
+        self.fleet.record_plan(None, two_groups(&agent), false).await.expect("recorded");
         agent
     }
 

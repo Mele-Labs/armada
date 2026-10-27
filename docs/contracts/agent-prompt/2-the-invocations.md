@@ -12,6 +12,7 @@
 | **Lesson mover** | `fleet` | Once per store, off the turn after Fleet starts, in batches of open retro items | Compiled in, not a setting; [Retro](../../concepts/retro.md), *What the Logbook takes* |
 | **Teaching reader** | `fleet` | When a person presses Teach on words, a command, a notice, a task, a Check, a pull request or a place in Bridge, once, with nothing kept | Specified by `prompts.teachingRead`; the parts it may propose depend on what was pressed on |
 | **Test map reader** | `fleet` | When main moves and a changed file is one no collector can measure | Drafted — section 5g |
+| **Workflow change** | `fleet` | When the owner types a change to a workflow, sends a draft back, or a step drifts twice in a week | Drafted — section 5h |
 | **Scout** | `fleet` | When a person asks from a Studio or a stranded slot, directly or through Helm | Drafted — sections 5b, 5c and 5d |
 | **Judge** | `verification` | Per criterion, after a mechanical check passed | Not specified |
 | **Job-shape classifier** | `fleet` | At Job creation | Not specified |

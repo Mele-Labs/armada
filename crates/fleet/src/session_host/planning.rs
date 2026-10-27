@@ -160,6 +160,7 @@ where
         &self,
         caller: Option<api::Caller>,
         record: RecordPlan,
+        seen: bool,
     ) -> Result<SessionRecord, Refusal> {
         let checked = record.checked().map_err(|why| self.hosted_refusal(PLAN_REFUSED, &why))?;
         let id = caller
@@ -192,7 +193,7 @@ where
             }
         };
         let now = self.now().as_str().to_string();
-        let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, checked.summary, &now);
+        let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         // The issues the groups work, held as the person's tags are: a second recording is a no-op.

@@ -62,6 +62,8 @@ fn served_root(repository: &str) -> Result<(), Refusal> {
 pub struct FakeDaemon {
     /// The row every Session act answers with where a test sets one, in place of a thin echo.
     pub session_row: Mutex<Option<ipc::SessionRecord>>,
+    /// The `seen` each `record_plan` was handed, for a test to read after the router has the daemon.
+    pub plans_seen: std::sync::Arc<Mutex<Vec<bool>>>,
     /// What `list_servers` answers with, narrowed by Manifest. Set by a test.
     pub servers: Mutex<Vec<ipc::ServerState>>,
     /// When set, every call answers with a fault. The stream closing on a
@@ -122,6 +124,7 @@ impl FakeDaemon {
     pub fn new(_events: Broadcaster) -> FakeDaemon {
         FakeDaemon {
             session_row: Mutex::new(None),
+            plans_seen: Default::default(),
             servers: Mutex::new(Vec::new()),
             mute: Mutex::new(false),
             land: Mutex::new(None),

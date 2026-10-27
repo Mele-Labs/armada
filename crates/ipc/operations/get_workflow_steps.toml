@@ -1,0 +1,18 @@
+[operations.get_workflow_steps]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One workflow definition step by step: each step's words, what ends it, when it is passed over and the Jobs Fleet nudged there"
+notes = """
+`GET /workflows/steps?workflow_id=&source=&manifest_id=`, since 27 Oct 2026, for the Workflows page. The answer is a `WorkflowSteps`: the id, the place and `steps`, each a `StepReading` with `id`, `label`, `instructions` (the words the agent is told), `ends_when`, `passed_over_when` and `nudges`.
+
+**A route of its own, and not fields on `get_workflow`.** That read is the file's text and not a tree, so what an editor sends back to `save_workflow` is the string it was given; a tree beside it would be a second thing to keep equal. The nudges are also the one part that moves while the definition does not.
+
+`source` is optional and reads as on `get_workflow`: absent is the definition that runs, present is one a more specific place replaced, so Armada's can be read beside a copy of it. The steps are read from the parsed file and resolved against the repository's Checks here, as a Job would freeze them. 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place; 422 `fleet.workflow_unfit` with the loader's own sentence where one a more specific place replaced names a Check this repository does not declare.
+
+**`ends_when` and `passed_over_when` are `rail_ends`' reading of the same rules the rail places a Job by**, so the page does not restate them. Both are absent where nothing Fleet observes ends the step, and `passed_over_when` is present on a step that walks only.
+
+**`nudges` are those that still count**: the newest twenty kept for that step in that place's definition, newest first, less those marked not a drift. A nudge is kept against the place it was sent from, since a repository's copy and Armada's of one id are two workflows. `id` is what `mark_not_a_drift` takes; `job_title` is absent where the Job has none.
+
+`agent_access` is `Yes` on `get_workflow`'s terms: an agent helping to edit a workflow reads what drifted at each step.
+"""

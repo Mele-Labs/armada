@@ -1,0 +1,16 @@
+[operations.ask_workflow_change]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Ask an agent to rewrite a repository's or Kit's workflow as the owner words it, and keep the draft for him to approve"
+notes = """
+`POST /workflows/changes/ask`, since 27 Oct 2026, with `?manifest_id=`. The body is `AskWorkflowChange`: `workflow_id`, `source` (`repository` or `kit`) and `text`, his words. The answer is a `WorkflowChange` with `origin` `asked`, `before` the file's text now and `state` `drafting`.
+
+**It answers at once and the draft comes after.** One short model run, not a Job, on `models.proposer`: the definition's text and his words in, the whole new definition out. Fleet checks it with the parse and resolve `save_workflow` uses; one that does not fit is drafted once more with the loader's sentence, and then the change is `failed` with that sentence as `reason`. `list_workflow_changes` is how the page sees it become `ready`.
+
+**Nothing is saved.** The draft is a `WorkflowChange` until `approve_workflow_change`.
+
+422 `fleet.workflow_is_armadas` where `source` is `armada`: Armada's rows are read-only, and Make my copy comes first. 422 `fleet.no_such_workflow_definition` where that place holds no definition of the id. 422 `fleet.workflow_change_empty` where `text` is blank. 422 `fleet.workflow_change_no_agent` where no model could be asked.
+
+`agent_access` is `Bridge only`: it spends a model run, and the person asked for it.
+"""

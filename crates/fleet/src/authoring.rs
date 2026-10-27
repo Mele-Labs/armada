@@ -11,6 +11,7 @@
 //! writes has settled.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Authoring, Refusal};
@@ -21,14 +22,14 @@ use crate::repositories::{Served, WorkflowNotSaved};
 
 /// The definition does not fit this repository. **A 422 carrying the loader's
 /// own sentence**, and nothing is written.
-const WORKFLOW_UNFIT: &str = "fleet.workflow_unfit";
+pub(crate) const WORKFLOW_UNFIT: &str = "fleet.workflow_unfit";
 /// The id is not usable as a file's name. A 422.
 const WORKFLOW_NOT_A_NAME: &str = "fleet.workflow_id_not_a_name";
 /// A definition of this id is already in that scope and `overwrite` was not
 /// set. A 422 naming the file, so the caller can say what it would replace.
 const WORKFLOW_EXISTS: &str = "fleet.workflow_exists";
 /// The folder or the file could not be written. A 500.
-const WORKFLOW_UNWRITABLE: &str = "fleet.workflow_unwritable";
+pub(crate) const WORKFLOW_UNWRITABLE: &str = "fleet.workflow_unwritable";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -87,7 +88,7 @@ where
         }
     }
 
-    fn read_workflows_again(&self, served: &Served) {
+    pub(crate) fn read_workflows_again(&self, served: &Served) {
         let read = self.locating().workflows(
             Path::new(served.root()),
             served.manifest(),
@@ -155,6 +156,76 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<WorkflowSaved, Refusal> {
         self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
+    }
+
+    async fn delete_workflow_copy(
+        &self,
+        copy: ipc::WorkflowCopy,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowCopyDeleted, Refusal> {
+        self.delete_workflow_copy_file(copy, &self.served_named(manifest_id.as_ref())?)
+    }
+
+    async fn reset_workflow_copy(
+        &self,
+        copy: ipc::WorkflowCopy,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<WorkflowSaved, Refusal> {
+        self.reset_workflow_copy_file(copy, &self.served_named(manifest_id.as_ref())?)
+    }
+
+    async fn mark_not_a_drift(&self, marked: ipc::MarkNotADrift) -> Result<ipc::NotADriftMarked, Refusal> {
+        self.nudge_marked(marked).await
+    }
+
+    async fn ask_workflow_change(
+        self: Arc<Self>,
+        asked: ipc::AskWorkflowChange,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_asked(asked, manifest_id).await
+    }
+
+    async fn suggest_workflow_change(
+        self: Arc<Self>,
+        asked: ipc::SuggestWorkflowChange,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_suggested(asked, manifest_id).await
+    }
+
+    async fn list_workflow_changes(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: String,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChanges, Refusal> {
+        self.workflow_changes_listed(&workflow_id, &source, manifest_id.as_ref()).await
+    }
+
+    async fn approve_workflow_change(
+        &self,
+        change: ipc::WorkflowChangeRef,
+    ) -> Result<ipc::WorkflowChangeApproved, Refusal> {
+        self.workflow_change_approved(change).await
+    }
+
+    async fn dismiss_workflow_change(&self, change: ipc::WorkflowChangeRef) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_dismissed(change).await
+    }
+
+    async fn send_back_workflow_change(
+        self: Arc<Self>,
+        back: ipc::SendBackWorkflowChange,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_sent_back(back).await
+    }
+
+    async fn propose_workflow_to_armada(
+        self: Arc<Self>,
+        proposed: ipc::ProposeToArmada,
+    ) -> Result<ipc::ArmadaProposed, Refusal> {
+        self.workflow_proposed_to_armada(proposed).await
     }
 
     async fn save_trigger(

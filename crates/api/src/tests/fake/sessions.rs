@@ -303,7 +303,8 @@ impl Sessions for FakeDaemon {
         .await
     }
 
-    async fn record_plan(&self, _caller: Option<crate::Caller>, plan: ipc::RecordPlan) -> Result<SessionRecord, Refusal> {
+    async fn record_plan(&self, _caller: Option<crate::Caller>, plan: ipc::RecordPlan, seen: bool) -> Result<SessionRecord, Refusal> {
+        self.plans_seen.lock().expect("plans seen").push(seen);
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: plan.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),

@@ -1,0 +1,14 @@
+[operations.send_back_workflow_change]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Send a ready or failed change back to the agent with the owner's notes, to be drafted again"
+notes = """
+`POST /workflows/changes/send_back`, since 27 Oct 2026. The body is `SendBackWorkflowChange`: `change` and `notes`. The answer is the `WorkflowChange`, `drafting` again, with `notes` set.
+
+The agent is given the definition as it was, his first words (or the drift facts and the step's words), the draft he is sending back and his notes. It is checked as `ask_workflow_change`'s is, with one redraft on the loader's sentence.
+
+404 `fleet.no_such_workflow_change`. 409 `fleet.workflow_change_not_sendable` where it is drafting or settled. 422 `fleet.workflow_change_empty` where `notes` is blank.
+
+`agent_access` is `Bridge only`.
+"""
