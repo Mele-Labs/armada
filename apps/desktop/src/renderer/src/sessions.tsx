@@ -90,6 +90,7 @@ import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, planAsked } from "@armada/screens/src/draft/sessions";
+import { usePausedSend } from "./paused-send";
 import type { ChipRef, DrawnSketch, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -745,8 +746,12 @@ const NO_ROWS: SessionThreadRow[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
+/** A draft that serves nothing, for a hook that must run where there is none. */
+const NO_DRAFT: Pick<SessionsDraft, "resume"> = {};
+
 export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES, trailing }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[]; trailing?: ReactNode }) {
   const draft = useSessionsDraft();
+  const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const runBook = useRunBook();
   const account = useAccount();
   const sessions = useSessions();
@@ -1251,14 +1256,17 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                   terminal.dock.start(bang);
                   return Promise.resolve(true);
                 }
-                const sketches = drawn;
-                const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
-                setDrawn(NO_SKETCHES);
-                // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
-                if (draft.retry !== undefined) return Promise.resolve(true);
-                return done?.then((went) => {
-                  if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
-                  return went;
+                // A paused Job asks first: Cancel gives the box its words back.
+                return pausedSend.ask(() => {
+                  const sketches = drawn;
+                  const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
+                  setDrawn(NO_SKETCHES);
+                  // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
+                  if (draft.retry !== undefined) return Promise.resolve(true);
+                  return done?.then((went) => {
+                    if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
+                    return went;
+                  });
                 });
               }}
             />
@@ -1268,6 +1276,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         </div>
       </SessionFrame>
       </SessionWorkspace>
+      {pausedSend.layer}
       {session.work?.plan === undefined || !planDrawn ? null : (
         <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} {...(adversarial !== undefined && adversary !== undefined ? { findings: { review: adversarial, onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding) } } : {})} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
@@ -1312,6 +1321,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
  */
 export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void; onOpenLoadout?: LedgerGoes["onOpenLoadout"] | undefined }) {
   const draft = useSessionsDraft();
+  const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const numbered = useNumbered(session.manifestId);
   // A `! command` typed here runs in a pane of this box's own, as the Session page's does.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
@@ -1321,6 +1331,7 @@ export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session
   return (
     <>
       {pane}
+      {pausedSend.layer}
       <SessionComposer
         modeLocked={session.terminal === true}
         modeHidden={session.terminal === true && session.mode === undefined}
@@ -1355,9 +1366,11 @@ export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session
             dock.start(bang);
             return Promise.resolve(true);
           }
-          const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
-          // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
-          return draft.retry === undefined ? done : Promise.resolve(true);
+          return pausedSend.ask(() => {
+            const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
+            // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
+            return draft.retry === undefined ? done : Promise.resolve(true);
+          });
         }}
       />
     </>

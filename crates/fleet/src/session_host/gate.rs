@@ -275,6 +275,7 @@ where
                 GateAnswer::deny(waiting_to_move(slot, &directory))
             }
             Taken::Refused(why) => GateAnswer::deny(why),
+            Taken::Resumed => GateAnswer::deny(String::from("the job is paused, and only the person resumes it")),
             Taken::Full => {
                 let ahead = self.line_joined(manifest, id).await;
                 GateAnswer::deny(queued(ahead, queue.chosen(id)))
@@ -322,7 +323,7 @@ where
                 self.line_joined(manifest, id).await;
                 return hosting.clone();
             }
-            Taken::Refused(_) | Taken::Gone => return hosting.clone(),
+            Taken::Refused(_) | Taken::Gone | Taken::Resumed => return hosting.clone(),
         }
         self.line_left(id).await;
         match self.session_and_hosting(id).await {
@@ -347,8 +348,18 @@ where
     /// Lease a slot for the session and cut its branch. **One at a time**, so
     /// two writes in one turn lease one slot. Shared by the gate and by the grant
     /// that serves a queued session, which is why it answers a verdict and not a
-    /// [`GateAnswer`].
+    /// [`GateAnswer`]. **A paused session is refused**: no write or message lifts a pause.
     pub(super) async fn take_lease(&self, id: &str, served: &Served) -> Taken {
+        self.lease_taken(id, served, false).await
+    }
+
+    /// [`Self::take_lease`] for the person's Resume of a paused Job, at once or when the line grants
+    /// the slot. **The only lease that seats a paused Job**: any other finds it paused and refuses.
+    pub(super) async fn take_lease_resuming(&self, id: &str, served: &Served) -> Taken {
+        self.lease_taken(id, served, true).await
+    }
+
+    async fn lease_taken(&self, id: &str, served: &Served, resuming: bool) -> Taken {
         let runtime = self.hosts().of(id);
         let _one_at_a_time = runtime.lease.lock().await;
         let Ok((session, mut hosting)) = self.session_and_hosting(id).await else {
@@ -362,6 +373,9 @@ where
                 slot,
                 directory: Self::directory_of(served, &hosting),
             };
+        }
+        if hosting.paused_at.is_some() && !resuming {
+            return Taken::Refused(String::from("the job is paused, and only the person resumes it"));
         }
         let pool = crate::leasing::pool_of(served);
         // **A paused session is seated on its own branch at the tip**, not on a fresh one.
@@ -416,11 +430,11 @@ where
             let _ = store.keep_session(&row);
         }
         self.session_slot(id, titled, Some(hosting.manifest_id.clone()), slot, true);
-        // No process runs and none is moved: a resume starts nothing, and a message that
-        // resumes it starts its process in this directory.
+        // No process runs and none is moved: the Resume (`pause_lifted`) sends what it has to the
+        // Job, and that starts its process in this directory.
         if was_paused {
             let _ = self.published_hosted(id).await;
-            return Taken::Held { slot, directory };
+            return Taken::Resumed;
         }
         let moving = Move {
             slot,
@@ -449,6 +463,8 @@ pub(super) enum Taken {
     Moving(Move),
     /// It held a slot already.
     Held { slot: u32, directory: String },
+    /// It was paused and holds its slot again: the person's Resume, at once or from the line.
+    Resumed,
     /// Every slot is held.
     Full,
     /// The pool would not lease, and why.

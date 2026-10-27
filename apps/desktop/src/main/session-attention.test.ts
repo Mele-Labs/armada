@@ -137,4 +137,16 @@ describe("SessionAttention", () => {
     vi.advanceTimersByTime(QUIET_MS);
     expect(show).toHaveBeenCalledWith({ sessionId: "b", title: "Job b", body: "Not started", tone: "blocked" });
   });
+
+  it("tells nothing of a Job he parked, neither at the reading nor after it, and does not tell what it held again on resume", () => {
+    const { attention: a, show } = attention();
+    const paused = { hosted: { paused: { at: "2026-10-19T10:00:00Z", resuming: false } } } as Partial<SessionRecord>;
+    a.read([session("a", [], paused)], 1);
+    a.read([session("a", [item("1", "ask_card", "Pick a slot")], paused)], 2);
+    vi.advanceTimersByTime(QUIET_MS * 2);
+    expect(show).not.toHaveBeenCalled();
+    a.read([session("a", [item("1", "ask_card", "Pick a slot")])], 3);
+    vi.advanceTimersByTime(QUIET_MS * 2);
+    expect(show).not.toHaveBeenCalled();
+  });
 });

@@ -174,6 +174,13 @@ impl Watches {
         }
     }
 
+    /// End `id`'s command, if one runs, for a pause: the watch and its environment stay.
+    pub(crate) fn interrupt(&self, id: &str) {
+        if let Some(held) = self.running().remove(id) {
+            let _ = held.stop.send(());
+        }
+    }
+
     /// Whether a notice for `id` may be offered at `now`: never before, or a minute since.
     pub(crate) fn may_offer(&self, id: &str, now: &core_model::Timestamp) -> bool {
         self.once_in(&self.offered, id, now, std::time::Duration::from_secs(60))

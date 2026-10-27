@@ -1,14 +1,16 @@
 [operations.resume_session]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "No"
 description = "Lifts a Job's pause: a slot is taken again at the branch tip, or waited for"
 notes = """
 `POST /sessions/resume`, body `ResumeSession`: `session_id`. Since 23.92. Answers the `SessionRecord`, without `hosted.paused` where the Job holds a slot again.
 
-**It starts no turn.** The branch is leased into a free slot at its tip, and the Job's process starts at its next message. Where every slot is held, or Jobs already wait, the Job joins the repository's line and the row carries `hosted.paused.resuming`; the first slot to free is its, and nobody else's slot is taken. A message sent to a paused Job resumes it the same way, as a stopped Job's next message resumes its conversation.
+**Only this lifts a pause.** No message does: a person's, Helm's, another Job's or Fleet's notice leaves the Job paused. The branch is leased into a free slot at its tip. Where every slot is held, or Jobs already wait, the Job joins the repository's line and the row carries `hosted.paused.resuming`; the first slot to free is its, and nobody else's slot is taken.
+
+**Once the Job holds its slot again, it carries on.** The turns written to it while it was paused, kept in the order they came, go as its next turns; with none kept, Fleet tells it that it was resumed. A Fleet notice that was not told while it was paused is asked again by the one that raised it.
 
 Refused with a 409: `fleet.session_not_paused`; `fleet.session_not_pausable` for an ended Job; `fleet.session_pause_refused` where the branch could not be put in a slot, with the git reason. The Job is still paused after either. Resuming one already waiting answers its row. A terminal Job is a 422 `fleet.session_command_refused`.
 
-Publishes `session.changed`. `agent_access` is `Helm only`, for `pause_session`'s reason.
+Publishes `session.changed`. `agent_access` is `No`: nothing should be able to resume a Job without the person's permission, Helm included, and a Job that is paused halts all of its work until he does. Bridge's press is the only door.
 """

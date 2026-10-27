@@ -18,7 +18,9 @@ const readSince = (session: Session): boolean => session.lastTurnAt !== undefine
 /** Whether the delivery question is what he is asked, so the Needs you card opens on it without a click. */
 export const holdsDelivery = (session: Session): boolean => owesOf(session).some((one) => one.source === "delivery");
 
+/** Parked by him: nothing is asked of him, whatever it was waiting on, until he resumes it. An ended or unreachable Job reads as that. */
 export function stateOf(session: Session): { state: SessionState; said: string } {
+  if (session.paused === true && session.dead === undefined) return { state: "paused", said: "Paused" };
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.

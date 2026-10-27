@@ -283,7 +283,8 @@ export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, 
   const [gone, setGone] = useState<ReadonlyMap<string, CallTone>>(new Map());
   const marked = useRef(calls);
   useEffect(() => {
-    const left = [...marked.current].filter(([key]) => !calls.has(key));
+    // A paused Job's call is not opened or answered: it is held, and its marker goes at once.
+    const left = [...marked.current].filter(([key]) => !calls.has(key) && droneBy.get(key)?.paused !== true);
     marked.current = calls;
     if (left.length === 0) return;
     setGone((was) => new Map([...was, ...left]));
