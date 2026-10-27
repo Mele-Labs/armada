@@ -79,12 +79,11 @@ const page = walk("job-story", [
   { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
 ]);
 
-// A Job whose workflow lands a doc and which opened a pull request too: the pull request stands in Delivery above the doc, and holds the band.
+// A Job whose workflow lands a doc and which opened a pull request too: both stand in Completed, the doc under the step that wrote it.
 const design = walk("job-story", [
   { press: deckRow("Design how a watch ends"), say: "A design plan Job: its workflow lands a doc, and it opened a pull request beside it" },
-  { look: inside(landing, role("list", "Pull requests")), say: "The pull request stands in Delivery, as in a Job that lands one: its Checks, its place in the queue and its acts" },
-  { look: inside(landing, role("list", "Document")), say: "The design it wrote stands under it" },
-  { look: landing, say: "The band reads live, not landed, while the pull request is open" },
+  { look: inside(landing, role("list", "Pull requests")), say: "The pull request stands in Completed, as in a Job that lands one: its Checks, its place in the queue and its acts" },
+  { look: inside(landing, text("How a watch ends", { exact: true })), say: "The design it wrote stands under the step that wrote it" },
 ]);
 
 export { story as "job-story", spike as "job-story-spike", report as "job-story-report", page as "job-story-page", design as "job-story-design-plan" };
