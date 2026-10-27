@@ -35,7 +35,7 @@ A step may carry `instructions`, the words the agent follows there, sent when th
 A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's Delivery, set before Start, settled it; `bug` and `feature` set it on their first step.
 `feature` runs `propose`, `discuss`, `approve_plan`, `walk`, `refine`, `deliver`, the order the owner chose on 27 Oct 2026: the idea and a stop for his reply, the scope with sketches, the plan, a mock walked and approved, then the real thing with its tests, then delivery.
 `bug` runs `find_the_cause`, `fix`, `short_walk`, `tests`, `deliver`: the cause and a plan, the fix, a short walk straight to the place, then the test, then delivery.
-A step with `awaits_reply: true` ends when the owner replies, and a step with `walks: true` is the one where he is shown the work, current from the plan's approval until he approves it and passed over when nothing would be seen.
+A step with `awaits_reply: true` ends when the owner replies, and a step with `walks: true` is the one where he is shown the work, current from the plan's approval until he approves it and passed over when nothing would be seen and the work is pushed.
 No test is written before the walk is approved: a test edited first draws one nudge.
 At `deliver` the agent delivers by the answer it was told.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.

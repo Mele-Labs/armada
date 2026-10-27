@@ -266,9 +266,9 @@ concern = "Gating"
 parent = "steps[]"
 purpose = "Whether this is the step where the person is shown the work and approves it before any test is written. Optional, and absent means it is not."
 notes = """
-**The owner's, 27 Oct 2026**, in `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`. Fleet places the step from what it saw, never from the agent's word: it is current from the plan's approval until he approves a window the Job showed (`show_window`). It is **passed over when the plan was approved naming no walk and the Job never showed a window**, so a change nobody would see skips it.
+**The owner's, 27 Oct 2026**, in `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`. Fleet places the step from what it saw, never from the agent's word: it is current from the plan's approval until he approves a window the Job showed (`show_window`). It is **passed over only when the plan was approved naming no walk, the Job never showed a window, and the Job has pushed**, so a change nobody would see skips it while a mock may still be coming.
 
-**A `follows_plan` step after it is entered only once it is passed**, approved or passed over; the same holds for any step that fits a Check, a commit or a pull request. A test file edited before then draws one nudge, once for the Job, and blocks nothing.
+**A `follows_plan` step after it is entered only once it is passed**, approved or passed over; the same holds for any step that fits a Check, a commit or a pull request. A test file edited before then draws one nudge, once for the Job, and blocks nothing; it is told only when the plan named a walk or a window was shown. Where a workflow has this step, a rough mock edited before the plan is approved is no skip, but a push or a test file then is.
 
 **Needs a recording step before it.** The step is placed from the plan's approval, so in a workflow with none it is never entered. Not refused at load, unlike `follows_plan`: it grants no tool, so nothing is silently withheld. Unrelated to `evidence.walked`, which starts the repository's server when a step stops for a person.
 """

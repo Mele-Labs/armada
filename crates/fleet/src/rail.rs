@@ -175,10 +175,10 @@ impl Facts {
         }
     }
 
-    /// The walk was approved, or nothing would be seen: the plan was approved naming no walk and the
-    /// Job never showed a window.
+    /// The walk was approved, or nothing would be seen: the plan was approved naming no walk, the
+    /// Job never showed a window, and it has pushed. Until it pushes, a mock may still be coming.
     pub(crate) fn walk_passed(&self) -> bool {
-        self.walk_approved || (self.plan_approved && !self.plan_names_walk && !self.walk_shown)
+        self.walk_approved || (self.plan_approved && !self.plan_names_walk && !self.walk_shown && self.pushed)
     }
 
     fn has(&self, fit: Fit) -> bool {
@@ -265,6 +265,10 @@ pub(crate) enum Skip {
     Tasks,
     /// A test file was edited before the walk was approved.
     Walk,
+    /// In a workflow with a walk step: a test file was edited before the plan was approved.
+    PlanTested,
+    /// In a workflow with a walk step: the work was pushed before the plan was approved.
+    PlanPushed,
 }
 
 impl Skip {
@@ -274,6 +278,8 @@ impl Skip {
             Skip::Plan => "edited before the plan was approved",
             Skip::Tasks => "pushed with the plan's tasks open",
             Skip::Walk => "a test before the walk was approved",
+            Skip::PlanTested => "a test before the plan was approved",
+            Skip::PlanPushed => "pushed before the plan was approved",
         }
     }
 }
@@ -282,13 +288,23 @@ impl Skip {
 /// only once is the caller's.
 pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
     let mut found = Vec::new();
-    if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved && facts.edited) {
-        found.push((at, Skip::Plan));
+    if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved) {
+        // Where the workflow walks, a rough mock may be edited while the plan is discussed.
+        let skip = if !steps.iter().any(|step| step.walks) {
+            facts.edited.then_some(Skip::Plan)
+        } else if facts.test_edited {
+            Some(Skip::PlanTested)
+        } else {
+            facts.pushed.then_some(Skip::PlanPushed)
+        };
+        found.extend(skip.map(|skip| (at, skip)));
     }
     if let Some(at) = steps.iter().position(|step| step.follows_plan).filter(|_| facts.pushed && facts.tasks_open) {
         found.push((at, Skip::Tasks));
     }
-    if let Some(at) = steps.iter().position(|step| step.walks).filter(|_| facts.test_edited && !facts.walk_passed()) {
+    if let Some(at) = steps.iter().position(|step| step.walks).filter(|_| {
+        facts.test_edited && facts.plan_approved && (facts.plan_names_walk || facts.walk_shown) && !facts.walk_passed()
+    }) {
         found.push((at, Skip::Walk));
     }
     found
@@ -302,7 +318,9 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
     let asks = match step.about.as_deref().map(str::trim).filter(|about| !about.is_empty()) {
         Some(about) => about.chars().take(ABOUT_AT_MOST).collect::<String>(),
         None => match skip {
-            Skip::Plan => String::from("a plan recorded with record_plan, and approved by the person"),
+            Skip::Plan | Skip::PlanTested | Skip::PlanPushed => {
+                String::from("a plan recorded with record_plan, and approved by the person")
+            }
             Skip::Tasks => String::from("the plan's tasks worked and finished before the work goes out"),
             Skip::Walk => String::from("the work shown as a walk and approved by the person before any test is written"),
         },
@@ -311,6 +329,8 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
         Skip::Plan => "edited files before",
         Skip::Tasks => "pushed while tasks were still open in",
         Skip::Walk => "edited a test before the walk was approved in",
+        Skip::PlanTested => "edited a test before the plan was approved in",
+        Skip::PlanPushed => "pushed before the plan was approved in",
     };
     format!(
         "Fleet: this Job follows the {workflow} workflow, and you {did} its \"{}\" step. That step asks: {asks}. \

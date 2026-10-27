@@ -78,36 +78,57 @@ fn a_walk_step_is_current_from_the_plans_approval_until_a_walk_is_approved() {
 }
 
 #[test]
-fn a_walk_is_passed_over_when_the_plan_named_none_and_no_window_was_shown() {
-    let steps = feature();
-    let nothing = Facts { plan_recorded: true, ..approved() };
-    assert!(nothing.walk_passed());
-    assert_eq!(at(&steps, nothing), Some(4), "Refine follows at once");
-    assert_eq!(at(&steps, Facts { walk_shown: true, ..nothing }), Some(3), "a window shown brings the walk back");
-    assert!(!Facts { plan_recorded: true, ..Facts::default() }.walk_passed(), "nothing is passed over before the plan is approved");
+fn a_walk_is_passed_over_only_when_nothing_was_named_or_shown_and_the_work_is_pushed() {
+    let steps = [propose(), step("Discuss"), plan_step(), walk(), follows("Refine")];
+    let planned = Facts { plan_recorded: true, ..approved() };
+    assert!(!planned.walk_passed());
+    assert_eq!(at(&steps, planned), Some(3), "the mock is being built, so the walk stays current");
+    let busy = Facts { edited: true, checked: true, committed: true, ..planned };
+    assert_eq!(at(&steps, busy), Some(3), "work seen does not pass it over");
+    let pushed = Facts { pushed: true, ..planned };
+    assert!(pushed.walk_passed());
+    assert_eq!(at(&steps, pushed), Some(4), "pushed with nothing named or shown: nothing was seen");
+    assert!(!Facts { plan_names_walk: true, ..pushed }.walk_passed(), "a named walk is not passed over");
+    assert!(!Facts { walk_shown: true, ..pushed }.walk_passed(), "nor one that was shown");
+    assert!(!Facts { pushed: true, plan_recorded: true, ..Facts::default() }.walk_passed(), "nothing is passed over before the plan is approved");
 }
 
 #[test]
-fn a_walk_between_a_fix_and_its_tests_is_entered_when_a_window_is_shown_and_tests_wait_for_it() {
+fn a_walk_between_a_fix_and_its_tests_is_current_while_the_fix_is_made_and_tests_wait_for_it() {
     let steps = bug();
     let fixing = Facts { plan_recorded: true, edited: true, ..approved() };
-    assert_eq!(at(&steps, fixing), Some(1), "no window yet: the fix");
+    assert_eq!(at(&steps, fixing), Some(2), "the walk is current from the plan's approval");
     assert_eq!(at(&steps, Facts { walk_shown: true, checked: true, ..fixing }), Some(2), "a Check run does not leave the walk");
     assert_eq!(at(&steps, Facts { walk_shown: true, walk_approved: true, checked: true, ..fixing }), Some(3));
 }
 
 #[test]
-fn a_test_edited_before_the_walk_is_approved_is_a_skip_of_the_walk_step() {
+fn a_test_edited_before_the_walk_is_approved_is_a_skip_of_the_walk_step_when_a_walk_was_named_or_shown() {
     let steps = feature();
     let tested = Facts { test_edited: true, ..approved_naming_a_walk() };
     assert_eq!(rail::skipped(&steps, &tested), [(3, Skip::Walk)]);
-    assert_eq!(rail::skipped(&steps, &Facts { test_edited: true, plan_recorded: true, ..Facts::default() }), [(3, Skip::Walk)], "before the plan is approved too");
     assert!(rail::skipped(&steps, &Facts { walk_approved: true, ..tested }).is_empty(), "approved");
-    assert!(rail::skipped(&steps, &Facts { plan_names_walk: false, ..tested }).is_empty(), "passed over: nothing would be seen");
-    assert_eq!(rail::skipped(&steps, &Facts { plan_names_walk: false, walk_shown: true, ..tested }), [(3, Skip::Walk)]);
+    let unnamed = Facts { plan_names_walk: false, ..tested };
+    assert!(rail::skipped(&steps, &unnamed).is_empty(), "no walk named and none shown: tests come at once for a change nobody sees");
+    assert_eq!(rail::skipped(&steps, &Facts { walk_shown: true, ..unnamed }), [(3, Skip::Walk)], "a window shown");
     let plain = [plan_step(), follows("Implement"), delivers("Hand off")];
     assert!(rail::skipped(&plain, &tested).is_empty(), "a workflow with no walk step has nothing to skip");
     assert!(rail::skipped(&steps, &approved_naming_a_walk()).is_empty(), "an edit that is no test is not this skip");
+}
+
+#[test]
+fn where_a_workflow_walks_an_edit_before_the_plan_is_approved_is_no_skip_but_a_test_or_a_push_is() {
+    let steps = feature();
+    let drafting = Facts { plan_recorded: true, ..Facts::default() };
+    assert!(rail::skipped(&steps, &Facts { edited: true, ..drafting }).is_empty(), "a rough mock is allowed while discussing");
+    let tested = Facts { edited: true, test_edited: true, ..drafting };
+    assert_eq!(rail::skipped(&steps, &tested), [(2, Skip::PlanTested)], "and the walk skip is not told on top of it");
+    assert_eq!(rail::skipped(&steps, &Facts { walk_shown: true, ..tested }), [(2, Skip::PlanTested)]);
+    assert_eq!(rail::skipped(&steps, &Facts { edited: true, pushed: true, ..drafting }), [(2, Skip::PlanPushed)]);
+    assert!(rail::skipped(&steps, &Facts { test_edited: true, ..approved() }).is_empty(), "approved, and nothing named or shown");
+    let plain = [plan_step(), follows("Implement"), delivers("Hand off")];
+    assert_eq!(rail::skipped(&plain, &Facts { edited: true, ..Facts::default() }), [(0, Skip::Plan)], "without a walk step the edit is still a skip");
+    assert!(rail::skipped(&plain, &Facts { edited: true, pushed: true, ..approved() }).is_empty());
 }
 
 #[test]
@@ -120,6 +141,11 @@ fn the_nudge_for_a_test_before_the_walk_is_worded_as_the_others_are() {
     let about = RailStep { about: Some("Show it as a walk.".into()), ..walk() };
     assert!(rail::nudge("Feature", &about, Skip::Walk).contains("Show it as a walk."), "the step's own words");
     assert_eq!(Skip::Walk.fact(), "a test before the walk was approved");
+    let plan = rail::nudge("Feature", &steps[2], Skip::PlanTested);
+    assert!(plan.contains("edited a test before the plan was approved in") && plan.contains("record_plan"), "{plan}");
+    assert!(rail::nudge("Feature", &steps[2], Skip::PlanPushed).contains("pushed before the plan was approved in"));
+    assert_eq!(Skip::PlanTested.fact(), "a test before the plan was approved");
+    assert_eq!(Skip::PlanPushed.fact(), "pushed before the plan was approved");
 }
 
 #[test]
@@ -260,7 +286,7 @@ async fn step_of(rig: &super::session_host::Rig, id: &SessionId) -> Option<u32> 
 async fn a_window_shown_after_the_plan_is_approved_puts_the_job_on_the_walk_until_he_approves_it() {
     let (rig, id) = walking_rig().await;
     plan_approved(&rig, &id).await;
-    assert_eq!(step_of(&rig, &id).await, Some(3), "nothing shown and none named: the walk is passed over, Refine follows");
+    assert_eq!(step_of(&rig, &id).await, Some(2), "approved, nothing shown yet: the mock is being built, so the walk is current");
     shown(&rig, &id).await;
     assert_eq!(step_of(&rig, &id).await, Some(2), "a window shown is the walk");
     rig.send(&id, &format!("Approved: {PAGE}")).await;
@@ -304,4 +330,29 @@ async fn a_test_is_not_nudged_when_the_walk_was_approved_or_nothing_would_be_see
     rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
     rig.fleet.timeline().settled().await;
     assert_eq!(told(&rig, "edited a test before"), 0, "approved");
+}
+
+#[tokio::test]
+async fn before_the_plan_is_approved_a_rough_mock_is_no_skip_but_a_test_and_a_push_are_nudged_once() {
+    let (rig, id) = walking_rig().await;
+    rig.stand_in.says(0, vec![edit("apps/desktop/src/mock/rough.ts")]);
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, "before the plan was approved"), 0, "a mock edited while discussing");
+    assert_eq!(told(&rig, "edited files before"), 0);
+
+    rig.stand_in.says(0, vec![edit("crates/reader/tests/reader.rs")]);
+    super::session_host::eventually(|| async { told(&rig, "edited a test before the plan was approved") == 1 }).await;
+    rig.stand_in.says(0, vec![edit("crates/reader/tests/more.rs")]);
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, "edited a test before the plan was approved"), 1, "once for the step");
+    assert_eq!(told(&rig, "edited a test before the walk was approved"), 0, "and not the walk's nudge on top of it");
+
+    let (rig, id2) = walking_rig().await;
+    let harness = record(&rig, &id2).await.harness;
+    rig.fleet
+        .report_session(ipc::SessionReport { harness, session_id: id2.clone(), fact: ipc::SessionFact::Pushed { branch: Some("armada/reader".into()) } })
+        .await
+        .expect("kept");
+    super::session_host::eventually(|| async { told(&rig, "pushed before the plan was approved") == 1 }).await;
+    let _ = id;
 }
