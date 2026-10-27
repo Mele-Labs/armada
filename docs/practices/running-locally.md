@@ -277,7 +277,7 @@ before Fleet is stopped:
 
 | The build or the database | Answer |
 |---|---|
-| The build lists a **breaking** migration `origin/main` lacks, which the database has not applied | Refused, naming the migration and its branch: that would migrate the real database with unlanded work, and a build of `main` could not open it afterwards |
+| The build lists a **breaking** migration `origin/main` lacks, which the database has not applied | Refused, the migration and its branch first: that would migrate the real database with unlanded work, and a build of `main` could not open it afterwards. A `leave out` line per branch lets `scripts/preview` drop it and go again |
 | The build lists only **additive** migrations `origin/main` lacks | Goes ahead, and says they are additive and safe to go back from |
 | The database applied a breaking migration the build does not list | Refused: that Fleet would refuse the file |
 | The database applied additive names the build does not list | Goes ahead, and names them |
@@ -359,16 +359,30 @@ checkout, so Fleet keeps serving that repository, and `--dry-run` goes through
 to it. Everything in *Restarting onto another tree* applies, including the
 migration guard and the snapshot.
 
-**`--restart` leaves out a branch that does not build, once.** Git merges a
-branch cut before a deletion without a word, and `cargo install` then fails
-(exit 101) on code that branch never saw. When the restart fails with compiler
-errors, `scripts/preview` reads the files they name (rustc's `-->` under an
+**`--restart` leaves out what it cannot take, and goes again until it builds.**
+Each failed restart is read for the branches behind it, those are dropped, and the
+preview is merged and restarted again.
+The migration guard names its own: a `restart: leave out <branch>: <why>` line for each
+branch with a breaking migration `origin/main` lacks, and the table says
+`skipped (breaking migration <name> is not on main)`.
+Otherwise compiler errors are read.
+Git merges a branch cut before a deletion without a word, and `cargo install` then fails
+(exit 101) on code that branch never saw.
+`scripts/preview` reads the files the errors name (rustc's `-->` under an
 error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths relative
 to the package, so a changed file also matches by its tail, and Rollup's `file: path`
 under an import it cannot resolve), drops every merged
-branch that changed one, and merges and restarts again. The table says
-`skipped (does not build: <files>)`. If no merged branch touched a named file,
-or the second run fails too, the failure stands as it was.
+branch that changed one, and the table says `skipped (does not build: <files>)`.
+It stops when a restart takes, or when a failure names no branch still merged; that
+failure stands as it was.
+Each round drops at least one branch, so it ends.
+
+**Which branches were left out is written down for Fleet.** Before each restart,
+`Armada/preview-left-out` gets the preview commit on its first line and a
+`branch<TAB>tip<TAB>why` line for every skipped branch, the tip being its commit when it was left out.
+Fleet reads it only while that commit is the build it runs, tells each branch's Job
+why it is not in the preview, and refreshes the preview by itself once a branch moves past its tip
+(`docs/concepts/fleet.md`, *Telling jobs the build they now run*).
 
 **A plain `scripts/restart` while the preview runs keeps the preview.** It
 sees `.armada/preview` in `Armada/restart-source` and runs

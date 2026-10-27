@@ -68,6 +68,18 @@ pub struct FleetBuildReport {
     /// when it took, and when the build has moved since it failed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed: Option<String>,
+    /// The branches `scripts/preview` left out of this build, by branch, and why each was. Only
+    /// the preview leaves branches out, so **empty on `main`**, with no record, and where the
+    /// record was written for another build.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left_out: Vec<LeftOutBranch>,
+}
+
+/// A branch the preview left out, and why, in one line of plain facts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LeftOutBranch {
+    pub branch: String,
+    pub why: String,
 }
 
 /// `change_fleet_build`'s body: move Fleet and Bridge onto a build.

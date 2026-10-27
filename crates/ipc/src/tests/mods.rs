@@ -116,7 +116,7 @@ fn a_layout_mod_and_the_owners_choices_are_left_out_when_empty_and_never_null() 
     assert_eq!(scaffold(None), r#"{"name":"tidy"}"#, "a theme scaffold is the body it always was");
     assert_eq!(scaffold(Some(ModKind::Layout)), r#"{"name":"tidy","kind":"layout"}"#);
 
-    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()), words: None, fleet: None };
+    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()), words: None, fleet: None, commands: None };
     assert_eq!(encode(&checked).expect("plain data"), r#"{"name":"tidy","valid":true,"problems":[],"layout":"{}"}"#);
 
     assert!(!encode(&Preferences::default()).expect("plain data").contains("layout_choices"));
