@@ -94,9 +94,9 @@ export function AskBeat({ said, text }: { said: string; text: string }) {
 }
 
 /** The agent or a Check at work: its mark and its name, and what it is doing under it where it says. */
-export function WorkBeat({ mark, name, line, system = false }: { mark: ReactNode; name: string; line?: string | undefined; /** The name is one the system reports, a Check's: drawn as a reading. */ system?: boolean }) {
+export function WorkBeat({ mark, name, line, system = false, working = false }: { mark: ReactNode; name: string; line?: string | undefined; /** The name is one the system reports, a Check's: drawn as a reading. */ system?: boolean; /** The name is what Fleet sees the Job doing, and reads as the head of Now. */ working?: boolean }) {
   return (
-    <li className="sv-beat">
+    <li className="sv-beat" data-state={working ? "working" : undefined}>
       {mark}
       <span className="sv-beat__label">{system ? <Readout>{name}</Readout> : name}</span>
       {line === undefined ? null : <span className="sv-beat__line">{line}</span>}

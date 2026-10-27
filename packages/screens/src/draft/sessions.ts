@@ -150,7 +150,7 @@ export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed";
 
 /** One task the agent recorded. `seen` is whether Fleet observed edits for it. */
-export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
+export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean; /** When the agent last changed this task's mark, RFC 3339. A mark the agent has not touched in a long while reads its age and dims. */ changedAt?: string };
 
 /** Tasks one subagent takes, by the type of subagent. */
 export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };

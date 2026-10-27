@@ -92,6 +92,8 @@
 .sv-spine .sv-panel[data-area="now"] > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
+/* Now with many marks in progress scrolls inside its own height, so Next stays near it and the column is not all Now. */
+.sv-spine .sv-panel.sv-panel[data-area="now"][data-area] > .sv-panel__body { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
 .sv-spine .sv-panel[data-collapsed]::before { display: none; }
 

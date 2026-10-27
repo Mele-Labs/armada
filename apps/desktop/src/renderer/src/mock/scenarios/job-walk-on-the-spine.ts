@@ -1,11 +1,13 @@
 // A walk is an output of the Job, as a pull request is, and this plays its whole life on the Job's story: pending in Next under the workflow's Present step; shown, it
 // moves to Now as a call on him, a lamp that pulses, its name and a tick for each take; pressing it, or Enter on it, opens the walk window as Bridge opens one; and on
-// his Approve it moves to Completed under Present as an approved walk. The walk's `later` step shows the walk. Over the same Job as `field-expand-plan`, at Build.
+// his Approve it moves to Completed under Present as an approved walk. The walk's `later` step shows the walk. Over the same Job as `field-expand-plan`, at Build, with the real Job of
+// `job-real-issues-tab` in place of a second.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { AUDIT_TAKES, BUSY, auditLedger, shown, waitingOn, walkActs, walkPage } from "../audit-job";
 import type { Scenario } from "../moment";
+import { asRealIssuesJob } from "./job-real-issues-tab";
 import { s261OneSessionView as base } from "./one-session-view";
 
 const FLOW = ["Draft", "Build", "Present", "Verify", "Pull request"];
@@ -53,6 +55,8 @@ export const s332JobWalkOnTheSpine: Scenario = {
         const ledger = auditLedger(one, { steps: FLOW, at: 1 }, []);
         return { ...ledger, rows: [...ledger.rows.filter((row) => row.kind === "message" && row.from.kind === "you"), ...CALLS] };
       });
+      // A second Job beside it, the real one from `job-real-issues-tab`, so one walk shows Now on invented work and on real work.
+      store.edit("one-view-4", asRealIssuesJob);
       let shownYet = false;
       return {
         ...walkActs(store, BUSY, WALK, AUDIT_TAKES, at(3)),

@@ -21,6 +21,7 @@ import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
 import { useSessionsDraft } from "../sessions-draft";
 import { AgentTasks } from "./AgentTasks";
+import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
 import { Mark } from "./DeliveryRoute";
 import { Brief, briefOf, FlightRows } from "./FlightPlan";
@@ -33,6 +34,7 @@ import { viewOf } from "./plan-marks";
 import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
+import { freshestOf } from "./TaskAge";
 import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
 import { SvPanel, type PanelState } from "./SvPanel";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
@@ -65,12 +67,15 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // The plan stands whole in Now while it is drafted, with marks on it, or when he asked to see all of it; its groups are not drawn again in Completed and Next.
   const whole = planned && (drafting || everything.whole || ed.marks.length > 0);
   const workingGroup = accountGroupOf(session)?.id;
-  const now = accountNowOf(session);
+  // What Fleet sees the Job doing leads Now. Without calls to read it from, the account's line stands under the task being worked as before.
+  const detected = detectedOf(session);
+  const now = detected === undefined ? accountNowOf(session) : undefined;
   const groups = planned ? viewOf(plan, ed.marks) : [];
   const steps = stepsOf(groups, approved, workingGroup);
   const by = (step: "done" | "current" | "upcoming") => (whole ? [] : groups.filter((group) => steps.get(group.id) === step));
   const finished = by("done");
-  const working = by("current");
+  // The group with the freshest mark in progress leads; groups with no age keep the plan's order.
+  const working = by("current").sort((a, b) => (freshestOf(a) === freshestOf(b) ? 0 : freshestOf(b) > freshestOf(a) ? 1 : -1));
   const upcoming = by("upcoming");
   const broke = approved && groups.some((group) => group.tasks.some((task) => task.state === "failed"));
 
@@ -220,7 +225,8 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
         <WorkBeat
           mark={<TaskMark state={working_ ? "working" : "open"} />}
-          name="Agent"
+          name={detected ?? "Agent"}
+          working={detected !== undefined}
           line={working.length === 0 ? now : undefined}
         />
         {onLine || workflowNow === undefined ? null : <StepBeat name={workflowNow} state="now" />}
