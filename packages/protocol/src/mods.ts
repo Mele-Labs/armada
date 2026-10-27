@@ -10,9 +10,10 @@ import type { FleetRule } from "./teaching";
 
 /**
  * What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these.
- * `words` is a pattern Bridge links, `fleet` what Fleet does with a notice, `tweak` token values layered over the theme.
+ * `words` is a pattern Bridge links, `fleet` what Fleet does with a notice, `tweak` token values layered over the theme,
+ * `commands` rows added to the command palette.
  */
-export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker";
+export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker" | "commands";
 
 /** Where a mod comes from: this machine's mods folder, or `packages/mods/` in the build Fleet runs. */
 export type ModOrigin = "local" | "built_in";
@@ -114,6 +115,8 @@ export type ModChecked = {
   words?: WordsFile;
   /** A Fleet mod's `fleet.toml` as it was checked, present only where it passed. */
   fleet?: FleetFile;
+  /** A Commands mod's `commands.toml` as it was checked, present only where it passed. */
+  commands?: CommandsFile;
 };
 
 /** Where a pattern opens in one repository. */
@@ -142,6 +145,32 @@ export type WordsFile = {
 export type FleetFile = {
   /** Absent when the file holds no rule. */
   rule?: FleetRule[];
+};
+
+/**
+ * One row a Commands mod adds to the command palette. **Exactly one of `prompt`, `url`, `shell` and `chain` is set**
+ * in a file that passed, which is what the row does: start a Job on the filled prompt, open the address, run the line
+ * in the picked repository's checkout, or run the palette rows named, in order.
+ */
+export type PaletteCommand = {
+  /** The row's label, and what it is told apart by: no two rows in a file share one. */
+  name: string;
+  /** Searched, never drawn. Absent when the row has none. */
+  aliases?: string[];
+  /** A chord in the registry's spelling: `⌥⌘S`. */
+  hotkey?: string;
+  prompt?: string;
+  url?: string;
+  shell?: string;
+  /** Palette row ids, run in order. */
+  chain?: string[];
+  /** The `{name}` blanks the prompt, address or line holds, once each in the order they first appear. Absent when it holds none. */
+  blanks?: string[];
+};
+
+/** A `commands.toml`: rows for the command palette. */
+export type CommandsFile = {
+  command: PaletteCommand[];
 };
 
 /** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. Absent is the first served whose Manifest names this mod as its tracker, else the first served. */
