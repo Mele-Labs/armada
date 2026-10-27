@@ -100,11 +100,13 @@ function build(): Scenario {
         // The layer starts a Job held, with a title and no words, as a Dispatch start is held:
         // the note it is sent next is the first message, composed the way the agent reads it.
         startSession: async (title, root, request, tuning, after, holds) => {
-          // A dispatched request is read for a moment: the proposer picks the workflow and his usual landing comes with it.
-          if (title === undefined && request !== undefined && after === undefined && holds === true) {
+          // A request, from a dispatch or from a note, is read for a moment: the proposer picks the workflow and his usual landing comes with it.
+          if (request !== undefined && after === undefined && holds === true) {
             const started = await own.startSession!(title, root, request, tuning, after, holds);
             if (!started.ok) return started;
             const id = started.value.id;
+            // A Job the layer started has a title: the notes sent next are its first message.
+            if (title !== undefined) noted.set(id, []);
             fake.proposes(id, { reading: true });
             window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
             return started;

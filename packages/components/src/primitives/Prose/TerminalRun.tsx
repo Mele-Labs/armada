@@ -1,9 +1,10 @@
-import { createContext, useEffect, useRef, useState } from "react";
+import { createContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { Button } from "../Button/Button";
 import { ShellDock, TerminalDock, TerminalMark, type ShellDockPane, type ShellPaneProps, type TerminalPaneProps } from "../TerminalPane/TerminalPane";
 import { XtermScreen } from "../TerminalPane/XtermScreen";
 import type { CodePhase, CodeRun, TerminalSize } from "./RunnableBlock";
+import { changePane, paneFor, subscribeToPane } from "./runs";
 
 /**
  * Where a run draws as a terminal in place of lines of output, which a Session's view provides where its
@@ -28,42 +29,36 @@ export type TerminalDockRun = {
   waiting: boolean;
 };
 
-/** A docked pane's state, which lives in the view and not in the block that started it. `key` is what the view is of: a change of it puts the pane away. */
+/**
+ * A docked pane's state, which lives under `key` and not in the view or the block that started it: a view that is left and drawn
+ * again finds its pane, with the run going or ended, and only Stop, or a start of another run, ends the run. `run` should be held
+ * under the same `key` (`useCodeRun`), or leaving the view stops it as an unkept run is.
+ */
 export function useTerminalDock(run: CodeRun, key: string): TerminalDockRun {
-  const [command, setCommand] = useState<string | null>(null);
-  const [shown, setShown] = useState(false);
-  const [waiting, setWaiting] = useState(false);
-  const kept = useRef(run);
-  kept.current = run;
-  const size = useRef<TerminalSize | null>(null);
-  useEffect(
-    () => () => {
-      kept.current.stop();
-      kept.current.close();
-      size.current = null;
-      setCommand(null);
-      setShown(false);
-      setWaiting(false);
-    },
-    [key],
+  const entry = paneFor(key);
+  const { command, shown, waiting } = useSyncExternalStore(
+    useMemo(() => subscribeToPane(entry), [entry]),
+    () => entry.view,
   );
+  const size = useRef<TerminalSize | null>(null);
+  // A fit belongs to the screen that made it: the next view fits its own.
+  useEffect(() => () => void (size.current = null), [key]);
   return {
     command,
     run,
     shown,
     waiting,
     start: (next) => {
-      setCommand(next);
-      setShown(true);
-      if (size.current === null) setWaiting(true);
-      else run.start(next, size.current);
+      const fitted = size.current;
+      changePane(entry, { command: next, shown: true, waiting: fitted === null });
+      if (fitted !== null) run.start(next, fitted);
     },
-    show: () => setShown(true),
-    hide: () => setShown(false),
+    show: () => changePane(entry, { shown: true }),
+    hide: () => changePane(entry, { shown: false }),
     sized: (fitted) => {
       size.current = fitted;
       if (waiting && command !== null) {
-        setWaiting(false);
+        changePane(entry, { waiting: false });
         run.start(command, fitted);
       } else if (run.phase.state === "running") run.resize(fitted.cols, fitted.rows);
     },

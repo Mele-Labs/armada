@@ -103,7 +103,8 @@ describe("a note sent to a Session", () => {
   it("starts a Session named for the first note, then sends the note whole with its file's id and the screenshot as the crop", async () => {
     const fleet = sessions();
     const answer = await sendToSession([item], null, sink(), fleet, ADDRESS, AT);
-    expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]), "/Users/user/armada", undefined, undefined, undefined, true);
+    // The notes' words ride as the request, so Fleet's proposer reads them at the start as it does a dispatch.
+    expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]), "/Users/user/armada", "Can we add an illustration here?", undefined, undefined, true);
     expect(answer).toEqual({ ok: true, sent: { sessionId: "01NEW", title: "Can we add an illustration here?", at: AT.toISOString() } });
     expect(notesSent(fleet)).toEqual([annotationNoteBody(note(), "01NEW", ADDRESS, "iVBORw==")]);
     expect(notesSent(fleet)[0]).toMatchObject({ said: "Can we add an illustration here?", note_id: "20260917-135315-tsfq", crop: { media_type: "image/png", data: "iVBORw==" } });

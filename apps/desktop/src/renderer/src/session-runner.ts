@@ -5,6 +5,12 @@
 import { isSlashCommand, type CodeRunner } from "@armada/components";
 import type { Session, SessionCommand, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
+/** What holds the run of a waiting item past the card or row that started it: the ledger's row and the call card of one item share it. */
+export const waitingRunKey = (sessionId: string, itemId: string): string => `waiting-run:${sessionId}:${itemId}`;
+
+/** What holds a Job view's docked pane and its run past the view: leaving the Job and coming back finds both as they were. */
+export const dockRunKey = (sessionId: string, place: "page" | "card"): string => `dock:${place}:${sessionId}`;
+
 /**
  * `settle` is how the item of a slash command is settled once it is sent: given what settles it, it may
  * hold that back, as a card does to show the exit before it goes. Left out, it settles at once.

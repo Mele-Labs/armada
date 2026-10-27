@@ -30,7 +30,7 @@ pub(crate) async fn save_limits<D: Settings>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let save: SaveLimits = match ipc::decode("limits to save", &body) {
+    let save: SaveLimits = match ipc::decode_body("limits to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

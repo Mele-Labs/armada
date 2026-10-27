@@ -105,10 +105,17 @@ struct TaskReceipt<'a> {
     title: &'a str,
 }
 
+/// An item as the agent set it, so a reply shows what Fleet made of its `act`, `options` and `steps`.
 #[derive(Serialize)]
 struct Item<'a> {
     id: &'a str,
     text: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    act: Option<&'a ipc::WaitingAct>,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    options: &'a [ipc::WaitingOption],
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    steps: &'a [String],
 }
 
 impl<'a> Receipt<'a> {
@@ -122,6 +129,9 @@ impl<'a> Receipt<'a> {
             .map(|item| Item {
                 id: &item.id,
                 text: &item.text,
+                act: item.act.as_ref(),
+                options: &item.options,
+                steps: &item.steps,
             })
             .collect();
         Receipt::of(record, Set::WaitingFor { waiting_for })

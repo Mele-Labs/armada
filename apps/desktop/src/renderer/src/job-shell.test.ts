@@ -27,7 +27,7 @@ function fakeApi() {
     onSessionTerminal: (on: typeof told) => ((told = on), () => undefined),
   };
   const print = (text: string) => ran("r1", { kind: "output", text });
-  return { api, opened, soFar, print, end: () => ran("r1", { kind: "exited", code: 0 }), tell: (terminal: JobTerminalChange) => told(terminal) };
+  return { api, opened, soFar, print, end: () => ran("r1", { kind: "exited", code: 0, stopped: false }), tell: (terminal: JobTerminalChange) => told(terminal) };
 }
 
 const settled = () => new Promise((done) => setTimeout(done, 0));

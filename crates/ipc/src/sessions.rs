@@ -365,10 +365,12 @@ pub enum SessionRunMessage {
     Missed {
         dropped: u64,
     },
-    /// `code` is `null` where the process group was stopped or killed by a signal.
+    /// `code` is `null` where the process group was stopped or killed by a signal, and `stopped`
+    /// is true where it was Stop that ended it: a null code with `stopped` false is a signal's.
     Exited {
         #[serde(deserialize_with = "stated")]
         code: Option<i32>,
+        stopped: bool,
     },
 }
 

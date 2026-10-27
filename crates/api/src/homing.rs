@@ -29,28 +29,28 @@ pub(crate) async fn get_shared_home<D: SharedHome>(
 }
 
 pub(crate) async fn sync_shared_home<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode("the profile whose home to sync", &body) {
+    match ipc::decode_body("the profile whose home to sync", &body) {
         Ok(profile) => answered(served.daemon().sync_shared_home(profile).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
 }
 
 pub(crate) async fn add_to_shared_home<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode("a row to add to the shared home", &body) {
+    match ipc::decode_body("a row to add to the shared home", &body) {
         Ok(at) => answered(served.daemon().add_to_shared_home(at).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
 }
 
 pub(crate) async fn bring_from_shared_home<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode("a row to bring from the shared home", &body) {
+    match ipc::decode_body("a row to bring from the shared home", &body) {
         Ok(at) => answered(served.daemon().bring_from_shared_home(at).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
 }
 
 pub(crate) async fn choose_shared_home_side<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode("a row and the side to keep", &body) {
+    match ipc::decode_body("a row and the side to keep", &body) {
         Ok(choose) => answered(served.daemon().choose_shared_home_side(choose).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
@@ -64,14 +64,14 @@ pub(crate) async fn get_home_kinds<D: SharedHome>(
 }
 
 pub(crate) async fn set_home_kind<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode("a kind and whether it syncs", &body) {
+    match ipc::decode_body("a kind and whether it syncs", &body) {
         Ok(switch) => answered(served.daemon().set_home_kind(switch).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
 }
 
 pub(crate) async fn set_home_repository<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode("an owner and a name for the shared home", &body) {
+    match ipc::decode_body("an owner and a name for the shared home", &body) {
         Ok(choice) => answered(served.daemon().set_home_repository(choice).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }

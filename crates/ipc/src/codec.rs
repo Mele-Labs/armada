@@ -39,11 +39,18 @@ pub struct Undecodable {
     /// site, never anything a peer sent.
     pub expected: &'static str,
     pub why: String,
+    /// The whole shape the bytes should have had, where they were a request's body:
+    /// [`decode_body`]'s, so a peer learns every field from one refusal.
+    pub shape: Option<String>,
 }
 
 impl fmt::Display for Undecodable {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(out, "not a readable {}: {}", self.expected, self.why)
+        write!(out, "not a readable {}: {}", self.expected, self.why)?;
+        match &self.shape {
+            Some(shape) => write!(out, ". The body is {shape}, where a field ending in ? may be left out"),
+            None => Ok(()),
+        }
     }
 }
 
@@ -71,6 +78,16 @@ pub fn decode<T: DeserializeOwned>(expected: &'static str, bytes: &[u8]) -> Resu
     serde_json::from_slice(bytes).map_err(|why| Undecodable {
         expected,
         why: why.to_string(),
+        shape: None,
+    })
+}
+
+/// Read a request's body: [`decode`], and a refusal that names the body's whole shape, read off
+/// `T` by [`crate::shape`]. Only a refusal pays for the shape.
+pub fn decode_body<T: DeserializeOwned>(expected: &'static str, bytes: &[u8]) -> Result<T, Undecodable> {
+    decode(expected, bytes).map_err(|undecodable| Undecodable {
+        shape: Some(crate::shape::of::<T>()),
+        ..undecodable
     })
 }
 
