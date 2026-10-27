@@ -720,6 +720,7 @@ export class WiredStore {
     // Thumbs up: Fleet keeps the sentence and publishes the follow-up as `confirmed`.
     confirmLater: (id, later) => void this.plain(this.api.confirmLater({ session_id: id, id: later })),
     stopWatch: (id, watch) => void this.plain(this.api.stopWatch({ session_id: id, watch })),
+    deleteWatch: (id, watch) => void this.plain(this.api.deleteWatch({ session_id: id, watch })),
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),

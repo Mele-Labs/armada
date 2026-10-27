@@ -124,6 +124,12 @@ impl SessionRuns {
         Some((id, held))
     }
 
+    /// What `session`'s shell prints from now on, where one is in flight: a terminal watch's.
+    pub(crate) fn shell_heard(&self, session: &str) -> Option<tokio::sync::broadcast::Receiver<SessionRunEvent>> {
+        let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
+        Some(self.in_flight(&id)?.feed.subscribe())
+    }
+
     /// Stop `session`'s shell, as a run is stopped, where it has one in flight.
     fn stop_shell(&self, session: &str) {
         let open = self.shells.lock().expect("not poisoned").get(session).cloned();

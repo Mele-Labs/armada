@@ -61,6 +61,8 @@ pub enum Section {
     Account,
     /// The central store the machines signed in to one account share.
     Store,
+    /// How much room Bridge draws around rows, panels and controls.
+    Spacing,
     Bridge,
 }
 
@@ -105,7 +107,7 @@ impl Section {
             | Section::Store => Group::Fleet,
             Section::Features => Group::Features,
             Section::Editor | Section::Terminal | Section::Links => Group::Tools,
-            Section::Bridge => Group::Appearance,
+            Section::Spacing | Section::Bridge => Group::Appearance,
         }
     }
 
@@ -127,6 +129,7 @@ impl Section {
             Section::Machine => "Machine",
             Section::Account => "Account",
             Section::Store => "Store",
+            Section::Spacing => "Spacing",
             Section::Bridge => "Bridge",
         }
     }

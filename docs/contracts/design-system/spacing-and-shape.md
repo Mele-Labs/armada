@@ -34,6 +34,13 @@ A bay drew at 2px.
 Every one of those is a token in `tokens/spacing.css`, which is the
 authority on the value. Read it rather than retyping a number from here.
 
+**That grid is Default, one of three spacings a person picks.**
+Settings, Bridge, Spacing (`spacing.density`) offers Compact, Default and Roomy, as Gmail does (26 Oct 2026).
+Compact is a quarter tighter and Roomy a quarter looser: the steps, the row and control heights and the paddings move, and type, hairlines, radii and the title row keep their size.
+Bridge puts the choice on the root as `data-spacing`, and `tokens/spacing-sets.css` holds the two other sets.
+A surface spells its sizes in the tokens and so follows the choice with nothing of its own.
+Where a smaller step would cut what a control holds, the control keeps Default's size in Compact: Flight control's keys do (`deck.css`).
+
 **A row height token is a floor, not a cap.** Rows are padding-driven
 where content can grow, so the token keeps rows aligned down a column
 without truncating one that needs more. Labels align with their fields,

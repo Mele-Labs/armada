@@ -54,6 +54,7 @@ const SOURCES: &[(&str, Source)] = &[
     ("motion.css", Source::Tokens),
     ("semantic.css", Source::Tokens),
     ("light.css", Source::Theme),
+    ("spacing-sets.css", Source::Theme),
     ("base.css", Source::Stylesheet),
 ];
 

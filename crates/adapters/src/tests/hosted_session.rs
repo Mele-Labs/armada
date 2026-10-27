@@ -665,3 +665,17 @@ fn an_assignment_and_a_subshell_read_as_what_they_run() {
         assert!(!reads_only(write), "{write}");
     }
 }
+
+/// The Watching rule names each watch tool and the scratch folder, and every tool its ToolSearch
+/// fallback selects is one Fleet's door offers.
+#[test]
+fn the_watching_rule_names_the_watch_tools_and_selects_only_real_ones() {
+    for named in ["start_watch", "try_watch", "list_watch_recipes", "save_watch_recipe", "weigh_watch", "$ARMADA_SCRATCH"] {
+        assert!(rules().contains(named), "{named}");
+    }
+    let selected = rules().split("`select:").nth(1).and_then(|rest| rest.split('`').next()).expect("a select line");
+    for tool in selected.split(',') {
+        let operation = tool.trim_start_matches(&format!("mcp__{}__", ipc::door::SERVER));
+        assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == operation), "{tool}");
+    }
+}
