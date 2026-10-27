@@ -40,3 +40,9 @@ export const Done: Story = {
 };
 export const Failed: Story = { args: { state: "failed" } };
 export const Dropped: Story = { args: { state: "dropped" } };
+
+/** Fleet set the state itself: the same mark, and hovering names the proof under the state word. */
+export const MarkedByFleet: Story = { args: { state: "done", marked: "commit 1a2b3c4 names it" } };
+
+/** In progress and left behind: the mark dimmed, and hovering names why and how long. */
+export const Stale: Story = { args: { state: "working", stale: { why: "edits went to Bridge", since: new Date(Date.now() - 12 * 60_000).toISOString() } } };

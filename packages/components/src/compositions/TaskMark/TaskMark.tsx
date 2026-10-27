@@ -1,6 +1,8 @@
 import { Check, CircleDashed, CircleDot, Minus, PencilOff, X, type LucideIcon } from "lucide-react";
 
+import { useNowWhile } from "../../clock";
 import { TASK_STATE } from "../../generated/vocabulary";
+import { ageOf } from "../../time-format";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -50,6 +52,10 @@ const UNSEEN_ICON = 8;
 
 export type TaskMarkProps = {
   state: TaskMarkState;
+  /** Fleet's proof where it set the state itself ("commit 1a2b3c4 names it"). The same mark, with the proof added to what hovering says. */
+  marked?: string;
+  /** A task in progress that looks left behind: the reason, and when it was last touched. The mark is dimmed, and hovering says why and how long. */
+  stale?: { why: string; since: string };
 };
 
 /**
@@ -62,13 +68,35 @@ export type TaskMarkProps = {
  * **A bare glyph names itself on hover** (owner's standing rule), so every
  * state takes a tooltip. `asChild`, as `StepActivityMark` attaches its `says`:
  * a wrapper would take the mark's place in its row's columns.
+ *
+ * **Fleet's mark and a stale one draw no new glyph** (`.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`).
+ * Each adds a line under the state word on hover; a stale mark is also dimmed.
  */
-export function TaskMark({ state }: TaskMarkProps) {
+export function TaskMark({ state, marked, stale }: TaskMarkProps) {
   const Icon = TASK_GLYPH[state];
-  const said = taskMarkSaid(state);
+  const now = useNowWhile(stale !== undefined);
+  const lines = [
+    taskMarkSaid(state),
+    ...(marked === undefined ? [] : [`Marked by Fleet: ${marked}`]),
+    ...(stale === undefined ? [] : [`Stale: ${stale.why}, ${Number.isNaN(Date.parse(stale.since)) ? stale.since : ageOf(Date.parse(stale.since), now)}`]),
+  ];
+  const said = lines.join(". ");
   return (
-    <Tooltip asChild label={said}>
-      <span className="armada-task-mark" data-state={state} role="img" aria-label={said}>
+    <Tooltip
+      asChild
+      label={
+        lines.length === 1 ? (
+          lines[0]
+        ) : (
+          <span className="armada-task-mark__says">
+            {lines.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </span>
+        )
+      }
+    >
+      <span className="armada-task-mark" data-state={state} data-stale={stale === undefined ? undefined : ""} role="img" aria-label={said}>
         <Icon size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />
         {state === "handed_in" ? <PencilOff className="armada-task-mark__unseen" size={UNSEEN_ICON} strokeWidth={MARK_STROKE} aria-hidden /> : null}
       </span>
