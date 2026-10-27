@@ -17,7 +17,7 @@ use super::session_queue::{the_keeper, with_slot_one_held};
 const OTHERS: &str = "an agent's session";
 
 /// A session with a turn running and slot 1 leased by its first write.
-async fn holding_slot_one(rig: &Rig) -> SessionId {
+pub(super) async fn holding_slot_one(rig: &Rig) -> SessionId {
     let id = rig.start().await;
     rig.send(&id, "change a file").await;
     rig.stand_in.init(0);
@@ -27,11 +27,11 @@ async fn holding_slot_one(rig: &Rig) -> SessionId {
     id
 }
 
-fn pause(id: &SessionId) -> PauseSession {
+pub(super) fn pause(id: &SessionId) -> PauseSession {
     PauseSession { session_id: id.clone() }
 }
 
-fn resume(id: &SessionId) -> ResumeSession {
+pub(super) fn resume(id: &SessionId) -> ResumeSession {
     ResumeSession { session_id: id.clone() }
 }
 

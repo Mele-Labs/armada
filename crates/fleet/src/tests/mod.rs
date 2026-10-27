@@ -127,6 +127,7 @@ mod session_rail;
 mod auto_land;
 mod session_pause;
 mod session_pause_waiting;
+mod session_pause_work;
 mod session_queue;
 mod session_slot_asking;
 mod session_slot_choice;

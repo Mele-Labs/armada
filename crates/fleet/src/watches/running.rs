@@ -78,6 +78,8 @@ pub(crate) enum Folder {
     Gone(String),
     /// Its Job has ended, or Fleet holds no such Job.
     JobEnded,
+    /// Its Job is paused, and its slot is parked: nothing runs until the person resumes it.
+    Paused,
 }
 
 /// Sweep due watches each `every`, and offer every notice still owed.
@@ -172,9 +174,14 @@ where
         let now = self.now();
         let at_once = usize::try_from(self.machine_settings().now().get(keys::WATCHES_AT_ONCE)).unwrap_or(0);
         let Ok(live) = self.store().lock().await.live_watches() else { return };
+        // **A paused Job's watches wait with it**, and start again when it is resumed.
+        let paused: std::collections::HashSet<String> = match self.store().lock().await.hostings() {
+            Ok(hostings) => hostings.into_iter().filter(|one| one.paused_at.is_some()).map(|one| one.session_id).collect(),
+            Err(_) => Default::default(),
+        };
         for kept in live {
             let id = kept.watch.id.clone();
-            if self.watches().is_running(&id) {
+            if self.watches().is_running(&id) || paused.contains(&kept.watch.session_id) {
                 continue;
             }
             let started = Timestamp::from_rfc3339(kept.watch.started_at.clone());
@@ -217,6 +224,9 @@ where
         if session.state == store::SessionState::Ended {
             return Folder::JobEnded;
         }
+        if hosting.as_ref().is_some_and(|one| one.paused_at.is_some()) {
+            return Folder::Paused;
+        }
         let path = match hosting {
             Some(hosting) => match self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) {
                 Ok(served) => Self::directory_of(&served, &hosting),
@@ -235,6 +245,7 @@ where
         let id = kept.watch.id.clone();
         let taken = match self.watch_folder(&kept.watch.session_id).await {
             Folder::JobEnded => return self.watches_ended_with(&kept.watch.session_id).await,
+            Folder::Paused => return,
             Folder::Gone(why) => KeptWatchTaken::Broken { why, output: None },
             Folder::At(folder) => {
                 // Read at its start, and again only at its first run since Fleet started.
@@ -257,7 +268,20 @@ where
                     .await
             }
         };
+        // A pause that came in during the run drops its reading: it is taken again after the Resume.
+        if matches!(self.watch_folder(&kept.watch.session_id).await, Folder::Paused) {
+            return;
+        }
         self.watch_read(&id, taken).await;
+    }
+
+    /// A Job is paused: each command its watches have running is ended. **The watches stay**, live,
+    /// and run again when the Job is resumed.
+    pub(crate) async fn watches_paused(&self, job: &str) {
+        let Ok(watches) = self.store().lock().await.watches_of(job) else { return };
+        for kept in watches.iter().filter(|one| one.watch.live) {
+            self.watches().interrupt(&kept.watch.id);
+        }
     }
 
     /// Run `command` once for `job` in `folder`, given `login` with Fleet's mark and the Requests

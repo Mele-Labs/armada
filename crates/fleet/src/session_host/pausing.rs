@@ -100,6 +100,8 @@ where
         }
         let runtime = self.hosts().of(&id);
         let _one_at_a_time = runtime.lease.lock().await;
+        // Before the turn is ended and the slot parked: a Check left running would run on under the next holder.
+        self.session_checks_stopped(&id).await;
         self.stop_session(StopSession { session_id: asked.session_id.clone() }).await?;
         self.stopped_servers_in(&adapter_traits::slot_path(served.root(), slot)).await;
         let parked = {
@@ -140,6 +142,8 @@ where
             }
         }
         self.session_slot(&id, session.title.clone(), Some(hosting.manifest_id.clone()), slot, false);
+        // After the marker is kept, which is what drops the reading of a command ended here.
+        self.watches_paused(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.hosts().slot_freed();
         self.published_hosted(&id).await

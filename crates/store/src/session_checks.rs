@@ -86,6 +86,25 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// The runs of `session_id` still running, oldest first.
+    pub fn running_session_checks(&self, session_id: &str) -> Result<Vec<KeptSessionCheck>, WriteError> {
+        let doing = "reading a Job's running Check runs";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM session_check_runs WHERE session_id = ?1 AND state = 'running' ORDER BY id"
+            ))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([session_id], kept)
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
     /// Every run of `session_id` still running ends as failed, with `log`. Answers those runs.
     pub fn fail_running_session_checks(
         &mut self,
@@ -93,23 +112,7 @@ impl Store {
         at: &str,
         log: &str,
     ) -> Result<Vec<KeptSessionCheck>, WriteError> {
-        let doing = "ending a Job's Check runs";
-        let running: Vec<KeptSessionCheck> = {
-            let mut statement = self
-                .conn
-                .prepare(&format!(
-                    "SELECT {COLUMNS} FROM session_check_runs WHERE session_id = ?1 AND state = 'running'"
-                ))
-                .map_err(fault(doing))
-                .map_err(WriteError::Database)?;
-            let rows = statement
-                .query_map([session_id], kept)
-                .map_err(fault(doing))
-                .map_err(WriteError::Database)?;
-            rows.collect::<Result<_, _>>()
-                .map_err(fault(doing))
-                .map_err(WriteError::Database)?
-        };
+        let running = self.running_session_checks(session_id)?;
         for run in &running {
             self.end_session_check(run.id, "failed", at, 0, log, None)?;
         }
