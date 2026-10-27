@@ -231,16 +231,13 @@
   background: radial-gradient(circle at 100% 100%, transparent var(--armada-notch-radius), var(--armada-notch-ground) calc(var(--armada-notch-radius) + 0.5px));
 }
 
-/* The notch's blur makes it the box a fixed bubble is placed in, so an anchored tooltip had no room below and flipped
- * over its icon. A tooltip here hangs from its own control instead, below the notch and centred under the icon. */
+/* A tooltip here hangs below the notch and is centred under its icon. The notch's blur used to make it the box a fixed
+ * bubble was placed in, so an anchored one had no room below and flipped over its icon; the bubble is in the top layer now, and
+ * only the gap under the notch is this file's. */
 .armada-title-bar[data-places] .armada-title-bar__center .armada-tooltip__bubble {
-  position: absolute;
-  position-area: none;
-  inset: auto;
-  top: calc(100% + var(--armada-notch-gap) + var(--space-1));
-  left: 50%;
-  translate: -50% 0;
-  margin: 0;
+  position-area: block-end;
+  position-try-fallbacks: flip-block;
+  margin-block-start: calc(var(--armada-notch-gap) + var(--space-1));
   white-space: nowrap;
 }
 

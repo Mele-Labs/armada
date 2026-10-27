@@ -1,10 +1,10 @@
 // The pieces the Job's story is read with (`StoryColumn.tsx`): the brief the Job was dispatched with, a row for each plan group (`FlightRows`) with its state glyph, its title
-// and a tick for each task on the right, filled where the task is done and hollow where it waits, and the head with the workflow's picker and steps (`FlightHead`). A group
+// and, while folded, one slim track of segments for its tasks on the right (`TaskTrack`), and the head with the workflow's picker and steps (`FlightHead`). A group
 // opens to its tasks and the live line, and a press opens or shuts any. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { Circle, Link } from "lucide-react";
-import { Button, LinkedSession, Tooltip, taskMarkSaid, type TaskMarkState } from "@armada/components";
+import { Link } from "lucide-react";
+import { Button, LinkedSession, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -52,14 +52,15 @@ export function FlightHead({ session, work, id, manifestId, acts }: { session: S
   );
 }
 
-/** A tick for a task: filled once done, hollow while it waits, in the hue of the state. The task's words are its tooltip. */
-export function Tick({ task }: { task: ViewGroup["tasks"][number] }) {
-  const state = task.state as TaskMarkState;
-  const said = `${task.text}, ${taskMarkSaid(state).toLowerCase()}`;
+/** One slim track for a folded group: a segment for each task, filled by its state. Where the tasks are listed under the group it is not drawn, since the list says it. */
+export function TaskTrack({ tasks }: { tasks: ViewGroup["tasks"] }) {
+  if (tasks.length === 0) return null;
   return (
-    <Tooltip asChild label={task.text}>
-      <span className="sv-tick" data-state={state} role="img" aria-label={said}>
-        <Circle size={12} strokeWidth={2} aria-hidden />
+    <Tooltip asChild label="Tasks in this group, done and to do">
+      <span className="sv-track" role="img" aria-label="Tasks in this group, done and to do" data-many={tasks.length > 12 || undefined}>
+        {tasks.map((task) => (
+          <span key={task.id} className="sv-track__seg" data-state={task.state} />
+        ))}
       </span>
     </Tooltip>
   );
@@ -77,11 +78,7 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
       <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} onClick={flip}>
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
-        <span className="sv-ticks" aria-hidden={group.tasks.length === 0 || undefined}>
-          {group.tasks.map((task) => (
-            <Tick key={task.id} task={task} />
-          ))}
-        </span>
+        {open ? null : <TaskTrack tasks={group.tasks} />}
       </button>
       {!open ? null : (
         <div className="sv-flight__open">

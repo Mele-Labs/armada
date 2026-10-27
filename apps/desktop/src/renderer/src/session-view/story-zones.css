@@ -63,44 +63,44 @@
 
 /* ---- Take B: three panels ----------------------------------------------------------------------------------- */
 
-.sv-side > .sv-panel[data-area="done"] { flex: 3 1 0; min-height: calc(var(--space-12) * 2); }
-.sv-side > .sv-panel[data-area="now"] { flex: 3 1 0; min-height: calc(var(--space-12) * 3); }
-.sv-side > .sv-panel[data-area="next"] { flex: 2 1 0; min-height: calc(var(--space-12) * 2); }
+/* The three panels share the column 1 : 2 : 1, Now the larger, and each scrolls inside itself (`.sv-panel__body`). A panel never takes more than its own height, so one with little in it is
+   that little and the shares it leaves go to the others, which is why they are sized to their content and then grown by weight. A folded band keeps only its band (`story.css`). */
+.sv-side > .sv-panel[data-area="done"][data-area][data-area] { flex: 1 1 0; min-height: 0; max-height: max-content; }
+.sv-side > .sv-panel[data-area="now"][data-area][data-area][data-area] { flex: 2 1 0; min-height: 0; max-height: max-content; }
+.sv-side > .sv-panel[data-area="next"][data-area][data-area] { flex: 1 1 0; min-height: 0; max-height: max-content; }
 .sv-side > .sv-panel[data-area="done"]:has(> .sv-panel__body:empty),
-.sv-side > .sv-panel[data-area="next"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+.sv-side > .sv-panel[data-area="next"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; }
 /* How Completed is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
 .sv-ledger-view { display: inline-flex; align-items: center; gap: var(--space-1); }
 
 /* ---- Take A: one line ----------------------------------------------------------------------------------------- */
 
-/* The column is one scroll on a dim glass ground, flat, with no border, bezel or strip: not another panel, and enough mass to stand against the Jobs column. The zones are not panels any more: no frame, no fill, no shadow. The line runs down the left of every zone, solid for what is done,
+/* The column is one scroll on a dim ground, flat, with no border, bezel or strip: not another panel, and enough mass to stand against the Jobs column. The zones are not panels any more: no frame, no fill, no shadow. The line runs down the left of every zone, solid for what is done,
    heavier through Now, and dashed for what is to come; each band is the marker on it. The selectors are doubled over the glass sheet's own. */
-.sv-spine { --line: var(--space-4); --lead: calc(var(--line) + var(--space-4)); position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: var(--space-2) var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-glass) 55%, transparent); overflow-y: auto; overscroll-behavior: contain; }
+.sv-spine { --ground: color-mix(in srgb, var(--bg-raised) 40%, var(--bg-base)); --line: var(--space-4); --lead: calc(var(--line) + var(--space-4)); position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--ground); overflow-y: auto; overscroll-behavior: contain; }
 .sv-spine .sv-story__head { padding-inline-start: var(--lead); }
 .sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
 .sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel[data-area="now"]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
 .sv-spine .sv-panel[data-area="next"]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
-/* The line starts at Completed's first marker. */
+/* The line starts at Completed's first marker. The bands hold at the column's top while their zone passes under them, so each has the column's ground to cover it. */
 .sv-spine .sv-panel[data-area="done"]::before { inset-block-start: calc(var(--legend-h) / 2); }
 
-.sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: relative; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: none; box-shadow: none; color: var(--fg-muted); }
+.sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: sticky; inset-block-start: 0; z-index: 2; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: var(--ground); box-shadow: none; color: var(--fg-muted); }
 /* The marker on the line: a hollow dot for Completed and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
-.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1) - var(--border-width) / 2); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--bg-sunken); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
+.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1) - var(--border-width) / 2); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel[data-area="now"] > .sv-panel__band { color: var(--fg-default); }
 .sv-spine .sv-panel[data-area="now"] > .sv-panel__band::after { inset-inline-start: calc(var(--line) - var(--space-2) / 2 - var(--border-width) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
 .sv-spine .sv-panel[data-area="now"] > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
-/* Now with many marks in progress scrolls inside its own height, so Next stays near it and the column is not all Now. */
-.sv-spine .sv-panel.sv-panel[data-area="now"][data-area] > .sv-panel__body { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
 .sv-spine .sv-panel[data-collapsed]::before { display: none; }
 
 /* `spine-steps`: a workflow step is a node on the line, the stepper's glyph in the stepper's hues, backed by the ground so the line does not run through it. Its name starts at the
    body's left edge, where the spine's own rows start. What the step made or still owes stands under the name. */
 .sv-spine .sv-beat--node { position: relative; grid-template-columns: minmax(0, 1fr) auto; }
-.sv-spine .sv-beat__node { position: absolute; inset-block-start: calc((var(--h-row) - var(--space-4)) / 2); inset-inline-start: calc(var(--line) - var(--lead) - var(--space-2) + var(--border-width) / 2); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--bg-sunken); color: var(--fg-subtle); }
+.sv-spine .sv-beat__node { position: absolute; inset-block-start: calc((var(--h-row) - var(--space-4)) / 2); inset-inline-start: calc(var(--line) - var(--lead) - var(--space-2) + var(--border-width) / 2); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--ground); color: var(--fg-subtle); }
 .sv-spine .sv-beat--node[data-state="done"] .sv-beat__node { color: var(--step-advanced); }
 .sv-spine .sv-beat--node[data-state="now"] .sv-beat__node { color: var(--step-running); }
 .sv-spine .sv-beat--node[data-state="now"] .sv-rail__mark { background: color-mix(in srgb, var(--step-running) 22%, transparent); box-shadow: 0 0 0 var(--border-width) var(--step-running); }

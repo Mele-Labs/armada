@@ -18,7 +18,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { useSessionsDraft } from "../sessions-draft";
 import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
-import { StoryColumn } from "./StoryColumn";
+import { StoryColumn, placeZone } from "./StoryColumn";
 import { OverTheApp } from "./OverTheApp";
 import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
@@ -86,7 +86,15 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       if (layer === "artifacts") closeLayer();
       if (band.area === "workflow") return document.querySelector<HTMLElement>(".sv-side [data-workflow-pick]")?.focus();
       pressBand(session, band.area);
-      window.setTimeout(() => document.querySelector<HTMLElement>(`[data-area="${band.area}"] > .sv-panel__band`)?.focus(), 0);
+      window.setTimeout(() => {
+        const header = document.querySelector<HTMLElement>(`[data-area="${band.area}"] > .sv-panel__band`);
+        if (header === null) return;
+        // Where the zones are one scrolling story, the zone comes to the top of it; elsewhere the focus brings it into view.
+        const zone = header.parentElement;
+        const placed = zone !== null && zone.closest(".sv-spine") !== null;
+        header.focus({ preventScroll: placed });
+        if (placed) placeZone(zone, "smooth");
+      }, 0);
     };
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);

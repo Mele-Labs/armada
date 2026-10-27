@@ -79,8 +79,9 @@ const longPath = "crates/api/src/session/refresh_coalescing.rs";
 
 /**
  * A frame that puts the trigger against an edge, so the flip is visible at a
- * size that fits on the page. `contain: layout` makes the frame the bubble's
- * containing block, which is the window in the app.
+ * size that fits on the page. The bubble is in the top layer, so the edge it
+ * flips against is the viewport's and not the frame's: the frame places the
+ * trigger, and the flip is only seen where the viewport's edge is the frame's.
  */
 function Frame({ edge, children }: { edge: "left" | "right" | "bottom"; children: React.ReactNode }) {
   return (

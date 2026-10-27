@@ -8,7 +8,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
 import { Mark } from "./DeliveryRoute";
-import { Tick } from "./FlightPlan";
+import { TaskTrack } from "./FlightPlan";
 import { IssueRow, issueOfGroup } from "./IssuesBlock";
 import { childrenOf, linkedPropsOf } from "./linked";
 import type { Made } from "./ledger";
@@ -232,7 +232,7 @@ export function MadeList({ session, list, label }: { session: Session; list: rea
   );
 }
 
-/** A finished group: its mark, its title and a tick for each task, with what it produced beneath it (the issue it worked, its pull requests, the Job it was handed to). */
+/** A finished group: its mark, its title and its tasks as one track, with what it produced beneath it (the issue it worked, its pull requests, the Job it was handed to). */
 export function DoneGroup({ group, session, onOpenSession }: { group: ViewGroup; session: Session; onOpenSession: (id: string) => void }) {
   const sessions = useSessions();
   const named = issueOfGroup(session, group.issue);
@@ -241,11 +241,7 @@ export function DoneGroup({ group, session, onOpenSession }: { group: ViewGroup;
     <li className="sv-beat sv-beat--group" data-state="done" data-group={group.id}>
       <StepMark step="done" />
       <span className="sv-beat__label">{group.title}</span>
-      <span className="sv-ticks">
-        {group.tasks.map((task) => (
-          <Tick key={task.id} task={task} />
-        ))}
-      </span>
+      <TaskTrack tasks={group.tasks} />
       {named === undefined && child === undefined ? null : (
         <div className="sv-beat__made">
           {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={session.manifestId} />}

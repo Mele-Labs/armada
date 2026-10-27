@@ -33,13 +33,21 @@
 .sv-flight__open { display: flex; flex-direction: column; grid-column: 1 / -1; gap: var(--space-2); min-width: 0; padding: 0 var(--space-2) var(--space-2); }
 .sv-flight__open > .sv-group__tasks { padding: 0; }
 
-/* A tick is filled once its task is done and hollow while it waits, in the hue of the task's state. */
+/* A tick for each take of a walk (`StoryParts.tsx`), hollow until it is looked at. */
 .sv-ticks { display: inline-flex; align-items: center; justify-self: end; gap: var(--space-1); }
 .sv-tick { display: inline-flex; color: var(--fg-subtle); }
 .sv-tick[data-state="done"], .sv-tick[data-state="handed_in"] { color: var(--step-advanced); }
 .sv-tick[data-state="done"] svg, .sv-tick[data-state="handed_in"] svg { fill: currentColor; }
 .sv-tick[data-state="working"] { color: var(--step-running); }
 .sv-tick[data-state="failed"] { color: var(--step-failed); }
+
+/* A folded group's tasks as one track: a fixed width, a segment each that shrinks to fit, so many tasks never widen it. Where many segments would shrink under a pixel the gap goes and the hues carry them. */
+.sv-track { display: inline-flex; flex: none; align-items: center; justify-self: end; gap: var(--border-width); width: calc(var(--space-8) + var(--space-2)); height: calc(var(--border-width) * 3); }
+.sv-track[data-many] { gap: 0; }
+.sv-track__seg { flex: 1 1 0; min-width: 0; height: 100%; background: var(--border-default); }
+.sv-track__seg[data-state="done"], .sv-track__seg[data-state="handed_in"] { background: var(--step-advanced); }
+.sv-track__seg[data-state="working"] { background: var(--step-running); }
+.sv-track__seg[data-state="failed"] { background: var(--step-failed); }
 
 /* ---- Delivery: the route, a vertical stepper ------------------------------------------------------------------------ */
 

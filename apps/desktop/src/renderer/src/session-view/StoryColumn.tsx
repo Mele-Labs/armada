@@ -313,14 +313,20 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   );
 }
 
-/** The one timeline: a line down the column with the zones on it. It opens with NOW in view, since the oldest of Completed can be long. */
+/** Puts a zone's header at the top of the spine, the sticky one it stands in for, so the zone reads from its first row. */
+export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"): boolean {
+  const column = zone.closest<HTMLElement>(".sv-spine");
+  if (column === null) return false;
+  column.scrollTo({ top: Math.max(0, zone.offsetTop - parseFloat(getComputedStyle(column).paddingTop)), behavior });
+  return true;
+}
+
+/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Completed is above, to scroll back to, and Next below. */
 function Spine({ session, take, children }: { session: Session; take: string; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const column = box.current;
-    const now = column?.querySelector<HTMLElement>('[data-area="now"]');
-    if (column === null || now === null || now === undefined) return;
-    column.scrollTop = Math.max(0, now.offsetTop - column.clientHeight * 0.25);
+    const now = box.current?.querySelector<HTMLElement>('[data-area="now"]');
+    if (now !== null && now !== undefined) placeZone(now);
   }, [session.id]);
   return (
     <div ref={box} className="sv-spine" data-take={take}>
