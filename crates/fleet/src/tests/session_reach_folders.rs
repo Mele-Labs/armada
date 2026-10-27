@@ -4,7 +4,7 @@
 
 use ipc::{AskingToRun, CallKind, ReachesTo};
 
-use crate::helm::{guarded_in_a_session, Because, Folders, Guarded, Own};
+use crate::helm::{guarded_in_a_session, Because, Folders, Guarded, KindAllowed, Own};
 
 const SLOT: &str = "/repo/.armada/slots/slot-3";
 const HOME: &str = "/Users/user";
@@ -22,7 +22,7 @@ fn listed(call: &AskingToRun, allow: &[&str], block: &[&str]) -> Option<Guarded>
 fn listed_with(call: &AskingToRun, allow: &[&str], block: &[&str], session: &[&str]) -> Option<Guarded> {
     let owned = |list: &[&str]| -> Vec<String> { list.iter().map(|one| one.to_string()).collect() };
     let (allow, block, session) = (owned(allow), owned(block), owned(session));
-    let folders = Folders { allow: &allow, block: &block, session: &session, home: HOME };
+    let folders = Folders { allow: &allow, block: &block, session: &session, home: HOME, ..Folders::default() };
     without_kind(guarded_in_a_session(call, &[SLOT], Own::default(), folders))
 }
 
@@ -249,5 +249,56 @@ fn setting_a_variable_through_home_writes_nothing_and_runs() {
     assert_eq!(
         listed(&bash("F=~/Documents/x.md; cat $F"), &[], &[]),
         asks(Because::ReachesOutside, "/Users/user/Documents/x.md")
+    );
+}
+
+/// The guard with these kinds allowed for the session, and the owner's blocked folders.
+fn allowing(line: &str, kinds: &[KindAllowed], block: &[&str]) -> Option<Guarded> {
+    let block: Vec<String> = block.iter().map(|one| one.to_string()).collect();
+    let folders = Folders { block: &block, kinds, home: HOME, ..Folders::default() };
+    without_kind(guarded_in_a_session(&bash(line), &[SLOT], Own::default(), folders))
+}
+
+fn allowed(program: &str, script: Option<&str>, folder: Option<&str>) -> KindAllowed {
+    KindAllowed { kind: kind(program, script).expect("a kind"), folder: folder.map(str::to_string) }
+}
+
+#[test]
+fn a_kind_allowed_for_the_session_lets_its_reach_run() {
+    let script = [allowed("node", Some("drive.mjs"), None)];
+    assert_eq!(allowing("node drive.mjs --browser ~/Library/x", &script, &[]), None);
+    assert_eq!(
+        allowing("node cleanup.mjs ~/code/other-repo", &script, &[]),
+        asks_to(Because::ReachesOutside, "/Users/user/code/other-repo", ReachesTo::Write)
+    );
+    let program = [allowed("node", None, None)];
+    assert_eq!(allowing("node cleanup.mjs ~/code/other-repo", &program, &[]), None);
+    let desktop = [allowed("node", Some("drive.mjs"), Some("/Users/user/Desktop"))];
+    assert_eq!(allowing("node drive.mjs --out ~/Desktop/shot.png", &desktop, &[]), None);
+    assert_eq!(
+        allowing("node drive.mjs --out ~/code/shot.png", &desktop, &[]),
+        asks_to(Because::ReachesOutside, "/Users/user/code/shot.png", ReachesTo::Write)
+    );
+}
+
+#[test]
+fn a_kind_allowed_never_lets_a_block_a_removal_a_push_or_another_kind_through() {
+    let script = [allowed("node", Some("drive.mjs"), None)];
+    let desktop = "/Users/user/Desktop";
+    assert_eq!(
+        allowing("node drive.mjs --out ~/Desktop/shot.png", &script, &[desktop]),
+        Some(Guarded::Blocked { folder: desktop.to_string() })
+    );
+    assert_eq!(
+        allowing("node drive.mjs ~/x && rm ~/x", &script, &[]),
+        Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None, kind: None })
+    );
+    assert_eq!(
+        allowing("node drive.mjs ~/x && git push", &script, &[]),
+        Some(Guarded::Because { because: Because::PushesToShared, reaching: None, to: None, kind: None })
+    );
+    assert_eq!(
+        allowing("node drive.mjs ~/x && cp ~/a ~/b", &script, &[]),
+        asks_to(Because::ReachesOutside, "/Users/user/a", ReachesTo::Write)
     );
 }

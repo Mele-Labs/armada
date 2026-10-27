@@ -24,7 +24,7 @@ use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{
     answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
-    Guarded, Own, Reach, Said,
+    Guarded, KindAllowed, Own, Reach, Said,
 };
 
 /// How long one `Wait` is held. The mod's request must outlast it.
@@ -182,8 +182,13 @@ where
                     let own = Own { started: Some(&started), merged_branches: &merged };
                     let listed = self.reach_folders();
                     let home = std::env::var("HOME").unwrap_or_default();
-                    let session = self.hosts().of(id).state().allowed_folders.clone();
-                    let folders = Folders { allow: &listed.allow, block: &listed.block, session: &session, home: &home };
+                    let (session, kinds) = {
+                        let host = self.hosts().of(id);
+                        let state = host.state();
+                        (state.allowed_folders.clone(), state.allowed_kinds.clone())
+                    };
+                    let folders =
+                        Folders { allow: &listed.allow, block: &listed.block, session: &session, kinds: &kinds, home: &home };
                     match guarded_in_a_session(&asking, &named, own, folders) {
                         Some(Guarded::Blocked { folder }) => {
                             return Ok(RunOrNot::Deny { message: blocked_folder(&folder) });
@@ -261,8 +266,13 @@ where
                         }
                         SessionAskState::AllowedForSession
                     }
-                    // Runs, and nothing is held yet: the stored kind comes with the guard.
-                    HelmCallAnswer::AllowLikeThisForSession => SessionAskState::AllowedForSession,
+                    HelmCallAnswer::AllowLikeThisForSession => {
+                        if let Some(kind) = &said.kind {
+                            let allowed = KindAllowed { kind: kind.clone(), folder: said.folder.clone() };
+                            self.hosts().of(id).state().allowed_kinds.push(allowed);
+                        }
+                        SessionAskState::AllowedForSession
+                    }
                     HelmCallAnswer::AllowAndRemember => {
                         let at = adapters::personal_settings(&root);
                         // A settings file that will not be written is not a

@@ -25,7 +25,7 @@ pub(crate) use brief::{shipped, worded, VOICE};
 pub use conversation::Conversations;
 pub use deciding::{
     because, because_in_a_session, because_in_a_session_owning, guarded_in_a_session, pages_opened, Because, Folders,
-    Guarded, Own,
+    Guarded, KindAllowed, Own,
 };
 pub use permitting::SHIPPED_ASK_HOLD;
 pub use reach::{may, Authority};

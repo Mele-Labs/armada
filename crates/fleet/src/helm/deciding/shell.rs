@@ -89,6 +89,8 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
             match at.as_deref().map(|at| folders.listed(at)) {
                 Some(Listed::Blocked(folder)) => return Some(Guarded::Blocked { folder }),
                 Some(Listed::Allowed) => {}
+                // A kind allowed for the session is read after his list, so his block wins.
+                Some(Listed::Unlisted) if at.as_deref().is_some_and(|at| folders.kind_allowed(kind.as_ref(), at)) => {}
                 _ => {
                     unlisted.get_or_insert((at, *to, kind.clone()));
                 }

@@ -1088,6 +1088,57 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
     assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_folders.is_empty());
 }
 
+/// "Allow calls like this" lets this session's next call of that kind run, at the width the
+/// owner chose, and is gone when the session closes.
+#[tokio::test]
+async fn allow_calls_like_this_lets_its_kind_run_and_is_gone_when_it_closes() {
+    let rig = rig();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let runs = |id: &SessionId, line: &str| {
+        let waiting = bash_call(&rig, id, line);
+        async move {
+            let ran = tokio::time::timeout(Duration::from_secs(5), waiting).await.expect("no card is drawn");
+            matches!(ran.unwrap().unwrap(), ipc::RunOrNot::Allow { .. })
+        }
+    };
+    let id = rig.start().await;
+
+    let waiting = bash_call(&rig, &id, "node drive.mjs --out ~/Desktop/shot.png");
+    let ask = asked_on(&rig, &id).await;
+    rig.fleet.answer_session_ask(like_this(&id, &ask.call, ask.kind.clone(), None)).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Ask { state: SessionAskState::AllowedForSession, .. })));
+    assert!(runs(&id, "node drive.mjs --browser ~/Library/x").await);
+
+    // Another script still asks; the program alone lets both run.
+    let waiting = bash_call(&rig, &id, "node cleanup.mjs ~/code/other-repo");
+    let ask = asked_on(&rig, &id).await;
+    assert_eq!(ask.kind, kind_named("node", Some("cleanup.mjs")));
+    rig.fleet.answer_session_ask(like_this(&id, &ask.call, kind_named("node", None), None)).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(runs(&id, "node cleanup.mjs ~/code/other-repo").await);
+    assert!(runs(&id, "node drive.mjs ~/Library/y").await);
+
+    // Narrowed to a folder, the same script elsewhere still asks.
+    let narrow = rig.start().await;
+    let waiting = bash_call(&rig, &narrow, "node drive.mjs --out ~/Desktop/shot.png");
+    let ask = asked_on(&rig, &narrow).await;
+    let desktop = like_this(&narrow, &ask.call, ask.kind.clone(), Some(format!("{home}/Desktop")));
+    rig.fleet.answer_session_ask(desktop).await.unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(runs(&narrow, "node drive.mjs --out ~/Desktop/next.png").await);
+    let elsewhere = bash_call(&rig, &narrow, "node drive.mjs --out ~/code/shot.png");
+    let ask = asked_on(&rig, &narrow).await;
+    assert_eq!(ask.reaches, Some(format!("{home}/code/shot.png")));
+    rig.fleet.answer_session_ask(AnswerSessionAsk { answer: HelmCallAnswer::Refuse, ..like_this(&narrow, &ask.call, None, None) }).await.unwrap();
+    assert!(matches!(elsewhere.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.unwrap();
+    assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_kinds.is_empty());
+    let _again = bash_call(&rig, &id, "node drive.mjs --out ~/Desktop/shot.png");
+    assert_eq!(asked_on(&rig, &id).await.kind, kind_named("node", Some("drive.mjs")));
+}
+
 /// A reach that names only the root offers no "always": no folder holds it that Fleet would take,
 /// so every Always press on it was refused (16 Oct 2026, `find / -name …`).
 #[tokio::test]

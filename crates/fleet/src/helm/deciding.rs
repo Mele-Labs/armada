@@ -23,7 +23,7 @@ mod folders;
 mod programs;
 mod shell;
 
-pub use folders::{guarded_in_a_session, pages_opened, Folders};
+pub use folders::{guarded_in_a_session, pages_opened, Folders, KindAllowed};
 pub(in crate::helm) use folders::{reaches_outside, read_refused};
 pub(in crate::helm) use shell::{truncating_redirect, Slot};
 use folders::{cd_stays, in_the_slot, inside_the_directory, Listed};
