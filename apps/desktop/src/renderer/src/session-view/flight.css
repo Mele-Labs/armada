@@ -57,3 +57,9 @@
 /* ---- Field: the facts it stands on, before any work ------------------------------------------------------------------- */
 
 .sv-field__facts { display: flex; flex-wrap: wrap; flex: none; gap: var(--space-1) var(--space-3); margin: 0; padding: 0; list-style: none; color: var(--fg-muted); }
+
+/* ---- Field: in the Cockpit's lower left, under the Jobs list ------------------------------------------------------------- */
+
+.deck-left > .sv-panel[data-area="field"] { flex: 0.9 1 0; min-height: calc(var(--space-12) * 4); }
+.deck-left > .sv-panel[data-area="field"] > .sv-panel__body { padding: var(--space-2); }
+.deck-left > .sv-panel[data-area="field"] .deck-pane[data-bare] { flex: 1 1 0; min-height: 0; }

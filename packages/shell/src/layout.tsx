@@ -6,7 +6,7 @@
 // Nothing here draws: a surface reads `useLayout(region)` and draws what it is handed.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import { Activity, Box, DraftingCompass, GitMerge, PanelBottom, Plane, PlaneLanding, Radar, Rows3, Send, type LucideIcon } from "lucide-react";
+import { Activity, Box, CircleCheck, CircleDashed, CircleDot, GitMerge, PanelBottom, Plane, Radar, Rows3, Send, type LucideIcon } from "lucide-react";
 
 import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
@@ -34,13 +34,14 @@ const PLACES_FIXED: readonly string[] = [SURFACE.overview, SURFACE.settings, SUR
 
 /** Default order is the array's own, and every entry is drawn until a layout says otherwise. */
 export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
-  // The deck's panels, which stand in fixed columns, so a layout hides them and never orders them. The stage is not one.
+  // The deck's panels, which stand in fixed columns, so a layout hides them and never orders them. The stage is not one. The field is the map under the Jobs list: the open Job's, else the Cockpit's own.
   "dashboard.panels": {
     label: "Cockpit panels",
     ordered: false,
     firstable: false,
     entries: [
       { id: "list", label: "Jobs", icon: Box, hideable: false },
+      { id: "field", label: "Field", icon: Radar, hideable: true },
       { id: "merge-line", label: "Merge queue", icon: GitMerge, hideable: true },
       { id: "activity", label: "Activity", icon: Activity, hideable: true },
       { id: "bays", label: "Bays", icon: Rows3, hideable: true },
@@ -49,16 +50,16 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
       { id: "autopilot", label: "Autopilot", icon: Plane, hideable: true },
     ],
   },
-  // An open Job's panels, stacked in the Cockpit's right column in the order the story is told: the blueprint (the flight plan: the brief, the workflow's
-  // steps and the plan the owner approves), the field it is built on, and what it lands in. Landing also holds the mods a Mod Job made, each with its switch.
+  // An open Job's right column, told in three zones in the order it reads: what the Job has made, what it is doing, what comes. A layout hides Done or Next and never
+  // reorders them, since the story reads top to bottom. Now is the Job and cannot be hidden. The field is not here: it stands in the Cockpit's lower left.
   "job.panels": {
     label: "Job panels",
-    ordered: true,
+    ordered: false,
     firstable: false,
     entries: [
-      { id: "blueprint", label: "Blueprint", icon: DraftingCompass, hideable: false },
-      { id: "field", label: "Field", icon: Radar, hideable: true },
-      { id: "landing", label: "Delivery", icon: PlaneLanding, hideable: true },
+      { id: "done", label: "Done", icon: CircleCheck, hideable: true },
+      { id: "now", label: "Now", icon: CircleDot, hideable: false },
+      { id: "next", label: "Next", icon: CircleDashed, hideable: true },
     ],
   },
   rail: {

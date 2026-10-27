@@ -7,7 +7,7 @@ import { TASK_GLYPH, TaskMark, Tooltip, taskMarkSaid } from "@armada/components"
 
 import type { RouteStep } from "./route";
 
-function Mark({ state }: { state: RouteStep["state"] }) {
+export function Mark({ state }: { state: RouteStep["state"] }) {
   if (state !== "working") return <TaskMark state={state} />;
   const said = taskMarkSaid(state);
   return (

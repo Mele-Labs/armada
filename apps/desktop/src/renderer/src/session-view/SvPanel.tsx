@@ -3,9 +3,8 @@
 // `place` is where it stands (the Cockpit's left column, its right column, its foot), which decides how its body is laid out.
 
 import { type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { CircleCheck, CircleDashed, CircleX, Megaphone, type LucideIcon } from "lucide-react";
 
-import { TASK_GLYPH, Tooltip, useTeachMenu } from "@armada/components";
+import { Tooltip, useTeachMenu } from "@armada/components";
 import { useLayout } from "@armada/shell";
 
 import { useCollapse } from "../cockpit/deck/collapse";
@@ -15,13 +14,14 @@ import { useTeachBridge } from "../teach";
 export type PanelState = "asks" | "draft" | "live" | "done" | "failed";
 export type Place = "left" | "side" | "foot" | "calls";
 
-// The glyph that opens a band, in the band's state hue, and the word its tooltip says. A panel's own stage can name a state in its own words.
-const MARK: Record<PanelState, { Glyph: LucideIcon; said: string }> = {
-  asks: { Glyph: Megaphone, said: "Waiting on you" },
-  draft: { Glyph: CircleDashed, said: "Drafting" },
-  live: { Glyph: TASK_GLYPH.working, said: "Live" },
-  done: { Glyph: CircleCheck, said: "Done" },
-  failed: { Glyph: CircleX, said: "Failed" },
+// The lamp at the strip's left, in the state's hue, and the word its tooltip says. A panel's own stage can name a state in its own words. A plan drafted and waiting on his
+// approval is a call on him, so it is the needs lamp.
+const MARK: Record<PanelState, { lamp: "needs" | "running" | "done" | "failed"; said: string }> = {
+  asks: { lamp: "needs", said: "Waiting on you" },
+  draft: { lamp: "needs", said: "Drafting" },
+  live: { lamp: "running", said: "Live" },
+  done: { lamp: "done", said: "Done" },
+  failed: { lamp: "failed", said: "Failed" },
 };
 const SAID: Partial<Record<string, Partial<Record<PanelState, string>>>> = {
   blueprint: { live: "Approved" },
@@ -29,12 +29,9 @@ const SAID: Partial<Record<string, Partial<Record<PanelState, string>>>> = {
 };
 
 function StateMark({ state, said }: { state: PanelState; said: string }) {
-  const { Glyph } = MARK[state];
   return (
     <Tooltip asChild label={said}>
-      <span className="sv-panel__state armada-session-mark" role="img" aria-label={said} {...(state === "live" ? { "data-pulsing": "" } : {})}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
+      <span className="sv-panel__lamp" data-lamp={MARK[state].lamp} role="img" aria-label={said} />
     </Tooltip>
   );
 }

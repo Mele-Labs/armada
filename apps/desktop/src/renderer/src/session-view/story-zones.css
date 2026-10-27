@@ -1,0 +1,91 @@
+/* The Job's story: Done, Now and Next (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. Two takes of the one story: `stacked` is three panels in the
+   deck's right column, and `spine` is one scrolling timeline with the zones on a line. */
+
+/* ---- The rows --------------------------------------------------------------------------------------------- */
+
+.sv-nav { display: contents; }
+.sv-beats { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; font-family: var(--font-sans); }
+.sv-beat { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; column-gap: var(--space-2); align-items: center; min-height: var(--h-row); min-width: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-beat__lead { display: inline-flex; align-items: center; justify-content: center; color: var(--fg-subtle); }
+.sv-beat__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-beat__label[data-wraps] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; }
+/* What the turn is doing, under the row it belongs to, in the running hue. */
+.sv-beat__line { grid-column: 2 / -1; min-width: 0; padding-bottom: var(--space-1); color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); overflow-wrap: anywhere; }
+/* What a row produced, under it and indented to its label. */
+.sv-beat__made { display: flex; flex-direction: column; gap: var(--space-1); grid-column: 2 / -1; min-width: 0; padding-block: var(--space-1) var(--space-2); }
+.sv-beat--made, .sv-beat--brief { display: block; min-height: 0; padding-block: var(--space-1); }
+
+.sv-beat[data-state="done"] .sv-beat__label { color: var(--fg-muted); }
+.sv-beat[data-state="working"] .sv-beat__label,
+.sv-beat[data-state="now"] .sv-beat__label,
+.sv-beat[data-lamp] .sv-beat__label { color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-beat[data-state="now"] .sv-beat__lead { color: var(--step-running); }
+.sv-beat[data-state="next"] .sv-beat__label,
+.sv-beat[data-state="open"] .sv-beat__label { color: var(--fg-subtle); }
+.sv-beat[data-state="failed"] .sv-beat__label { color: var(--step-failed); font-weight: var(--weight-medium); }
+.sv-beat[data-lamp="needs"] .sv-beat__lead { color: var(--status-awaiting-review); }
+.sv-beat > .armada-task-mark { justify-self: center; }
+.sv-beat > .sv-group__lead { justify-self: center; }
+
+.sv-beat__open { padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.sv-beat__open:hover { color: var(--fg-default); }
+.sv-beat__open:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+
+/* A thing the Job made: its glyph, its words, and where it opens. */
+.sv-made-list { gap: var(--space-1); }
+.sv-made { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2); width: 100%; min-height: var(--h-row); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; cursor: pointer; }
+.sv-made:disabled { cursor: default; color: var(--fg-muted); }
+.sv-made:not(:disabled):hover { background: var(--bg-hover); }
+.sv-made:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-made__mark { display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
+.sv-made__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-made__age { color: var(--fg-subtle); font-size: var(--text-2xs); }
+
+/* By kind: a short list under each kind's name. */
+.sv-kind { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.sv-kind__label { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); }
+
+/* The workflow's picker, above the zones. */
+.sv-story__head { display: flex; flex: none; align-items: center; min-height: var(--h-control); }
+
+/* ---- Take B: three panels ----------------------------------------------------------------------------------- */
+
+.sv-side > .sv-panel[data-area="done"] { flex: 3 1 0; min-height: calc(var(--space-12) * 2); }
+.sv-side > .sv-panel[data-area="now"] { flex: 3 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="next"] { flex: 2 1 0; min-height: calc(var(--space-12) * 2); }
+.sv-side > .sv-panel[data-area="done"]:has(> .sv-panel__body:empty),
+.sv-side > .sv-panel[data-area="next"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+/* The Tabs in a band keep the band's height. */
+.sv-panel__acts .armada-tabs { text-transform: none; letter-spacing: normal; }
+
+/* ---- Take A: one line ----------------------------------------------------------------------------------------- */
+
+/* The column is one scroll, and the zones are not panels any more: no frame, no fill, no shadow. The line runs down the left of every zone, solid for what is done,
+   heavier through Now, and dashed for what is to come; each band is the marker on it. The selectors are doubled over the glass sheet's own. */
+.sv-spine { --line: var(--space-4); --lead: calc(var(--line) + var(--space-4)); position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: var(--space-1) var(--space-2) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
+.sv-spine .sv-story__head { padding-inline-start: var(--lead); }
+.sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
+.sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
+.sv-spine .sv-panel[data-area="now"]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
+.sv-spine .sv-panel[data-area="next"]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
+/* The line starts at Done's first marker. */
+.sv-spine .sv-panel[data-area="done"]::before { inset-block-start: calc(var(--legend-h) / 2); }
+
+.sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: relative; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: none; box-shadow: none; color: var(--fg-muted); }
+/* The marker on the line: a hollow dot for Done and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
+.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1) - var(--border-width) / 2); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--bg-sunken); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
+.sv-spine .sv-panel[data-area="now"] > .sv-panel__band { color: var(--fg-default); }
+.sv-spine .sv-panel[data-area="now"] > .sv-panel__band::after { inset-inline-start: calc(var(--line) - var(--space-2) / 2 - var(--border-width) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
+.sv-spine .sv-panel[data-area="now"] > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
+
+.sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
+.sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
+.sv-spine .sv-panel[data-collapsed]::before { display: none; }
+
+/* The brief reads as prose, not as the panel's mono. */
+.sv-nav .sv-flight__brief { padding-inline: var(--space-2); font-family: var(--font-sans); }
+.sv-beat--brief .sv-flight__brief { padding-inline: 0; }
+/* The groups' rows start where the beats do: the mark column is the first column, with no inset. */
+.sv-nav .sv-flight__row { padding-inline: 0; }
+.sv-nav .sv-flight__open { padding-inline: 0; }
+.sv-nav .sv-flight__open > .sv-group__tasks { padding-inline: 0; }

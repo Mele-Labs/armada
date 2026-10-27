@@ -38,8 +38,8 @@
 .sv-group__task[data-state="done"], .sv-group__task[data-state="handed_in"] { color: color-mix(in srgb, var(--step-advanced) 40%, var(--fg-muted)); }
 .sv-group__task[data-state="working"] { color: var(--fg-default); }
 .sv-group__task[data-state="failed"] { background: var(--step-failed-bg); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-failed); color: var(--step-failed); font-weight: var(--weight-medium); }
-/* The task the turn is on: tinted and edged in the running hue, with what it is doing on a line of its own under the text. */
-.sv-group__task[data-here] { background: color-mix(in srgb, var(--step-running) 12%, transparent); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-running); color: var(--fg-default); font-weight: var(--weight-medium); }
+/* The task the turn is on takes the selection's shape: a hairline frame on a raised ground, at the inset radius, with what it is doing on a line of its own under the text. */
+.sv-group__task[data-here] { border-radius: var(--radius-inset, var(--radius-sm)); background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); color: var(--fg-default); font-weight: var(--weight-medium); }
 .sv-group__task > .sv-issue { grid-column: 2; margin-top: var(--space-1); }
 .sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 

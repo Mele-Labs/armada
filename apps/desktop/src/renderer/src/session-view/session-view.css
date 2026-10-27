@@ -14,7 +14,7 @@
 /* ---- A panel -------------------------------------------------------------------------------------------- */
 
 .sv-panel {
-  --folded: calc(var(--h-row) * 1.25 + var(--border-width) * 2);
+  --folded: calc(var(--legend-h) + var(--border-width) * 2);
   --hue: var(--fg-subtle);
   display: flex;
   flex-direction: column;
@@ -26,27 +26,13 @@
   overflow: hidden;
 }
 .sv-slot[data-place="foot"] > .sv-panel { flex: 1 1 auto; }
-/* The state is the frame's hue and the band's: a panel at rest keeps the plain edge. */
-.sv-panel[data-state="asks"] { --hue: var(--status-awaiting-review); }
-.sv-panel[data-state="draft"] { --hue: var(--status-awaiting-approval); }
-.sv-panel[data-state="live"] { --hue: var(--step-running); }
-.sv-panel[data-state="done"] { --hue: var(--step-advanced); }
-.sv-panel[data-state="failed"] { --hue: var(--step-failed); }
-.sv-panel[data-state] { border-color: color-mix(in srgb, var(--hue) 55%, var(--border-default)); }
-.sv-panel[data-state]:not([data-collapsed]) { background: color-mix(in srgb, var(--hue) 3%, var(--bg-sunken)); }
-.sv-panel[data-state="asks"] {
-  border-color: var(--status-awaiting-review);
-  box-shadow:
-    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--status-awaiting-review) 10%, transparent),
-    0 0 var(--space-6) color-mix(in srgb, var(--status-awaiting-review) 12%, transparent);
-}
-
+/* A panel's state is the lamp in its strip (`.sv-panel__lamp`), and nothing else about the panel: no hue on the frame, the band or the ground. */
 .sv-panel__band {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-3);
-  min-height: calc(var(--h-row) * 1.25);
+  min-height: var(--legend-h);
   padding: 0 var(--space-3) 0 var(--space-4);
   border-bottom: var(--border-width) solid var(--border-default);
   background: var(--bg-raised);
@@ -58,10 +44,14 @@
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
-/* The open band is the state's word in its hue over a tint of it, ruled off in the hue; a folded band keeps the hue and a lighter tint. */
-.sv-panel[data-state] > .sv-panel__band { border-bottom-color: color-mix(in srgb, var(--hue) 45%, var(--border-subtle)); background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); color: var(--hue); }
-.sv-panel[data-state][data-collapsed] > .sv-panel__band { background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised)); }
-.sv-panel__state { display: inline-flex; flex: none; align-items: center; margin-inline-start: calc(var(--space-1) * -1); }
+/* The lamp: 6px and round in the state's hue, at the strip's left. Needs him pulses, on opacity alone. */
+.sv-panel__lamp { --lamp-hue: var(--fg-subtle); flex: none; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--lamp-hue); }
+.sv-panel__lamp[data-lamp="running"] { --lamp-hue: var(--status-running); }
+.sv-panel__lamp[data-lamp="needs"] { --lamp-hue: var(--status-awaiting-review); animation: sv-lamp-pulse 1.6s ease-in-out infinite; }
+.sv-panel__lamp[data-lamp="done"] { --lamp-hue: var(--status-completed-success); }
+.sv-panel__lamp[data-lamp="failed"] { --lamp-hue: var(--status-completed-failed); }
+@keyframes sv-lamp-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .sv-panel__lamp[data-lamp="needs"] { animation: none; } }
 .sv-panel__label { margin: 0; font: inherit; letter-spacing: inherit; }
 .sv-panel__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; text-transform: none; letter-spacing: normal; }
 .sv-panel__mark { display: inline-flex; color: var(--step-advanced); }
@@ -345,13 +335,6 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-layer__clash-with:hover { text-decoration: underline; }
 .sv-clash-file { display: flex; flex-direction: column; gap: var(--space-4); }
 .sv-clash-file__side { display: flex; flex-direction: column; gap: var(--space-2); }
-
-/* ---- A Work row whose Session is calling him ------------------------------------------------------------------- */
-
-/* A 2px bar in the call's colour on the row's left edge fades in and out on a slow loop. Only its opacity moves. */
-.deck-row[data-calling]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 2px; border-radius: 1px; background: var(--status-awaiting-review); animation: deck-call-pulse 1.6s ease-in-out infinite; pointer-events: none; }
-@keyframes deck-call-pulse { 50% { opacity: 0.2; } }
-@media (prefers-reduced-motion: reduce) { .deck-row[data-calling]::before { animation: none; } }
 
 /* ---- A Session's card, half as padded ---------------------------------------------------------------------------- */
 

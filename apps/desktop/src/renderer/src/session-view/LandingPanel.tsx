@@ -30,7 +30,7 @@ import { bandKeyFor, landingOf, useFold } from "./story";
 import "./story.css";
 
 /** The docs the Job made, a spike's findings or a document: a row each, which opens the doc as the Artifacts list does. */
-function Docs({ rows, said }: { rows: readonly ArtifactRow[]; said: string }) {
+export function Docs({ rows, said }: { rows: readonly ArtifactRow[]; said: string }) {
   return (
     <ul className="sv-landing__docs" aria-label={said}>
       {rows.map((row) => (
@@ -63,7 +63,7 @@ function conclusionOf(text: string): string {
  * opens. A report that is an HTML page (the Job's document) reads its conclusion from the page's first paragraph, from the newest
  * revision, and opens in the reading layer over the Job.
  */
-function Report({ session, row }: { session: Session; row: ArtifactRow }) {
+export function Report({ session, row }: { session: Session; row: ArtifactRow }) {
   const doc = documentOf(session, row.sub);
   const held = useArtifact(useSessionsDraft(), session.id, doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""));
   const text = held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";

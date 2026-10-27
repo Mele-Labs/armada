@@ -1,7 +1,6 @@
-// The Blueprint as a flight plan. At the top, the brief the Job was dispatched with and the workflow's steps as one line of glyphs with their names, the
-// picker beside them (`FlightHead`). Under it, once a plan is approved, a row for each group (`FlightRows`): its state glyph, its title, and a tick for
-// each task on the right, filled where the task is done and hollow where it waits. Only the group being worked opens to its tasks and the live line; a
-// press opens another. The whole plan, with its subagent types and paths, is the whole-blueprint view (`BlueprintPanel.tsx`).
+// The pieces the Job's story is read with (`StoryColumn.tsx`): the brief the Job was dispatched with, a row for each plan group (`FlightRows`) with its state glyph, its title
+// and a tick for each task on the right, filled where the task is done and hollow where it waits, and the head with the workflow's picker and steps (`FlightHead`). A group
+// opens to its tasks and the live line, and a press opens or shuts any. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
 import { Circle, Link } from "lucide-react";
@@ -25,7 +24,7 @@ export function briefOf(session: Session): string | undefined {
   return trimmed === undefined || trimmed === "" ? undefined : trimmed;
 }
 
-function Brief({ text }: { text: string }) {
+export function Brief({ text }: { text: string }) {
   const [whole, setWhole] = useState(false);
   return (
     <button type="button" className="sv-flight__brief" aria-expanded={whole} aria-label="Brief" data-whole={whole || undefined} onClick={() => setWhole(!whole)}>
@@ -54,7 +53,7 @@ export function FlightHead({ session, work, id, manifestId, acts }: { session: S
 }
 
 /** A tick for a task: filled once done, hollow while it waits, in the hue of the state. The task's words are its tooltip. */
-function Tick({ task }: { task: ViewGroup["tasks"][number] }) {
+export function Tick({ task }: { task: ViewGroup["tasks"][number] }) {
   const state = task.state as TaskMarkState;
   const said = `${task.text}, ${taskMarkSaid(state).toLowerCase()}`;
   return (
@@ -66,7 +65,7 @@ function Tick({ task }: { task: ViewGroup["tasks"][number] }) {
   );
 }
 
-function FlightGroup({ group, step, open, flip, now, parent, manifestId, onOpenSession }: { group: ViewGroup; step: Step; open: boolean; flip: () => void; now: string | undefined; parent: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function FlightGroup({ group, step, open, flip, now, parent, manifestId, onOpenSession }: { group: ViewGroup; step: Step; open: boolean; flip: () => void; now: string | undefined; parent: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
   const sessions = useSessions();
   const draft = useSessionsDraft();
   const child = childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
@@ -110,10 +109,11 @@ function FlightGroup({ group, step, open, flip, now, parent, manifestId, onOpenS
  * A row for each group of an approved plan. The group being worked is open, else the first not yet done, so a Job just started shows where it begins;
  * a press opens or shuts any group and holds until the group being worked moves on.
  */
-export function FlightRows({ groups, workingGroup, now, session, manifestId, onOpenSession }: { groups: readonly ViewGroup[]; workingGroup: string | undefined; now: string | undefined; session: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function FlightRows({ groups, workingGroup, now, session, manifestId, onOpenSession, calm = false }: { calm?: boolean; groups: readonly ViewGroup[]; workingGroup: string | undefined; now: string | undefined; session: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
   const [pressed, setPressed] = useState<Readonly<Record<string, boolean>>>({});
   const steps = stepsOf(groups, true, workingGroup);
-  const lit = groups.find((group) => steps.get(group.id) === "current") ?? groups.find((group) => steps.get(group.id) !== "done");
+  // `calm` opens none by default: the groups still to come, which are read as titles.
+  const lit = calm ? undefined : (groups.find((group) => steps.get(group.id) === "current") ?? groups.find((group) => steps.get(group.id) !== "done"));
   return (
     <ul className="sv-flight__groups" aria-label="Groups">
       {groups.map((group) => {
