@@ -210,7 +210,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// A repository as the forge names it, else the id it is served under.
-    async fn walk_slug(&self, root: &str, manifest_id: &ManifestId) -> String {
+    pub(crate) async fn walk_slug(&self, root: &str, manifest_id: &ManifestId) -> String {
         let (reaching, at) = (Arc::clone(self.reaching()), root.to_string());
         let slug = tokio::task::spawn_blocking(move || reaching.slug(&at)).await.ok().flatten();
         slug.unwrap_or_else(|| manifest_id.as_str().to_string())

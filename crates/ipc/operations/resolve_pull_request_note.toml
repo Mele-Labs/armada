@@ -1,0 +1,14 @@
+[operations.resolve_pull_request_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Mark done a pull request note the owner sent this job, once its change is made. Pass the note's id as note_id. A note not sent to this job is refused"
+notes = """
+`POST /sessions/pull_request_note_resolved`, body `ResolvePullRequestNote`: `note_id` and an optional `session_id`. Answered with the `PullRequestNote`, `status` `done`.
+
+**The job is the one whose process holds the connection**, as `mark_annotation_done`'s is. Only a job Fleet hosts is served, and an ended job is refused.
+
+**Only a note whose `sent_to` is this job is resolved.** A 422 `fleet.pull_request_note_refused`, the note left as it was, for a note not sent to this job (including one never sent), one Fleet does not know, or one already resolved. A second resolve is refused, not repeated.
+
+`agent_access` is `Yes`: the agent is the one that made the change the note asked for.
+"""

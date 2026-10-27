@@ -558,6 +558,22 @@ pub(crate) async fn mark_annotation_done<D: Sessions>(
     }
 }
 
+/// The agent resolves a pull request note Bridge sent it. 200 with the note; 422 for one that is not
+/// there, not this session's, or already resolved. **The session is placed by the connection.**
+pub(crate) async fn resolve_pull_request_note<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let resolve: ipc::ResolvePullRequestNote = match ipc::decode_body("which note is resolved", &body) {
+        Ok(resolve) => resolve,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().resolve_pull_request_note(crate::acting::asking(), resolve).await {
+        Ok(note) => answer(StatusCode::OK, &note, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?manifest_id=`, `?q=`, `?state=` and `?view=` on `list_sessions`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {

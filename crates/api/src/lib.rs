@@ -85,6 +85,8 @@ mod pull_requests;
 mod queries;
 /// Natural Search and the Walk tool's routes, beside a pull request's runs.
 mod review_walks;
+/// The owner's notes on a pull request's lines.
+mod pull_request_notes;
 mod receipts;
 mod reconciling;
 /// The run sheet's routes: a person's run of one Manifest entry in a Job's

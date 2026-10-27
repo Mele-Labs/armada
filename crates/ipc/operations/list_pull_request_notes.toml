@@ -1,0 +1,10 @@
+[operations.list_pull_request_notes]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every note the owner left on one pull request's lines, oldest first"
+notes = """
+`GET /pull_request_notes/:repository/:number`, `repository` a manifest id. `PullRequestNotes`: each note's `id`, `repository` (as the forge names it), `number`, `path`, `line`, `side` (`left` or `right`), `body`, `status` (`open` or `done`), and, once sent, `sent_to`, `sent_title` and `sent_at`, then `created_at`.
+
+A 422 for a repository Fleet does not serve.
+"""

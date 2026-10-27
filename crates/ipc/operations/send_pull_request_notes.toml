@@ -1,0 +1,12 @@
+[operations.send_pull_request_notes]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Record that notes were sent to a job, so that job can resolve them"
+notes = """
+`POST /pull_request_notes/:repository/:number/sent`, `repository` a manifest id, body `SendPullRequestNotes`: `note_ids`, `session_id` and `title` (the job's title now). Sets `sent_to`, `sent_title` and `sent_at` on each note named. Answers `PullRequestNotes`.
+
+**It records and sends nothing.** Bridge sends the message itself through `send_session_message`.
+
+A 422 `fleet.pull_request_note_invalid` for an id that names no note on that pull request.
+"""
