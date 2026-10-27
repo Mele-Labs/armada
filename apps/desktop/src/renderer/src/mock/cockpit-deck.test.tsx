@@ -237,3 +237,16 @@ test("⌥↓ on a row moves it down one, and the order is kept for the next wind
   const kept: string[] = JSON.parse(localStorage.getItem("armada.bridge.deck-order") ?? "[]");
   expect(kept.indexOf(key(moved)!)).toBe(kept.indexOf(key(next!)!) + 1);
 });
+
+// The owner, 27 Oct 2026: after the console touch-up the Jobs rows and the merge line's chips read square. A row keeps the
+// control's curve, and a chip and its track stay pills.
+test("Jobs rows and the merge line's chips keep their rounded corners", async () => {
+  await deck();
+  const radius = (element: Element) => parseFloat(getComputedStyle(element).borderTopLeftRadius);
+  const row = document.querySelector(".deck-list .deck-row")!;
+  expect(radius(row), "a Jobs row").toBeGreaterThanOrEqual(6);
+  for (const selector of [".deck-queue .deck-chip", ".deck-queue__track"]) {
+    const element = document.querySelector(selector)!;
+    expect(radius(element), selector).toBeGreaterThanOrEqual(element.getBoundingClientRect().height / 2 - 1);
+  }
+});
