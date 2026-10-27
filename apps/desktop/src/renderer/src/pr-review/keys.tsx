@@ -90,7 +90,8 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     event.stopPropagation();
   };
 
-  // Esc backs out a level: the box, a tool's results, a part and the open pull request.
+  // Esc backs out a level: the box, a tool's results, a part, and stops at the list. **It never closes the open pull
+  // request**: only opening another one changes what the reader holds.
   if (isPressed("close", event)) {
     if (here === undefined && document.querySelector(".pr-surface") === null) return;
     if (snap.searching) {
@@ -110,10 +111,6 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     if (here === ".pr-reader" || here === ".deck-controls") {
       take();
       return focusList();
-    }
-    if (pr !== undefined) {
-      take();
-      return store.open(undefined);
     }
     return;
   }
