@@ -26,7 +26,7 @@ const SHOWN_NOT_TEXT: &str = "fleet.shown_file_not_text";
 const MOST_SENT: u64 = 1024 * 1024;
 
 /// The pictures a phone draws, by extension, and the type each is sent under.
-const PICTURES: [(&str, &str); 6] = [
+pub(super) const PICTURES: [(&str, &str); 6] = [
     ("png", "image/png"),
     ("jpg", "image/jpeg"),
     ("jpeg", "image/jpeg"),

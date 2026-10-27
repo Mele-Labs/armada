@@ -294,7 +294,7 @@ where
         }
         turn.push_str(instead.as_deref().unwrap_or(&text));
         for path in &kept.paths {
-            turn.push_str(&format!("\n\nAttached file: {path}"));
+            turn.push_str(&format!("\n\n{}", super::super::uploads::attached_line(path)));
         }
         let turn = super::super::cut_off::told(&mut runtime.state(), turn);
         let line = ipc::encode(&UserLine::of(turn, kept.pictures))

@@ -127,6 +127,7 @@ mod delivery_gate;
 mod start_card;
 mod session_rail;
 mod auto_land;
+mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
 mod session_pause_work;

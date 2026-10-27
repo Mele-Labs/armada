@@ -447,7 +447,7 @@ where
             None => words.to_string(),
         };
         for path in &paths {
-            turn.push_str(&format!("\n\nAttached file: {path}"));
+            turn.push_str(&format!("\n\n{}", super::uploads::attached_line(path)));
         }
         if !self
             .hosts()
