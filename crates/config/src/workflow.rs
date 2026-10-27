@@ -62,7 +62,7 @@ const LANDS_LEGAL: &[&str] = &["pull_request", "report", "spike", "document"];
 /// to know whether those names resolve; [`crate::ResolvedWorkflow`] is the type
 /// that has been checked against a Manifest, and it is the only one that can be
 /// built from this.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkflowDef {
     path: PathBuf,
     id: WorkflowId,
@@ -163,6 +163,24 @@ impl WorkflowDef {
     /// the same thing can disagree.
     pub fn steps(&self) -> &[Step] {
         &self.steps
+    }
+
+    /// Whether `other` is this definition with the `instructions` of the step `step` rewritten and
+    /// nothing else different: the same id, name, requests, landing, steps in the same order, and in
+    /// every step but that one every field. **False where either lacks the step.**
+    pub fn differs_only_in_words_of(&self, other: &WorkflowDef, step: &str) -> bool {
+        let (Some(_), Some(theirs)) = (
+            self.steps.iter().find(|one| one.id().as_str() == step),
+            other.steps.iter().find(|one| one.id().as_str() == step),
+        ) else {
+            return false;
+        };
+        let told = WorkflowDef {
+            path: other.path.clone(),
+            steps: self.steps.iter().map(|one| if one.id().as_str() == step { one.told_words_of(theirs) } else { one.clone() }).collect(),
+            ..self.clone()
+        };
+        told == *other
     }
 }
 

@@ -1,0 +1,529 @@
+/* Workflows as a person manages them: a list grouped by where each comes from, and the picked one as
+   a column of step cards. A step is a frame under a header band, as the pool's bays are: the band
+   carries the number, the name and the glyph, the body carries the facts in fixed columns. State is
+   a glyph with a tooltip. Tokens only. */
+
+.armada-wm {
+  display: grid;
+  grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: var(--space-6);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---- The list ------------------------------------------------------------------------------- */
+
+.armada-wm__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-wm__groups {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--space-6);
+}
+
+.armada-wm__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A group is a section label as the Job panel's repository groups are: mono caps and a hairline out to the edge. */
+.armada-wm__caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm__caption::after {
+  content: "";
+  flex: 1 1 auto;
+  height: var(--border-width);
+  background: var(--head-rule, var(--border-subtle));
+}
+
+.armada-wm__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The name, and a column the replaces glyph keeps whether a row has one or not. */
+.armada-wm__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--space-6);
+  align-items: center;
+}
+
+.armada-wm__entry {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.armada-wm__entry:hover {
+  background: var(--surface-row-hover);
+  color: var(--fg-default);
+}
+.armada-wm__entry[aria-current="true"] {
+  background: var(--surface-row-selected);
+  color: var(--fg-default);
+}
+.armada-wm__entry:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-wm__replaces {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-subtle);
+}
+
+/* ---- The picked workflow -------------------------------------------------------------------- */
+
+.armada-wm__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--space-6);
+}
+
+/* Nothing in the column shrinks to fit it: a card with overflow hidden would otherwise squash to nothing, and the column scrolls instead. */
+.armada-wm__detail > * {
+  flex: none;
+}
+
+.armada-wm__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.armada-wm__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-wm__name {
+  margin: 0;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+}
+
+.armada-wm__for {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.armada-wm__fact-label {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-wm__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-wm__said {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-wm__said > svg {
+  flex: none;
+  color: var(--status-completed-success);
+}
+/* Fleet's sentence for an act it refused, as it said it. */
+.armada-wm__said[data-refused] {
+  color: var(--status-completed-failed);
+}
+
+.armada-wm__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- A step --------------------------------------------------------------------------------- */
+
+.armada-wm-step {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.armada-wm-step:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+/* A step with words not saved: its frame takes the accent. */
+.armada-wm-step[data-changed] {
+  border-color: var(--accent);
+}
+
+.armada-wm-step__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-step__band > svg {
+  flex: none;
+}
+
+.armada-wm-step__n {
+  color: var(--fg-subtle);
+}
+.armada-wm-step__label {
+  color: var(--fg-default);
+}
+
+/* The mark for a step that differs from Armada's takes a column of its own, then Save and Discard theirs. */
+.armada-wm-step__marks {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  margin-left: auto;
+  color: var(--accent);
+}
+.armada-wm-step__save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: calc(var(--space-12) * 2);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* The facts line up in two columns whatever their lengths. */
+.armada-wm-step__facts {
+  display: grid;
+  grid-template-columns: 18ch minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+}
+.armada-wm-step__facts > dt {
+  white-space: nowrap;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-step__facts > dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.armada-wm-step__words {
+  margin: 0;
+  color: var(--fg-default);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Words beside Armada's, a sentence marked where the two part. */
+.armada-wm-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.armada-wm-compare__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.armada-wm [data-mark="removed"] {
+  background: var(--status-completed-failed-bg);
+}
+.armada-wm [data-mark="added"] {
+  background: var(--status-completed-success-bg);
+}
+
+/* ---- Where Jobs drifted --------------------------------------------------------------------- */
+
+.armada-wm-drift {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-wm-drift__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The caption, and the one press a step may carry at its trailing edge. */
+.armada-wm-drift__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.armada-wm-drift__head > .armada-wm__caption {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.armada-wm-drift__head > .armada-wm-agent__working {
+  margin-right: var(--space-3);
+}
+
+/* A drifted Job: what happened, and two acts at the right, in the same columns on every row. */
+.armada-wm-drift__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) calc(var(--space-12) * 2) var(--space-6) max-content max-content;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.armada-wm-drift__row:hover {
+  background: var(--surface-row-hover);
+}
+.armada-wm-drift__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.armada-wm-drift__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.armada-wm-drift__job {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.armada-wm-drift__when {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* ---- The agent ------------------------------------------------------------------------------ */
+
+.armada-wm-agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.armada-wm-agent[data-phase="working"] {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.armada-wm-agent__working {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+  animation: armada-wm-spin var(--duration-pulse) linear infinite;
+}
+@keyframes armada-wm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .armada-wm-agent__working {
+    animation: none;
+  }
+}
+.armada-wm-agent__acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ---- The proposed change -------------------------------------------------------------------- */
+
+.armada-wm-diff {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.armada-wm-diff__band {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-diff__asked {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+}
+.armada-wm-diff__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+.armada-wm-diff__side {
+  min-width: 0;
+}
+.armada-wm-diff__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* A step's sign, number, name and ending sit in the same columns on both sides. */
+.armada-wm-diff__step {
+  display: grid;
+  grid-template-columns: var(--space-6) var(--space-4) minmax(0, 1fr) minmax(0, 2fr);
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+.armada-wm-diff__sign {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+.armada-wm-diff__n {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-wm-diff__label {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.armada-wm-diff__ends {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.armada-wm-diff__notes {
+  padding: 0 var(--space-4) var(--space-3);
+}
+.armada-wm-diff__acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* A suggested change sits inside its step, above the Jobs it was drawn from. */
+.armada-wm-suggest {
+  margin: 0 var(--space-4) var(--space-4);
+}
+.armada-wm-suggest:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.armada-wm-suggest__words {
+  padding: var(--space-3) var(--space-4);
+}

@@ -326,3 +326,22 @@ fn a_landing_outside_the_four_is_refused() {
         "{refused:?}"
     );
 }
+
+/// **A suggestion may rewrite one step's words and nothing else**, and this is how Fleet holds a
+/// draft to that: every other field of every step, and the definition's own, must read the same.
+#[test]
+fn a_definition_differs_only_in_the_words_of_a_step_when_nothing_else_moved() {
+    let before = parse(BUG).expect("the fixture");
+    let reworded = parse(&BUG.replace("label: Implement", "label: Implement\n    instructions: \"Say what you changed.\"")).unwrap();
+    assert!(before.differs_only_in_words_of(&reworded, "implement"));
+    assert!(before.differs_only_in_words_of(&before, "implement"), "no change at all is within it");
+    assert!(!before.differs_only_in_words_of(&reworded, "plan"), "the words moved in another step");
+    assert!(!before.differs_only_in_words_of(&reworded, "no-such-step"));
+
+    let relabelled = parse(&BUG.replace("label: Implement", "label: Build it")).unwrap();
+    assert!(!before.differs_only_in_words_of(&relabelled, "implement"), "a label is not the words");
+    let regated = parse(&BUG.replace("delivers: true", "delivers: false")).unwrap();
+    assert!(!before.differs_only_in_words_of(&regated, "implement"), "a flag is not the words");
+    let renamed = parse(&BUG.replace("name: bug", "name: other")).unwrap();
+    assert!(!before.differs_only_in_words_of(&renamed, "implement"), "nor is the definition's own name");
+}

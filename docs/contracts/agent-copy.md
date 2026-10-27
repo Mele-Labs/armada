@@ -274,7 +274,7 @@ person cannot be talked into advancing a step.
 
 ### Samples
 
-**Feature · implement.** The record that would have made a later refusal
+**Feature · refine.** The record that would have made a later refusal
 unnecessary — the Drone noticed the width and said so.
 
 | | |
@@ -581,7 +581,7 @@ reference is echoed first.
 
 > **what's job 12 doing**
 >
-> Job 12 is on step 3 of 5, implement, 14 minutes in. Last wrote
+> Job 12 is on step 5 of 6, refine, 14 minutes in. Last wrote
 > `session.rs`. Spend `~$1.80 of $20`.
 
 **Relaying a refusal.** Attribution sits in the second sentence, never the

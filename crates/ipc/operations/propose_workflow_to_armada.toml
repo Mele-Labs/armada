@@ -1,0 +1,14 @@
+[operations.propose_workflow_to_armada]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Start a Job on the Armada repository that lands a workflow definition, so it ships to every install"
+notes = """
+`POST /workflows/propose`, since 27 Oct 2026. The body is `ProposeToArmada`: `workflow_id` and `definition`, the text to carry. The answer is `ArmadaProposed`: the id, the Job's `session_id` and `send_failed`, why its brief was not sent, absent where it was.
+
+The Job is started on the repository Fleet serves as `armada`, as a retro's fix in Armada is. Its brief says to set Armada's carried `.armada/workflows/<file>` to this definition and land it as a pull request, which ships it to every install. Nothing is written by Fleet here.
+
+422 `fleet.workflow_armada_not_served` where this Fleet does not serve Armada's own repository, so there is nowhere to start the Job. 422 `fleet.workflow_change_empty` where the definition is blank.
+
+`agent_access` is `Bridge only`: it starts a Job, and the person pressed Propose to Armada.
+"""

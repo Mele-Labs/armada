@@ -1,0 +1,14 @@
+[operations.mark_not_a_drift]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Mark one nudge on a workflow's step as not a drift, so it stops counting"
+notes = """
+`POST /workflows/not_a_drift`, since 27 Oct 2026. The body is `MarkNotADrift`: `nudge`, a `StepNudge.id`. The answer is a `NotADriftMarked` naming it.
+
+**The nudge stays kept and stops counting**: it leaves `get_workflow_steps`' `nudges` and a count of drifts at a step, and nothing else changes. Marking one already marked answers the same and keeps its first time. 422 `fleet.no_such_nudge` where Fleet kept none by that id.
+
+No `manifest_id`: a nudge id is the store's and names one row.
+
+`agent_access` is `Bridge only`: whether a Job drifted is the person's say, and an agent must not clear the evidence a suggestion is drafted from.
+"""

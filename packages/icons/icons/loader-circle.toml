@@ -53,3 +53,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 22 Oct 2026 for the walk `session-teach`, tooltip `Reading what you wrote`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
+
+[[icons.loader-circle.usage]]
+  means = "An agent drafting a change to a workflow"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Tooltip `The agent is working`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."

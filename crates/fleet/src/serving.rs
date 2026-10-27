@@ -304,31 +304,19 @@ where
         });
         match found {
             Some(file) => Ok(crate::wire::workflow_definition(file)),
-            None => {
-                let said = match &source {
-                    Some(source) => format!(
-                        "no `{}` is held from {source} in this repository; a definition that \
-                         was left out is on `list_left_out_workflows`",
-                        workflow_id.as_str()
-                    ),
-                    None => format!(
-                        "no workflow `{}` runs in this repository",
-                        workflow_id.as_str()
-                    ),
-                };
-                Err(Refusal::Unacceptable(
-                    ipc::WireError::raised(
-                        "fleet.no_such_workflow_definition",
-                        said,
-                        self.run_id(),
-                    )
-                    .with_field(
-                        "workflow_id",
-                        ipc::WireValue::Str(workflow_id.as_str().to_string()),
-                    ),
-                ))
-            }
+            None => Err(self.no_such_definition(workflow_id.as_str(), source.as_deref())),
         }
+    }
+
+    /// One definition step by step, for the Workflows page.
+    async fn get_workflow_steps(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowSteps, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        self.workflow_steps_read(&served, workflow_id.as_str(), source.as_deref()).await
     }
 
     /// The Kit and carried definitions one repository runs without, each with why.

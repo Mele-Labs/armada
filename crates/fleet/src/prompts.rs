@@ -64,6 +64,10 @@ fn shipped_texts() -> Vec<(Words, String)> {
             keys::PROMPT_TEST_MAP_READING,
             crate::test_map_reading::QUESTION.to_string(),
         ),
+        (
+            keys::PROMPT_WORKFLOW_CHANGE,
+            crate::workflow_changes::QUESTION.to_string(),
+        ),
     ]
     .into_iter()
     .chain(

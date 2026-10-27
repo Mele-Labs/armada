@@ -154,12 +154,14 @@ pub trait Sessions: Send + Sync + 'static {
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `record_plan` — a session records its plan, as a new version where it has one. `caller` places a hosted
-    /// session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`] with every rule the plan
-    /// breaks, or for a call that places no session.
+    /// session as `show_window`'s does. `seen` is the agent's word that the person would see the change, so a
+    /// walk follows approval; the route reads it beside the plan, and it holds nothing. Answers with the row.
+    /// [`Refusal::Unacceptable`] with every rule the plan breaks, or for a call that places no session.
     fn record_plan(
         &self,
         caller: Option<crate::Caller>,
         plan: ipc::RecordPlan,
+        seen: bool,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `approve_plan` — the person approves the plan at the version he read, and the agent is told once.

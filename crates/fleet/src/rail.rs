@@ -17,10 +17,16 @@
 //! opened), only once every anchor before it has been passed, and **where it cannot be told apart from
 //! the step just before it the earlier one is kept**. A step that fits nothing observable is never
 //! entered by itself.
+//!
+//! **Steps before the plan, and the walk.** A step before the recording step is current until a plan
+//! is recorded, or, with `awaits_reply`, until the person replies; the recording step is then entered
+//! when a plan is recorded. A `walks` step is current from the plan's approval until he approves a
+//! window the Job showed, and is passed over when the plan named no walk and no window was shown. A
+//! `follows_plan` step after it is entered only once it is passed.
 
 use config::ResolvedWorkflow;
 use core_model::{EvidenceType, JudgeCriterion, ResolvedCheck, ResolvedStep, StepPhase};
-use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord};
+use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord, TouchAct};
 
 /// The observable fact a step between anchors fits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +44,7 @@ pub(crate) enum Fit {
 /// What the rail needs to know of one step.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RailStep {
+    pub id: String,
     pub label: String,
     pub about: Option<String>,
     /// What the agent is told on entering the step.
@@ -47,6 +54,10 @@ pub(crate) struct RailStep {
     pub delivers: bool,
     /// Entering the step asks how the work is delivered.
     pub asks_delivery: bool,
+    /// The step where the person is shown the work and approves it before tests are written.
+    pub walks: bool,
+    /// The step ends when the person replies.
+    pub awaits_reply: bool,
     /// What a boundary judge asks after the step. Empty is a step nobody judges.
     pub criteria: Vec<JudgeCriterion>,
     pub fit: Option<Fit>,
@@ -79,6 +90,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
         .steps()
         .iter()
         .map(|step| RailStep {
+            id: step.id().as_str().to_string(),
             label: step.label().to_string(),
             about: step.about().map(str::to_string),
             instructions: step.instructions().map(str::to_string),
@@ -86,6 +98,8 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             follows_plan: step.follows_plan(),
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
+            walks: step.walks(),
+            awaits_reply: step.awaits_reply(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
             fit: fit_of(step),
         })
@@ -97,11 +111,21 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
 pub(crate) struct Extra {
     pub committed: bool,
     pub checked: bool,
+    /// The person wrote after the agent's first turn.
+    pub replied: bool,
+    /// The Job showed a window.
+    pub walk_shown: bool,
+    /// The person approved a window the Job showed.
+    pub walk_approved: bool,
+    /// The recorded plan names a walk or says the person would see the change.
+    pub plan_expects_walk: bool,
 }
 
 /// What was observed, as the rules read it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Facts {
+    pub replied: bool,
+    pub plan_recorded: bool,
     pub plan_approved: bool,
     pub tasks_open: bool,
     pub edited: bool,
@@ -110,6 +134,11 @@ pub(crate) struct Facts {
     pub pushed: bool,
     pub pr_opened: bool,
     pub landed: bool,
+    pub walk_shown: bool,
+    pub walk_approved: bool,
+    pub plan_expects_walk: bool,
+    /// A test file was written or edited.
+    pub test_edited: bool,
 }
 
 impl Facts {
@@ -118,6 +147,8 @@ impl Facts {
             record.build.as_ref().is_some_and(|build| build.stops.iter().any(|stop| stop.id == id && stop.at.is_some()))
         };
         Facts {
+            replied: extra.replied,
+            plan_recorded: record.plan.is_some(),
             plan_approved: record.plan.as_ref().is_some_and(|plan| plan.approved),
             tasks_open: record.plan.as_ref().is_some_and(|plan| {
                 plan.groups
@@ -134,7 +165,26 @@ impl Facts {
             pushed: reached(BuildStopId::Pushed),
             pr_opened: reached(BuildStopId::Pr),
             landed: record.build.as_ref().is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some()),
+            walk_shown: extra.walk_shown,
+            walk_approved: extra.walk_approved,
+            plan_expects_walk: extra.plan_expects_walk,
+            test_edited: record
+                .touches
+                .iter()
+                .any(|touch| touch.act != TouchAct::Remove && crate::test_paths::is_test_path(&touch.path)),
         }
+    }
+
+    /// A walk is expected: the plan said the person would see the change or named a walk, or a
+    /// window was shown.
+    pub(crate) fn walk_expected(&self) -> bool {
+        self.plan_expects_walk || self.walk_shown
+    }
+
+    /// The walk was approved, or nothing would be seen: the plan was approved with no walk expected
+    /// and the Job has pushed. Until it pushes, a mock may still be coming.
+    pub(crate) fn walk_passed(&self) -> bool {
+        self.walk_approved || (self.plan_approved && !self.walk_expected() && self.pushed)
     }
 
     fn has(&self, fit: Fit) -> bool {
@@ -147,10 +197,19 @@ impl Facts {
     }
 }
 
+/// The step that records the plan.
+fn recorder(steps: &[RailStep]) -> Option<usize> {
+    steps.iter().position(|step| step.records_plan)
+}
+
 /// Whether the Session is past an anchor. A step that is no anchor is not in the way.
-fn passed(step: &RailStep, facts: &Facts) -> bool {
+fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
+    let step = &steps[at];
     if step.records_plan {
         return facts.plan_approved;
+    }
+    if step.walks {
+        return facts.walk_passed();
     }
     if step.follows_plan {
         return facts.plan_approved && !facts.tasks_open;
@@ -158,24 +217,37 @@ fn passed(step: &RailStep, facts: &Facts) -> bool {
     if step.delivers {
         return facts.landed;
     }
+    if recorder(steps).is_some_and(|recording| at < recording) {
+        return facts.plan_recorded || (step.awaits_reply && facts.replied);
+    }
     true
 }
 
 fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     let step = &steps[at];
     if step.records_plan {
-        return !facts.plan_approved;
+        return match at {
+            0 => !facts.plan_approved,
+            _ => facts.plan_recorded && !facts.plan_approved,
+        };
+    }
+    if step.walks {
+        return facts.plan_approved && !facts.walk_passed();
     }
     if step.follows_plan {
-        return facts.plan_approved;
+        return facts.plan_approved
+            && steps[..at].iter().enumerate().all(|(earlier, one)| !one.walks || passed(steps, earlier, facts));
     }
     if step.delivers {
         return facts.pushed;
     }
+    let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
+    if recorder(steps).is_some_and(|recording| at < recording) {
+        let waiting = if step.awaits_reply { !facts.replied } else { true };
+        return waiting && !facts.plan_recorded && before(at);
+    }
     let Some(fit) = step.fit else { return false };
-    facts.has(fit)
-        && steps[..at].iter().all(|earlier| passed(earlier, facts))
-        && !(at > 0 && steps[at - 1].fit == Some(fit))
+    facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit))
 }
 
 /// The step the Session is on: the last one entered, else the first. **Absent** once the delivering
@@ -197,17 +269,49 @@ pub(crate) enum Skip {
     Plan,
     /// The work was pushed while the plan's tasks were open.
     Tasks,
+    /// A test file was edited before the walk was approved.
+    Walk,
+    /// In a workflow with a walk step: a test file was edited before the plan was approved.
+    PlanTested,
+    /// In a workflow with a walk step: the work was pushed before the plan was approved.
+    PlanPushed,
+}
+
+impl Skip {
+    /// What happened, as the workflow's page lists it under the step.
+    pub(crate) fn fact(self) -> &'static str {
+        match self {
+            Skip::Plan => "edited before the plan was approved",
+            Skip::Tasks => "pushed with the plan's tasks open",
+            Skip::Walk => "a test before the walk was approved",
+            Skip::PlanTested => "a test before the plan was approved",
+            Skip::PlanPushed => "pushed before the plan was approved",
+        }
+    }
 }
 
 /// The steps the observed facts show skipped. A step is named however often it is skipped; saying so
 /// only once is the caller's.
 pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
     let mut found = Vec::new();
-    if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved && facts.edited) {
-        found.push((at, Skip::Plan));
+    if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved) {
+        // Where the workflow walks, a rough mock may be edited while the plan is discussed.
+        let skip = if !steps.iter().any(|step| step.walks) {
+            facts.edited.then_some(Skip::Plan)
+        } else if facts.test_edited {
+            Some(Skip::PlanTested)
+        } else {
+            facts.pushed.then_some(Skip::PlanPushed)
+        };
+        found.extend(skip.map(|skip| (at, skip)));
     }
     if let Some(at) = steps.iter().position(|step| step.follows_plan).filter(|_| facts.pushed && facts.tasks_open) {
         found.push((at, Skip::Tasks));
+    }
+    if let Some(at) = steps.iter().position(|step| step.walks).filter(|_| {
+        facts.test_edited && facts.plan_approved && facts.walk_expected() && !facts.walk_passed()
+    }) {
+        found.push((at, Skip::Walk));
     }
     found
 }
@@ -220,13 +324,19 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
     let asks = match step.about.as_deref().map(str::trim).filter(|about| !about.is_empty()) {
         Some(about) => about.chars().take(ABOUT_AT_MOST).collect::<String>(),
         None => match skip {
-            Skip::Plan => String::from("a plan recorded with record_plan, and approved by the person"),
+            Skip::Plan | Skip::PlanTested | Skip::PlanPushed => {
+                String::from("a plan recorded with record_plan, and approved by the person")
+            }
             Skip::Tasks => String::from("the plan's tasks worked and finished before the work goes out"),
+            Skip::Walk => String::from("the work shown as a walk and approved by the person before any test is written"),
         },
     };
     let did = match skip {
         Skip::Plan => "edited files before",
         Skip::Tasks => "pushed while tasks were still open in",
+        Skip::Walk => "edited a test before the walk was approved in",
+        Skip::PlanTested => "edited a test before the plan was approved in",
+        Skip::PlanPushed => "pushed before the plan was approved in",
     };
     format!(
         "Fleet: this Job follows the {workflow} workflow, and you {did} its \"{}\" step. That step asks: {asks}. \

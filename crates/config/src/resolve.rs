@@ -370,6 +370,8 @@ fn resolve_step(
     // beside it rather than replacing it. `#1006`.
     .also_recording_the_plan(step.records_plan())
     .asking_delivery(step.asks_delivery())
+    .walking_the_work(step.walks())
+    .awaiting_reply(step.awaits_reply())
 }
 
 /// What a step's work stays out of where nothing above it said.

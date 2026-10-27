@@ -210,11 +210,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
       return <KitModels models={models.models} keep="system-kit" picked={model} onPick={setModel} onOn={models.setOn} onChoose={models.choose} />;
     }
     if (def.id === "kit:workflows") {
-      return (
-        <div className="armada-system__pane" data-col="detail">
-          {workflows}
-        </div>
-      );
+      return workflows;
     }
     return settingsFor(def);
   };

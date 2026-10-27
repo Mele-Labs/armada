@@ -509,6 +509,11 @@ pub struct ResolvedStep {
     /// Whether entering the step asks the owner how the work is delivered. **False** on every step
     /// that does not say so, and on every row frozen before a step could.
     asks_delivery: bool,
+    /// Whether the step is the one where the person is shown the work and approves it before
+    /// tests are written. **False** on every step that does not say so.
+    walks: bool,
+    /// Whether the step ends when the person replies. **False** on every step that does not say so.
+    awaits_reply: bool,
 }
 
 impl ResolvedStep {
@@ -566,6 +571,8 @@ impl ResolvedStep {
             // the other way a step can record one.
             records_plan: evidence_type == Some(EvidenceType::Plan),
             asks_delivery: false,
+            walks: false,
+            awaits_reply: false,
         }
     }
 
@@ -630,6 +637,27 @@ impl ResolvedStep {
 
     pub fn asks_delivery(&self) -> bool {
         self.asks_delivery
+    }
+
+    /// Whether the step is where the work is walked, for the reason
+    /// [`describing`](Self::describing) is a builder.
+    pub fn walking_the_work(mut self, walks: bool) -> ResolvedStep {
+        self.walks = walks;
+        self
+    }
+
+    pub fn walks(&self) -> bool {
+        self.walks
+    }
+
+    /// Whether the step ends on the person's reply, for the same reason.
+    pub fn awaiting_reply(mut self, awaits: bool) -> ResolvedStep {
+        self.awaits_reply = awaits;
+        self
+    }
+
+    pub fn awaits_reply(&self) -> bool {
+        self.awaits_reply
     }
 
     /// What the step does for the Job, for the reason [`frozen`](Self::frozen)

@@ -1,0 +1,16 @@
+[operations.approve_workflow_change]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Write a ready change's definition to the workflow's file"
+notes = """
+`POST /workflows/changes/approve`, since 27 Oct 2026. The body is `WorkflowChangeRef`: `change`. The answer is `WorkflowChangeApproved`: the change, `approved`, and the `WorkflowSaved` it made.
+
+**The only thing that saves a drafted change.** It is written through the path `save_workflow` checks, with `overwrite`, into the place the change names, under the repository it began in.
+
+**Refused if the file changed since `before`.** The definition's text now must equal the change's `before`, so an approve cannot undo an edit made in between. The change stays `ready`; the owner dismisses it and asks again.
+
+404 `fleet.no_such_workflow_change` where Fleet kept none by that id. 409 `fleet.workflow_change_not_ready` where it is not `ready`. 409 `fleet.workflow_changed_since` where the file no longer holds `before`. 422 `fleet.workflow_unfit` where the checks refuse it now, for example a Check the repository no longer declares; nothing is written.
+
+`agent_access` is `Bridge only`: what is written decides what every Job here is asked.
+"""

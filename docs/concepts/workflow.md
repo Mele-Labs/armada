@@ -16,7 +16,7 @@ How a workflow is structured and where a definition comes from. [Judge](judge.md
 ## Workflow schema
 
 Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape.
-A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what a Job follows; `source` says which place it came from.
+The repository or Kit may replace a carried workflow, so `workflow_id` alone does not identify what a Job follows; `source` says which place it came from.
 
 **The full field-by-field schema is `crates/core-model/domain/workflowdef-fields.toml`.** It carries every top-level field and every field nested under `steps[]`, with its type, whether it is required and the reasoning behind it.
 One row per field, nested the way the schema nests: the top-level rows are the `WorkflowDef`'s own fields, and everything under `steps[]` is a field of a step.
@@ -32,13 +32,62 @@ That document owns the call.
 A Job may follow one workflow, which the proposer picks at dispatch or a person sets.
 No step gates it.
 A step may carry `instructions`, the words the agent follows there, sent when the Job enters the step.
-A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's Delivery, set before Start, settled it; `bug` and `feature` set it on `plan`.
-`bug` runs `plan`, `implement`, `land`: root cause and proposed fix, the fix, then delivery.
-`feature` runs the same three, its `plan` also scoping with questions and proposing a walk where the owner would see the change.
-At `land` the agent delivers by the answer it was told, and a change the owner would see waits for his walk first.
+A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's Delivery, set before Start, settled it; `bug` and `feature` set it on their first step.
+At the delivering step the agent delivers by the answer it was told.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.
-`session.md`, *The rail* and *The judges*.
+[The rail](session/the-rail.md) owns how a step is placed; [The judges](judge.md) owns the judge.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.
+
+### `feature` and `bug`
+
+The order is the owner's, and a mock is walked before any test is written.
+The last column is what the Workflows page draws under each step (`rail_ends.rs`).
+
+**`feature`**
+
+| Step | The agent | Ends when |
+|---|---|---|
+| `propose` | Says what it took the request to mean and a first idea, then stops | you reply |
+| `discuss` | Settles the scope with sketches; builds a rough walk when the idea is about the look | a plan is recorded |
+| `approve_plan` | Records the plan, with a walk named for each piece he would see | you approve the plan |
+| `walk` | Builds the mock in the real Bridge on fixtures and shows it as a walk; writes no test | you approve the walk |
+| `refine` | Wires it for real and writes the tests | it is pushed |
+| `deliver` | Delivers the way he chose | it is merged |
+
+`walk` is passed over when nothing would be seen.
+
+**`bug`**
+
+| Step | The agent | Ends when |
+|---|---|---|
+| `find_the_cause` | Reproduces the bug, names the cause, records the fix as tasks | you approve the plan |
+| `fix` | Makes the fix; writes no test | a walk is shown |
+| `short_walk` | Shows the fix as a short walk straight to the place; writes no test | you approve the walk |
+| `tests` | Writes the test that fails without the fix and passes with it | it is pushed |
+| `deliver` | Delivers the way he chose | it is merged |
+
+`short_walk` is passed over when nothing would be seen.
+
+### Walks and replies
+
+Two step keys place a Job around the owner.
+`crates/core-model/domain/workflowdef-fields.toml` carries both.
+
+**`awaits_reply: true`** ends the step when the owner replies.
+The agent stops until he does.
+`feature` sets it on `propose`.
+
+**`walks: true`** is the step where he is shown the work and approves it before any test is written.
+It is current from the plan's approval until he approves a window the Job showed, and it needs a recording step before it.
+
+**A walk is expected** when the plan said `seen: true`, when it named a `walk`, or when the Job showed a window.
+`seen: true` says the person would see the change, and holds nothing.
+A `walk` names a page shown before the plan, and holds it.
+With none of the three, the walks step is passed over once the work is pushed.
+
+A test edited after the plan is approved and before an expected walk is approved draws one nudge, and nothing blocks.
+Where a workflow has a walks step, a rough mock edited before the plan is approved is no skip, but a push or a test then is.
+[The rail](session/the-rail.md) owns the nudges.
 
 ### Where a definition comes from
 
@@ -65,7 +114,6 @@ The repository's own is held to the same rule as Kit's and Armada's: a file some
 **Saving one is `save_workflow`.** The caller names the place, the repository's own or Kit's, and sends the definition whole.
 Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written.
 A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called.
-Where both Kit and the repository define an id, Kit's runs.
 **Commit to repository copies one of Kit's onto a Job's branch** under `.armada/workflows/`, and Kit's stays ([Kit](kit.md#commit-to-repository)).
 
 **A workflow says which place it came from.** It carries `source` — `armada`, `kit` or `repository` — beside its steps.
@@ -103,6 +151,40 @@ step, and in a workflow with no recording step at all.
 serves the resolved phase so no reader spells the fallback again. Design
 Plan's `present` declares `delivery`: it delivers what its workflow is for and
 sends nothing out.
+
+## The Workflows page
+
+System › Kit › Workflows is where a person reads and changes workflows.
+`docs/practices/protocol/the-workflows-page.md` owns the operations behind it.
+
+**The list is three groups**: Armada's, the repository's and Yours, which is Kit's.
+A glyph on a row says that copy replaces another.
+The list's search reads *Find workflow* and takes `F`; `/` stays System's own search.
+A copy Fleet left out for not fitting is reached by its file.
+
+**A workflow is drawn as its steps**, top to bottom.
+Each step shows its label, what ends it, when it is passed over, and the words the agent is told there.
+The page carries none of the gate boxes, retries or passes the old editor offered, since nothing reads them, and it edits no Trigger.
+
+| To | He |
+|---|---|
+| Change a step's words | Edits them where they stand, and the page saves them in the place that copy is |
+| Change a workflow's shape | Types the change under *Tell an agent what to change*; an agent drafts the whole definition, the page shows it beside what it was, and he approves it, sends it back with notes, or dismisses it. Nothing saves without his Approve |
+| Change one Armada carries | Presses Make my copy, which writes it to Kit under the same id for every repository on this Mac; or Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install. Armada's rows are read-only |
+| See how a copy differs | Presses Compare with Armada's, and each step's words show beside Armada's |
+| Go back to Armada's | Presses Reset to Armada's on a copy, which replaces the file with Armada's definition |
+| Remove a copy | Presses Delete, which removes that one file. A copy that was left out is deleted by its file, since it may declare no id Fleet can read |
+
+**Under each step are the Jobs Fleet nudged there**, each with what it did and Open Job.
+Fleet keeps a nudge against the workflow and step it was sent for ([The rail](session/the-rail.md)).
+Not a drift stops one counting and leaves it listed.
+
+**A step that drifts twice in seven days gets a suggestion without being asked.**
+An agent drafts new words for that step and nothing else.
+The step shows a card with the words before and after, and Approve and Dismiss.
+A step with drift and no suggestion has *Suggest a change*, which asks for one sooner.
+Armada's own rows get none; a change to one is Make my copy or Propose to Armada.
+Approve saves the drafted definition, as it does for a typed change.
 
 ## What is not a workflow
 

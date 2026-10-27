@@ -447,7 +447,7 @@ async fn a_change_to_a_condition_already_met_starts_it() {
 async fn a_plan_part_the_other_session_does_not_hold_is_refused() {
     let rig = super::agent_starts::rig(None);
     let agent = rig.a_waited_on_agent().await;
-    rig.fleet.record_plan(None, two_groups(&agent)).await.expect("recorded");
+    rig.fleet.record_plan(None, two_groups(&agent), false).await.expect("recorded");
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
 
     let refused = Arc::clone(&rig.fleet)

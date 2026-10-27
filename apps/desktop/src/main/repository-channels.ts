@@ -4,7 +4,13 @@
 import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
-import type { SavingWorkflow } from "../shared/workflows";
+import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type {
+  ActingOnWorkflowCopy,
+  AskingForWorkflowChange,
+  SavingWorkflow,
+  SuggestingWorkflowChange,
+} from "../shared/workflows";
 import type {
   AddKitServer,
   InstallKitPiece,
@@ -132,13 +138,47 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
     (event, name: string, reach: ManifestReach | null) =>
       connection()?.kitFor(windowIdOf(event)).setManifestReach(name, reach),
   );
-  // The Workflow creator's list, one definition, and a save.
+  // The Workflow creator's list, one definition, and a save; the Workflows page's steps, two acts on a
+  // copy and a nudge marked not a drift.
   ipc.handle(CHANNELS.readWorkflows, (event) => connection()?.workflowsFor(windowIdOf(event)).list());
   ipc.handle(CHANNELS.readWorkflowDefinition, (event, workflowId: string, source: string) =>
     connection()?.workflowsFor(windowIdOf(event)).definition(workflowId, source),
   );
   ipc.handle(CHANNELS.saveWorkflow, (event, saving: SavingWorkflow) =>
     connection()?.workflowsFor(windowIdOf(event)).save(saving.manifestId, saving.body),
+  );
+  ipc.handle(CHANNELS.readWorkflowSteps, (event, workflowId: string, source: string) =>
+    connection()?.workflowsFor(windowIdOf(event)).steps(workflowId, source),
+  );
+  ipc.handle(CHANNELS.deleteWorkflowCopy, (event, acting: ActingOnWorkflowCopy) =>
+    connection()?.workflowsFor(windowIdOf(event)).deleteCopy(acting.manifestId, acting.copy),
+  );
+  ipc.handle(CHANNELS.resetWorkflowCopy, (event, acting: ActingOnWorkflowCopy) =>
+    connection()?.workflowsFor(windowIdOf(event)).resetCopy(acting.manifestId, acting.copy),
+  );
+  ipc.handle(CHANNELS.markNotADrift, (event, nudge: number) =>
+    connection()?.workflowsFor(windowIdOf(event)).notADrift(nudge),
+  );
+  ipc.handle(CHANNELS.askWorkflowChange, (event, asking: AskingForWorkflowChange) =>
+    connection()?.workflowsFor(windowIdOf(event)).askChange(asking.manifestId, asking.body),
+  );
+  ipc.handle(CHANNELS.suggestWorkflowChange, (event, suggesting: SuggestingWorkflowChange) =>
+    connection()?.workflowsFor(windowIdOf(event)).suggestChange(suggesting.manifestId, suggesting.body),
+  );
+  ipc.handle(CHANNELS.readWorkflowChanges, (event, workflowId: string, source: string) =>
+    connection()?.workflowsFor(windowIdOf(event)).changes(workflowId, source),
+  );
+  ipc.handle(CHANNELS.approveWorkflowChange, (event, change: number) =>
+    connection()?.workflowsFor(windowIdOf(event)).approveChange(change),
+  );
+  ipc.handle(CHANNELS.dismissWorkflowChange, (event, change: number) =>
+    connection()?.workflowsFor(windowIdOf(event)).dismissChange(change),
+  );
+  ipc.handle(CHANNELS.sendBackWorkflowChange, (event, back: SendBackWorkflowChange) =>
+    connection()?.workflowsFor(windowIdOf(event)).sendBackChange(back),
+  );
+  ipc.handle(CHANNELS.proposeWorkflowToArmada, (event, proposing: ProposeToArmada) =>
+    connection()?.workflowsFor(windowIdOf(event)).proposeToArmada(proposing),
   );
   // Triggers: the list, one definition, a save and a removal.
   ipc.handle(CHANNELS.readTriggers, (event) => connection()?.triggersFor(windowIdOf(event)).list());

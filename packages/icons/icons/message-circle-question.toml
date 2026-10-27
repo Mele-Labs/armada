@@ -3,5 +3,12 @@
   group = "Sessions"
   size = "16px"
   status = "Specified"
-  reserved = "An agent's question to the person, on its card and the strips behind it, and any item with choices under Needs you, a question asked in the walk window among them."
+  reserved = "An agent's question to the person, on its card and the strips behind it, and any item with choices under Needs you, a question asked in the walk window among them, and the Discuss step that tells the agent to ask."
   notes = "Approved 9 Oct 2026 with the question deck."
+
+[[icons.message-circle-question.usage]]
+  means = "The Discuss step's mark on a workflow step card"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Drawn at 14px, stroke 2. The same claim as the reservation above, an agent asking the person, one level down: the workflow that tells the agent to ask. Kept by the owner's ruling on 27 Oct 2026 on the same walk."
