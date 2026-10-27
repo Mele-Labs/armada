@@ -17,6 +17,9 @@ use crate::daemon::Fleet;
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
 use crate::session_links::LinkedBy;
+
+/// How many of a hosted agent's calls are added to its plan's count at once, as its mod would.
+const CALLS_KEPT_EVERY: u32 = 10;
 use crate::timeline::{Doer, FileAct, Seen};
 
 /// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
@@ -184,10 +187,21 @@ where
     /// build record, whichever tool made it.
     async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent, subagent: Option<&str>) {
         self.touch_heard(id, event, subagent).await;
-        // The agent's own calls are counted for the plan's stale reading; a subagent's are its own work.
+        // The agent's own calls are counted for the plan's stale reading, ten at a time so a call
+        // costs no write; a subagent's are its own work.
         if subagent.is_none() && matches!(event, DroneEvent::Called { .. }) {
-            let counted = crate::plan_keeping::calls_counted(&mut *self.store().lock().await, id, 1).unwrap_or(false);
-            if counted {
+            let (ten, owed) = {
+                let runtime = self.hosts().of(id);
+                let mut state = runtime.state();
+                state.calls += 1;
+                let ten = (state.calls == CALLS_KEPT_EVERY).then(|| std::mem::take(&mut state.calls));
+                (ten, std::mem::take(&mut state.marks_owed))
+            };
+            let counted = match ten {
+                Some(calls) => crate::plan_keeping::calls_counted(&mut *self.store().lock().await, id, calls).unwrap_or(false),
+                None => false,
+            };
+            if counted || owed {
                 self.task_marks_told(id).await;
             }
         }

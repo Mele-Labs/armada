@@ -136,6 +136,8 @@ where
                 report.fact,
                 SessionFact::Tasks { .. } | SessionFact::Committed { .. } | SessionFact::Touched { .. } | SessionFact::Calls { .. }
             );
+        // A hosted session's agent hears them at its next call.
+        let owed = !terminal && matches!(report.fact, SessionFact::Tasks { .. } | SessionFact::Committed { .. });
         if terminal && !matches!(report.fact, SessionFact::TurnStarted | SessionFact::TurnCompleted { .. } | SessionFact::Ended { .. }) {
             self.hosts().terminals().turn_heard(&id);
         }
@@ -423,6 +425,9 @@ where
         }
 
         let marked = if marks { crate::plan_keeping::marks_untold(&mut store, &id).map_err(fault)? } else { None };
+        if owed {
+            self.hosts().of(&id).state().marks_owed = true;
+        }
         changed |= marked.is_some();
         session.last_seen_at = now;
         store.keep_session(&session).map_err(fault)?;
