@@ -115,6 +115,7 @@ L              open the queries   (issues only)
 /              describe a query   (issues only)
 s              start a Job on the issue   (issues only)
 l r            go to a part of Projects: the left column, the cards   (projects only)
+/              search the tasks   (projects only)
 1 2 3          show all tasks, the ones Fleet asks about, the ones a Job holds   (projects only)
 h              show or hide done tasks   (projects only)
 N              new project   (projects only)
@@ -182,12 +183,14 @@ starts a Job on the open issue. They stand down in a text field and while a dial
 
 **The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through
 the three views, the projects, the repositories and the cards, subtasks included; `l r` go to the left column and the
-cards, and `1 2 3` show the three views. In the column, `Enter` opens a view, a project or a repository, `N` names a new
+cards, `/` goes to the search field above the views and `1 2 3` show the three views.
+In the search field, ↓ goes to the first result and Esc clears the words and goes back to the view that was open.
+In the column, `Enter` opens a view, a project or a repository, `N` names a new
 project, `e` renames the focused project and Backspace deletes it. `h` shows or hides the done tasks. A ⌘-click on a card selects it and a
 ⇧-click selects the range from the card last clicked. On a card, Space or `x` selects it, `Enter` edits a task's title in
 place, `d` ticks a task, `a` goes to the field that adds a task and `A` opens one for a subtask inside the focused card,
 `o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
-Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected, a request for each repository, or the focused one,
+Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected, a request for each repository, or the focused one (a subtask on its own, with its parent as context),
 and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
 field and while a dialog is up.
 
@@ -381,9 +384,13 @@ The query offers a Task and a Project beside the dispatch rows, and Tab to eithe
 A Task then picks its project, or none, and goes to the repository the last task did. A Project is his and asks for no repository.
 What a project is: [Project](../../concepts/project.md).
 
+**Any task is found by its title.**
+Tasks and subtasks of the Projects tab are listed while something is typed, in a Tasks block after the Jobs, each with its project or No project and its repository on a quiet second line.
+Choosing one goes to the Projects tab on that task's project, or All tasks for a task in no project, shows done tasks if it is done, and scrolls its card into view with the focus on it.
+
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, sessions by any word of the title or by id,
-settings. Only work in hand is listed: a Job that is not over, a Session
+tasks by title (while something is typed), settings. Only work in hand is listed: a Job that is not over, a Session
 that is live.
 
 **The palette obeys the lexicon.** Displayed labels always use the

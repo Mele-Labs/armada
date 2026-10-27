@@ -26,7 +26,7 @@ function steps(): Step[] {
     { look: inside(all, region("No project", { exact: true })), say: "All tasks: the tasks in no project come first" },
     { look: inside(all, region("Pocket launch", { exact: true })), say: "Then each project under a small head" },
     { look: inside(role("group", "Fix the sitemap dates"), role("img", "Repository site")), say: "A card names its repository, since the list holds more than one" },
-    { key: "l", on: list, say: "Keys: l r column and cards, j k move, 1 2 3 views, Space select, Enter edit, a A task and subtask, h done, o open the Job, u U unlink, d tick, D K answer, Backspace delete, e rename, s dispatch, ⌥↑ ⌥↓ move, Esc back" },
+    { key: "l", on: list, say: "Keys: l r column and cards, / search, j k move, 1 2 3 views, Space select, Enter edit, a A task and subtask, h done, o open the Job, u U unlink, d tick, D K answer, Backspace delete, e rename, s dispatch, ⌥↑ ⌥↓ move, Esc back" },
     { key: "2", on: list, say: "2 shows Needs you" },
     { look: role("group", "Sign the build"), say: "The tasks Fleet asks about as done" },
     { key: "3", on: list, say: "3 shows the tasks a Job holds" },

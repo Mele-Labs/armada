@@ -3,8 +3,8 @@
 // Pocket launch's armada tasks mix tasks he wrote with issues he linked: one task a live Job holds, one held by a Job that finished and is
 // still live (its Needs you item asks the same question as the row), one whose Job has ended and still asks on the row, a done
 // task, a closed issue and an open one. The pairing task carries an issue and two subtasks.
-// Both repositories' issues are read from their trackers, as the Issues tab reads them. Played by the walks `projects` and
-// `projects-pass-3`.
+// Both repositories' issues are read from their trackers, as the Issues tab reads them. Played by the walks `projects`,
+// `projects-pass-3` and `projects-pass-4`.
 
 import type { Projects, RepositorySummary, WaitingItem } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -146,7 +146,7 @@ const PROJECTS: Projects[] = [
             kind: "task",
             id: "task-pair",
             title: "Pair a phone by QR code",
-            notes: "",
+            notes: "Show the code as a QR code on the Mac. A phone on the same network scans it.",
             state: "held",
             held_by: { session_id: PAIRING, title: "Wire the pairing screen" },
             issues: [{ issue: "2815", title: "Pair code expires before the phone scans it", state: "open" }],

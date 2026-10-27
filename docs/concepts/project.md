@@ -48,6 +48,10 @@ A ⌘-click selects a card and a ⇧-click selects the range from the card last 
 Dispatch is drawn only once cards are selected.
 A Job runs in one repository, so cards from several open one request for each, the next once the one before has started or been put away.
 The Dispatch icon on a task's card opens the sheet with that task and its subtasks alone.
+A subtask's card has the same Dispatch icon.
+It opens the sheet with the subtask as the work: its title on the first line, then `Part of:` and the parent's title, the parent's notes and the parent's issues as tags.
+The sheet's words say that only the subtask is to be done, and the Job holds the subtask only.
+Cards selected with a subtask whose parent is not selected are sent the same way for that subtask.
 Starting sends the rows with the Job start, and the Job holds those tasks and their subtasks.
 An issue row among them is only named, so the Job's brief can carry it.
 
@@ -77,10 +81,11 @@ A task no Job holds is asked the same way when a linked pull request merges, on 
 | Surface | What it draws |
 |---|---|
 | The Projects tab | Sits beside Issues, and takes the next digit after it. A left column of three views (all tasks, the ones Fleet asks about, the ones a Job holds), his projects and the repositories; then the cards of what is open with their subtasks. A view or a repository groups its cards by project, "No project" first; a project lists its cards in his order |
-| A card | A neutral tile: its title, notes, linked issues and pull requests with their state from the tracker, and the Job holding it. State is the colour of its glyph. Its repository is a quiet chip where the list holds more than one. Its acts are Dispatch, add a subtask and delete |
+| A card | A neutral tile: its title, notes, linked issues and pull requests with their state from the tracker, and the Job holding it. State is the colour of its glyph. Its repository is a quiet chip where the list holds more than one. Its acts are Dispatch, add a subtask and delete; a subtask has Dispatch and delete |
 | An asked card | Mark done and Keep open |
-| The add fields | Take `#` for an issue or a pull request and `@` for a Job or a file, as the composer does. They are how a task is linked. The task field grows into a composer with a button for each, and a file stays in the words as `@path`. The composer also names the repository, required, and the project, optional; a pane fixes the one it is open on |
-| The command palette | Words typed in it can be added as a task or a project |
+| The add fields | Take `#` for an issue or a pull request and `@` for a Job or a file, as the composer does. They are how a task is linked. The key that goes to the task field sits inside it, at its right edge, and in the composer at the right of its tool row. The task field grows into a composer with a button for each, and a file stays in the words as `@path`. The composer also names the repository, required, and the project, optional; a pane fixes the one it is open on |
+| The search | A field above the views, focused by `/`. Words in it list every task and subtask whose title, notes or linked issue reference or title match, in all projects and repositories, grouped by project as a view is. Done tasks are listed only while they are shown. Esc clears it and the view that was open is back; while it is on, the column marks nothing as open |
+| The command palette | Words typed in it can be added as a task or a project. It also finds any task or subtask by title, with its project (or No project) and repository under it, and choosing one opens its project, or All tasks, with done shown where it is done, and its card in focus |
 
 The palette's rows and the keys on the tab are in [Keyboard and command palette](../contracts/design-system/keyboard-and-command-palette.md).
 
