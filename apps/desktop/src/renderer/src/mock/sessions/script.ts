@@ -203,6 +203,9 @@ export type BayControl = {
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
 
 /** The last lines of what a background command wrote, by the file it writes them to. */
+/** The watch logs a scenario's readings name, by path, as `read_watch_log` would read them. */
+export const WATCH_LOGS: Record<string, string> = {};
+
 const BACKGROUND_OUTPUT: Record<string, string> = {
   "/tmp/armada/tasks/serve-mock.output": "VITE v6.3.5  ready in 412 ms\n\n  Local:   http://127.0.0.1:5176/\n\nGET /?scenario=sessions 200 11ms\nGET /?scenario=sessions&walked 200 9ms\nGET /?scenario=sessions&walk=ledger-background 200 8ms\n",
   "/tmp/armada/tasks/watch-tests.output": "RUN  v3.2.4 /slots/slot-6/apps/desktop\n\n Test Files  3 passed (3)\n      Tests  41 passed (41)\n   Duration  6.18s\n\nWaiting for file changes...\n",
@@ -523,6 +526,11 @@ export function sessionsStore(
       }),
     // As Fleet does: an ended watch goes, and a live one stays, since Fleet refuses it.
     deleteWatch: (id, watch) => edit(id, (one) => ({ ...one, watches: (one.watches ?? []).filter((it) => it.id !== watch || it.live) })),
+    // A watch log is a file under Fleet's state on the real machine; here a scenario names its text.
+    readWatchLog: async (_watch, log) => {
+      const text = WATCH_LOGS[log];
+      return text === undefined ? { ok: false, said: `No kept reading has the log ${log}.` } : { ok: true, text };
+    },
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {
@@ -697,6 +705,19 @@ export function sessionsStore(
       // A reply to a replied or done Session is a message from him, which wakes it.
       if (item.source === "replied" || item.source === "done") return store.send(id, { text: given.text ?? "", files: [], sketches: [], tags: [] });
       const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
+      // A watch that ended not ours is Fleet's own ask: Ignore tells the agent nothing, Fix it is a message naming what broke.
+      if (item.source === "watch_not_ours") {
+        edit(id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) }));
+        if (chosen === "Fix it") {
+          const watch = now.find((one) => one.id === id)?.watches?.find((it) => it.id === item.act?.target);
+          const aside = watch?.set_aside ?? [];
+          const parts = aside.map((it) => it.part).join(", ");
+          const link = watch?.last?.kind === "read" ? watch.last.link : undefined;
+          const text = [`Fix ${parts} in ${watch?.name ?? item.text}. The person pressed Fix it on what you set aside as not ours.`, ...aside.map((it) => `${it.part}, set aside: ${it.sentence}`), ...(link === undefined ? [] : [`The failing run: ${link}`])].join("\n");
+          addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text })), said(`Looking at ${parts}.`)]);
+        }
+        return;
+      }
       edit(id, (one) => {
         const { asked, ...rest } = one;
         void asked;

@@ -141,7 +141,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, WatchList } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -372,6 +372,7 @@ type OldBridgeApi = {
     settleLater: (settle: SettleLater) => Promise<SessionActed<LaterSettled>>;
     stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
     deleteWatch: (remove: DeleteWatch) => Promise<SessionActed<WatchList>>;
+    readWatchLog: (read: ReadWatchLog) => Promise<SessionActed<WatchLog>>;
     readSessionWait: (sessionId: string, request: string) => Promise<SessionActed<WaitReading>>;
     changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
     startWaitingNow: (sessionId: string) => Promise<SessionActed>;
@@ -433,6 +434,7 @@ type OldBridgeApi = {
     chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide) => Promise<AccountsActed<SharedHomeRead>>;
     getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
     setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
+    setHomeItem: (row: HomeRowAt, on: boolean) => Promise<AccountsActed<HomeKinds>>;
     setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
@@ -688,6 +690,7 @@ const OLD_CHANNELS = {
     settleLater: "bridge:settle-later",
     stopWatch: "bridge:stop-watch",
     deleteWatch: "bridge:delete-watch",
+    readWatchLog: "bridge:read-watch-log",
     readSessionWait: "bridge:read-session-wait",
     changeWaiting: "bridge:change-waiting",
     startWaitingNow: "bridge:start-waiting-now",
@@ -749,6 +752,7 @@ const OLD_CHANNELS = {
     chooseSharedHomeSide: "bridge:choose-shared-home-side",
     getHomeKinds: "bridge:get-home-kinds",
     setHomeKind: "bridge:set-home-kind",
+    setHomeItem: "bridge:set-home-item",
     setHomeRepository: "bridge:set-home-repository",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",

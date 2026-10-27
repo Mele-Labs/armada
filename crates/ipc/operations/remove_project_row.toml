@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Take a task or a linked issue out of a project"
 notes = """
-`POST /projects/:repository/:project/rows/:row/remove`, no body. A linked issue is untouched on the tracker. The rows after it move up one. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/rows/:row/remove`, no body. A linked issue is untouched on the tracker. The rows after it move up one. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 404 `fleet.no_such_project` for a `project` the repository has none of, a 404 `fleet.no_such_project_row` for a `row` the project has none of, and a 422 for a repository Fleet does not serve.
+A a 404 `fleet.no_such_project_row` for a `row` there is none of.
 """

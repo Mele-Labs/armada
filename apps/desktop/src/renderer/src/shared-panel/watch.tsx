@@ -1,14 +1,16 @@
 // A watch in the side panel: its readings over time with what the agent made of each, the parts of its last reading with those set aside
 // struck through beside the sentence that set them aside, the whole command Fleet runs for the Job, and the last output of a broken reading.
 // Its link out is on the heading's line, and Stop ends it while it is live. Read from the Session, as `watches.changed` last carried it.
+// A failed part shows its own link, the exact lines it failed on and the end of its log; a weighing shows the evidence it carried; and a
+// reading that kept a log opens it in the Log tab, read from Fleet, with one copy control.
 
-import { useState } from "react";
-import { Button, Stamp } from "@armada/components";
-import type { WatchPart, WatchReading, WatchSummary } from "@armada/protocol";
+import { useEffect, useState } from "react";
+import { Button, CopyAct, Stamp } from "@armada/components";
+import type { WatchPart, WatchReading, WatchSummary, WatchVerdict } from "@armada/protocol";
 
 import { openLink } from "../commands";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { readingSays, readingState, readingsOf, verdictSaid, verdictsOn, WatchMark } from "../session-view/watch-marks";
+import { readingSays, readingState, readingsOf, verdictSaid, verdictsOn, watchSaid, WatchMark } from "../session-view/watch-marks";
 import { Open, useBack } from "./panels";
 import { SidePanel } from "./side";
 import { closePanel } from "./store";
@@ -39,8 +41,33 @@ function When({ reading }: { reading: WatchReading }) {
   );
 }
 
+/** What a weighing carried to back it: each link, log and exact error, one a line. */
+function Evidence({ verdict }: { verdict: WatchVerdict }) {
+  const { links = [], logs = [], errors = [] } = verdict.evidence ?? {};
+  if (links.length + logs.length + errors.length === 0) return null;
+  return (
+    <ul className="side-watch__evidence" aria-label="Evidence">
+      {errors.map((one) => (
+        <li key={`e:${one}`}>
+          <pre className="side-watch__error mono">{one}</pre>
+        </li>
+      ))}
+      {links.map((one) => (
+        <li key={`l:${one}`} className="mono">
+          {one}
+        </li>
+      ))}
+      {logs.map((one) => (
+        <li key={`g:${one}`} className="mono">
+          {one}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Fleet sends back-to-back readings that read the same as one run, drawn as one row with how many it stands for. */
-function Readings({ watch }: { watch: WatchSummary }) {
+function Readings({ watch, onLog }: { watch: WatchSummary; onLog: (log: string) => void }) {
   return (
     <ol className="side-watch__readings" aria-label="Readings">
       {[...readingsOf(watch)].reverse().map((reading) => (
@@ -52,17 +79,48 @@ function Readings({ watch }: { watch: WatchSummary }) {
             <span className="side-watch__count" aria-label={`Read ${String(reading.count)} times in a row`}>
               ×{reading.count}
             </span>
+          ) : reading.log !== undefined ? (
+            <Button variant="ghost" size="sm" aria-label={`Log of ${readingSays(reading)}`} onClick={() => onLog(reading.log!)}>
+              Log
+            </Button>
           ) : (
             <span />
           )}
           {verdictsOn(watch, reading).map((one) => (
-            <p key={`${one.at}:${one.verdict}`} className="side-watch__verdict" data-verdict={one.verdict}>
-              {verdictSaid(one)}
-            </p>
+            <div key={`${one.at}:${one.verdict}`} className="side-watch__verdict" data-verdict={one.verdict}>
+              <p className="side-watch__says">{verdictSaid(one)}</p>
+              <Evidence verdict={one} />
+            </div>
           ))}
         </li>
       ))}
     </ol>
+  );
+}
+
+/** What a failed part gave of itself: where to look, the exact lines it failed on, and the end of its log. */
+function PartEvidence({ part }: { part: WatchPart }) {
+  if (part.link === undefined && part.error === undefined && part.tail === undefined) return null;
+  return (
+    <div className="side-watch__part-evidence" role="group" aria-label={`${part.name} evidence`}>
+      {part.link === undefined ? null : (
+        <span className="side-watch__part-link">
+          <span className="mono">{part.link}</span>
+          <Open address={part.link} onOpenLink={(address) => void openLink(address)} />
+        </span>
+      )}
+      {part.error === undefined ? null : (
+        <pre className="side-watch__error mono" aria-label={`${part.name} failed on`}>
+          {part.error}
+        </pre>
+      )}
+      {part.tail === undefined ? null : (
+        <details className="side-watch__tail">
+          <summary>The end of its log</summary>
+          <pre className="side-log__lines mono">{part.tail}</pre>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -80,6 +138,7 @@ function Parts({ watch }: { watch: WatchSummary }) {
             <WatchMark state={part.state} />
             {sentence === undefined ? <span className="side-watch__part-name mono">{part.name}</span> : <s className="side-watch__part-name mono">{part.name}</s>}
             {sentence === undefined ? null : <span className="side-watch__aside">Not ours: {sentence}</span>}
+            <PartEvidence part={part} />
           </li>
         );
       })}
@@ -124,20 +183,51 @@ function Command({ watch }: { watch: WatchSummary }) {
   );
 }
 
+/** A reading's whole log, read from Fleet: its file, one copy control, and its text. */
+function Log({ watch, log }: { watch: WatchSummary; log: string }) {
+  const draft = useSessionsDraft();
+  const [read, setRead] = useState<{ log: string; text?: string; said?: string }>();
+  const reader = draft?.readWatchLog;
+  useEffect(() => {
+    let live = true;
+    if (reader === undefined) return;
+    void reader(watch.id, log).then((answer) => {
+      if (live) setRead(answer.ok ? { log, text: answer.text } : { log, said: answer.said });
+    });
+    return () => {
+      live = false;
+    };
+  }, [reader, watch.id, log]);
+  const shown = read?.log === log ? read : undefined;
+  return (
+    <section className="side-log" aria-label="Log">
+      <div className="side-watch__log-head">
+        <span className="mono side-watch__log-path">{log}</span>
+        {shown?.text === undefined ? null : <CopyAct text={shown.text} label="Copy log" />}
+      </div>
+      {shown === undefined ? <p className="side-watch__says">Reading the log</p> : shown.text === undefined ? <p className="side-watch__says">{shown.said}</p> : <pre className="side-log__lines mono side-watch__log">{shown.text}</pre>}
+    </section>
+  );
+}
+
 export function WatchPanel({ item }: { item: Item }) {
   const sessions = useSessions();
   const draft = useSessionsDraft();
   const back = useBack();
   const [tab, setTab] = useState("readings");
+  const [picked, setPicked] = useState<string>();
   const watch = sessions.find((one) => one.id === item.sessionId)?.watches?.find((one) => one.id === item.id);
   if (watch === undefined) return null;
   const broken = brokenOf(watch);
   const link = linkOf(watch);
+  const logs = [...readingsOf(watch)].reverse().flatMap((one) => (one.log === undefined ? [] : [one.log]));
+  const log = picked !== undefined && logs.includes(picked) ? picked : logs[0];
   const tabs = [
     { id: "readings", label: "Readings" },
     { id: "parts", label: "Parts" },
     { id: "command", label: "Command" },
     ...(broken === undefined ? [] : [{ id: "output", label: "Output" }]),
+    ...(log === undefined ? [] : [{ id: "log", label: "Log" }]),
   ];
   const stop = draft?.stopWatch;
   return (
@@ -147,7 +237,7 @@ export function WatchPanel({ item }: { item: Item }) {
       beside={link === undefined ? undefined : <Open address={link} onOpenLink={(address) => void openLink(address)} />}
       meta={
         <>
-          <WatchMark state={watch.state} />
+          <WatchMark state={watch.state} said={watchSaid(watch)} />
           {watch.follows === undefined ? null : <span className="mono">#{watch.follows}</span>}
         </>
       }
@@ -166,9 +256,10 @@ export function WatchPanel({ item }: { item: Item }) {
       back={back}
       onClose={closePanel}
     >
-      {tab === "readings" ? <Readings watch={watch} /> : null}
+      {tab === "readings" ? <Readings watch={watch} onLog={(one) => (setPicked(one), setTab("log"))} /> : null}
       {tab === "parts" ? <Parts watch={watch} /> : null}
       {tab === "command" ? <Command watch={watch} /> : null}
+      {tab === "log" && log !== undefined ? <Log watch={watch} log={log} /> : null}
       {tab === "output" && broken !== undefined ? (
         <section className="side-log" aria-label="Output">
           <p className="side-watch__says">{broken.why}</p>

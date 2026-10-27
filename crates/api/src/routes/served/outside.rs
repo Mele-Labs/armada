@@ -133,91 +133,91 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/issue_queries/:repository/:id/forget",
     },
-    // A repository's projects, kept on this Mac. `docs/practices/protocol/projects.md`.
+    // His projects across repositories, and the tasks in none, kept on this Mac. `docs/practices/protocol/projects.md`.
     Route {
         operation: "list_projects",
         method: "GET",
-        path: "/projects/:repository",
+        path: "/projects",
     },
     Route {
         operation: "add_project",
         method: "POST",
-        path: "/projects/:repository",
+        path: "/projects",
     },
     Route {
         operation: "rename_project",
         method: "POST",
-        path: "/projects/:repository/:project/rename",
+        path: "/projects/project/:project/rename",
     },
     Route {
         operation: "delete_project",
         method: "POST",
-        path: "/projects/:repository/:project/delete",
+        path: "/projects/project/:project/delete",
     },
     Route {
         operation: "add_project_task",
         method: "POST",
-        path: "/projects/:repository/:project/tasks",
+        path: "/projects/tasks",
     },
     Route {
         operation: "link_project_issue",
         method: "POST",
-        path: "/projects/:repository/:project/issues",
+        path: "/projects/issues",
     },
     Route {
         operation: "add_project_subtask",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/subtasks",
+        path: "/projects/rows/:row/subtasks",
     },
     Route {
         operation: "link_task_issue",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/issues",
+        path: "/projects/rows/:row/issues",
     },
     Route {
         operation: "unlink_task_issue",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/issues/unlink",
+        path: "/projects/rows/:row/issues/unlink",
     },
     Route {
         operation: "link_task_job",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/job",
+        path: "/projects/rows/:row/job",
     },
     Route {
         operation: "unlink_task_job",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/job/unlink",
+        path: "/projects/rows/:row/job/unlink",
     },
     Route {
         operation: "link_task_pull",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/pulls",
+        path: "/projects/rows/:row/pulls",
     },
     Route {
         operation: "unlink_task_pull",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/pulls/unlink",
+        path: "/projects/rows/:row/pulls/unlink",
     },
     Route {
         operation: "edit_project_task",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/edit",
+        path: "/projects/rows/:row/edit",
     },
     Route {
         operation: "remove_project_row",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/remove",
+        path: "/projects/rows/:row/remove",
     },
     Route {
         operation: "move_project_row",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/move",
+        path: "/projects/rows/:row/move",
     },
     Route {
         operation: "tick_project_task",
         method: "POST",
-        path: "/projects/:repository/:project/rows/:row/tick",
+        path: "/projects/rows/:row/tick",
     },
     // Requests. A repository's two files, read on each call; a secret's value is the Keychain's.
     Route {

@@ -115,6 +115,8 @@ export function dormantIn(where: {
 /** What the app has to be able to do for a chosen row to mean anything. */
 export type PaletteHands = {
   openSession: (sessionId: string) => void;
+  /** Go to the Projects tab with one task or subtask open and in view, by its row id. Absent where the window keeps no projects. */
+  task?: (rowId: string) => void;
   compose: () => void;
   /**
    * Go to a place in Navigation, by the id the surfaces list gave it.
@@ -184,6 +186,9 @@ export function carryOut(choice: PaletteChoice, hands: PaletteHands): void {
   switch (choice.of) {
     case "session":
       hands.openSession(choice.id);
+      return;
+    case "task":
+      hands.task?.(choice.id);
       return;
     case "surface":
       if (choice.id === "requests" && hands.requests !== undefined) hands.requests();
