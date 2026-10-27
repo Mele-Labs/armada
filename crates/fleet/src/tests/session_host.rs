@@ -902,6 +902,45 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
     assert!(matches!(next, ipc::RunOrNot::Deny { message } if message.contains("blocked")));
 }
 
+/// A Bash call past the slots names its kind on the card, which offers to allow calls like it for
+/// the job; a Read names none and does not.
+#[tokio::test]
+async fn a_bash_reach_card_names_its_kind_and_offers_to_allow_calls_like_it() {
+    let rig = rig();
+    let id = rig.start().await;
+    let line = r#"{"tool_name":"Bash","input":{"command":"node drive.mjs --out ~/Desktop/shot.png"}}"#;
+    let asking: ipc::AskingToRun = ipc::decode("an ask", line.as_bytes()).expect("an ask");
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let _waiting = tokio::spawn(async move { fleet.session_permission(&session, asking).await });
+    let ask = asked_on(&rig, &id).await;
+    assert_eq!(ask.kind, Some(ipc::CallKind { program: "node".into(), script: Some("drive.mjs".into()) }));
+    assert_eq!(
+        ask.offers,
+        vec![
+            HelmCallAnswer::AllowOnce,
+            HelmCallAnswer::Refuse,
+            HelmCallAnswer::AlwaysAllow,
+            HelmCallAnswer::AllowForSession,
+            HelmCallAnswer::AllowLikeThisForSession,
+            HelmCallAnswer::AlwaysBlock,
+        ]
+    );
+}
+
+/// The ask a session is waiting on, once it is.
+async fn asked_on(rig: &Rig, id: &SessionId) -> ipc::HelmCallInFlight {
+    let seen = Mutex::new(None);
+    eventually(|| async {
+        let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+        let some = now.is_some();
+        *seen.lock().unwrap() = now;
+        some
+    })
+    .await;
+    seen.into_inner().unwrap().unwrap()
+}
+
 /// A write through `$HOME/x:$PATH` names `$HOME/x`, so its card offers the folder answers and not
 /// only Allow once.
 #[tokio::test]

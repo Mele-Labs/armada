@@ -2,7 +2,7 @@
 //! with no card, an allowed one runs, and anything else is put to him with the path it named.
 //! `#2441`.
 
-use ipc::{AskingToRun, ReachesTo};
+use ipc::{AskingToRun, CallKind, ReachesTo};
 
 use crate::helm::{guarded_in_a_session, Because, Folders, Guarded, Own};
 
@@ -23,7 +23,27 @@ fn listed_with(call: &AskingToRun, allow: &[&str], block: &[&str], session: &[&s
     let owned = |list: &[&str]| -> Vec<String> { list.iter().map(|one| one.to_string()).collect() };
     let (allow, block, session) = (owned(allow), owned(block), owned(session));
     let folders = Folders { allow: &allow, block: &block, session: &session, home: HOME };
-    guarded_in_a_session(call, &[SLOT], Own::default(), folders)
+    without_kind(guarded_in_a_session(call, &[SLOT], Own::default(), folders))
+}
+
+/// The guard's answer with the segment's kind left out, which the kind tests below read alone.
+fn without_kind(guarded: Option<Guarded>) -> Option<Guarded> {
+    guarded.map(|guarded| match guarded {
+        Guarded::Because { because, reaching, to, .. } => Guarded::Because { because, reaching, to, kind: None },
+        blocked => blocked,
+    })
+}
+
+/// The kind of call a Bash line's card names, and the path it names.
+fn kind_of(line: &str) -> (Option<CallKind>, Option<String>) {
+    match guarded_in_a_session(&bash(line), &[SLOT], Own::default(), Folders { home: HOME, ..Folders::default() }) {
+        Some(Guarded::Because { kind, reaching, .. }) => (kind, reaching),
+        other => panic!("{line}: {other:?}"),
+    }
+}
+
+fn kind(program: &str, script: Option<&str>) -> Option<CallKind> {
+    Some(CallKind { program: program.to_string(), script: script.map(str::to_string) })
 }
 
 fn read(path: &str) -> AskingToRun {
@@ -39,7 +59,22 @@ fn asks(because: Because, at: &str) -> Option<Guarded> {
 }
 
 fn asks_to(because: Because, at: &str, to: ReachesTo) -> Option<Guarded> {
-    Some(Guarded::Because { because, reaching: Some(at.to_string()), to: Some(to) })
+    Some(Guarded::Because { because, reaching: Some(at.to_string()), to: Some(to), kind: None })
+}
+
+#[test]
+fn a_cards_kind_is_its_program_and_the_script_an_interpreter_runs() {
+    let (node, at) = kind_of("node drive.mjs --out ~/Desktop/x");
+    assert_eq!((node, at.as_deref()), (kind("node", Some("drive.mjs")), Some("/Users/user/Desktop/x")));
+    assert_eq!(kind_of("python3 -u tools/x.py ~/y").0, kind("python3", Some("x.py")));
+    assert_eq!(kind_of("cp ~/a ~/b").0, kind("cp", None));
+    assert_eq!(kind_of("deno run --allow-all tools/x.ts ~/y").0, kind("deno", Some("x.ts")));
+    // The kind is the segment's that named the path, not the line's first.
+    assert_eq!(kind_of("cd /tmp && node drive.mjs ~/Desktop/x").0, kind("node", Some("drive.mjs")));
+    // A Write names no program.
+    let write = call("Write", r#"{"file_path":"/Users/user/notes.md","content":"x"}"#);
+    let guarded = guarded_in_a_session(&write, &[SLOT], Own::default(), Folders { home: HOME, ..Folders::default() });
+    assert!(matches!(guarded, Some(Guarded::Because { kind: None, .. })), "{guarded:?}");
 }
 
 #[test]
@@ -106,7 +141,7 @@ fn an_allowed_folder_never_lets_a_removal_or_a_refusal_with_no_folder_run() {
     ] {
         assert_eq!(
             listed(&bash(line), &everything, &[]),
-            Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None }),
+            Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None, kind: None }),
             "{line}"
         );
     }
@@ -152,7 +187,7 @@ fn home_with_a_program(name: &str) -> String {
 }
 
 fn listed_at(call: &AskingToRun, home: &str) -> Option<Guarded> {
-    guarded_in_a_session(call, &[SLOT], Own::default(), Folders { home, ..Folders::default() })
+    without_kind(guarded_in_a_session(call, &[SLOT], Own::default(), Folders { home, ..Folders::default() }))
 }
 
 #[test]
@@ -195,7 +230,7 @@ fn a_folder_allowed_for_the_session_runs_and_the_owners_block_still_wins() {
     // Never a removal.
     assert_eq!(
         listed_with(&bash("rm -rf ~/Documents/x"), &[], &[], &[documents]),
-        Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None })
+        Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None, kind: None })
     );
 }
 

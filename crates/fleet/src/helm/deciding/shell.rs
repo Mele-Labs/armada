@@ -17,7 +17,7 @@ pub(super) fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
 /// files. **Read per segment, after the variables a line set are put back**, so `d=~/Music; ls $d`
 /// is read as the `ls ~/Music` it is, and the `~` of an awk script is not read as a path at all.
 pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Option<Folders>) -> Option<Guarded> {
-    let only = |because: Because| Some(Guarded::Because { because, reaching: None, to: None });
+    let only = |because: Because| Some(Guarded::Because { because, reaching: None, to: None, kind: None });
     let line = line.trim();
     if line.is_empty() {
         return only(Because::Unreadable);
@@ -58,37 +58,39 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
     // is no path.
     let whole: Vec<String> =
         with_variables(kept.iter().map(|at| whole_parts[*at].trim()).collect());
-    // The owner's files it names, whether the segment naming each only reads, and which of them
-    // the list has not answered.
-    let reached: Vec<(String, ReachesTo)> = match folders {
+    // The owner's files it names, whether the segment naming each only reads, the kind of that
+    // segment, and which of them the list has not answered.
+    let reached: Vec<(String, ReachesTo, Option<CallKind>)> = match folders {
         Some(folders) => whole
             .iter()
             .flat_map(|said| {
                 let to = if segment_only_reads(said) { ReachesTo::Read } else { ReachesTo::Write };
+                let kind = kind_of(said);
                 reaches_into_owners_files(said)
                     .into_iter()
                     .filter_map(move |(word, runs)| {
-                        if runs {
-                            return Some((word, ReachesTo::Read));
-                        }
-                        if to == ReachesTo::Write && handed_to_run(said, &word, folders) {
-                            return read_refused(&word, false).then_some((word, ReachesTo::Read));
-                        }
-                        Some((word, to))
+                        let to = if runs {
+                            ReachesTo::Read
+                        } else if to == ReachesTo::Write && handed_to_run(said, &word, folders) {
+                            read_refused(&word, false).then_some(ReachesTo::Read)?
+                        } else {
+                            to
+                        };
+                        Some((word, to, kind.clone()))
                     })
             })
             .collect(),
         None => Vec::new(),
     };
-    let mut unlisted: Option<(Option<String>, ReachesTo)> = None;
+    let mut unlisted: Option<(Option<String>, ReachesTo, Option<CallKind>)> = None;
     if let Some(folders) = folders {
-        for (word, to) in &reached {
+        for (word, to, kind) in &reached {
             let at = folders.absolute(word);
             match at.as_deref().map(|at| folders.listed(at)) {
                 Some(Listed::Blocked(folder)) => return Some(Guarded::Blocked { folder }),
                 Some(Listed::Allowed) => {}
                 _ => {
-                    unlisted.get_or_insert((at, *to));
+                    unlisted.get_or_insert((at, *to, kind.clone()));
                 }
             }
         }
@@ -109,14 +111,14 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
     });
     // A redirect into a file the reach covers is that reach, put to the owner or let in by the
     // list. **A removal is not**: an allowed folder never turns an `rm` into a run.
-    let covered: Vec<&str> = reached.iter().map(|(word, _)| word.trim_matches(|c| c == '\'' || c == '"')).collect();
+    let covered: Vec<&str> = reached.iter().map(|(word, _, _)| word.trim_matches(|c| c == '\'' || c == '"')).collect();
     let rest = segments.iter().find_map(|said| segment(said, slot, own, &covered));
     match (rest, unlisted) {
         (Some(because @ (Because::Destructive | Because::Unreadable)), _) => only(because),
-        (_, Some((reaching, to))) => {
-            Some(Guarded::Because { because: Because::ReachesOutside, reaching, to: Some(to) })
+        (_, Some((reaching, to, kind))) => {
+            Some(Guarded::Because { because: Because::ReachesOutside, reaching, to: Some(to), kind })
         }
-        (rest, None) => rest.map(|because| Guarded::Because { because, reaching: None, to: None }),
+        (rest, None) => rest.map(|because| Guarded::Because { because, reaching: None, to: None, kind: None }),
     }
 }
 

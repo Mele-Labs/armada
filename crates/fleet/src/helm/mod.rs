@@ -19,7 +19,7 @@ mod serving;
 mod session;
 mod thread;
 
-pub use asking::{answering, blocked_folder, restarted, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
+pub use asking::{answering, blocked_folder, restarted, unanswered, Asks, HelmAskHold, NotAnswerable, Reach, Said};
 pub use brief::{brief, Brief, Voice};
 pub(crate) use brief::{shipped, worded, VOICE};
 pub use conversation::Conversations;

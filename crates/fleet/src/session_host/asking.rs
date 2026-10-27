@@ -24,7 +24,7 @@ use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{
     answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
-    Guarded, Own, Said,
+    Guarded, Own, Reach, Said,
 };
 
 /// How long one `Wait` is held. The mod's request must outlast it.
@@ -188,9 +188,9 @@ where
                         Some(Guarded::Blocked { folder }) => {
                             return Ok(RunOrNot::Deny { message: blocked_folder(&folder) });
                         }
-                        Some(Guarded::Because { because: Because::ReachesOutside, reaching: at, to })
-                        | Some(Guarded::Because { because: Because::Destructive, reaching: at @ Some(_), to }) => {
-                            reaching = Some((at, to.unwrap_or(ReachesTo::Write)));
+                        Some(Guarded::Because { because: Because::ReachesOutside, reaching: at, to, kind })
+                        | Some(Guarded::Because { because: Because::Destructive, reaching: at @ Some(_), to, kind }) => {
+                            reaching = Some(Reach { path: at, to: to.unwrap_or(ReachesTo::Write), kind });
                             true
                         }
                         Some(Guarded::Because { because: Because::Destructive, .. }) => {

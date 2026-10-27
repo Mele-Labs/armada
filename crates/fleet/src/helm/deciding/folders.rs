@@ -84,7 +84,7 @@ pub fn guarded_in_a_session(
     folders: Folders,
 ) -> Option<Guarded> {
     let asked = |because: Because, reaching: Option<String>, to: ReachesTo| {
-        Some(Guarded::Because { because, reaching, to: Some(to) })
+        Some(Guarded::Because { because, reaching, to: Some(to), kind: None })
     };
     let tool = asking.tool_name.as_str();
     if WRITES_A_FILE.contains(&tool) {
@@ -101,7 +101,7 @@ pub fn guarded_in_a_session(
         // **Any write outside the slots and scratch is put to the owner** (16 Oct 2026), a new
         // file as much as an overwrite.
         let Some(reaching) = path.and_then(|path| folders.absolute(path)) else {
-            return because(asking).map(|because| Guarded::Because { because, reaching: None, to: None });
+            return because(asking).map(|because| Guarded::Because { because, reaching: None, to: None, kind: None });
         };
         return match folders.listed(&reaching) {
             Listed::Blocked(folder) => Some(Guarded::Blocked { folder }),
@@ -134,7 +134,7 @@ pub fn guarded_in_a_session(
             _ => return asked(Because::ReachesOutside, reaching, to),
         }
     }
-    because(asking).map(|because| Guarded::Because { because, reaching: None, to: None })
+    because(asking).map(|because| Guarded::Because { because, reaching: None, to: None, kind: None })
 }
 
 /// The web pages a shell line opens in the owner's own browser: `open`,

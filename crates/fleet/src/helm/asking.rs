@@ -91,6 +91,16 @@ pub enum NotAnswerable {
     NotAFolderAbove,
 }
 
+/// What the guard read about a call that reaches past a session's slots, for its card.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reach {
+    /// The absolute path it named first, where one could be read.
+    pub path: Option<String>,
+    pub to: ReachesTo,
+    /// The Bash segment's program and script, which "Allow calls like this" matches.
+    pub kind: Option<ipc::CallKind>,
+}
+
 /// One ask, and the half of the channel its answer goes down.
 struct Held {
     in_flight: HelmCallInFlight,
@@ -166,10 +176,11 @@ impl Asks {
         manifest_id: &ManifestId,
         asking: &AskingToRun,
         at: &Timestamp,
-        reach: Option<(Option<String>, ReachesTo)>,
+        reach: Option<Reach>,
     ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
-        let reaches = reach.clone().and_then(|(path, _)| path);
-        let reaches_to = reach.as_ref().map(|(_, to)| *to);
+        let reaches = reach.as_ref().and_then(|reach| reach.path.clone());
+        let reaches_to = reach.as_ref().map(|reach| reach.to);
+        let kind = reach.as_ref().and_then(|reach| reach.kind.clone());
         let questions = asking.questions();
         let wording = asking
             .detail()
@@ -191,18 +202,16 @@ impl Asks {
             whole: detail.whole().map(String::from),
             rule: rule_for(&asking.tool_name, detail.whole().unwrap_or(detail.shown())),
             // The root names no folder an "always" could take, so `find /` is asked once only.
-            offers: match &reach {
-                Some((Some(path), _)) if path.split('/').any(|part| !part.is_empty()) => {
-                    REACHING_OFFERS.to_vec()
-                }
-                Some(_) => REACHING_OFFERS[..2].to_vec(),
-                None => offers_for(&asking.tool_name),
+            offers: match reaches.as_deref() {
+                Some(path) if path.split('/').any(|part| !part.is_empty()) => reaching_offers(kind.is_some()),
+                _ if reach.is_some() => REACHING_OFFERS[..2].to_vec(),
+                _ => offers_for(&asking.tool_name),
             },
             holding_for_seconds: self.hold().as_secs(),
             questions,
             reaches,
             reaches_to,
-            kind: None,
+            kind,
         };
         let (sender, receiver) = oneshot::channel();
         // Read under the lock `all_withdrawn` takes, so a call minted as Fleet stops is never held.
@@ -307,6 +316,17 @@ const REACHING_OFFERS: &[HelmCallAnswer] = &[
     HelmCallAnswer::AllowForSession,
     HelmCallAnswer::AlwaysBlock,
 ];
+
+/// [`REACHING_OFFERS`], and "Allow calls like this" after the session answer where the card has
+/// a kind to allow.
+fn reaching_offers(kind: bool) -> Vec<HelmCallAnswer> {
+    let mut offers = REACHING_OFFERS.to_vec();
+    if kind {
+        let after = offers.iter().position(|one| *one == HelmCallAnswer::AllowForSession).map_or(offers.len(), |at| at + 1);
+        offers.insert(after, HelmCallAnswer::AllowLikeThisForSession);
+    }
+    offers
+}
 
 /// Whether `folder` is `reaches` or a folder above it, compared a part at a time. The root holds
 /// everything and is never offered, so it is never taken.
