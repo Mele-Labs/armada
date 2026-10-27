@@ -27,6 +27,14 @@ What he met: System › Kit › Workflows was the Job-era creator. It edited the
 | How he changes one Armada ships | Armada's rows are read-only, with Make my copy (now, every repository on this Mac) and Propose to Armada (a Job on the Armada repository that lands it for every install) | A change for every install waits on a pull request |
 | Whether a workflow's page shows where Jobs drifted | Yes: under each step, the recent Jobs Fleet nudged there, each opening its Job | Fleet keeps the nudges, and the page carries one more thing |
 
+**On the walk, 27 Oct.** *"Should I be able to take action on drifts? Why doesn't armada make suggestions automatically?"* Nothing read the nudges, so nothing could suggest.
+
+| Asked | He chose | The cost he took |
+|---|---|---|
+| When Armada drafts a change to a step's words without being asked | When one step drifts twice in a week. Each drift row has Open Job and Not a drift; the draft is a card on the step, before and after, with Approve and Dismiss; a step with drift and no draft has Suggest a change | One short agent run per suggestion, and a single drift waits for a second or his press |
+
+The workflow list's search reads *Find workflow* on `F`, apart from System's search on `/`, after he found the two side by side reading the same.
+
 **Decided for him.** The page groups workflows as Armada, the repository and Yours, and each step says what ends it. The gate boxes, retries and passes leave the editor, since nothing reads them.
 
 **Where it lands:** a mock walk first, on branch `armada/session-887f02f4`.
