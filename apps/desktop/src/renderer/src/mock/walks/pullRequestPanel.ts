@@ -14,6 +14,7 @@ function steps(narrow: boolean): Step[] {
   const queued = sheet("Pull request #2209");
   const ready = sheet("Pull request #2210");
   const failed = sheet("Pull request #2213");
+  const draft = sheet("Pull request #2214");
   const status = region("Status");
   const queue = role("list", "Merge queue");
   const box = role("form", "Comment box");
@@ -63,6 +64,12 @@ function steps(narrow: boolean): Step[] {
     { press: inside(region("Failing checks"), button("Notify Job")), say: "The Job is told which failed" },
     { look: inside(region("Failing checks"), button("Notified")), say: "It is asked once for these checks" },
     { press: close(failed), say: "Back to the Job" },
+    ...row(/^Pull request #2214 /, "The fourth is still a draft"),
+    { look: inside(draft, button("Ready for review")), say: "Ready for review is offered" },
+    { press: inside(draft, button("Ready for review")), say: "Ready for review" },
+    { look: inside(draft, button("Merge", { exact: true })), say: "It leaves draft at once" },
+    { look: region("Reviewers"), say: "A few seconds on the forge names its reviewers, and they appear without the panel being opened again" },
+    { press: close(draft), say: "Back to the Job" },
   ];
 }
 

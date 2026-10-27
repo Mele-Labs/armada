@@ -39,6 +39,7 @@ function line(): MergeLine {
         pull(2216, "Spike 031 notes", "docs/spike-031", 7, "queued"),
         { number: 2210, title: "Show the merge line in a Session", branch: "feat/session-merge-line", url: `${PULL}2210` },
         { number: 2213, title: "Read write clashes from Fleet", branch: "feat/write-clash-read", url: `${PULL}2213` },
+        { number: 2214, title: "Read the forge again when it answers empty", branch: "fix/forge-read-again", url: `${PULL}2214` },
       ],
     },
   };
@@ -77,6 +78,10 @@ const holder = () => {
       attached(2213, "Read write clashes from Fleet", "feat/write-clash-read", {
         body: "Two Sessions writing the same file now say so before either merges.\n\nThe clash is read from `git merge-tree`, not guessed from the paths.",
         checks: { state: "failed", failing: "test · bridge, verify-foundations" },
+      }),
+      attached(2214, "Read the forge again when it answers empty", "fix/forge-read-again", {
+        state: "draft",
+        body: "Reads the pull request again when the forge's first answer names no reviewers.",
       }),
     ],
   };
