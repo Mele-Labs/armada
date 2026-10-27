@@ -167,7 +167,7 @@ pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, Ke
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
-pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
+pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;

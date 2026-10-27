@@ -114,3 +114,15 @@ async fn a_try_a_recipe_list_and_a_save_each_reach_the_daemon() {
     let (status, _) = call(&app, "POST", "/watches/recipes/save", r#"{"name":"x","every":"60s","shell":"a"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn a_readings_log_is_read_on_the_query_string() {
+    let (status, bytes) = call(&wired(), "GET", &format!("/watches/log?watch={THE_WATCH}&log=%2Fstate%2Fw-1%2Fa.log"), "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let log: ipc::WatchLog = ipc::decode("a log", &bytes).expect("a log");
+    assert_eq!((log.watch.as_str(), log.log.as_str()), (THE_WATCH, "/state/w-1/a.log"));
+    let (status, _) = call(&wired(), "GET", "/watches/log?watch=w-none&log=x", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(&wired(), "GET", &format!("/watches/log?watch={THE_WATCH}"), "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a log is named");
+}

@@ -46,6 +46,23 @@ pub struct KeptWatch {
     pub regex: bool,
 }
 
+/// One part of a reading as kept: its name and state word, and where to look, the exact lines it
+/// failed on and the end of its log, where the line gave them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptWatchPart {
+    pub name: String,
+    pub state: String,
+    pub link: Option<String>,
+    pub error: Option<String>,
+    pub tail: Option<String>,
+}
+
+impl KeptWatchPart {
+    pub fn new(name: impl Into<String>, state: impl Into<String>) -> KeptWatchPart {
+        KeptWatchPart { name: name.into(), state: state.into(), ..KeptWatchPart::default() }
+    }
+}
+
 /// What one reading was.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptWatchTaken {
@@ -54,8 +71,7 @@ pub enum KeptWatchTaken {
         finished: bool,
         says: String,
         link: Option<String>,
-        /// Each part's name and state word.
-        parts: Vec<(String, String)>,
+        parts: Vec<KeptWatchPart>,
     },
     Broken { why: String, output: Option<String> },
 }
@@ -64,6 +80,8 @@ pub enum KeptWatchTaken {
 pub struct KeptWatchReading {
     pub at: String,
     pub taken: KeptWatchTaken,
+    /// The file the run's whole output was kept in, for a reading that failed or broke.
+    pub log: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,6 +98,10 @@ pub struct KeptWatchVerdict {
     pub ours: bool,
     pub sentence: String,
     pub parts: Vec<String>,
+    /// What a `not_ours` carried to back it: links, log files the agent saved, and exact errors.
+    pub links: Vec<String>,
+    pub logs: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 /// A watch with everything kept of it: readings oldest first, verdicts in the order given.
@@ -103,8 +125,25 @@ fn written(items: &[String]) -> String {
     serde_json::to_string(items).unwrap_or_else(|_| "[]".into())
 }
 
-fn written_parts(parts: &[(String, String)]) -> String {
-    serde_json::to_string(parts).unwrap_or_else(|_| "[]".into())
+/// Each part as `[name, state, link, error, tail]`, so a row kept before parts carried more, as
+/// `[name, state]`, still reads.
+fn written_parts(parts: &[KeptWatchPart]) -> String {
+    let rows: Vec<[Option<&str>; 5]> = parts
+        .iter()
+        .map(|part| [Some(part.name.as_str()), Some(part.state.as_str()), part.link.as_deref(), part.error.as_deref(), part.tail.as_deref()])
+        .collect();
+    serde_json::to_string(&rows).unwrap_or_else(|_| "[]".into())
+}
+
+pub(crate) fn read_parts(written: &str) -> Vec<KeptWatchPart> {
+    let rows: Vec<Vec<Option<String>>> = serde_json::from_str(written).unwrap_or_default();
+    rows.into_iter()
+        .map(|row| {
+            let mut row = row.into_iter();
+            let mut next = || row.next().flatten();
+            KeptWatchPart { name: next().unwrap_or_default(), state: next().unwrap_or_default(), link: next(), error: next(), tail: next() }
+        })
+        .collect()
 }
 
 fn watch_of(row: &Row<'_>) -> rusqlite::Result<KeptWatch> {
@@ -178,9 +217,9 @@ impl Store {
             }
         };
         tx.execute(
-            "INSERT INTO watch_readings (watch_id, n, at, kind, state, finished, says, link, parts, why, output) \
-             VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_readings WHERE watch_id = ?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            params![watch, reading.at, kind, state, finished, says, link, parts, why, output],
+            "INSERT INTO watch_readings (watch_id, n, at, kind, state, finished, says, link, parts, why, output, log) \
+             VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_readings WHERE watch_id = ?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![watch, reading.at, kind, state, finished, says, link, parts, why, output, reading.log],
         )
         .map_err(fault(doing))?;
         tx.execute(
@@ -208,14 +247,17 @@ impl Store {
     pub fn keep_watch_verdict(&mut self, watch: &str, verdict: &KeptWatchVerdict) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO watch_verdicts (watch_id, n, at, verdict, sentence, parts) \
-                 VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_verdicts WHERE watch_id = ?1), ?2, ?3, ?4, ?5)",
+                "INSERT INTO watch_verdicts (watch_id, n, at, verdict, sentence, parts, links, logs, errors) \
+                 VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_verdicts WHERE watch_id = ?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     watch,
                     verdict.at,
                     if verdict.ours { "ours" } else { "not_ours" },
                     verdict.sentence,
                     written(&verdict.parts),
+                    written(&verdict.links),
+                    written(&verdict.logs),
+                    written(&verdict.errors),
                 ],
             )
             .map_err(fault("keeping a watch's verdict"))?;
@@ -258,6 +300,21 @@ impl Store {
     /// `session`'s watches, live and ended, the newest first.
     pub fn watches_of(&self, session: &str) -> Result<Vec<KeptWatchWhole>, WriteError> {
         self.watches_where("session_id = ?1 ORDER BY rowid DESC", Some(session))
+    }
+
+    /// `session`'s ended watches whose state is the word `state`, the oldest first. A Job's Needs you
+    /// list reads it on every draw, so only the watches in that end are read whole.
+    pub fn ended_watches_in(&self, session: &str, state: &str) -> Result<Vec<KeptWatchWhole>, WriteError> {
+        let doing = "reading a Job's ended watches";
+        let mut asking = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM watches WHERE session_id = ?1 AND live = 0 AND state = ?2 ORDER BY rowid"))
+            .map_err(fault(doing))?;
+        let watches = asking
+            .query_map(params![session, state], watch_of)
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))?;
+        watches.into_iter().map(|watch| self.whole(watch)).collect()
     }
 
     /// Every live watch, the oldest first.
@@ -317,7 +374,7 @@ impl Store {
         let mut asking = self
             .conn
             .prepare(
-                "SELECT at, kind, state, finished, says, link, parts, why, output FROM watch_readings \
+                "SELECT at, kind, state, finished, says, link, parts, why, output, log FROM watch_readings \
                  WHERE watch_id = ?1 ORDER BY n",
             )
             .map_err(fault(doing))?;
@@ -329,17 +386,14 @@ impl Store {
                         finished: row.get::<_, Option<bool>>(3)?.unwrap_or(false),
                         says: row.get::<_, Option<String>>(4)?.unwrap_or_default(),
                         link: row.get(5)?,
-                        parts: row
-                            .get::<_, Option<String>>(6)?
-                            .and_then(|parts| serde_json::from_str(&parts).ok())
-                            .unwrap_or_default(),
+                        parts: row.get::<_, Option<String>>(6)?.map(|parts| read_parts(&parts)).unwrap_or_default(),
                     },
                     _ => KeptWatchTaken::Broken {
                         why: row.get::<_, Option<String>>(7)?.unwrap_or_default(),
                         output: row.get(8)?,
                     },
                 };
-                Ok(KeptWatchReading { at: row.get(0)?, taken })
+                Ok(KeptWatchReading { at: row.get(0)?, taken, log: row.get(9)? })
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault(doing))?;
@@ -355,7 +409,7 @@ impl Store {
             .map_err(fault(doing))?;
         let mut asking = self
             .conn
-            .prepare("SELECT at, verdict, sentence, parts FROM watch_verdicts WHERE watch_id = ?1 ORDER BY n")
+            .prepare("SELECT at, verdict, sentence, parts, links, logs, errors FROM watch_verdicts WHERE watch_id = ?1 ORDER BY n")
             .map_err(fault(doing))?;
         let verdicts = asking
             .query_map([&watch.id], |row| {
@@ -364,6 +418,9 @@ impl Store {
                     ours: row.get::<_, String>(1)? == "ours",
                     sentence: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
                     parts: texts(row.get(3)?),
+                    links: texts(row.get(4)?),
+                    logs: texts(row.get(5)?),
+                    errors: texts(row.get(6)?),
                 })
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())

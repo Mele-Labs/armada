@@ -403,6 +403,7 @@ export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";
 export * from "./compositions/NeedsYouPanel/NeedsYouPanel";
+export * from "./compositions/NotOursCard/NotOursCard";
 export * from "./compositions/NeedsYouPanel/SessionEndBand";
 export * from "./compositions/SessionAccount/SessionAccount";
 export * from "./compositions/StartedBy/StartedBy";

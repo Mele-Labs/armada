@@ -40,15 +40,25 @@ Outside its two shipped readers Armada knows no provider: a script the repositor
 | `says` | one sentence | Required. Bridge draws it and a notice quotes it |
 | `link` | an address | Optional |
 | `parts` | a list of name and state | Optional. A run whose overall state misleads is read part by part |
+| `parts[].link` | an address | Optional. Where to look at that part |
+| `parts[].error` | text | Optional. The exact lines that part failed on |
+| `parts[].tail` | text | Optional. The last lines of that part's own log |
 
 > **Rule.** `finished` is a field of its own and is never read from `state`.
 > Why: a run reads `failed` the same mid-run and at its end, so a watch with a failure set aside could not tell it was over.
 
 With `parts`, the watch's state comes from the parts not set aside: any `failed` is `failed`, any `waiting` or `running` is `running`, all `passed` is `passed`.
 Without `parts`, the line's own `state` stands.
-A watch ends `passed` only on a reading that is `passed` once counted, and `finished`.
+
+> **Rule.** All counted parts `passed` while a part set aside reads `failed` is `not_ours`, never `passed`, and that holds when every part is set aside.
+> Why: a deploy whose set-aside part failed did not ship, and a green mark for it is a false positive.
+
+A set-aside part that later reads `passed`, as on a retry, no longer stands in the way of `passed`.
+A watch ends `passed` only on a finished reading that is `passed` once counted with nothing set aside failing, and ends `not_ours` on a finished reading that is `not_ours`.
+The readings keep the states their lines gave; only the watch's state changes.
 
 A run that exits non-zero, runs out of time or prints no such line is a **broken** reading, and its last output is kept.
+A reading that failed, overall or in a part, and a broken one keep the run's whole output as a log file under Fleet's state, linked from the reading; the file is deleted with the watch, or when its Job ends.
 
 Two rules every script keeps, because the line has no word for either:
 
@@ -61,8 +71,9 @@ Two rules every script keeps, because the line has no word for either:
 |---|---|---|
 | `waiting` | Nothing counted has started | No |
 | `running` | Something counted is going | No |
-| `passed` | Counted parts passed and the line is finished | Yes |
+| `passed` | Counted parts passed, none set aside failed, and the line is finished | Yes |
 | `failed` | A counted part failed | Yes, once a change |
+| `not_ours` | Counted parts passed and a part set aside failed. An end once the line is finished | Yes, at the end, with what failed, and a Needs you item |
 | `gave_up` | Past its time with nothing finished | Yes |
 | `broken` | The command broke three readings in a row | Yes |
 | `stopped` | The person or the agent stopped it, or its Job ended | No |
@@ -105,6 +116,8 @@ Each runs `armada watch-line`, a reader of Armada's own that prints the one line
 |---|---|---|
 | `github-checks` | `sha`, `context` | The commit's check runs and commit statuses whose names start with `context`, each a part, with the token `gh` holds, in the repository the slot's remote names |
 | `buildkite-build` | `organization`, `pipeline`, `build` | One build, each command step a part and a retried step by its latest attempt, with `BUILDKITE_API_TOKEN` from the login shell |
+
+Each reader gives a failed part its link, its exact error lines and the end of its log: a failed check run's failure annotations, else its output's title and summary, and the end of its output's text; a failed status its description; a failed step the error lines in its own log, read from the provider, and the last 50 lines of it.
 
 A provider's name is in the adapters only: `config` reads the files as any recipe.
 
@@ -190,12 +203,28 @@ The slot guard lets the Job write, remove and chmod there as in its slots, and t
 | Verdict | What it does to the watch |
 |---|---|
 | `ours` | Ends it `failed`. The agent fixes the change, and a redeploy is a new watch |
-| `not_ours`, with parts | Sets those parts aside. The watch carries on, and a change in them wakes nobody |
+| `not_ours`, with parts | Sets those parts aside. The watch carries on, a change in them wakes nobody, and while one reads `failed` the watch can end `not_ours` and never `passed` |
 
-A weighing tells nobody, since the agent gave it.
+A weighing tells nobody, since the agent gave it, except one that ends the watch `not_ours`: the Job is told it did not pass, so it does not report a pass.
 A `not_ours` names a part some reading of the watch carried, or it is refused.
+A `not_ours` carries the evidence the agent gathered for the person to send on: links to what it watched, the logs it saved, and the exact error lines.
 A watch may start with parts already set aside, so a redeploy keeps what the agent learned on the last one.
 A set-aside lasts one watch, so a step that fails on every build costs one wake on every push.
+
+## Ended not ours
+
+> **Rule.** A watch that ended `not_ours` is a Needs you item Fleet raises, never the agent.
+> Why: whether a failure someone else owns is ignored, fixed here or sent to its owners is the person's call.
+
+The item names the watch and the parts that failed, and its press opens a card with each part's sentence, the link to the failing run and three controls.
+
+| Control | Does |
+| --- | --- |
+| Ignore | Settles it, and tells the agent nothing |
+| Fix it | Sends the agent the parts, the sentence that set each aside and the link, and settles it |
+| Escalate | Shows plain lines to copy for the owners of what broke: what failed, when, on which run, what the reading said, each part's exact error lines, the errors the agent found, every link, every log, and the end of each part's log. Fleet sends nothing anywhere, and the item stays |
+
+Settling the item removes it, and dismissing it settles it too.
 
 ## Telling the Job
 
@@ -216,15 +245,15 @@ Noticing that someone replaced a deploy is a new watch's job, started by whoever
 
 A live watch is a wait, as an open pull request is.
 When it ends, whichever way, its notice wakes the agent, which carries on and calls `all_done` once nothing is left.
-A held Job is not a Needs you item, since what it waits on is Fleet's wait and not the person's.
+A held Job is not a Needs you item, since what it waits on is Fleet's wait and not the person's; an end `not_ours` is one, above.
 Ending a Job ends its live watches `stopped` and tells nothing.
 
 ## In Bridge
 
 | Where | What it draws |
 |---|---|
-| Delivery | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it. Live watches only, until Show ended draws the ended ones, each with Delete |
-| The side panel, on a press | Readings over time, a run that read the same as one row with its count and first and last times, each part, parts set aside struck through, a broken run's output, the link, and Stop |
+| Delivery | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it. Live watches only, and one that ended not ours while its Needs you item is open, until Show ended draws the ended ones, each with Delete |
+| The side panel, on a press | Readings over time, a run that read the same as one row with its count and first and last times, each part with its own link, exact error lines and the end of its log, parts set aside struck through, what a weighing carried as evidence, a broken run's output, a failed reading's whole log in Log with one copy control, the link, and Stop |
 | A Job's row and header | Held open by the watch's name, while only a watch keeps the Job open |
 
 The glyphs are `docs/contracts/iconography.md`, *A watch and its states*.
@@ -245,6 +274,8 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 | A terminal watch | `crates/fleet/src/watches/listening.rs` |
 | A Job's scratch folder | `crates/fleet/src/scratch.rs` |
 | The notices | `crates/fleet/src/watches/telling.rs` |
+| A failed reading's log file | `crates/fleet/src/watches/logs.rs` |
+| The Needs you item for a `not_ours` end | `crates/fleet/src/watches/needing.rs` |
 | What is kept | `crates/store/src/watches.rs` |
 | Bridge's copy of the wire | `packages/protocol/src/watches.ts` |
 

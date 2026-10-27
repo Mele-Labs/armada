@@ -1,9 +1,9 @@
 //! Watches, as the fake answers them: nothing is run or kept, and a start is echoed as recorded.
 
 use ipc::{
-    DeleteWatch, Instant, LoginShell, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchReading,
+    DeleteWatch, Instant, LoginShell, ReadWatchLog, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchReading,
     WatchRecipeList, WatchRecipeListed, WatchRecipeSaved, WatchRecipeSource, WatchStarts, WatchState, WatchSummary,
-    WatchTried, WatchTries, WeighWatch,
+    WatchLog, WatchTried, WatchTries, WeighWatch,
 };
 
 use super::FakeDaemon;
@@ -65,6 +65,11 @@ impl Watches for FakeDaemon {
     async fn delete_watch(&self, _caller: Option<Caller>, delete: DeleteWatch) -> Result<WatchList, Refusal> {
         let held = the_watch(&delete.watch)?;
         Ok(WatchList { session_id: held.session_id, watches: Vec::new() })
+    }
+
+    async fn read_watch_log(&self, _caller: Option<Caller>, read: ReadWatchLog) -> Result<WatchLog, Refusal> {
+        the_watch(&read.watch)?;
+        Ok(WatchLog { watch: read.watch, log: read.log, text: String::from("stdout:\nDeploy failed.\n") })
     }
 
     async fn stop_watch(&self, _caller: Option<Caller>, stop: StopWatch) -> Result<WatchSummary, Refusal> {

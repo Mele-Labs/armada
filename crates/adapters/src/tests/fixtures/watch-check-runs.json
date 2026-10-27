@@ -1,0 +1,9 @@
+{
+  "check_runs": [
+    { "id": 901, "name": "deploy-qa", "status": "completed", "conclusion": "failure", "html_url": "https://forge.example.test/acme-shop/web/runs/901",
+      "output": { "title": "Deploy to QA failed", "summary": "The provision step exited 1.", "text": "starting\nprovisioning\nError: cloud lookup for region qa-east returned no account\nexit 1" } },
+    { "id": 902, "name": "deploy-docs", "status": "completed", "conclusion": "failure", "html_url": "https://forge.example.test/acme-shop/web/runs/902",
+      "output": { "title": "Docs deploy failed", "summary": "The upload was refused." } },
+    { "id": 903, "name": "deploy-build", "status": "completed", "conclusion": "success", "html_url": "https://forge.example.test/acme-shop/web/runs/903" }
+  ]
+}
