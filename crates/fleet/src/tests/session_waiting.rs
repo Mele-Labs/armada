@@ -186,6 +186,7 @@ fn answer(id: &ipc::SessionId, item: &str) -> AnswerWaiting {
         choice: None,
         text: None,
         mode: None,
+        fixed: None,
     }
 }
 

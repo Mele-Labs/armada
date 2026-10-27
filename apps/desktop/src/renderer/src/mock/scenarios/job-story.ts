@@ -112,7 +112,7 @@ function prAt(stage: number): Partial<Session> {
             pr({ number: 2391, title: "Name the attempt in the bay tooltip", closes: [], checks: { state: "pending" }, state: "open", auto: false }),
             { kind: "issue" as const, number: "2402", title: "A slow attempt can outlive the lease", address: "https://forge.invalid/issues/2402", state: "open" as const },
             { kind: "issue" as const, number: "2395", title: "The pool does not wake a waiting lease", address: "https://forge.invalid/issues/2395", state: "open" as const, claimed: true as const, pull_requests: [2391] },
-            // A page the Job wrote beside its pull request, which the Landing draws though the workflow lands a pull request.
+            // A page the Job wrote beside its pull request, which Delivery draws though the workflow lands a pull request.
             { kind: "artifact" as const, form: "document" as const, id: PR_DOC_PATH, title: LEASE_DOC_TITLE, revisions: [LEASE_DOC_PATH] },
           ]
         : []),
@@ -301,7 +301,7 @@ function sessions() {
   };
   return {
     ...base,
-    // The report's revisions are files on the pretend disk, which the Landing panel reads the first lines of and the reading layer draws.
+    // The report's revisions are files on the pretend disk, which Delivery panel reads the first lines of and the reading layer draws.
     readArtifact: async (id: string, path: string) => {
       const page = path === LEASE_DOC_PATH ? LEASE_DOC_1 : path === LEASE_DOC_PATH_2 ? LEASE_DOC_2 : undefined;
       return page === undefined ? (base.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const }) : { ok: true as const, bytes: new TextEncoder().encode(page), type: "text/html" };
@@ -329,7 +329,7 @@ function sessions() {
 }
 
 function build(): Scenario {
-  const base = holding("job-story", "A Job's right column as a story: Blueprint while the plan is drafted, Field while drones work, Landing at the end, by what the Job lands in");
+  const base = holding("job-story", "A Job's right column as a story: Blueprint while the plan is drafted, Field while drones work, Delivery at the end, by what the Job lands in");
   return {
     ...base,
     state: { ...base.state, repository: null, mergeLines: { lines: [line(false)] } },

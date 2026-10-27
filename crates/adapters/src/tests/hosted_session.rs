@@ -195,6 +195,16 @@ fn the_rules_say_a_question_fleet_asks_is_not_asked_again() {
     assert!(needs.contains("A question Fleet puts to the person itself, such as how the work is delivered, is already in Bridge: never ask it again."));
 }
 
+/// A follow-up the session keeps for itself is deferred through the call, not as a sentence closing
+/// its reply, and settled with the call Fleet already holds `all_done` on.
+#[test]
+fn the_rules_say_a_followup_is_deferred_through_the_call() {
+    let progress = rules().split("\n\n").find(|block| block.starts_with("Progress.")).expect("a progress paragraph");
+    for named in ["`defer_later`", "`settle_later`"] {
+        assert!(progress.contains(named), "{named}");
+    }
+}
+
 /// A session in any repository is told where its subagents come from, in order, and which model
 /// each kind of work runs on, so a lookup never runs on the session's own model.
 #[test]
@@ -247,7 +257,7 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 6, "needs, progress, planning, subagents, watching, finishing");
+    assert_eq!(blocks.len(), 7, "needs, drafts, progress, planning, subagents, watching, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

@@ -3,9 +3,10 @@
 // **One roster, read by everything that navigates.** The title bar's tabs and the System sidebar draw from it and the palette lists
 // it. A second copy is how a place ends up in one and not the other, or answers a key the other spells differently.
 //
-// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘6` are Cockpit, Jobs, Sessions, Studios, Logbook and System,
-// and Settings is `⌘,`. Every other destination is reached from a System entry, the title bar's menu, a link on the deck or
-// the palette by name, and takes no key.
+// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘7` go to the tabs the bar draws, left to right, each drawn
+// tab taking the next digit. A tab a layout or a missing source leaves off takes none and the digits behind it close up, so at most
+// they are Cockpit, Jobs, Studios, Logbook, Reviews, Issues and System. Settings is `⌘,`. Every other destination is reached from
+// a System entry, the title bar's menu, a link on the deck or the palette by name, and takes no key.
 
 import { useEffect, useRef } from "react";
 import {
@@ -19,6 +20,7 @@ import {
   Rewind,
   HardDrive,
   LayoutDashboard,
+  ListTodo,
   Merge,
   NotebookTabs,
   Puzzle,
@@ -55,6 +57,7 @@ export const SURFACE = {
   account: "account",
   reviews: "reviews",
   issues: "issues",
+  projects: "projects",
   usage: "usage",
   requests: "requests",
   logbook: "logbook",
@@ -62,19 +65,19 @@ export const SURFACE = {
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
 
-/** The digit each surface answers to: the tab it is. A place with none is reached by name, and Settings has `⌘,`. */
-const DIGIT: Readonly<Partial<Record<SurfaceId, number>>> = {
-  [SURFACE.overview]: 1,
-  [SURFACE.jobs]: 2,
-  [SURFACE.sessions]: 3,
-  [SURFACE.studios]: 4,
-  [SURFACE.logbook]: 5,
-};
+/**
+ * The surfaces the bar leaves off, as the app last said (`useSurfaceKeys`). Until it says, only the old Jobs tab is off: it has
+ * no page, so it is never drawn and never takes a digit.
+ */
+let off: readonly string[] = [SURFACE.jobs];
 
-/** What reaches a surface, spelled as this person has `deck_tabs`: `⌘3` unless Settings → Keyboard moved the row. */
+/**
+ * What reaches a surface, spelled as this person has `deck_tabs`: `⌘3` unless Settings → Keyboard moved the row. The digit is the
+ * tab's place among the drawn ones, so it is read when the row draws, never fixed. System has none: it opens a page, not itself.
+ */
 function digitOf(id: SurfaceId): string | undefined {
-  const at = DIGIT[id];
-  return at === undefined ? undefined : digitKeyFor("deck_tabs", at);
+  const at = drawnTabs(off).findIndex((tab) => tab.id !== "system" && tab.surface === id);
+  return at < 0 ? undefined : digitKeyFor("deck_tabs", at + 1);
 }
 
 /**
@@ -103,7 +106,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.jobs,
     label: "Jobs",
-    // No key; reached from a System entry, a link on the deck and by name.
+    // The old tab is never drawn, so it takes no key; reached from a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.jobs);
     },
@@ -123,7 +126,9 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.doctor,
     label: "Doctor",
-    shortcut: digitOf(SURFACE.doctor),
+    get shortcut() {
+      return digitOf(SURFACE.doctor);
+    },
     // What a person looking for it will type. "health" and "status" are the
     // words for the question it answers; `armada doctor` is the verb (#99).
     aliases: ["health", "status", "system health"],
@@ -226,7 +231,10 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.reviews,
     label: "Reviews",
-    // No key: the registry's `deck_tabs` spells six digits, and a seventh is the owner's to bind.
+    get shortcut() {
+      return digitOf(SURFACE.reviews);
+    },
+    // Its tab takes the next digit when drawn (`drawnTabs`).
     aliases: ["review", "pull requests", "pr review"],
     // `eye` is Review's.
     icon: Eye,
@@ -234,10 +242,24 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.issues,
     label: "Issues",
-    // No key, as Reviews: `deck_tabs` spells six digits.
+    get shortcut() {
+      return digitOf(SURFACE.issues);
+    },
+    // Its tab takes the next digit when drawn, as Reviews does.
     aliases: ["issue", "tickets", "tracker", "jira", "backlog"],
     // `ticket` is the registry's issue.
     icon: Ticket,
+  },
+  {
+    id: SURFACE.projects,
+    label: "Projects",
+    get shortcut() {
+      return digitOf(SURFACE.projects);
+    },
+    // Its tab takes the next digit when drawn (`drawnTabs`).
+    aliases: ["project", "tasks", "task list", "todo", "to do", "plan"],
+    // A sketch: `list-todo` is the registry's list of tasks, some open and some done. A Navigation glyph is the owner's to mint.
+    icon: ListTodo,
   },
   {
     id: SURFACE.workflows,
@@ -298,7 +320,7 @@ export const SURFACES: readonly PaletteSurface[] = [
 ];
 
 /**
- * The window's six tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘6` reach them.
+ * The window's tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘7` reach the drawn ones.
  *
  * System has no surface of its own: it opens the entry last picked, and the sidebar beside the page
  * lists them all.
@@ -311,13 +333,20 @@ export const DECK_TABS = [
   { id: "logbook", label: "Logbook", surface: SURFACE.logbook },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
   { id: "issues", label: "Issues", surface: SURFACE.issues },
+  { id: "projects", label: "Projects", surface: SURFACE.projects },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
-/** The tabs a digit reaches. Reviews and Issues take none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip them and System keeps `⌘6`. */
-const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews" && tab.id !== "issues");
-
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
+
+/**
+ * The tabs the bar draws, in order, given the surfaces left off. **The bar and the digits both read this**, so the key a tab
+ * names is the key that works. System is never left off. The old Jobs tab has no page, and the app lists it among the surfaces
+ * it leaves off.
+ */
+export function drawnTabs(hidden: readonly string[]): readonly (typeof DECK_TABS)[number][] {
+  return DECK_TABS.filter((tab) => tab.id === "system" || !hidden.includes(tab.surface));
+}
 
 /**
  * The pages under System, in the order the roster lists them. **The names are the roster's**, read from
@@ -344,6 +373,7 @@ export const PLACES: readonly string[] = [
   SURFACE.logbook,
   SURFACE.reviews,
   SURFACE.issues,
+  SURFACE.projects,
 ];
 
 /** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */
@@ -353,23 +383,26 @@ export function deckTabOf(showing: string): DeckTabId | undefined {
   return SYSTEM_PAGES.some((page) => page.surface === showing) ? "system" : undefined;
 }
 
-/** What `⌘<digit>` reaches: the tab's surface for `⌘1` to `⌘6`. */
-export function surfaceOfDigit(digit: number): string | undefined {
-  return DIGIT_TABS[digit - 1]?.surface;
+/** What `⌘<digit>` reaches: the surface of the digit-th tab drawn, given the surfaces left off. */
+export function surfaceOfDigit(digit: number, hidden: readonly string[] = off): string | undefined {
+  return drawnTabs(hidden)[digit - 1]?.surface;
 }
 
 /**
- * `⌘1` to `⌘6`, bound as `deck_tabs` has them, and Settings on `open_settings`.
+ * `⌘1` to `⌘7`, bound as `deck_tabs` has them and reaching the drawn tabs in order, and Settings on `open_settings`. `hidden` is
+ * what the bar leaves off, the list it draws from; it is also what the roster's keys are spelled from.
  *
  * **A modified key, so a focused field does not suppress it.** `⌘K` is bound the same way and for the same reason: the
  * contextual tier is suppressed while a text input holds focus precisely so that typing cannot act, and the whole point of the
  * modifier is that it still works from inside one.
  */
-export function useSurfaceKeys(onSurface: (surfaceId: string) => void): void {
+export function useSurfaceKeys(onSurface: (surfaceId: string) => void, hidden: readonly string[]): void {
   // **Bound once, and the handler is read through a ref.** The app rebuilds its `goTo` every render, and a listener
   // re-registered on every render is one that has to be right about removal every time.
   const latest = useRef(onSurface);
   latest.current = onSurface;
+  // Written in render, before the palette beneath draws its keys, so a key it names is the one that works.
+  off = hidden;
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {

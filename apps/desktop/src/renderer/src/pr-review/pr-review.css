@@ -12,6 +12,7 @@
 .pr-list__pick .armada-dropdown-menu__trigger { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Find: what he wants in his own words, and the one press that sends a Drone to look. */
+.pr-link { flex: none; padding: 0 var(--space-2) var(--space-2); }
 .pr-find { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
 .pr-find .armada-textarea-field { flex: 1 1 0; min-width: 0; }
 .pr-find__head { display: flex; flex: none; align-items: center; gap: var(--space-2); padding: 0 var(--space-3) var(--space-1); }
@@ -245,19 +246,11 @@
 .pr-tool[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
 .deck-controls__block.pr-tools .deck-tile[data-mode] { border-color: var(--accent); }
 
-.deck-foot:has(.pr-tools[data-n="5"]) { --controls-min: calc(var(--tile) * 5 + var(--space-2) * 4 + var(--space-3) * 2 + var(--border-width) * 2); }
-.deck-foot:has(.pr-tools[data-n="6"]) { --controls-min: calc(var(--tile) * 6 + var(--space-2) * 5 + var(--space-3) * 2 + var(--border-width) * 2); }
-.deck-foot:has(.pr-tools[data-n="7"]) { --controls-min: calc(var(--tile) * 7 + var(--space-2) * 6 + var(--space-3) * 2 + var(--border-width) * 2); }
-.deck-foot:has(.pr-tools[data-n="8"]) { --controls-min: calc(var(--tile) * 8 + var(--space-2) * 7 + var(--space-3) * 2 + var(--border-width) * 2); }
-.deck-foot:has(.pr-tools[data-n="9"]) { --controls-min: calc(var(--tile) * 9 + var(--space-2) * 8 + var(--space-3) * 2 + var(--border-width) * 2); }
-.deck-foot:has(.pr-tools[data-n="10"]) { --controls-min: calc(var(--tile) * 10 + var(--space-2) * 9 + var(--space-3) * 2 + var(--border-width) * 2); }
-
 /* A review has no right column: the list and the stage share the grid. */
 .deck-grid[data-review] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
 .deck-grid[data-review] .deck-handle { display: revert; }
 
 /* The old seventh tile in the work view: PR Review is a mode, so it stands apart from the six. */
-.deck-foot:has(.deck-controls__block[data-review]) { --controls-min: calc(var(--tile) * 7 + var(--space-2) * 6 + var(--space-3) * 2 + var(--border-width) * 2); }
 .deck-controls__block[data-review] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .deck-controls__block[data-review] .deck-tile[data-mode] { border-color: var(--border-strong); }
 

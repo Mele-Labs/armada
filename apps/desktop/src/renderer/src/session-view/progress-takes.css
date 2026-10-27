@@ -82,7 +82,7 @@
 
 /* The Workflow panel is one line: the picker or name and the steps, with no label drawn (the picker and each step name themselves), and the steps wrap whole
    under the picker only where there are too many for the column. */
-.sv-panel[data-area="workflow"] > .sv-panel__band { flex-wrap: wrap; gap: var(--space-1) var(--space-2); min-height: calc(var(--h-row) * 1.25); padding-block: var(--space-1); }
+.sv-panel[data-area="workflow"] > .sv-panel__band { flex-wrap: wrap; gap: var(--space-2); padding-block: var(--space-1); }
 .sv-panel[data-area="workflow"] .sv-panel__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .sv-panel[data-area="workflow"] .sv-rail { flex: 1 1 auto; min-width: max-content; overflow: visible; }
 .sv-panel[data-area="workflow"] .sv-rail__step + .sv-rail__step::before { width: var(--space-1); margin-inline: 0; }

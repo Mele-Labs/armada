@@ -7,11 +7,13 @@
 
 import { useEffect, useState } from "react";
 import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, Kbd, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
+import { parsePullLink } from "../../../shared/pull-link";
 import { REVIEW_KEYS, capOf } from "./key-table";
+import { openLinked } from "./link";
 import { ChecksMark, ReviewMark, RunFailed } from "./marks";
 import type { Find, ReviewPr } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -30,11 +32,13 @@ const ASK = "ask";
 /** The repository picked narrows the list, as it narrows every other list in the window. */
 export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): boolean => picked === null || picked.manifest === undefined || pr.manifestId === picked.manifest.id;
 
-export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
+export function ReviewList({ picked, repositories }: { picked: RepositorySummary | null; repositories: readonly RepositorySummary[] }) {
   const store = useReviewStore()!;
   const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
+  const [address, setAddress] = useState("");
+  const [unopened, setUnopened] = useState<string | undefined>(undefined);
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
   // The list is read each time the view is opened, and on Refresh. Nothing reads it in between.
   useEffect(() => {
@@ -70,6 +74,17 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
     });
   };
 
+  // A link opens whichever pull request it names, on a list or not. A refusal is said under the box and the link stays for him to correct.
+  const openLink = async () => {
+    const link = parsePullLink(address);
+    if (link === undefined) return setUnopened("That is not a link to a pull request.");
+    const refused = await openLinked(store, repositories, link);
+    if (refused !== undefined) return setUnopened(refused);
+    setUnopened(undefined);
+    setAddress("");
+    setAsking(false);
+  };
+
   return (
     <section className="deck-panel deck-list pr-list" aria-label="Pull requests" tabIndex={-1}>
       <header className="deck-band">
@@ -101,6 +116,27 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
           <Kbd>{capOf(REVIEW_KEYS.lists)}</Kbd>
         </Tooltip>
       </div>
+      <form
+        className="pr-link"
+        aria-label="Open a pull request"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void openLink();
+        }}
+      >
+        <Input
+          aria-label="Pull request link"
+          placeholder="Paste a pull request link"
+          mono
+          value={address}
+          invalid={unopened !== undefined}
+          {...(unopened === undefined ? {} : { message: unopened })}
+          onChange={(event) => {
+            setAddress(event.target.value);
+            setUnopened(undefined);
+          }}
+        />
+      </form>
       {asking ? (
       <form
         className="pr-find"

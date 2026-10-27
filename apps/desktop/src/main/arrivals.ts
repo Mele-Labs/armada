@@ -32,6 +32,7 @@ import type { SleepHost } from "./sleep";
 import type { AppRunsHost } from "./app-runs";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
+import type { ProjectsHost } from "./projects";
 import type { AgentSignInHost } from "./agent-sign-in";
 import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
@@ -65,6 +66,8 @@ export interface ArrivalHost {
   readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
+  /** A repository's projects, told whole after any write to one — `projects.ts`. */
+  readonly projects: Pick<ProjectsHost, "changed">;
   /** The agents' sign-in, told when Fleet moves it and read once per connection — `agent-sign-in.ts`. */
   readonly agentSignIn: Pick<AgentSignInHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
@@ -311,6 +314,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.modelDownshift.changed(state);
     // An accept or a restore moves `models.session`, which `holds.models` read once and would keep.
     void readModels(fleet.port, host);
+    return;
+  }
+  if (event.kind === "projects.changed") {
+    // Above the tail for `model_downshift.changed`'s reason: no Job to find, and the projects travel whole.
+    host.publish({ connection });
+    const { kind: _kind, ...projects } = event;
+    host.projects.changed(projects);
     return;
   }
   if (event.kind === "agent_sign_in.changed") {

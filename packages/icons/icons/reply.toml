@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Not a reply in a review thread and not a retry."
   notes = "Owner's choice 11 Oct 2026 for a Waiting on you row the agent gave no act: the row's press opens a box under it and what he types goes to the Session as his answer. Tooltip is Reply."
+
+[[icons.reply.usage]]
+  means = "A draft the person sent back with a note for a rewrite, on its card in a Job's thread"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 26 Oct 2026 for the draft card (`propose_draft`). His note goes back to the agent, which is this glyph's meaning. Tooltip `Sent back`, with his note quoted under the draft."

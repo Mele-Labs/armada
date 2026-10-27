@@ -678,6 +678,14 @@ where
         self.window_asked(caller, ask).await
     }
 
+    async fn propose_draft(
+        &self,
+        caller: Option<api::Caller>,
+        draft: ipc::ProposeDraft,
+    ) -> Result<SessionRecord, Refusal> {
+        self.draft_proposed(caller, draft).await
+    }
+
     async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
         let id = closed.session_id.as_str().trim().to_string();
         let known = {
@@ -760,6 +768,14 @@ where
         self.say_done(caller, done).await
     }
 
+    async fn defer_later(
+        &self,
+        caller: Option<api::Caller>,
+        defer: ipc::DeferLater,
+    ) -> Result<ipc::LaterDeferred, Refusal> {
+        self.later_deferred(caller, defer).await
+    }
+
     async fn settle_later(
         &self,
         caller: Option<api::Caller>,
@@ -837,6 +853,13 @@ where
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
         let run_id = self.open_job_shell(open.session_id.as_str(), open.cols, open.rows).await?;
         Ok(ipc::SessionRunUnderway { run_id })
+    }
+
+    async fn start_terminal_run(
+        self: Arc<Self>,
+        start: ipc::StartTerminalRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.begin_terminal_run(start).await
     }
 
     async fn type_in_terminal(

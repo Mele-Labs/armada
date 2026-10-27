@@ -78,7 +78,7 @@ async fn a_question_about_the_walk_waits_with_its_place_and_its_answer_reaches_t
         "the thread keeps the question: {rows:?}"
     );
 
-    let mut said = AnswerWaiting { session_id: id.clone(), item_id: item.id.clone(), choice: None, text: None, mode: None };
+    let mut said = AnswerWaiting { session_id: id.clone(), item_id: item.id.clone(), choice: None, text: None, mode: None, fixed: None };
     assert!(Arc::clone(&rig.fleet).answer_waiting(said.clone()).await.is_err(), "an empty answer is refused");
     said.choice = Some(1);
     said.text = Some("and smaller".into());
@@ -129,7 +129,7 @@ async fn a_question_answered_on_a_thread_with_a_row_this_fleet_cannot_read_waits
     let record = rig.fleet.ask_in_window(None, asked(&id, WALK)).await.unwrap();
     let item = the_ask(&record).id.clone();
 
-    let said = AnswerWaiting { session_id: id.clone(), item_id: item, choice: Some(0), text: None, mode: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id: item, choice: Some(0), text: None, mode: None, fixed: None };
     let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
     assert!(after.waiting_for.iter().all(|one| one.source != WaitingSource::WindowAsk), "answered, so it waits no more: {:?}", after.waiting_for);
     let rows = rig.rows(&id).await;

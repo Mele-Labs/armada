@@ -62,7 +62,7 @@ const taken = (id: string) => ({ ok: true as const, value: { id } as SessionReco
 
 export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimIssue" | "claimPullRequest" | "confirmWaiting" | "dismissWaiting"> {
   return {
-    answerWaiting: async ({ session_id, item_id, choice, text }) => {
+    answerWaiting: async ({ session_id, item_id, choice, text, fixed }) => {
       const paced = sessions.pace ?? INSTANT;
       await answered(paced);
       const refusal = REFUSES.get(item_id);
@@ -76,7 +76,7 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState)
       const chosen = choice === undefined ? (text ?? item.options?.[0]?.label) : item.options?.[choice]?.label;
       const served = session.waitingFor?.some((one) => one.id === item_id) === true;
       const settle = () => {
-        if (served) sessions.answerWaiting?.(session_id, item_id, { ...(choice === undefined ? {} : { choice }), ...(text === undefined ? {} : { text }) });
+        if (served) sessions.answerWaiting?.(session_id, item_id, { ...(choice === undefined ? {} : { choice }), ...(text === undefined ? {} : { text }), ...(fixed === undefined ? {} : { fixed }) });
         else if (item.source === "permission") sessions.answer(session_id, permissionOf(chosen ?? "") ?? "refuse");
         else sessions.answer(session_id, undefined, [{ question: item.text, chosen: chosen === undefined ? [] : [chosen] }]);
       };

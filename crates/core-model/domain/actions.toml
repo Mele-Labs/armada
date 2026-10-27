@@ -632,17 +632,233 @@ destructive = false
 confirms = false
 notes = "Opens the dispatch sheet holding the open issue as a tag, on its repository. Starting is the sheet's own act, so nothing starts on this key alone."
 
+[actions.projects_panel]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a part of Projects"
+icon = ""
+icon_absent = "undecided"
+shortcut = "l r"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves focus to a part of the Projects tab: `l` the list of projects, `r` the rows of the project open. The Issues tab's letters for its own two parts, in the scope of the tab that has them. Mock-backed until projects are kept on the Mac."
+
+[actions.projects_new]
+kind = "Action"
+tier = "Contextual"
+verb = "New project"
+icon = ""
+icon_absent = "undecided"
+shortcut = "N"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Puts up the name field of a new project in the repository picked. On All it asks which repository first, the one act on the tab that needs one. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
+
+[actions.projects_add_task]
+kind = "Action"
+tier = "Contextual"
+verb = "Add a task"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves focus to the field under the open project's head, where a task is written and Enter adds it. The field keeps its draft across leaving the panel."
+
+[actions.projects_link]
+kind = "Action"
+tier = "Contextual"
+verb = "Link"
+icon = ""
+icon_absent = "undecided"
+shortcut = "i"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens one search of the repository under the open project's head: its open issues, as the Issues tab reads them, its live Jobs and its pull requests. Enter links the first found: an issue as a row, a Job or a pull request as a task by its title that it holds. Close, Esc or a press elsewhere puts the search away."
+
+[actions.projects_add_subtask]
+kind = "Action"
+tier = "Contextual"
+verb = "Add a subtask"
+icon = ""
+icon_absent = "undecided"
+shortcut = "A"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Puts up a field inside the focused task's card, where a subtask is written and Enter adds it; the field stays for the next, and Enter on it empty or Esc puts it away. One level only: a subtask holds none, so the key does nothing on one."
+
+[actions.projects_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the title"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Edits the focused task's title in place, on its card. Enter keeps it and Esc leaves it as it was. An issue's title is its tracker's, so the key does nothing on one."
+
+[actions.projects_open_job]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the Job"
+icon = ""
+icon_absent = "undecided"
+shortcut = "o"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens the Job holding the focused card, as a press on its chip does. The list's `o`, in the scope of the tab that has it."
+
+[actions.projects_unlink_job]
+kind = "Action"
+tier = "Contextual"
+verb = "Unlink the Job"
+icon = ""
+icon_absent = "undecided"
+shortcut = "u"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Lets the Job holding the focused task go, as the x on its chip does. The task goes back to open; the Job is not touched."
+
+[actions.projects_unlink_pull]
+kind = "Action"
+tier = "Contextual"
+verb = "Unlink the pull request"
+icon = ""
+icon_absent = "undecided"
+shortcut = "U"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Unlinks the pull request linked last to the focused task, as the x on its chip does."
+
+[actions.projects_rename]
+kind = "Action"
+tier = "Contextual"
+verb = "Rename the project"
+icon = ""
+icon_absent = "undecided"
+shortcut = "e"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Edits the focused project's name in its place in the list. Enter keeps it and Esc leaves it as it was."
+
+[actions.projects_link_task]
+kind = "Action"
+tier = "Contextual"
+verb = "Link to the task"
+icon = ""
+icon_absent = "undecided"
+shortcut = "I"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens the same search for the focused task. An issue joins the task's card as a chip; a Job holds the task as Dispatch would, replacing one that did; a pull request joins the card's second line. Each chip has its own Unlink."
+
+[actions.projects_delete]
+kind = "Action"
+tier = "Contextual"
+verb = "Delete or unlink"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Backspace"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Deletes the focused task, or unlinks the focused issue, or in the list deletes the focused project, with no question. A toast offers Undo for a moment after. Not destructive: the issue stays in its tracker and Undo puts a task or a project back where it stood."
+
+[actions.projects_reorder]
+kind = "Action"
+tier = "Contextual"
+verb = "Move the row up or down"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↑ ⌥↓"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves the focused row of the open project up or down its list, which is in his order. The deck's own keys for its rows (`deck_reorder`), in the scope of the tab that has them. A key moves the row and draws nothing of its own."
+
+[actions.projects_select]
+kind = "Action"
+tier = "Contextual"
+verb = "Select the row"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Space / x"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Selects the focused row, or takes it out of the selection, as its box does. The rows selected go to one Job together on `s`."
+
+[actions.projects_tick]
+kind = "Action"
+tier = "Contextual"
+verb = "Tick or untick the task"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Marks the focused task done, or open again. Written tasks only: a linked issue is open or closed as its tracker says. `d` is a call's Dismiss in the `call` scope, which never listens beside this one."
+
+[actions.projects_dispatch]
+kind = "Action"
+tier = "Contextual"
+verb = "Dispatch the rows"
+icon = ""
+icon_absent = "undecided"
+shortcut = "s"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens the dispatch sheet on the project's repository holding the rows selected, or the focused row where none is: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
+
+[actions.projects_mark_done]
+kind = "Action"
+tier = "Contextual"
+verb = "Mark done"
+icon = ""
+icon_absent = "undecided"
+shortcut = "D"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Answers the done ask on the focused task: a Job that held it finished, and Armada asks whether the task is done. The same answer as the Needs you item on that Job while it is live."
+
+[actions.projects_keep_open]
+kind = "Action"
+tier = "Contextual"
+verb = "Keep open"
+icon = ""
+icon_absent = "undecided"
+shortcut = "K"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Answers the done ask on the focused task the other way: it stays open and no Job holds it."
+
 [actions.deck_tabs]
 kind = "Action"
 tier = "Global"
 verb = "Go to a tab"
 icon = ""
 icon_absent = "by design"
-shortcut = "⌘1–⌘6"
+shortcut = "⌘1–⌘8"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "`⌘1` to `⌘6` are the places bar's tabs in the order it draws them: Cockpit, Jobs, Sessions, Studios, Retros and System, and System opens the page last used there. One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
+notes = "`⌘1` to `⌘8` are the places bar's tabs in the order it draws them, every drawn tab taking the next digit and a tab that is not drawn taking none: Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects and System at most, and System opens the page last used there. A layout that hides a tab moves the digits behind it (26 Oct 2026, the owner: the digits follow what the bar draws). One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
 
 [actions.open_settings]
 kind = "Action"

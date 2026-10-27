@@ -1,0 +1,14 @@
+[operations.defer_later]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Keep a follow-up for yourself as a sentence, so it shows under Later and holds all_done until it is settled"
+notes = """
+`POST /sessions/defer_later`, body `DeferLater`: `sentence` (what the job will do later, as it would say it) and optionally `session_id`. Answered with `LaterDeferred`: the `id` and `sentence` kept and `open`, the follow-ups open with it.
+
+**It is the call behind the sentence Fleet used to read off a reply's close.** The item lands on `SessionRecord.later` as one read from a reply does, is settled with `settle_later`, and holds `all_done` while open. The same sentence, trimmed, is the item it was: it is not kept twice, and a settled one is not kept again.
+
+**The caller is placed as `all_done` places it**: a hosted job by its connection, a terminal job by `session_id`. Refused 422 `fleet.later_not_deferrable` for an empty sentence; 422 where the call places no job; 409 `fleet.session_closed` for a job that has ended; 409 `fleet.later_not_open` for a sentence settled already.
+
+`agent_access` is `Yes`: only the job knows what it is leaving for later.
+"""

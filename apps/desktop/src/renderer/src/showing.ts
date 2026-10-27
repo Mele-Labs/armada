@@ -24,6 +24,8 @@ export type Open = {
   reviewing?: boolean;
   /** Issues: a repository's tracker. */
   issuing?: boolean;
+  /** Projects: his own lists of tasks and issues. */
+  projecting?: boolean;
   /** Usage: where the tokens went. */
   usaging?: boolean;
   /** The Logbook: what Armada learned from every Job. */
@@ -45,6 +47,7 @@ export function showingOf(open: Open): string {
   if (open.checking) return SURFACE.checks;
   if (open.reviewing === true) return SURFACE.reviews;
   if (open.issuing === true) return SURFACE.issues;
+  if (open.projecting === true) return SURFACE.projects;
   if (open.usaging === true) return SURFACE.usage;
   if (open.logbooking === true) return SURFACE.logbook;
   if (open.doctoring === true) return SURFACE.doctor;

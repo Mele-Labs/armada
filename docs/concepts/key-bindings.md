@@ -22,7 +22,7 @@ A handler asks `isPressed(id, event)`, `pressedSlot(id, event)` for an act with 
 |---|---|---|
 | `⌘K`, `x`, `B` | One key | The next key pressed |
 | `⌘[ ⌘]`, `j / k / ↓ / ↑` | One per key, each named — Back, Forward | The next key pressed, for that slot |
-| `⌘1–⌘6`, `1–6` | One row of digits | The modifiers held with any digit |
+| `⌘1–⌘8`, `1–6` | One row of digits | The modifiers held with any digit |
 
 Esc lets go of a key without changing it and Delete unbinds it. Reset puts one act's keys back, and Reset all to defaults puts every one back.
 
@@ -33,7 +33,7 @@ Esc lets go of a key without changing it and Delete unbinds it. Reset puts one a
 
 Where an act listens is its scope.
 A key may serve two acts that never listen on the same screen, so the shipped map has no conflict; a test holds it to that.
-The Cockpit's keys are in the `deck` scope: `l b c q f a d` go to a panel, `0–9`, and any letter or chord given a tile in Edit, press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘6` are the tabs.
+The Cockpit's keys are in the `deck` scope: `l b c q f a d` go to a panel, `0–9`, and any letter or chord given a tile in Edit, press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘8` are the tabs the bar draws, in its order.
 `⌘,` is Settings, anywhere.
 `o` is also Open on the deck's lists, which are in the `list` scope, so the deck reads that row and has none of its own.
 `l` is also Later on a call, which answers only while a call is in front, and the deck stands down for it.
@@ -55,4 +55,4 @@ An act id this build does not have is kept and ignored.
 | Arrows, Home and End inside a tab row, list box or resize handle | The control's own keyboard, as the platform has it |
 | The capture window, and a Job's page | Separate windows the main process keys, which keep `⌥⌘C` and Esc |
 | The annotation layer's `⌥⌘A`, and its `⌥⌘S` while it is on | Dev only, and not acts in the registry |
-| An open Job's right column: `⌥W` the workflow picker, `⌥B`, `⌥F` and `⌥L` open or fold the Blueprint, Field and Landing, `⌥N` the approved Blueprint's whole plan, `⇧⌘A` Artifacts | Bridge reads them where a Job is open (`apps/desktop/src/renderer/src/session-view/story.ts`), and they are not acts in the registry |
+| An open Job's right column: `⌥W` the workflow picker, `⌥B`, `⌥F` and `⌥D` open or fold the Blueprint, Field and Delivery, `⌥N` the approved Blueprint's whole plan, `⇧⌘A` Artifacts | Bridge reads them where a Job is open (`apps/desktop/src/renderer/src/session-view/story.ts`), and they are not acts in the registry |

@@ -235,6 +235,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::sessions::observe_session_run::<D>),
         )
         .route("/sessions/terminal/open", post(crate::terminals::open_terminal::<D>))
+        .route("/sessions/terminal/run", post(crate::terminals::start_terminal_run::<D>))
         .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route(
@@ -261,6 +262,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
         )
+        .route("/sessions/draft", post(crate::sessions::propose_draft::<D>))
         .route(
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),
@@ -288,6 +290,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route("/sessions/done", post(crate::sessions::all_done::<D>))
+        .route("/sessions/defer_later", post(crate::sessions::defer_later::<D>))
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
         .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))

@@ -49,7 +49,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
-⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Logbook or System
+⌘1–⌘8    go to a tab: Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 Esc      close an overlay, or return to the list from a detail route
@@ -114,6 +114,24 @@ l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
 /              describe a query   (issues only)
 s              start a Job on the issue   (issues only)
+l r            go to a part of Projects: the list, the project   (projects only)
+N              new project   (projects only)
+a              add a task   (projects only)
+A              add a subtask   (projects only)
+i              link   (projects only)
+I              link to the task   (projects only)
+Backspace      delete or unlink   (projects only)
+⌥↑ ⌥↓          move the row up or down   (projects only)
+Space / x      select the row   (projects only)
+Enter          edit the title   (projects only)
+o              open the Job   (projects only)
+u              unlink the Job   (projects only)
+U              unlink the pull request   (projects only)
+e              rename the project   (projects only)
+d              tick or untick the task   (projects only)
+s              dispatch the rows: the selected ones, or the focused one   (projects only)
+D              mark done   (projects only)
+K              keep open   (projects only)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
@@ -161,6 +179,16 @@ description and `W` the places changes run. They stand down in a text field and 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
 list does; `l r` go to the list and the reader, `L` opens the queries, `/` describes a query and `s`
 starts a Job on the open issue. They stand down in a text field and while a dialog is up.
+
+**The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through
+the list of projects and through the cards, subtasks included, and the search's results; `l r` go to the list and the
+cards. In the list, `Enter` opens a project, `N` names a new one, `e` renames the focused one and Backspace deletes it.
+On a card, Space or `x` selects it, `Enter` edits a task's title in place, `d` ticks a task, `a` goes to the field that
+adds a task and `A` opens one for a subtask inside the focused card, `i` links an issue, a Job or a pull request to the
+project and `I` to the focused task, `o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
+Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected,
+and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
+field and while a dialog is up.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in
@@ -234,10 +262,12 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../../concepts/studio.md).
 
-**`⌘1`–`⌘6` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
-Sessions, Studios, Retros and System, in the order the bar draws them, and System opens
-the page last used there. The rule is the tab's place in the bar, not the number, so a tab
-added later moves what follows it. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
+**`⌘1`–`⌘8` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
+Studios, Logbook, Reviews, Issues, Projects and System, in the order the bar draws them, and System opens
+the page last used there. The rule is the tab's place in the bar, not the number: every tab
+drawn takes the next digit, a tab that is not drawn takes none, and the digits behind it close up.
+The owner decided this on 26 Oct 2026, when Reviews and Issues joined the bar and the digits stopped
+matching what he saw. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
 (the owner: *"Studios and retros should live in the main bar at the top of the app"*), which
 moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform's own key for
 preferences. Doctor left the System page the same day for the title bar's menu (*"Doctor
@@ -345,6 +375,11 @@ the match — a Job is searched by its title, and a title is a sentence. `n` and
 the Dispatch sheet directly (the owner, 15 Oct 2026). `⌘↵` dispatches the words whichever row is picked, by opening that
 sheet holding them. The sheet reads the repository from them and asks in its own frame when there is none. The full composer for a file or a sketch is opened from a Studio's Sketch.
 
+**What is typed can also be added to Projects.**
+The query offers a Task and a Project beside the dispatch rows, and Tab to either moves it to the top so ↵ adds.
+A Task then picks its project, and a Project on All asks which repository.
+What a project is: [Project](../../concepts/project.md).
+
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, sessions by any word of the title or by id,
 settings. Only work in hand is listed: a Job that is not over, a Session
@@ -439,3 +474,8 @@ makes the box read as a key rather than as a small chip.
   one listener through `ShortcutRevealProvider`, because a hold watched in
   two places ends in two places. Contextual bindings are never revealed
   this way — holding `⌘` fires none of them.
+- **One exception: the Cockpit deck's key caps.** The deck's keys are
+  contextual bindings, and their caps are hidden until `⌘` is held. The owner chose this on 26 Oct 2026, over the
+  rule above, because the caps crowded the small deck. The cost: a held `⌘`
+  then a letter is `⌘`+letter, so a person releases `⌘` before pressing the
+  key. `docs/concepts/cockpit.md`, *Density*.

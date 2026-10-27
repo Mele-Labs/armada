@@ -526,6 +526,18 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           text: `Asked in the window: ${row.question}${row.answer === undefined ? "" : ` — ${row.answer.replace(/\n/g, " · ")}`}`,
         });
         break;
+      // The draft is answered on its card, so the row is kept whole.
+      case "draft":
+        out.push({
+          id: row.id,
+          at,
+          kind: "draft",
+          title: row.title,
+          text: row.text,
+          ...(row.before === undefined ? {} : { before: row.before }),
+          ...(row.settled === undefined ? {} : { settled: row.settled }),
+        });
+        break;
       case "plan_changes":
         out.push({ id: row.id, at, kind: "suggest", lines: linesOfWire(row.lines) });
         break;

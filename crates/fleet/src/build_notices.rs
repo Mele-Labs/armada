@@ -93,6 +93,7 @@ fn answer(session: &str, item: String, text: &str) -> AnswerWaiting {
         choice: None,
         text: Some(text.to_string()),
         mode: None,
+        fixed: None,
     }
 }
 

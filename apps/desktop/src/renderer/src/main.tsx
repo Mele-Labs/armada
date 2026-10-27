@@ -36,6 +36,7 @@ import { createFleetRuns } from "./fleet-runs";
 import { RunsFrom } from "./cockpit/runs/source";
 import { ReviewsFrom, createReviewStore } from "./pr-review/store";
 import { IssuesFrom, createIssuesStore } from "./issues-tab/store";
+import { ProjectsFrom, createProjectsStore } from "./projects-tab/store";
 import { issuesSourceOf } from "./issues-tab/source";
 import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
@@ -107,6 +108,8 @@ const TERRITORY = createFleetTerritory(withState(window.armada));
 const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 /** A repository's issues and the queries saved for its tracker, read from the tracker by Fleet when the Issues tab opens. */
 const ISSUES = createIssuesStore(issuesSourceOf(window.armada));
+/** His projects, kept in Fleet and read when the window opens, then kept current by `projects.changed`. */
+const PROJECTS = createProjectsStore(window.armada);
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
 const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
 /** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
@@ -149,10 +152,12 @@ function Root() {
                               <FleetEventsOver source={TIMELINE}>
                                 <ReviewsFrom store={REVIEWS}>
                                   <IssuesFrom store={ISSUES}>
-                                    <WiredSharedPanel>
-                                      <App />
-                                      <TweaksApplied />
-                                    </WiredSharedPanel>
+                                    <ProjectsFrom store={PROJECTS}>
+                                      <WiredSharedPanel>
+                                        <App />
+                                        <TweaksApplied />
+                                      </WiredSharedPanel>
+                                    </ProjectsFrom>
                                   </IssuesFrom>
                                 </ReviewsFrom>
                               </FleetEventsOver>
