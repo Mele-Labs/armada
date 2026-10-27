@@ -255,6 +255,8 @@ export class FakeSessionsFleet {
   adversary: { findings: readonly AdversarialFinding[]; readsMs: number } | undefined;
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
+  /** Hears each answer to an ask once it has settled, to script the agent's next call. */
+  onAnswer: ((answer: AnswerSessionAsk) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
   startsNow = false;
   /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
@@ -389,10 +391,12 @@ export class FakeSessionsFleet {
           answerSessionAsk: async (answer) => {
             this.calls.answered.push(answer);
             this.settled(answer);
-            return this.change(answer.session_id, (one) => {
+            const acted = this.change(answer.session_id, (one) => {
               const { asked: _asked, ...rest } = one.hosted!;
               return { ...one, hosted: rest };
             });
+            this.onAnswer?.(answer);
+            return acted;
           },
           answerWaiting: async (answer) => {
             this.calls.waited.push(answer);
@@ -772,6 +776,12 @@ export class FakeSessionsFleet {
       this.row(sessionId, typeof row === "function" ? row() : row);
     }
     this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
+  }
+
+  /** The agent's call is held on the person, as Fleet holds one: the Session carries the ask and its thread a waiting row for it. */
+  asks(sessionId: string, ask: HelmCallInFlight): void {
+    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" }, asked: ask } }));
+    this.row(sessionId, { kind: "ask", id: `ask-${ask.call}-${sessionId}`, at: ask.asked_at, ask, state: "waiting" });
   }
 
   /** The agent takes a turn and stays in it: working, one row written, and no end to the turn, for a walk to look at the Working mark. */
