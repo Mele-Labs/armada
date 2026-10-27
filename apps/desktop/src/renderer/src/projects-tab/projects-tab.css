@@ -1,5 +1,5 @@
 /* The Projects tab: his projects in the Cockpit's grid, drawn to the Issues tab's bar. A repository's heading is a band with
-   weight; what is open is lit in the accent. A project's rows are cards, in fixed columns: the select control, the state's
+   weight; what is open is framed (`depth.css`). A project's rows are cards, in fixed columns: the select control, the state's
    glyph and the title on the left; the done ask, the Job holding it and the acts on the right, each column held where a
    card has nothing for it. Subtasks are smaller cards set in under their parent. Two looks while one is picked: `reticle`
    frames a card as the shared Job card does, `plate` as a bay does. Tokens only; no gradient, no glow, no grain. */
@@ -12,7 +12,7 @@
 .projects-list > .deck-band .projects-list__new { margin-left: auto; }
 .projects-list .projects-list__new .armada-button,
 .projects-list .projects-list__new .armada-dropdown-menu__trigger { font-family: var(--font-sans); font-size: var(--text-xs); letter-spacing: normal; text-transform: none; }
-.projects-surface .projects-list__rows { gap: var(--space-2); }
+.projects-surface .projects-list__rows { gap: var(--space-1); padding: var(--space-1); }
 .projects-surface .projects-list .deck-list__band + .deck-list__band { margin-top: var(--space-4); }
 
 /* A repository's heading: the band its projects stand under, as the Issues tab draws one. */
@@ -22,8 +22,8 @@
   min-height: var(--h-control-sm);
   margin: 0;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  border-radius: var(--radius-inset, var(--radius-sm));
+  background: var(--chip);
   color: var(--fg-default);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -41,7 +41,7 @@
   min-height: var(--h-row);
   padding: var(--space-1) var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: transparent;
   color: var(--fg-default);
   font: inherit;
@@ -53,7 +53,7 @@
   cursor: pointer;
 }
 .projects-item:hover { background: var(--bg-hover); }
-.projects-item[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); font-weight: var(--weight-heading); }
+/* What is open is framed by its shape (`depth.css`). */
 .projects-item:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 
 .projects-name { padding: 0; }
@@ -111,7 +111,7 @@
 .projects-item-card[data-drop="before"]::after { top: calc(var(--space-1) * -1 - var(--border-width)); }
 .projects-item-card[data-drop="after"]::after { bottom: calc(var(--space-1) * -1 - var(--border-width)); }
 
-/* A card. Its hue is its state's, and its frame wears it. */
+/* A card. Its hue is its state's, and its glyph wears it. */
 .projects-row {
   --hue: var(--fg-subtle);
   display: grid;
@@ -133,19 +133,19 @@
 .projects-row[data-state="closed"] { --hue: var(--step-advanced); }
 .projects-row:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
-/* The shared Job card's frame: a heavier left edge in the hue and a ground that takes a little of it. */
+/* A card is a tile on the panel: a hairline and the nested curve. Its state is the glyph in the second column, in the state's hue, and not a fill or a heavier edge; a card that asks him keeps a faint tint. */
 .projects-row {
-  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
-  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
-  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
-  box-shadow: var(--shadow-card);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-inset, var(--radius-sm));
+  background: var(--chip);
 }
-.projects-row:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.projects-row[data-state="asking"] { background: color-mix(in srgb, var(--status-awaiting-review) 6%, var(--chip)); }
+.projects-row:hover { background: var(--chip-hover); }
 
 /* A subtask: a smaller card, quieter, with no shadow of its own. */
-.projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); box-shadow: none; background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
+.projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); box-shadow: none; }
 /* After the subtask's, so a subtask selected keeps its ring. */
-.projects-row[data-selected] { box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+.projects-row[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 
 .projects-row__select { display: inline-flex; justify-content: center; }
 .projects-row__mark {

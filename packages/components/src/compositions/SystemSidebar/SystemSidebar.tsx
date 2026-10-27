@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -34,6 +35,9 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
   const first = shown[0]?.entries[0]?.id;
   return (
     <nav className="armada-system-side" aria-label="System" data-col="sidebar">
+      <CardHeader>
+        <CardTitle>System</CardTitle>
+      </CardHeader>
       <Input
         type="search"
         aria-label="Search System"

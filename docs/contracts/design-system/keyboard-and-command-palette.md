@@ -336,7 +336,7 @@ something stronger.
 
 ```
 focused row   2px --accent left edge bar + --bg-hover
-selected row  --accent-muted fill
+selected row  --select-ground fill and a --select-frame hairline
 focused ctrl  2px --accent ring at 2px offset, per the global focus rule
 ```
 

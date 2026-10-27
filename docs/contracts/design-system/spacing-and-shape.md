@@ -54,11 +54,34 @@ A row's controls share the centre line of its first line; anything a row adds un
 Lay the row out as a grid with the trailing columns sized by `--h-control`, never as a flex row whose controls take the width they happen to need.
 Why: a flex row shifts its switch left by one control wherever a neighbour has one more mark, and the owner asked twice on 23 Oct 2026 for the Mods rows' controls to line up.
 
+**A panel is a bezel.**
+Every panel draws its outer 1px `--border-default` at `--radius-lg`, and a second hairline one pixel inside it in `--border-subtle`, as an inset shadow (`--bezel`) and never a second element.
+The Cockpit's lists, bays and panes, Issues, Projects, Reviews, Studios, the Logbook, System and a Job's side panels are all this one panel.
+Why: the owner asked for the stronger console on 26 Oct 2026, and a measured pass found the Cockpit an instrument panel and every other page a generic dark kit.
+
+**A panel opens on a legend strip.**
+It is 24px (`--legend-h`, a small control's height): the label in `--text-2xs` caps at 600 with tracked letters on the left, then an optional mono readout and the panel's 24px ghost icon buttons on the right, with one `--border-subtle` rule under it.
+`CardHeader`, `CardTitle` and `CardReadout` are the strip, and the Cockpit's `deck-band`, the Logbook's band, the Worktrees band and a Job's panel band take it from the same rule in `depth.css`.
+A filled or dimmed band is a state in the wrong place, so a header is never filled with a state's hue.
+The Cockpit's own panels keep their earlier choice: the strip comes up as a chip on a hover or on focus, and stays drawn on a folded panel.
+
+**What a panel holds nests inside its curve.**
+Content flush against the bezel takes `--radius-bezel`, 6px, which is the panel's curve less its edge and its hairline.
+Content a gutter inside it, which is a row, a chip, a bay, a track or a tile, takes `--radius-inset`, 2px, and nothing is cut to less than `--radius-floor`, 2px.
+Why: the merge queue's track drew a 14px pill inside an 8px panel, and a Blueprint row drew a square bar beside round corners.
+
+**A state is a lamp.**
+A lamp is 6px and round (`--lamp`) at the left edge of a row or a band: running `--status-running`, needs him `--status-awaiting-review`, done `--status-completed-success`, failed `--status-completed-failed`, idle `--fg-subtle`.
+It replaces a filled state band and a state-coloured row fill.
+A row that needs him keeps a faint tint, and its lamp pulses on opacity alone, which reduced motion turns off.
+
 ```
 --radius-sm  3px    chips, badges
 --radius-md  6px    buttons, inputs, rows and tiles, a flat card
 --radius-lg  8px    dialogs, panels, a card on the canvas
 ```
+
+Inside a panel the last two step down to `--radius-bezel` and `--radius-inset` above.
 
 `--radius-md` is 6px in `tokens/spacing.css` itself.
 It was 5px there and 6px in this contract and in the look, so a control drew at one or the other by whether the look loaded.
@@ -68,7 +91,7 @@ treatment under Depth and `--radius-lg`, the same corner as the panel beside
 it. Flat — inside a sheet, a dialog or another card — it is `--radius-md`.
 
 **Circles belong to avatars.**
-A status dot, a lamp and the drone and ring drawings are round too, because they are marks and not controls.
+A status dot, a lamp (6px) and the drone and ring drawings are round too, because they are marks and not controls.
 A button, a badge or a step is a rounded box.
 A Radio, a Switch's thumb and a Slider's thumb stay round: a square one reads as another control.
 

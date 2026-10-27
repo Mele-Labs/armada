@@ -32,7 +32,7 @@ header row   28px · --bg-base · --text-2xs · --fg-subtle
 body row     28px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
 hover        --bg-hover
-selected     --accent-muted
+selected     --select-ground, with a --select-frame hairline (not an accent fill)
 primary cell --fg-default · --text-sm
 secondary    --fg-muted · --text-sm
 metadata     --fg-subtle · --text-2xs   (timestamps, elapsed)
@@ -46,8 +46,8 @@ Board sorts rows by state without reading a badge. This read "never as a
 row-background tint" until 2026-09-16: that was true at the badge's 12%,
 where eight tinted rows were unreadable. At 5% it is a wash. Hover and
 selection **replace** the tint rather than mixing with it, so
-`--accent-muted` still owns selection, and the row's left edge stays the
-focus and hover edge — status takes no edge of its own.
+the selection frame (`--select-frame`) still owns selection, and the row's left edge stays the
+focus and hover edge — status takes no edge of its own. In a list of Jobs the state is a 6px lamp at the row's left edge instead of a fill (spacing-and-shape.md).
 
 **An identifier copies on click.** A job id, a drone id, a branch
 name — a value whose whole use is being quoted somewhere else — copies

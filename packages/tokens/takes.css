@@ -59,6 +59,18 @@
   --glass-radius: var(--radius-lg);
   --glass-radius-control: var(--radius-md);
   --glass-radius-chip: var(--radius-md);
+
+  /* ---- The console. A panel is its edge and a hairline one pixel inside it, as an instrument's bezel is; its header is a
+     legend strip; what sits in it nests inside its curve; and what is picked is told by a frame, not a hue. ---- */
+  --bezel: inset 0 0 0 var(--border-width) var(--border-subtle);  /* the hairline inside a panel's edge, an inset shadow and not an element */
+  --legend-h: var(--h-control-sm);                                 /* a panel's header: 24px, the same on every panel */
+  --radius-floor: 2px;                                             /* the least a corner is cut to */
+  --radius-bezel: calc(var(--radius-lg) - var(--border-width) * 2); /* content flush against the bezel: the panel's curve less its edge and hairline */
+  --radius-inset: max(calc(var(--radius-bezel) - var(--space-1)), var(--radius-floor)); /* content a gutter (4px) inside: a row, a chip, a bay, a track */
+  --select-edge: color-mix(in srgb, var(--fg-default) 70%, transparent);  /* a picked thing's frame: the text colour, so it reads in any theme */
+  --select-frame: inset 0 0 0 var(--border-width) var(--select-edge);
+  --select-ground: var(--bg-hover);
+  --lamp: var(--dot);                                              /* a state lamp: 6px and round, the one round thing on a row */
   --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
   --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
   --chip-edge: var(--border-subtle);                  /* an inner tile's edge */

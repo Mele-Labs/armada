@@ -5,11 +5,11 @@
 
 /* ---- The page ------------------------------------------------------------------------------------------- */
 
-/* The Cockpit's measure: the app's gap between panels, a header band of 26px, and the Job's head a step over it. */
+/* The Cockpit's measure: the app's gap between panels, a legend strip of a small control's height (24px), and the Job's head a step over it. */
 .armada-screen__mounted[data-deck],
 .deck {
   --deck-gutter: var(--gap-panel);
-  --deck-band: calc(var(--space-6) + var(--space-1) / 2);
+  --deck-band: var(--h-control-sm);
   --deck-head: calc(var(--space-8) + var(--space-1));
 }
 .deck {
@@ -116,9 +116,9 @@
 
 /* A Cockpit panel has no name band. Its acts are a small chip in the top corner that comes on a hover or on focus inside, and the name is the panel's `aria-label` only.
    A folded panel, or one that is only a band, keeps its band. The chip's ground is the glass itself, so what is under it does not show through.
-   An open Job's own panels keep their bands: each band is the panel's fold, and the panels stack open and folded under them. So do the Reviews and Issues pages,
+   An open Job's own panels keep their bands: each band is the panel's fold, and the panels stack open and folded under them. So do the Reviews, Issues and Projects pages,
    which are drawn on the deck and were not part of the take. */
-.deck:not(.pr-surface, .issues-surface) {
+.deck:not(.pr-surface, .issues-surface, .projects-surface) {
   --deck-hole: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
   & .deck-panel:not([data-collapsed], [data-band-only], .deck-autopilot) {
     position: relative;
@@ -168,19 +168,20 @@
 .deck-list__rows {
   --deck-line: var(--h-control);
   --row-min: var(--deck-line);
-  --row-pad: 0 var(--space-3);
-  --row-radius: 0;
+  --lamp-gutter: calc(var(--space-3) + var(--lamp, var(--dot)) + var(--space-2));
+  --row-pad: 0 var(--space-3) 0 var(--lamp-gutter);
+  --row-radius: var(--radius-inset, var(--radius-sm));
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
   margin: 0;
-  padding: 0;
+  padding: var(--space-1);
   list-style: none;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
+.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2) var(--lamp-gutter); }
 /* A row picked up is dimmed where it stood; the line is where it would be put down. Nothing else moves while it is held. */
 .deck-list__rows[data-reordering],
 .deck-list__rows[data-reordering] .deck-row { cursor: grabbing; user-select: none; }
@@ -245,16 +246,30 @@
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 /* A reply that only told him is calm and wears its glyph small and faint. */
 .deck-row[data-reply] .deck-mark { opacity: 0.55; }
-/* A Session that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone with the call's bar. */
-.deck-row[data-needs]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+/* A Session that needs him: the row keeps a faint, still tint, and the lamp at its left edge carries the pulse, on opacity alone. */
+.deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; }
 @keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
-@media (prefers-reduced-motion: reduce) { .deck-row[data-needs]::after { animation: none; } }
+/* The state lamp: 6px and round at the row's left edge, in the state's hue (running, needs him, done, failed, idle). */
+/* Doubled over the call's own 2px bar (`session-view.css`), which the lamp replaces: a lamp carries what the bar did. */
+.deck-list__item > .deck-row[data-lamp]::before { content: ""; position: absolute; inset-block: auto; inset-inline-start: var(--space-3); inset-block-start: calc(var(--deck-line, var(--h-control)) / 2 - var(--lamp, var(--dot)) / 2); width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--lamp-hue, var(--fg-subtle)); animation: none; pointer-events: none; }
+.deck-row[data-lamp="running"] { --lamp-hue: var(--status-running); }
+.deck-row[data-lamp="needs"] { --lamp-hue: var(--status-awaiting-review); }
+.deck-row[data-lamp="done"] { --lamp-hue: var(--status-completed-success); }
+.deck-row[data-lamp="failed"] { --lamp-hue: var(--status-completed-failed); }
+.deck-list__item > .deck-row[data-lamp="needs"]::before { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
+.deck-list__rows:is([data-now], [data-pr]) .deck-list__item > .deck-row[data-lamp]::before { inset-block-start: calc(var(--space-1) / 2 + var(--deck-line, var(--h-control)) / 2 - var(--lamp, var(--dot)) / 2); }
+/* A paused Job reads idle whatever else it carries: a grey lamp, no pulse and no tint. */
+.deck-row[data-lamp][data-paused] { --lamp-hue: var(--fg-subtle); }
+.deck-list__item > .deck-row[data-lamp][data-paused]::before { animation: none; }
+.deck-row[data-lamp][data-paused]::after { content: none; }
+@keyframes deck-lamp-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .deck-list__item > .deck-row[data-lamp="needs"]::before { animation: none; } }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }
 .deck-row__said { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
-/* What is open is lit: the accent's ground and a hairline of the accent round the whole row, never a stripe. */
-.deck-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+/* What is open is told by its shape: a hairline frame in the text colour on a raised ground, and a firm title. No accent, so it reads in any theme and never as a state. */
+.deck-row[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 .deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
 
@@ -402,9 +417,9 @@
 .deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .deck-chips > li { flex: none; }
 /* The forge's merge queue, in its order: one tinted track, each pull request led by its place. */
-.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: calc(var(--h-badge) / 2 + var(--space-1)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
 .deck-queue__rule { flex: none; width: var(--border-width); height: var(--h-badge); background: var(--border-default); }
-.deck-chip__place { color: var(--accent); font-weight: var(--weight-heading); }
+.deck-chip__place { color: var(--fg-default); font-weight: var(--weight-heading); }
 .deck-chips > .deck-queue__gap { width: var(--space-2); }
 .deck-chip {
   display: inline-flex;
@@ -413,7 +428,7 @@
   height: var(--h-badge);
   padding: 0 var(--space-4) 0 var(--space-3);
   border: var(--border-width) solid var(--border-glass);
-  border-radius: calc(var(--h-badge) / 2);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: color-mix(in srgb, var(--fg-default) 6%, transparent);
   color: var(--fg-muted);
   font: inherit;
@@ -425,14 +440,15 @@
 span.deck-chip { cursor: default; }
 button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); }
 .deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-/* Selected is lit with the accent's ground. */
-.deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
-/* A pull request of the Session that is open is framed, with the accent's ring outside its edge; picked as well, it is lit too. */
-.deck-chip[data-related] { border-color: var(--accent); box-shadow: 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
+/* Selected is told by its shape: the text colour's frame on a raised ground. */
+.deck-chip[data-selected] { border-color: var(--select-edge, var(--fg-default)); background: var(--select-ground, var(--bg-hover)); color: var(--fg-default); font-weight: var(--weight-heading); }
+/* A pull request of the Session that is open reads in the full ink with a stronger edge; picked as well, it is framed too. */
+.deck-chip[data-related] { border-color: var(--border-strong); color: var(--fg-default); }
 .deck-chip[data-calling] { position: relative; }
-.deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .deck-chip[data-calling]::after { animation: none; } }
-.deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
+.deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; }
+.deck-chip[data-calling] .deck-chip__dot { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .deck-chip[data-calling] .deck-chip__dot { animation: none; } }
+.deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }
 .deck-chip__dot[data-state="blocked"] { --dot: var(--status-escalated); }
@@ -441,9 +457,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip__dot[data-state="failing"] { --dot: var(--status-completed-failed); }
 .deck-chip__dot[data-tone="ask"] { --dot: var(--status-awaiting-review); }
 .deck-chip__dot[data-tone="bad"] { --dot: var(--status-completed-failed); }
-/* Main's chip: the Cockpit's own green with its glow, red when it is red. */
-.deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
-.deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
+/* Main's chip: the Cockpit's own green, red when it is red. A lamp, not a glow. */
+.deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); }
 /* A forge that has stopped answering: the dot is what Fleet last read, so it is dimmed and hollow and gives up main's glow, and an unplugged glyph says since when. */
 .deck-chip__dot[data-stale] { opacity: 0.4; }
 .deck-chip[data-main] .deck-chip__dot[data-stale] { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
@@ -562,7 +577,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   align-items: stretch;
   min-height: calc(var(--h-row-unit) * 2);
   border: var(--border-width) var(--edge-style, solid) color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: var(--bg-raised);
   overflow: hidden;
 }
@@ -572,13 +587,14 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* A bay the pointer or the keys are on, or whose holder is lit in the list: the same quiet tint a row takes, never the selection's accent. */
 .deck-bay:hover,
 .deck-bay[data-hover] { border-color: var(--hue); background-color: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
-.deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); background-color: var(--accent-muted); }
-.deck-bay__door { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); width: calc(var(--space-12) + var(--space-2)); background: color-mix(in srgb, var(--hue) 12%, transparent); color: var(--hue); }
+.deck-bay[data-selected] { border-color: var(--select-edge, var(--fg-default)); background-color: var(--select-ground, var(--bg-hover)); }
+.deck-bay[data-selected] .deck-bay__name { font-weight: var(--weight-heading); }
+/* The door is the bay's number and glyph in the state's ink, with a lamp at its corner: a fill is not how a state is told. */
+.deck-bay__door { position: relative; display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); width: calc(var(--space-12) + var(--space-2)); border-right: var(--border-width) solid var(--border-subtle); color: var(--hue); }
+.deck-bay__door::before { content: ""; position: absolute; inset-block-start: var(--space-2); inset-inline-start: var(--space-2); width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--hue); }
 .deck-bay__door .deck-bay__name { color: var(--hue); }
-.deck-bay[data-bay="stranded"] .deck-bay__door { background: color-mix(in srgb, var(--hue) 22%, transparent); }
-.deck-bay[data-bay="free"] .deck-bay__door { background: none; border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
+.deck-bay[data-bay="free"] .deck-bay__door { border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
 .deck-bay[data-bay="free"] .deck-bay__door .deck-bay__name { color: var(--hue); }
-.deck-bay[data-bay="closed"] .deck-bay__door { background: var(--slot-closed-bg); }
 .deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__name { color: var(--slot-closed); }
 .deck-bay__name { font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); }
 .deck-bay__prefix { display: none; }

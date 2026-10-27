@@ -7,6 +7,7 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
+  margin-block-end: var(--pad-page);
   /* The page never scrolls: each column scrolls itself, and focus cannot move this one. */
   overflow: clip;
 }
@@ -18,24 +19,29 @@
   min-height: 0;
 }
 
+/* The side is a panel as the Cockpit's lists are (`depth.css`): its legend strip, then the search and the groups inside the bezel. */
 .armada-system-side {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
   min-width: 0;
   min-height: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
+.armada-system-side > .armada-input-field { margin-inline: var(--space-2); }
 
 /* The groups scroll under the search, which stays at the top of the column. */
 .armada-system-side__scroll {
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: var(--space-6);
+  padding: 0 var(--space-1) var(--space-1);
 }
 
 .armada-system-side__group {
@@ -92,13 +98,14 @@
   justify-content: space-between;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-1) var(--space-3);
+  min-height: var(--h-row);
+  padding: 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: transparent;
   color: var(--fg-muted);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   text-align: left;
   cursor: pointer;
 }
@@ -109,26 +116,25 @@
 }
 
 .armada-system-side__entry[aria-current="page"] {
-  background: var(--surface-row-selected);
+  background: var(--bg-hover);
   color: var(--fg-default);
 }
 
 .armada-system-side__entry:focus-visible {
   outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
 }
 
 /* A settings entry: its cards in a column that scrolls itself. */
 .armada-system__pane {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-section);
+  gap: var(--gap-panel);
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: var(--space-6);
 }
 
 /* An entry that holds a header above its own body: the Harness name and home. */
@@ -158,7 +164,7 @@
 .armada-system__section {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-section);
+  gap: var(--gap-panel);
 }
 
 /* The guide catalogue under its setting: it fills what the entry has left. */

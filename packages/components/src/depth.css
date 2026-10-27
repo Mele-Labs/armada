@@ -18,9 +18,8 @@
    a `--duration-*` token, which reduced motion zeroes. */
 
 /* ---- Type roles: a header, a title, a figure --------------------------------------------------------------- */
-/* A panel header: small tracked caps over one solid hairline. */
+/* A section label: small tracked caps. A panel's own header is the legend strip, below. */
 :root[data-look="new"] :is(
-  .deck-band,
   .deck-list__repository,
   .armada-card-title,
   .armada-session-ledger__eyebrow
@@ -104,18 +103,62 @@
 }
 
 /* ---- Cockpit panels: one frame, one header ---------------------------------------------------------------- */
-/* Every panel and pane is the same object: the glass below, the rest shadow, the lifted one while focus is inside. */
+/* Every panel and pane is the same object: the glass below, the bezel, the rest shadow, the lifted one while focus is inside. */
 :root[data-look="new"] :is(.deck-panel, .deck-pane) {
   border-radius: var(--glass-radius);
   transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
 }
-/* The header: tracked caps, a keycap, one solid hairline under it (drawn inset, so the band keeps its height). */
-:root[data-look="new"] .deck-band {
+
+/* ---- The legend strip: every panel's header ------------------------------------------------------------------ */
+/* 24px, the label in tracked caps at the left, then a mono readout and the panel's ghost icon buttons at the right, and one
+   hairline under it, drawn inset so the strip keeps its height. The Cockpit's band, a Card's header, the Logbook's band and the
+   Job's band are this one strip; a filled or dimmed band is a state in the wrong place, and a lamp says state (below). */
+:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band) {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
   gap: var(--space-2);
-  color: var(--fg-default);
+  box-sizing: border-box;
+  min-height: var(--legend-h);
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-head);
+  letter-spacing: var(--tracking-head);
+  text-transform: uppercase;
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
-:root[data-look="new"] .deck-band .armada-kbd { opacity: 1; }
+:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band) :is(.armada-card-title, .deck-band__name, .sv-panel__label) {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  font: inherit;
+  letter-spacing: inherit;
+  text-overflow: ellipsis;
+  text-transform: inherit;
+  white-space: nowrap;
+}
+/* The readout is the legend's one figure: mono, in the case it was written, at the strip's right. */
+:root[data-look="new"] .armada-card-readout {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-body);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+:root[data-look="new"] :is(.deck-band, .armada-card-header) .armada-kbd { opacity: 1; }
+:root[data-look="new"] .armada-card-header:has(+ .armada-card-content:empty) { box-shadow: none; }
 
 /* ---- Jobs and Sessions: a row's title, meta and state ------------------------------------------------------ */
 /* A repository group is a section label: caps, quiet, and a hairline running out to the edge. */
@@ -147,12 +190,25 @@
 /* Hover is one flat background step. The keyboard cursor is the same step and a hairline. */
 :root[data-look="new"] .deck-row:is(:hover, [data-hover], [data-cursor]):not([data-selected]) { background: var(--bg-step); }
 :root[data-look="new"] .deck-row[data-cursor]:not([data-selected]) { box-shadow: inset 0 0 0 var(--border-width) var(--edge-lifted); }
-/* What is open: a flat low-alpha accent wash, a 2px solid bar on the leading edge, and a firm title. */
-:root[data-look="new"] .deck-row[data-selected] {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset var(--bar) 0 0 var(--accent);
+/* ---- What is picked: a shape, not a hue ---------------------------------------------------------------------- */
+/* A row, chip, bay, rail entry or index tab that is open draws a 1px frame in the text colour (`--select-edge`) on a raised
+   ground, and its title takes the heading weight. No accent fill, no accent ring and no bar: the accent is a theme's to
+   choose and some themes put it next to the needs-you amber, so a hue cannot say "this one". A row that needs him as well
+   shows both, the frame and its lamp. A tab keeps its pill. */
+:root[data-look="new"] :is(
+  .deck-row[data-selected],
+  .pr-row[data-selected],
+  .issues-row[data-selected],
+  .projects-item[data-selected],
+  .armada-system-side__entry[aria-current="page"],
+  .armada-settings-index__tab[aria-selected="true"],
+  .armada-logbook__row[aria-selected="true"]
+) {
+  background: var(--select-ground);
+  box-shadow: var(--select-frame);
 }
-:root[data-look="new"] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
+:root[data-look="new"] :is(.deck-row, .pr-row, .issues-row, .projects-item, .armada-system-side__entry, .armada-settings-index__tab)[data-selected] :is(.deck-row__title, .pr-row__title, .issues-row__title),
+:root[data-look="new"] :is(.armada-system-side__entry[aria-current="page"], .armada-settings-index__tab[aria-selected="true"], .projects-item[data-selected]) { font-weight: var(--weight-heading); }
 
 /* ---- The repository selector: a field, and a menu at the overlay level ------------------------------------ */
 :root[data-look="new"] .deck-scope .armada-button { border-radius: var(--radius-md); box-shadow: none; }
@@ -235,27 +291,59 @@
 
 /* ---- Panels as glass ----------------------------------------------------------------------------------------- */
 /* A light frosted sheet over the shell's canvas: the text colour at 10% over a heavy blur saturated as macOS materials and
-   visionOS do it, a crisp edge, a brighter highlight along the top edge, and a soft wide shadow. No sheen, no glow, no
-   gradient border. Panels, panes and the layers that float over them are glass; rows, fields and wells inside a panel
-   are frosted chips on it. The blur samples what is behind the panel, which is the canvas: nothing under a panel
+   visionOS do it, a crisp edge, and a soft wide shadow. No sheen, no glow, no gradient border. Inside the edge, one pixel in,
+   is a hairline (`--bezel`, an inset shadow and not a second element) so a panel reads as an instrument's bezel; what a panel
+   holds takes its curve less the edge and the hairline (`--radius-bezel`), or less a gutter more (`--radius-inset`), never
+   less than `--radius-floor`. Panels, panes and the layers that float over them are glass; rows, fields and wells inside a
+   panel are frosted chips on it. The blur samples what is behind the panel, which is the canvas: nothing under a panel
    animates. The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
-   Every value is a token (`takes.css`). */
-:root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
+   Every value is a token (`takes.css`).
+
+   The pages that are not the Cockpit draw their panels as it does (the `:where()` names them without weighing more than the
+   Cockpit's own): a Studios repository, the Logbook's lists and its open entry, System's side and the cards of an entry. A Card
+   on the canvas that holds a legend strip has no padding of its own: the strip runs to its edges and its content is padded. */
+:root[data-look="new"] :is(
+  .deck-panel,
+  .deck-pane:not([data-bare]),
+  .armada-studios-page > .armada-card,
+  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
+) {
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
 }
 /* The flight controls and Dispatch blur on a layer behind their keys instead (`deck.css`). */
-:root[data-look="new"] :is(.deck-panel:not(.deck-controls, .deck-dispatch), .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
+:root[data-look="new"] :is(
+  .deck-panel:not(.deck-controls, .deck-dispatch),
+  .deck-pane:not([data-bare]),
+  .armada-studios-page > .armada-card,
+  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
+) {
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
 }
-:root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
+:root[data-look="new"] :is(
+  .deck-panel,
+  .deck-pane:not([data-bare]),
+  .armada-studios-page > .armada-card,
+  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
+) {
   border-color: var(--glass-edge);
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  box-shadow: var(--bezel), var(--glass-shadow);
 }
-:root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare])):focus-within {
+:root[data-look="new"] :is(
+  .deck-panel,
+  .deck-pane:not([data-bare]),
+  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
+):focus-within {
   border-color: var(--glass-edge-lifted);
-  box-shadow: var(--glass-highlight), var(--glass-shadow-lifted);
+  box-shadow: var(--bezel), var(--glass-shadow-lifted);
 }
+/* The card's own glass layer (`glass.css`) is a gradient and a top highlight: a panel here is the sheet above, so the layer goes. */
+:root[data-look="new"] :where(.armada-studios-page > .armada-card, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card)::before { content: none; }
+:root[data-look="new"] :where(.armada-studios-page > .armada-card, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card):has(> .armada-card-header) {
+  gap: 0;
+  padding: 0;
+}
+:root[data-look="new"] :where(.armada-system__pane, .armada-settings-index__body, .armada-screen__pane) .armada-card > .armada-card-header + .armada-card-content { padding: var(--space-3); }
 /* ---- The grid the glass hovers over ---------------------------------------------------------------------------- */
 /* A grid of 1px dots on the shell, under every panel, static, drawn from the `--grid-*` tokens in `takes.css`. Dots, not
    lines, so the map's own lines never cross a second set behind it. It is what the blur samples, so the glass has
@@ -324,7 +412,7 @@
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  box-shadow: var(--bezel), var(--glass-shadow);
   transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
 }
 :root[data-look="new"] .sv-panel[data-area="field"] {
@@ -334,19 +422,13 @@
 }
 :root[data-look="new"] .sv-panel:focus-within {
   border-color: var(--glass-edge-lifted);
-  box-shadow: var(--glass-highlight), var(--glass-shadow-lifted);
+  box-shadow: var(--bezel), var(--glass-shadow-lifted);
 }
-:root[data-look="new"] .sv-panel[data-state="asks"] { border-color: var(--status-awaiting-review); box-shadow: var(--glass-highlight), var(--glass-shadow); }
+:root[data-look="new"] .sv-panel[data-state="asks"] { border-color: var(--status-awaiting-review); box-shadow: var(--bezel), var(--glass-shadow); }
 :root[data-look="new"] .sv-panel[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--glass-edge)); }
 :root[data-look="new"] .sv-panel[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 55%, var(--glass-edge)); }
-:root[data-look="new"] .sv-panel__band {
-  min-height: var(--h-row-header);
-  padding: var(--band-pad, 0 var(--space-4));
-  border-bottom: 0;
-  background: none;
-  color: var(--fg-default);
-  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
-}
+:root[data-look="new"] .sv-panel[data-state] > .sv-panel__band,
+:root[data-look="new"] .sv-panel[data-state][data-collapsed] > .sv-panel__band { background: none; color: var(--fg-muted); border-bottom-color: transparent; }
 :root[data-look="new"] .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band { box-shadow: none; }
 
 /* The map's zoom and recentre buttons float over the canvas as glass. */
