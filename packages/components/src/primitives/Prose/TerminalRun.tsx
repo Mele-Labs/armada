@@ -1,14 +1,15 @@
-import { createContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { Button } from "../Button/Button";
-import { ShellDock, TerminalDock, TerminalMark, type ShellDockPane, type ShellPaneProps, type TerminalPaneProps } from "../TerminalPane/TerminalPane";
+import { ShellDock, TerminalDock, TerminalMark, TerminalPane, type ShellDockPane, type ShellPaneProps, type TerminalPaneProps } from "../TerminalPane/TerminalPane";
 import { XtermScreen } from "../TerminalPane/XtermScreen";
 import type { CodePhase, CodeRun, TerminalSize } from "./RunnableBlock";
 import { changePane, paneFor, subscribeToPane } from "./runs";
 
 /**
  * Where a run draws as a terminal in place of lines of output, which a Session's view provides where its
- * draft serves terminal runs. The pane is docked in the view and the block holds only its mark.
+ * draft serves terminal runs. A block's run is drawn under the block (`InlineTerminal`), and a run started
+ * from the box is docked in the view.
  */
 export type ProseTerminalValue = { dock: TerminalDockRun };
 
@@ -19,8 +20,14 @@ export type TerminalDockRun = {
   command: string | null;
   run: CodeRun;
   shown: boolean;
-  /** Opens the pane on `command`, and starts it once the pane has its size. A run going is stopped first. */
-  start: (command: string) => void;
+  /** The block the pane is drawn under, in place, or null where it is docked in the view. */
+  inline: string | null;
+  /** Opens the pane on `command`, and starts it once the pane has its size. A run going is stopped first. `inline` is the block that asked, which draws the pane under itself; a run started again keeps the place it had. */
+  start: (command: string, inline?: string) => void;
+  /** Lets the dock know a block is drawn, and of what command; the answer takes it back. */
+  register: (block: string, command: string) => () => void;
+  /** Whether the pane is drawn under this block: the one that started it, or, where that is not drawn now (the view was left and came back), the first of its command. */
+  claims: (block: string) => boolean;
   show: () => void;
   hide: () => void;
   /** The pane fitted its screen: the size a waiting run starts at, else the size a running one is told. */
@@ -36,9 +43,21 @@ export type TerminalDockRun = {
  */
 export function useTerminalDock(run: CodeRun, key: string): TerminalDockRun {
   const entry = paneFor(key);
-  const { command, shown, waiting } = useSyncExternalStore(
+  const { command, shown, waiting, inline } = useSyncExternalStore(
     useMemo(() => subscribeToPane(entry), [entry]),
     () => entry.view,
+  );
+  // Held, since a block registers again whenever this changes.
+  const register = useCallback(
+    (block: string, of: string) => {
+      entry.blocks.set(block, of);
+      changePane(entry, {});
+      return () => {
+        entry.blocks.delete(block);
+        changePane(entry, {});
+      };
+    },
+    [entry],
   );
   const size = useRef<TerminalSize | null>(null);
   // A fit belongs to the screen that made it: the next view fits its own.
@@ -48,10 +67,17 @@ export function useTerminalDock(run: CodeRun, key: string): TerminalDockRun {
     run,
     shown,
     waiting,
-    start: (next) => {
+    inline,
+    start: (next, placed) => {
       const fitted = size.current;
-      changePane(entry, { command: next, shown: true, waiting: fitted === null });
+      changePane(entry, { command: next, shown: true, waiting: fitted === null, inline: placed ?? null });
       if (fitted !== null) run.start(next, fitted);
+    },
+    register,
+    claims: (block) => {
+      if (inline === null || command === null) return false;
+      if (entry.blocks.get(inline) === command) return inline === block;
+      return [...entry.blocks].find(([, of]) => of === command)?.[0] === block;
     },
     show: () => changePane(entry, { shown: true }),
     hide: () => changePane(entry, { shown: false }),
@@ -73,24 +99,36 @@ export type DockedShell = { pane: ShellPaneProps | null; front: ShellDockPane; o
  * With `shell`, the Job's shell shares the place, and with both showing they are tabs.
  */
 export function DockedTerminal({ dock, shell }: { dock: TerminalDockRun; shell?: DockedShell }) {
-  const { command, run, shown, waiting } = dock;
-  const phase: CodePhase = waiting ? { state: "running" } : run.phase;
-  const pane: TerminalPaneProps | null =
-    !shown || command === null || phase.state === "idle"
-      ? null
-      : {
-          command,
-          phase,
-          onStop: run.stop,
-          onRerun: () => dock.start(command),
-          onClose: dock.hide,
-          children: <XtermScreen out={run.out} run={run.runs} running={phase.state === "running"} write={run.write} onSize={(cols, rows) => dock.sized({ cols, rows })} />,
-        };
+  const pane = dock.inline !== null ? null : paneOf(dock);
   if (shell !== undefined) return <ShellDock shell={shell.pane} run={pane} front={shell.front} onFront={shell.onFront} />;
   return pane === null ? null : <TerminalDock {...pane} />;
 }
 
-/** What a block shows of a docked run: its mark, which a press brings the pane back from. */
+/** The rows an in-place run has, which is as tall as its screen grows. */
+const IN_PLACE_ROWS = 24;
+
+/** The pane the dock holds, while it is open; `grows` makes its screen as tall as the run has printed. */
+function paneOf(dock: TerminalDockRun, grows?: number): TerminalPaneProps | null {
+  const { command, run, shown, waiting } = dock;
+  const phase: CodePhase = waiting ? { state: "running" } : run.phase;
+  if (!shown || command === null || phase.state === "idle") return null;
+  return {
+    command,
+    phase,
+    onStop: run.stop,
+    onRerun: () => dock.start(command, dock.inline ?? undefined),
+    onClose: dock.hide,
+    children: <XtermScreen out={run.out} run={run.runs} running={phase.state === "running"} write={run.write} onSize={(cols, rows) => dock.sized({ cols, rows })} {...(grows === undefined ? {} : { grows })} />,
+  };
+}
+
+/** A block's run, drawn right under the block, as tall as what it has printed up to 24 rows and then scrolling. */
+export function InlineTerminal({ dock }: { dock: TerminalDockRun }) {
+  const pane = dock.inline !== null ? paneOf(dock, IN_PLACE_ROWS) : null;
+  return pane === null ? null : <TerminalPane {...pane} />;
+}
+
+/** What a block shows of its run while the pane is put away: its mark, which a press brings the pane back from. */
 export function DockedMark({ dock, phase }: { dock: TerminalDockRun; phase: CodePhase }) {
   if (phase.state === "idle") return null;
   return (

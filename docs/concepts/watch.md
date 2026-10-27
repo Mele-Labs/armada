@@ -100,7 +100,7 @@ A person writes it as a file; the agent starts a watch by naming one and filling
 |---|---|---|
 | Armada | Compiled in, from `crates/adapters/watch-recipes/` | `github-checks` and `buildkite-build` |
 | Repository | `.armada/watches/` | Read from `main` only |
-| This machine | `~/.armada/machine/watches/` | Does not travel |
+| This machine | `~/Library/Application Support/Armada/machine/watches/` | Does not travel |
 
 > **Rule.** A value fills one whole argument and is never read by a shell.
 > Why: an item such as `--sha={sha}` would need a shell to split it, and a watch never runs one.
@@ -123,7 +123,7 @@ A provider's name is in the adapters only: `config` reads the files as any recip
 
 ### Keeping one on this Mac
 
-`save_watch_recipe` writes a recipe into `~/.armada/machine/watches/`, and a script the Job wrote beside it, copied and made runnable.
+`save_watch_recipe` writes a recipe into `~/Library/Application Support/Armada/machine/watches/`, and a script the Job wrote beside it, copied and made runnable.
 
 > **Rule.** A saved recipe is never written into a repository.
 > Why: a repository's recipes travel with it, and one an agent writes can name a private repository or a person's own script.

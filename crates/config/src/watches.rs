@@ -2,10 +2,11 @@
 //! `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`, *Recipes*.
 //!
 //! Three places, the most specific winning: Armada's, the repository's `.armada/watches/` and this
-//! machine's `~/.armada/machine/watches/`. Armada's name a provider, so their files are the
-//! adapters' to carry and arrive here as [`Written::by_armada`]. Two files naming one recipe are one recipe,
-//! and the specific copy replaces the other whole, as [`crate::TriggerCatalogue`] does. Text in,
-//! not directories: reading the repository's files from `main` only is the caller's.
+//! machine's `~/Library/Application Support/Armada/machine/watches/`. Armada's name a provider, so
+//! their files are the adapters' to carry and arrive here as [`Written::by_armada`]. Two files
+//! naming one recipe are one recipe, and the specific copy replaces the other whole, as
+//! [`crate::TriggerCatalogue`] does. Text in, not directories: reading the repository's files from
+//! `main` only is the caller's.
 //!
 //! **The cadence floor and the give-up cap are not checked here.** They are settings a person
 //! moves while Fleet runs, so a file that loads now stays loaded, and `start_watch` refuses.
@@ -72,7 +73,7 @@ impl Written {
         Written { source: RecipeSource::Repository, path, text }
     }
 
-    /// A file from `~/.armada/machine/watches/`.
+    /// A file from `~/Library/Application Support/Armada/machine/watches/`.
     pub fn on_machine(path: PathBuf, text: String) -> Written {
         Written { source: RecipeSource::Machine, path, text }
     }
