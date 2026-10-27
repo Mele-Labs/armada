@@ -7,7 +7,7 @@
 **Kind:** Concept.
 
 Since 19 Oct 2026; collections and environments since 21 Oct 2026.
-The wire is `docs/practices/protocol.md`, *Requests*, and the five operations in `crates/ipc/operations/`: `get_requests`, `save_request_collection`, `save_request_environment`, `save_request_to_collection` and `send_request`.
+The wire is `docs/practices/protocol.md`, *Requests*, and the six operations in `crates/ipc/operations/`: `get_requests`, `save_request_collection`, `save_request_environment`, `delete_request_environment`, `save_request_to_collection` and `send_request`.
 Bridge's panel is `apps/desktop/src/renderer/src/shared-panel/requests.tsx`.
 
 ## Who uses it

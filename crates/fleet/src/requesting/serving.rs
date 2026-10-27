@@ -10,7 +10,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Requests};
 use ipc::{
-    RequestBy, RequestEnvironment, RequestSaved, RequestSent, RequestVariable, Requests as RequestsRead,
+    DeleteRequestEnvironment, RequestBy, RequestEnvironment, RequestSaved, RequestSent, RequestVariable, Requests as RequestsRead,
     SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, ServerPhase,
     SessionId, SessionRow, WireError, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
@@ -185,6 +185,15 @@ where
     ) -> Result<RequestsRead, Refusal> {
         let (root, job) = self.requests_placed(caller, save.repository.as_deref(), save.session_id.as_ref()).await?;
         self.request_environment_saved(&root, job.as_deref(), save.environment).await
+    }
+
+    async fn delete_request_environment(
+        &self,
+        caller: Option<api::Caller>,
+        delete: DeleteRequestEnvironment,
+    ) -> Result<RequestsRead, Refusal> {
+        let (root, job) = self.requests_placed(caller, delete.repository.as_deref(), delete.session_id.as_ref()).await?;
+        self.request_environment_deleted(&root, job.as_deref(), &delete.name).await
     }
 
     async fn save_request_to_collection(

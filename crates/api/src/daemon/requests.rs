@@ -6,7 +6,7 @@
 use std::future::Future;
 
 use ipc::{
-    RequestBy, RequestSaved, RequestSent, Requests as RequestsRead, SaveRequestCollection,
+    DeleteRequestEnvironment, RequestBy, RequestSaved, RequestSent, Requests as RequestsRead, SaveRequestCollection,
     SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SessionId,
 };
 
@@ -47,6 +47,14 @@ pub trait Requests: Send + Sync + 'static {
         &self,
         caller: Option<crate::Caller>,
         save: SaveRequestEnvironment,
+    ) -> impl Future<Output = Result<RequestsRead, Refusal>> + Send;
+
+    /// `delete_request_environment` — one environment out of the person's own file, its
+    /// secrets forgotten in the Keychain first.
+    fn delete_request_environment(
+        &self,
+        caller: Option<crate::Caller>,
+        delete: DeleteRequestEnvironment,
     ) -> impl Future<Output = Result<RequestsRead, Refusal>> + Send;
 
     /// `save_request_to_collection` — the agent keeps one request in a collection. `caller`

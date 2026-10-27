@@ -66,6 +66,13 @@ async fn the_collection_and_environment_routes_answer() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(!String::from_utf8_lossy(&body).contains("t0ken"), "an error never quotes a value");
 
+    let (status, body) = call(&app, "POST", "/requests/environments/delete", r#"{"repository":"/repo","name":"staging"}"#, Some(BRIDGE)).await;
+    assert_eq!(status, StatusCode::OK);
+    let read: Requests = ipc::decode("deleted", &body).expect("decodes");
+    assert_eq!(read.repository, "/repo");
+    let (status, _) = call(&app, "POST", "/requests/environments/delete", r#"{"repository":"/repo"}"#, Some(BRIDGE)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a delete names its environment");
+
     let save = r#"{"collection":"Users","request":{"name":"me","method":"GET","url":"{{base}}/v1/me","headers":[]}}"#;
     let (status, body) = call(&app, "POST", "/requests/collections/request", save, None).await;
     assert_eq!(status, StatusCode::OK);

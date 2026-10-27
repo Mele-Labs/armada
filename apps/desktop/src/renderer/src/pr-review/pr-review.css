@@ -226,8 +226,14 @@
 .pr-yours__head { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
 .pr-yours__drafts,
 .pr-yours__sent { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.pr-yours__draft { display: grid; grid-template-columns: minmax(0, 12em) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.pr-yours__path { overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.pr-yours__draft { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
+/* The comment is one press to where it sits in the diff: its place and code above his words. */
+.pr-yours__go { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-default); font: inherit; text-align: left; cursor: pointer; }
+.pr-yours__go:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.pr-yours__go:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.pr-yours__where { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.pr-yours__path { flex: none; max-width: 60%; overflow: hidden; color: var(--fg-subtle); text-overflow: ellipsis; white-space: nowrap; direction: rtl; }
+.pr-yours__code { min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: inherit; text-overflow: ellipsis; white-space: pre; }
 .pr-yours__text { min-width: 0; overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
 .pr-yours__form { display: flex; flex-direction: column; gap: var(--space-2); }
 .pr-yours__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
@@ -276,7 +282,11 @@
 [data-tool="risks"] { --tool-hue: var(--status-awaiting-review); }
 [data-tool="bugs"] { --tool-hue: var(--status-completed-failed); }
 [data-tool="breaks"] { --tool-hue: var(--status-escalated); }
-[data-tool="comments"] { --tool-hue: var(--accent); }
+/* The explanations share one hue: each tells him something, where a tool finds something. */
+[data-tool="how"],
+[data-tool="impact"],
+[data-tool="test"],
+[data-tool="why"] { --tool-hue: var(--accent); }
 [data-tool="custom"] { --tool-hue: var(--status-handed-in); }
 [data-tool="custom"][data-source="repository"] { --tool-hue: var(--status-rejected); }
 

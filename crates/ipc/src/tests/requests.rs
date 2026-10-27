@@ -2,7 +2,7 @@
 //! Bridge sends toward the Keychain.
 
 use crate::{
-    decode, encode, Placed, RequestCollection, RequestPlace, RequestSaved, RequestToSend,
+    decode, encode, DeleteRequestEnvironment, Placed, RequestCollection, RequestPlace, RequestSaved, RequestToSend,
     RequestVariable, Requests, RequestsFile, RequestsNotRead, RunPlace, SaveRequestEnvironment,
     SaveRequestToCollection, SavedRequestNamed, SendRequest, VariableRead, VariableWrite,
 };
@@ -108,6 +108,16 @@ fn a_saved_environment_carries_a_secret_toward_fleet_and_never_prints_it() {
 fn a_plain_variable_written_with_no_value_is_refused() {
     let bare = SAVE_ENVIRONMENT.replace(r#","value":"https://api.example.test""#, "");
     decode::<SaveRequestEnvironment>("an environment", bare.as_bytes()).expect_err("refused");
+}
+
+#[test]
+fn an_environment_is_deleted_by_name_and_nothing_else() {
+    let sent = r#"{"repository":"/work/shop","name":"staging"}"#;
+    let delete = decode::<DeleteRequestEnvironment>("an environment to delete", sent.as_bytes()).expect("reads");
+    assert_eq!(delete, DeleteRequestEnvironment { repository: Some("/work/shop".into()), session_id: None, name: "staging".into() });
+    assert_eq!(encode(&delete).expect("plain data"), sent);
+    let with_variables = r#"{"name":"staging","variables":[]}"#;
+    decode::<DeleteRequestEnvironment>("an environment to delete", with_variables.as_bytes()).expect_err("refused");
 }
 
 #[test]

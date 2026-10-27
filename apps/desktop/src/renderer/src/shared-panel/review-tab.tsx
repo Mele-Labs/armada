@@ -1,5 +1,5 @@
-// A pull request's review tools as a tab of its panel: the explanations, the tools and Ask the Reviews page has, for any pull
-// request, whoever owns it. **A tool runs only when pressed**, since an agent run costs, and asks first as it does there.
+// A pull request's review tools as a tab of its panel: the explanations, the tools, his review and Ask the Reviews page has, for
+// any pull request, whoever owns it. **A tool runs only when pressed**, since an agent run costs, and asks first as it does there.
 // The result is the one the Reviews page keeps for the same pull request, so the two always agree.
 
 import { useEffect } from "react";
@@ -8,12 +8,12 @@ import type { PullReviewRow } from "@armada/protocol";
 
 import { useSendFindings } from "../pr-review/acts";
 import { CommentsView } from "../pr-review/comments";
-import { AskComposer } from "../pr-review/explain";
+import { AskComposer, pressExplanation } from "../pr-review/explain";
 import { SpendConfirm } from "../pr-review/flight";
 import { Overview } from "../pr-review/reader";
 import { ToolResults } from "../pr-review/results";
 import { NO_WORK, useReviewStore, useReviews } from "../pr-review/store";
-import { onlyTools, toolsOf } from "../pr-review/tools";
+import { tilesOf, toolsOf } from "../pr-review/tools";
 import type { ToolDef } from "../pr-review/model";
 
 const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
@@ -31,10 +31,11 @@ export function ReviewTab({ row, onOpenLink }: { row: PullReviewRow; onOpenLink:
   const send = useSendFindings(pr);
   const work = pr === undefined ? NO_WORK : (reviews.work[key] ?? NO_WORK);
   // Walk plays the change where it runs and has sheets of its own; it stays on the Reviews page.
-  const tools = onlyTools(toolsOf(reviews, pr?.manifestId)).filter((one) => one.mark !== "walk");
+  const tools = tilesOf(toolsOf(reviews, pr?.manifestId)).filter((one) => one.mark !== "walk");
 
   const press = (tool: ToolDef) => {
     if (store === undefined || pr === undefined) return;
+    if (tool.kind === "explanation") return pressExplanation(store, pr, tool);
     const kept = work.runs[tool.id];
     if (!tool.agent || (kept !== undefined && kept.state !== "idle")) store.runTool(pr.key, tool);
     else store.spend(tool.name, () => store.runTool(pr.key, tool));
@@ -58,13 +59,21 @@ export function ReviewTab({ row, onOpenLink }: { row: PullReviewRow; onOpenLink:
   return (
     <div className="side-review" aria-label="Review">
       <div className="side-review__tools" role="group" aria-label="Review tools">
-        {tools.map((one, at) => (
-          <Tooltip key={one.id} label={one.checks} shortcut={String(at + 1)} asChild>
-            <Button variant={work.view === one.id ? "secondary" : "ghost"} size="sm" aria-pressed={work.view === one.id} aria-busy={work.runs[one.id]?.state === "running" || undefined} onClick={() => press(one)}>
-              {one.name}
-            </Button>
-          </Tooltip>
-        ))}
+        {tools.map((one, at) => {
+          const explains = one.kind === "explanation";
+          const pressed = explains ? work.view === "explanation" && work.kind === one.id : work.view === one.id;
+          const running = (explains ? work.explains[one.id] : work.runs[one.id])?.state === "running";
+          return (
+            <Tooltip key={one.id} label={one.checks} shortcut={String(at + 1)} asChild>
+              <Button variant={pressed ? "secondary" : "ghost"} size="sm" aria-pressed={pressed} aria-busy={running || undefined} onClick={() => press(one)}>
+                {one.name}
+              </Button>
+            </Tooltip>
+          );
+        })}
+        <Button variant={work.view === "comments" ? "secondary" : "ghost"} size="sm" aria-pressed={work.view === "comments"} onClick={() => store.setView(pr.key, "comments")}>
+          {work.drafts.length === 0 ? "Review" : `Review · ${work.drafts.length}`}
+        </Button>
       </div>
       {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
       {tool !== undefined && tool.agent ? <ToolResults pr={pr} tool={tool} send={send} /> : null}

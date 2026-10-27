@@ -30,11 +30,20 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 
 **A page is the pull request's description, conversation, checks, files and commits, with its review threads and head commit.** It is read when the pull request is opened, and again when the lists are refreshed while it is open.
 
+**The pull request open in the reader stays open until another one is opened.** Esc never closes it, and a reload of Bridge opens it again.
+
+**A pull request opened by its link has a row above whichever list is chosen**, since no list from the forge holds it. Bridge keeps the last ten across a reload.
+
 **A file's patch is read the first time its change is shown.** The forge numbers a line by path, line and side; the diff draws no numbers, so `apps/desktop/src/renderer/src/pr-review/patch.ts` is the one place the two meet.
 
 ## A review
 
 **Drafts are held in Bridge until Submit.** A draft is a line comment, a comment on a file, or a reply to a thread.
+
+**Review is a tab of the reader, after Commits**, with the count of drafts waiting on Submit.
+It holds the forge's conversation, the threads on each change and his review; it is not a tile in Flight control.
+
+**A pending comment names its file, line and code, and a press goes to it in the diff**, opening the diff again where it was folded.
 
 **Submit posts the verdict, its summary and every draft as one review at the commit he read.** Comment, Approve and Request changes are the three verdicts. Helm still asks before it writes.
 
@@ -54,7 +63,10 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 | Tool | Risks, Possible bugs, API breaking changes, or one a person added | Findings, each pinned to a path and line range with a severity, title and body |
 | Ask | A question in his words | Markdown |
 
-Comments is not a run. It is the forge's conversation.
+The Review tab is not a run. It is the forge's conversation.
+
+**Flight control's tiles are the explanations first and then the tools**, numbered 1 to 9.
+An explanation is shown under the description and a tool's result in place of it; a question he asked is listed above the description.
 
 **What the agent is given:** the definition's prompt, the pull request's title, description, head commit and diff, and a checkout of the head to read.
 **It can read and nothing else**: Fleet leases a bay (a slot of the repository's pool) on a branch of its own at the head, makes one model call with the read tools only, and gives the bay back clean, so a run holds no shell, edits nothing and reaches no network.

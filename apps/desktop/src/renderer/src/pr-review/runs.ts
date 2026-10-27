@@ -10,9 +10,9 @@ import { sliceAround } from "./patch";
 /** A run is one per kind and name. The head it ran on does not name it: a newer run replaces the older. */
 export const runKey = (kind: ReviewRun["kind"], name: string): string => `${kind}:${name}`;
 
-const MARKS: Readonly<Record<string, ToolMark>> = { risks: "risks", "possible-bugs": "bugs", "api-breaking-changes": "breaks", walk: "walk" };
+const MARKS: Readonly<Record<string, ToolMark>> = { risks: "risks", "possible-bugs": "bugs", "api-breaking-changes": "breaks", walk: "walk", "how-it-works": "how", "user-impact": "impact", "how-to-test": "test", why: "why" };
 
-/** A definition Fleet resolved, as the surface holds it. Armada's four tools have a mark each; any other takes the clipboard. */
+/** A definition Fleet resolved, as the surface holds it. Armada's tools and explanations have a mark each; any other takes the clipboard. */
 export const toolDefOf = (tool: { id: string; kind: ToolDef["kind"]; name: string; prompt: string; source: ToolDef["source"]; replaces?: ToolDef["source"]; hides?: ToolDef["source"] }): ToolDef => ({
   id: tool.id,
   kind: tool.kind,

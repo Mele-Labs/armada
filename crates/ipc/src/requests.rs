@@ -483,6 +483,19 @@ pub struct SaveRequestEnvironment {
     pub environment: RequestEnvironmentWrite,
 }
 
+/// `delete_request_environment`: the environment `name` out of the person's own file, each
+/// secret's Keychain item forgotten first. `POST /requests/environments/delete`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteRequestEnvironment {
+    /// A root `list_repositories` names. Absent, `session_id`'s repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub name: String,
+}
+
 /// A request the agent saves: a [`SavedRequest`] before Fleet gives it an id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
