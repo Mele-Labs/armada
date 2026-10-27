@@ -34,8 +34,6 @@ mod retro;
 mod studio;
 /// Which tests reach each file in a repository. `docs/concepts/test-map.md`.
 mod test_map;
-/// Something that runs at a moment in a Job. `docs/concepts/trigger.md`.
-mod trigger;
 /// A command Fleet runs on a cadence for one Job, and what its readings come to.
 mod watch;
 /// The workflow a Session or a Job follows, and the ids it is spelled in.
@@ -71,11 +69,6 @@ pub use studio::{
     StudioEdgeKind, StudioEdgeStanding, StudioFinding, StudioGraph, StudioId, StudioName,
     StudioNode, StudioNodeContent, StudioNodeId, StudioNodeKind, StudioNodeState, StudioPosition,
     StudioRelation, StudioRun, StudioRunKept, ToItself,
-};
-pub use trigger::{
-    can_hold, FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, Trigger, TriggerFiring,
-    TriggerIdentity, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerState,
-    TriggerWhen, REPAIR_TRIES,
 };
 pub use watch::{
     counted_state, ends_on, ends_passed, fill, set_aside_failing, span_seconds, watch_state_of,
