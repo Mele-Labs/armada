@@ -600,7 +600,7 @@ pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
     PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
-    TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
+    TaskStale, TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };
 pub use session_rail::{
     ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading,
