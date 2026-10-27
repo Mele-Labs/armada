@@ -1,12 +1,16 @@
 // The one bar's Task and Project: words typed in the palette, filed in his projects without leaving the page he is on. A task asks
 // which project, listed in the palette, last used first, or none; it goes to the repository the last task did, else the first
-// listed. A project is his, so it asks for no repository.
+// listed. A project is his, so it asks for no repository. The palette also finds a task or subtask by its title, with the project
+// (or No project) and the repository under it, and choosing one opens it on the Projects tab (`usePaletteTasks`).
 
 import type { AddKind, PaletteStep } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
+import type { PaletteTask } from "@armada/shell";
 
 import { bandsIn } from "./list";
-import { useProjectsStore } from "./store";
+import type { ProjectRow } from "./model";
+import { NO_PROJECT } from "./views";
+import { useProjects, useProjectsStore } from "./store";
 
 /** The palette row for a task in no project. */
 const NONE = "none:";
@@ -44,4 +48,15 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
       if (kind === "project" && repo !== undefined) void store.addProject(words, repo, false);
     },
   };
+}
+
+/** Every task and subtask he has, for the palette to find by title: the project it is in, or No project, then its repository. */
+export function usePaletteTasks(repositories: readonly RepositorySummary[]): PaletteTask[] {
+  const { loose, projects } = useProjects();
+  const repository = new Map(bandsIn(null, repositories).map((band) => [band.manifestId, band.label]));
+  const named = (rows: ProjectRow[], project: string): PaletteTask[] =>
+    rows.flatMap((row) =>
+      row.kind === "task" ? [row, ...(row.subtasks ?? [])].map((one) => ({ id: one.id, label: one.title, detail: `${project} · ${repository.get(one.manifestId) ?? one.manifestId}` })) : [],
+    );
+  return [...named([...loose], NO_PROJECT), ...projects.flatMap((one) => named(one.rows, one.name))];
 }

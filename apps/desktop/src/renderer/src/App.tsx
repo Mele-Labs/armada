@@ -87,7 +87,7 @@ import { AgentSignInAlert } from "./agent-sign-in";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
-import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsFollowed, useProjectsStore } from "./projects-tab/store"; import { ProjectsUndo } from "./projects-tab/undo";
+import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsFollowed, useProjectsStore } from "./projects-tab/store"; import { ProjectsUndo } from "./projects-tab/undo"; import { usePaletteTasks } from "./projects-tab/palette";
 import { SessionsOwnership } from "./sessions";
 import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { askForFixes, useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
@@ -247,6 +247,8 @@ export function App() {
   // The repository the rail picked. Main holds it, so every read below is taken after main moved.
   const repositories = state.holds.repositories ?? [];
   useProjectsFollowed(repositories, state.connection.state === "connected");
+  const projectsStore = useProjectsStore();
+  const paletteTasks = usePaletteTasks(repositories); // The palette finds a task by its title: `projects-tab/palette.ts`.
   const repository = state.repository ?? undefined;
   // Whether Fleet has answered the listing. `models` is what says the holdings were read.
   const listed = state.connection.state === "connected" && state.holds.models !== null;
@@ -738,7 +740,7 @@ export function App() {
         <TitleDispatchedStrip />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar} linkRoutes={linkRoutes}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar} linkRoutes={linkRoutes} tasks={paletteTasks}
           shownStudio={shownStudio}
           surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
           checkoutRunSheet={state.checkoutRunSheet}
@@ -750,6 +752,8 @@ export function App() {
             pickRepository: pick,
             compose: () => newSession(),
             surface: goTo,
+            // A task found by title opens on the Projects tab, in its project or on All tasks, and its card takes the focus.
+            ...(projectsStore === undefined ? {} : { task: (rowId: string) => (goTo(SURFACE.projects), projectsStore.showRow(rowId)) }),
             run: (entryId) => {
               goTo(SURFACE.manifest);
               setPicked(entryId);

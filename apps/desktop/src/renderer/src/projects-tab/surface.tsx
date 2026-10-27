@@ -116,6 +116,25 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     if (row !== undefined) dispatch([row]);
   };
 
+  // A task the palette chose: its list is open already (`showRow`), so All tasks stands for a task in no project. Its card is scrolled to and takes the focus once drawn.
+  useEffect(() => {
+    const rowId = snap.reveal;
+    if (rowId === undefined) return;
+    forgetKept(SEARCH_KEEP);
+    setRepo(undefined);
+    setView("all");
+    store.shownRow();
+    let tries = 0;
+    const bring = () => {
+      const card = document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`);
+      if (card !== null) {
+        card.scrollIntoView({ block: "center" });
+        card.focus();
+      } else if ((tries += 1) < 30) window.requestAnimationFrame(bring);
+    };
+    window.requestAnimationFrame(bring);
+  }, [snap.reveal, store]);
+
   const hosts = { onOpenSession, onOpenLink, onDispatch: dispatch };
   const repository = bands.find((one) => one.manifestId === repo);
   // A task added on Needs you or In a Job would not show there, so those panes have no field.

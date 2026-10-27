@@ -39,6 +39,8 @@ export type ProjectsSnapshot = {
   lastRepo: string | undefined;
   /** Done tasks are drawn. Off, they are hidden in every list. */
   showDone: boolean;
+  /** The row the palette chose, by id, until the page has brought its card into view. */
+  reveal: string | undefined;
 };
 
 export type ProjectsStore = ReturnType<typeof createProjectsStore>;
@@ -81,7 +83,7 @@ export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
 const idsOf = (wire: Projects | undefined, projectId: string): Set<string> => new Set(wire?.projects.find((one) => one.id === projectId)?.rows.map((row) => row.id));
 
 export function createProjectsStore(source: ProjectsSource, pulls: PullsServed = {}) {
-  let snap: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false };
+  let snap: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false, reveal: undefined };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
     snap = { ...snap, ...next };
@@ -265,6 +267,19 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
       if (projectId !== undefined) touch(projectId);
       set({ open: projectId, ...closed });
     },
+    /**
+     * Opens the list a row stands in, for the palette: its project, or All tasks for a task in no project, with done shown where
+     * the row or its parent is done. The page brings the card into view and calls `shownRow`.
+     */
+    showRow: (rowId: string) => {
+      const key = holding(rowId);
+      const row = find(rowId);
+      if (key === undefined || row === undefined) return;
+      const parent = parentOf(snap, rowId);
+      if (key !== LOOSE) touch(key);
+      set({ open: key === LOOSE ? undefined : key, showDone: isDone(row) || (parent !== undefined && isDone(parent)) ? true : snap.showDone, reveal: rowId, ...closed });
+    },
+    shownRow: () => set({ reveal: undefined }),
     /** Done tasks drawn, or hidden. */
     showDone: (shown: boolean) =>
       set({
@@ -527,7 +542,7 @@ export function useProjectsStore(): ProjectsStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false };
+const NEVER: ProjectsSnapshot = { projects: [], loose: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: false, lastRepo: undefined, showDone: false, reveal: undefined };
 const NONE = () => () => undefined;
 
 export function useProjects(): ProjectsSnapshot {
