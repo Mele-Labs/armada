@@ -8,7 +8,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Watches};
 use config::settings as keys;
 use core_model::{NotFilled, NotWeighed, Verdict, WatchState};
-use ipc::{DeleteWatch, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
+use ipc::{DeleteWatch, ReadWatchLog, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
 use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 
 use super::running::Folder;
@@ -311,16 +311,19 @@ where
 
     async fn weigh_watch(&self, caller: Option<api::Caller>, weigh: WeighWatch) -> Result<WatchSummary, Refusal> {
         let job = self.watching_job(caller, weigh.session_id.as_ref()).await?;
-        let (verdict, given) = match weigh.verdict {
+        let (verdict, given, evidence) = match weigh.verdict {
             WatchVerdict::Ours { sentence } => {
-                (Verdict::Ours { sentence: sentence.clone() }, (true, sentence, Vec::new()))
+                (Verdict::Ours { sentence: sentence.clone() }, (true, sentence, Vec::new()), ipc::WatchEvidence::default())
             }
-            WatchVerdict::NotOurs { sentence, parts } => {
-                (Verdict::NotOurs { sentence: sentence.clone(), parts: parts.clone() }, (false, sentence, parts))
+            WatchVerdict::NotOurs { sentence, parts, evidence } => {
+                (Verdict::NotOurs { sentence: sentence.clone(), parts: parts.clone() }, (false, sentence, parts), evidence)
             }
         };
+        // Blank entries are dropped, so an item the agent left empty is no line in the summary.
+        let kept_of = |items: Vec<String>| items.into_iter().map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect::<Vec<_>>();
+        let (links, logs, errors) = (kept_of(evidence.links), kept_of(evidence.logs), kept_of(evidence.errors));
         let now = self.now();
-        let (job, whole) = {
+        let (job, whole, ended) = {
             let mut store = self.store().lock().await;
             let kept = store
                 .watch_whole(&weigh.watch)
@@ -335,22 +338,27 @@ where
                 let aside = KeptWatchSetAside { part: part.clone(), sentence: sentence.trim().to_string(), at: at.clone() };
                 store.keep_watch_set_aside(&kept.watch.id, &aside).map_err(|why| self.ledger_fault(why))?;
             }
-            let given = KeptWatchVerdict { at: at.clone(), ours, sentence: sentence.trim().to_string(), parts };
+            let given = KeptWatchVerdict { at: at.clone(), ours, sentence: sentence.trim().to_string(), parts, links, logs, errors };
             store.keep_watch_verdict(&kept.watch.id, &given).map_err(|why| self.ledger_fault(why))?;
             let mut next = moved(&kept.watch, &watch, &now);
             if next.state != kept.watch.state {
                 next.changed_at = at.clone();
             }
-            // The agent gave this, so what it comes to tells nobody.
-            if let Some(key) = owed(&watch) {
+            // The agent gave this, so what it comes to tells nobody, except a not ours ending: the
+            // agent is told it did not pass, so it does not report a pass.
+            if let Some(key) = owed(&watch).filter(|_| watch.state != WatchState::NotOurs) {
                 let _ = store.keep_watch_notice(&kept.watch.id, &key, &at);
             }
             next.unsaid = unsaid(&store, &kept.watch.id, &watch);
             store.keep_watch(&next).map_err(|why| self.ledger_fault(why))?;
             let whole = store.watch_whole(&kept.watch.id).map_err(|why| self.ledger_fault(why))?;
-            (next.session_id, whole)
+            (next.session_id, whole, kept.watch.live && !next.live)
         };
         self.watches_published(&job).await;
+        if ended {
+            self.watches().stop(&weigh.watch);
+            self.watching_row_published(&job).await;
+        }
         whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&weigh.watch))
     }
 
@@ -393,8 +401,34 @@ where
             store.delete_watch(&kept.watch.id).map_err(|why| self.ledger_fault(why))?;
             kept.watch.session_id
         };
+        self.watch_log_removed(&job, &delete.watch);
         self.watches_published(&job).await;
         self.watch_list(&job).await
+    }
+
+    async fn read_watch_log(&self, caller: Option<api::Caller>, read: ReadWatchLog) -> Result<ipc::WatchLog, Refusal> {
+        let job = self.watching_job(caller, None).await?;
+        let kept = self
+            .store()
+            .lock()
+            .await
+            .watch_whole(&read.watch)
+            .map_err(|why| self.ledger_fault(why))?
+            .filter(|kept| job.as_deref().is_none_or(|job| kept.watch.session_id == job))
+            .ok_or_else(|| self.no_such_watch(&read.watch))?;
+        let gone = || {
+            Refusal::NotFound(WireError::raised(
+                super::NO_SUCH_WATCH_LOG,
+                format!("No kept reading of watch {} has the log {}.", read.watch, read.log),
+                self.run_id(),
+            ))
+        };
+        // Only a path a kept reading names is read, so the route opens no other file.
+        if !kept.readings.iter().any(|one| one.log.as_deref() == Some(read.log.as_str())) {
+            return Err(gone());
+        }
+        let text = tokio::fs::read_to_string(&read.log).await.map_err(|_| gone())?;
+        Ok(ipc::WatchLog { watch: read.watch, log: read.log, text })
     }
 
     async fn list_watches(

@@ -1,7 +1,7 @@
-// A repository's projects, as main asks Fleet for them: one request per route, and the stream's `projects.changed`, passed on to
-// every window. Nothing is kept here, since every write answers the repository's projects whole.
+// His projects, as main asks Fleet for them: one request per route, and the stream's `projects.changed`, passed on to
+// every window. Nothing is kept here, since every write answers his projects and the loose tasks whole.
 
-import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
 import type { ProjectsActed } from "../shared/api/projects";
 import { ask } from "./request";
 
@@ -25,99 +25,99 @@ export class ProjectsHost {
     this.told(projects);
   }
 
-  /** `GET /projects/:repository`. */
-  list(manifestId: string): Promise<ProjectsActed> {
-    return this.act("GET", manifestId, "");
+  /** `GET /projects`. */
+  list(): Promise<ProjectsActed> {
+    return this.act("GET", "");
   }
 
-  /** `POST /projects/:repository`. */
-  add(manifestId: string, body: NameProject): Promise<ProjectsActed> {
-    return this.act("POST", manifestId, "", body);
+  /** `POST /projects`. */
+  add(body: NameProject): Promise<ProjectsActed> {
+    return this.act("POST", "", body);
   }
 
-  /** `POST /projects/:repository/:project/rename`. */
-  rename(manifestId: string, project: string, body: NameProject): Promise<ProjectsActed> {
-    return this.act("POST", manifestId, `/${seg(project)}/rename`, body);
+  /** `POST /projects/project/:project/rename`. */
+  rename(project: string, body: NameProject): Promise<ProjectsActed> {
+    return this.act("POST", `/project/${seg(project)}/rename`, body);
   }
 
-  /** `POST /projects/:repository/:project/delete`. */
-  delete(manifestId: string, project: string): Promise<ProjectsActed> {
-    return this.act("POST", manifestId, `/${seg(project)}/delete`);
+  /** `POST /projects/project/:project/delete`. */
+  delete(project: string): Promise<ProjectsActed> {
+    return this.act("POST", `/project/${seg(project)}/delete`);
   }
 
-  /** `POST /projects/:repository/:project/tasks`. */
-  addTask(manifestId: string, project: string, body: ProjectTask): Promise<ProjectsActed> {
-    return this.act("POST", manifestId, `/${seg(project)}/tasks`, body);
+  /** `POST /projects/tasks`. */
+  addTask(body: NewProjectTask): Promise<ProjectsActed> {
+    return this.act("POST", "/tasks", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/subtasks`. */
-  addSubtask(manifestId: string, project: string, row: string, body: ProjectTask): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/subtasks", body);
+  /** `POST /projects/rows/:row/subtasks`. */
+  addSubtask(row: string, body: ProjectTask): Promise<ProjectsActed> {
+    return this.row(row, "/subtasks", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/edit`. */
-  editTask(manifestId: string, project: string, row: string, body: ProjectTask): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/edit", body);
+  /** `POST /projects/rows/:row/edit`. */
+  editTask(row: string, body: ProjectTask): Promise<ProjectsActed> {
+    return this.row(row, "/edit", body);
   }
 
-  /** `POST /projects/:repository/:project/issues`. */
-  linkIssue(manifestId: string, project: string, body: LinkProjectIssue): Promise<ProjectsActed> {
-    return this.act("POST", manifestId, `/${seg(project)}/issues`, body);
+  /** `POST /projects/issues`. */
+  linkIssue(body: NewProjectIssue): Promise<ProjectsActed> {
+    return this.act("POST", "/issues", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/issues`. */
-  linkTaskIssue(manifestId: string, project: string, row: string, body: LinkProjectIssue): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/issues", body);
+  /** `POST /projects/rows/:row/issues`. */
+  linkTaskIssue(row: string, body: LinkProjectIssue): Promise<ProjectsActed> {
+    return this.row(row, "/issues", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/issues/unlink`. */
-  unlinkTaskIssue(manifestId: string, project: string, row: string, body: LinkProjectIssue): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/issues/unlink", body);
+  /** `POST /projects/rows/:row/issues/unlink`. */
+  unlinkTaskIssue(row: string, body: LinkProjectIssue): Promise<ProjectsActed> {
+    return this.row(row, "/issues/unlink", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/job`. */
-  linkTaskJob(manifestId: string, project: string, row: string, body: LinkTaskJob): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/job", body);
+  /** `POST /projects/rows/:row/job`. */
+  linkTaskJob(row: string, body: LinkTaskJob): Promise<ProjectsActed> {
+    return this.row(row, "/job", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/job/unlink`. */
-  unlinkTaskJob(manifestId: string, project: string, row: string): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/job/unlink");
+  /** `POST /projects/rows/:row/job/unlink`. */
+  unlinkTaskJob(row: string): Promise<ProjectsActed> {
+    return this.row(row, "/job/unlink");
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/pulls`. */
-  linkTaskPull(manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/pulls", body);
+  /** `POST /projects/rows/:row/pulls`. */
+  linkTaskPull(row: string, body: LinkTaskPull): Promise<ProjectsActed> {
+    return this.row(row, "/pulls", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/pulls/unlink`. */
-  unlinkTaskPull(manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/pulls/unlink", body);
+  /** `POST /projects/rows/:row/pulls/unlink`. */
+  unlinkTaskPull(row: string, body: LinkTaskPull): Promise<ProjectsActed> {
+    return this.row(row, "/pulls/unlink", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/remove`. */
-  removeRow(manifestId: string, project: string, row: string): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/remove");
+  /** `POST /projects/rows/:row/remove`. */
+  removeRow(row: string): Promise<ProjectsActed> {
+    return this.row(row, "/remove");
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/move`. */
-  moveRow(manifestId: string, project: string, row: string, body: MoveProjectRow): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/move", body);
+  /** `POST /projects/rows/:row/move`. */
+  moveRow(row: string, body: MoveProjectRow): Promise<ProjectsActed> {
+    return this.row(row, "/move", body);
   }
 
-  /** `POST /projects/:repository/:project/rows/:row/tick`. */
-  tickTask(manifestId: string, project: string, row: string, body: TickProjectTask): Promise<ProjectsActed> {
-    return this.row(manifestId, project, row, "/tick", body);
+  /** `POST /projects/rows/:row/tick`. */
+  tickTask(row: string, body: TickProjectTask): Promise<ProjectsActed> {
+    return this.row(row, "/tick", body);
   }
 
-  private row(manifestId: string, project: string, row: string, rest: string, body?: unknown): Promise<ProjectsActed> {
-    return this.act("POST", manifestId, `/${seg(project)}/rows/${seg(row)}${rest}`, body);
+  private row(row: string, rest: string, body?: unknown): Promise<ProjectsActed> {
+    return this.act("POST", `/rows/${seg(row)}${rest}`, body);
   }
 
-  private async act(method: "GET" | "POST", manifestId: string, rest: string, body?: unknown): Promise<ProjectsActed> {
+  private async act(method: "GET" | "POST", rest: string, body?: unknown): Promise<ProjectsActed> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, method, `/projects/${seg(manifestId)}${rest}`, body);
+    const answer = await ask(port, method, `/projects${rest}`, body);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, value: answer.body as Projects };
   }

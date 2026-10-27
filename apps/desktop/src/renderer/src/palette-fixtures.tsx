@@ -1,14 +1,13 @@
 // The pull requests, issues, tasks and commands the palette lists. **A mock scenario hands its own** (`palette` on its
 // draft), and they stand in for the real ones so a walk draws the same screen every time. Without any, the window reads
-// them: pull requests and issues from Fleet when the palette opens (`palette-tickets.ts`), tasks from his projects. The
+// them: pull requests and issues from Fleet when the palette opens (`palette-tickets.ts`). His tasks are the Projects tab's (`projects-tab/palette.ts`), handed to the mount. The
 // commands a Commands mod brings have no Fleet source yet, so a real window lists none.
 
-import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
-import type { PaletteCommand, PaletteTask, PaletteTicket } from "@armada/shell";
+import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import type { PaletteCommand, PaletteTicket } from "@armada/shell";
 
 import type { BridgeApi } from "../../shared/api";
 import { PaletteTickets } from "./palette-tickets";
-import { allRows, useProjects } from "./projects-tab/store";
 import { withState } from "./state-feed";
 
 /** A ticket with the address its page opens from. */
@@ -17,14 +16,13 @@ export type PaletteLinked = PaletteTicket & { url: string };
 export type PaletteFixtures = {
   pulls: readonly PaletteLinked[];
   issues: readonly PaletteLinked[];
-  tasks: readonly PaletteTask[];
   commands: readonly PaletteCommand[];
   /** Row ids, as the palette draws them, pinned and opened before the window opened. */
   pinned?: readonly string[];
   recent?: readonly string[];
 };
 
-const NONE: PaletteFixtures = { pulls: [], issues: [], tasks: [], commands: [] };
+const NONE: PaletteFixtures = { pulls: [], issues: [], commands: [] };
 const Source = createContext<PaletteFixtures>(NONE);
 
 /** Hands the window the rows. Nothing handed, none are drawn. */
@@ -41,7 +39,7 @@ const NO_TICKETS = { pulls: [], issues: [] } as const;
  * What the palette lists: a scenario's rows where it handed any, otherwise Fleet's. Reading starts when the palette opens, and
  * it holds what it read from then on, so the next opening draws at once and refreshes behind it.
  */
-export function usePaletteRows(open: boolean, repoOf: ((manifestId: string) => string | undefined) | undefined): PaletteFixtures {
+export function usePaletteRows(open: boolean): PaletteFixtures {
   const given = usePaletteFixtures();
   const [store] = useState(() => {
     const api = window.armada as Partial<BridgeApi> | undefined;
@@ -53,15 +51,9 @@ export function usePaletteRows(open: boolean, repoOf: ((manifestId: string) => s
     if (open) store?.load();
   }, [open, store]);
   const tickets = useSyncExternalStore(store?.subscribe ?? NEVER, store?.get ?? (() => NO_TICKETS));
-  const projects = useProjects().projects;
-  const tasks = useMemo(
-    () => projects.flatMap((project) => allRows(project).flatMap((row) => (row.kind === "task" && !row.done ? [{ id: row.id, title: row.title, project: project.name, repo: repoOf?.(project.manifestId) ?? "" }] : []))),
-    [projects, repoOf],
-  );
   return {
     ...given,
     pulls: given.pulls.length > 0 ? given.pulls : tickets.pulls,
     issues: given.issues.length > 0 ? given.issues : tickets.issues,
-    tasks: given.tasks.length > 0 ? given.tasks : tasks,
   };
 }

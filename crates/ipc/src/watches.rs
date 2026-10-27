@@ -26,7 +26,8 @@ pub enum WatchReadingState {
     Failed,
 }
 
-/// Where a watch stands. The last three are ends no reading says.
+/// Where a watch stands. `not_ours` is a pass while a part set aside still fails, and never green; the
+/// last three are ends no reading says.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WatchState {
@@ -34,16 +35,24 @@ pub enum WatchState {
     Running,
     Passed,
     Failed,
+    NotOurs,
     GaveUp,
     Broken,
     Stopped,
 }
 
-/// One named part of a run, and what it says.
+/// One named part of a run, and what it says: where to look at it, the exact lines it failed on
+/// and the end of its own log, where its line gave them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WatchPart {
     pub name: String,
     pub state: WatchReadingState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail: Option<String>,
 }
 
 /// A part the agent weighed as not its change's doing, with its sentence.
@@ -58,8 +67,8 @@ pub struct WatchSetAside {
 ///
 /// **In `WatchSummary::readings`, back-to-back readings that read the same are one**: `at` is the
 /// first, `last_at` the last and `count` how many. Read is the same state, `finished`, `says`,
-/// `link` and parts; broken is the same `why`, and `output` is the last one's. The store keeps
-/// each; only the answer collapses them.
+/// `link` and parts; broken is the same `why`, and `output` is the last one's. A run's `log` is
+/// its last one's too. The store keeps each; only the answer collapses them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WatchReading {
@@ -72,6 +81,9 @@ pub enum WatchReading {
         link: Option<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         parts: Vec<WatchPart>,
+        /// The whole output of a failed reading's run, as a file on this Mac. Absent for one that did not fail.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        log: Option<String>,
         /// How many readings in a row this stands for. Absent for one.
         #[serde(default = "one", skip_serializing_if = "is_one")]
         count: u32,
@@ -86,6 +98,9 @@ pub enum WatchReading {
         why: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         output: Option<String>,
+        /// The run's whole output, as a file on this Mac.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        log: Option<String>,
         #[serde(default = "one", skip_serializing_if = "is_one")]
         count: u32,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -112,32 +127,42 @@ impl WatchReading {
         link: Option<String>,
         parts: Vec<WatchPart>,
     ) -> WatchReading {
-        WatchReading::Read { at, state, finished, says, link, parts, count: 1, last_at: None }
+        WatchReading::Read { at, state, finished, says, link, parts, log: None, count: 1, last_at: None }
     }
 
     /// One broken run as taken, standing for itself alone.
     pub fn broken(at: Instant, why: String, output: Option<String>) -> WatchReading {
-        WatchReading::Broken { at, why, output, count: 1, last_at: None }
+        WatchReading::Broken { at, why, output, log: None, count: 1, last_at: None }
+    }
+
+    /// The same reading, with the file its run's whole output was kept in.
+    pub fn logged(mut self, kept: Option<String>) -> WatchReading {
+        match &mut self {
+            WatchReading::Read { log, .. } | WatchReading::Broken { log, .. } => *log = kept,
+        }
+        self
     }
 
     /// `next` folded into `self` where the two read the same, else `next` back.
     fn folded(&mut self, next: WatchReading) -> Option<WatchReading> {
         match (self, next) {
             (
-                WatchReading::Read { state, finished, says, link, parts, count, last_at, .. },
-                WatchReading::Read { at, state: s, finished: f, says: w, link: l, parts: p, .. },
+                WatchReading::Read { state, finished, says, link, parts, log, count, last_at, .. },
+                WatchReading::Read { at, state: s, finished: f, says: w, link: l, parts: p, log: g, .. },
             ) if (*state, *finished, &*says, &*link, &*parts) == (s, f, &w, &l, &p) => {
                 *count += 1;
                 *last_at = Some(at);
+                *log = g;
                 None
             }
             (
-                WatchReading::Broken { why, output, count, last_at, .. },
-                WatchReading::Broken { at, why: y, output: o, .. },
+                WatchReading::Broken { why, output, log, count, last_at, .. },
+                WatchReading::Broken { at, why: y, output: o, log: g, .. },
             ) if *why == y => {
                 *count += 1;
                 *last_at = Some(at);
                 *output = o;
+                *log = g;
                 None
             }
             (_, next) => Some(next),
@@ -163,8 +188,28 @@ pub fn collapsed(readings: impl IntoIterator<Item = WatchReading>) -> Vec<WatchR
 pub enum WatchVerdict {
     /// The change caused it, and `sentence` says how. The watch ends `failed`.
     Ours { sentence: String },
-    /// Not the change's doing: `parts` stop counting toward the watch's state.
-    NotOurs { sentence: String, parts: Vec<String> },
+    /// Not the change's doing: `parts` stop counting toward the watch's state, and `evidence` is
+    /// what the agent gathered for the person to send on.
+    NotOurs { sentence: String, parts: Vec<String>, evidence: WatchEvidence },
+}
+
+/// What backs a `not_ours`: links to what was watched, log files the agent saved, and the exact
+/// error text. Each list may be empty.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WatchEvidence {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
+}
+
+impl WatchEvidence {
+    pub fn is_empty(&self) -> bool {
+        self.links.is_empty() && self.logs.is_empty() && self.errors.is_empty()
+    }
 }
 
 /// Which way the agent weighed a failed reading.
@@ -183,6 +228,9 @@ pub struct WatchVerdictGiven {
     pub sentence: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<String>,
+    /// What a `not_ours` carried. Absent where it carried none.
+    #[serde(default, skip_serializing_if = "WatchEvidence::is_empty")]
+    pub evidence: WatchEvidence,
 }
 
 /// One watch, as `list_watches` answers it and every act on one answers.
@@ -416,6 +464,8 @@ struct WeighAsWritten {
     sentence: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     parts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    evidence: Option<WatchEvidence>,
 }
 
 impl TryFrom<WeighAsWritten> for WeighWatch {
@@ -423,12 +473,17 @@ impl TryFrom<WeighAsWritten> for WeighWatch {
 
     fn try_from(written: WeighAsWritten) -> Result<WeighWatch, &'static str> {
         let verdict = match (written.verdict, written.sentence) {
+            (WatchVerdictWord::Ours, Some(_)) if written.evidence.is_some() => {
+                return Err("`ours` ends the watch: `evidence` backs a `not_ours`, so leave it out")
+            }
             (WatchVerdictWord::Ours, Some(sentence)) if written.parts.is_empty() => WatchVerdict::Ours { sentence },
             (WatchVerdictWord::Ours, Some(_)) => {
                 return Err("`ours` ends the watch: it sets nothing aside, so leave out `parts`")
             }
             (WatchVerdictWord::Ours, None) => return Err("`ours` carries a `sentence` saying how the change caused it"),
-            (WatchVerdictWord::NotOurs, Some(sentence)) => WatchVerdict::NotOurs { sentence, parts: written.parts },
+            (WatchVerdictWord::NotOurs, Some(sentence)) => {
+                WatchVerdict::NotOurs { sentence, parts: written.parts, evidence: written.evidence.unwrap_or_default() }
+            }
             (WatchVerdictWord::NotOurs, None) => {
                 return Err("`not_ours` carries a `sentence` saying why, and the `parts` to set aside")
             }
@@ -439,11 +494,13 @@ impl TryFrom<WeighAsWritten> for WeighWatch {
 
 impl From<WeighWatch> for WeighAsWritten {
     fn from(weigh: WeighWatch) -> WeighAsWritten {
-        let (verdict, sentence, parts) = match weigh.verdict {
-            WatchVerdict::Ours { sentence } => (WatchVerdictWord::Ours, Some(sentence), Vec::new()),
-            WatchVerdict::NotOurs { sentence, parts } => (WatchVerdictWord::NotOurs, Some(sentence), parts),
+        let (verdict, sentence, parts, evidence) = match weigh.verdict {
+            WatchVerdict::Ours { sentence } => (WatchVerdictWord::Ours, Some(sentence), Vec::new(), None),
+            WatchVerdict::NotOurs { sentence, parts, evidence } => {
+                (WatchVerdictWord::NotOurs, Some(sentence), parts, Some(evidence).filter(|one| !one.is_empty()))
+            }
         };
-        WeighAsWritten { session_id: weigh.session_id, watch: weigh.watch, verdict, sentence, parts }
+        WeighAsWritten { session_id: weigh.session_id, watch: weigh.watch, verdict, sentence, parts, evidence }
     }
 }
 
@@ -454,6 +511,23 @@ pub struct StopWatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
     pub watch: String,
+}
+
+/// `read_watch_log`: the log a reading of `watch` kept, named by the path the reading carries.
+/// `GET /watches/log?watch=&log=`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadWatchLog {
+    pub watch: String,
+    pub log: String,
+}
+
+/// What one reading's log holds: the watch, the file, and its text whole.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WatchLog {
+    pub watch: String,
+    pub log: String,
+    pub text: String,
 }
 
 /// `delete_watch`. `POST /watches/delete`. An ended watch only.
@@ -481,6 +555,12 @@ struct Line {
 struct LinePart {
     name: String,
     state: String,
+    #[serde(default)]
+    link: Option<String>,
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    tail: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -498,6 +578,12 @@ struct LineOut<'a> {
 struct PartOut<'a> {
     name: &'a str,
     state: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tail: Option<&'a str>,
 }
 
 /// `reading` as the one line a watch's command prints, which [`read_watch_line`] reads back whole.
@@ -507,7 +593,17 @@ pub fn watch_line(reading: &core_model::Reading) -> Result<String, crate::Unenco
         finished: reading.finished,
         says: &reading.says,
         link: reading.link.as_deref(),
-        parts: reading.parts.iter().map(|part| PartOut { name: &part.name, state: part.state.as_wire() }).collect(),
+        parts: reading
+            .parts
+            .iter()
+            .map(|part| PartOut {
+                name: &part.name,
+                state: part.state.as_wire(),
+                link: part.link.as_deref(),
+                error: part.error.as_deref(),
+                tail: part.tail.as_deref(),
+            })
+            .collect(),
     })
 }
 
@@ -538,7 +634,8 @@ pub fn read_watch_line(stdout: &str) -> Result<core_model::Reading, core_model::
             return Err(broken(format!("`parts[{n}].name` is blank.")));
         }
         let read = state(&part.state, &format!("`parts[{n}].state`"))?;
-        parts.push(core_model::Part { name: part.name, state: read });
+        let given = |text: Option<String>| text.filter(|text| !text.trim().is_empty());
+        parts.push(core_model::Part { name: part.name, state: read, link: given(part.link), error: given(part.error), tail: given(part.tail) });
     }
     Ok(core_model::Reading {
         state: overall,
@@ -567,6 +664,7 @@ impl From<core_model::WatchState> for WatchState {
             core_model::WatchState::Running => WatchState::Running,
             core_model::WatchState::Passed => WatchState::Passed,
             core_model::WatchState::Failed => WatchState::Failed,
+            core_model::WatchState::NotOurs => WatchState::NotOurs,
             core_model::WatchState::GaveUp => WatchState::GaveUp,
             core_model::WatchState::Broken => WatchState::Broken,
             core_model::WatchState::Stopped => WatchState::Stopped,

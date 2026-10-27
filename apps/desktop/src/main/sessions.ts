@@ -42,6 +42,8 @@ import type {
   SettleLater,
   StopWatch,
   DeleteWatch,
+  ReadWatchLog,
+  WatchLog,
   WatchesChanged,
   WatchList,
   WatchSummary,
@@ -740,6 +742,14 @@ export class SessionsHost {
   /** A watch the person stopped. Its Job's watches are published by Fleet, so nothing is folded here. */
   async stopWatch(stop: StopWatch): Promise<SessionActed<WatchSummary>> {
     return await this.asked("/watches/stop", stop);
+  }
+
+  /** A failed reading's log, read whole for the side panel. Nothing is held from it. */
+  async readWatchLog(read: ReadWatchLog): Promise<SessionActed<WatchLog>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/watches/log?watch=${encodeURIComponent(read.watch)}&log=${encodeURIComponent(read.log)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as WatchLog } : { ok: false, outcome: answer.outcome };
   }
 
   /** An ended watch the person deleted. Its Job's watches are published by Fleet, so nothing is folded here. */

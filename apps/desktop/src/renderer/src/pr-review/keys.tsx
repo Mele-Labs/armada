@@ -76,6 +76,8 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
 
   // The first Esc leaves a box, as on the deck. The next one backs out a level.
   if (holdsText(target)) {
+    // The search bar clears its words on the first Esc, in its own handler, and is left on the next.
+    if (target.matches("[data-search-field]") && (target as HTMLInputElement).value !== "") return;
     if (isPressed("close", event) && here !== undefined) {
       event.preventDefault();
       (target as HTMLElement).blur();
@@ -137,6 +139,12 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   if (isPressed("review_search", event)) {
     take();
     return store.setSearching(true);
+  }
+  if (isPressed("review_filter", event)) {
+    const field = document.querySelector<HTMLElement>(".pr-list [data-search-field]");
+    if (field === null) return;
+    take();
+    return field.focus();
   }
 
   if (isPressed("review_where", event)) {

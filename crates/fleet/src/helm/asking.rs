@@ -467,6 +467,19 @@ pub fn unanswered(seconds: u64) -> RunOrNot {
     }
 }
 
+/// What a session is told where nobody answered its question inside the hold. The question stays
+/// in his Needs you as it was asked, and his answer comes as a message, so asking it again or
+/// listing it in `waiting_for` puts it there twice.
+pub fn question_unanswered(seconds: u64) -> RunOrNot {
+    RunOrNot::Deny {
+        message: format!(
+            "Nobody answered this within {seconds} seconds, so it was not run. The question stays in \
+             his Needs you as you asked it, and his answer comes to you as a message. Do not ask it \
+             again and do not add it to waiting_for. Say what you were waiting on and carry on"
+        ),
+    }
+}
+
 /// What a session is told where Fleet stopped before anybody answered. `armada mcp` waits out
 /// the restart, so asking again reaches the Fleet that comes back.
 pub fn restarted() -> RunOrNot {

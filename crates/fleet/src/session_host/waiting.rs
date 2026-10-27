@@ -16,6 +16,10 @@
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
 //! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
 //!
+//! **So is one that repeats a question that lapsed**, nobody answered it in time or it was kept for a walk:
+//! it is already in his Needs you from the `AskUserQuestion` call and his answer comes as a message.
+//! `lapsed_asks.rs` reads it, and a read leaves off one kept before the rule.
+//!
 //! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
 //!
 //! **And one he could not act on**, once `clarity::IN_FORCE`: a status, a pointer, or no verb aimed at him.
@@ -48,6 +52,8 @@ use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
+use crate::session_host::handoff_answers::lapsed_question;
+use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
@@ -55,6 +61,7 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
+const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -98,6 +105,8 @@ pub(crate) struct WaitingReads {
     paused: bool,
     /// The project tasks it finished and nobody has said are done.
     asked_tasks: Vec<store::KeptAsked>,
+    /// Its watches that ended not ours.
+    not_ours: Vec<store::KeptWatchWhole>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -133,6 +142,7 @@ pub(crate) fn waiting_reads(
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         asked_tasks: store.asked_project_tasks(&session.id)?,
+        not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
     })
 }
 
@@ -318,7 +328,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -356,6 +366,12 @@ where
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        if let Some(lapsed) = lapsed_question(&rows) {
+            items.retain(|one| {
+                let labels: Vec<&str> = one.options.iter().map(|option| option.label.as_str()).collect();
+                one.source != WaitingSource::Agent || !repeats_lapsed(&one.text, &labels, &lapsed)
+            });
+        }
         // The harness's own permission prompt in a terminal. Only the terminal can answer it, so its
         // one act opens the Session and it offers nothing to choose.
         let prompt = (session.origin != "bridge" && asked.is_none() && !ended)
@@ -482,6 +498,8 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // A watch that ended not ours, until he ignores it or asks for a fix.
+            items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
@@ -602,12 +620,20 @@ where
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
+        if let Some(lapsed) = self.rows_of(&id).await.ok().and_then(|rows| lapsed_question(&rows)) {
+            for item in &set.items {
+                let labels: Vec<&str> = item.options.iter().map(|option| option.label.as_str()).collect();
+                if repeats_lapsed(&item.text, &labels, &lapsed) {
+                    return Err(self.hosted_refusal(SESSION_WAITING_ASKED, &lapsed_item_refusal(item.id.trim())));
+                }
+            }
+        }
         let unclear = set.items.iter().map(|item| {
             let runs = item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Run && !act.target.trim().is_empty());
             (item.id.trim(), item.text.trim(), runs)
         });
-        if let Some((item, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
-            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, why)));
+        if let Some((item, text, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
+            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, text, why)));
         }
         let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
         self.plan_repeated(&id, said).await?;
@@ -683,7 +709,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = self.waiting_session(caller, done.session_id.as_ref())?;
         let now = self.clock().now().as_str().to_string();
-        let (asked, manifest);
+        let asked;
         let record = {
             let mut store = self.store().lock().await;
             let session = store
@@ -699,12 +725,11 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
             // Done is one of the two ways a held task is asked about: the other is the merge.
             asked = store.ask_held_project_tasks(&id, &now).map_err(|why| self.ledger_fault(why))? > 0;
-            manifest = session.manifest_id.clone();
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
-        if let (true, Some(manifest)) = (asked, manifest) {
-            self.projects_published(&manifest).await;
+        if asked {
+            self.projects_published().await;
         }
         Ok(record)
     }
@@ -909,6 +934,28 @@ where
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
+            // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
+            WaitingSource::WatchNotOurs => {
+                let watch = item.act.as_ref().map(|act| act.target.clone()).unwrap_or_default();
+                let body = match said.choice {
+                    Some(crate::watches::IGNORE) => words.map(|words| reply(&item.text, Some(&format!("Ignore\n{words}")), line)),
+                    Some(crate::watches::FIX_IT) => {
+                        let kept = self.store().lock().await.watch_whole(&watch).map_err(|why| self.ledger_fault(why))?;
+                        let mut fix = kept.as_ref().map(crate::watches::fix_it).ok_or_else(|| self.settled_already())?;
+                        for more in [words, line].into_iter().flatten() {
+                            fix.push('\n');
+                            fix.push_str(more);
+                        }
+                        Some(fix)
+                    }
+                    Some(_) => return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice")),
+                    None => Some(reply(&item.text, words, line)),
+                };
+                if let Some(body) = body {
+                    Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                }
+                self.drop_answered(&id, &item.id).await
+            }
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
             // Settled only once the message is sent, so a failed send leaves the draft standing.

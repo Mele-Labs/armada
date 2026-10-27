@@ -28,10 +28,11 @@ export function StateGlyph({ state }: { state: NonNullable<PaletteMeta["state"]>
 }
 
 /** After the label, muted: the repository, then the number. */
-export function Subtitle({ meta, value, dormant }: { meta: PaletteMeta | undefined; value: string | undefined; dormant: string | undefined }) {
+export function Subtitle({ meta, detail, value, dormant }: { meta: PaletteMeta | undefined; detail?: string | undefined; value: string | undefined; dormant: string | undefined }) {
   const parts = [
     meta?.repo === undefined ? null : <span key="repo">{meta.repo}</span>,
     meta?.number === undefined ? null : <span key="number">{meta.number}</span>,
+    detail === undefined ? null : <span key="detail">{detail}</span>,
     value === undefined ? null : <span key="value">{value}</span>,
     dormant === undefined ? null : <span key="dormant">{dormant}</span>,
   ].filter((one) => one !== null);

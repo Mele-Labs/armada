@@ -8,8 +8,9 @@
 
 import { useState } from "react";
 import { GitPullRequest, Puzzle } from "lucide-react";
-import { Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface } from "@armada/shell";
+import { Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
 import { Dialog, type PaletteDispatch, type PaletteStep } from "@armada/components";
+import { useProjectsStore } from "./projects-tab/store";
 import { useSessionsDraft, useSessionsEverywhere } from "./sessions-draft";
 import { useDeck } from "./cockpit/deck/store";
 import { jobRow } from "./palette-job-row";
@@ -52,6 +53,8 @@ export type PaletteMountProps = {
   showing?: string;
   /** The name a Job's repository goes by in the title row's picker, from the Manifest id the Job carries. */
   repoOf?: (manifestId: string) => string | undefined;
+  /** The Projects tab's tasks and subtasks, found by title. `projects-tab/palette.ts`. */
+  tasks?: readonly PaletteTask[];
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
   /** What a typed link names, and opening it. `link-routes.ts`. */
@@ -75,6 +78,7 @@ export function PaletteMount({
   showing,
   repoOf,
   acts,
+  tasks,
   dispatch,
   linkRoutes,
 }: PaletteMountProps) {
@@ -83,8 +87,9 @@ export function PaletteMount({
   // Every repository's Jobs, whatever the title row has picked: the palette jumps to work anywhere.
   const sessions = useSessionsEverywhere();
   const draft = useSessionsDraft();
-  const fixtures = usePaletteRows(open, repoOf);
+  const fixtures = usePaletteRows(open);
   const memory = usePaletteMemory();
+  const projects = useProjectsStore();
   const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
   const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
   // A Job that asks to be stopped is confirmed over the palette, which stays up behind it.
@@ -93,6 +98,8 @@ export function PaletteMount({
 
   const world = {
     fixtures, jobs: sessions, draft, job,
+    projects, ...(acts.task === undefined ? {} : { task: acts.task }),
+    taskTitle: (rowId: string) => tasks?.find((one) => one.id === rowId)?.label,
     openSession: askToOpenSession, compose: acts.compose, surface: acts.surface,
     openLink: (address: string) => linkRoutes.open(address),
     startJob: (words: string) => dispatch.onDispatch(words, "session"),
@@ -155,6 +162,8 @@ export function PaletteMount({
       // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
       sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one, repoOf, draft))}
+      // Tasks and subtasks by title, listed only while something is typed.
+      {...(tasks === undefined ? {} : { tasks })}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
@@ -162,7 +171,6 @@ export function PaletteMount({
       page={pageOf(showing ?? "", job)}
       pulls={fixtures.pulls}
       issues={fixtures.issues}
-      tasks={fixtures.tasks}
       commands={fixtures.commands}
       commandStep={commandStep}
       pinned={memory.pinned}

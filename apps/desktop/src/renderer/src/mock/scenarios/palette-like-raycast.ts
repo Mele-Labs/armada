@@ -44,11 +44,6 @@ const PALETTE: PaletteFixtures = {
     pull("pocket", 212, "Bump the manifest icons"),
   ],
   issues: [issue("armada", 2214, "Plan windows refresh twice a minute"), issue("armada", 2230, "A Job is not found by its pull request"), issue("pocket", 88, "The install prompt shows the old icon")],
-  tasks: [
-    { id: "task-columns", title: "Columns for the palette rows", project: "Palette", repo: "armada" },
-    { id: "task-tick", title: "Tick a task from the palette", project: "Palette", repo: "armada" },
-    { id: "task-icons", title: "Warm the install icons", project: "Offline install", repo: "pocket" },
-  ],
   commands: [
     { id: "security-review", label: "Review a pull request for security", kind: "prompt", value: "{pr}", alias: "sec", hotkey: "⇧⌘S" },
     { id: "grafana", label: "Open Grafana for this repo", kind: "url", value: "grafana.example.com", alias: "graf", hotkey: "⌘G" },
@@ -59,23 +54,15 @@ const PALETTE: PaletteFixtures = {
   recent: ["pull:armada:1896", "nav:reviews", "cmd:audit", "session:w1"],
 };
 
-/** What Fleet lists for the Palette and Offline install projects, so a task can be filed in either. */
-const PROJECTS: Projects[] = [
-  {
-    manifest_id: ARMADA,
-    projects: [
-      {
-        id: "palette",
-        name: "Palette",
-        rows: [
-          { kind: "task", id: "task-columns", title: "Columns for the palette rows", notes: "", state: "open" },
-          { kind: "task", id: "task-tick", title: "Tick a task from the palette", notes: "", state: "open" },
-        ],
-      },
-    ],
-  },
-  { manifest_id: POCKET, projects: [{ id: "offline-install", name: "Offline install", rows: [{ kind: "task", id: "task-icons", title: "Warm the install icons", notes: "", state: "open" }] }] },
-];
+/** What Fleet lists for the Palette and Offline install projects, so a task can be filed in either and the palette finds it by title. */
+const task = (id: string, manifest_id: string, title: string) => ({ kind: "task" as const, id, manifest_id, title, notes: "", state: "open" as const });
+const PROJECTS: Projects = {
+  projects: [
+    { id: "palette", name: "Palette", rows: [task("task-columns", ARMADA, "Columns for the palette rows"), task("task-tick", ARMADA, "Tick a task from the palette")] },
+    { id: "offline-install", name: "Offline install", rows: [task("task-icons", POCKET, "Warm the install icons")] },
+  ],
+  loose: [],
+};
 
 const sessions = base.draft!.sessions!;
 

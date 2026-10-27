@@ -78,6 +78,10 @@ export type PaletteEntry = {
   icon?: LucideIcon;
   /** A setting's current value, in mono, right of the label. */
   value?: string;
+  /** Said after the label with the repository: where a task stands, as a result of a search says what it is in. Never searched. */
+  detail?: string;
+  /** Drawn only while something is typed, for a long list of results that would bury the acts if it were listed at rest. */
+  searchOnly?: boolean;
   /** Danger is the dropdown-menu treatment: red label and glyph, no fill. */
   destructive?: boolean;
   /**
@@ -169,7 +173,7 @@ type Hit = {
 };
 
 function hit(entry: PaletteEntry, query: string): Hit | null {
-  if (query === "") return { entry, at: null };
+  if (query === "") return entry.searchOnly === true ? null : { entry, at: null };
   const wanted = query.toLowerCase();
   const label = entry.label.toLowerCase();
   const aliases = [...(entry.aliases ?? []), ...(entry.meta === undefined ? [] : [entry.meta.number, entry.meta.repo].flatMap((one) => one ?? []))].map((held) => held.toLowerCase());
@@ -664,7 +668,7 @@ function Row({
         <span className="armada-palette__title">
           <Marked label={entry.label} query={query} at={held.at} />
         </span>
-        <Subtitle meta={entry.meta} value={entry.value} dormant={entry.dormant} />
+        <Subtitle meta={entry.meta} detail={entry.detail} value={entry.value} dormant={entry.dormant} />
       </span>
       {/* What the row is, flush right. While ⌘ is held its digit sits over the
           kind, which blurs behind it, as Raycast draws it (the owner, 27 Oct 2026). */}

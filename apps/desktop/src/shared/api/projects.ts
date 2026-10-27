@@ -1,42 +1,43 @@
-// A repository's projects, kept in Fleet: every route, and the event that carries them whole. `docs/practices/protocol/projects.md`.
+// His projects across repositories, kept in Fleet: every route, and the event that carries them whole. `docs/practices/protocol/projects.md`.
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
 
-/** What a read or a write came to: the repository's projects as Fleet holds them now, or the refusal to word. */
+/** What a read or a write came to: his projects as Fleet holds them now, or the refusal to word. */
 export type ProjectsActed = { ok: true; value: Projects } | { ok: false; outcome: Outcome };
 
 export type ProjectsApi = {
-  /** The repository's projects, each with its rows in order. */
-  listProjects: (manifestId: string) => Promise<ProjectsActed>;
-  addProject: (manifestId: string, body: NameProject) => Promise<ProjectsActed>;
-  renameProject: (manifestId: string, project: string, body: NameProject) => Promise<ProjectsActed>;
+  /** His projects, each with its rows in order, and the tasks in none. */
+  listProjects: () => Promise<ProjectsActed>;
+  addProject: (body: NameProject) => Promise<ProjectsActed>;
+  renameProject: (project: string, body: NameProject) => Promise<ProjectsActed>;
   /** Its rows go with it. */
-  deleteProject: (manifestId: string, project: string) => Promise<ProjectsActed>;
-  /** A task, open, at the end of the project's rows. */
-  addProjectTask: (manifestId: string, project: string, body: ProjectTask) => Promise<ProjectsActed>;
+  deleteProject: (project: string) => Promise<ProjectsActed>;
+  /** A task, open, in a repository, at the end of the project or, with none, of the loose tasks. */
+  addProjectTask: (body: NewProjectTask) => Promise<ProjectsActed>;
   /** A task under the top-level task `row`, at the end of its subtasks. */
-  addProjectSubtask: (manifestId: string, project: string, row: string, body: ProjectTask) => Promise<ProjectsActed>;
+  addProjectSubtask: (row: string, body: ProjectTask) => Promise<ProjectsActed>;
   /** A task's title and notes, whole. */
-  editProjectTask: (manifestId: string, project: string, row: string, body: ProjectTask) => Promise<ProjectsActed>;
-  /** An issue joins the project as a row. */
-  linkProjectIssue: (manifestId: string, project: string, body: LinkProjectIssue) => Promise<ProjectsActed>;
+  editProjectTask: (row: string, body: ProjectTask) => Promise<ProjectsActed>;
+  /** An issue of a repository joins the project, or the loose rows, as a row. */
+  linkProjectIssue: (body: NewProjectIssue) => Promise<ProjectsActed>;
   /** An issue on a task or subtask. Linking it again changes nothing. */
-  linkTaskIssue: (manifestId: string, project: string, row: string, body: LinkProjectIssue) => Promise<ProjectsActed>;
-  unlinkTaskIssue: (manifestId: string, project: string, row: string, body: LinkProjectIssue) => Promise<ProjectsActed>;
+  linkTaskIssue: (row: string, body: LinkProjectIssue) => Promise<ProjectsActed>;
+  unlinkTaskIssue: (row: string, body: LinkProjectIssue) => Promise<ProjectsActed>;
   /** A task deleted or an issue row unlinked; a task's subtasks go with it. */
-  removeProjectRow: (manifestId: string, project: string, row: string) => Promise<ProjectsActed>;
-  moveProjectRow: (manifestId: string, project: string, row: string, body: MoveProjectRow) => Promise<ProjectsActed>;
+  removeProjectRow: (row: string) => Promise<ProjectsActed>;
+  /** To a place in a project or out of every one, keeping its repository. */
+  moveProjectRow: (row: string, body: MoveProjectRow) => Promise<ProjectsActed>;
   /** Done, or open again. On a row the Job asked about it answers the ask. */
-  tickProjectTask: (manifestId: string, project: string, row: string, body: TickProjectTask) => Promise<ProjectsActed>;
-  /** A live Job of the repository holds the task and its subtasks, as if started with them; one holding it is replaced. */
-  linkTaskJob: (manifestId: string, project: string, row: string, body: LinkTaskJob) => Promise<ProjectsActed>;
+  tickProjectTask: (row: string, body: TickProjectTask) => Promise<ProjectsActed>;
+  /** A live Job of the task's repository holds the task and its subtasks, as if started with them; one holding it is replaced. */
+  linkTaskJob: (row: string, body: LinkTaskJob) => Promise<ProjectsActed>;
   /** A held task, and the subtasks the same Job held, go back to open. */
-  unlinkTaskJob: (manifestId: string, project: string, row: string) => Promise<ProjectsActed>;
-  /** A pull request of the repository, by number, on a task or subtask. */
-  linkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull) => Promise<ProjectsActed>;
-  unlinkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull) => Promise<ProjectsActed>;
-  /** `projects.changed`: a repository's projects, whole, after any write to one. */
+  unlinkTaskJob: (row: string) => Promise<ProjectsActed>;
+  /** A pull request of the task's repository, by number, on a task or subtask. */
+  linkTaskPull: (row: string, body: LinkTaskPull) => Promise<ProjectsActed>;
+  unlinkTaskPull: (row: string, body: LinkTaskPull) => Promise<ProjectsActed>;
+  /** `projects.changed`: his projects, whole, after any write to one. */
   onProjectsChanged: (onChanged: (projects: Projects) => void) => () => void;
 };
 

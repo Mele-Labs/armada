@@ -10,7 +10,7 @@ import type { RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { RunFact, TimelineEvent, WriteClash } from "@armada/protocol";
-import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
+import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord, Syncs } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
 import type { PanelReads } from "../shared-panel/reads";
@@ -74,7 +74,15 @@ export type MockDraft = {
    * The shared home this machine is signed in to, and how each row stands against it. `staysHere` names the
    * rows only on this machine that a Sync cannot add, each with the sentence Fleet tells for it. Mock only.
    */
-  sharedHome?: { account: string; repository: string; rows: readonly SharedRow[]; staysHere?: readonly { kind: string; name: string; why: string }[] };
+  sharedHome?: {
+    account: string;
+    repository: string;
+    /** Every row as if every kind synced; `syncs` narrows what is drawn. */
+    rows: readonly SharedRow[];
+    staysHere?: readonly { kind: string; name: string; why: string }[];
+    /** What syncs, switched from Kit. Absent follows the Account page's What syncs and draws no switches. */
+    syncs?: Syncs;
+  };
   /**
    * The machine starts signed out. Signing in as `signIn.login` shows `signIn.code` and sets up the
    * shared home `repository`; `add` is the second login a profile adds, with the items each of its

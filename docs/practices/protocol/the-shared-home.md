@@ -11,19 +11,20 @@ Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field 
 | Where | Side | Carries |
 | --- | --- | --- |
 | `get_shared_home` (`GET /shared_home?login=`, `agent_access = "No"`) | Bridge asks, Fleet answers 200 | `SharedHomeRead` `{ home?, planned?, rows, unreadable }`: `home` `{ account, repository }`, left out with no copy here; `planned` `HomePlanned` `{ account, repository, exists }`, where it is or will be, served whenever `home` is left out; each row `HomeRow` `{ kind, name, state, says?, source?, repository?, key_here?, mod_kind?, here?, there? }` |
-| `sync_shared_home` (`POST /shared_home/sync`, `No`) | Bridge sends, Fleet answers 200 | `HomeProfile` `{ login }`; makes the home where it does not exist, clones or pulls it, adds every row only on this machine of each kind switched on in one commit and one push, and answers `HomeSynced`: `SharedHomeRead` flattened, and `left`, each `HomeLeft` `{ kind, name, repository?, why }` a row only here that stayed, `why` Fleet's sentence naming it |
+| `sync_shared_home` (`POST /shared_home/sync`, `No`) | Bridge sends, Fleet answers 200 | `HomeProfile` `{ login }`; makes the home where it does not exist, clones or pulls it, adds every row only on this machine of each kind switched on, and each item switched on on its own, in one commit and one push, and answers `HomeSynced`: `SharedHomeRead` flattened, and `left`, each `HomeLeft` `{ kind, name, repository?, why }` a row only here that stayed, `why` Fleet's sentence naming it |
 | `add_to_shared_home` (`POST /shared_home/add`, `No`) | Bridge sends, Fleet answers 200 | `HomeRowAt` `{ login, kind, name, repository? }`; answers `SharedHomeRead` |
 | `bring_from_shared_home` (`POST /shared_home/bring`, `No`) | Bridge sends, Fleet answers 200 | `HomeRowAt`; answers `SharedHomeRead` |
 | `choose_shared_home_side` (`POST /shared_home/choose`, `No`) | Bridge sends, Fleet answers 200 | `ChooseHomeSide` `{ row, side }`, `side` `here` or `there`; answers `SharedHomeRead` |
-| `get_home_kinds` (`GET /shared_home/kinds?login=`, `No`) | Bridge asks, Fleet answers 200 | `HomeKinds` `{ login, kinds }`, one `{ kind, on }` a kind, every one off until turned on |
+| `get_home_kinds` (`GET /shared_home/kinds?login=`, `No`) | Bridge asks, Fleet answers 200 | `HomeKinds` `{ login, kinds, items }`, one `{ kind, on }` a kind, every one off until turned on, and `items`, each `HomeItem` `{ kind, name, repository? }` switched on on its own |
 | `set_home_kind` (`POST /shared_home/kinds/set`, `No`) | Bridge sends, Fleet answers 200 | `SetHomeKind` `{ login, kind, on }`; answers `HomeKinds` |
+| `set_home_item` (`POST /shared_home/items/set`, `No`) | Bridge sends, Fleet answers 200 | `SetHomeItem` `{ login, kind, name, repository?, on }`; an item on has its row and is added by Sync while its kind is off; answers `HomeKinds` |
 | `set_home_repository` (`POST /shared_home/repository`, `No`) | Bridge sends, Fleet answers 200 | `SetHomeRepository` `{ login, owner, name }`; keeps where the first Sync makes the home and answers `SharedHomeRead` |
 
 **Mapping onto Kit.** A `HomeRow` is Bridge's `SharedRow` with `key_here` in place of `keyHere` and inverted: Kit's `keyHere: true` draws the key mark, and the wire's `key_here: false` is a server whose key is not here.
 `mod_kind` is Kit's `modKind`, the kind a mod's `mod.toml` names, this machine's where it has the mod and else the home's, so a mod only the home has is listed under its own kind.
 `syncing` is Bridge's own while `sync_shared_home` is in flight.
 A memory row's act carries its `repository`, which Kit's row does not, so Bridge keeps each drawn row's wire row beside it.
-Bridge calls the eight through main, `apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.
+Bridge calls the nine through main, `apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.
 
 **A row that differs is never merged.** Add and Bring refuse it with a 409 `fleet.home_row_differs`; only `choose_shared_home_side` replaces a side, and it takes away the files the kept side has not.
 Sync passes it by, and Bring stays the person's act.
@@ -49,4 +50,4 @@ A sign-in's `setup` flow reads the home's row `done`, and names the repository, 
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. Were a pair to meet anyway, a Fleet without the routes answers 404.
 
-**The event stream.** Untouched: none of the eight publishes an event, so the open risk below is no better and no worse.
+**The event stream.** Untouched: none of the nine publishes an event, so the open risk below is no better and no worse.

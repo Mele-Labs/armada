@@ -9,7 +9,8 @@
 //
 // # The contents, in the order the contract fixes
 //
-// Acts on the current context, navigation, sessions, settings. The context block
+// Acts on the current context, navigation, sessions, settings; the Projects tab's tasks sit after the sessions and are listed only
+// while something is typed. The context block
 // is **titled with what it acts on**, so a palette that will act on something
 // says which something before the first row is read.
 //
@@ -60,9 +61,6 @@ export type PaletteSession = {
 /** An open pull request, an issue: found by its number or any word of its title. */
 export type PaletteTicket = { number: number; title: string; repo: string };
 
-/** One of his tasks, with the project it sits in. */
-export type PaletteTask = { id: string; title: string; project: string; repo: string };
-
 /**
  * A row a Commands mod brings: opening a URL, running a shell line, a chain of palette steps, or a prompt that
  * waits on a blank. **A `prompt` with a blank asks for it in a second step** before it dispatches.
@@ -80,6 +78,9 @@ export const PALETTE_OPENS: readonly { id: PaletteOpens; label: string }[] = [
   { id: "page", label: "This page first" },
   { id: "everything", label: "Everything" },
 ];
+
+/** A task or subtask of the Projects tab as a search result: found by its title, with where it stands as a quiet second line. */
+export type PaletteTask = { id: string; label: string; detail: string };
 
 /**
  * A destination in Bridge, with the digit that reaches it where it has one.
@@ -165,6 +166,7 @@ export type PaletteBoardRow = { id: string; label: string; icon?: LucideIcon; de
 export type PaletteChoice =
   | { of: "act"; id: string }
   | { of: "session"; id: string }
+  | { of: "task"; id: string }
   | { of: "surface"; id: string }
   | { of: "run"; id: string }
   | { of: "setting"; id: string }
@@ -211,6 +213,8 @@ export type PaletteProps = {
   board?: readonly PaletteBoardRow[];
   /** Sessions to jump to. Absent draws none. */
   sessions?: readonly PaletteSession[];
+  /** Tasks and subtasks to jump to, listed only while something is typed. Absent draws none. */
+  tasks?: readonly PaletteTask[];
   settings: readonly PaletteSetting[];
   /**
    * The repositories to pick between, and which one is picked (`null` is All). Absent or empty draws
@@ -246,7 +250,6 @@ export type PaletteProps = {
   page?: PalettePage;
   pulls?: readonly PaletteTicket[];
   issues?: readonly PaletteTicket[];
-  tasks?: readonly PaletteTask[];
   /** The rows a Commands mod brings. */
   commands?: readonly PaletteCommand[];
   /** The second step a command with a blank opens, or none. */
@@ -463,7 +466,8 @@ export function Palette({
     ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: [...session.aliases, ...(session.pull === undefined ? [] : [`#${session.pull}`])], meta: metaOfJob(session) })),
     ...pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: PULLS, label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
     ...issues.map((one) => ({ id: `issue:${one.repo}:${one.number}`, section: ISSUES, label: one.title, icon: CircleDot, meta: { repo: one.repo, number: `#${one.number}` } })),
-    ...tasks.map((one) => ({ id: `task:${one.id}`, section: TASKS, label: one.title, icon: ListTodo, meta: { repo: one.repo }, aliases: [one.project] })),
+    // Searched, never listed at rest: a long list of tasks would bury the acts. A pinned or recent one is shown at rest below.
+    ...tasks.map((one) => ({ id: `task:${one.id}`, section: TASKS, label: one.label, icon: ListTodo, detail: one.detail, searchOnly: true })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
       section: SETTINGS,
@@ -486,7 +490,7 @@ export function Palette({
     opens === "pinned" && kept.length + lately.length > 0
       ? {
           sections: [...(kept.length === 0 ? [] : [{ id: PINNED, title: "Pinned" }]), ...(lately.length === 0 ? [] : [{ id: RECENT, title: "Recent" }])],
-          entries: [...kept.map((entry) => ({ ...entry, section: PINNED })), ...lately.map((entry) => ({ ...entry, section: RECENT }))],
+          entries: [...kept.map((entry) => ({ ...entry, section: PINNED, searchOnly: false })), ...lately.map((entry) => ({ ...entry, section: RECENT, searchOnly: false }))],
         }
       : opens === "everything"
       ? { sections: sections.filter((one) => one.id !== PAGE), entries: entries.filter((entry) => entry.section !== PAGE) }
@@ -556,6 +560,7 @@ function choiceOf(id: string): PaletteChoice {
   if (id.startsWith("act:")) return { of: "act", id: rest };
   if (id.startsWith("nav:")) return { of: "surface", id: rest };
   if (id.startsWith("session:")) return { of: "session", id: rest };
+  if (id.startsWith("task:")) return { of: "task", id: rest };
   if (id.startsWith("tab:")) return { of: "filter", id: rest };
   if (id.startsWith("run:")) return { of: "run", id: rest };
   if (id.startsWith("board:")) return { of: "board", id: rest };

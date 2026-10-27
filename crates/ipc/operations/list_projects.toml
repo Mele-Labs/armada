@@ -2,9 +2,9 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "A repository's projects, each with its rows in order"
+description = "His projects, each with its rows in order, and the tasks in none"
 notes = """
-`GET /projects/:repository`, `repository` a manifest id. `docs/practices/protocol/projects.md`. Answers `Projects`: `manifest_id` and `projects` in the order he keeps them, each `{ id, name, rows }`. A row is `{ kind: "task", id, title, notes, state }`, `state` `open` or `done`, or `{ kind: "issue", id, issue, title?, state? }`, `issue` the tracker's reference only.
+`GET /projects`. `docs/practices/protocol/projects.md`. Answers `Projects`: `projects` in the order he keeps them, each `{ id, name, rows }`, and `loose`, the tasks in no project, in their own order. **A project is his and has no repository**: every row names its own, `manifest_id`, and a project may hold rows of several. A row is `{ kind: "task", id, manifest_id, title, notes, state }`, `state` `open`, `done`, `held` or `asked`, or `{ kind: "issue", id, manifest_id, issue, title?, state? }`, `issue` the tracker's reference only.
 
-**An issue row keeps no state.** Its `state` (`open` or `closed`) and `title` are the tracker's, read when the rows are: the open list Fleet holds for the Issues tab, and an issue not on it read by its reference, each held five minutes. Where the tracker cannot say, both are absent and nothing is refused. Kept in Fleet's store on this Mac and survives a restart; never written to the repository or the Manifest. A 422 for a repository Fleet does not serve.
+**An issue row keeps no state.** Its `state` (`open` or `closed`) and `title` are the tracker's, read when the rows are, from the tracker of the row's repository: the open list Fleet holds for the Issues tab, and an issue not on it read by its reference, each held five minutes. Where the tracker cannot say, both are absent and nothing is refused. Kept in Fleet's store on this Mac and survives a restart; never written to the repository or the Manifest.
 """
