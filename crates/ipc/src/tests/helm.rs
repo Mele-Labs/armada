@@ -263,7 +263,7 @@ fn a_reach_card(kind: Option<crate::CallKind>) -> crate::HelmCallInFlight {
         offers: vec![crate::HelmCallAnswer::AllowOnce, crate::HelmCallAnswer::AllowLikeThisForSession],
         holding_for_seconds: 600,
         questions: Vec::new(),
-        reaches: Some("/Users/someone/Desktop/shot.png".into()),
+        reaches: Some("/Users/user/Desktop/shot.png".into()),
         reaches_to: Some(crate::ReachesTo::Write),
         kind,
     }
@@ -296,7 +296,7 @@ fn allowing_calls_like_this_round_trips_with_its_kind() {
         answer,
         note: None,
         answers: Vec::new(),
-        folder: Some("/Users/someone/Desktop".into()),
+        folder: Some("/Users/user/Desktop".into()),
         kind: Some(crate::CallKind { program: "node".into(), script: None }),
     };
     let json = encode(&said).expect("plain data");
