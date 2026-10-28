@@ -15,7 +15,7 @@ export const linkedSessions = walk("linked-sessions", [
   { later: thread, say: "One of them asks a question" },
   { later: thread, say: "Another merges its pull request" },
   { look: inside(thread, button(/^One row for each migration, Merged/)), say: "The merge is in the parent's thread where it happened, and its agent is told. The question is on the asking Job's own row only" },
-  { press: inside(plan, button("List them in System")), say: "A group that was not handed off opens to Hand to a Job" },
+  { press: inside(plan, button("List them in System")), say: "A group that was not handed off opens to its tasks alone. Only the agent hands a group to a Job" },
   { key: "Enter", on: inside(plan, button("Open Migrations apply in order")), say: "Enter on a Job's row opens it" },
   { key: "Escape", on: region("Job: Migrations apply in order"), say: "Esc is Back. The parent returns with its thread and its open group as they were" },
 ]);
