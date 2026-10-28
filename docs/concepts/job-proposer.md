@@ -112,7 +112,22 @@ Fleet makes the call on them, against the workflows and the models this machine 
 Each field the proposer did fill is listed in the record's `proposal.picked` until the person changes that field.
 
 **A failure starts the Job on the machine's defaults.** A call that fails, passes its budget or answers with no `workflow:` line is logged on Fleet's stderr and the Job starts as if no request had been given, with the first line of the request for a title.
-Nothing is refused, and there is no second try: a Job is a person's own conversation, and a reading that lingers is worse than none.
+Nothing is refused, and the Job's start never waits on a second call.
+
+**A failed reading is tried once more, for the title alone.** The owner decided it on 28 October 2026, so that more of his Jobs are named his way.
+The try runs in the background after the Job has started, asks the start's question and reads only the `title:` line.
+Its title replaces the stand-in only where the Job still holds it: a rename of his, the wand or anything else that titled the Job meanwhile ends the try.
+A title it gives is listed in `proposal.picked`, as the reading's would be.
+A second failure is logged on Fleet's stderr as the first is, and the Job keeps its stand-in.
+`crates/fleet/src/session_host/naming.rs`.
+
+**A title an agent gives a Job is a hint, not his.** The owner decided it on 28 October 2026: a Job an agent starts is named his way too.
+`start_another_session`, a plan group handed to a Job and `fork_this_session` all carry one, a plan group's being the group's title.
+The question carries the hint ahead of the answer format, and the answer's title replaces it.
+An answer with no title, or a failed call and its second try, leaves the agent's title.
+A fork is not read, so it is asked for its title alone when Start sends its first turn.
+A title he gives on the dispatch sheet, or by renaming the Job before the answer lands, still wins.
+Fleet's own Jobs, such as Commit to repository and Promote, keep the title Fleet gives them.
 
 **The prompt is a constant, not an editable setting.** It is one fixed question with three lines of answer. Revisit if one is wanted.
 
@@ -132,6 +147,8 @@ A Job with no message from him, or no title before the rename, teaches nothing.
 **The question carries his last 12, this repository's first,** each as the request, Armada's name and his, ahead of the answer format.
 It is told to name the Job the way he names his, over the `title:` line's own advice where the two differ.
 With none kept, the question is as it was.
+
+**A Job an agent started, and a Job whose reading failed, are named from his renames too.** An agent's title is only a hint, and a failed reading has one more try for the title, both above.
 
 **Nothing on screen says it learned.** He chose it invisible on 24 October 2026: a name that is wrong is renamed, and that rename is learned too.
 
