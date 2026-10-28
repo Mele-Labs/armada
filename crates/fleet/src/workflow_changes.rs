@@ -32,7 +32,7 @@ use store::{KeptWorkflowChange, NewWorkflowChange};
 
 use crate::daemon::Fleet;
 use crate::rail;
-use crate::rail_ends::{ends_when, passed_over_when};
+use crate::rail_ends::{ends_any, ends_when, passed_over_when};
 use crate::repositories::Served;
 use crate::workflow_page::IS_ARMADAS;
 
@@ -773,6 +773,7 @@ where
             label: steps[at].label.clone(),
             instructions: steps[at].instructions.clone(),
             ends_when: ends_when(&steps, at).map(str::to_string),
+            ends_any: ends_any(&steps, at).into_iter().map(str::to_string).collect(),
             passed_over_when: passed_over_when(&steps[at]).map(str::to_string),
         });
         Some(read.collect())

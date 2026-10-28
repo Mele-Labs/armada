@@ -104,6 +104,11 @@ export function dormantIn(where: {
     dispatch_after: "⌥A does this",
     // The key puts the caret in the open Job's message box, which the palette's own field has just taken it from.
     message_job: "⌥M does this",
+    // The four answer the target card in a Job's thread, which opening the palette took focus from.
+    thread_yes: "⌥↵ on a card in a Job's thread",
+    thread_change: "⌥E on a card in a Job's thread",
+    thread_send_back: "⌥R on a card in a Job's thread",
+    thread_no: "⌥X on a card in a Job's thread",
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",

@@ -968,6 +968,25 @@ Bridge's half is `held_child` on `WaitingSource` in `packages/protocol/src/sessi
 **The event stream.** No new event: the item and `queued` ride the `session.changed` a hosted Job already publishes, and `started` one more `session.row` on the parent.
 The open risk below is neither better nor worse.
 
+## A sketch approved or sent back: `answer_sketch`, and `asked`, `drawn` and `settled` on a sketch
+
+Since 28 Oct 2026. `crates/ipc/operations/answer_sketch.toml`.
+**One operation and keys of a sketch's `detail`**: a new route, its body and one enum; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `packages/protocol/src` for Bridge's half.
+Bridge's half is `AnswerSketch` and `SketchHow` in `packages/protocol/src/sessions.ts`, written by hand, `answerSketch` on its Fleet client, and the `detail` keys read by `sketchOf` in `packages/screens/src/sessions-wire.ts`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `answer_sketch` (`POST /sessions/sketch/answer`, `agent_access = "No"`) | Bridge writes | `AnswerSketch` `{ session_id, sketch, drawn, how, words? }`, `how` `approved` or `sent_back`; answers the `SessionRecord`. 409 `fleet.sketch_redrawn` for a `drawn` that is not the sketch's now; 422 `fleet.sketch_not_open`, `fleet.sketch_answer_empty` and `fleet.sketch_answer_unnamed`, with nothing written or sent |
+| `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws, and `drawn` an id new on every draw. A plan's sketch has neither |
+| `detail.settled`, `detail.settled_at`, `detail.words` | Fleet writes, Bridge reads | How he answered, `approved` or `sent_back`, when, and his note. Gone when the title is drawn again |
+
+**Not a `waiting_for` item**: the owner answers a sketch on its card.
+The job is told as his message, as a draft's answer is, and the rail reads an approval back off that message.
+
+**Skew.** As above.
+**The event stream.** No new event: an answer publishes `session.changed`, as a draft's does. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

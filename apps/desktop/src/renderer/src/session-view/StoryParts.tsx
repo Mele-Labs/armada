@@ -247,7 +247,9 @@ export function MadeList({ session, list, label, newest }: { session: Session; l
 /** A finished group: its mark, its title and its tasks as one track, with what it produced beneath it (the issue it worked, its pull requests, the Job it was handed to). */
 export function DoneGroup({ group, open = false, session, onOpenSession }: { group: ViewGroup; /** Whole plan: its tasks listed under it. */ open?: boolean; session: Session; onOpenSession: (id: string) => void }) {
   const sessions = useSessions();
-  const named = issueOfGroup(session, group.issue);
+  // What is still open stands in the current step and the Open group (`StoryColumn.tsx`), never under a finished step.
+  const found = issueOfGroup(session, group.issue);
+  const named = found === undefined ? undefined : { issue: found.issue, prs: found.prs.filter((pr) => pr.state === "merged") };
   const child = childrenOf(sessions, session).find((one) => one.group === group.id)?.session;
   return (
     <li className="sv-beat sv-beat--group" data-state="done" data-group={group.id}>
@@ -265,7 +267,7 @@ export function DoneGroup({ group, open = false, session, onOpenSession }: { gro
       )}
       {named === undefined && child === undefined ? null : (
         <div className="sv-beat__made">
-          {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={session.manifestId} />}
+          {named === undefined || named.issue.state === "open" ? null : <GroupIssue issue={named.issue} manifestId={session.manifestId} />}
           {named === undefined || named.prs.length === 0 ? null : (
             <ul className="sv-landing__prs" aria-label="Pull requests">
               {named.prs.map((pr) => (

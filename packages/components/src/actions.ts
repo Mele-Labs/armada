@@ -87,6 +87,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   logbook: [],
   // A plan card's keys: found from Settings → Keyboard and the tooltips on its acts.
   plan: [],
+  // The keys on a Job's thread cards: found from Settings → Keyboard and the kbds the target card draws.
+  thread: [],
 };
 
 /**

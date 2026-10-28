@@ -19,13 +19,14 @@
 //! entered by itself.
 //!
 //! **Steps before the plan, and the walk.** A step before the recording step is current until a plan
-//! is recorded, or, with `awaits_reply`, until the person replies; the recording step is then entered
-//! when a plan is recorded. A `walks` step is current from the plan's approval until he approves a
-//! window the Job showed, and is passed over when the plan named no walk and no window was shown. A
-//! `follows_plan` step after it is entered only once it is passed.
+//! is recorded, or until any end its `ends_on` lists holds (`awaits_reply` is `replied`); the
+//! recording step is then entered when a plan is recorded. A `walks` step is current from the plan's
+//! approval until he approves a window the Job showed, at or after that approval, and is passed over
+//! when the plan named no walk and no window was shown. A `follows_plan` step after it is entered only
+//! once it is passed.
 
 use config::ResolvedWorkflow;
-use core_model::{EvidenceType, JudgeCriterion, ResolvedCheck, ResolvedStep, StepPhase};
+use core_model::{EvidenceType, JudgeCriterion, ResolvedCheck, ResolvedStep, StepEnd, StepPhase};
 use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord, SessionStanding, TouchAct};
 
 use crate::rail_ends;
@@ -58,8 +59,8 @@ pub(crate) struct RailStep {
     pub asks_delivery: bool,
     /// The step where the person is shown the work and approves it before tests are written.
     pub walks: bool,
-    /// The step ends when the person replies.
-    pub awaits_reply: bool,
+    /// What the person does that ends the step, any one of them. Empty for a step that lists none.
+    pub ends_on: Vec<StepEnd>,
     /// What a boundary judge asks after the step. Empty is a step nobody judges.
     pub criteria: Vec<JudgeCriterion>,
     pub fit: Option<Fit>,
@@ -101,7 +102,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
             walks: step.walks(),
-            awaits_reply: step.awaits_reply(),
+            ends_on: step.ends_on().to_vec(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
             fit: fit_of(step),
         })
@@ -117,8 +118,17 @@ pub(crate) struct Extra {
     pub replied: bool,
     /// The Job showed a window.
     pub walk_shown: bool,
-    /// The person approved a window the Job showed.
+    /// The person approved a window the Job showed at or after the plan's approval: what passes a
+    /// `walks` step.
     pub walk_approved: bool,
+    /// The person approved a window the Job showed, whenever: what a `walk_approved` end reads.
+    pub any_walk_approved: bool,
+    /// The person approved a sketch the Job showed.
+    pub sketch_approved: bool,
+    /// The person approved a draft the Job proposed, as written or with his own text.
+    pub draft_approved: bool,
+    /// The person picked an option the Job's question gave a preview.
+    pub idea_picked: bool,
     /// The recorded plan names a walk or says the person would see the change.
     pub plan_expects_walk: bool,
 }
@@ -137,7 +147,12 @@ pub(crate) struct Facts {
     pub pr_opened: bool,
     pub landed: bool,
     pub walk_shown: bool,
+    /// Approved at or after the plan's approval. [`Extra::walk_approved`].
     pub walk_approved: bool,
+    pub any_walk_approved: bool,
+    pub sketch_approved: bool,
+    pub draft_approved: bool,
+    pub idea_picked: bool,
     pub plan_expects_walk: bool,
     /// A test file was written or edited.
     pub test_edited: bool,
@@ -169,6 +184,10 @@ impl Facts {
             landed: record.build.as_ref().is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some()),
             walk_shown: extra.walk_shown,
             walk_approved: extra.walk_approved,
+            any_walk_approved: extra.any_walk_approved,
+            sketch_approved: extra.sketch_approved,
+            draft_approved: extra.draft_approved,
+            idea_picked: extra.idea_picked,
             plan_expects_walk: extra.plan_expects_walk,
             test_edited: record
                 .touches
@@ -183,10 +202,26 @@ impl Facts {
         self.plan_expects_walk || self.walk_shown
     }
 
-    /// The walk was approved, or nothing would be seen: the plan was approved with no walk expected
-    /// and the Job has pushed. Until it pushes, a mock may still be coming.
+    /// The walk was approved since the plan was, or nothing would be seen: the plan was approved
+    /// with no walk expected and the Job has pushed. Until it pushes, a mock may still be coming. A
+    /// walk approved before the plan was ends a step before the plan and never this one.
     pub(crate) fn walk_passed(&self) -> bool {
         self.walk_approved || (self.plan_approved && !self.walk_expected() && self.pushed)
+    }
+
+    /// Whether the person did what `end` names.
+    pub(crate) fn ended(&self, end: StepEnd) -> bool {
+        match end {
+            StepEnd::Replied => self.replied,
+            StepEnd::WalkApproved => self.any_walk_approved,
+            StepEnd::SketchApproved => self.sketch_approved,
+            StepEnd::DraftApproved => self.draft_approved,
+            StepEnd::IdeaPicked => self.idea_picked,
+        }
+    }
+
+    fn any_ended(&self, ends: &[StepEnd]) -> bool {
+        ends.iter().any(|end| self.ended(*end))
     }
 
     fn has(&self, fit: Fit) -> bool {
@@ -220,7 +255,7 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return facts.landed;
     }
     if recorder(steps).is_some_and(|recording| at < recording) {
-        return facts.plan_recorded || (step.awaits_reply && facts.replied);
+        return facts.plan_recorded || facts.any_ended(&step.ends_on);
     }
     true
 }
@@ -245,8 +280,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
-        let waiting = if step.awaits_reply { !facts.replied } else { true };
-        return waiting && !facts.plan_recorded && before(at);
+        return !facts.any_ended(&step.ends_on) && !facts.plan_recorded && before(at);
     }
     let Some(fit) = step.fit else { return false };
     facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit))
@@ -391,10 +425,12 @@ pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Optio
     let step = steps.get(at)?;
     let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty())?;
     let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label);
-    if let Some(end) = rail_ends::end_of(steps, at) {
-        said.push_str(&format!("\n\nThis step ends when {}.", end.for_agent()));
+    let ends = rail_ends::ends_of(steps, at);
+    if !ends.is_empty() {
+        let each: Vec<&str> = ends.iter().map(|end| end.for_agent()).collect();
+        said.push_str(&format!("\n\nThis step ends when {}.", each.join(", or ")));
         // A Job that pushed and stopped, waiting to be told to deliver, sat idle (28 Oct 2026).
-        if let Some(next) = steps.get(at + 1).filter(|next| next.delivers && end.by_the_job()) {
+        if let Some(next) = steps.get(at + 1).filter(|next| next.delivers && ends.iter().all(|end| end.by_the_job())) {
             said.push_str(&format!(
                 " Then carry straight on with its \"{}\" step in the same turn, the way the person chose to deliver: \
                  do not end your turn to wait for Fleet's message.",

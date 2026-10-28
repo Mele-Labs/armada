@@ -12,6 +12,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useKept } from "../../keep";
 import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
+import { ThreadKbd, useThreadCard } from "./thread-keys";
 
 const BEHIND = 3;
 
@@ -111,6 +112,39 @@ export function QuestionDeck({
     setUsing(at(using, front, one.multi_select ? using[front] !== true : true));
     if (!one.multi_select) setPicked(at(picked, front, []));
   };
+  const answer = () => {
+    const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
+    if (sent === undefined) return letGo();
+    setSending(true);
+    void sent.then(letGo, () => undefined).finally(() => setSending(false));
+  };
+  const skip = () => {
+    letGo();
+    void onAnswer("refuse");
+  };
+  const home = useRef<HTMLDivElement>(null);
+  // Other opened by its key takes the caret, and one already open takes it back.
+  const openOther = () => {
+    setOpen(true);
+    if (using[front] !== true) other();
+    window.requestAnimationFrame(() => home.current?.querySelector<HTMLInputElement>('input[aria-label="Other"]')?.focus());
+  };
+  // One of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Answer once every question has one, `⌥E` Other, `⌥X` Skip.
+  const { target, bind } = useThreadCard({
+    id: `question:${keep ?? questions[0]?.question ?? ""}`,
+    kind: "Question",
+    title: one.header === "" ? one.question : `${one.header}: ${one.question}`,
+    acts: {
+      ...(last && complete && !sending ? { yes: { verb: "Answer", run: answer } } : {}),
+      change: { verb: "Other", run: openOther },
+      ...(canSkip ? { no: { verb: "Skip", run: skip } } : {}),
+    },
+  });
+  const keyed = (element: HTMLDivElement | null) => {
+    home.current = element;
+    bind.ref(element);
+  };
+
   // A number picks the tile it is drawn on, as in the Cockpit.
   const key = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!open || event.target instanceof HTMLInputElement) return;
@@ -151,7 +185,7 @@ export function QuestionDeck({
   );
 
   return (
-    <div className="armada-question-deck" data-flat={flat || undefined}>
+    <div className="armada-question-deck" data-flat={flat || undefined} {...bind} ref={keyed}>
       {flat ? null : front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => (
@@ -228,6 +262,7 @@ export function QuestionDeck({
                 <span className="armada-question-deck__option">
                   <span>Other</span>
                 </span>
+                <ThreadKbd act="change" on={target} />
               </button>
             </div>
             {previewed?.preview === undefined || looking === null ? null : <PreviewCard text={previewed.preview} row={looking.row} frame={looking.frame} />}
@@ -240,14 +275,10 @@ export function QuestionDeck({
                   size="sm"
                   variant="primary"
                   disabled={!complete || sending}
-                  onClick={() => {
-                    const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
-                    if (sent === undefined) return letGo();
-                    setSending(true);
-                    void sent.then(letGo, () => undefined).finally(() => setSending(false));
-                  }}
+                  onClick={answer}
                 >
                   Answer
+                  <ThreadKbd act="yes" on={target} />
                 </Button>
               ) : (
                 <Button size="sm" variant="secondary" disabled={chosenFor(front).length === 0} onClick={() => setFront(front + 1)}>
@@ -255,8 +286,9 @@ export function QuestionDeck({
                 </Button>
               )}
               {canSkip ? (
-                <Button size="sm" variant="ghost" onClick={() => { letGo(); void onAnswer("refuse"); }}>
+                <Button size="sm" variant="ghost" onClick={skip}>
                   Skip
+                  <ThreadKbd act="no" on={target} />
                 </Button>
               ) : null}
               {steps}

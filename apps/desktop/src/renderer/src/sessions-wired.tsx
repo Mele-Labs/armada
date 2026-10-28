@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { CallKind, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { AnswerSketch, CallKind, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -853,6 +853,8 @@ export class WiredStore {
       const request = { session_id: id, item_id: itemId, ...given };
       return this.plain(this.api.answerWaiting(request), { act: "answer_waiting", request });
     },
+    // A refusal, such as a sketch drawn again since, is a toast in Fleet's words; the card settles by Fleet's event.
+    answerSketch: (answer: AnswerSketch) => this.plain(this.api.answerSketch(answer), { act: "answer_sketch", request: answer }),
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => {
       const asked = this.lookup(id)?.asked;
       const call = asked?.call;

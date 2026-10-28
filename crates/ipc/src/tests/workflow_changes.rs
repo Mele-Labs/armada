@@ -39,6 +39,7 @@ fn a_cannot_change_carries_what_armada_lacks_and_its_steps_and_reads_back() {
         label: String::from("Propose"),
         instructions: None,
         ends_when: Some(String::from("you reply")),
+        ends_any: Vec::new(),
         passed_over_when: None,
     };
     let cannot = WorkflowChange {

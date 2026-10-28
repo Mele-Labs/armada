@@ -16,8 +16,8 @@
 use std::collections::BTreeMap;
 
 use core_model::{
-    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, PrMode, StepId,
-    StepPhase,
+    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, PrMode, StepEnd,
+    StepId, StepPhase,
 };
 use serde_yaml_ng::Value;
 
@@ -54,6 +54,7 @@ const STEP_KEYS: &[&str] = &[
     "asks_delivery",
     "walks",
     "awaits_reply",
+    "ends_on",
     "phase",
 ];
 
@@ -107,6 +108,16 @@ const PHASE_CARRIED: &[(&str, StepPhase)] = &[
 ];
 const PHASE_LEGAL: &[&str] = &["setup", "work", "delivery"];
 
+/// `ends_on`'s words, all carried.
+const ENDS_CARRIED: &[(&str, StepEnd)] = &[
+    ("replied", StepEnd::Replied),
+    ("walk_approved", StepEnd::WalkApproved),
+    ("sketch_approved", StepEnd::SketchApproved),
+    ("draft_approved", StepEnd::DraftApproved),
+    ("idea_picked", StepEnd::IdeaPicked),
+];
+const ENDS_LEGAL: &[&str] = &["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked"];
+
 /// The whole of the `evidence` block, and of the `submitted` object inside it.
 const EVIDENCE_KEYS: &[&str] = &["submitted", "captured", "walked"];
 const SUBMITTED_KEYS: &[&str] = &["type"];
@@ -137,7 +148,7 @@ pub struct Step {
     records_plan: bool,
     asks_delivery: bool,
     walks: bool,
-    awaits_reply: bool,
+    ends_on: Vec<StepEnd>,
     phase: Option<StepPhase>,
 }
 
@@ -330,10 +341,10 @@ impl Step {
         self.walks
     }
 
-    /// Whether the step ends when the person replies, before any plan is recorded. **False where
-    /// the file leaves the key out.** `workflowdef-fields.toml`, `awaits_reply`.
-    pub fn awaits_reply(&self) -> bool {
-        self.awaits_reply
+    /// What the person does that ends the step, any one of them: `ends_on`, with `awaits_reply:
+    /// true` read as `replied`. **Empty where the file writes neither.** `workflowdef-fields.toml`.
+    pub fn ends_on(&self) -> &[StepEnd] {
+        &self.ends_on
     }
 
     /// The phase the step declared. **`None` where the file leaves the key
@@ -456,6 +467,29 @@ pub(super) fn read(
         None => Some(false),
         Some(value) => yaml::flag(&awaits_key, value, out),
     };
+    // A word outside the set is refused naming the set, so a misspelt end is not a step that
+    // never ends.
+    let ends_key = table.at("ends_on");
+    let ends_on = match table.optional("ends_on") {
+        None => Some(Vec::new()),
+        Some(value) => yaml::list(&ends_key, value, out).and_then(|items| {
+            let read: Vec<Option<StepEnd>> = items
+                .iter()
+                .map(|(key, item)| yaml::word(key, item, ENDS_CARRIED, ENDS_LEGAL, ENDS_LEGAL, out))
+                .collect();
+            read.into_iter().collect::<Option<Vec<StepEnd>>>()
+        }),
+    };
+    // `awaits_reply: true` is `replied`, so the two spellings are one list, in the order written.
+    let ends_on = ends_on.zip(awaits_reply).map(|(listed, awaits)| {
+        let mut ends: Vec<StepEnd> = Vec::new();
+        for end in awaits.then_some(StepEnd::Replied).into_iter().chain(listed) {
+            if !ends.contains(&end) {
+                ends.push(end);
+            }
+        }
+        ends
+    });
     // **Absent is false, and anything that is not a boolean is a refusal** —
     // `records_plan`'s rule, for its reason: a value read as absent would
     // be a step written to work the plan that silently is not given the
@@ -620,7 +654,7 @@ pub(super) fn read(
         records_plan: records_plan?,
         asks_delivery: asks_delivery?,
         walks: walks?,
-        awaits_reply: awaits_reply?,
+        ends_on: ends_on?,
         phase,
     })
 }

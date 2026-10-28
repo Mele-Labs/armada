@@ -385,6 +385,7 @@ export { NOTICE_NAMES } from "./compositions/SessionThread/FleetTurn";
 export * from "./compositions/SessionThread/debug-info";
 export * from "./compositions/SessionThread/RequestedRow";
 export * from "./compositions/SessionThread/SavedRow";
+export * from "./compositions/SessionThread/thread-keys";
 export * from "./compositions/SessionRepository/SessionRepository";
 // A repository as a chip, where a surface names the repository a thing belongs to.
 export * from "./compositions/RepositoryChip/RepositoryChip";

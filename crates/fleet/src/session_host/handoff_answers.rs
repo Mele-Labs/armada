@@ -47,30 +47,17 @@ impl HandoffAnswer {
 
 /// How Bridge opens the person's answer to a question kept for a walk, a line a question
 /// (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts`).
-const ANSWERED_LATER: &str = "Answering your earlier question";
+pub(crate) const ANSWERED_LATER: &str = "Answering your earlier question";
 
 /// What the person chose on the kept `questions`, read off their message: each label one the
 /// question offered, so words of their own choose nothing.
-fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
+pub(crate) fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
     questions
         .iter()
         .filter_map(|asked| {
             let opening = format!("{ANSWERED_LATER} \"{}\": ", asked.question);
             let line = text.lines().find_map(|line| line.strip_prefix(opening.as_str()))?;
-            // Joined with ", ", which a label may hold itself.
-            let chosen = asked
-                .options
-                .iter()
-                .map(|option| option.label.as_str())
-                .filter(|label| {
-                    line == *label
-                        || line.starts_with(&format!("{label}, "))
-                        || line.ends_with(&format!(", {label}"))
-                        || line.contains(&format!(", {label}, "))
-                })
-                .map(String::from)
-                .collect();
-            Some(QuestionAnswer { question: asked.question.clone(), chosen })
+            Some(QuestionAnswer { question: asked.question.clone(), chosen: super::asking::labels_in(line, &asked.options) })
         })
         .collect()
 }

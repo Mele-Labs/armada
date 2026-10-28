@@ -19,7 +19,7 @@ use ipc::{
 use crate::authoring::{WORKFLOW_UNFIT as UNFIT, WORKFLOW_UNWRITABLE as UNWRITABLE};
 use crate::daemon::Fleet;
 use crate::rail::{self, RailStep};
-use crate::rail_ends::{ends_when, passed_over_when};
+use crate::rail_ends::{ends_any, ends_when, passed_over_when};
 use crate::repositories::{Served, WorkflowNotRemoved};
 
 /// No definition by that id in that place. A 422.
@@ -126,6 +126,7 @@ where
             label: step.label.clone(),
             instructions: step.instructions.clone(),
             ends_when: ends_when(steps, at).map(str::to_string),
+            ends_any: ends_any(steps, at).into_iter().map(str::to_string).collect(),
             passed_over_when: passed_over_when(step).map(str::to_string),
             nudges,
         }

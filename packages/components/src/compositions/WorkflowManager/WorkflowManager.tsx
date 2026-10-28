@@ -467,7 +467,7 @@ function Step({
   const changed = draft !== undefined && draft !== step.words;
   const armada = versus?.armada;
   const added = versus !== undefined && armada === undefined;
-  const differs = armada !== undefined && (armada.words !== step.words || armada.ends !== step.ends || armada.passedOver !== step.passedOver);
+  const differs = armada !== undefined && (armada.words !== step.words || armada.ends !== step.ends || (armada.endsAny ?? []).join("\n") !== (step.endsAny ?? []).join("\n") || armada.passedOver !== step.passedOver);
   return (
     <div
       ref={card}
@@ -535,7 +535,18 @@ function Step({
       </div>
 
       <dl className="armada-wm-step__facts">
-        {step.ends === "" ? null : (
+        {step.endsAny !== undefined && step.endsAny.length > 1 ? (
+          <>
+            <dt>Ends when</dt>
+            <dd>
+              <ul className="armada-wm-step__ends" aria-label="Ends when">
+                {step.endsAny.map((one) => (
+                  <li key={one}>{one}</li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        ) : step.ends === "" ? null : (
           <>
             <dt>Ends when</dt>
             <dd>{step.ends}</dd>
@@ -1060,6 +1071,16 @@ function StepChangeCard({ change }: { change: StepChange }) {
  */
 function FieldValue({ value, words, whole, against, mark }: { value: string; words: boolean; whole: boolean; against: string | undefined; mark: "added" | "removed" }) {
   if (value === "") return <span className="armada-wm-diff__nothing">nothing</span>;
+  // Several ends, one a line as `STEP_FIELDS` reads them: the list the step's own facts draw.
+  if (!words && value.includes("\n")) {
+    return (
+      <ul className="armada-wm-step__ends">
+        {value.split("\n").map((one) => (
+          <li key={one}>{one}</li>
+        ))}
+      </ul>
+    );
+  }
   if (!words) return <>{value}</>;
   const other = against === undefined ? undefined : sentencesOf(against);
   const drawn = (

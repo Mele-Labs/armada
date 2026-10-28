@@ -223,6 +223,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
         label: step.label,
         ...(step.instructions === undefined ? {} : { instructions: step.instructions }),
         ...(end === undefined ? {} : { ends_when: end.ends }),
+        ...(end?.endsAny === undefined ? {} : { ends_any: [...end.endsAny] }),
         ...(end?.passedOver === undefined ? {} : { passed_over_when: end.passedOver }),
         ...(here.length === 0 ? {} : { nudges: here }),
       };

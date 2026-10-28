@@ -1,7 +1,8 @@
 // A Session's rows as its thread draws them, and a fork taken from words selected in one.
 
 import { seedDraft } from "@armada/components";
-import type { ForkPick, SessionThreadRow } from "@armada/components";
+import type { ForkPick, SessionThreadRow, SketchAnswer } from "@armada/components";
+import type { AnswerSketch } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { fileCallOf, sketchCallOf } from "@armada/screens/src/sessions-wire";
 import { sceneOfSketch } from "./session-sketch";
@@ -10,6 +11,17 @@ type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
 
 export function threadRowsOf(session: Session): SessionThreadRow[] {
   return threadRowsFrom(session.rows, session.attachments);
+}
+
+/**
+ * What a press on a sketch's card sends: Approve is `choice: 0`, Send back its note. **`drawn` is the drawing the ledger holds
+ * now**, which Fleet checks against the sketch as it stands; one the ledger never gave is sent empty, which Fleet refuses.
+ */
+export function sketchAnswerOf(session: Pick<Session, "id" | "attachments">, sketch: string, answer: SketchAnswer): AnswerSketch {
+  const held = session.attachments.find((one) => one.kind === "sketch" && one.id === sketch);
+  const drawn = held?.kind === "sketch" ? (held.drawn ?? "") : "";
+  const base = { session_id: session.id, sketch, drawn };
+  return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
 }
 
 /** The rows up to and including the one with this id; all of them with no id. **An id no row has gives none**: a cut that cannot be found must not show what came after it. */
@@ -57,10 +69,14 @@ function withSketchState(rows: SessionThreadRow[], ledger: readonly SessionAttac
     const held = ledger.find((one) => one.kind === "sketch" && one.id === row.sketch);
     const kept = held?.kind === "sketch" && held.against !== undefined && held.against.title === row.against ? sceneOfSketch(held.against.drawing) : undefined;
     const earlier = before?.kind === "sketch" ? before.drawing : kept;
+    const latest = last.get(row.sketch) === row.id;
+    // What he was asked, and how he answered, belong to the sketch as it stands: the latest card holds them.
+    const answer = !latest || held?.kind !== "sketch" ? {} : { ...(held.asked === true ? { asked: true as const } : {}), ...(held.settled === undefined ? {} : { settled: held.settled }) };
     return {
       ...row,
       ...(earlier === undefined ? {} : { againstScene: earlier }),
-      ...(last.get(row.sketch) === row.id ? {} : { replaced: true as const }),
+      ...(latest ? {} : { replaced: true as const }),
+      ...answer,
     };
   });
 }
