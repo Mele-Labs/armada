@@ -135,6 +135,14 @@ fn a_walk_counts_for_the_walk_step_only_when_approved_at_or_after_the_plans_appr
     assert!(!thread_facts(&rows, None).walk_approved, "no plan approved, nothing passes the walk step");
 }
 
+#[test]
+fn a_sketch_is_approved_when_his_approval_of_one_is_on_the_thread_and_not_when_sent_back() {
+    let approved = [said(2, "m2", "Approved sketch: Pause on the row\nGo on from it as drawn.")];
+    assert!(thread_facts(&approved, None).sketch_approved);
+    let sent_back = [said(2, "m2", "Sent back sketch: Pause on the row\nDraw the row without the menu.")];
+    assert!(!thread_facts(&sent_back, None).sketch_approved);
+}
+
 fn draft(how: Option<DraftHow>) -> SessionRow {
     SessionRow::Draft {
         id: "d1".into(),

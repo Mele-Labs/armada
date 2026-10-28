@@ -14,6 +14,7 @@ use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
 use crate::session_host::asking::{answers_said, ask_answered};
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
+use crate::session_host::sketching::sketch_approved;
 use crate::session_host::walking::walk_approval;
 
 /// The prefix of a concern's item id: `judge:<n>`.
@@ -56,7 +57,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
 
 /// What the thread shows: the person wrote after the agent's first turn (a message or a tool call),
 /// the Job showed a window and he approved one (since the plan's approval, at `plan_approved_at`, and
-/// at all), he approved a draft, and he picked an idea. **Only `You` is the person**: Fleet's own
+/// at all), he approved a sketch or a draft, and he picked an idea. **Only `You` is the person**: Fleet's own
 /// notices and other Sessions' words are not a reply.
 pub(crate) fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instant>) -> Extra {
     let spoke = rows.iter().position(|row| match row {
@@ -83,8 +84,7 @@ pub(crate) fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instan
         walk_shown: !windows.is_empty(),
         walk_approved: plan_approved_at.is_some_and(|plan| approvals.iter().any(|at| *at >= plan)),
         any_walk_approved: !approvals.is_empty(),
-        // Waits on the sketch approval route: nothing on the thread says one was approved yet.
-        sketch_approved: false,
+        sketch_approved: sketch_approved(rows).is_some(),
         draft_approved,
         idea_picked: idea_picked(rows),
         ..Extra::default()
