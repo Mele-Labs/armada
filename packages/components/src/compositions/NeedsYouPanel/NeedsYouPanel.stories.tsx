@@ -244,6 +244,48 @@ export const AnOpeningItemActsFromTheList: Story = {
   },
 };
 
+const opened = fn();
+const started = fn();
+const held = (start: NonNullable<LedgerEntry["start"]>): LedgerEntry => ({ key: "h1", kind: "waiting", act: "message", name: "Press Start on Retry cap", text: "Press Start on Retry cap", start, onOpen: opened });
+
+/** A held Job's row ends in Start, which begins that Job from the list; the row itself still opens the Job, and carries the linked-Job mark. */
+export const AHeldJobsRowStartsItFromTheList: Story = {
+  render: () => <Frame rows={[held({ starting: false, onStart: started })]} startOpen />,
+  play: async ({ canvas }) => {
+    opened.mockClear();
+    started.mockClear();
+    await expect(canvas.getByRole("img", { name: "Opens the linked Job" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Start" }));
+    await expect(started).toHaveBeenCalledTimes(1);
+    await expect(opened).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Open Press Start on Retry cap" }));
+    await expect(opened).toHaveBeenCalledTimes(1);
+    await expect(started).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** While the start waits on the request being read, the row says Starting with the spinning mark, and there is no Start to press again. */
+export const AStartingJobsRowSaysStartingInPlaceOfStart: Story = {
+  render: () => <Frame rows={[held({ starting: true, onStart: started })]} startOpen />,
+  play: async ({ canvas }) => {
+    started.mockClear();
+    await expect(canvas.getByText("Starting…")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Starting" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Start" })).toBeNull();
+    await expect(started).not.toHaveBeenCalled();
+  },
+};
+
+/** A row with no start has no Start, and keeps the mark of its act. */
+export const ARowWithNoStartHasNoStartButton: Story = {
+  render: () => <Frame rows={ROWS} startOpen />,
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Start" })).toBeNull();
+    await expect(canvas.queryByRole("img", { name: "Opens the linked Job" })).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Opens the walk" })).toBeVisible();
+  },
+};
+
 /** An item with a form of its own, here a reply, still opens a detail from its row when something else waits beside it. */
 export const AReplyKeepsListThenDetail: Story = {
   render: () => <Frame rows={[{ key: "r1", kind: "waiting", name: "Say which branch", text: "Say which branch", onReply: fn(), onOpen: fn() }, ROWS[0]!]} startOpen />,
