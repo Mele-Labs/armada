@@ -213,7 +213,7 @@ pub(crate) fn sessions_on_branch(store: &Store, manifest: &str, root: &str, bran
 
 /// Who owns pull request `number` of `branch`, among Sessions. **The one the pool confirms**
 /// working the branch, and among them the one whose `pr` row holds the number; where the pool
-/// confirms nobody, the Session whose `pr` row is oldest, else the one that stood on the branch
+/// confirms nobody, every Session whose `pr` row is held, else the one that stood on the branch
 /// first. `spent` also counts rows used up by the merge.
 pub(crate) fn sessions_on_pull(
     store: &Store,
@@ -235,10 +235,30 @@ pub(crate) fn sessions_on_pull(
             .collect();
         return if holding.is_empty() { confirmed } else { holding };
     }
-    earliest(store, manifest, PR, &number.to_string(), spent)
-        .or_else(|| earliest(store, manifest, "branch", branch, spent))
+    let holders = holders_of(store, manifest, PR, &number.to_string(), spent);
+    if !holders.is_empty() {
+        return holders;
+    }
+    earliest(store, manifest, "branch", branch, spent).into_iter().collect()
+}
+
+/// Every live Session whose row of `kind` at `target` is held, oldest first. **A pull request is
+/// news to each Job that holds it**, not only the one that opened it: a Job asked to see it merge
+/// holds it from another branch than the one it was opened on.
+fn holders_of(store: &Store, manifest: &str, kind: &str, target: &str, spent: bool) -> Vec<String> {
+    let mut rows: Vec<_> = store
+        .attachments_at(kind, target, Some(manifest))
+        .unwrap_or_default()
         .into_iter()
-        .collect()
+        .filter(|row| {
+            row.holder.kind == HolderKind::Session
+                && (row.state == AttachmentState::Standing
+                    || (spent && row.state == AttachmentState::Spent))
+                && live(store, &row.holder.id)
+        })
+        .collect();
+    rows.sort_by(|one, other| one.since.cmp(&other.since));
+    rows.into_iter().map(|row| row.holder.id).collect()
 }
 
 /// Whether the pool backs a branch or pull request credited to `session` from where it stands:
