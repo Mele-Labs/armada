@@ -18,7 +18,9 @@ const entry = (id: number, says = "Started"): TimelineEvent => ({
 const NOW = Date.parse("2026-10-13T10:30:00Z");
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function fleet(window: TimelineEvent[]) {
+/** `kept` is what main answers with before Fleet does: the picture it kept on disk. */
+function fleet(window: TimelineEvent[], kept: TimelineEvent[] = []) {
+  let up = false;
   let connection: (facts: Pick<BridgeState, "connection">) => void = () => {};
   let appended: (event: TimelineEvent) => void = () => {};
   const asks: (TimelineAsk | undefined)[] = [];
@@ -26,12 +28,16 @@ function fleet(window: TimelineEvent[]) {
   return {
     asks,
     listening: () => listening,
-    connect: () => connection({ connection: { state: "connected" } as BridgeState["connection"] }),
+    connect: () => ((up = true), connection({ connection: { state: "connected" } as BridgeState["connection"] })),
     append: (event: TimelineEvent) => appended(event),
     api: {
       state: async () => ({ connection: { state: "connecting" } as BridgeState["connection"] }),
       subscribe: (on: typeof connection) => ((connection = on), () => {}),
-      getFleetTimeline: async (ask?: TimelineAsk) => (asks.push(ask), { ok: true as const, value: { events: window } }),
+      getFleetTimeline: async (ask?: TimelineAsk) => {
+        asks.push(ask);
+        if (up) return { ok: true as const, value: { events: window } };
+        return kept.length === 0 ? { ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } } : { ok: true as const, value: { events: kept } };
+      },
       onTimelineAppended: (on: typeof appended) => {
         appended = on;
         listening += 1;
@@ -52,8 +58,22 @@ describe("the Cockpit's timeline over Fleet", () => {
 
     held.connect();
     await settle();
-    expect(held.asks).toEqual([{ since: new Date(NOW - TIMELINE_WINDOW_MS).toISOString(), limit: 2000 }]);
+    const ask = { since: new Date(NOW - TIMELINE_WINDOW_MS).toISOString(), limit: 2000 };
+    // Once at once, which main answers with what it kept (nothing here), and once Fleet is connected.
+    expect(held.asks).toEqual([ask, ask]);
     expect(source.get().map((one) => one.id)).toEqual([1, 2]);
+  });
+
+  it("draws what main kept on disk before Fleet answers, and lets Fleet's own read land over it", async () => {
+    const held = fleet([entry(2), entry(3)], [entry(1), entry(2)]);
+    const source = createFleetTimeline(held.api, () => NOW);
+    source.subscribe(() => {});
+    await settle();
+    expect(source.get().map((one) => one.id)).toEqual([1, 2]);
+
+    held.connect();
+    await settle();
+    expect(source.get().map((one) => one.id)).toEqual([1, 2, 3]);
   });
 
   it("adds each entry Fleet appends, and never draws one twice that the read and an append both carry", async () => {
@@ -131,7 +151,7 @@ describe("the Cockpit's timeline over Fleet", () => {
     source.subscribe(() => {});
     held.connect();
     await settle();
-    expect(held.asks).toHaveLength(2);
+    expect(held.asks).toHaveLength(4);
     expect(source.get()).toHaveLength(1);
   });
 });

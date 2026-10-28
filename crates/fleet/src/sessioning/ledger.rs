@@ -134,9 +134,19 @@ where
         store: &Store,
         session: &KeptSession,
     ) -> Result<LedgerReads, Refusal> {
+        self.ledger_reads_with(store, session, &mut Forecasts::default())
+    }
+
+    /// [`ledger_reads`](Self::ledger_reads) for many rows under one hold of the lock, which share `forecasts`.
+    pub(crate) fn ledger_reads_with(
+        &self,
+        store: &Store,
+        session: &KeptSession,
+        forecasts: &mut Forecasts,
+    ) -> Result<LedgerReads, Refusal> {
         let fault = |why| self.ledger_fault(why);
         let held = store.attachments_of(&Holder::session(&session.id)).map_err(fault)?;
-        let build = build_read(store, session, &held).map_err(fault)?;
+        let build = build_read(store, session, &held, forecasts).map_err(fault)?;
         let hosting = if session.origin == "bridge" { store.hosting(&session.id).map_err(fault)? } else { None };
         let start = match &hosting {
             Some(hosting) if hosting.start_held => Some(crate::session_host::start_card::start_read(store, hosting).map_err(fault)?),

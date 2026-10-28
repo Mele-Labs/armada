@@ -514,6 +514,7 @@ void app.whenReady().then(() => {
     windowIds,
     now: () => Date.now(),
     threadsDir: join(app.getPath("userData"), "session-threads"),
+    pictureFile: join(app.getPath("userData"), "remembered-picture.json"),
   });
   // A Session showed a page: it joins the one walk window, which opens behind by itself where none is up.
   connection.sessions.onWindow(
@@ -796,6 +797,7 @@ void app.whenReady().then(() => {
 // A pulled-down walk holds a slot and a server in Fleet, so a Bridge that quits closes them first, for as long as Fleet takes to answer.
 let walksClosed = false;
 app.on("before-quit", (event) => {
+  connection?.rememberNow();
   const held = walksClosed ? [] : captureWindows.heldWalks();
   if (held.length === 0 || connection === null) return;
   walksClosed = true;
