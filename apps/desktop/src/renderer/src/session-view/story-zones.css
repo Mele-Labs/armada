@@ -121,3 +121,7 @@
 .sv-brief__by { padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--accent); font: inherit; text-align: start; cursor: pointer; }
 .sv-brief__by:hover { text-decoration: underline; }
 .sv-brief__by:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+
+/* A folded step has nothing passing under its band, so the band drops the ground that hides the line, and the line runs on through it to the next step. */
+.sv-spine .sv-panel.sv-panel:is([data-collapsed][data-area="step-done"], [data-area="step-next"]) { padding-block-end: var(--space-2); }
+.sv-spine .sv-panel.sv-panel:is([data-collapsed][data-area="step-done"], [data-area="step-next"]) > .sv-panel__band { background: none; }
