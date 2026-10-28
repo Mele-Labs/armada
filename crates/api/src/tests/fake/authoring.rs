@@ -66,6 +66,17 @@ impl Authoring for FakeDaemon {
         Ok(drafting(asked.workflow_id, asked.source, ipc::ChangeOrigin::Asked { text: asked.text }, None))
     }
 
+    async fn propose_new_workflow(
+        &self,
+        proposed: ipc::ProposeNewWorkflow,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        let mut change = drafting(proposed.workflow_id, proposed.scope.as_wire().to_string(), ipc::ChangeOrigin::New, None);
+        change.state = ipc::ChangeState::Ready;
+        change.after = Some(proposed.definition);
+        Ok(change)
+    }
+
     async fn suggest_workflow_change(
         self: Arc<Self>,
         asked: ipc::SuggestWorkflowChange,

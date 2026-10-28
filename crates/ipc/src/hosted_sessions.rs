@@ -625,6 +625,10 @@ pub enum SessionRow {
         before: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         settled: Option<DraftSettled>,
+        /// The workflow change this draft is the owner's say on: Approve saves it, Dismiss drops it.
+        /// `text` is then the definition and `title` is `Workflow <id>`. Absent on any other draft.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        change: Option<i64>,
     },
     /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
     /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.
