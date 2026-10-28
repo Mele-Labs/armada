@@ -151,10 +151,13 @@ export async function toPlace(name: "Cockpit" | "Jobs" | "Studios" | "Logbook" |
 /** What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry of its own is passed through. */
 const SIDEBAR_ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
 
-/** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios is a tab of its own, one press, and Retros is the Logbook's Armada fixes. */
+/** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios is a tab of its own, one press, and Retros is the Logbook's Retros tab. */
 export async function toSystemPage(name: string): Promise<void> {
   if (name === "Studios") return toPlace(name);
-  if (name === "Retros") return toPlace("Logbook");
+  if (name === "Retros") {
+    await toPlace("Logbook");
+    return userEvent.click(page.getByRole("tab", { name: "Retros", exact: true }));
+  }
   await toPlace("System");
   const entry = SIDEBAR_ENTRY[name] ?? name;
   await userEvent.click(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: new RegExp(`^${entry}( |$)`) }));

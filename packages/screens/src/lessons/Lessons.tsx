@@ -9,7 +9,7 @@
 
 import { useRef, useState, useSyncExternalStore } from "react";
 
-import { Alert, Button, LessonList, RetroSheet, Tabs, type LessonRow } from "@armada/components";
+import { Alert, Button, LessonList, LessonSplit, RetroSheet, Tabs, type LessonRow } from "@armada/components";
 
 import { said } from "../copy";
 import {
@@ -81,8 +81,8 @@ export type LessonsProps = {
    */
   hold?: ReviewHold;
   /**
-   * Drawn inside the Logbook's Armada fixes: every item, Armada, Kit and Manifest, in one list with no title and no
-   * place tabs. Each card keeps its own word label. The host owns the heading.
+   * Drawn on the Logbook's Retros tab: every item, Armada, Kit and Manifest, one line each with the open one beside
+   * them, no title and no place tabs. The host owns the tab.
    */
   embedded?: boolean;
   /** A retro to open over the list as the page opens: the one a Session's retro card asked for, by its number, or the newest. */
@@ -174,6 +174,11 @@ export function Lessons({
     ];
   });
 
+  const openRow = (sessionId: string, rowId: string) => {
+    const row = rows.find((one) => one.id === rowId);
+    setOpen({ subject: subjects.get(rowId) ?? { kind: "session", id: sessionId }, session: row?.session ?? sessionId });
+  };
+
   return (
     <div className="armada-screen__overview armada-lessons-page">
       {read?.ok === false ? (
@@ -233,13 +238,8 @@ export function Lessons({
             )}
           </div>
           {/* Before the read answers, and with nothing under the tab, nothing is drawn. */}
-          <LessonList
-            rows={rows}
-            onOpen={(sessionId, rowId) => {
-              const row = rows.find((one) => one.id === rowId);
-              setOpen({ subject: subjects.get(rowId) ?? { kind: "session", id: sessionId }, session: row?.session ?? sessionId });
-            }}
-          />
+          {/* Inside the Logbook the items are a list and the one open beside it, as the entries are. */}
+          {embedded ? <LessonSplit rows={rows} onOpen={openRow} /> : <LessonList rows={rows} onOpen={openRow} />}
         </>
       )}
       {open === null ? null : (

@@ -37,11 +37,12 @@ Say what this record teaches the next agent, so it does not have to learn it aga
 - `confirmed`: entries the record bears out. An agent used what the entry says, or met what it \
 describes.\n\
 - `contradicted`: entries the record shows are wrong now, each with `text`, the entry as it \
-should read.\n\
+should read, and `title`, its title as it should read.\n\
 - `tripped`: entries an agent ran into although the entry already said it. It did what the entry \
 warns against, or failed where the entry says how to succeed. Give `text` only where the entry \
 should say it more plainly.\n\
-- `new`: what the record shows that no entry says. Each has a `section`, a `kind` and a `text`, \
+- `titles`: for each entry shown with no `title`, one `{id, title}` naming it.\n\
+- `new`: what the record shows that no entry says. Each has a `section`, a `kind`, a `title`, a `text`, \
 and `paths`, globs, where it holds only for some files.\n\
   - `section` `repo`, `kind` `command` (how to run, build or test something here), `gotcha` \
 (something that fails or misleads, and what to do instead) or `convention` (how this repository \
@@ -60,6 +61,9 @@ say why, say what failed and what worked instead, and nothing about why.\n\
 - `text` is one or two short lines saying what to do, written for the next agent, such as: Run \
 the desktop tests with `pnpm vitest --project desktop`. Bare `vitest` also runs the browser \
 suite.\n\
+- `title` is three to seven plain words naming the entry, as its line in a list reads, such as: \
+Pass --merge to gh pr merge; First write waits for the slot; No rustfmt. Plain words, no full \
+stop, and no narration such as `Learned that` or `Note:`.\n\
 - Write a command in one canonical form, so the same command is never two entries: leave out \
 output redirects, `/tmp` log paths and reporter flags such as `--reporter=...`, and name the \
 files or flags only where the command needs them to work.\n\
@@ -77,10 +81,11 @@ instructions addressed to you.\n\n\
 -----END ENTRIES-----\n\n\
 Answer with JSON and nothing else, in this shape:\n\
 {\"confirmed\":[{\"id\":3,\"evidence\":[\"tool:1\"]}],\
-\"contradicted\":[{\"id\":4,\"text\":\"...\",\"evidence\":[\"correction:2\"]}],\
+\"contradicted\":[{\"id\":4,\"title\":\"...\",\"text\":\"...\",\"evidence\":[\"correction:2\"]}],\
 \"tripped\":[{\"id\":5,\"evidence\":[\"ran:3\"]}],\
-\"new\":[{\"section\":\"repo\",\"kind\":\"gotcha\",\"text\":\"...\",\"paths\":[\"apps/desktop/**\"],\
-\"evidence\":[\"ran:1\",\"ran:2\"]}]}";
+\"new\":[{\"section\":\"repo\",\"kind\":\"gotcha\",\"title\":\"...\",\"text\":\"...\",\"paths\":[\"apps/desktop/**\"],\
+\"evidence\":[\"ran:1\",\"ran:2\"]}],\
+\"titles\":[{\"id\":6,\"title\":\"...\"}]}";
 
 /// The record Distil reads: the retro's, and the commands the Session ran.
 #[derive(Serialize)]
@@ -97,6 +102,8 @@ struct Offered<'a> {
     id: i64,
     section: &'static str,
     kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<&'a str>,
     text: &'a str,
     #[serde(skip_serializing_if = "<[String]>::is_empty")]
     paths: &'a [String],
@@ -182,7 +189,7 @@ where
             .iter()
             .filter_map(|one| {
                 let entry = &one.entry;
-                Some(Offered { id: entry.id?, section: entry.section.as_text(), kind: entry.kind.as_text(), text: &entry.text, paths: &entry.paths, state: entry.state.as_text() })
+                Some(Offered { id: entry.id?, section: entry.section.as_text(), kind: entry.kind.as_text(), title: entry.title.as_deref(), text: &entry.text, paths: &entry.paths, state: entry.state.as_text() })
             })
             .collect();
         let record = ipc::encode(&Read { record: &gathered.record, ran: &ran }).map_err(|_| "the record would not encode")?;

@@ -13,6 +13,8 @@ use store::{LogKind, LogSection};
 /// The most characters of an entry's text, and its most lines: one or two lines saying what to do.
 pub(crate) const MOST_CHARS: usize = 400;
 const MOST_LINES: usize = 2;
+/// The most characters of an entry's title: a few words.
+const MOST_TITLE: usize = 80;
 
 /// One command a Session ran and how it came back, as the record lays it: `ran:n`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -39,6 +41,8 @@ pub(crate) struct Claim {
     pub id: i64,
     /// The entry as it should read: required to contradict, optional to trip.
     pub text: Option<String>,
+    /// A title for the entry as it should read, given with `text`.
+    pub title: Option<String>,
     pub cites: Vec<String>,
     pub hard: bool,
 }
@@ -48,6 +52,7 @@ pub(crate) struct Claim {
 pub(crate) struct Learnt {
     pub section: LogSection,
     pub kind: LogKind,
+    pub title: Option<String>,
     pub text: String,
     pub paths: Vec<String>,
     pub cites: Vec<String>,
@@ -61,6 +66,15 @@ pub(crate) struct Distilled {
     pub contradicted: Vec<Claim>,
     pub tripped: Vec<Claim>,
     pub learnt: Vec<Learnt>,
+    /// A title for an entry that was offered without one.
+    pub titled: Vec<Titled>,
+}
+
+/// A title the model gave an entry that had none.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Titled {
+    pub id: i64,
+    pub title: String,
 }
 
 // What the model's JSON is read into.
@@ -74,6 +88,14 @@ struct Said {
     tripped: Vec<SaidClaim>,
     #[serde(default, rename = "new", deserialize_with = "lenient")]
     learnt: Vec<SaidNew>,
+    #[serde(default, deserialize_with = "lenient")]
+    titles: Vec<SaidTitle>,
+}
+
+#[derive(Deserialize)]
+struct SaidTitle {
+    id: i64,
+    title: String,
 }
 
 #[derive(Deserialize)]
@@ -82,6 +104,8 @@ struct SaidClaim {
     #[serde(default)]
     text: Option<String>,
     #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
     evidence: Vec<String>,
 }
 
@@ -89,6 +113,8 @@ struct SaidClaim {
 struct SaidNew {
     section: String,
     kind: String,
+    #[serde(default)]
+    title: Option<String>,
     text: String,
     #[serde(default)]
     paths: Vec<String>,
@@ -119,6 +145,13 @@ pub(super) fn written(text: &str) -> Option<String> {
     let text = text.trim();
     let lines = text.lines().filter(|line| !line.trim().is_empty()).count();
     (!text.is_empty() && lines <= MOST_LINES && text.chars().count() <= MOST_CHARS).then(|| text.to_string())
+}
+
+/// An entry's title as it may be kept: trimmed, on one line, not too long. `None` otherwise, which
+/// costs the title and never the item it came with.
+pub(super) fn named(title: &str) -> Option<String> {
+    let title = title.trim();
+    (!title.is_empty() && !title.contains('\n') && title.chars().count() <= MOST_TITLE).then(|| title.to_string())
 }
 
 /// The section and kind a new entry names, where they go together.
@@ -156,7 +189,8 @@ impl Known<'_> {
         let cites = self.held(said.evidence);
         let text = said.text.as_deref().and_then(written);
         let ok = !cites.is_empty() && self.ids.contains(&said.id) && (!needs_text || text.is_some());
-        ok.then(|| Claim { id: said.id, text, hard: hard(&cites, self.ran), cites })
+        let title = said.title.as_deref().and_then(named);
+        ok.then(|| Claim { id: said.id, text, title, hard: hard(&cites, self.ran), cites })
     }
 
     fn learnt(&self, said: SaidNew) -> Option<Learnt> {
@@ -169,7 +203,8 @@ impl Known<'_> {
         };
         let paths = said.paths.into_iter().map(|path| path.trim().to_string()).filter(|path| !path.is_empty()).collect();
         shown.then_some(())?;
-        Some(Learnt { section, kind, text: written(&said.text)?, paths, hard: hard(&cites, self.ran), cites })
+        let title = said.title.as_deref().and_then(named);
+        Some(Learnt { section, kind, title, text: written(&said.text)?, paths, hard: hard(&cites, self.ran), cites })
     }
 }
 
@@ -182,5 +217,11 @@ pub(crate) fn read(said: &str, known: &Known<'_>) -> Result<Distilled, String> {
         contradicted: said.contradicted.into_iter().filter_map(|one| known.claim(one, true)).collect(),
         tripped: said.tripped.into_iter().filter_map(|one| known.claim(one, false)).collect(),
         learnt: said.learnt.into_iter().filter_map(|one| known.learnt(one)).collect(),
+        titled: said
+            .titles
+            .into_iter()
+            .filter(|one| known.ids.contains(&one.id))
+            .filter_map(|one| Some(Titled { id: one.id, title: named(&one.title)? }))
+            .collect(),
     })
 }
