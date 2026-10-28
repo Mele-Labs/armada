@@ -1,6 +1,6 @@
 // Skipping a step from the story: the icon on a current or coming step, the Undo on a skipped one, and the band's menu. Browser: the drawing is what is read.
 
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
@@ -41,7 +41,7 @@ function mount(own: { skipped?: number[]; skip?: SessionWorkActs["skip"] } = {})
     rows: [{ id: "m1", at: "2026-10-27T09:02:00Z", kind: "message", from: { kind: "you" }, text: "Rotate the audit log" }],
   } as unknown as Session;
   const acts = (own.skip === undefined ? undefined : { skip: own.skip }) as unknown as SessionWorkActs | undefined;
-  const ed = { id: ID, plan, marks: [], set: () => undefined, send: () => undefined };
+  const ed = { id: ID, plan, marks: [], set: () => undefined, send: () => undefined } as unknown as ComponentProps<typeof StoryColumn>["ed"];
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
