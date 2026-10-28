@@ -24,6 +24,7 @@ import type {
   WorkflowSaved,
   WorkflowSteps,
   WorkflowSummary,
+  WorkflowSupportBuilding,
 } from "@armada/protocol";
 
 import type {
@@ -36,6 +37,7 @@ import type {
   WorkflowProposeAnswer,
   WorkflowSaveAnswer,
   WorkflowStepsRead,
+  WorkflowSupportBuildAnswer,
   WorkflowsRead,
 } from "../shared/workflows";
 import type { Picked } from "./picked";
@@ -183,6 +185,15 @@ export class WorkflowCommands {
   /** Send a ready or failed change back with his notes, to be drafted again. */
   async sendBackChange(back: SendBackWorkflowChange): Promise<WorkflowChangeAnswer> {
     return this.actOnChange("/workflows/changes/send_back", back);
+  }
+
+  /** Start a job that builds what a change Armada can't do yet lacks. Fleet closes the change. */
+  async buildSupport(change: number): Promise<WorkflowSupportBuildAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "POST", "/workflows/changes/build", { change });
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, building: answer.body as WorkflowSupportBuilding };
   }
 
   /** Start a Job on Armada's own repository that lands a definition. */

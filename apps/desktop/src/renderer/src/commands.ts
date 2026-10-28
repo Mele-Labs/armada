@@ -15,7 +15,7 @@ import { useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { ActingOnWorkflowCopy, AskingForWorkflowChange, SavingWorkflow, SuggestingWorkflowChange } from "../../shared/workflows";
-import type { EditManifest, ProposeToArmada, SaveManifestFile, SendBackWorkflowChange } from "@armada/protocol";
+import type { EditManifest, ProposeToArmada, SaveManifestFile, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { Outcome } from "@armada/protocol";
 import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
@@ -216,6 +216,8 @@ export const readWorkflowChanges = (workflowId: string, source: string, manifest
 export const approveWorkflowChange = (change: number) => window.armada.approveWorkflowChange(change);
 export const dismissWorkflowChange = (change: number) => window.armada.dismissWorkflowChange(change);
 export const sendBackWorkflowChange = (back: SendBackWorkflowChange) => window.armada.sendBackWorkflowChange(back);
+/** A job that builds what a change Armada can't do yet lacks. */
+export const buildWorkflowSupport = (building: WorkflowChangeRef) => window.armada.buildWorkflowSupport(building);
 /** A Job on Armada's own repository that lands a definition, so it ships to every install. */
 export const proposeWorkflowToArmada = (proposing: ProposeToArmada) => window.armada.proposeWorkflowToArmada(proposing);
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);

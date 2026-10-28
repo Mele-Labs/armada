@@ -109,7 +109,7 @@ import type {
   KitServersRead,
 } from "@armada/screens/src/manifest-kit";
 import type { InstallKitPiece, LookAtKitSource, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
-import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
@@ -124,6 +124,7 @@ import type {
   WorkflowProposeAnswer,
   WorkflowSaveAnswer,
   WorkflowStepsRead,
+  WorkflowSupportBuildAnswer,
   WorkflowsRead,
 } from "./workflows";
 import type {
@@ -188,6 +189,7 @@ type OldBridgeState = {
     mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
+    drawnFromDisk: boolean;
     readAt: number | null;
     holds: Holdings;
     repository: string | null;
@@ -283,6 +285,7 @@ type OldBridgeApi = {
     approveWorkflowChange: (change: number) => Promise<WorkflowChangeApproveAnswer>;
     dismissWorkflowChange: (change: number) => Promise<WorkflowChangeAnswer>;
     sendBackWorkflowChange: (back: SendBackWorkflowChange) => Promise<WorkflowChangeAnswer>;
+    buildWorkflowSupport: (building: WorkflowChangeRef) => Promise<WorkflowSupportBuildAnswer>;
     proposeWorkflowToArmada: (proposing: ProposeToArmada) => Promise<WorkflowProposeAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
@@ -514,6 +517,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     bridge: { auditPath: null, fleetProtocol: null },
     fleetBuild: null,
     missed: 0,
+    drawnFromDisk: false,
     readAt: null,
     holds: { workflows: [], manifests: [], models: null, repositories: [] },
     repository: null,
@@ -609,6 +613,7 @@ const OLD_CHANNELS = {
     approveWorkflowChange: "bridge:approve-workflow-change",
     dismissWorkflowChange: "bridge:dismiss-workflow-change",
     sendBackWorkflowChange: "bridge:send-back-workflow-change",
+    buildWorkflowSupport: "bridge:build-workflow-support",
     proposeWorkflowToArmada: "bridge:propose-workflow-to-armada",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",

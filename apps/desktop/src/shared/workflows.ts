@@ -18,6 +18,7 @@ import type {
   WorkflowSaved,
   WorkflowSteps,
   WorkflowSummary,
+  WorkflowSupportBuilding,
 } from "@armada/protocol";
 
 /** `GET /workflows` and `GET /workflows/left_out`, for the picked repository, read together. */
@@ -60,6 +61,9 @@ export type WorkflowChangesRead = { ok: true; changes: WorkflowChanges } | { ok:
 
 /** `POST /workflows/changes/approve`: the change and the save it made. A refusal says the file changed, or why it does not fit. */
 export type WorkflowChangeApproveAnswer = { ok: true; approved: WorkflowChangeApproved } | { ok: false; outcome: Outcome };
+
+/** `POST /workflows/changes/build`: the job started to build what a change Armada can't do yet lacks. */
+export type WorkflowSupportBuildAnswer = { ok: true; building: WorkflowSupportBuilding } | { ok: false; outcome: Outcome };
 
 /** `POST /workflows/propose`: the Job started on Armada's repository. */
 export type WorkflowProposeAnswer = { ok: true; proposed: ArmadaProposed } | { ok: false; outcome: Outcome };

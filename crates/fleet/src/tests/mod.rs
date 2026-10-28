@@ -159,6 +159,7 @@ mod session_terminal_replaced;
 mod session_terminal_typing;
 mod session_shell;
 mod sessioning;
+mod session_list;
 mod loadout;
 mod loadout_item;
 mod turn_ingest;

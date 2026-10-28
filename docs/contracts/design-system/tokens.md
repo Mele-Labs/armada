@@ -104,10 +104,14 @@ colour token it is.
 controls, rows and tiles; `--radius-sm` 3px for badges. No pill except an avatar.
 Inside a panel a corner is the panel's curve less what sits between (`--radius-bezel`, `--radius-inset`), never under `--radius-floor` (spacing-and-shape.md).
 
-**Selection is told by its shape, not its hue** (26 Oct 2026).
-A selected row, chip, bay, rail entry or index tab draws a 1px frame in the text colour, `--select-edge` (`--fg-default` at 70%), as `--select-frame`, on a raised ground, `--select-ground` (`--bg-hover`), and its title takes `--weight-heading`.
-There is no accent fill, accent ring or accent bar on a selected thing.
-Why: a theme chooses its own accent, and Dusk's sat within 0.04 of the needs-you amber, so a hue could not say which row was open; a shape reads in any theme.
+**Selection is a tinted ground** (26 Oct 2026, changed 28 Oct 2026).
+A selected row, chip, bay, rail entry or index tab sits on `--select-ground`, the theme's `--accent` at `--select-tint` (40%, or less where a theme needs it for 4.5:1 text) over `--bg-base`, and its title takes `--weight-heading`.
+A picked Job row's quiet text takes `--fg-default` so it holds 4.5:1 on that ground.
+`--select-frame` draws nothing.
+There is no accent ring or accent bar on a selected thing.
+Why: on a laptop panel the earlier ground, `--bg-hover`, was the same step as a row under the pointer, so the open Job could not be told from the rest.
+The owner asked for a brighter ground over gray.
+A theme whose accent sits near the needs-you amber blurs the two.
 A row that is picked and needs him shows both, the frame and the amber lamp.
 A tab keeps its pill.
 The keyboard cursor is the hover step and a hairline. Hover is one flat background step,

@@ -248,6 +248,7 @@
 }
 
 /* Read from CSS as var(--token). No namespace carries them:
+   --select-tint — a percentage read by color-mix in --select-ground, not a utility
    --row-tint — a mix percentage read inside color-mix(), not a colour
    --row-tint-recent — a mix percentage read inside color-mix(), not a colour
    --status-wash — a mix percentage read inside color-mix(), not a colour
