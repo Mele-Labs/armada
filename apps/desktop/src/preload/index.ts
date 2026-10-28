@@ -80,15 +80,6 @@ import type {
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInstallRead, KitInventoryRead, KitLookRead, KitRemoveRead, KitRestoreRead, KitServersRead } from "@armada/screens/src/manifest-kit";
-import type {
-  ReadingTrigger,
-  RemovingTrigger,
-  SavingTrigger,
-  TriggerDefinitionRead,
-  TriggerRemoveAnswer,
-  TriggerSaveAnswer,
-  TriggersRead,
-} from "../shared/triggers";
 import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
@@ -317,13 +308,6 @@ const api: BridgeApi = {
   proposeWorkflowToArmada: (proposing: ProposeToArmada): Promise<WorkflowProposeAnswer> =>
     ipcRenderer.invoke(CHANNELS.proposeWorkflowToArmada, proposing),
 
-  readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
-  readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>
-    ipcRenderer.invoke(CHANNELS.readTrigger, reading),
-  saveTrigger: (saving: SavingTrigger): Promise<TriggerSaveAnswer> =>
-    ipcRenderer.invoke(CHANNELS.saveTrigger, saving),
-  removeTrigger: (removing: RemovingTrigger): Promise<TriggerRemoveAnswer> =>
-    ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why
   // `jobId` was optional here before that surface existed.

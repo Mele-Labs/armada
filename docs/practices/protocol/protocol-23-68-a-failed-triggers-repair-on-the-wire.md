@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *A failed Trigger with `repair` on*. **Additive only**: one operation, three states and one optional field.
+`docs/concepts/trigger.md (deleted)`, *A failed Trigger with `repair` on*. **Additive only**: one operation, three states and one optional field.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -12,4 +12,4 @@
 
 **A fix waiting on the owner is an alert already**: `list_alerts` carries it, and a Trigger that failed after both tries.
 Nothing new is read for it.
-Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+Bridge's half is `packages/protocol/src/triggers.ts (deleted)`, written by hand like the rest.

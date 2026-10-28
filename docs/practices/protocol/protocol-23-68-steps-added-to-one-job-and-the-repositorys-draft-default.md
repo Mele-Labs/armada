@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *Steps added to one Job*.
+`docs/concepts/trigger.md (deleted)`, *Steps added to one Job*.
 **Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit.
 The repair, the hold and the Draft default below are the same minor, landed together; `armada need` gave the number after the branches ahead of it.
 

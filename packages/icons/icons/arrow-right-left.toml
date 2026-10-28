@@ -4,7 +4,7 @@
   size = "16px"
   status = "Proposed"
   reserved = "Requests: an HTTP request sent through Fleet and its answer. Never a sort, which is arrow-up-down, never a swap of two values, and never a sync."
-  notes = "Proposed 19 Oct 2026 with Requests. A request goes out and an answer comes back, which is the whole claim. `send` is Dispatch and `globe`, `network`, `plug` and `webhook` each carry a reservation that refuses a network call."
+  notes = "Proposed 19 Oct 2026 with Requests. A request goes out and an answer comes back, which is the whole claim. `send` is Dispatch and `globe`, `network` and `plug` each carry a reservation that refuses a network call, and `webhook` is drawn in a sketch only."
 
   [[icons.arrow-right-left.usage]]
     means = "Requests: its palette row, its tile on a Job's Flight control and the head of its side panel"

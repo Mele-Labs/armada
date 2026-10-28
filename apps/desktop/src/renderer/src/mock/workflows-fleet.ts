@@ -344,7 +344,7 @@ export function workflowing(): Scenario {
       repository: repository().root,
       health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting", workflows_left_out: true } },
     },
-    // The Commands a Trigger names are the ones this repository's Manifest declares.
+    // The Commands a Workflow names are the ones this repository's Manifest declares.
     behaves: (fleet) => ({ readManifestFile: manifesting().behaves?.(fleet).readManifestFile! }),
   };
 }

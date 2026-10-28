@@ -85,8 +85,8 @@ function Arriving({ at, children }: { at: number; children: ReactNode }) {
 const said = (state: string): string => STEP_STATE[state]?.verb ?? state;
 
 /**
- * The three steps of the `feature` workflow, as `WorkflowCanvas` draws them —
- * the same `WorkflowStepCard`, the same facts, the same gate sentence.
+ * The three steps of the `feature` workflow, drawn with `WorkflowStepCard` —
+ * the same facts, the same gate sentence.
  *
  * The labels and gates are `featureWorkflow()`'s, the fixture every arc
  * scenario runs on.

@@ -162,19 +162,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/workflows/propose",
             post(crate::repositories::propose_workflow_to_armada::<D>),
         )
-        .route("/triggers", get(crate::repositories::list_triggers::<D>))
-        .route(
-            "/triggers/definition",
-            get(crate::repositories::get_trigger::<D>),
-        )
-        .route(
-            "/triggers/save",
-            post(crate::repositories::save_trigger::<D>),
-        )
-        .route(
-            "/triggers/remove",
-            post(crate::repositories::remove_trigger::<D>),
-        )
         .route("/clashes", get(crate::clashing::list_write_clashes::<D>))
         .route("/clashes/file", get(crate::clashing::read_clash_file::<D>))
         .route("/sessions/file_change", get(crate::clashing::get_session_file_change::<D>))

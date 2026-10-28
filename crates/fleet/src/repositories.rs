@@ -232,37 +232,6 @@ pub enum WorkflowNotRemoved {
     Unwritable { file: String, cause: std::io::Error },
 }
 
-/// Why a Trigger was not saved. **Nothing was written** in any of these.
-#[derive(Debug)]
-pub enum TriggerNotSaved {
-    /// It does not fit: the loader's own sentence, with every fault, or the
-    /// Command it names that this repository does not declare.
-    Unfit { why: String },
-    /// Its name or step cannot be part of a file's name.
-    NotAName { name: String },
-    /// This scope already holds the identity, and `overwrite` was not set.
-    Exists { name: String, file: String },
-    /// The folder or the file could not be written.
-    Unwritable { file: String, cause: std::io::Error },
-}
-
-/// A Trigger written.
-#[derive(Debug)]
-pub struct SavedTrigger {
-    pub trigger: config::FittedTrigger,
-    pub file: String,
-    pub replaced: bool,
-}
-
-/// Why a Trigger was not removed.
-#[derive(Debug)]
-pub enum TriggerNotRemoved {
-    /// This scope holds no file for the identity.
-    NotHere,
-    /// The file could not be deleted.
-    Unwritable { file: String, cause: std::io::Error },
-}
-
 /// Reading a folder into a repository. **A seam**, because what reads one —
 /// git, `armada.yml`, Kit's workflows — is the composition root's.
 pub trait Locating: Send + Sync {
@@ -312,14 +281,8 @@ pub trait Locating: Send + Sync {
     /// Read the three places again, leniently: a definition that does not fit
     /// is set aside with its reason and the rest stand.
     fn workflows(&self, root: &Path, manifest: &Manifest, workspaces: &[Manifest]) -> Catalogued;
-    /// The Trigger files for the repository at `root`: its own `.armada/triggers/`
-    /// as `base` holds them, and this machine's. **None by default**, so a
-    /// locator that reads no files fires nothing.
-    fn triggers(&self, _root: &Path, _base: Option<&str>) -> Vec<config::TriggerWritten> {
-        Vec::new()
-    }
     /// The watch recipe files for the repository at `root`: its own `.armada/watches/` as
-    /// `base` holds them, and this machine's, as [`Locating::triggers`] reads. **None by
+    /// `base` holds them, and this machine's. **None by
     /// default**, so a locator that reads no files offers no recipe.
     fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
         Vec::new()
@@ -333,28 +296,6 @@ pub trait Locating: Send + Sync {
     /// default**, so a locator that reads no files saves none.
     fn machine_watch_folder(&self) -> Option<std::path::PathBuf> {
         None
-    }
-    /// Check one Trigger against `manifest` and write it in `asked.scope`, only
-    /// if it fits. **Refuses by default**, so a locator that keeps no Trigger
-    /// files saves none.
-    fn save_trigger(
-        &self,
-        _root: &Path,
-        _manifest: &Manifest,
-        _asked: &ipc::SaveTrigger,
-    ) -> Result<SavedTrigger, TriggerNotSaved> {
-        Err(TriggerNotSaved::Unfit {
-            why: String::from("this Fleet keeps no Trigger files"),
-        })
-    }
-    /// Delete the file in `asked.scope` that holds the identity, and answer its
-    /// path. **Refuses by default**, like [`Locating::save_trigger`].
-    fn remove_trigger(
-        &self,
-        _root: &Path,
-        _asked: &ipc::RemoveTrigger,
-    ) -> Result<String, TriggerNotRemoved> {
-        Err(TriggerNotRemoved::NotHere)
     }
     /// Read `folder`. **No side effects**: Fleet may still refuse what comes back.
     fn located(&self, folder: &Path) -> Result<Located, NotLocated>;

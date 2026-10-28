@@ -6,7 +6,7 @@
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
 //! **Split again at the 1200-line rule**, into tables joined at compile time: Studios' in
-//! [`studios`](mod@studios), event kinds in [`events`](mod@events), workflows' and Triggers' in [`authoring`](mod@authoring), settings in
+//! [`studios`](mod@studios), event kinds in [`events`](mod@events), workflows' in [`authoring`](mod@authoring), settings in
 //! [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot), a pull request panel's
 //! in [`pull_request_panel`](mod@pull_request_panel), repositories and Kit in
 //! [`repositories`](mod@repositories), retros, Lessons and the Logbook in [`retro`](mod@retro), runs and Servers

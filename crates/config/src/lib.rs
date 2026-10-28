@@ -3,8 +3,7 @@
 //! Owns scan, propose, select and verify, plus Check and Command definitions.
 //! A Manifest is an `armada.yml` at a workspace root, version-controlled with
 //! the project it configures; the nearest one up the tree owns a path, and the
-//! root owns what no Workspace claims. [`triggers`](mod@triggers) reads the
-//! files that run at a moment in a Job, and [`watches`](mod@watches) the
+//! root owns what no Workspace claims. [`watches`](mod@watches) reads the
 //! recipes a watch starts from. **Of Kit, only Workflows are read**:
 //! [`catalogue`](mod@catalogue) merges them between Armada's and a repository's
 //! own (#425). Every other tier is a constant, this Manifest, a step.
@@ -44,7 +43,6 @@ mod runners;
 mod scope;
 /// The Machine's settings: `settings.json`'s keys, checked and resolved.
 pub mod settings;
-mod triggers;
 mod watches;
 mod widening;
 mod workflow;
@@ -72,12 +70,6 @@ pub use manifest::{
 pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
 pub use roster::Roster;
 pub use runners::{detected, shipped, RunnerDescription};
-pub use triggers::{
-    carried as carried_triggers, fit as fit_trigger, parse as parse_trigger,
-    Catalogue as TriggerCatalogue, Fitted as FittedTrigger, LeftOut as TriggerLeftOut,
-    ReplacedTrigger, ResolvedTrigger, ResolvedTriggers, WhyLeftOut as WhyTriggerLeftOut,
-    Written as TriggerWritten,
-};
 pub use watches::{
     parse as parse_watch_recipe, written as watch_recipe_written, LeftOut as WatchRecipeLeftOut,
     Recipe as WatchRecipe, RecipeSource as WatchRecipeSource, Recipes as WatchRecipes,

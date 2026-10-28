@@ -33,13 +33,11 @@ Fleet builds; nothing already sent changes. Fleet fills each `{placeholder}`
 when it builds the prompt, and a save that drops one is refused whole.
 Material — a diff, a file, a request, a person's note in a list — is never a
 piece: the code lays it, after the words that say how to read it, and the
-first line a harness keys on (`REPAIR THE TRIGGER`, `RUN THE SKILL`, `REPAIR
-THE INDEX`) stays Fleet's. A wording change to what ships still belongs here
+first line a harness keys on (`REPAIR THE INDEX`) stays Fleet's. A wording change to what ships still belongs here
 first. The keys, by family: `prompts.droneBaseline` (section 5) and the
 rest of a Drone's brief and turns as `prompts.drone…`, `prompts.crossing…`,
-`prompts.peers…`, `prompts.fix…`, `prompts.plan…`, `prompts.heal…`,
-`prompts.side…`, and `prompts.triggerRepair`; the turns injected while it
-works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
+`prompts.peers…`, `prompts.fix…`, `prompts.plan…` and `prompts.heal…`;
+the turns injected while it works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
 gate's `prompts.outcome…` and `prompts.base…`; a piloted job's preface as
 `prompts.pilot…`; `prompts.helm`,
 `prompts.helmReadOnly` and `prompts.helmVoice` (5a); `prompts.helmRoute` for the thought reader; `prompts.scoutAsk`
