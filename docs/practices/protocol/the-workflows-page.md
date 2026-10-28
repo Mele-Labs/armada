@@ -31,7 +31,11 @@ Nudges are those `workflow_nudges` keeps for that step in that place's definitio
 | `fleet.workflow_unwritable` (500) | delete, where a file cannot be removed |
 
 **Make my copy needs no route.** `get_workflow` with `source=armada` reads Armada's text and `save_workflow` with `scope: kit` and `overwrite: false` writes it under the same id; 422 `fleet.workflow_exists` where Kit already holds one.
-It is checked against the picked repository's Checks, as every save is.
+It is checked against the Checks of the repository Armada's row was listed under, as every save is.
+
+**Each copy is read and acted on under the Manifest Fleet listed it under**, the `manifest_id` on its `WorkflowSummary`, and not the pick's.
+`list_workflows` answers every repository's whichever is picked.
+With one picked Bridge keeps that repository's rows; on All it keeps Armada's and Kit's once and each repository's copies apart, and asks `list_left_out_workflows` of none.
 
 **Delete and reset act on copies Fleet holds, or on one it left out by its file.** `WorkflowCopy.file`, Fleet's and Bridge's, is the file `list_left_out_workflows` names.
 A copy that was left out for not fitting may declare no id Fleet can read, so it is found among those left out in that place by its file and not by its id.

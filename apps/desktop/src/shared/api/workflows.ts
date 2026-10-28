@@ -27,7 +27,7 @@ export type WorkflowsApi = {
    * written under, and Fleet's own refusal comes back as it said it.
    */
   readWorkflows: () => Promise<WorkflowsRead>;
-  readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
+  readWorkflowDefinition: (workflowId: string, source: string, manifestId: string | null) => Promise<WorkflowDefinitionRead>;
   saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
   /**
    * The Workflows page beside a definition's text: its steps with their words, what ends each and
@@ -35,7 +35,7 @@ export type WorkflowsApi = {
    * and one nudge marked not a drift. Making my copy of Armada's is `readWorkflowDefinition` with
    * `armada`, then `saveWorkflow` into Kit without `overwrite`.
    */
-  readWorkflowSteps: (workflowId: string, source: string) => Promise<WorkflowStepsRead>;
+  readWorkflowSteps: (workflowId: string, source: string, manifestId: string | null) => Promise<WorkflowStepsRead>;
   deleteWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowCopyDeleteAnswer>;
   resetWorkflowCopy: (acting: ActingOnWorkflowCopy) => Promise<WorkflowSaveAnswer>;
   markNotADrift: (nudge: number) => Promise<NotADriftAnswer>;
@@ -46,7 +46,7 @@ export type WorkflowsApi = {
    */
   askWorkflowChange: (asking: AskingForWorkflowChange) => Promise<WorkflowChangeAnswer>;
   suggestWorkflowChange: (suggesting: SuggestingWorkflowChange) => Promise<WorkflowChangeAnswer>;
-  readWorkflowChanges: (workflowId: string, source: string) => Promise<WorkflowChangesRead>;
+  readWorkflowChanges: (workflowId: string, source: string, manifestId: string | null) => Promise<WorkflowChangesRead>;
   approveWorkflowChange: (change: number) => Promise<WorkflowChangeApproveAnswer>;
   dismissWorkflowChange: (change: number) => Promise<WorkflowChangeAnswer>;
   sendBackWorkflowChange: (back: SendBackWorkflowChange) => Promise<WorkflowChangeAnswer>;
