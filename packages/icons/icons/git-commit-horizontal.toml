@@ -17,3 +17,10 @@
     size = "16px"
     status = "Specified"
     notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Pushed`. A `git push` that updated a ref. The nearest glyph this registry holds for a commit."
+
+  [[icons.git-commit-horizontal.usage]]
+    means = "A branch the preview left out that has commits since, on its row in the Fleet panel's build section"
+    group = "Fleet"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `preview-offer-fleet-panel`. Tooltip `Moved since it was left out`. Drawn muted in a column of its own width, so an unmoved row lines up. Borrowed: a new commit on the branch is what moved it. Refused: `arrow-up`, reserved to ahead of main."

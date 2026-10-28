@@ -45,9 +45,10 @@ export type FleetBuildReport = {
   failed?: string;
   /**
    * The branches the preview left out of this build, and why each was. Omitted when none were,
-   * on `main`, and where the record was written for another build. Sorted by branch.
+   * on `main`, and where the record was written for another build. Sorted by branch. `moved` is a branch
+   * whose tip has moved past the one it was left out at; absent is false.
    */
-  left_out?: { branch: string; why: string }[];
+  left_out?: { branch: string; why: string; moved?: boolean }[];
 };
 
 /** `POST /fleet/build/change`. */

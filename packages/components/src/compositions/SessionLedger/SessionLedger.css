@@ -449,6 +449,46 @@ path.armada-session-ledger__picture-later {
   }
 }
 
+/* A restart Fleet offers: its sentence, wrapped rather than cut, then the key and Skip at the row's end. */
+.armada-session-ledger__offer {
+  align-items: center;
+}
+
+.armada-session-ledger__offer-text {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.armada-session-ledger__offer-key {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.armada-session-ledger__offer-key:hover:not([aria-disabled="true"]) {
+  background: var(--accent-hover);
+}
+
+.armada-session-ledger__offer-key[aria-disabled="true"] {
+  cursor: default;
+}
+
+.armada-session-ledger__offer-key:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 /* A row's Release sits at its end and shows only while the row is hovered or holds focus, so Tab still reaches it. */
 .armada-session-ledger__release {
   display: inline-flex;

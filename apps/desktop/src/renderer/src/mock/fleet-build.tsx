@@ -52,6 +52,16 @@ const SEEDS: Record<string, Seed> = {
       { branch: "armada/issues-list-filters", why: "conflict: apps/desktop/src/renderer/src/issues-tab/list.tsx, packages/shell/src/Palette.tsx" },
     ],
   },
+  // Two branches left out, one with commits since: `scenarios/preview-offer.ts`.
+  "preview-offer": {
+    on: "preview",
+    position: { ahead: PREVIEW_AHEAD, behind: 0 },
+    working: null,
+    leftOut: [
+      { branch: "feat/billing-export", why: "merge conflict with feat/ledger", moved: true },
+      { branch: "feat/invoice-pdf", why: "breaking migration invoices.pdf_path is not on main" },
+    ],
+  },
 };
 
 const levelWith = (on: FleetBuildChoice): FleetBuildPosition =>
