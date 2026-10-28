@@ -196,15 +196,26 @@ where
     }
 
     /// The card's facts. The landing the first message names beats the usual one, and Auto land
-    /// stands in for both where the card asks.
-    pub(crate) fn start_wire(&self, hosting: &KeptHosting, reads: StartReads) -> StartHeld {
+    /// stands in for both where the card asks. `queued` is read by the caller, which holds the runtime.
+    pub(crate) fn start_wire(&self, hosting: &KeptHosting, reads: StartReads, queued: bool) -> StartHeld {
         let asks_delivery = self.asks_delivery_of(hosting);
         let named = reads.first.as_ref().and_then(|first| named_delivery(&first.text));
         let picked = named
             .map(|choice| DeliveryPicked { choice, from: DeliveryPickedFrom::Named })
             .or(reads.usual.map(|choice| DeliveryPicked { choice, from: DeliveryPickedFrom::Usual }))
             .or(asks_delivery.then_some(DeliveryPicked { choice: DEFAULT_LANDING, from: DeliveryPickedFrom::Default }));
-        StartHeld { asks_delivery, picked, message: reads.first.map(|first| first.reads().to_string()) }
+        StartHeld { asks_delivery, picked, message: reads.first.map(|first| first.reads().to_string()), queued }
+    }
+
+    /// The landing the card shows as picked now, `start.picked`: what a press that named none takes.
+    async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
+        let (hosting, reads) = {
+            let store = self.store().lock().await;
+            let hosting = store.hosting(id).ok().flatten()?;
+            let reads = start_read(&store, &hosting).ok()?;
+            (hosting, reads)
+        };
+        self.start_wire(&hosting, reads, false).picked.map(|picked| picked.choice)
     }
 
     /// Keep `turn` as the held Job's first, where it is held and has none yet. `false` where it is not
@@ -409,12 +420,56 @@ where
     }
 
     /// `begin_session`: Start pressed on the start card. **Refused with nothing changed** where the Job
-    /// is not held (the answer a delivery answer gives for one settled already), and where its
+    /// is not held (the answer a delivery answer gives for one settled already). **Queued** while the
+    /// proposer is still reading: the Job stays held (`start.queued`) and begins when the reading ends,
+    /// with this press's edit and landing, or the landing the card then picks where it named none; a
+    /// second press meanwhile is settled already. Otherwise [`Self::begun`].
+    pub(crate) async fn session_begun(self: &Arc<Self>, begin: BeginSession) -> Result<SessionRecord, Refusal> {
+        let id = begin.session_id.as_str().to_string();
+        let (session, hosting) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(&id));
+        }
+        if !hosting.start_held {
+            return Err(self.settled_already());
+        }
+        // Read and set under one hold of the runtime, as `reading_ended` takes it, so no press falls between.
+        let queued = {
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            match (&state.proposal.reading, &state.proposal.queued) {
+                (Some(_), Some(_)) => return Err(self.settled_already()),
+                (Some(_), None) => {
+                    state.proposal.queued = Some(begin.clone());
+                    true
+                }
+                (None, _) => false,
+            }
+        };
+        if queued {
+            return self.published_hosted(&id).await;
+        }
+        self.begun(begin).await
+    }
+
+    /// A press that waited on the reading, run now it has ended. Its refusal has no caller to reach.
+    pub(crate) async fn queued_begun(self: &Arc<Self>, mut begin: BeginSession) {
+        let id = begin.session_id.as_str().to_string();
+        if begin.delivery.is_none() {
+            begin.delivery = self.card_picked(&id).await;
+        }
+        if let Err(why) = self.begun(begin).await {
+            self.session_warned(&id, "a start pressed while the job was read did not begin", format!("{why:?}"));
+            let _ = self.published_hosted(&id).await;
+        }
+    }
+
+    /// The begin itself. **Refused with nothing changed** where the Job is not held, and where its
     /// workflow asks how the work lands and `delivery` is absent. Otherwise the first turn is written
     /// to the thread, his edit of it where `message` says one, the landing is kept as the delivery
     /// question's answer, so the plan step asks nothing, the pick is recorded, the hold is lifted and
-    /// the first turn goes, then the turns that waited.
-    pub(crate) async fn session_begun(self: &Arc<Self>, begin: BeginSession) -> Result<SessionRecord, Refusal> {
+    /// the first turn goes, then the turns that waited. The Job that started it is told.
+    async fn begun(self: &Arc<Self>, begin: BeginSession) -> Result<SessionRecord, Refusal> {
         let id = begin.session_id.as_str();
         let (session, hosting) = self.session_and_hosting(id).await?;
         if session.state == store::SessionState::Ended {
@@ -480,6 +535,9 @@ where
             drain
         };
         let record = self.published_hosted(id).await?;
+        // Off the press, so the start waits on nothing of the parent's.
+        let (fleet, started) = (Arc::clone(self), record.clone());
+        tokio::spawn(async move { fleet.linked_started(&started).await });
         if drain {
             self.held_sent(id).await;
             return self.published_hosted(id).await;

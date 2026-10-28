@@ -16,5 +16,7 @@ A `words_address` item (id `words:<mod>:<manifest id>`) takes a `choice` of one 
 
 A `draft` item (id `draft:<row id>`) is settled three ways. A `choice` of 0 (`Approve`) approves it as written; `fixed`, the person's corrected text, approves it with that text; `text` alone sends it back with that note, to rewrite and propose again. The job is told which, with the text to use or the note, and the `draft` row is replaced with its `settled`. `fixed` on an item of any other source is a 422.
 
+A `held_child` item (id `start:<child id>`) is not answered: pressing Start on the child (`begin_session`) settles it, so any answer is a 422 `fleet.session_waiting_empty` and nothing is sent.
+
 The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.
 """

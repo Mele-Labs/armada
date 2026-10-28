@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale, ThumbsDown, ThumbsUp } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, LoaderCircle, MessageCircleQuestion, Scale, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -55,6 +55,28 @@ function Thumbs({ misread, keep }: { misread: NonNullable<Thing["misread"]>; kee
           <ThumbsDown size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
+    </span>
+  );
+}
+
+/** Start at a held Job's row end, in a column of its own width so a row with one lines up with the next; while the request is read, Starting. */
+function StartAct({ start }: { start: NonNullable<LedgerEntry["start"]> }) {
+  return (
+    <span className="armada-needs-panel__start">
+      {start.starting ? (
+        <span className="armada-needs-panel__starting">
+          <Tooltip label="Starting">
+            <span className="armada-session-mark" role="img" aria-label="Starting">
+              <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+          <span aria-hidden>Starting…</span>
+        </span>
+      ) : (
+        <Button variant="secondary" size="sm" data-aside="" onClick={start.onStart}>
+          Start
+        </Button>
+      )}
     </span>
   );
 }
@@ -255,6 +277,7 @@ export function NeedsYouPanel({
                             <span className="armada-session-ledger__text">{one.text}</span>
                           </button>
                           {one.misread === undefined ? null : <Thumbs misread={one.misread} keep={(thumb) => thumb.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open") ?? null} />}
+                          {one.row?.start === undefined ? null : <StartAct start={one.row.start} />}
                         </li>
                       ))}
                     </ul>

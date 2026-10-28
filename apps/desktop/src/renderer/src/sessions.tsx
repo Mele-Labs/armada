@@ -109,7 +109,7 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol";
+import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol";
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
@@ -554,6 +554,7 @@ export function entriesOf(
   removeWaiting?: (itemId: string, reason: string) => void,
   release?: LedgerRelease["rowOf"],
   scopes: ProposedScopes = new Map(),
+  begin?: (id: string, delivery: DeliveryChoice | undefined) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, a judge's concern and a draft are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
@@ -562,6 +563,9 @@ export function entriesOf(
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
     const restart = restartOf(act);
+    // A message act naming another Job opens it: a Job this one's agent started, held on its start card.
+    const other = act?.kind === "message" && act.target !== session.id ? sessions.find((that) => that.id === act.target) : undefined;
+    const childStart = one.source === "held_child" ? other?.start : undefined;
     const proposed = one.source === "draft" ? proposedOf(session, one.id, scopes) : undefined;
     return {
       key: `waiting${one.id}`,
@@ -602,7 +606,12 @@ export function entriesOf(
       ...(one.source !== "fleet_call" ? {} : { onRemove: () => void dismissWaiting(session.id, one.id), removeKeep: `remove:${session.id}:${one.id}` }),
       // A walk, or a pull request Fleet derived, is put away in one press with no reason box; Fleet tells the agent.
       ...(one.source === "walk" || (one.source === "replied" && act?.kind === "approve_pr") ? { onDismiss: () => void dismissWaiting(session.id, one.id) } : {}),
+      // While the proposer reads, no landing goes and Fleet takes the reading's; once read, the landing the child's card has ready.
+      ...(childStart === undefined || other === undefined || begin === undefined
+        ? {}
+        : { start: { starting: childStart.queued === true, onStart: () => begin(other.id, other.work?.proposal?.reading === true || !childStart.asksDelivery ? undefined : (childStart.picked?.choice ?? "auto_land")) } }),
       onOpen: () => {
+        if (other !== undefined) return open(other.id);
         if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
         if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
@@ -968,6 +977,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
     released.rowOf,
     scopes,
+    draft.begin === undefined ? undefined : (childId, delivery) => void draft.begin?.(childId, delivery),
     ),
   ];
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.

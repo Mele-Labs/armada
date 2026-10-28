@@ -691,6 +691,11 @@ pub enum WaitingSource {
     /// sentence and its link, then settles it. Words alone go to the agent as a message and settle
     /// it. Dismissing settles it. Listed only while the Job is live.
     WatchNotOurs,
+    /// Fleet: a Job this one's agent started (`started_to`) is still held on its start card. Derived
+    /// from the child: id `start:<child id>`, text `Press Start on "<child title>"`, a `message` act
+    /// whose `target` is the child's id. `begin_session` on the child settles it, and so does the
+    /// child ending; answering or dismissing it is refused.
+    HeldChild,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

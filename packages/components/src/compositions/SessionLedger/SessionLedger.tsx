@@ -135,6 +135,8 @@ export type LedgerEntry = {
   release?: { name: string; onPress: () => void };
   /** Released from here: given back, or kept by Fleet with `kept` saying why. */
   released?: { kept?: string };
+  /** A held Job's row: Start at its end begins that Job without opening it. `starting` while the start waits on the request being read. */
+  start?: { starting: boolean; onStart: () => void };
   onOpen: () => void;
 };
 
@@ -152,6 +154,9 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 };
 
 const REPLY = { Glyph: Reply, said: "Reply" };
+
+/** A Job this one's agent started, held on its start card: its press opens that Job. */
+const HELD_CHILD = { Glyph: Link, said: "Opens the linked Job" };
 
 /** A question Fleet read out of the agent's words. */
 const READ_FROM_REPLY = { Glyph: ScanText, said: "Read from the reply" };
@@ -462,6 +467,7 @@ export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string
   const replies = row.act === undefined && row.onReply !== undefined;
   if (row.fromReply === true && (row.options !== undefined || replies)) return READ_FROM_REPLY;
   if (row.options !== undefined) return QUESTION;
+  if (row.start !== undefined) return HELD_CHILD;
   return replies ? REPLY : WAITING_ACT[row.act ?? "none"];
 }
 

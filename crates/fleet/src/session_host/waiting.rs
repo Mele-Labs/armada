@@ -64,6 +64,7 @@ const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
+const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
@@ -110,6 +111,8 @@ pub(crate) struct WaitingReads {
     not_ours: Vec<store::KeptWatchWhole>,
     /// Every workflow change that is ready now: a proposal waits only while its change is among them.
     ready_changes: Vec<i64>,
+    /// The Jobs its agent started that wait on their start cards.
+    held_children: Vec<super::agent_starting::HeldChild>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -147,6 +150,7 @@ pub(crate) fn waiting_reads(
         asked_tasks: store.asked_project_tasks(&session.id)?,
         not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
         ready_changes: store.ready_workflow_change_ids()?,
+        held_children: super::agent_starting::held_children(store, &session.id)?,
     })
 }
 
@@ -332,7 +336,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours, ready_changes } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours, ready_changes, held_children } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -370,6 +374,7 @@ where
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
                 let labels: Vec<&str> = one.options.iter().map(|option| option.label.as_str()).collect();
@@ -477,6 +482,8 @@ where
                     confirmed: false,
                 });
             }
+            // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
+            items.extend(held_children.iter().map(super::agent_starting::held_child_item));
             // Every slot is held and it is in the line for one: Wait or Add, until he says.
             items.extend(
                 self.hosts()
@@ -933,6 +940,7 @@ where
                 SESSION_WAITING_EMPTY,
                 "the first message is settled by Start, from the Job's message box",
             )),
+            WaitingSource::HeldChild => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY)),
             WaitingSource::Plan => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a plan is approved, or sent changes, from its own card",
@@ -1062,6 +1070,9 @@ where
                 SESSION_WAITING_EMPTY,
                 "whether the tasks are done is answered, not dismissed",
             ));
+        }
+        if item.source == WaitingSource::HeldChild {
+            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY));
         }
         if dismiss.misread && item.source != WaitingSource::Replied {
             return Err(self.hosted_refusal(

@@ -12,5 +12,7 @@ notes = """
 
 **`delivery` is read where `hosted.start.asks_delivery` holds**, that is where the Job's workflow has a step that asks how the work lands. It is kept as the answer to that question, so the step asks nothing; `auto_land` turns Auto land on as `set_session_auto_land` does; and the pick is recorded, from which `hosted.start.picked` offers the usual landing of the next Job of that workflow in that repository. Where `asks_delivery` holds `hosted.start.picked` is always present: named by the first message, else the usual, else Auto land `from` `default`. Where the workflow asks nothing, `delivery` is ignored and nothing is written.
 
-422 `fleet.session_waiting_empty` where `asks_delivery` holds and `delivery` is absent. 409 `fleet.session_waiting_unheld` for a Job that is not held, begun already or never held, and 409 `fleet.session_closed` for one that ended. 422 `fleet.no_such_session` for one Fleet does not host. Nothing is changed by a refusal.
+**A press while the proposer is still reading is queued**: `hosted.start.queued` is true, `delivery` may be absent, and the Job starts when the reading ends, with the reading's landing where the press named none.
+
+422 `fleet.session_waiting_empty` where `asks_delivery` holds and `delivery` is absent. A queued press is not refused for it. 409 `fleet.session_waiting_unheld` for a Job that is not held, begun already or never held, and 409 `fleet.session_closed` for one that ended. 422 `fleet.no_such_session` for one Fleet does not host. Nothing is changed by a refusal.
 """

@@ -2,11 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Start a new job in any repository with a first message, which waits on its start card for the person to press Start. Nothing runs until he does. Body: manifest_id, title, message, group to hand a group of your plan to it, and after to make it wait on a Job"
+description = "Start a new job in any repository with a first message, which waits on its start card for the person to press Start. Nothing runs until he does. Fleet lists the start in your own Needs you itself and tells you when the job starts, so add no waiting_for item for it. Body: manifest_id, title, message, group to hand a group of your plan to it, and after to make it wait on a Job"
 notes = """
 `POST /sessions/start_another`, body `StartAnotherSession`: `manifest_id`, `title`, `message` and optionally `group`. Since 23.80. Answered with `SessionHeld`: the new job's id, its title and `fork` false.
 
 **The job is created and listed at once, held on its start card, and nothing runs.** No process starts and no turn begins. The message is the agent's first message and the person's to send: Fleet keeps it as the held job's first turn, off its thread, and serves it as `hosted.start.message`, which Bridge puts in the job's message box. While held the job raises a waiting item `unsent:<session id>` with source `first_message` and an `act` of `message` on the job, labelled "First message". `begin_session` sends the box as he left it (`message`, his edit where he made one), starts the first turn and settles the item. `close_session` discards it.
+
+**The caller waits on it too.** While the new job is live and held, the caller's own list carries a Fleet item, id `start:<new id>`, text `Press Start on "<title>"`, source `held_child`, an `act` of `message` on the new job, read off the new job on every read. Start or ending the new job takes it off. So the caller's agent adds no `waiting_for` item for the start: one whose `act` is `message` on a held job it started is left off its list. Start pressed while the proposer is still reading the brief is queued (`hosted.start.queued`): the job stays held and begins when the reading ends, with the landing the card then picks where the press named none. When it begins the caller is told once, with a `linked` row `started` in its thread and a message that wakes it.
 
 **The caller is placed as `show_window` places it**, by the connection of a hosted job's process, and the call names no job. A call that places no hosted job is refused with 422 `fleet.agent_start_unplaced`. A blank `title` or `message` is refused with 422 `fleet.agent_start_empty`, and a `manifest_id` Fleet does not serve with the refusal `start_session` gives.
 

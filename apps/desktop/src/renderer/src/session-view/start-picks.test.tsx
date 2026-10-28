@@ -83,3 +83,31 @@ test("None is his pick: the Job goes custom, stays custom, and has no delivery t
   await pressed!("typed");
   expect(begin).toHaveBeenLastCalledWith("new1", undefined, "typed");
 });
+
+const reading = (start: NonNullable<Session["start"]>): Session =>
+  ({ id: "new1", attachments: [], rows: [], turn: { state: "idle" }, work: { proposal: { workflow: null, reading: true } }, start }) as unknown as Session;
+
+test("Start while the request is read goes with no landing and no workflow chosen, for Fleet to take the reading's", async () => {
+  begin.mockClear();
+  choose.mockClear();
+  mount(reading({ asksDelivery: true, picked: { choice: "keep_local", from: "usual" }, message: "Port the clock" }));
+  await expect.poll(() => pressed).toBeDefined();
+  expect(await pressed!("Port the clock")).toBe(true);
+  expect(begin).toHaveBeenCalledExactlyOnceWith("new1", undefined, "Port the clock");
+  expect(choose).not.toHaveBeenCalled();
+});
+
+test("a second Start while the first is queued sends nothing, and the card says Starting", async () => {
+  begin.mockClear();
+  mount(reading({ asksDelivery: true, queued: true }));
+  await expect.poll(() => pressed).toBeDefined();
+  expect(await pressed!("Port the clock")).toBe(false);
+  expect(begin).not.toHaveBeenCalled();
+  await expect.element(page.getByRole("img", { name: "Starting" })).toBeVisible();
+});
+
+test("a card not yet queued does not say Starting", async () => {
+  mount(held({ asksDelivery: true }));
+  await expect.element(page.getByRole("combobox", { name: "Workflow" })).toBeVisible();
+  expect(document.querySelector('[aria-label="Starting"]')).toBeNull();
+});

@@ -19,6 +19,7 @@ mod act_failing;
 mod adversarial_review;
 mod sending_checkout;
 mod agent_starts;
+mod held_children;
 mod session_after;
 mod asking_in_window;
 mod drafts;

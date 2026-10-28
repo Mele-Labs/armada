@@ -946,6 +946,28 @@ Bridge's half is `"withdrawn"` in `DraftHow` in `packages/protocol/src/hosted-se
 **Skew.** As above.
 **The event stream.** No new event: either way of withdrawing publishes `session.changed`, as an answer does. The open risk below is neither better nor worse.
 
+## A Job an agent started waits in its parent's Needs you: `held_child`, `queued` and `started`
+
+Since 28 Oct 2026. `docs/concepts/session.md`, *A Job an agent started*.
+**Two enum values and one optional field**: no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `held_child` on `WaitingSource` in `packages/protocol/src/sessions.ts`, and `queued` on `StartHeld` and `started` on `LinkedEvent` in `hosted-sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `held_child`: id `start:<child id>`, text `Press Start on "<child title>"`, act `message` whose `target` is the child's id. Derived from a `started_to` child still held on its start card; dropped when the child starts or ends |
+| `answer_waiting`, `dismiss_waiting` on it | Bridge writes | Both refused 422 `fleet.session_waiting_empty`, and the item stands: `begin_session` on the child is what settles it |
+| `StartHeld.queued` (`hosted.start`) | Fleet writes, Bridge reads | `bool`, left out when false. Start was pressed while the proposer was still reading; the Job starts when the reading ends |
+| `BeginSession.delivery` | Bridge writes | No new field. While the proposer is reading, the press is queued and `delivery` may be absent: the reading's landing is taken |
+| `LinkedEvent` (a `linked` row's `event`) | Fleet writes, Bridge reads | Gains `started`: a Job the parent's agent started left its start card, written in the parent's thread |
+
+**Fleet writes all three since the change after it.** The item is read off the child on every read of the parent, the queued press is in memory as the reading is, and `started` is told once per child.
+**A Bridge that matches `WaitingSource` or `LinkedEvent` exhaustively** meets values it did not know; the mirror gained them first, and equal IDs hold the two together.
+
+**Skew.** As above.
+**The event stream.** No new event: the item and `queued` ride the `session.changed` a hosted Job already publishes, and `started` one more `session.row` on the parent.
+The open risk below is neither better nor worse.
+
 ## A sketch approved or sent back: `answer_sketch`, and `asked`, `drawn` and `settled` on a sketch
 
 Since 28 Oct 2026. `crates/ipc/operations/answer_sketch.toml`.

@@ -289,8 +289,11 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id) is Fleet asking about a watch that ended `not_ours`:
  * `Ignore` (choice 0) settles it and tells the agent nothing, `Fix it` (choice 1) sends the agent the part, its sentence and its link.
  * Words alone go to the agent as a message. Each settles it, as dismissing does. It is listed while the Job is live.
+ * `held_child` (id `start:<child id>`, text `Press Start on "<child title>"`, act `message` whose `target` is the child's id) is a Job
+ * this one's agent started (`started_to`) that is still held on its start card: its press opens the child, and `begin_session` on the
+ * child starts it from the row. Fleet derives it from the child and drops it when the child starts or ends.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

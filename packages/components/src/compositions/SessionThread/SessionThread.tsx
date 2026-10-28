@@ -229,7 +229,7 @@ type SessionThreadKinds =
    */
   | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
-  | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
+  | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" | "started" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** Where an earlier Job's turns end and this one's begin, after a hand off: a plain rule. */

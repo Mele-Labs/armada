@@ -90,6 +90,9 @@ pub(crate) struct ProposalState {
     /// The title the Job holds until one call for its title alone lands: after a failed reading, or on
     /// a fork an agent titled. A title the person or the wand gives ends it.
     pub stand_in: Option<String>,
+    /// Start was pressed while the reading was out: the press, run when the reading ends. The Job stays
+    /// held until then. In memory, as the reading is.
+    pub queued: Option<ipc::BeginSession>,
 }
 
 impl ProposalState {
@@ -451,18 +454,23 @@ where
             }
         }
         // Held turns go first, in the order they came, and nothing newer overtakes them. A Job still on its
-        // start card keeps them: `begin_session` sends them.
-        let kept_back = {
+        // start card keeps them: `begin_session` sends them, or the press that waited on this reading.
+        let (kept_back, queued) = {
             let mut state = runtime.state();
             state.proposal.reading = None;
             let kept_back = state.proposal.start_held;
             state.proposal.draining |= !kept_back;
-            kept_back
+            (kept_back, state.proposal.queued.take())
         };
         if kept_back {
             // What the reading left blank is filled now, so the card is never without a workflow.
             self.held_defaulted(id).await;
-            let _ = self.published_hosted(id).await;
+            match queued {
+                Some(begin) => self.queued_begun(begin).await,
+                None => {
+                    let _ = self.published_hosted(id).await;
+                }
+            }
             return;
         }
         let _ = self.published_hosted(id).await;

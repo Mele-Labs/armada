@@ -1,5 +1,5 @@
-//! What Fleet does when a Session another Session's agent started ends, or has a pull request
-//! merged: it tells the one that started it. **A Session that needs the owner is not told**: that
+//! What Fleet does when a Session another Session's agent started leaves its start card, ends, or has
+//! a pull request merged: it tells the one that started it. **A Session that needs the owner is not told**: that
 //! call is on the child's own row, and a second voice in the parent's thread contradicts it.
 //! `docs/concepts/session.md`, *Linked Sessions*.
 //!
@@ -24,6 +24,12 @@ use crate::daemon::Fleet;
 fn followed_by(record: &SessionRecord) -> Option<(String, Option<String>)> {
     let link = record.attachments.iter().find(|one| one.kind == "started_by")?;
     Some((link.target.clone(), link.detail.get(crate::session_host::linking::GROUP).cloned()))
+}
+
+/// What the parent's agent is sent: `Linked Job "<title>" (<id>) <what>.`, and the plan group after it.
+fn linked_said(title: &str, child: &str, group: Option<&str>, what: &str) -> String {
+    let group = group.map(|one| format!(" Plan group: {one}.")).unwrap_or_default();
+    format!("Linked Job \"{title}\" ({child}) {what}.{group}")
 }
 
 /// Start telling parents about the Sessions they follow. Production starts it beside the rail's, and a
@@ -67,10 +73,7 @@ where
         let Some((parent, group)) = followed_by(&record) else { return };
         let child = record.id.as_str().to_string();
         let title = record.title.clone().unwrap_or_else(|| child.clone());
-        let said = |what: &str| {
-            let group = group.as_ref().map(|one| format!(" Plan group: {one}.")).unwrap_or_default();
-            format!("Linked Job \"{title}\" ({child}) {what}.{group}")
-        };
+        let said = |what: &str| linked_said(&title, &child, group.as_deref(), what);
         if record.state == ipc::SessionState::Ended && self.linked_once(&child, "done", "").await {
             self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended")).await;
         }
@@ -79,6 +82,19 @@ where
                 self.linked_told(&parent, &child, &title, LinkedEvent::Merged, said(&format!("had its pull request #{} merged", pull.target))).await;
             }
         }
+    }
+
+    /// A Job left its start card: its parent is told once, off the begin itself rather than the event
+    /// tap, and published so its `held_child` item goes.
+    pub(crate) async fn linked_started(self: &Arc<Self>, record: &SessionRecord) {
+        let Some((parent, group)) = followed_by(record) else { return };
+        let child = record.id.as_str().to_string();
+        let title = record.title.clone().unwrap_or_else(|| child.clone());
+        if self.linked_once(&child, "started", "").await {
+            let said = linked_said(&title, &child, group.as_deref(), "started");
+            self.linked_told(&parent, &child, &title, LinkedEvent::Started, said).await;
+        }
+        let _ = self.published_hosted(&parent).await;
     }
 
     /// Whether this is the first time `event` under `key` is seen for `child`, and keeps it.

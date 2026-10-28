@@ -112,6 +112,7 @@ fn a_held_jobs_start_card_round_trips_and_is_left_out_once_it_has_begun() {
             asks_delivery: true,
             picked: Some(DeliveryPicked { choice: DeliveryChoice::AutoLand, from: DeliveryPickedFrom::Usual }),
             message: None,
+            queued: false,
         })
     );
     assert_eq!(serde_json::to_value(&read).unwrap(), waiting);
@@ -162,4 +163,36 @@ fn begin_carries_the_message_as_he_left_it_only_when_given() {
     assert_eq!(serde_json::to_value(&begin).unwrap(), json!({"session_id":"s2","message":"Fix the reader, then the writer."}));
     let bare: BeginSession = crate::decode("a begin", br#"{"session_id":"s2"}"#).unwrap();
     assert_eq!(bare.message, None);
+}
+
+#[test]
+fn a_held_child_item_opens_the_child_it_waits_on() {
+    let item = json!({
+        "id": "start:s4", "text": "Press Start on \"Check the reader\"", "since": "2026-10-28T09:00:00Z",
+        "source": "held_child", "act": {"kind": "message", "target": "s4"}
+    });
+    let read: WaitingItem = serde_json::from_value(item.clone()).unwrap();
+    assert_eq!(read.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((WaitingActKind::Message, "s4")));
+    assert_eq!(serde_json::to_value(&read).unwrap(), item);
+}
+
+#[test]
+fn a_start_pressed_while_the_proposer_reads_is_queued_and_left_out_otherwise() {
+    let queued = json!({"asks_delivery": true, "picked": {"choice": "auto_land", "from": "default"}, "queued": true});
+    let read: StartHeld = serde_json::from_value(queued.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&read).unwrap(), queued);
+
+    let waiting = json!({"asks_delivery": false});
+    let read: StartHeld = serde_json::from_value(waiting.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&read).unwrap(), waiting);
+}
+
+#[test]
+fn a_linked_row_says_the_child_started() {
+    let row = json!({
+        "kind": "linked", "id": "r11", "at": "2026-10-28T09:05:00Z",
+        "session": {"id": "s4", "title": "Check the reader"}, "event": "started"
+    });
+    let read: SessionRow = serde_json::from_value(row.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&read).unwrap(), row);
 }

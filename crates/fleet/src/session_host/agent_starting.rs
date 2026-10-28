@@ -7,6 +7,9 @@
 //!
 //! **The caller is placed by its connection and never named**, so a fork can only be of the
 //! caller's own conversation.
+//!
+//! **Until he presses Start the caller's own list waits on it too**, as `held_child` (`Press Start on
+//! "<title>"`), read off the child each time, so the caller's agent lists nothing of its own for it.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -14,10 +17,10 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, HostedSessions, Refusal};
 use ipc::{
-    ForkFrom, ForkThisSession, ManifestId, SessionHeld, SessionLink, SessionRecord, SessionRow,
-    StartAnotherSession, StartSession,
+    ForkFrom, ForkThisSession, Instant, ManifestId, SessionHeld, SessionLink, SessionRecord, SessionRow,
+    StartAnotherSession, StartSession, WaitingAct, WaitingActKind, WaitingItem, WaitingSource,
 };
-use store::{AttachmentState, Holder, KeptAttachment};
+use store::{AttachmentState, Holder, KeptAttachment, Store};
 
 use super::linking::GROUP;
 use crate::daemon::Fleet;
@@ -26,8 +29,53 @@ const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
 const AGENT_START_EMPTY: &str = "fleet.agent_start_empty";
 
 /// On the new Session, naming the one whose agent started it; and on that one, naming the new.
-const STARTED_BY: &str = "started_by";
+pub(crate) const STARTED_BY: &str = "started_by";
 const STARTED_TO: &str = "started_to";
+
+/// A Job this one's agent started that still waits on its start card.
+pub(crate) struct HeldChild {
+    pub id: String,
+    pub title: String,
+    /// When the link was written: the item waits from then.
+    pub since: String,
+}
+
+/// The Jobs `parent`'s agent started that are live and held on their start cards. A press queued
+/// while the proposer reads leaves one held, so it is still listed.
+pub(crate) fn held_children(store: &Store, parent: &str) -> Result<Vec<HeldChild>, store::WriteError> {
+    let mut held = Vec::new();
+    for link in store.attachments_of(&Holder::session(parent))?.into_iter().filter(|one| one.kind == STARTED_TO) {
+        let Some(child) = store.session(&link.target)? else { continue };
+        if child.state == store::SessionState::Ended || !store.hosting(&child.id)?.is_some_and(|one| one.start_held) {
+            continue;
+        }
+        held.push(HeldChild { title: child.title.unwrap_or_else(|| child.id.clone()), id: child.id, since: link.since });
+    }
+    Ok(held)
+}
+
+/// The parent's item for a held child: pressing it opens the child, whose Start settles it.
+pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
+    WaitingItem {
+        id: format!("start:{}", child.id),
+        text: format!("Press Start on \"{}\"", child.title),
+        since: Instant::carried(&child.since),
+        source: WaitingSource::HeldChild,
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: child.id.clone() }),
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        concern: None,
+        cites: Vec::new(),
+        confirmed: false,
+    }
+}
+
+/// An agent's own item that sends the person to one of `held`, which the held child's item already says.
+pub(crate) fn repeats_held_child(item: &WaitingItem, held: &[HeldChild]) -> bool {
+    item.source == WaitingSource::Agent
+        && item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Message && held.iter().any(|child| child.id == act.target))
+}
 
 /// The words a call must carry, trimmed.
 pub(super) struct Words {
