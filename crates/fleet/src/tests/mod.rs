@@ -110,6 +110,7 @@ mod session_account;
 mod session_servers;
 mod session_activity;
 mod session_annotation_done;
+mod pull_request_notes;
 mod session_dispute;
 mod claim_disputes;
 mod session_dispute_reading;

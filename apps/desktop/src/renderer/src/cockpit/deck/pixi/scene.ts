@@ -259,6 +259,12 @@ const DOCK = -80;
 /** A point `DOCK` to the right of another on the screen (a negative one to its left), which the camera's fixed turn makes a fixed step of the plane. */
 const docked = (at: P3): P3 => ({ x: at.x + DOCK * Math.cos((CAM.yaw * Math.PI) / 180), y: at.y - DOCK * Math.sin((CAM.yaw * Math.PI) / 180), z: at.z });
 
+/** Whether a point is a real one within a few fields' reach: a route to anywhere else is not drawn, since it could never be seen. */
+const nearField = (p: P3, world: Size): boolean => {
+  const reach = 4 * Math.max(world.width, world.height * FLAT);
+  return Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z) && Math.abs(p.x) <= reach && Math.abs(p.y) <= reach && Math.abs(p.z) <= reach;
+};
+
 /** How the CSS map placed a pull request, which stands on a route from its drone (or the base) to the flag, further along the nearer it is to merging. */
 export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "drones" | "prs" | "plays">): Crate[] {
   const droneBy = new Map(i.drones.map((one) => [one.key, one] as const));
@@ -271,6 +277,7 @@ export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "dr
     const flying = owner === undefined ? undefined : i.frame.flying(owner);
     const start: P3 = (flying === undefined ? undefined : docked(flying)) ?? { ...baseOf(i.layout, i.world, pr.root), z: ROUTE };
     const end: P3 = { ...onPlane(territory.goal), z: ROUTE };
+    if (!nearField(start, i.world) || !nearField(end, i.world)) continue;
     const landed = pr.stage === "landed";
     if (landed && !landing.has(pr.number)) continue;
     // One whose Checks have not passed waits at its drone's dock: a step along its route would put it under the badge or a clash mark.

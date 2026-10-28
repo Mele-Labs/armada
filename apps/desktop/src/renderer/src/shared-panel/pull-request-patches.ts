@@ -23,9 +23,13 @@ export function fileDiffOf(file: Pick<PullRequestFilePatch, "path" | "patch" | "
   return { files: drawn.files, ...(drawn.cut === undefined ? {} : { cut: drawn.cut }) };
 }
 
-/** The read as the panel draws it: out while `read` is absent. */
-export function patchesOf(read: PatchesRead | undefined): PullRequestPatches {
+/** The read as the panel draws it: out while `read` is absent. `lines` is what each diff takes to draw a line's gutter and what hangs under it. */
+export function patchesOf(read: PatchesRead | undefined, lines?: Pick<UnifiedDiffProps, "onLine" | "under">): PullRequestPatches {
   if (read === undefined) return { state: "reading" };
   if (!read.ok) return { state: "refused", said: read.said };
-  return { state: "read", files: read.files.map((file) => ({ path: file.path, diff: fileDiffOf(file) })) };
+  return { state: "read", files: read.files.map((file) => ({ path: file.path, diff: withLines(fileDiffOf(file), lines) })) };
 }
+
+/** A file with no lines has nothing to put a note on. */
+const withLines = (diff: UnifiedDiffProps, lines: Pick<UnifiedDiffProps, "onLine" | "under"> | undefined): UnifiedDiffProps =>
+  lines === undefined || diff.files.length === 0 ? diff : { ...diff, ...lines };

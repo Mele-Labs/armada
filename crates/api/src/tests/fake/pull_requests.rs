@@ -247,6 +247,50 @@ impl PullRequestPanel for FakeDaemon {
         Ok(ipc::RememberedPlaces { places: Vec::new() })
     }
 
+    async fn list_pull_request_notes(&self, _manifest_id: ManifestId, _number: u32) -> Result<ipc::PullRequestNotes, Refusal> {
+        Ok(ipc::PullRequestNotes { notes: Vec::new() })
+    }
+
+    async fn save_pull_request_note(
+        &self,
+        _manifest_id: ManifestId,
+        number: u32,
+        save: ipc::SavePullRequestNote,
+    ) -> Result<ipc::PullRequestNote, Refusal> {
+        Ok(ipc::PullRequestNote {
+            id: save.id.unwrap_or_else(|| "01note".into()),
+            repository: "armada/armada".into(),
+            number,
+            path: save.path.unwrap_or_default(),
+            line: save.line.unwrap_or_default(),
+            side: save.side.unwrap_or(ipc::NoteSide::Right),
+            body: save.body,
+            status: ipc::NoteStatus::Open,
+            sent_to: None,
+            sent_title: None,
+            sent_at: None,
+            created_at: "2026-10-27T09:00:00Z".into(),
+        })
+    }
+
+    async fn remove_pull_request_note(
+        &self,
+        _manifest_id: ManifestId,
+        _number: u32,
+        _id: String,
+    ) -> Result<ipc::PullRequestNotes, Refusal> {
+        Ok(ipc::PullRequestNotes { notes: Vec::new() })
+    }
+
+    async fn send_pull_request_notes(
+        &self,
+        _manifest_id: ManifestId,
+        _number: u32,
+        _send: ipc::SendPullRequestNotes,
+    ) -> Result<ipc::PullRequestNotes, Refusal> {
+        Ok(ipc::PullRequestNotes { notes: Vec::new() })
+    }
+
     async fn open_review_walk(
         self: std::sync::Arc<Self>,
         manifest_id: ManifestId,

@@ -472,6 +472,41 @@ where
         self.walk_place_forgotten(manifest_id, id).await
     }
 
+    async fn list_pull_request_notes(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+    ) -> Result<ipc::PullRequestNotes, Refusal> {
+        self.pull_request_notes_listed(manifest_id, number).await
+    }
+
+    async fn save_pull_request_note(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+        save: ipc::SavePullRequestNote,
+    ) -> Result<ipc::PullRequestNote, Refusal> {
+        self.pull_request_note_saved(manifest_id, number, save).await
+    }
+
+    async fn remove_pull_request_note(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+        id: String,
+    ) -> Result<ipc::PullRequestNotes, Refusal> {
+        self.pull_request_note_removed(manifest_id, number, id).await
+    }
+
+    async fn send_pull_request_notes(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+        send: ipc::SendPullRequestNotes,
+    ) -> Result<ipc::PullRequestNotes, Refusal> {
+        self.pull_request_notes_sent(manifest_id, number, send).await
+    }
+
     async fn open_review_walk(
         self: std::sync::Arc<Self>,
         manifest_id: ManifestId,

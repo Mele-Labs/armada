@@ -11,6 +11,7 @@ use ipc::{
     ForgetReviewSearch, ManifestId, OpenReviewWalk, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullReviewLists,
     PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools,
     ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest,
+    PullRequestNote, PullRequestNotes, SavePullRequestNote, SendPullRequestNotes,
 };
 
 use crate::daemon::Refusal;
@@ -142,6 +143,38 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         manifest_id: ManifestId,
         id: String,
     ) -> impl Future<Output = Result<RememberedPlaces, Refusal>> + Send;
+
+    /// `list_pull_request_notes` — the owner's notes on one pull request, oldest first.
+    fn list_pull_request_notes(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+    ) -> impl Future<Output = Result<PullRequestNotes, Refusal>> + Send;
+
+    /// `save_pull_request_note` — make a note, or edit the body of one open and unsent.
+    /// [`Refusal::Unacceptable`] for a blank body or a note that cannot be edited.
+    fn save_pull_request_note(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+        save: SavePullRequestNote,
+    ) -> impl Future<Output = Result<PullRequestNote, Refusal>> + Send;
+
+    /// `remove_pull_request_note` — answers the notes kept on the pull request now.
+    fn remove_pull_request_note(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+        id: String,
+    ) -> impl Future<Output = Result<PullRequestNotes, Refusal>> + Send;
+
+    /// `send_pull_request_notes` — record that notes were sent to a Job. **Sends nothing.**
+    fn send_pull_request_notes(
+        &self,
+        manifest_id: ManifestId,
+        number: u32,
+        send: SendPullRequestNotes,
+    ) -> impl Future<Output = Result<PullRequestNotes, Refusal>> + Send;
 
     /// `open_review_walk` — hold up the place a pull request's change runs. **Answers at once**;
     /// a pulled-down place's progress arrives as `review_walk.changed`.

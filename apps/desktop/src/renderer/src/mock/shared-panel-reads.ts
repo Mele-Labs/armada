@@ -9,8 +9,10 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { patchOfLines } from "../pr-review/patch";
+import { pullRequestNotesReads } from "../shared-panel/fleet-reads";
 import type { BayRead, CheckRead, IssueRead, PanelReads, PatchesRead, PullRequestRead } from "../shared-panel/reads";
 import { reviewSeed } from "./pr-review-pages";
+import { mockPullRequestNotesApi } from "./slices/pull-request-notes";
 
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
 const ARMADA = repository().manifest!.id;
@@ -393,6 +395,7 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
       return { ...was, page: { ...was.page, conversation: [...was.page.conversation, entry] } };
     },
     pullRequestPatches: async (item) => patches(item.number),
+    notes: pullRequestNotesReads(mockPullRequestNotesApi()),
     writePullRequest: async (item, write) => {
       const was = read(item.number);
       if (was === undefined) return { ok: false, said: "The forge could not find this pull request." };
