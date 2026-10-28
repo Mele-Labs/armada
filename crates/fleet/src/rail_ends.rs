@@ -1,6 +1,8 @@
 //! What ends a step, as a short fact, read off the step's anchor. **Pure**, and beside `rail`, whose
 //! rules it restates for a person and for the agent; nothing here is a second way to place a step.
 
+use core_model::StepEnd;
+
 use crate::rail::{Fit, RailStep};
 
 /// The fact that ends a step. One reading, said two ways: to the person on the workflow's page and to
@@ -11,6 +13,11 @@ pub(crate) enum End {
     PlanApproved,
     WalkApproved,
     Replied,
+    /// A walk approved, as a step's `ends_on` lists it: any window, whenever approved.
+    AnyWalkApproved,
+    SketchApproved,
+    DraftApproved,
+    IdeaPicked,
     PlanRecorded,
     Pushed,
     WalkShown,
@@ -28,6 +35,10 @@ impl End {
             End::PlanApproved => "you approve the plan",
             End::WalkApproved => "you approve the walk",
             End::Replied => "you reply",
+            End::AnyWalkApproved => "you approve a walk",
+            End::SketchApproved => "you approve a sketch",
+            End::DraftApproved => "you approve a draft",
+            End::IdeaPicked => "you pick one of the ideas shown",
             End::PlanRecorded => "a plan is recorded",
             End::Pushed => "it is pushed",
             End::WalkShown => "a walk is shown",
@@ -45,6 +56,10 @@ impl End {
             End::PlanApproved => "the person approves the plan",
             End::WalkApproved => "the person approves the walk",
             End::Replied => "the person replies",
+            End::AnyWalkApproved => "the person approves a walk you showed with show_window",
+            End::SketchApproved => "the person approves a sketch you showed with show_sketch",
+            End::DraftApproved => "the person approves a draft you proposed with propose_draft",
+            End::IdeaPicked => "the person picks an option you gave a preview in AskUserQuestion",
             End::PlanRecorded => "you record a plan with record_plan",
             End::Pushed => "you push the branch",
             End::WalkShown => "you show a walk with show_window",
@@ -58,31 +73,71 @@ impl End {
     /// The Job's own act ends the step, so nobody else will: Fleet does not move it, and the person
     /// has nothing to answer.
     pub(crate) fn by_the_job(self) -> bool {
-        !matches!(self, End::Merged | End::PlanApproved | End::WalkApproved | End::Replied)
+        !matches!(
+            self,
+            End::Merged
+                | End::PlanApproved
+                | End::WalkApproved
+                | End::Replied
+                | End::AnyWalkApproved
+                | End::SketchApproved
+                | End::DraftApproved
+                | End::IdeaPicked
+        )
+    }
+
+    fn listed(end: StepEnd) -> End {
+        match end {
+            StepEnd::Replied => End::Replied,
+            StepEnd::WalkApproved => End::AnyWalkApproved,
+            StepEnd::SketchApproved => End::SketchApproved,
+            StepEnd::DraftApproved => End::DraftApproved,
+            StepEnd::IdeaPicked => End::IdeaPicked,
+        }
     }
 }
 
-/// What ends the step at `at`, or `None` where nothing observable does.
-pub(crate) fn end_of(steps: &[RailStep], at: usize) -> Option<End> {
-    let step = steps.get(at)?;
+/// Everything that ends the step at `at`, any one of them, or none where nothing observable does. A
+/// step before the recording step that lists its ends is ended by those; the plan recorded is said
+/// only where it lists none.
+pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
+    let Some(step) = steps.get(at) else { return Vec::new() };
     if step.delivers {
-        return Some(End::Merged);
+        return vec![End::Merged];
     }
     if step.records_plan {
-        return Some(End::PlanApproved);
+        return vec![End::PlanApproved];
     }
     if step.walks {
-        return Some(End::WalkApproved);
+        return vec![End::WalkApproved];
     }
     if steps.iter().position(|one| one.records_plan).is_some_and(|recording| at < recording) {
-        return Some(if step.awaits_reply { End::Replied } else { End::PlanRecorded });
+        return match step.ends_on.is_empty() {
+            true => vec![End::PlanRecorded],
+            false => step.ends_on.iter().copied().map(End::listed).collect(),
+        };
     }
-    steps.get(at + 1).and_then(entry)
+    steps.get(at + 1).and_then(entry).into_iter().collect()
 }
 
-/// What ends the step at `at`, to the person. Served by the workflow's page.
+/// What ends the step at `at` where one thing does, or `None` where several or nothing does.
+pub(crate) fn end_of(steps: &[RailStep], at: usize) -> Option<End> {
+    match ends_of(steps, at).as_slice() {
+        [one] => Some(*one),
+        _ => None,
+    }
+}
+
+/// What ends the step at `at`, to the person, where one thing does. Served by the workflow's page.
 pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<&'static str> {
     end_of(steps, at).map(End::for_person)
+}
+
+/// Everything that ends the step at `at`, to the person, any one of them. For the workflow's page,
+/// which serves it once `StepReading` carries `ends_any`.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ends_any(steps: &[RailStep], at: usize) -> Vec<&'static str> {
+    ends_of(steps, at).into_iter().map(End::for_person).collect()
 }
 
 /// What a step is entered on, which is what ends the one before it.

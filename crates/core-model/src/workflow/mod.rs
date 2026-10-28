@@ -25,6 +25,7 @@ mod runner;
 mod runs_at;
 mod scope;
 mod source;
+mod step_end;
 mod tuning;
 mod verdict;
 
@@ -55,5 +56,6 @@ pub use runner::Runner;
 pub use runs_at::RunsAt;
 pub use scope::{under, ContextSource, DeclarePlanAt, DeclaredPaths, EvidenceScope};
 pub use source::WorkflowSource;
+pub use step_end::StepEnd;
 pub use tuning::Effort;
 pub use verdict::GateVerdict;

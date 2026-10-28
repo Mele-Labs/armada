@@ -14,7 +14,7 @@ pub(crate) mod after;
 mod agent_starting;
 mod annotating;
 mod note_resolving;
-mod asking;
+pub(crate) mod asking;
 mod backgrounding;
 mod cut_off;
 pub(crate) mod disputing;

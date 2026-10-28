@@ -382,7 +382,7 @@ fn feature_and_bug_run_the_steps_the_owner_chose() {
             .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()))
             .steps()
             .iter()
-            .map(|step| (step.id().as_str().to_string(), step.walks(), step.awaits_reply()))
+            .map(|step| (step.id().as_str().to_string(), step.walks(), step.ends_on() == [core_model::StepEnd::Replied]))
             .collect()
     };
     let expect = |rows: &[(&str, bool, bool)]| -> Vec<(String, bool, bool)> {

@@ -5,13 +5,15 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Ulid, WorkflowId};
 use ipc::{
-    ConcernFrom, ConcernHow, ConcernSettled, Instant, JudgeConcern, JudgeReading, SessionRow, SessionVoice, WaitingAct,
-    WaitingActKind, WaitingCite, WaitingItem, WaitingSource,
+    AskedQuestion, ConcernFrom, ConcernHow, ConcernSettled, DraftHow, Instant, JudgeConcern, JudgeReading, QuestionAnswer,
+    SessionRow, SessionVoice, WaitingAct, WaitingActKind, WaitingCite, WaitingItem, WaitingSource,
 };
 use store::{KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, WriteError};
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
+use crate::session_host::asking::{answers_said, ask_answered};
+use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::walking::walk_approval;
 
 /// The prefix of a concern's item id: `judge:<n>`.
@@ -38,11 +40,13 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
+        let plan = store.session_plan(&session.id)?;
+        let plan_approved_at = plan.as_ref().and_then(|plan| plan.approved_at.as_deref()).map(Instant::carried);
         Extra {
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
-            plan_expects_walk: store.session_plan(&session.id)?.is_some_and(|plan| plan.seen || plan.walk.is_some()),
-            ..thread_facts(&rows)
+            plan_expects_walk: plan.is_some_and(|plan| plan.seen || plan.walk.is_some()),
+            ..thread_facts(&rows, plan_approved_at.as_ref())
         }
     } else {
         Extra::default()
@@ -51,9 +55,10 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
 }
 
 /// What the thread shows: the person wrote after the agent's first turn (a message or a tool call),
-/// the Job showed a window, and he approved one. **Only `You` is the person**: Fleet's own notices
-/// and other Sessions' words are not a reply.
-pub(crate) fn thread_facts(rows: &[SessionRow]) -> Extra {
+/// the Job showed a window and he approved one (since the plan's approval, at `plan_approved_at`, and
+/// at all), he approved a draft, and he picked an idea. **Only `You` is the person**: Fleet's own
+/// notices and other Sessions' words are not a reply.
+pub(crate) fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instant>) -> Extra {
     let spoke = rows.iter().position(|row| match row {
         SessionRow::Message { from, .. } => *from == SessionVoice::Agent,
         SessionRow::Tool { .. } => true,
@@ -69,8 +74,58 @@ pub(crate) fn thread_facts(rows: &[SessionRow]) -> Extra {
             _ => None,
         })
         .collect();
-    let walk_approved = windows.iter().any(|url| walk_approval(rows, url).is_some());
-    Extra { replied, walk_shown: !windows.is_empty(), walk_approved, ..Extra::default() }
+    let approvals: Vec<&Instant> = windows.iter().filter_map(|url| walk_approval(rows, url)).collect();
+    let draft_approved = rows.iter().any(|row| {
+        matches!(row, SessionRow::Draft { settled: Some(settled), .. } if matches!(settled.how, DraftHow::Approved | DraftHow::Fixed))
+    });
+    Extra {
+        replied,
+        walk_shown: !windows.is_empty(),
+        walk_approved: plan_approved_at.is_some_and(|plan| approvals.iter().any(|at| *at >= plan)),
+        any_walk_approved: !approvals.is_empty(),
+        // Waits on the sketch approval route: nothing on the thread says one was approved yet.
+        sketch_approved: false,
+        draft_approved,
+        idea_picked: idea_picked(rows),
+        ..Extra::default()
+    }
+}
+
+/// Whether the person picked an option the Job's question gave a preview, on its card or later from
+/// Needs you. Words of his own pick nothing, and Fleet's own questions are not the Job's ideas.
+fn idea_picked(rows: &[SessionRow]) -> bool {
+    let picked = |questions: &[AskedQuestion], answers: Vec<QuestionAnswer>| {
+        answers.iter().any(|answer| {
+            questions.iter().filter(|asked| asked.question == answer.question && !fleet_asked(asked)).any(|asked| {
+                asked.options.iter().any(|option| !option.preview.is_empty() && answer.chosen.contains(&option.label))
+            })
+        })
+    };
+    let asked_on = |ask_id: &str| {
+        rows.iter().find_map(|row| match row {
+            SessionRow::Ask { id, ask, .. } if id == ask_id => Some(ask.questions.as_slice()),
+            _ => None,
+        })
+    };
+    let mut latest: &[AskedQuestion] = &[];
+    rows.iter().any(|row| match row {
+        SessionRow::Ask { ask, .. } => {
+            if !ask.questions.is_empty() {
+                latest = &ask.questions;
+            }
+            false
+        }
+        SessionRow::Message { id, from: SessionVoice::You, text, .. } => match ask_answered(id).and_then(asked_on) {
+            Some(questions) => picked(questions, answers_said(questions, text)),
+            None => text.starts_with(ANSWERED_LATER) && picked(latest, answered_later(latest, text)),
+        },
+        _ => false,
+    })
+}
+
+/// A question Fleet put on the Job's card itself, the handoff's, which offers no ideas.
+fn fleet_asked(asked: &AskedQuestion) -> bool {
+    asked.question == ipc::HANDOFF_REMIND_QUESTION || asked.options.iter().any(|option| option.label == ipc::HANDOFF_YES)
 }
 
 pub(crate) fn reading_wire(kept: &KeptReading) -> JudgeReading {
