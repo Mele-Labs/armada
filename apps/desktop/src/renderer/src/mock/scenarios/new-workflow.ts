@@ -54,7 +54,7 @@ export const newWorkflow: Scenario = {
           const sent = (await store.send(id, message)) ?? true;
           if (!message.text.startsWith("New workflow:")) return sent;
           const words = message.text.split("\n")[0]!.slice("New workflow:".length).trim();
-          const scope: Scope = /Every repository/.test(message.text) ? "kit" : "repository";
+          const scope: Scope = /^Scope: kit/m.test(message.text) ? "kit" : "repository";
           const name = nameOf(words);
           const item = `draft:${id}-proposal`;
           made.set(item, { name, scope, text: definitionOf(name, words) });

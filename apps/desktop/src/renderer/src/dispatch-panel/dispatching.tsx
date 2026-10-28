@@ -39,6 +39,17 @@ const WORKFLOW_PLACEHOLDER = "What should it do?";
 export type WorkflowScope = "kit" | "repository";
 export const WORKFLOW_SCOPE: Record<WorkflowScope, string> = { kit: "Every repository on this Mac", repository: "This repository" };
 
+/** The first message of a Job that makes a workflow: the request, the scope, and how to hand the result in. */
+export function workflowBrief(words: string, scope: WorkflowScope): string {
+  const where = scope === "kit" ? "kit, every repository on this Mac" : "repository, this repository only";
+  return [
+    `New workflow: ${words}`,
+    `Scope: ${where}`,
+    `Propose it with the propose_new_workflow tool, with scope "${scope}". Do not write the workflow file yourself.`,
+    "Write the definition in the workflow definition format. See .armada/workflows/feature.json for the shape.",
+  ].join("\n");
+}
+
 const REQUEST = "dispatch:request";
 const TUNING = "dispatch:session-tuning";
 const AFTER = "dispatch:session-after";
@@ -203,7 +214,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     if (draft === undefined) return;
     const kept = snippetsNow.current;
     const typedWords = wordsNow().trim() === "" && kept.length > 0 ? SNIPPET_ONLY : wordsNow().trim();
-    const text = workflow === null ? typedWords : `New workflow: ${typedWords}\nScope: ${WORKFLOW_SCOPE[workflow]}`;
+    const text = workflow === null ? typedWords : workflowBrief(typedWords, workflow);
     recall(at);
     const hand = handNow();
     setSending(true);
