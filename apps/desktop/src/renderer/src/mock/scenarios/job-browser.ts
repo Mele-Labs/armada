@@ -34,10 +34,10 @@ function fleet(): FakeSessionsFleet {
   return new FakeSessionsFleet(records, thread);
 }
 
-/** The Job's browser as the agent left it: docked, the agent driving, on the checkout. */
+/** The Job's browser as the agent left it: the agent driving, on the checkout. Flight control's Browser opens it in the side panel. */
 function seed(): void {
   resetCheckout();
-  setJobBrowser(JOB, { url: CHECKOUT, driver: "agent", shown: true, windowed: false, pins: [], reminders: [], page: createElement(CheckoutPage) });
+  setJobBrowser(JOB, { url: CHECKOUT, driver: "agent", windowed: false, pins: [], reminders: [], page: createElement(CheckoutPage) });
 }
 
 function build(): Scenario {

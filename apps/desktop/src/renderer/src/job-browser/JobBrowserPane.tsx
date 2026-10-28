@@ -1,13 +1,16 @@
-// The Job browser's pane: the page the Job's agent drives with Armada's tools, which the person can take over and annotate. Docked
-// in the Cockpit between the Job and the merge line, as the Job's shell is, or in a window of its own. The store says what it holds.
+// The Job browser's pane: the page the Job's agent drives with Armada's tools, which the person can take over and annotate. In the
+// side panel beside the Job's thread, as Requests is, or in a window of its own with the thread beside the page. The store says what it holds.
 
 import { useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { AppWindowMac, Bot, PanelBottom, PanelBottomClose, UserCheck } from "lucide-react";
-import { Button, Input, Kbd, Textarea, Tooltip } from "@armada/components";
+import { AppWindowMac, Bot, PanelRight, UserCheck } from "lucide-react";
+import { Button, Input, Kbd, Sheet, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
+import { useAtFloor } from "@armada/shell";
 
-import { useSessionsDraft } from "../sessions-draft";
-import { browserToWindow, dockBrowser, handBack, pinNote, showBrowser, takeOver, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { useBack } from "../shared-panel/panels";
+import { closePanel, usePanel, type PanelItem } from "../shared-panel/store";
+import { browserToWindow, handBack, openBrowser, pinNote, takeOver, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import "./job-browser.css";
 
 const DRIVER = { agent: { said: "Agent driving", glyph: <Bot size={16} strokeWidth={2} aria-hidden /> }, you: { said: "You're driving", glyph: <UserCheck size={16} strokeWidth={2} aria-hidden /> } } as const;
@@ -119,10 +122,10 @@ function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string;
 }
 
 /**
- * The pane: who is driving, the page's address, Take over or Hand back, Annotate, and the moves. Docked, it moves to a window and
- * hides; in its window, Dock brings it back and the window's own close puts it away.
+ * The pane: who is driving, the page's address, Take over or Hand back, Annotate, and its move. In the side panel it moves to a
+ * window; in its window it moves back to the side panel, and the window's own close puts it away.
  */
-export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "docked" | "window" }) {
+export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" }) {
   const [annotating, setAnnotating] = useState(false);
   const driver = DRIVER[browser.driver];
   return (
@@ -147,18 +150,19 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
           <Button variant="ghost" size="sm" aria-pressed={annotating} onClick={() => setAnnotating((was) => !was)}>
             Annotate
           </Button>
-          {placed === "docked" ? (
-            <>
-              <IconAct label="Open in a window" onClick={() => browserToWindow(sessionId)}>
-                <AppWindowMac size={16} strokeWidth={2} aria-hidden />
-              </IconAct>
-              <IconAct label="Hide" onClick={() => showBrowser(sessionId, false)}>
-                <PanelBottomClose size={16} strokeWidth={2} aria-hidden />
-              </IconAct>
-            </>
+          {placed === "panel" ? (
+            <IconAct
+              label="Open in a window"
+              onClick={() => {
+                closePanel();
+                browserToWindow(sessionId);
+              }}
+            >
+              <AppWindowMac size={16} strokeWidth={2} aria-hidden />
+            </IconAct>
           ) : (
-            <IconAct label="Dock" onClick={() => dockBrowser(sessionId)}>
-              <PanelBottom size={16} strokeWidth={2} aria-hidden />
+            <IconAct label="Move to the side panel" onClick={() => openBrowser(sessionId)}>
+              <PanelRight size={16} strokeWidth={2} aria-hidden />
             </IconAct>
           )}
         </span>
@@ -168,15 +172,28 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
   );
 }
 
-/** The Job browser docked in the Cockpit, between the Job and the merge line. Null where the Job has none, or it is put away. */
-export function BrowserPanel({ sessionId }: { sessionId: string }) {
-  const browser = useJobBrowser(sessionId);
-  if (browser === undefined || !browser.shown) return null;
+/** The Job browser in the side panel, beside the Job's thread. Its Close puts the page away, and the Job keeps it. */
+export function BrowserSide({ item }: { item: Extract<PanelItem, { kind: "browser" }> }) {
+  const browser = useJobBrowser(item.sessionId);
+  const title = useSessions().find((one) => one.id === item.sessionId)?.title;
+  const floor = useAtFloor();
+  const back = useBack();
+  if (browser === undefined) return null;
   return (
-    <section className="deck-panel deck-browser" aria-label="Job browser">
-      <JobBrowserPane sessionId={sessionId} browser={browser} placed="docked" />
-    </section>
+    <Sheet kind="side-panel" open floating floor={floor} title="Job browser" {...(title === undefined ? {} : { subtitle: title })} size="panel" bleed {...(back === undefined ? {} : { back })} closeLabel="Close" closeBinding="Esc" onClose={closePanel}>
+      <JobBrowserPane sessionId={item.sessionId} browser={browser} placed="panel" />
+    </Sheet>
   );
+}
+
+/** Flight control's Browser tile: lit while the Job browser shows, and absent where the Job has none. */
+export type JobBrowserTile = { shown: boolean; press: () => void };
+
+export function useJobBrowserTile(sessionId: string): JobBrowserTile | undefined {
+  const browser = useJobBrowser(sessionId);
+  const open = usePanel().open;
+  if (browser === undefined) return undefined;
+  return { shown: browser.windowed || (open?.kind === "browser" && open.sessionId === sessionId), press: () => openBrowser(sessionId) };
 }
 
 /** Each time the Job reached for a browser outside Bridge, a line in its thread where it did, with the press that shows its own. */
@@ -188,7 +205,7 @@ export function useBrowserReminders(sessionId: string): readonly ThreadCard[] {
     node: (
       <div className="job-browser-reminder" role="note" aria-label={`Browser outside Bridge: ${one.tool}`}>
         <span className="job-browser-reminder__said">{`Opened a browser outside Bridge with ${one.tool}. This job has a Job browser.`}</span>
-        <Button variant="secondary" size="sm" onClick={() => showBrowser(sessionId, true)}>
+        <Button variant="secondary" size="sm" onClick={() => openBrowser(sessionId)}>
           Open Job browser
         </Button>
       </div>

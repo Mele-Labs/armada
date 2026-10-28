@@ -1,8 +1,10 @@
-// A Job's browser: one page the Job's agent and the person drive together, drawn beside the Job's shell in the Cockpit, or in
-// a window of its own. **Proposed, not on the wire**: nothing in Fleet or main carries it yet, so only the mock fills this store
+// A Job's browser: one page the Job's agent and the person drive together, drawn in the side panel beside the Job's thread, or in
+// a window of its own with the Job's thread beside the page, as the walk window draws it. **Proposed, not on the wire**: nothing in Fleet or main carries it yet, so only the mock fills this store
 // (`mock/scenarios/job-browser.ts`), and where nothing fills it no pane and no reminder is drawn.
 
 import { useSyncExternalStore, type ReactNode } from "react";
+
+import { openInPanel } from "../shared-panel/store";
 
 /** Who is driving the page: the agent through Armada's tools, or the person, who took it over. */
 export type BrowserDriver = "agent" | "you";
@@ -16,9 +18,7 @@ export type BrowserReminder = { id: string; at: string; tool: "cmux" | "Playwrig
 export type JobBrowser = {
   url: string;
   driver: BrowserDriver;
-  /** Docked in the Job's view. */
-  shown: boolean;
-  /** In a window of its own, which the docked pane gives way to. */
+  /** In a window of its own, which the side panel gives way to. */
   windowed: boolean;
   pins: readonly BrowserPin[];
   reminders: readonly BrowserReminder[];
@@ -55,11 +55,15 @@ export function setJobBrowser(sessionId: string, browser: JobBrowser): void {
 
 export const takeOver = (sessionId: string) => edit(sessionId, (one) => ({ ...one, driver: "you" }));
 export const handBack = (sessionId: string) => edit(sessionId, (one) => ({ ...one, driver: "agent" }));
-export const showBrowser = (sessionId: string, shown: boolean) => edit(sessionId, (one) => ({ ...one, shown, ...(shown ? { windowed: false } : {}) }));
-export const browserToWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: true, shown: false }));
+/** The Job browser in the side panel, out of any window it had. */
+export function openBrowser(sessionId: string): void {
+  edit(sessionId, (one) => ({ ...one, windowed: false }));
+  openInPanel({ kind: "browser", sessionId });
+}
+/** The Job browser in a window of its own. The side panel it moved from is closed by its own button. */
+export const browserToWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: true }));
 /** The window's own close: the page is put away, and the Job keeps it. */
 export const closeBrowserWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: false }));
-export const dockBrowser = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: false, shown: true }));
 export const pinNote = (sessionId: string, pin: BrowserPin) => edit(sessionId, (one) => ({ ...one, pins: [...one.pins, pin] }));
 export const remindOfBrowser = (sessionId: string, reminder: BrowserReminder) => edit(sessionId, (one) => ({ ...one, reminders: [...one.reminders, reminder] }));
 

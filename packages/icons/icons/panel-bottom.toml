@@ -6,10 +6,3 @@
   paired_with = "panel-right"
   reserved = "Moving a Job's shell from the side panel back to where it docks, the toggle in the panel's pane. Never hiding the docked pane, which is `panel-bottom-close`."
   notes = "Proposed 23 Oct 2026 for the walk `job-shell`, the other half of `panel-right`'s toggle. Tooltip and aria-label `Dock`, renamed from `Dock under the thread` 23 Oct 2026 when the Cockpit docked the shell in a panel of its own. Pressing it saves `terminal.openJobTerminalIn`."
-
-  [[icons.panel-bottom.usage]]
-    means = "Moving a Job's browser from its window back to where it docks"
-    group = "Chrome"
-    size = "16px"
-    status = "Proposed"
-    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The same move as the shell's Dock. Tooltip and aria-label `Dock`."

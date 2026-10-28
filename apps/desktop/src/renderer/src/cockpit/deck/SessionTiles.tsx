@@ -38,6 +38,7 @@ import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, ti
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
+import { useJobBrowserTile } from "../../job-browser/JobBrowserPane";
 import { toggleLayer } from "../../session-view/layers";
 import type { SessionBays } from "../../session-view/slot-trouble";
 
@@ -50,6 +51,7 @@ export type ReportRepository = { root: string; name?: string };
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
+  const browser = useJobBrowserTile(session.id);
   const flight = useRepositoryFlight(repository?.root, session.id);
   const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(flight), committedFileOf(flight));
   /** The committed tile asking before its first run here, and what Fleet said to the last Run, if anything. */
@@ -143,6 +145,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     slot: () => toggleLayer(session.id, "slot"),
     requests: () => void openRequestsInPanel(session.id),
     terminal: () => terminal?.press(),
+    browser: () => browser?.press(),
     pause: () => void run("pause", async () => void (await (session.paused === true ? draft.resume : draft.pause)?.(session.id))),
   };
   const job: JobFacts = {
@@ -251,6 +254,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     requests: "Send a request with your cookie for its host",
     // A press while it is in its window brings the window forward and leaves the shell showing.
     terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
+    browser: "Open the Job browser in the side panel",
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {
@@ -259,7 +263,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const does = tile.kind === "words" ? `Send the Job: ${short}` : tile.kind === "command" ? `Type ${short} to the Job` : tile.kind === "shell" ? `Run ${short} in the Job's bay` : `Open ${short}`;
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
-  const shown = tiles.filter((one) => !one.hidden);
+  // The Browser tile is drawn only where the Job has a browser: nothing outside the mock gives one yet.
+  const shown = tiles.filter((one) => !one.hidden && (one.builtIn === undefined || one.id !== "browser" || browser !== undefined));
   const idOf = (tile: Tile): SessionTileId | undefined => (tile.builtIn === undefined ? undefined : (tile.id as SessionTileId));
   const whyOf = (tile: Tile): string | undefined => {
     const id = idOf(tile);
@@ -309,7 +314,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
           aria-label={name}
           data-key={key}
           data-act={id === "pause" ? "pause" : undefined}
-          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true)}
+          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true) || (id === "browser" && browser?.shown === true)}
           data-on={paused || undefined}
           aria-busy={pending === tile.id || undefined}
           aria-disabled={why !== undefined || undefined}

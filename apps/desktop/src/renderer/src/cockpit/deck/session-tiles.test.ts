@@ -96,8 +96,8 @@ test("a ledger row's Release names the row as the tile's confirmation does, and 
 });
 
 test("the tiles take Option and Shift with the digits 1 to 9 and then 0, and the last has none", () => {
-  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["⌥⇧1", "⌥⇧2", "⌥⇧3", "⌥⇧4", "⌥⇧5", "⌥⇧6", "⌥⇧7", "⌥⇧8", "⌥⇧9", "⌥⇧0", undefined, undefined, undefined, undefined]);
-  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot", "requests", "terminal", "pause"]);
+  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["⌥⇧1", "⌥⇧2", "⌥⇧3", "⌥⇧4", "⌥⇧5", "⌥⇧6", "⌥⇧7", "⌥⇧8", "⌥⇧9", "⌥⇧0", undefined, undefined, undefined, undefined, undefined]);
+  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot", "requests", "terminal", "browser", "pause"]);
 });
 
 test("Terminal is off with the reason where the Job ended or Fleet serves no shell", () => {

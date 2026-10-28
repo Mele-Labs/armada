@@ -1,13 +1,13 @@
-/* The Job browser: a head with who is driving, the address and the acts, over the page. Framed as the Job's shell is. */
+/* The Job browser: a head with who is driving, the address and the acts, over the page. It fills the side panel or its window. */
 .job-browser {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  height: 100%;
   background: var(--bg-sunken);
 }
-.job-browser[data-placed="window"] { height: 100%; }
 
 .job-browser__head {
   display: flex;

@@ -5,10 +5,3 @@
   status = "Proposed"
   reserved = "Hide on a Job's shell docked under its thread: the pane goes and the shell keeps running. Never ending the shell, which is `power-off`, and never the rail's fold or a Session's ledger, which are `panel-left-close` and `panel-right-close`."
   notes = "Proposed 23 Oct 2026 for the walk `job-shell`, on the owner's word that Hide should be an icon button with a tooltip. Tooltip and aria-label `Hide`. The same frame-and-caret family as the rail's and the ledger's folds, on the edge the pane docks to. Refused: `chevron-down`, reserved to disclosure; `minus`, a verdict; `x`, the Close of a shell that has ended, beside it in the same head."
-
-  [[icons.panel-bottom-close.usage]]
-    means = "Hide on a Job's browser docked under the Job: the pane goes and the Job keeps its page"
-    group = "Chrome"
-    size = "16px"
-    status = "Proposed"
-    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The same act as the shell's Hide, on the pane beside it. Tooltip and aria-label `Hide`."
