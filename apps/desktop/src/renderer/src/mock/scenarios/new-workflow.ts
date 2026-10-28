@@ -25,7 +25,9 @@ const DEFINITION = [
   "```",
 ].join("\n");
 
-const call: WaitingItem = { id: ITEM, text: "Workflow release-notes", since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ITEM }, options: [{ label: "Approve" }] };
+const COMPACT = DEFINITION.replace(/```(json)?\n?/g, "").replace(/\s+/g, " ").trim();
+
+const call: WaitingItem = { id: ITEM, text: "release-notes, every repository on this Mac", since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ITEM }, options: [{ label: "Approve", description: COMPACT }, { label: "Dismiss" }] };
 
 const job: Session = {
   id: JOB,
@@ -49,5 +51,21 @@ export const newWorkflow: Scenario = {
   says: "The Workflows page with a New workflow form, and a Job that proposed a workflow, waiting on Approve or Dismiss",
   state: { ...s200Sessions.state, repository: flow.state.repository, holds: flow.state.holds, health: flow.state.health },
   behaves: flow.behaves,
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [job]) },
+  draft: {
+    sessions: (board) => {
+      const store = s200Sessions.draft!.sessions!(board, [job]);
+      return {
+        ...store,
+        answerWaiting: (id, itemId, given) => {
+          if (itemId !== ITEM) return store.answerWaiting?.(id, itemId, given);
+          const how = given.choice === 1 ? "withdrawn" : "approved";
+          store.edit(id, (one) => ({
+            ...one,
+            rows: one.rows.map((row) => (row.id === ROW && row.kind === "draft" ? { ...row, settled: { how, at: new Date().toISOString() } } : row)),
+            waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ITEM),
+          }));
+        },
+      };
+    },
+  },
 };

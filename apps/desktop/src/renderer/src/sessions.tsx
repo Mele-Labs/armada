@@ -556,11 +556,12 @@ export function entriesOf(
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, a judge's concern and a draft are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "draft" && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && (one.source !== "draft" || proposedOf(session, one.id) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
     const restart = restartOf(act);
+    const proposed = one.source === "draft" ? proposedOf(session, one.id) : undefined;
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
@@ -572,7 +573,7 @@ export function entriesOf(
         : {
             card: {
               title: one.text,
-              facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
+              facts: proposed !== undefined ? proposed : act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
             },
           }),
       ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
@@ -1398,4 +1399,16 @@ export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session
       />
     </>
   );
+}
+
+/** A workflow a Job proposed, as the facts its Needs you card names: the draft row the waiting item stands for. **A mock's card.** */
+function proposedOf(session: Session, itemId: string): { label: string; value: string; mono?: boolean }[] | undefined {
+  const row = session.rows.find((one) => `draft:${one.id}` === itemId);
+  if (row === undefined || row.kind !== "draft" || row.workflow === undefined) return undefined;
+  const scope = row.workflow.scope === "kit" ? "Every repository on this Mac" : "This repository";
+  return [
+    { label: "Name", value: row.workflow.name },
+    { label: "Scope", value: scope },
+    { label: "Definition", value: row.text.replace(/```(json)?\n?/g, "").trim(), mono: true },
+  ];
 }
