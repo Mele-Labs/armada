@@ -1,6 +1,6 @@
 // A feature Job on Propose whose agent showed a sketch and put it to him. Approve settles the card and the Job moves on to
-// Discuss; Send back settles it with his note. Mock only: the press settles the sketch in the store, where Fleet's route
-// comes later. The Workflows page's feature Propose ends on any of four (`workflows-managed.ts`). The walk `step-ends-any` plays it.
+// Discuss; Send back settles it with his note. The press settles the sketch in the store, as Fleet's
+// `POST /sessions/sketch/answer` settles it on the ledger. The Workflows page's feature Propose ends on any of four (`workflows-managed.ts`). The walk `step-ends-any` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -34,7 +34,7 @@ const job: Session = {
     { id: "p-2", at: "09:13:20", kind: "tool", text: `show_sketch ${JSON.stringify({ title: TITLE, scene: DRAWING })}` },
     { id: "p-3", at: "09:13:30", kind: "message", from: { kind: "agent" }, text: "A Pause press at the end of the row. Fleet holds the next turn, and the row says Paused with Resume." },
   ],
-  attachments: [{ kind: "sketch", id: SKETCH, title: TITLE, by: "agent", drawing: DRAWING, asked: true }],
+  attachments: [{ kind: "sketch", id: SKETCH, title: TITLE, by: "agent", drawing: DRAWING, asked: true, drawn: "drawn-1" }],
 };
 
 export const stepEndsAny: Scenario = {
@@ -46,9 +46,9 @@ export const stepEndsAny: Scenario = {
       const store = s200Sessions.draft!.sessions!(board, [job]);
       return {
         ...store,
-        answerSketch: (id, sketch, given) => {
+        answerSketch: ({ session_id: id, sketch, how, words }) => {
           const at = new Date().toISOString();
-          const settled = "text" in given ? { how: "sent_back" as const, words: given.text, at } : { how: "approved" as const, at };
+          const settled = how === "sent_back" ? { how, words: words ?? "", at } : { how, at };
           store.edit(id, (one) => ({
             ...one,
             attachments: one.attachments.map((a) => (a.kind === "sketch" && a.id === sketch ? { ...a, settled } : a)),

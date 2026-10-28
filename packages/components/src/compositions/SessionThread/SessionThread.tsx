@@ -46,7 +46,7 @@ import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
-import type { SketchAnswer, SketchSettled } from "./SketchRow";
+import type { SketchAnswer, SketchSettled } from "./sketch-answer";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
 import { DraftRow } from "./DraftRow";
@@ -217,7 +217,7 @@ type SessionThreadKinds =
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
    * `against` names, so the card draws the change as the panel does. `asked` is a sketch put to the person to approve,
-   * and `settled` how he answered it: **proposed, not on the wire**.
+   * and `settled` how he answered it.
    */
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true; asked?: true; settled?: SketchSettled }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */

@@ -10,12 +10,9 @@ import { forgetKept, readKept } from "../../keep";
 import { SketchScene } from "../SketchScene/SketchScene";
 import type { ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
 import type { SessionThreadRow } from "./SessionThread";
+import type { SketchAnswer } from "./sketch-answer";
 
-/** How a sketch put to the person ended: approved, or sent back with his note in `words`. **Proposed, not on the wire.** */
-export type SketchSettled = { how: "approved" | "sent_back"; words?: string; at: string };
-
-/** His answer to a sketch put to him, in `answer_waiting`'s words: approved, or sent back with a note. */
-export type SketchAnswer = { choice: 0 } | { text: string };
+export type { SketchAnswer, SketchSettled } from "./sketch-answer";
 
 const SETTLED = {
   approved: { said: "Approved", Glyph: BadgeCheck },

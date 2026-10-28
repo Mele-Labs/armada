@@ -10,10 +10,10 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { SketchAnswer, SketchSettled } from "@armada/components/src/compositions/SessionThread/SketchRow";
+import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -955,8 +955,8 @@ export type SessionsDraft = {
    * reasonable path). `fixed` approves a draft with his own text. Absent where nothing serves it.
    */
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick"; fixed?: string }) => void | Promise<unknown>;
-  /** Answers a sketch put to him, by its ledger id: approved, or sent back with a note. **Proposed, not on the wire**: only the mock serves it. */
-  answerSketch?: (id: string, sketch: string, answer: SketchAnswer) => void | Promise<unknown>;
+  /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */
+  answerSketch?: (answer: AnswerSketch) => void | Promise<unknown>;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
    * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as
