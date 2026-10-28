@@ -1,4 +1,4 @@
-import { Ban, Check, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle } from "lucide-react";
+import { Ban, Check, Plus, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
@@ -65,6 +65,8 @@ export type WorkflowManagerProps = {
   onSuggest: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   onApproveSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
+  /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
+  onNew?: () => void;
 };
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
@@ -125,6 +127,12 @@ export function WorkflowManager(props: WorkflowManagerProps) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const typing = (event.target as HTMLElement).closest("input, textarea, select") !== null;
+    if (event.key.toLowerCase() === "n" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey && props.onNew !== undefined) {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onNew();
+      return;
+    }
     if (event.key.toLowerCase() !== "f" || typing || event.metaKey || event.ctrlKey || event.altKey) return;
     event.preventDefault();
     event.stopPropagation();
@@ -135,6 +143,12 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   return (
     <div className="armada-wm" onKeyDown={onKeyDown}>
       <div className="armada-wm__list" data-col="list">
+        {props.onNew === undefined ? null : (
+          <Button variant="primary" size="default" className="armada-wm__new" onClick={props.onNew}>
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            New workflow
+          </Button>
+        )}
         <Input
           ref={search}
           type="search"
@@ -835,7 +849,7 @@ function Agent({
           <Button variant="ghost" size="sm" onClick={() => void settle(onDismiss)}>
             Dismiss
           </Button>
-          {notes === null ? (
+          {agent.fresh === true ? null : notes === null ? (
             <Button variant="secondary" size="sm" onClick={() => setNotes("")}>
               Send back
             </Button>

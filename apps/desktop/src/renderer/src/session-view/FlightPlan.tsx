@@ -3,11 +3,10 @@
 // opens to its tasks and the live line, and a press opens or shuts any. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { Link } from "lucide-react";
-import { Button, LinkedSession, Tooltip } from "@armada/components";
+import { LinkedSession, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
-import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { useSessions } from "../sessions-draft";
 import { GroupPullRequests, issueOfGroup } from "./IssuesBlock";
 import { childrenOf, linkedPropsOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
@@ -68,11 +67,9 @@ export function TaskTrack({ tasks }: { tasks: ViewGroup["tasks"] }) {
 
 export function FlightGroup({ group, step, open, flip, now, parent, manifestId, onOpenSession }: { group: ViewGroup; step: Step; open: boolean; flip: () => void; now: string | undefined; parent: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
   const sessions = useSessions();
-  const draft = useSessionsDraft();
   const child = childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
   const named = issueOfGroup(parent, group.issue);
   const here = hereOf(group);
-  const handOff = draft?.handOff;
   return (
     <li className="sv-flight__group" data-group={group.id} data-step={step} data-open={open || undefined}>
       <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} onClick={flip}>
@@ -89,12 +86,6 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
             ))}
           </ul>
           {child === undefined ? null : <LinkedSession {...linkedPropsOf(child, onOpenSession)} />}
-          {child !== undefined || handOff === undefined ? null : (
-            <Button variant="ghost" size="sm" onClick={() => void handOff(parent.id, group.id)}>
-              <Link size={12} strokeWidth={2} aria-hidden />
-              Hand to a Job
-            </Button>
-          )}
           {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />}
         </div>
       )}
