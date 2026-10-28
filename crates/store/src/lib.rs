@@ -71,6 +71,8 @@ mod plan_beads;
 /// A Job's adversarial reviews of its plan, one a version.
 mod adversarial_reviews;
 mod fleet_calls;
+/// The refreshes of the preview Fleet offered a Job, one a moved tip for the build.
+mod preview_offers;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
@@ -188,6 +190,7 @@ pub use job_issues::KeptJobIssue;
 pub use plan_beads::KeptBead;
 pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
 pub use fleet_calls::KeptCall;
+pub use preview_offers::KeptPreviewOffer;
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, LOOSE as LOOSE_PROJECT};
 pub use session_waiting::KeptWaiting;

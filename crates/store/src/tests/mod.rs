@@ -54,6 +54,7 @@ mod job_issues;
 mod plan_beads;
 mod adversarial_reviews;
 mod fleet_calls;
+mod preview_offers;
 mod issue_queries;
 mod projects;
 mod settings_file;
