@@ -18,6 +18,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { useSessionsDraft } from "../sessions-draft";
 import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
+import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone } from "./StoryColumn";
 import { OverTheApp } from "./OverTheApp";
 import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
@@ -45,8 +46,9 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const work = session.work;
   const side = hosts?.side ?? null;
   const story = work !== undefined && draft !== undefined && side !== null;
-  // Artifacts covers the right column, where the story is; every other layer covers the stage.
-  const aside = story && layer === "artifacts";
+  // With a story, every layer opens in the spine under the view strip; without one it covers the stage.
+  const aside = story && layer !== undefined;
+  const views = useJobViews(session, bays);
   // The document floats over the whole Job in a sheet of its own, drawn on the body, so it needs no place in the deck. `OverTheApp` stays
   // mounted while the Job is, so focus goes back to the opener when the document closes, and not when a dev render mounts it twice.
   const reading = <OverTheApp open={open === "document"}>{open === "document" ? <DocumentLayer key={page} session={session} /> : null}</OverTheApp>;
@@ -98,7 +100,23 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);
   }, [story, id, layer, session]);
-  if (!story) return <>{children}{layered}{large}</>;
+  // A Job with no story still has its views: the strip stands in the column, and a view opens under it.
+  if (!story) {
+    if (views === undefined || side === null) return <>{children}{layered}{large}</>;
+    return (
+      <>
+        {children}
+        {large}
+        {createPortal(
+          <>
+            <ViewStrip views={views} />
+            {layered === null ? null : <div className="sv-story-body">{layered}</div>}
+          </>,
+          side,
+        )}
+      </>
+    );
+  }
   // The story is three zones in the order a layout gives; each leaves itself out where a layout hides it (`SvPanel`). The workflow's picker stands above them.
   const right = <StoryColumn session={session} entries={entries} work={work} id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />;
   return (
@@ -107,8 +125,16 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       {aside ? null : layered}
       {large}
       {reading}
-      {createPortal(right, side)}
-      {aside ? createPortal(layered, side) : null}
+      {createPortal(
+        <>
+          {views === undefined ? null : <ViewStrip views={views} />}
+          <div className="sv-story-body">
+            {right}
+            {aside ? layered : null}
+          </div>
+        </>,
+        side,
+      )}
     </>
   );
 }
