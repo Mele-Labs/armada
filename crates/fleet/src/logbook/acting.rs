@@ -136,6 +136,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
             .then(|| root.map(str::to_string).unwrap_or_else(|| entry.repository.clone()))
             .filter(|repository| !repository.is_empty()),
         kind: kind_of(entry.kind),
+        title: entry.title.clone(),
         text: entry.text.clone(),
         paths: entry.paths.clone(),
         evidence,

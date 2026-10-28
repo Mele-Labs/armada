@@ -68,7 +68,7 @@ test("the right column starts level with the open Job whichever of the handle's 
     await open("compact-session-view", "Retry the slot lease");
     await expect.poll(() => panels("Build").length).toBe(1);
     const top = (name: string) => page.getByRole("region", { name, exact: true }).element().getBoundingClientRect().top;
-    expect(document.querySelector(".sv-spine")!.getBoundingClientRect().top).toBe(top("Job: Retry the slot lease"));
+    expect(document.querySelector(".sv-views")!.getBoundingClientRect().top).toBe(top("Job: Retry the slot lease"));
   } finally {
     later.remove();
   }

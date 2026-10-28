@@ -3,13 +3,15 @@
 // command, and the Kit page lists it as a retro item's, with Remove. `retro-page.test.tsx`
 // and `kit.test.tsx` hold the claims.
 
-import { button, inside, region, role, text, toSystemPage, walk } from "../walk";
+import { button, inside, region, role, row, text, toSystemPage, walk } from "../walk";
 
-const GREP = role("listitem", "grep had to be allowed on a check log");
+const GREP = region("Retro item");
+const GREP_LINE = inside(role("grid", "Retros"), row(/grep had to be allowed on a check log/));
 const ALLOWLIST = region("Allowlist");
 
 export const updatingKitFromARetro = walk("retro/kit-command", [
-  ...toSystemPage("Retros", "The Logbook, with Armada fixes under the entries"),
+  ...toSystemPage("Retros", "The Logbook's Retros tab"),
+  { press: GREP_LINE, say: "The item whose fix is a command" },
   { look: inside(GREP, button("Update Kit", { exact: true })), say: "A Kit item with a command to allow" },
   { hover: inside(GREP, button("Update Kit", { exact: true })), say: "What Update Kit does" },
   { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command" },
