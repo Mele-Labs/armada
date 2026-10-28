@@ -498,8 +498,8 @@ export function App() {
           {...(titleRow.sleep === undefined ? {} : { sleep: { ...titleRow.sleep, calling: callingHomes.has(SLEEP_HOME) } })}
           helmCalling={callingHomes.has(HELM_HOME)}
           wordmark={<ArmadaMark size={20} title="Armada" />}
-          // The Cockpit's picker names it there; every other surface has none, so the row does.
-          {...(atCockpit || repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
+          // The title row's picker, on every surface.
+          {...(repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
           places={<DeckPlaces state={state} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
           asking={asks.length}
           helm={

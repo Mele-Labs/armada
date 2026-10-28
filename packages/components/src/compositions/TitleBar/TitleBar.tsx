@@ -3,7 +3,7 @@ import { createContext, useContext, useLayoutEffect, useRef, useState, type Reac
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
-import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
+import { DropdownMenu, filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -371,10 +371,31 @@ export function TitleBar({
       {teach.menu}
       <div ref={parts.start} className="armada-title-bar__start">
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
-        {repository === undefined ? null : (
+        {repository === undefined ? null : repositoryMenu === undefined ? (
           // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
           <span ref={parts.repository} className="armada-title-bar__repository" title={repository}>
             {repository}
+          </span>
+        ) : (
+          // The name is the picker: it opens the repository list, and the Manifest's icon follows it.
+          <span ref={parts.repository} className="armada-title-bar__repository" data-picker="">
+            <DropdownMenu
+              plain
+              portal
+              align="start"
+              triggerLabel={repository}
+              triggerAriaLabel="Repository"
+              searchLabel="Find a repository"
+              entries={repositoryMenu.entries}
+              onSelect={repositoryMenu.onSelect}
+            />
+            {repositoryMenu.manifest === undefined ? null : (
+              <Tooltip label={repositoryMenu.manifest.label} asChild>
+                <Button variant="ghost" size="sm" iconOnly aria-label={repositoryMenu.manifest.label} disabled={repositoryMenu.manifest.disabled} onClick={repositoryMenu.manifest.onOpen}>
+                  <repositoryMenu.manifest.icon size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            )}
           </span>
         )}
         {repositoryPicker === undefined ? null : (

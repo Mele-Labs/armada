@@ -157,6 +157,17 @@
   white-space: nowrap;
 }
 
+/* The name as the picker: the trigger gives up its width first and the Manifest's icon stays whole. */
+.armada-title-bar__repository[data-picker] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  overflow: visible;
+  color: var(--fg-default);
+}
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu { min-width: 0; }
+.armada-title-bar__repository[data-picker] .armada-button { flex: none; color: var(--fg-muted); }
+
 .armada-title-bar__places {
   display: flex;
   align-items: center;
