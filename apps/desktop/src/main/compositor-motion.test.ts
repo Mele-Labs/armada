@@ -20,7 +20,6 @@ const COMPOSITED = new Set(["transform", "opacity", "translate", "scale", "rotat
  */
 const ALLOWED: Record<string, string> = {
   "armada-scene-flow": "stroke-dashoffset: dashes marching along an SVG edge's own path; a path has no layer to slide. Runs only while a sketch preview is not playing.",
-  "armada-workflow-edge-flow": "stroke-dashoffset: the same march on a React Flow edge, whose path is drawn by the library. Runs only on an edge still working.",
   "sk-flow": "stroke-dashoffset: the exported sketch's copy of armada-scene-flow, in a string of CSS for a standalone page.",
 };
 
