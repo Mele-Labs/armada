@@ -134,7 +134,19 @@ function sketchOf(one: Attachment): SessionAttachment {
     by: "agent",
     drawing: sceneOfWire(detail["scene"]) ?? NO_SCENE,
     ...(earlierTitle === undefined || earlierScene === undefined ? {} : { against: { title: earlierTitle, drawing: earlierScene } }),
+    ...(detail["asked"] === "true" ? { asked: true as const } : {}),
+    ...(detail["drawn"] === undefined || detail["drawn"] === "" ? {} : { drawn: detail["drawn"] }),
+    ...settledOf(detail),
   };
+}
+
+/** How he answered a sketch put to him, from `detail.settled` and `detail.settled_at`. A how Fleet does not write reads as open. */
+function settledOf(detail: Record<string, string | undefined>): Pick<Extract<SessionAttachment, { kind: "sketch" }>, "settled"> {
+  const how = detail["settled"];
+  const at = detail["settled_at"];
+  if ((how !== "approved" && how !== "sent_back") || at === undefined) return {};
+  const words = detail["words"];
+  return { settled: { how, at, ...(words === undefined || words === "" ? {} : { words }) } };
 }
 
 /** The name `show_sketch` is called by, however the harness prefixes a tool of a server. */

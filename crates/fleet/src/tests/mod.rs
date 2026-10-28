@@ -25,6 +25,7 @@ mod drafts;
 mod phone;
 mod showing_file;
 mod sketching;
+mod sketch_answers;
 mod documents;
 mod building;
 mod checkouts_apart;

@@ -5,16 +5,29 @@
 //! target, so a second call with the same title replaces the first where it stands, and a different
 //! title is a second sketch. The scene is checked before anything is written: Bridge draws one that
 //! fails as an empty frame and says nothing, so this is where the agent hears of it.
+//!
+//! **Every sketch shown is put to the person on its card**, never in `waiting_for`: `answer_sketch`
+//! approves it or sends it back, and a redraw of the title asks again.
+
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
-use ipc::{AttachmentReport, SessionFact, SessionId, SessionRecord, SessionReport, ShowSketch, Sketch};
+use ipc::{
+    AnswerSketch, AttachmentReport, SendSessionMessage, SessionFact, SessionId, SessionRecord, SessionReport, SessionRow,
+    SessionVoice, ShowSketch, Sketch, SketchHow, WireError, SKETCH_ASKED, SKETCH_DRAWN, SKETCH_SETTLED, SKETCH_SETTLED_AT,
+    SKETCH_WORDS,
+};
 
 use crate::daemon::Fleet;
 
 const SKETCH_REFUSED: &str = "fleet.sketch_refused";
 const SKETCH_UNNAMED: &str = "fleet.sketch_unnamed";
 const SKETCH_AGAINST_UNKNOWN: &str = "fleet.sketch_against_unknown";
+const SKETCH_NOT_OPEN: &str = "fleet.sketch_not_open";
+const SKETCH_REDRAWN: &str = "fleet.sketch_redrawn";
+const SKETCH_ANSWER_EMPTY: &str = "fleet.sketch_answer_empty";
+const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
 pub(crate) const TARGET_PREFIX: &str = "sketch:";
@@ -94,12 +107,137 @@ where
                     .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?
             }
         };
+        let mut attachment = sketch_attachment(sketch);
+        attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
+        attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));
         self.report_session(SessionReport {
             harness,
             session_id: SessionId::carried(&id),
-            fact: SessionFact::Attached { attachment: sketch_attachment(sketch) },
+            fact: SessionFact::Attached { attachment },
         })
         .await
+    }
+}
+
+/// The first words of the person's approval, which [`sketch_approved`] reads it back by.
+const APPROVED: &str = "Approved sketch: ";
+
+/// The person's message for each answer to a sketch. Words with an approval go on a line after it.
+pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
+    let mut body = format!("{APPROVED}{title}\nGo on from it as drawn.");
+    if let Some(words) = words {
+        body.push('\n');
+        body.push_str(words);
+    }
+    body
+}
+
+pub(crate) fn sent_back(title: &str, note: &str) -> String {
+    format!("Sent back sketch: {title}\n{note}\nDraw it again with show_sketch under the same title.")
+}
+
+/// When the person last approved any sketch, or `None` while he has not. **Read off the thread**, as
+/// `walk_approval` reads a walk's: his message [`approved`] wrote, which stays when the sketch is redrawn.
+pub(crate) fn sketch_approved(rows: &[SessionRow]) -> Option<&str> {
+    rows.iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { at, from: SessionVoice::You, text, .. } if text.starts_with(APPROVED) => Some(at),
+            _ => None,
+        })
+        .max()
+        .map(ipc::Instant::as_str)
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// `answer_sketch`: the person approves a sketch, or sends it back with a note. The job is told as
+    /// his message first, so a failed send leaves the sketch open, then `detail` keeps how it ended.
+    pub(crate) async fn sketch_answered(self: Arc<Self>, said: AnswerSketch) -> Result<SessionRecord, Refusal> {
+        let id = said.session_id.as_str().trim().to_string();
+        let target = said.sketch.trim().to_string();
+        let words = said.words.as_deref().map(str::trim).filter(|words| !words.is_empty());
+        if said.how == SketchHow::SentBack && words.is_none() {
+            return Err(self.hosted_refusal(SKETCH_ANSWER_EMPTY, "a sketch is sent back with a note saying what to change"));
+        }
+        let terminal = self.terminal_session(&id).await?;
+        let not_open = |why: String| self.hosted_refusal(SKETCH_NOT_OPEN, &why);
+        // Held as a draft's answer is, so two presses cannot both settle it.
+        let _settling = self
+            .hosts()
+            .settling(&id, &target)
+            .ok_or_else(|| not_open(format!("the sketch `{target}` is being answered already")))?;
+        let (harness, held) = self.sketch_held(&id, &target).await?;
+        let sketch = held.ok_or_else(|| not_open(format!("this job holds no sketch `{target}`")))?;
+        let title = sketch.detail.get("title").cloned().unwrap_or_else(|| target.trim_start_matches(TARGET_PREFIX).to_string());
+        if sketch.detail.get(SKETCH_ASKED).map(String::as_str) != Some("true") {
+            return Err(not_open(format!("the sketch `{title}` was not put to the person: a plan's is approved with the plan")));
+        }
+        if sketch.detail.get(SKETCH_DRAWN) != Some(&said.drawn) {
+            return Err(self.redrawn(&title));
+        }
+        if let Some(how) = sketch.detail.get(SKETCH_SETTLED) {
+            return Err(not_open(format!("the sketch `{title}` was {} already", how.replace('_', " "))));
+        }
+        let body = match said.how {
+            SketchHow::Approved => approved(&title, words),
+            SketchHow::SentBack => sent_back(&title, words.unwrap_or_default()),
+        };
+        let message = SendSessionMessage {
+            session_id: said.session_id.clone(),
+            text: body,
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        };
+        Arc::clone(&self).send_known(terminal, message).await?;
+        // Read again after the send: a drawing the job made meanwhile is not the one he answered.
+        let (_, now) = self.sketch_held(&id, &target).await?;
+        let Some(mut sketch) = now.filter(|one| one.detail.get(SKETCH_DRAWN) == Some(&said.drawn)) else {
+            return self.published_hosted(&id).await;
+        };
+        sketch.detail.insert(SKETCH_SETTLED.into(), said.how.word().into());
+        sketch.detail.insert(SKETCH_SETTLED_AT.into(), self.instant().as_str().to_string());
+        if let Some(words) = words {
+            sketch.detail.insert(SKETCH_WORDS.into(), words.to_string());
+        }
+        self.report_session(SessionReport {
+            harness,
+            session_id: SessionId::carried(&id),
+            fact: SessionFact::Attached {
+                attachment: AttachmentReport { kind: sketch.kind, target: sketch.target, detail: sketch.detail },
+            },
+        })
+        .await
+    }
+
+    /// The job's harness, and the sketch it holds as `target`.
+    async fn sketch_held(&self, id: &str, target: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
+        let store = self.store().lock().await;
+        let session = store
+            .session(id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.hosted_refusal(SKETCH_ANSWER_UNNAMED, "a job Fleet knows"))?;
+        let held = self
+            .ledger_row(&store, &session)?
+            .attachments
+            .into_iter()
+            .find(|one| one.kind == "artifact" && one.target == target && one.detail.get("form").map(String::as_str) == Some("sketch"));
+        Ok((session.harness, held))
+    }
+
+    fn redrawn(&self, title: &str) -> Refusal {
+        Refusal::IllegalMove(WireError::raised(
+            SKETCH_REDRAWN,
+            format!("the sketch `{title}` is not the drawing that was read: the job has drawn it again since"),
+            self.run_id(),
+        ))
     }
 }
 

@@ -315,6 +315,15 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn answer_sketch(self: std::sync::Arc<Self>, answer: ipc::AnswerSketch) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: answer.session_id,
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
     async fn approve_plan(self: std::sync::Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {
         self.report_session(SessionReport {
             harness: String::new(),

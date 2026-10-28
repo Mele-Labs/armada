@@ -403,6 +403,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_draft",
     },
     Route {
+        operation: "answer_sketch",
+        method: "POST",
+        path: "/sessions/sketch/answer",
+    },
+    Route {
         operation: "window_closed",
         method: "POST",
         path: "/sessions/window/closed",

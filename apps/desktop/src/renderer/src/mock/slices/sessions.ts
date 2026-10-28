@@ -30,6 +30,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     dismissWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/dismiss") }),
     confirmLater: async () => ({ ok: false, outcome: unanswered("/sessions/later/confirm") }),
     confirmWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/confirm") }),
+    answerSketch: async () => ({ ok: false, outcome: unanswered("/sessions/sketch/answer") }),
     approvePlan: async () => ({ ok: false, outcome: unanswered("/sessions/plan/approve") }),
     sendPlanChanges: async () => ({ ok: false, outcome: unanswered("/sessions/plan/changes") }),
     judgeSession: async () => ({ ok: false, outcome: unanswered("/sessions/judge") }),

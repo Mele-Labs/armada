@@ -75,6 +75,50 @@ pub struct ShowSketch {
     pub against: Option<String>,
 }
 
+/// The keys of a sketch's `detail` that put it to the person and say how he answered. `detail`
+/// holds strings only, so each is a string: `asked` is `"true"`, `settled` a [`SketchHow::word`].
+pub const SKETCH_ASKED: &str = "asked";
+/// Which drawing of the title this is, new on every `show_sketch`. `answer_sketch` names it back.
+pub const SKETCH_DRAWN: &str = "drawn";
+pub const SKETCH_SETTLED: &str = "settled";
+pub const SKETCH_SETTLED_AT: &str = "settled_at";
+/// His note on `sent_back`, or his words with an approval. Absent where he gave none.
+pub const SKETCH_WORDS: &str = "words";
+
+/// How the person answered a sketch put to him.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SketchHow {
+    Approved,
+    /// Sent back with a note, to be drawn again under the same title.
+    SentBack,
+}
+
+impl SketchHow {
+    /// What `detail.settled` holds.
+    pub fn word(self) -> &'static str {
+        match self {
+            SketchHow::Approved => "approved",
+            SketchHow::SentBack => "sent_back",
+        }
+    }
+}
+
+/// `answer_sketch`: the person approves a sketch the session showed, or sends it back with a note.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerSketch {
+    pub session_id: SessionId,
+    /// The sketch's ledger id, `sketch:<title>`.
+    pub sketch: String,
+    /// `detail.drawn` of the drawing he answered. **One drawn again since is refused**, so an
+    /// answer never lands on a drawing he did not see.
+    pub drawn: String,
+    pub how: SketchHow,
+    /// The note, which `sent_back` needs. Words with an approval are passed on too.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<String>,
+}
+
 /// A sketch that passed every rule, in the form the ledger keeps it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Sketch {

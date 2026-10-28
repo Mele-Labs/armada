@@ -63,9 +63,10 @@ export type SessionAttachment =
    * **The agent's is a scene, and a second one with the same title replaces the first under the same `id`.**
    * Its thread card is derived from the `show_sketch` call's tool row (`sketchCallOf`), never a row of its own.
    * `against` is the sketch it is read as a change to, held whole so a later replacement does not move it.
-   * `asked` is one put to the person to approve, and `settled` how he answered: **proposed, not on the wire**.
+   * `asked` is one put to the person to approve, `drawn` the drawing he is shown, which `answerSketch` names back, and
+   * `settled` how he answered: `detail.asked`, `detail.drawn` and `detail.settled` on the wire.
    */
-  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene }; asked?: true; settled?: SketchSettled }
+  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene }; asked?: true; drawn?: string; settled?: SketchSettled }
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string; /** The Agent call that started it, which Fleet keys the Field's drone by. */ call?: string }
   /**

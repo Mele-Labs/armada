@@ -650,6 +650,10 @@ where
         self.sketch_shown(caller, show).await
     }
 
+    async fn answer_sketch(self: Arc<Self>, answer: ipc::AnswerSketch) -> Result<SessionRecord, Refusal> {
+        self.sketch_answered(answer).await
+    }
+
     async fn show_file(
         &self,
         caller: Option<api::Caller>,
