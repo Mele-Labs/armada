@@ -406,6 +406,8 @@ Where several are confirmed, the one whose `pr` row holds the number.
 Where none is, the Job whose standing `pr` row is oldest, else the one whose standing `branch` row is.
 One Job, not every row: a Job that read the pull request from a directory in a slot it had left was told its checks failed while another Job worked it.
 `docs/concepts/session.md`, *Whose slot it is*.
+**News is the exception (decided 28 Oct 2026).** A merge, and auto-merge turned on, are told to every Job whose standing `pr` row holds the number, the owner first: a Job asked to see a pull request merge holds it from another branch than the one it was opened on, and was told nothing.
+A failure or a conflict still goes to one.
 
 **A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
 While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
@@ -506,11 +508,13 @@ A second wait for the same build is answered `Restarted: preview at 1234567`.
 **A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not.
 `main` and a branch with nothing of its own are not mentioned.
 
-**A left-out branch that moves refreshes the preview by itself.** On the same sweep, while the preview runs and no restart is under way, Fleet compares each branch in `Armada/preview-left-out` with the tip it was left out at.
-One that has moved starts the preview restart, without adopting a working Drone, as Refresh preview would.
-A branch left out for a breaking migration does not: it can only come back by landing on `main`.
-At most one such refresh runs every 10 minutes, and a set of moved tips is tried once, so a refresh that fails does not run again until a branch moves again.
-A refused restart waits for the next sweep.
+**A left-out branch that moves is offered a refresh, never refreshed.** On the same sweep Fleet compares each branch in `Armada/preview-left-out` with the tip it was left out at.
+A moved tip is offered once, as a Needs you item on the Job holding the branch: a `run` item for `scripts/preview --restart`, source `preview_offer`, with Skip beside it.
+Skip hides it for that tip, and a newer push offers again.
+A branch left out for a breaking migration is not offered: it can only come back by landing on `main`.
+A moved branch with no live Job gets no item, only a moved mark (`Moved since it was left out`) on the Fleet panel's left-out row, beside Refresh preview.
+The offer is kept in the store, so a Fleet restart does not repeat it, and it goes when the preview rebuilds.
+Fleet never starts a restart the owner did not press for.
 
 **Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, job).
 A job that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.

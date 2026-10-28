@@ -24,7 +24,7 @@ use crate::tests::tmp::TempDir;
 
 type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
-fn git(root: &Path, args: &[&str]) -> String {
+pub(super) fn git(root: &Path, args: &[&str]) -> String {
     let done = Command::new("git")
         .args(["-c", "user.name=armada", "-c", "user.email=armada@example.invalid"])
         .args(args)
@@ -35,21 +35,21 @@ fn git(root: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&done.stdout).trim().to_string()
 }
 
-fn commit_on(root: &Path, branch: &str, from: &str, message: &str) -> String {
+pub(super) fn commit_on(root: &Path, branch: &str, from: &str, message: &str) -> String {
     git(root, &["checkout", "-q", "-B", branch, from]);
     git(root, &["commit", "-q", "--allow-empty", "-m", message]);
     git(root, &["rev-parse", "HEAD"])
 }
 
-struct Rig {
-    fleet: Arc<Hosted>,
-    home: TempDir,
+pub(super) struct Rig {
+    pub(super) fleet: Arc<Hosted>,
+    pub(super) home: TempDir,
     /// The build: the tip of `armada/work`, which `armada/long` is two ahead of and
     /// `armada/other` shares nothing with.
-    build: String,
+    pub(super) build: String,
 }
 
-fn a_rig() -> Rig {
+pub(super) fn a_rig() -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let fleet = a_fleet_holding_bug(&home, false)
@@ -66,16 +66,16 @@ fn a_rig() -> Rig {
 }
 
 impl Rig {
-    fn support(&self) -> std::path::PathBuf {
+    pub(super) fn support(&self) -> std::path::PathBuf {
         crate::runtime::support_dir(&self.home.path().to_string_lossy())
     }
 
     /// `scripts/restart` has installed the build: the commit, and the tree it came from.
-    fn on_file(&self, preview: bool) {
+    pub(super) fn on_file(&self, preview: bool) {
         self.on_file_at(&self.build, preview);
     }
 
-    fn on_file_at(&self, commit: &str, preview: bool) {
+    pub(super) fn on_file_at(&self, commit: &str, preview: bool) {
         let support = self.support();
         fs::create_dir_all(&support).unwrap();
         fs::write(support.join("restart-commit"), format!("{commit}\n")).unwrap();
@@ -86,7 +86,7 @@ impl Rig {
     }
 
     /// `scripts/preview` has recorded the branches it left out of the build at `commit`, and why.
-    fn left_out(&self, commit: &str, reasons: &[(&str, &str)]) {
+    pub(super) fn left_out(&self, commit: &str, reasons: &[(&str, &str)]) {
         let mut text = format!("{commit}\n");
         for (branch, why) in reasons {
             let tip = git(self.home.path(), &["rev-parse", branch]);
@@ -100,11 +100,11 @@ impl Rig {
     }
 
     /// Fleet restarted: nothing it kept in memory survives, the store does.
-    async fn restarts(&self) {
+    pub(super) async fn restarts(&self) {
         *self.fleet.sweeping().lock().await = Default::default();
     }
 
-    async fn holds_branch(&self, session: &str, branch: &str) {
+    pub(super) async fn holds_branch(&self, session: &str, branch: &str) {
         let at = self.fleet.now().as_str().to_string();
         self.fleet
             .store()
@@ -126,7 +126,7 @@ impl Rig {
             .unwrap();
     }
 
-    async fn a_hosted_session(&self) -> String {
+    pub(super) async fn a_hosted_session(&self) -> String {
         self.fleet
             .start_session(StartSession {
                 manifest_id: ManifestId::carried(self.manifest()),
@@ -165,7 +165,7 @@ impl Rig {
             .unwrap();
     }
 
-    async fn waits_to_run(&self, session: &str, command: &str) {
+    pub(super) async fn waits_to_run(&self, session: &str, command: &str) {
         self.fleet
             .waiting_for(
                 None,
@@ -198,7 +198,7 @@ impl Rig {
     }
 
     /// Every message in a hosted session's thread.
-    async fn thread_of(&self, id: &str) -> Vec<String> {
+    pub(super) async fn thread_of(&self, id: &str) -> Vec<String> {
         let rows = Arc::clone(&self.fleet).get_session(SessionId::carried(id)).await.unwrap().rows;
         rows.into_iter()
             .filter_map(|row| match row {
@@ -208,7 +208,7 @@ impl Rig {
             .collect()
     }
 
-    async fn told(&self, session: &str) -> bool {
+    pub(super) async fn told(&self, session: &str) -> bool {
         self.fleet.store().lock().await.build_notice_kept(&self.build, session).unwrap()
     }
 }

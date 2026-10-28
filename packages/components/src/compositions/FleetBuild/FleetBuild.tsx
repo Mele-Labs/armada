@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Check, CircleSlash, LoaderCircle, RotateCw, Unplug } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, CircleSlash, GitCommitHorizontal, LoaderCircle, RotateCw, Unplug } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Select } from "../../primitives/Select/Select";
@@ -35,8 +35,8 @@ const STAGE_SAID: Record<FleetBuildStage, string> = {
 /** A Job whose Drone is working, and so is adopted by a restart. */
 export type FleetBuildDrone = { id: string; label: string };
 
-/** A branch the last Refresh preview did not merge in, and the script's reason in one line. */
-export type FleetBuildLeftOut = { branch: string; why: string };
+/** A branch the last Refresh preview did not merge in, and the script's reason in one line. `moved` is a branch with commits since; absent is false. */
+export type FleetBuildLeftOut = { branch: string; why: string; moved?: boolean };
 
 export type FleetBuild = {
   on: FleetBuildChoice;
@@ -59,6 +59,8 @@ export type FleetBuild = {
 };
 
 const commits = (count: number) => (count === 1 ? "1 commit" : `${count} commits`);
+
+const MOVED_SAID = "Moved since it was left out";
 
 const aheadSaid = (count: number) => `${commits(count)} ahead of main`;
 const behindSaid = (count: number) => `${commits(count)} behind main`;
@@ -149,6 +151,16 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
                 </span>
               </Tooltip>
               <span className="armada-fleet-build__branch">{one.branch}</span>
+              {/* Drawn empty on an unmoved branch, so the column holds its width and the rows line up. */}
+              <span className="armada-fleet-build__moved">
+                {one.moved === true ? (
+                  <Tooltip label={MOVED_SAID}>
+                    <span className="armada-fleet-build__mark" role="img" aria-label={MOVED_SAID}>
+                      <GitCommitHorizontal size={12} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                ) : null}
+              </span>
               <Tooltip label={one.why}>
                 <span className="armada-fleet-build__why">{one.why}</span>
               </Tooltip>

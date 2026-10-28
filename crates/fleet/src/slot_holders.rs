@@ -241,6 +241,44 @@ pub(crate) fn sessions_on_pull(
         .collect()
 }
 
+/// Who is told that pull request `number` merged or will merge itself: [`sessions_on_pull`]'s
+/// owner, then every other live Session whose `pr` row holds the number. **News goes to each Job
+/// that holds the pull request**, where a failure goes to one: a Job asked to see it merge holds
+/// it from another branch than the one it was opened on, and is told nothing by the owner's row.
+pub(crate) fn sessions_told_of_pull(
+    store: &Store,
+    manifest: &str,
+    root: &str,
+    number: u64,
+    branch: &str,
+    spent: bool,
+) -> Vec<String> {
+    let mut told = sessions_on_pull(store, manifest, root, number, branch, spent);
+    for id in holders_of(store, manifest, PR, &number.to_string(), spent) {
+        if !told.contains(&id) {
+            told.push(id);
+        }
+    }
+    told
+}
+
+/// Every live Session whose row of `kind` at `target` is held, oldest first.
+fn holders_of(store: &Store, manifest: &str, kind: &str, target: &str, spent: bool) -> Vec<String> {
+    let mut rows: Vec<_> = store
+        .attachments_at(kind, target, Some(manifest))
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|row| {
+            row.holder.kind == HolderKind::Session
+                && (row.state == AttachmentState::Standing
+                    || (spent && row.state == AttachmentState::Spent))
+                && live(store, &row.holder.id)
+        })
+        .collect();
+    rows.sort_by(|one, other| one.since.cmp(&other.since));
+    rows.into_iter().map(|row| row.holder.id).collect()
+}
+
 /// Whether the pool backs a branch or pull request credited to `session` from where it stands:
 /// a Session outside the pool's slots has nothing to contradict it, and one inside a slot is
 /// believed only if the lease there is not another's.

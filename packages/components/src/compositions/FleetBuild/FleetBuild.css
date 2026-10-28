@@ -29,7 +29,7 @@
   color: var(--status-escalated);
 }
 
-/* One row per branch: the glyph and the branch in mono, the reason under it on one line with the full text on hover. */
+/* One row per branch: the glyph, the branch in mono and the moved mark, the reason under it on one line with the full text on hover. */
 .armada-fleet-build__left-out {
   display: flex;
   flex-direction: column;
@@ -41,7 +41,8 @@
 
 .armada-fleet-build__left-out-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  /* The last column is the moved mark's, its glyph's width on every row, so a row without it lines up. */
+  grid-template-columns: auto minmax(0, 1fr) 12px;
   column-gap: var(--space-2);
   row-gap: calc(var(--space-1) / 2);
   align-items: center;
@@ -51,6 +52,10 @@
   display: block;
   grid-column: 2;
   min-width: 0;
+}
+
+.armada-fleet-build__moved {
+  display: inline-flex;
 }
 
 .armada-fleet-build__branch {

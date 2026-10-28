@@ -80,6 +80,13 @@ pub struct FleetBuildReport {
 pub struct LeftOutBranch {
     pub branch: String,
     pub why: String,
+    /// Its local tip is no longer the one it was left out at. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub moved: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// `change_fleet_build`'s body: move Fleet and Bridge onto a build.

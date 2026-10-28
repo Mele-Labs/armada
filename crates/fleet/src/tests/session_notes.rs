@@ -96,7 +96,7 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
 
     let turn = turn_of(&rig).await;
     for wanted in [
-        "this row should say which commands\\nPointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-1)",
+        "this row should say which commands\\n\\nPointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-1)",
         &format!("Candidates:\\n1. {PATH}:171 — "),
         r#"State: tab \"Bash\" selected; walk burnBySessionModelTool step 6 of 9; take B, Needs you first; scenario usage"#,
         "Page: http://127.0.0.1:1/?walk=burnBySessionModelTool",

@@ -27,7 +27,7 @@ import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import type { Play } from "./plays";
 import { FLAT, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
 import type { BuildIn } from "./build";
-import { aimAt, camera as kept } from "./store";
+import { aimAt, camera as kept, wide } from "./store";
 import { TipLayer } from "./TipLayer";
 import { steadyTips, type Waits } from "./tip-hover";
 
@@ -247,9 +247,17 @@ export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, 
   locateRef.current = toSelection;
   // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere, and never on a
   // Job's Field, whose pick pins its card and leaves the whole repository in view.
-  const first = useRef(own === undefined && kept.current !== undefined);
+  const first = useRef(own === undefined && (kept.current !== undefined || wide.now));
+  // A pane over the map was closed: the map is drawn whole, and the cursor's drone does not draw the camera in.
+  // The drone held then stays unlocked for as long as it is the one held: the layout settling moves it, and that must not draw the camera in.
+  const calm = useRef(own === undefined && wide.now ? selected : undefined);
+  useEffect(() => {
+    wide.now = false;
+  }, []);
   useEffect(() => {
     if (lock === undefined || own !== undefined) return;
+    if (calm.current !== undefined && calm.current === selected) return;
+    calm.current = undefined;
     if (first.current) {
       first.current = false;
       return;

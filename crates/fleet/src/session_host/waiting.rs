@@ -101,6 +101,8 @@ pub(crate) struct WaitingReads {
     word_asks: Vec<store::KeptWordAsk>,
     /// The notices a Fleet rule raised as calls on this Session.
     calls: Vec<store::KeptCall>,
+    /// The refreshes of the preview Fleet offered it.
+    preview_offers: Vec<store::KeptPreviewOffer>,
     /// The Job waits on its start card.
     start_held: bool,
     /// The Job is paused, and raises nothing until it is resumed.
@@ -145,6 +147,7 @@ pub(crate) fn waiting_reads(
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
+        preview_offers: store.preview_offers_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         asked_tasks: store.asked_project_tasks(&session.id)?,
@@ -336,7 +339,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours, ready_changes, held_children } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -509,6 +512,8 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
+            items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             items.extend(rows.into_iter().filter_map(|row| match row {
@@ -941,6 +946,11 @@ where
                 "the first message is settled by Start, from the Job's message box",
             )),
             WaitingSource::HeldChild => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY)),
+            // Fleet's offer, never the agent's: there is nobody to answer, and an answer would wake it.
+            WaitingSource::PreviewOffer => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "an offer to refresh the preview is pressed or skipped, not answered",
+            )),
             WaitingSource::Plan => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a plan is approved, or sent changes, from its own card",

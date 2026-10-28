@@ -52,7 +52,8 @@ where
         let mut lines = told(&note, &found, checkout.as_deref());
         lines.extend(background(&note));
         let ahead = brief.map(|brief| format!("{brief}\n\n")).unwrap_or_default();
-        let instead = format!("{ahead}{text}\n{}\n{HANDOFF}", lines.join("\n"));
+        // A blank line after his words, so the lines Fleet adds read as about the note, not as more of it.
+        let instead = format!("{ahead}{text}\n\n{}\n{HANDOFF}", lines.join("\n"));
         let sent = SendSessionMessage {
             session_id,
             text,
