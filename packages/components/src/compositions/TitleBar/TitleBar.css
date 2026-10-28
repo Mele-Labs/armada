@@ -826,3 +826,8 @@
   box-shadow: none;
   outline: none;
 }
+/* The place glyph at a repository row's end: the Cockpit's mark, drawn here as it was there. */
+.armada-title-bar__repository-list .armada-dropdown-menu__trail { display: inline-flex; flex: none; margin-left: auto; }
+.armada-title-bar__repository-list .armada-dropdown-menu__detail + .armada-dropdown-menu__trail { margin-left: 0; }
+.armada-title-bar__repository-list .armada-dropdown-menu__trail .deck-combo__mark { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-md); color: var(--step-advanced); }
+.armada-title-bar__repository-list .armada-dropdown-menu__trail .deck-combo__mark:hover { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }

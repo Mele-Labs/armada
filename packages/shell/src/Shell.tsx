@@ -88,6 +88,8 @@ export type ShellProps = {
   wordmark?: TheShellProps["wordmark"];
   /** The title row's read-only name of the picked repository. See `TheShell`. */
   repository?: TheShellProps["repository"];
+  /** The mark on a repository's row in the title row's list, and the act → runs on it. Bridge builds it: the places runs are kept are the app's to read. */
+  repositoryTrail?: (root: string, label: string) => { node: ReactNode; open: () => void } | undefined;
   /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
   /**
@@ -129,6 +131,7 @@ export function Shell({
   places,
   wordmark,
   repository,
+  repositoryTrail,
   onSurface,
   asking = 0,
   helmCalling = false,
@@ -185,6 +188,7 @@ export function Shell({
       repositoryMenu={{
         entries: pickerEntries,
         onSelect: pick,
+        ...(repositoryTrail === undefined ? {} : { trailOf: (id: string, label: string) => (rootOf(id) === ALL ? undefined : repositoryTrail(rootOf(id), label)) }),
         ...(onOpenManifest === undefined
           ? {}
           : {

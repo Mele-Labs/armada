@@ -646,3 +646,25 @@ export const ManifestChipNothingServed: Story = {
     await expect(args.repositoryMenu!.manifest!.onOpen).not.toHaveBeenCalled();
   },
 };
+
+/** A repository's row can carry a mark the app draws; → on the focused row runs its act and puts the list away. */
+export const RepositoryRowMark: Story = {
+  args: {
+    ...RepositoryPicker.args,
+    repositoryMenu: {
+      ...RepositoryPicker.args!.repositoryMenu!,
+      trailOf: (id, label) => (id === "/code/armada" ? { node: <span role="button" aria-label={`Armada configuration for ${label}`} />, open: openConfig } : undefined),
+    },
+  },
+  play: async ({ canvas, userEvent }) => {
+    openConfig.mockClear();
+    await userEvent.click(canvas.getByRole("button", { name: "Repository" }));
+    await expect(screen.getByRole("menuitem", { name: /^armada/ }).querySelector('[aria-label="Armada configuration for armada"]')).not.toBeNull();
+    await expect(screen.getByRole("menuitem", { name: /^scratch/ }).querySelector(".armada-dropdown-menu__trail")).toBeNull();
+    screen.getByRole("menuitem", { name: /^armada/ }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(openConfig).toHaveBeenCalledTimes(1);
+    await expect(screen.queryByRole("menu")).toBeNull();
+  },
+};
+const openConfig = fn();

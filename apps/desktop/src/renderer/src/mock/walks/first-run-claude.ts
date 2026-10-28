@@ -6,7 +6,9 @@ import { button, inside, region, role, walk } from "../walk";
 
 const stage = region("First Job");
 const jobs = region("Jobs", { exact: true });
-const picker = role("combobox", "Repository");
+const picker = role("button", "Repository", { exact: true });
+const find = role("searchbox", "Find a repository");
+const row = role("menuitem", /^my-app/);
 const layer = role("dialog", "Armada configuration for my-app");
 const places = role("group", "Where Armada configuration is kept");
 
@@ -18,8 +20,9 @@ const firstRunClaude = walk("first-run", [
   { look: places, say: "Where Armada configuration is kept is a card at the top of its thread, for all the folders added" },
   { look: inside(jobs, button(/^Rate limit on the login route/)), say: "A terminal session is a Job" },
   { press: picker, say: "The repository picker opens" },
-  { key: "ArrowDown", on: picker, say: "my-app's row wears the laptop" },
-  { key: "ArrowRight", on: picker, say: "→ opens Armada configuration for my-app" },
+  { key: "ArrowDown", on: find, say: "↓ goes to the list" },
+  { key: "ArrowDown", on: role("menuitem", "All repositories"), say: "my-app's row wears the laptop" },
+  { key: "ArrowRight", on: row, say: "→ opens Armada configuration for my-app" },
   { look: inside(layer, role("img", "Tests: Kept on this Mac")), say: "What passed in the Claude Code sessions is kept on this Mac" },
 ]);
 

@@ -217,6 +217,8 @@ export type TitleBarProps = {
     onSelect: (id: string) => void;
     /** The Manifest button beside the picker in the full row. */
     manifest?: { label: string; icon: LucideIcon; disabled?: boolean; onOpen: () => void };
+    /** A repository row's trailing mark and the act → runs on it, from the entry's id and label. Absent, or `undefined` for a row, draws none. */
+    trailOf?: (id: string, label: string) => { node: ReactNode; open: () => void } | undefined;
   };
   /** Opens the command palette. The same surface ⌘K opens; this is the other way in. */
   onSearch?: () => void;
@@ -392,7 +394,7 @@ export function TitleBar({
               triggerDetail=""
               searchLabel="Find a repository"
               panelClass="armada-title-bar__repository-list"
-              entries={listed(repositoryMenu.entries)}
+              entries={listed(repositoryMenu.entries, repositoryMenu.trailOf)}
               onSelect={repositoryMenu.onSelect}
             />
             </span>
@@ -563,7 +565,7 @@ const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = { "new-project": F
  * The wide picker's rows told apart: a glyph before each repository (Layers for All), a quiet tag on one that is not set
  * up in place of its heading, and the acts below the rule as verbs with their own glyphs.
  */
-function listed(entries: DropdownMenuEntry[]): DropdownMenuEntry[] {
+function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps["repositoryMenu"]>["trailOf"]): DropdownMenuEntry[] {
   let loose = false;
   return entries.flatMap((entry): DropdownMenuEntry[] => {
     if (entry.kind === "separator") loose = false;
@@ -574,7 +576,8 @@ function listed(entries: DropdownMenuEntry[]): DropdownMenuEntry[] {
     if (entry.kind !== "item") return [entry];
     const act = REPOSITORY_ACTS[entry.id];
     if (act !== undefined) return [{ ...entry, icon: act, act: true }];
-    return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}) }];
+    const trail = entry.id === "" ? undefined : trailOf?.(entry.id, entry.label);
+    return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}), ...(trail === undefined ? {} : { trail: trail.node, onRight: trail.open }) }];
   });
 }
 
