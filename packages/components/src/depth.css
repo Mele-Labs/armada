@@ -210,6 +210,9 @@
 :root[data-look="new"] :is(.deck-row, .pr-row, .issues-row, .projects-item, .armada-system-side__entry, .armada-settings-index__tab)[data-selected] :is(.deck-row__title, .pr-row__title, .issues-row__title),
 :root[data-look="new"] :is(.armada-system-side__entry[aria-current="page"], .armada-settings-index__tab[aria-selected="true"], .projects-item[data-selected]) { font-weight: var(--weight-heading); }
 
+/* The picked ground is tinted, so the row's quiet text takes the full text colour to keep its contrast. */
+:root[data-look="new"] .deck-row[data-selected] :is(.deck-row__said, .deck-row__says, .deck-row__phase, .deck-row__kind) { color: var(--fg-default); }
+
 /* ---- The repository selector: a field, and a menu at the overlay level ------------------------------------ */
 :root[data-look="new"] .deck-scope .armada-button { border-radius: var(--radius-md); box-shadow: none; }
 :root[data-look="new"] .deck-combo__input {

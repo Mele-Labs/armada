@@ -1,0 +1,14 @@
+[operations.build_workflow_support]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Start a Job on the Armada repository that builds what a workflow change Armada can't make yet lacks"
+notes = """
+`POST /workflows/changes/build`, since 28 Oct 2026. The body is `WorkflowChangeRef`: `change`. The answer is `WorkflowSupportBuilding`: `job_id`, the Job started.
+
+**Only a `cannot` change is built for**: one whose drafting agent answered that the fields of a step can't say what was asked, with `missing`, one sentence for each thing Armada lacks. The Job is started on the repository Fleet serves as `armada`, as Propose to Armada's is, titled after the first missing line, and briefed with the workflow's id, the person's request and the missing lines as material. The change is then dismissed, so it leaves the list.
+
+404 `fleet.no_such_workflow_change` where Fleet kept none by that id. 409 `fleet.workflow_change_not_buildable` where the change is not `cannot`. 422 `fleet.workflow_armada_not_served` where this Fleet does not serve Armada's own repository, and the change stays.
+
+`agent_access` is `Bridge only`: it starts a Job, and the person pressed Start a job to build it.
+"""
