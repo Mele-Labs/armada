@@ -151,6 +151,7 @@ fn draft(how: Option<DraftHow>) -> SessionRow {
         text: "The reader stops at the end.".into(),
         before: None,
         settled: how.map(|how| DraftSettled { how, words: None, at: at_second(2) }),
+        change: None,
     }
 }
 

@@ -369,11 +369,13 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
     }
 }
 
-/// **The steps the owner chose on 27 Oct 2026**, in order, and which of them walk or wait for his reply.
-/// the decision record "A feature Job walks before it tests".
+/// **The steps the owner chose on 27 Oct 2026**, in order, which of them walk, and what ends each before
+/// the plan: Propose ends on an approval, never a reply (28 Oct 2026). The decision record "A feature Job
+/// walks before it tests".
 #[test]
 fn feature_and_bug_run_the_steps_the_owner_chose() {
-    let steps_of = |name: &str| -> Vec<(String, bool, bool)> {
+    use core_model::StepEnd::{DraftApproved, IdeaPicked, SketchApproved, WalkApproved};
+    let steps_of = |name: &str| -> Vec<(String, bool, Vec<core_model::StepEnd>)> {
         let (path, text) = shipped()
             .into_iter()
             .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some(name))
@@ -382,31 +384,31 @@ fn feature_and_bug_run_the_steps_the_owner_chose() {
             .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()))
             .steps()
             .iter()
-            .map(|step| (step.id().as_str().to_string(), step.walks(), step.ends_on() == [core_model::StepEnd::Replied]))
+            .map(|step| (step.id().as_str().to_string(), step.walks(), step.ends_on().to_vec()))
             .collect()
     };
-    let expect = |rows: &[(&str, bool, bool)]| -> Vec<(String, bool, bool)> {
-        rows.iter().map(|(id, walks, awaits)| (id.to_string(), *walks, *awaits)).collect()
+    let expect = |rows: &[(&str, bool, &[core_model::StepEnd])]| -> Vec<(String, bool, Vec<core_model::StepEnd>)> {
+        rows.iter().map(|(id, walks, ends)| (id.to_string(), *walks, ends.to_vec())).collect()
     };
     assert_eq!(
         steps_of("feature"),
         expect(&[
-            ("propose", false, true),
-            ("discuss", false, false),
-            ("approve_plan", false, false),
-            ("walk", true, false),
-            ("refine", false, false),
-            ("deliver", false, false),
+            ("propose", false, &[WalkApproved, SketchApproved, DraftApproved, IdeaPicked]),
+            ("discuss", false, &[]),
+            ("approve_plan", false, &[]),
+            ("walk", true, &[]),
+            ("refine", false, &[]),
+            ("deliver", false, &[]),
         ])
     );
     assert_eq!(
         steps_of("bug"),
         expect(&[
-            ("find_the_cause", false, false),
-            ("fix", false, false),
-            ("short_walk", true, false),
-            ("tests", false, false),
-            ("deliver", false, false),
+            ("find_the_cause", false, &[]),
+            ("fix", false, &[]),
+            ("short_walk", true, &[]),
+            ("tests", false, &[]),
+            ("deliver", false, &[]),
         ])
     );
 }

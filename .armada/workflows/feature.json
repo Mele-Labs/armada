@@ -1,8 +1,11 @@
 # Feature, as the owner chose it on 27 Oct 2026: Propose, Discuss, Approve plan, Walk, Refine, Deliver.
 # The walk comes before any test, and Fleet places each step from what it saw and nudges once if a
 # test is written before the walk is approved. `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`
-# has the reasoning; `crates/core-model/domain/workflowdef-fields.toml` has `awaits_reply` and `walks`.
+# has the reasoning; `crates/core-model/domain/workflowdef-fields.toml` has `ends_on` and `walks`.
 # `bug.json` beside this file carries what all of them hold to. This file is also what Armada ships.
+#
+# **`propose` ends on an approval, never on a reply** (28 Oct 2026): the owner reads a sketch or a walk,
+# not prose. A picked option counts only where the agent's question gave it a preview.
 #
 # **`deliver` is gated `human_always`.** New behaviour is the case where the engineer looks every
 # time (`workflows.toml` has the reason). The owner decided on 19 Oct 2026 that Auto land does not stop
@@ -24,9 +27,9 @@
     {
       "id": "propose",
       "label": "Propose",
-      "about": "Shows what it took the request to mean as a sketch, or a rough walk for a look, with two lines at most, then stops until you reply.",
-      "instructions": "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Then stop and wait for the person's reply.",
-      "awaits_reply": true,
+      "about": "Shows what it took the request to mean as a sketch, or a rough walk for a look, with two lines at most, then stops until you approve it.",
+      "instructions": "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Then stop and wait for the person to approve it. Where there are several ideas, ask which with AskUserQuestion and give each option a preview.",
+      "ends_on": ["walk_approved", "sketch_approved", "draft_approved", "idea_picked"],
       "asks_delivery": true,
       "delivers": false,
       "advance_gate": "auto"
