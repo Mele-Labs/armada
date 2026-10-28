@@ -143,7 +143,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -450,6 +450,7 @@ type OldBridgeApi = {
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
+    nameSession: (name: NameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
     forkSessionAt: (sessionId: string, at: string) => Promise<SessionActed>;
     retroSession: (sessionId: string) => Promise<Outcome>;
@@ -775,6 +776,7 @@ const OLD_CHANNELS = {
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",
     renameSession: "bridge:rename-session",
+    nameSession: "bridge:name-session",
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",

@@ -572,6 +572,9 @@ export type SessionList = { sessions: SessionRecord[] };
 /** `rename_session`: a person's name for a session, hosted or in a terminal. `POST /sessions/rename`. Since 23.52. */
 export type RenameSession = { session_id: string; title: string };
 
+/** `name_session`: Armada names a hosted session from its first message, as the start names one. `POST /sessions/name`. Not kept as the person's rename. */
+export type NameSession = { session_id: string };
+
 /**
  * `start_session_run`: the person ran a shell block from a Session's thread, on a terminal of its own.
  * `POST /sessions/run/start`. `cols` and `rows` are the terminal's size in cells; absent is 80 by 24.

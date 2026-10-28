@@ -317,6 +317,12 @@ pub struct RenameSession {
     pub title: String,
 }
 
+/// `name_session`: Armada names a hosted session from its first message, on request.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NameSession {
+    pub session_id: SessionId,
+}
+
 /// `start_session_run`: the person ran a shell block from a Session's thread. `POST /sessions/run/start`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartSessionRun {

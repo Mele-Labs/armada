@@ -603,6 +603,8 @@ export function entriesOf(
       ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
       // A call a taught rule made is the person's to take off. The agent is told nothing, so a reason typed is not sent.
       ...(one.source !== "fleet_call" ? {} : { onRemove: () => void dismissWaiting(session.id, one.id), removeKeep: `remove:${session.id}:${one.id}` }),
+      // A walk, or a pull request Fleet derived, is put away in one press with no reason box; Fleet tells the agent.
+      ...(one.source === "walk" || (one.source === "replied" && act?.kind === "approve_pr") ? { onDismiss: () => void dismissWaiting(session.id, one.id) } : {}),
       // While the proposer reads, no landing goes and Fleet takes the reading's; once read, the landing the child's card has ready.
       ...(childStart === undefined || other === undefined || begin === undefined
         ? {}
@@ -1118,6 +1120,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
+        {...(draft.nameForMe === undefined ? {} : { onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve() })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
