@@ -38,6 +38,8 @@ pub struct KeptWorkflowChange {
     pub notes: Option<String>,
     pub created_at: String,
     pub changed_at: String,
+    /// A workflow nothing held before: `before_text` is empty and `after_text` is the definition proposed.
+    pub is_new: bool,
 }
 
 /// What a change is begun with.
@@ -52,7 +54,7 @@ pub struct NewWorkflowChange<'a> {
 }
 
 const COLUMNS: &str = "id, manifest_id, workflow_id, source, step_id, asked, nudges, before_text, after_text, state, \
-                       failed_because, notes, created_at, changed_at";
+                       failed_because, notes, created_at, changed_at, is_new";
 
 fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
     let nudges: String = row.get(6)?;
@@ -71,6 +73,7 @@ fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
         notes: row.get(11)?,
         created_at: row.get(12)?,
         changed_at: row.get(13)?,
+        is_new: row.get::<_, i64>(14)? != 0,
     })
 }
 
@@ -85,6 +88,26 @@ impl Store {
                 params![new.manifest_id, new.workflow_id, new.source, new.step_id, new.asked, nudges, new.before_text, DRAFTING, at],
             )
             .map_err(fault("beginning a workflow change"))
+            .map_err(WriteError::Database)?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Keep a workflow nothing held before as a change that is ready at once, with no earlier text. Its id.
+    pub fn begin_new_workflow_change(
+        &mut self,
+        manifest_id: &str,
+        workflow_id: &str,
+        source: &str,
+        definition: &str,
+        at: &str,
+    ) -> Result<i64, WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, before_text, after_text, state, is_new, created_at, changed_at)
+                 VALUES (?1, ?2, ?3, '', ?4, ?5, 1, ?6, ?6)",
+                params![manifest_id, workflow_id, source, definition, READY, at],
+            )
+            .map_err(fault("beginning a new workflow change"))
             .map_err(WriteError::Database)?;
         Ok(self.conn.last_insert_rowid())
     }
