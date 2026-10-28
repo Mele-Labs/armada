@@ -135,6 +135,11 @@ With none kept, the question is as it was.
 
 **Nothing on screen says it learned.** He chose it invisible on 24 October 2026: a name that is wrong is renamed, and that rename is learned too.
 
+**The wand beside a hosted Job's title names it from his renames, on request.** `name_session` asks the question the start asks, with the Job's first message and his last 12, and reads only the `title:` line.
+The name is Armada's, so it is not kept as a rename and teaches nothing, and `proposal.picked` lists the title as the proposer's.
+A rename he makes after it is learned against it, unless he had renamed the Job before, where the row keeps the name Armada gave first.
+`crates/fleet/src/session_host/naming.rs`.
+
 ## What is recorded
 
 **Its output is not stored as its own record.** `workflow`, `title`, `model` and `effort` land on the [Job](session.md), and `proposal.picked` names the fields the proposer filled until the person changes each.
