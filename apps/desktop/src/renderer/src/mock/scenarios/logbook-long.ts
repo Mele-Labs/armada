@@ -174,5 +174,9 @@ export const logbookLong: Scenario = {
   ...holding("logbook-long", "The Logbook after a few weeks: some 75 entries over two repositories, one with evidence from many Jobs, and the retro items on their tab", [repository(), LEDGER]),
   logbook: [...ENTRIES, ...many()],
   retros,
-  lessons,
+  // As many as Fleet answers by default, 200, so the tab is drawn at the length the real one is.
+  lessons: Array.from({ length: 200 }, (_, n) => {
+    const lesson = lessons[n % lessons.length]!;
+    return { ...lesson, id: `${lesson.id}-${n}`, at: ago(n * 3), ...(lesson.title === undefined ? {} : { title: `${lesson.title} (${n + 1})` }) };
+  }),
 };
