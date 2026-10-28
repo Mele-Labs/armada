@@ -12,6 +12,7 @@ fn entry(text: &str) -> LogEntry {
         section: LogSection::Repo,
         repository: KEY.to_string(),
         kind: LogKind::Gotcha,
+        title: None,
         text: text.to_string(),
         paths: vec!["crates/**".to_string()],
         evidence: vec![LogEvidence {
@@ -81,4 +82,14 @@ fn a_taught_logbook_entry_stands_at_once_as_the_persons() {
     let entry = &read[0];
     assert_eq!((entry.id, entry.state, entry.edited_by_person), (Some(taught), LogState::Standing, true));
     assert!(entry.evidence.is_empty());
+}
+
+#[test]
+fn a_logbook_entrys_title_comes_back_and_an_untitled_one_stays_untitled() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let titled = store.save_logbook_entry(&LogEntry { title: Some("No rustfmt".into()), ..entry("Never run rustfmt.") }).expect("kept").expect("an id");
+    let bare = store.save_logbook_entry(&entry("Chrome is not in /Applications.")).expect("kept").expect("an id");
+    assert_eq!(store.logbook_entry(titled).expect("reads").expect("held").title.as_deref(), Some("No rustfmt"));
+    assert_eq!(store.logbook_entry(bare).expect("reads").expect("held").title, None);
 }

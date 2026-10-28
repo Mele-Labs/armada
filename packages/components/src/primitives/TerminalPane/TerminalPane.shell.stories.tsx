@@ -202,6 +202,24 @@ export const ShellOnTheTerminalScreen: Story = {
   },
 };
 
+/** A shell the Job's agent opens while the owner types in a box beside it: the keyboard stays in the box. */
+export const ShellOpensBesideATypingBox: Story = {
+  args: { phase: { state: "running" } },
+  render: (args) => (
+    <>
+      <textarea aria-label="Message" autoFocus />
+      <ShellPane {...args}>
+        <XtermScreen out={"~/armada $ "} run={1} running write={fn()} onSize={fn()} />
+      </ShellPane>
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const pane = within(canvasElement);
+    await expect(await pane.findByRole("textbox", { name: "Terminal input" })).toBeInTheDocument();
+    await expect(pane.getByRole("textbox", { name: "Message" })).toHaveFocus();
+  },
+};
+
 const RUN_PHASE: TerminalPhase = { state: "running" };
 
 /**

@@ -133,7 +133,6 @@ import { bangOf, dockRunKey, hostedCommands, opensMcp, runnerOf, waitingRunKey }
 import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
-import { HeadViews, LayerBounds, useJobViews } from "./cockpit/deck/JobViews";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -1093,7 +1092,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const modCards = useModCards(session.id);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
-  const jobViews = useJobViews(session, bays);
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1127,8 +1125,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
-        // On the Cockpit only: the Job's views are buttons in its head, and Compact is in the context figure.
-        {...(deck?.flight === true && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
+        // On the Cockpit only: Compact is in the context figure.
         {...(deck?.flight === true ? { compact: compactAct } : {})}
         {...{
               actions: (
@@ -1233,7 +1230,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
-          {deck?.flight === true && jobViews !== undefined ? <LayerBounds /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}

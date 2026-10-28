@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { LogbookEntry, LogbookState } from "@armada/protocol";
 
-import { LogbookView, type LogbookPanel, type LogbookViewProps } from "./Logbook";
+import { LogbookView, type LogbookPanel, type LogbookShown, type LogbookViewProps } from "./Logbook";
 
 /**
  * The Logbook page: every repository's entries in panels, then Habits and This Mac, under three
@@ -72,9 +72,9 @@ const panelsFor = (state: LogbookState): LogbookPanel[] =>
 /** The host's state, driven as the screen drives it: the tab, the open entry and whether its text is open. */
 function Page(props: Pick<LogbookViewProps, "shown"> & Partial<LogbookViewProps>) {
   const { shown: first, ...rest } = props;
-  const [shown, setShown] = useState<LogbookState>(first);
+  const [shown, setShown] = useState<LogbookShown>(first);
   const [editing, setEditing] = useState(false);
-  const panels = panelsFor(shown);
+  const panels = shown === "retros" ? [] : panelsFor(shown);
   const [selected, setSelected] = useState<string | undefined>(panels[0]?.entries[0]?.id);
   return (
     <LogbookView
@@ -82,7 +82,7 @@ function Page(props: Pick<LogbookViewProps, "shown"> & Partial<LogbookViewProps>
       shown={shown}
       onShown={(next) => {
         setShown(next);
-        setSelected(panelsFor(next)[0]?.entries[0]?.id);
+        setSelected(next === "retros" ? undefined : panelsFor(next)[0]?.entries[0]?.id);
       }}
       selected={selected}
       onSelect={setSelected}

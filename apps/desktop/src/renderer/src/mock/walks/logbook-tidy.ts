@@ -5,7 +5,7 @@
 
 import { button, inside, place, region, role, text, walk } from "../walk";
 
-const ENTRIES = role("listbox", "Entries");
+const ENTRIES = role("grid", "Entries");
 const ENTRY = region("Entry");
 
 const logbookTidy = walk("logbook-tidy", [
@@ -17,7 +17,7 @@ const logbookTidy = walk("logbook-tidy", [
   { later: place("Logbook"), say: "It ends while he is away" },
   { press: place("Logbook"), say: "Back on the Logbook" },
   { look: text("Merged 8 entries"), say: "How many it merged, and nothing else" },
-  { look: inside(ENTRIES, text(/Never the whole desktop suite/)), say: "In use is down to the entries that were kept" },
+  { look: inside(ENTRIES, text(/Run pnpm exec vitest run/)), say: "In use is down to the entries that were kept" },
   { look: inside(ENTRY, text(/^Merged/)), say: "The open one keeps what it absorbed under Earlier, as Merged" },
   { press: role("tab", "Archived"), say: "The merged ones are under Archived, kept and searchable" },
 ]);

@@ -6,7 +6,7 @@
 // does with an answer, and a story cannot mount a screen.
 
 import { afterEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type { Lesson, LessonAnswer, LessonState, Retro, RetroRead, RetroSubject } from "@armada/protocol";
 
 import { Lessons, SessionRetroSheet } from "./Lessons";
@@ -541,4 +541,39 @@ test("list evidence: the failure's Retry reads again and a second success expand
   expect(readRetro).toHaveBeenCalledTimes(2);
   expect(one.getByText("Retros could not be read").elements()).toHaveLength(0);
   expect(one.getByRole("button", { name: "Retry" }).elements()).toHaveLength(0);
+});
+
+test("inside the Logbook the items are a log beside the open one: the arrows move, Enter and Esc go between them, and the open item answers", async () => {
+  const read = vi.fn(async () => ({ ok: true as const, lessons: [ARMADA, KIT] }));
+  const disagree = vi.fn(async (id: string) => ({ ok: true as const, lesson: lesson({ ...KIT, id, state: "discarded" }) }));
+  mount(
+    <Lessons
+      embedded
+      onReadLessons={read}
+      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
+      onAgreeLesson={vi.fn()}
+      onDisagreeLesson={disagree}
+      repository={null}
+      floor={false}
+    />,
+  );
+  const log = page.getByRole("grid", { name: "Retros" });
+  const item = page.getByRole("region", { name: "Retro item" });
+  // One line an item in the log, and the newest open beside it.
+  await expect.element(log.getByRole("row", { name: /blamed the Drone/ })).toHaveAttribute("aria-selected", "true");
+  await expect.element(item.getByRole("heading", { name: /blamed the Drone/ })).toBeVisible();
+  // Only the open item is drawn as a card, never the whole list of them.
+  expect(page.getByRole("listitem").elements()).toHaveLength(1);
+
+  (log.element() as HTMLElement).focus();
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(item.getByRole("heading", { name: /grep to be allowed/ })).toBeVisible();
+  await expect.element(log.getByRole("row", { name: /grep to be allowed/ })).toHaveAttribute("aria-selected", "true");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(item).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(log).toHaveFocus();
+
+  await item.getByRole("button", { name: "Reject change" }).click();
+  expect(disagree).toHaveBeenCalledWith("l-kit");
 });

@@ -25,7 +25,7 @@ describe("the tabs", () => {
     expect(deckTabOf(SURFACE.sessions)).toBe("sessions");
     expect(deckTabOf(SURFACE.studios)).toBe("studios");
     expect(deckTabOf(SURFACE.logbook)).toBe("logbook");
-    // Armada fixes is the Logbook's lower part, not a tab: the roster row brings it into view.
+    // Retros is a tab inside the Logbook, not a deck tab: the roster row opens the Logbook on it.
     expect(deckTabOf(SURFACE.lessons)).toBeUndefined();
     expect(deckTabOf(SURFACE.reviews)).toBe("reviews");
     expect(deckTabOf(SURFACE.issues)).toBe("issues");

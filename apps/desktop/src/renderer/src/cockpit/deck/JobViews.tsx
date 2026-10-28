@@ -1,11 +1,10 @@
-// The Job's views in its head: Artifacts, Checks, Subagents and Bays, icon buttons before the Job's own, a rule after them. Thread is the thread itself; the four are the layers (`session-view/layers.ts`). A press
+// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story. Thread is the thread itself; the four are the layers (`session-view/layers.ts`). A press
 // opens the layer, a press on the lit one shuts it, as Esc does. A view with nothing in it stays in its place, off, with its reason as the tooltip (`offeredOf`), so nothing moves. The facts the tiles carried
-// stay with each: Subagents the number running, Checks a pulse while any runs, Bays the clash, and Bays tinted while a bay is wrong. **A layer starts under the head and stops over the composer's dock**
-// (`LayerBounds`), so the head, the composer and the views stay on show while a layer is read. The keys press them (`flight-keys.ts`).
+// stay with each: Subagents the number running, Checks a pulse while any runs, Bays the clash, and Bays tinted while a bay is wrong. **A layer opens in the spine, under the strip**, so the strip stays on show while a layer is read. The keys press them (`flight-keys.ts`).
 
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Button, Separator, Tooltip } from "@armada/components";
+import { Button, Tooltip } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
@@ -83,33 +82,6 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
   });
 }
 
-/** Drawn in the composer's dock. Sets where a layer starts and stops on the pane: under the head, and over the dock. */
-export function LayerBounds() {
-  const mark = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const dock = mark.current?.closest<HTMLElement>(".sv-dock");
-    const pane = dock?.closest<HTMLElement>(".deck-pane");
-    const head = pane?.querySelector<HTMLElement>(".armada-session-frame__head") ?? null;
-    if (dock == null || pane == null || head == null) return;
-    const place = () => {
-      const edge = pane.getBoundingClientRect().top + pane.clientTop;
-      pane.style.setProperty("--sv-layer-top", `${head.getBoundingClientRect().bottom - edge}px`);
-      pane.style.setProperty("--sv-layer-foot", `${edge + pane.clientHeight - dock.getBoundingClientRect().top}px`);
-    };
-    place();
-    const watch = new ResizeObserver(place);
-    watch.observe(head);
-    watch.observe(dock);
-    watch.observe(pane);
-    return () => {
-      watch.disconnect();
-      pane.style.removeProperty("--sv-layer-top");
-      pane.style.removeProperty("--sv-layer-foot");
-    };
-  }, []);
-  return <span ref={mark} hidden />;
-}
-
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */
 function ViewButton({ view }: { view: JobView }) {
   const { id, label, tip, Glyph, key, alsoKey, pressed, disabled = false, lit = false, running = false, mark, onPress } = view;
@@ -123,14 +95,13 @@ function ViewButton({ view }: { view: JobView }) {
   );
 }
 
-/** The buttons, and a rule after them, for the head's row before its own buttons. */
-export function HeadViews({ views }: { views: readonly JobView[] }) {
+/** The four views as a strip pinned above the spine, outside what scrolls. */
+export function ViewStrip({ views }: { views: readonly JobView[] }) {
   return (
-    <>
+    <div className="sv-views" role="toolbar" aria-label="Views">
       {views.map((view) => (
         <ViewButton key={view.id} view={view} />
       ))}
-      <Separator orientation="vertical" className="sv-views__rule" />
-    </>
+    </div>
   );
 }
