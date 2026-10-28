@@ -965,7 +965,8 @@ describe("a sketch on the ledger", () => {
     expect(sketch({ settled: "approved", settled_at: at })).toMatchObject({ settled: { how: "approved", at } });
     expect(sketch({ settled: "approved", settled_at: at })).not.toHaveProperty("settled.words");
     expect(sketch({ settled: "sent_back", settled_at: at, words: "Smaller." })).toMatchObject({ settled: { how: "sent_back", words: "Smaller.", at } });
-    for (const odd of [{ settled: "fixed", settled_at: at }, { settled: "approved" }]) expect(sketch(odd)).not.toHaveProperty("settled");
+    const odds: Record<string, string>[] = [{ settled: "fixed", settled_at: at }, { settled: "approved" }];
+    for (const odd of odds) expect(sketch(odd)).not.toHaveProperty("settled");
   });
 
   it("leaves a bad `against` off and keeps the sketch", () => {
