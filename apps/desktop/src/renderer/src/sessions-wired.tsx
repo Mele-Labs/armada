@@ -737,6 +737,7 @@ export class WiredStore {
     autoLand: (id, on) => this.landing(id, on),
     releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
+    nameForMe: (id) => this.plain(this.api.nameSession({ session_id: id })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
     pullRequestFile: async (id, number, path) => fileRead(await this.api.readPullRequestFile(id, number, path)),

@@ -55,6 +55,9 @@
   display: flex;
   flex: 1;
   min-width: 0;
+  align-items: center;
+  /* The wand keeps clear of the title's last letter. */
+  gap: var(--space-3);
   color: var(--fg-default);
   font-weight: var(--weight-medium);
 }
@@ -70,6 +73,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.armada-session-frame__title > .armada-tooltip:has(.armada-button) {
+  flex: none;
 }
 
 /* A title that can be renamed is a button that looks like the text it holds. */

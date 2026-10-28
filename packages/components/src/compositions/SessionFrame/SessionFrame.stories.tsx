@@ -56,6 +56,51 @@ export const Renamable: Story = {
   },
 };
 
+/** The wand after the title has Fleet name the Job: busy while the promise is out, clear when it settles. */
+export const NameForMe: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Flaky store test" },
+  render: (args) => {
+    let settle: () => void = () => undefined;
+    const onNameForMe = fn(() => new Promise<void>((done) => (settle = done)));
+    return (
+      <>
+        <SessionFrame {...args} onNameForMe={onNameForMe} />
+        <button type="button" onClick={() => settle()}>
+          Settle
+        </button>
+      </>
+    );
+  },
+  play: async ({ canvas, userEvent }) => {
+    const wand = canvas.getByRole("button", { name: "Name it for me" });
+    await expect(wand).not.toHaveAttribute("aria-busy");
+    await userEvent.click(wand);
+    await waitFor(() => expect(wand).toHaveAttribute("aria-busy", "true"));
+    await userEvent.click(canvas.getByRole("button", { name: "Settle" }));
+    await waitFor(() => expect(wand).not.toHaveAttribute("aria-busy"));
+  },
+};
+
+/** A refusal clears the wand as an answer does: the caller says it, the button only waits. */
+export const NameForMeRefused: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Flaky store test", onNameForMe: fn(() => Promise.reject(new Error("refused"))) },
+  play: async ({ canvas, userEvent, args }) => {
+    const wand = canvas.getByRole("button", { name: "Name it for me" });
+    await userEvent.click(wand);
+    await expect(args.onNameForMe).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(wand).not.toHaveAttribute("aria-busy"));
+  },
+};
+
+/** No `onNameForMe`: no wand is drawn, titled or not. */
+export const NoWand: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Flaky store test", onRename: fn() },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Flaky store test, rename" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Name it for me" })).not.toBeInTheDocument();
+  },
+};
+
 /** A terminal Session whose mod is older than the repository's is marked in its header. */
 export const ModOutOfDate: Story = {
   args: { state: "waiting", said: "Waiting on you", title: "Release notes script", modOutOfDate: true },

@@ -248,6 +248,7 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 | `start_session` | A row for one repository, with optional title, model, effort and mode; `held` keeps it held (*A held Job*) |
 | `begin_session` | Start pressed on a held Job: keeps how the work lands, lifts the hold, and sends the first message as he left it in the box, with the turns that waited |
 | `rename_session` | A person's name for a Job, hosted or in a terminal; stands until the next terminal `/rename` |
+| `name_session` | Armada's name for a hosted Job from its first message, asked of the proposer on request; not kept as his rename |
 | `start_session_run` | A shell block run from a Job's thread, on a terminal of its own, in its slot worktree or directory; output is held in memory only |
 | `stop_session_run` | Ends a run's process group |
 | `write_session_run` | Keys typed into a run's terminal |

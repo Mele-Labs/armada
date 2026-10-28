@@ -515,7 +515,7 @@ async fn a_walk_whose_page_cannot_load_stops_waiting_until_it_is_shown_again() {
 }
 
 #[tokio::test]
-async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
+async fn a_dismissed_walk_never_comes_back_and_the_agent_is_told() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     let url = "http://localhost:5173/one";
@@ -528,7 +528,8 @@ async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
     assert!(gone.waiting_for.is_empty());
     let again = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     assert!(again.session.waiting_for.is_empty(), "the derived item does not return on the next read");
-    assert_eq!(again.rows.len(), before, "nothing was said to the agent");
+    assert!(again.rows.len() > before, "the agent was told");
+    assert_eq!(said_by_the_person(&rig, &id).await, [format!(r#"Owner dismissed "{url}""#)]);
     let twice = Arc::clone(&rig.fleet)
         .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None, misread: false })
         .await;

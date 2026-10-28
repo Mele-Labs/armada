@@ -75,6 +75,15 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    /// **The fake asks no proposer**, so it refuses as Fleet refuses without one.
+    async fn name_session(&self, _name: ipc::NameSession) -> Result<SessionRecord, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fleet.session_not_named",
+            "the fake daemon asks no proposer, so this job was not named",
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     /// **The fake runs nothing**: what a run is, and its process group, are `fleet::session_running`'s.
     async fn start_session_run(
         self: std::sync::Arc<Self>,
