@@ -1,7 +1,7 @@
 // The Logbook as it reads after a few weeks: long entries in use, one confirmed by many Jobs with more evidence than
 // fits, and the retro items on their tab. `docs/concepts/logbook.md`. The walk `logbook-rework` plays over it.
 
-import type { LogbookEntry, LogbookEvidence } from "@armada/protocol";
+import type { LogbookEntry, LogbookEvidence, LogbookKind, LogbookSection, RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { retroFixtures } from "@armada/screens/src/fixtures/retros";
 
@@ -9,6 +9,7 @@ import { holding } from "../holding";
 import type { Scenario } from "../moment";
 
 const ARMADA = repository().root;
+const LEDGER: RepositorySummary = { root: "/Users/user/ledger", records_root: "/Users/user/Library/Application Support/Armada/records/ledger" };
 const { retros, lessons } = retroFixtures();
 
 const HOUR = 3_600_000;
@@ -82,9 +83,91 @@ const ENTRIES: LogbookEntry[] = [
   entry("lb-sed", "Plain `sed -i 's/…/…/' file` fails here with usage errors. For a short edit use the BSD form `sed -i '' 's|…|…|' file`.", { title: "Use the BSD form of sed -i", section: "machine", kind: "environment", last_confirmed: ago(6) }),
 ];
 
+
+/** The many entries a Logbook gathers over weeks: each a title and its rule, so the log runs well past a screen. */
+const MORE: [LogbookSection, LogbookKind, string, string][] = [
+  ["repo", "command", "Build the desktop app with pnpm build", "Run `pnpm build` from `apps/desktop`; the root build skips the renderer."],
+  ["repo", "gotcha", "The merge queue reruns ci", "A green pull request still waits for the queue's own ci run before it lands."],
+  ["repo", "convention", "Cite beads issues by id", "Cite an issue by its beads id such as `armada-a3f2`; it has no web page."],
+  ["repo", "command", "Regenerate the protocol mirror", "After a Rust wire change run `cargo xtask protocol --write` and commit the TypeScript it writes."],
+  ["repo", "gotcha", "Storybook needs its own port", "Storybook fails on 6006 when the mock is up; pass `--port 6106`."],
+  ["repo", "convention", "Tokens only in component CSS", "Every value in a component stylesheet is a token; the verify gate refuses a raw pixel."],
+  ["repo", "environment", "Node 22 from .nvmrc", "The repo pins Node 22; an older Node fails `pnpm install` on the engines field."],
+  ["repo", "command", "Play a walk before showing it", "Run the walk's test with `-t <walk>` across the four walks files before calling show_window."],
+  ["repo", "gotcha", "Vite holds the old CSS after a rename", "A renamed stylesheet keeps the old one in the page until a full reload."],
+  ["repo", "convention", "One question at a time", "Put each decision to the owner on its own, with options, at the end of the turn."],
+  ["repo", "command", "Index the code graph after a merge", "Run `gitnexus analyze --index-only` after merging main, or impact answers are stale."],
+  ["repo", "gotcha", "Hooks refuse git branch -D", "Deleting a branch is refused; finish_up gives back merged branches."],
+  ["repo", "convention", "Docs ship with the change", "A doc the change made wrong is fixed in the same pull request."],
+  ["repo", "environment", "Rust nightly for xtask", "xtask builds on the pinned nightly in `rust-toolchain.toml`; stable fails on a let chain."],
+  ["repo", "command", "Verify foundations against main", "Read `cargo xtask verify-foundations` as a delta against main, not as a colour."],
+  ["repo", "gotcha", "Fixtures need a second repository", "A scenario with one repository hides the section rows; give it two."],
+  ["repo", "convention", "No aggregate counts", "Never draw a count beside the items it counts."],
+  ["repo", "command", "Type-check screens separately", "After editing `packages/screens` run `pnpm exec tsc --noEmit` there too."],
+  ["repo", "gotcha", "jsdom has no layout", "A walk test passes on a page that is visibly broken; look in a browser too."],
+  ["repo", "convention", "Icons from the registry", "A state is a registry glyph with a tooltip, never an emoji."],
+  ["repo", "command", "Land with auto-merge", "Open the pull request and run `gh pr merge <n> --merge --auto`."],
+  ["repo", "gotcha", "The slot guard reads the lease", "A write outside the leased slot is refused even when the path is under the repo."],
+  ["repo", "convention", "Facts, not narration, in UI copy", "UI strings state facts; no sentence explains what a thing is."],
+  ["repo", "environment", "Electron 38 needs macOS 13", "The desktop app does not launch on macOS 12; the mock in a browser does."],
+  ["repo", "command", "Run one Rust test by name", "`armada check test <test_name>` runs one test in the background."],
+  ["repo", "gotcha", "Preview restarts drop open walks", "A preview restart closes the walk window; show it again after."],
+  ["repo", "convention", "Keyboard first", "Every new surface is fully keyboard driven, with its keys named in the walk."],
+  ["repo", "command", "Serve the mock on a free port", "`pnpm exec vite --config vite.mock.config.ts --port <free> --strictPort` from `apps/desktop`."],
+  ["repo", "gotcha", "Sticky table cells need a solid fill", "A sticky header with a clear background shows the rows through it."],
+  ["repo", "convention", "Walk before landing", "A change the owner would see waits for his walk before it lands."],
+  ["habits", "habit", "Short walks for fixes", "A fix gets a few steps straight to it, never the whole feature walk."],
+  ["habits", "habit", "No windows on his screen", "Never open a visible Electron window from a test or harness."],
+  ["habits", "habit", "Ask once", "A question goes in the prompt or in Needs you, never both."],
+  ["habits", "habit", "Two agents at most", "Run at most two child agents at once."],
+  ["habits", "habit", "No gradients or glows", "Styling stays flat: no gradients, glows, sheen or grain."],
+  ["habits", "habit", "Build, don't file", "An idea he floats goes to an agent to build, not to an issue."],
+  ["habits", "habit", "Root cause first", "A slowness question gets its one structural cause before any patch."],
+  ["habits", "habit", "Restart with the preview", "A restart he must run is `scripts/preview --restart`, never a plain restart."],
+  ["machine", "environment", "No timeout command", "`timeout` is not installed; run the command without it."],
+  ["machine", "environment", "Quote globs in zsh", "Quote every glob zsh could expand, in paths as well as `--include=`."],
+  ["machine", "environment", "SSH fails while locked", "Git over SSH fails with the screen locked; the repo uses HTTPS through gh."],
+  ["machine", "environment", "Playwright headless shell", "Chrome is not in /Applications; use the headless shell in the Playwright cache."],
+];
+
+const LEDGER_MORE: [LogbookKind, string, string][] = [
+  ["command", "Run make migrate before tests", "Run `make migrate` before the tests; a fresh checkout has no schema."],
+  ["environment", "Postgres on 5433", "Postgres 16 runs on port 5433 here, not 5432."],
+  ["gotcha", "CSV export needs UTF-8 BOM", "Excel misreads the export without a BOM; `export.rs` writes one."],
+  ["convention", "Money in cents", "Every amount is an integer of cents; never a float."],
+  ["command", "Seed with make seed", "`make seed` loads a month of entries for local work."],
+  ["gotcha", "Timezones in the ledger", "Entries are stored in UTC and shown in the account's zone."],
+  ["convention", "One migration a change", "A change adds at most one migration file."],
+  ["command", "Lint with make lint", "`make lint` runs clippy and sqlfluff together."],
+  ["gotcha", "Reports cache for an hour", "A report reads stale for an hour after an import; `make bust` clears it."],
+  ["environment", "Redis for the queue", "The import queue needs Redis on 6380."],
+  ["convention", "Accounts are soft deleted", "Never delete an account row; set `closed_at`."],
+  ["command", "Snapshot tests with insta", "Accept changed snapshots with `cargo insta review`."],
+];
+
+function many(): LogbookEntry[] {
+  const at = (n: number) => 1 + n * 3.5;
+  const own = MORE.map(([section, kind, title, text], n) =>
+    entry(`lb-more-${n}`, text, {
+      title,
+      section,
+      kind,
+      ...(section === "repo" ? {} : { repository: undefined }),
+      confirmed_by: 2 + ((n * 7) % 11),
+      last_confirmed: ago(at(n)),
+      ...(n % 9 === 4 ? { last_tripped: ago(at(n) + 2) } : {}),
+      ...(n % 13 === 6 ? { locked: true } : {}),
+    }),
+  );
+  const ledger = LEDGER_MORE.map(([kind, title, text], n) =>
+    entry(`lb-ledger-${n}`, text, { title, kind, repository: LEDGER.root, confirmed_by: 2 + (n % 5), last_confirmed: ago(at(n) + 10) }),
+  );
+  return [...own, ...ledger];
+}
+
 export const logbookLong: Scenario = {
-  ...holding("logbook-long", "The Logbook after a few weeks: long entries, one with evidence from many Jobs, and the retro items on their tab", [repository()]),
-  logbook: ENTRIES,
+  ...holding("logbook-long", "The Logbook after a few weeks: some 75 entries over two repositories, one with evidence from many Jobs, and the retro items on their tab", [repository(), LEDGER]),
+  logbook: [...ENTRIES, ...many()],
   retros,
   lessons,
 };

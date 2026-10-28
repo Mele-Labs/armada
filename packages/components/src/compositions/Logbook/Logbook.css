@@ -80,16 +80,17 @@
 .armada-logbook__table thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 4;
   background: var(--bg-raised);
 }
 .armada-logbook__section th {
   position: sticky;
   top: var(--h-row-header);
-  z-index: 1;
+  z-index: 3;
   height: var(--h-row-header);
   padding: 0 var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-default);
+  border-bottom: none;
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default);
   background: var(--bg-sunken);
   color: var(--fg-default);
   font-family: var(--font-mono);
