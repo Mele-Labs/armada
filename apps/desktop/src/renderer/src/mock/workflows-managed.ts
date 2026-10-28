@@ -107,8 +107,12 @@ export const MANAGED_DEFINITIONS: readonly { source: "armada" | "repository" | "
 ];
 
 /** What ends each step and when it is passed over: what Fleet's rail reads off the rules. By step id, and `workflow/step` where two differ. */
-export const MANAGED_ENDS: Readonly<Record<string, { ends: string; passedOver?: string }>> = {
+export const MANAGED_ENDS: Readonly<Record<string, { ends: string; endsAny?: readonly string[]; passedOver?: string }>> = {
   propose: { ends: "you reply" },
+  "feature/propose": {
+    ends: "you approve what it shows",
+    endsAny: ["you approve a walk", "you approve a sketch", "you approve a draft", "you pick one of the ideas shown"],
+  },
   discuss: { ends: "a plan is recorded" },
   approve_plan: { ends: "you approve the plan" },
   walk: { ends: "you approve the walk", passedOver: "nothing would be seen" },

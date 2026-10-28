@@ -48,7 +48,7 @@ import {
   useTerminalDock,
   FILE_SHOWN,
 } from "@armada/components";
-import type { DebugPayload, DraftAnswer, RunsPlace, TeachPick } from "@armada/components";
+import type { DebugPayload, DraftAnswer, RunsPlace, SketchAnswer, TeachPick } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -1202,6 +1202,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
             {...(draft.answerWaiting === undefined ? {} : { onDraft: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
             {...(draft.answerWaiting === undefined ? {} : { onWithdrawDraft: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
+            {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(session.id, sketch, answer) })}
             noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}

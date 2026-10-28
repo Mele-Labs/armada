@@ -57,10 +57,14 @@ function withSketchState(rows: SessionThreadRow[], ledger: readonly SessionAttac
     const held = ledger.find((one) => one.kind === "sketch" && one.id === row.sketch);
     const kept = held?.kind === "sketch" && held.against !== undefined && held.against.title === row.against ? sceneOfSketch(held.against.drawing) : undefined;
     const earlier = before?.kind === "sketch" ? before.drawing : kept;
+    const latest = last.get(row.sketch) === row.id;
+    // What he was asked, and how he answered, belong to the sketch as it stands: the latest card holds them.
+    const answer = !latest || held?.kind !== "sketch" ? {} : { ...(held.asked === true ? { asked: true as const } : {}), ...(held.settled === undefined ? {} : { settled: held.settled }) };
     return {
       ...row,
       ...(earlier === undefined ? {} : { againstScene: earlier }),
-      ...(last.get(row.sketch) === row.id ? {} : { replaced: true as const }),
+      ...(latest ? {} : { replaced: true as const }),
+      ...answer,
     };
   });
 }
