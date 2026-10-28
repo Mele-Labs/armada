@@ -9,7 +9,7 @@ import { button, dialog, inside, place, region, role, text, walkThrough } from "
 
 unmountAfterEach();
 
-const entries = role("listbox", "Entries");
+const entries = role("grid", "Entries");
 const also = inside(region("Entry"), role("group", "Also changes"));
 
 const modsListed = async (): Promise<string[]> => {

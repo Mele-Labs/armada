@@ -18,6 +18,7 @@ fn learnt(section: LogSection, key: &str, text: &str, state: LogState) -> LogEnt
         section,
         repository: if section == LogSection::Repo { key.to_string() } else { String::new() },
         kind: LogKind::Gotcha,
+        title: None,
         text: text.to_string(),
         paths: vec!["crates/api".to_string()],
         evidence: vec![
@@ -355,4 +356,19 @@ async fn tidy_logbook_merges_near_duplicates_in_the_background() {
     let kept = read(&rig, true, Some(LogbookSection::Repo), Some(LogbookState::Standing)).await;
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].history.first().map(|earlier| earlier.by), Some(LogbookReplacedBy::Merged));
+}
+
+#[tokio::test]
+async fn a_titled_entry_is_read_with_its_title_and_an_edit_of_its_text_leaves_the_title_alone() {
+    let rig = rig_placing(None);
+    let titled = LogEntry { title: Some("Focused tests only".into()), ..learnt(LogSection::Repo, &key_of(&rig.root), "Use the focused test command.", LogState::Standing) };
+    let id = rig.fleet.store().lock().await.save_logbook_entry(&titled).expect("kept").expect("an id").to_string();
+    let bare = seeded(&rig, LogSection::Repo, "Second line.", LogState::Standing).await;
+
+    let all = read(&rig, true, None, None).await;
+    let title_of = |id: &str| all.iter().find(|one| one.id == id).expect("listed").title.clone();
+    assert_eq!((title_of(&id).as_deref(), title_of(&bare)), (Some("Focused tests only"), None));
+
+    let edited = rig.fleet.edit_logbook_entry(id, EditLogbookEntry { text: "Run one test, never the suite.".into() }).await.expect("edited");
+    assert_eq!((edited.text.as_str(), edited.title.as_deref()), ("Run one test, never the suite.", Some("Focused tests only")));
 }

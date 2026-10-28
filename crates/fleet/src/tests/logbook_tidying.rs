@@ -19,6 +19,7 @@ fn entry(text: &str, session: &str) -> LogEntry {
         section: LogSection::Repo,
         repository: KEY.to_string(),
         kind: LogKind::Command,
+        title: None,
         text: text.to_string(),
         paths: Vec::new(),
         evidence: vec![LogEvidence { session_id: session.to_string(), cites: vec![format!("ran:{session}")], how: LogHow::First, hard: false, at: 10 }],
@@ -124,4 +125,15 @@ async fn a_repository_is_tidied_at_most_once_a_week_and_only_where_entries_chang
     store.lock().await.save_logbook_entry(&again).expect("keeps");
     assert!(!due(&store, KEY, 3 * DAY).await.expect("reads"), "changed, but tidied a day ago");
     assert!(due(&store, KEY, 8 * DAY).await.expect("reads"), "changed, and a week has passed");
+}
+
+#[tokio::test]
+async fn the_entry_a_merge_keeps_keeps_its_title() {
+    let dir = TempDir::new();
+    let titled = LogEntry { title: Some("Run desktop tests".into()), ..entry(RUN, "s1") };
+    let (store, ids) = kept(&dir, &[titled, entry(RUN_AGAIN, "s2")]);
+    let said = says(&[group(ids[0], MERGED, &[ids[1]])]);
+    pass(&store, KEY, |_| async { Ok(said.clone()) }, 5_000).await.expect("passes");
+    let entries = held(&store).await;
+    assert_eq!((entries[0].text.as_str(), entries[0].title.as_deref()), (MERGED, Some("Run desktop tests")));
 }

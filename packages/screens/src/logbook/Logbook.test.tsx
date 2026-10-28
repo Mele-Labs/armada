@@ -10,7 +10,7 @@ import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, Logboo
 
 import { Logbook } from "./Logbook";
 import { forgetTidyWatch } from "./tidy-watch";
-import { mount, unmount } from "../mounted";
+import { mount, rerender, unmount } from "../mounted";
 
 afterEach(unmount);
 
@@ -62,27 +62,29 @@ function opened(entries: LogbookEntry[], acts: Acts = {}) {
   return { read, edit, lock, forget, tidy };
 }
 
-const entries = () => page.getByRole("listbox", { name: "Entries" });
+const entries = () => page.getByRole("grid", { name: "Entries" });
+/** An entry's line in the log, by the words its title starts with. */
+const line = (name: RegExp) => entries().getByRole("row", { name });
 const detail = () => page.getByRole("region", { name: "Entry" });
 
 test("every repository, Habits and This Mac are panels of one page, read once", async () => {
   const { read } = opened([WIDGETS, LEDGER, HABIT, MACHINE]);
-  await expect.element(page.getByRole("group", { name: "widgets" })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "ledger" })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "Habits" })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "This Mac" })).toBeVisible();
+  await expect.element(page.getByRole("rowgroup", { name: "widgets" })).toBeVisible();
+  await expect.element(page.getByRole("rowgroup", { name: "ledger" })).toBeVisible();
+  await expect.element(page.getByRole("rowgroup", { name: "Habits" })).toBeVisible();
+  await expect.element(page.getByRole("rowgroup", { name: "This Mac" })).toBeVisible();
   expect(read).toHaveBeenCalledTimes(1);
 });
 
 test("the tabs show the entries in one state each: In use first, then New and Archived", async () => {
   opened([WIDGETS, NEW, OLD]);
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
-  expect(entries().getByText("Seen once.").elements()).toHaveLength(0);
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
+  expect(line(/Seen once/).elements()).toHaveLength(0);
   await page.getByRole("tab", { name: "New" }).click();
-  await expect.element(entries().getByText("Seen once.")).toBeVisible();
-  expect(entries().getByText("Run specs with bin/rspec.").elements()).toHaveLength(0);
+  await expect.element(line(/Seen once/)).toBeVisible();
+  expect(line(/Run specs with bin\/rspec/).elements()).toHaveLength(0);
   await page.getByRole("tab", { name: "Archived" }).click();
-  await expect.element(entries().getByText("Faded words.")).toBeVisible();
+  await expect.element(line(/Faded words/)).toBeVisible();
 });
 
 test("Edit saves the new text to the entry's id, and Lock and Forget go to theirs", async () => {
@@ -144,7 +146,7 @@ test("an entry run memory or the machine note keeps shows no acts, and its keys 
   expect(lock).not.toHaveBeenCalled();
   expect(forget).not.toHaveBeenCalled();
   // The machine note, one entry down, has none either.
-  await page.getByRole("option", { name: /Chrome is not installed/ }).click();
+  await line(/Chrome is not installed/).click();
   await expect.element(detail().getByText("Chrome is not installed.")).toBeVisible();
   expect(detail().getByRole("button", { name: /^Forget/ }).elements()).toHaveLength(0);
 });
@@ -164,7 +166,7 @@ test("a refused Forget leaves the entry and says so", async () => {
   await detail().getByRole("button", { name: /^Forget/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Forget", exact: true }).click();
   await expect.element(detail().getByText("Not forgotten")).toBeVisible();
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
 });
 
 test("a Logbook Fleet could not read says so in place of the panels", async () => {
@@ -202,7 +204,7 @@ afterEach(() => {
 test("Tidy now says Tidying until the read says the pass ended, then states what it merged and reads the entries again", async () => {
   const survivor = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
   const { fleet, read, onTidy } = tidying({ running: false, last: EARLIER }, [WIDGETS, survivor]);
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   await expect.element(status()).not.toHaveTextContent("Merged");
   await tidyButton().click();
   await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
@@ -216,7 +218,7 @@ test("Tidy now says Tidying until the read says the pass ended, then states what
   await vi.advanceTimersByTimeAsync(SEVERAL);
   await expect.element(status()).toHaveTextContent("Merged 12 entries");
   await expect.element(tidyButton()).not.toHaveAttribute("aria-busy");
-  expect(entries().getByText("Run specs with bin/rspec.").elements()).toHaveLength(0);
+  expect(line(/Run specs with bin\/rspec/).elements()).toHaveLength(0);
   const reads = read.mock.calls.length;
   await vi.advanceTimersByTimeAsync(SEVERAL * 3);
   expect(read).toHaveBeenCalledTimes(reads);
@@ -230,7 +232,7 @@ test.each([
   ["Tidy failed before merging anything", { merged: 0, at: FINISHED, failed: true }],
 ])("a finished pass reads %s", async (words, last) => {
   const { fleet } = tidying({ running: false });
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   await tidyButton().click();
   fleet.tidy = { running: false, last };
   await vi.advanceTimersByTimeAsync(SEVERAL);
@@ -248,7 +250,7 @@ test("a page opened while a pass runs already says Tidying, and states the resul
 
 test("leaving the Logbook mid-pass and coming back to a pass still running says Tidying and polls again", async () => {
   const { fleet, read, reopen } = tidying({ running: false, last: EARLIER });
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   await tidyButton().click();
   reopen();
   await expect.element(status()).toHaveTextContent("Tidying");
@@ -262,19 +264,19 @@ test("leaving the Logbook mid-pass and coming back to a pass still running says 
 
 test("a pass that ended while the page was closed is stated once when it is opened again", async () => {
   const { fleet, reopen } = tidying({ running: false, last: EARLIER });
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   await tidyButton().click();
   fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
   reopen();
   await expect.element(status()).toHaveTextContent("Merged 5 entries");
   reopen();
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   await expect.element(status()).toHaveTextContent("");
 });
 
 test("a pass that ended before the page opened is not announced", async () => {
   const { read } = tidying({ running: false, last: EARLIER });
-  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   await vi.advanceTimersByTimeAsync(SEVERAL * 3);
   expect(read).toHaveBeenCalledTimes(1);
   await expect.element(status()).toHaveTextContent("");
@@ -301,4 +303,41 @@ test("an earlier text Tidy merged in is marked Merged, apart from one the person
   expect(detail().getByText(/^Merged/).elements()).toHaveLength(2);
   await expect.element(detail().getByText(/^Rewritten by Armada/)).toBeVisible();
   await expect.element(detail().getByText(/^Replaced by you/)).toBeVisible();
+});
+
+test("an entry's line reads its title, or the first clause of its rule where it has none", async () => {
+  opened([
+    entry("8", { section: "repo", repository: "/Users/user/widgets", title: "Specs through bin/rspec", text: "Run specs with bin/rspec, never rake." }),
+    entry("9", { section: "repo", repository: "/Users/user/widgets", text: "Pass `--merge` (the queue refuses a squash): a bare merge is stopped. Always." }),
+  ]);
+  await expect.element(line(/^.*Specs through bin\/rspec/)).toBeVisible();
+  expect(line(/never rake/).elements()).toHaveLength(0);
+  // No title: the words up to the first stop, without the quotes or the aside.
+  await expect.element(entries().getByText("Pass --merge", { exact: true })).toBeVisible();
+  // The rule itself is the open entry's, whole.
+  await expect.element(detail().getByText(/never rake/)).toBeVisible();
+});
+
+test("the retro items are a tab of their own, drawn in place of the entries", async () => {
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: [WIDGETS], tidy: { running: false } }));
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} fixes={<p>The retro items</p>} />);
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
+  expect(page.getByText("The retro items").elements()).toHaveLength(0);
+  await page.getByRole("tab", { name: "Retros" }).click();
+  await expect.element(page.getByRole("region", { name: "Retros" }).getByText("The retro items")).toBeVisible();
+  expect(page.getByRole("grid", { name: "Entries" }).elements()).toHaveLength(0);
+  await page.getByRole("tab", { name: "In use" }).click();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
+  expect(page.getByText("The retro items").elements()).toHaveLength(0);
+});
+
+test("asked for the retro items, the Logbook opens on Retros, and turns to it again when asked while open", async () => {
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: [WIDGETS], tidy: { running: false } }));
+  const at = (toFixes: number) => <Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} fixes={<p>The retro items</p>} toFixes={toFixes} />;
+  mount(at(1));
+  await expect.element(page.getByText("The retro items")).toBeVisible();
+  await page.getByRole("tab", { name: "In use" }).click();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
+  rerender(at(2));
+  await expect.element(page.getByText("The retro items")).toBeVisible();
 });

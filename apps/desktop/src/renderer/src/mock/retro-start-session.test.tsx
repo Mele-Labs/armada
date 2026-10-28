@@ -37,7 +37,8 @@ test("a Kit item offers no Start Job", async () => {
   await onScreen();
   await toRetros();
 
-  const kit = page.getByRole("listitem", { name: "Walks opened in your browser" });
+  await page.getByRole("grid", { name: "Retros" }).getByRole("row", { name: /Walks opened in your browser/ }).click();
+  const kit = page.getByRole("region", { name: "Retro item" }).getByRole("listitem", { name: "Walks opened in your browser" });
   await expect.element(kit).toBeVisible();
   expect(kit.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
 });
