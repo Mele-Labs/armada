@@ -106,6 +106,17 @@ export function reportFacts(session: Session, from: ReportFrom): string[] {
   return lines;
 }
 
+/**
+ * Which Job was open when a note was pinned, and where to read it: no more. A note is about the screen, so the Job's
+ * messages, tools and timeline stay out; carried whole, they read as the task and buried his words.
+ */
+export function noteFacts(session: Session, root: string): string[] {
+  const lines = [`Job: ${session.title === undefined ? session.id : `${session.title} (${session.id})`}`];
+  for (const one of session.attachments) if (one.kind === "branch") lines.push(`Branch: ${one.name}, ${root}/.armada/slots/slot-${one.slot}`);
+  if (session.cwd !== undefined) lines.push(`Transcript: ${transcriptOf(session.cwd, session.id)}`);
+  return lines;
+}
+
 /** The sections that are lists: its last messages, its last tool calls and the timeline's last entries for it. */
 export function reportLists(session: Session, from: ReportFrom): string[] {
   const out: string[] = [];
