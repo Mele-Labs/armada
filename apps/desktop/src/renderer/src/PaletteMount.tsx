@@ -32,6 +32,7 @@ import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette
 import { displayOf, keysOf, useModRows, type ModRow } from "./mod-commands";
 import { firstStep } from "./palette-blanks";
 import { askToTell } from "./tell";
+import { usePaletteExtras } from "./palette-extra";
 
 export type PaletteMountProps = {
   open: boolean;
@@ -101,6 +102,7 @@ export function PaletteMount({
   const modKeys = useMemo(() => keysOf(modRows, memory.hotkeys), [modRows, memory.hotkeys]);
   const commands = fixtures.commands.length > 0 ? fixtures.commands : modRows.map((row) => displayOf(row, modKeys[`cmd:${row.id}`]));
   const projects = useProjectsStore();
+  const extras = usePaletteExtras();
   const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
   const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
   // The step the palette opens on, for a row run by its key that asks for something.
@@ -144,6 +146,8 @@ export function PaletteMount({
         };
   };
   const choose = (choice: PaletteChoice): void => {
+    const extra = choice.of === "board" ? extras.find((one) => one.id === choice.id) : undefined;
+    if (extra !== undefined) return extra.run();
     const row = rowOf(choice);
     if (row !== undefined) remember(row);
     if (choice.of === "pull" || choice.of === "issue" || choice.of === "task" || choice.of === "command" || choice.of === "page" || choice.of === "on") return carryOutRow(choice, world);
@@ -200,7 +204,7 @@ export function PaletteMount({
       // surface is gone, so there is nothing here for a row to set.
       filters={[]}
       // A row about the window as a whole: it starts a Mod Job through Fleet, so it waits on the connection.
-      board={[{ id: CREATE_MOD, label: "Create mod", icon: Puzzle, ...(live ? {} : { dormant: FLEET_DOWN }) }]}
+      board={[{ id: CREATE_MOD, label: "Create mod", icon: Puzzle, ...(live ? {} : { dormant: FLEET_DOWN }) }, ...extras.map(({ id, label, icon }) => ({ id, label, icon }))]}
       // One row per Check and Command, off the same reading the Manifest
       // surface draws from — Journey 9's own table. Empty until that read has
       // answered, which is what `App.tsx`'s effect holds open.
