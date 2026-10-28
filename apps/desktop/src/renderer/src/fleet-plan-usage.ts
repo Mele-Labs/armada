@@ -1,5 +1,6 @@
 // The plan's windows over Fleet: read once Fleet is connected and kept current by `plan_usage.changed`,
-// which carries the reading whole. The mock's Fleet answers the same two calls from its scenario.
+// which carries the reading whole. Read at once as well, since main answers from the picture it kept on disk
+// while Fleet has not answered. The mock's Fleet answers the same two calls from its scenario.
 
 import type { PlanUsage } from "@armada/protocol";
 
@@ -33,7 +34,10 @@ export function createFleetPlanUsage(fleet: FleetPlanUsage): PlanUsageSource {
   const start = (): void => {
     const offState = fleet.subscribe(connectedIn);
     const offUsage = fleet.onPlanUsageChanged(set);
-    void fleet.state().then(connectedIn);
+    void fleet.state().then((facts) => {
+      if (facts.connection.state !== "connected") void fleet.getPlanUsage().then((read) => read.ok && set(read.value));
+      connectedIn(facts);
+    });
     stop = () => {
       offState();
       offUsage();

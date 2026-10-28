@@ -188,6 +188,7 @@ type OldBridgeState = {
     mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
+    drawnFromDisk: boolean;
     readAt: number | null;
     holds: Holdings;
     repository: string | null;
@@ -514,6 +515,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     bridge: { auditPath: null, fleetProtocol: null },
     fleetBuild: null,
     missed: 0,
+    drawnFromDisk: false,
     readAt: null,
     holds: { workflows: [], manifests: [], models: null, repositories: [] },
     repository: null,

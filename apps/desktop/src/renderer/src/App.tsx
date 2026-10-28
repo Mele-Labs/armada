@@ -348,7 +348,7 @@ export function App() {
     now: silentFor,
   });
   // The Cockpit powering on: a Fleet coming back holds its banner until the grace is out (`cockpit/boot.ts`).
-  const power = usePower(state.connection);
+  const power = usePower(state.connection, state.drawnFromDisk);
   const guarded ={ bridge: state.bridge, onCopied: setCopied };
 
   /**
@@ -565,7 +565,7 @@ export function App() {
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
             <Standing
-              fleet={power === "standby" ? null : fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
+              fleet={power === "standby" || power === "kept" ? null : fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
               // reading beside the text it is about. Twice at once is two places
               // to read one refusal and one to dismiss while the other stands.
