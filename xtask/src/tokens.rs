@@ -265,6 +265,10 @@ pub const THEME: &[(&str, Slot)] = &[
         Slot::CssOnly("an outline shorthand, not a scale value"),
     ),
     (
+        "--focus-ring-width",
+        Slot::CssOnly("the keyboard ring's width: a hairline, named once here"),
+    ),
+    (
         "--focus-ring-offset",
         Slot::CssOnly("paired with --focus-ring"),
     ),

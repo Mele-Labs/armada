@@ -1,12 +1,11 @@
-// The workflow at the head of the Job's story (`StoryColumn.tsx`): its name as a reading, and its steps beside it as glyphs, the one the Job is at lit. Where the Job's
-// workflow can be changed, pressing the name opens the picker as a menu under it, and ⌥W puts the focus on it. A change applies from the next turn.
+// The workflow at the head of the Job's story (`StoryColumn.tsx`), a band of its own: the name with its picker and the proposer's mark. Its steps are the spine's zones below it.
+// Where the Job's workflow can be changed, pressing the name opens the picker as a menu under it, and ⌥W puts the focus on it. A change applies from the next turn.
 
 import { useRef, useState } from "react";
 import { ChevronDown, Lightbulb } from "lucide-react";
-import { DropdownMenu, Readout, Tooltip, type DropdownMenuEntry } from "@armada/components";
+import { DropdownMenu, Tooltip, type DropdownMenuEntry } from "@armada/components";
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
-import { StepRail } from "./StatusPanel";
 import { BAND_KEYS } from "./story";
 
 const NONE = "none";
@@ -33,6 +32,7 @@ export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork
   const picking = proposal !== undefined && acts !== undefined;
   return (
     <div className="sv-workflow">
+      <div className="sv-workflow__top">
       {picking ? (
         <>
           <Tooltip asChild label="Workflow" shortcut={KEY}>
@@ -51,8 +51,8 @@ export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork
                 openMenu(event.currentTarget);
               }}
             >
-              <Readout>{name}</Readout>
-              <ChevronDown size={12} strokeWidth={2} aria-hidden />
+              <span className="sv-workflow__title">{name}</span>
+              <ChevronDown size={14} strokeWidth={2} aria-hidden />
             </button>
           </Tooltip>
           <DropdownMenu
@@ -71,18 +71,18 @@ export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork
       ) : (
         <Tooltip asChild label="Workflow">
           <span className="sv-workflow__name">
-            <Readout>{name}</Readout>
+            <span className="sv-workflow__title">{name}</span>
           </span>
         </Tooltip>
       )}
       {proposal?.picked?.includes("workflow") !== true ? null : (
         <Tooltip label="Picked by the proposer">
           <span className="sv-flow__proposed" role="img" aria-label="Picked by the proposer">
-            <Lightbulb size={12} strokeWidth={2} aria-hidden />
+            <Lightbulb size={14} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
       )}
-      {flow === undefined ? null : <StepRail steps={flow.steps} at={flow.at} />}
+      </div>
     </div>
   );
 }

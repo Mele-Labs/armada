@@ -613,6 +613,7 @@
      `--row-focus-bar` in semantic.css are outline and border shorthands, and
      carry their width inside. Nothing here duplicates them. */
   --border-width: 1px;
+  --focus-ring-width: var(--border-width);
 
   --radius-sm: 3px;  /* chips, badges */
   --radius-md: 6px;  /* buttons, inputs, rows, flat cards */
@@ -1131,7 +1132,7 @@
      position, or focus is invisible on exactly the controls that need it.
      The accent already carries the keyboard focus edge, and row focus is
      already a 2px accent bar — so control focus now matches row focus. */
-  --focus-ring: 2px solid var(--accent);
+  --focus-ring: var(--focus-ring-width) solid var(--accent);
   --focus-ring-offset: 2px;
 
   /* Keyboard focus on a full-width row does something stronger than a ring */

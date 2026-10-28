@@ -67,7 +67,11 @@ export type WorkflowManagerProps = {
   onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
 };
 
-const SOURCES: readonly WorkflowSource[] = ["armada", "repository", "yours"];
+/** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
+const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "file"> => ({
+  ...(one.manifestId === undefined ? {} : { manifestId: one.manifestId }),
+  ...(one.leftOut === undefined ? {} : { file: one.leftOut.file }),
+});
 
 /** What a copy replaces, said at the glyph on its row. */
 function replacesOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[]): string | undefined {
@@ -90,11 +94,17 @@ export function WorkflowManager(props: WorkflowManagerProps) {
 
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
-    return SOURCES.map((source) => ({
-      source,
-      label: source === "armada" ? "Armada" : source === "yours" ? "Yours" : `${repository} repository`,
-      rows: workflows.filter((one) => one.source === source && one.id.toLowerCase().includes(wanted)),
-    })).filter((group) => group.rows.length > 0);
+    const found = workflows.filter((one) => one.id.toLowerCase().includes(wanted));
+    // A repository's copies sit in a group of its own, in the order the repositories were listed.
+    const fromRepositories = [...new Set(found.filter((one) => one.source === "repository").map((one) => one.manifestId ?? ""))].map((from) => {
+      const rows = found.filter((one) => one.source === "repository" && (one.manifestId ?? "") === from);
+      return { key: `repository@${from}`, label: `${rows[0]?.repository ?? repository} repository`, rows };
+    });
+    return [
+      { key: "armada", label: "Armada", rows: found.filter((one) => one.source === "armada") },
+      ...fromRepositories,
+      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours") },
+    ].filter((group) => group.rows.length > 0);
   }, [workflows, query, repository]);
 
   const shown = groups.flatMap((group) => group.rows);
@@ -148,7 +158,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
         )}
         <div className="armada-wm__groups">
           {groups.map((group) => (
-            <div key={group.source} role="group" aria-label={group.label} className="armada-wm__group">
+            <div key={group.key} role="group" aria-label={group.label} className="armada-wm__group">
               <h3 className="armada-wm__caption" aria-hidden="true">
                 {group.label}
               </h3>
@@ -165,7 +175,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
                         data-nav-item=""
                         aria-current={on ? "true" : undefined}
                         tabIndex={on || (!pickedHere && one === shown[0]) ? 0 : -1}
-                        onClick={() => onPick({ id: one.id, source: one.source, ...(one.leftOut === undefined ? {} : { file: one.leftOut.file }) })}
+                        onClick={() => onPick({ id: one.id, source: one.source, ...refOf(one) })}
                       >
                         {one.id}
                       </button>
@@ -217,7 +227,7 @@ type DetailProps = WorkflowManagerProps & {
 };
 
 function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions, suggesting, actsFor, ...acts }: DetailProps) {
-  const ref: WorkflowRef = { id: workflow.id, source: workflow.source, ...(workflow.leftOut === undefined ? {} : { file: workflow.leftOut.file }) };
+  const ref: WorkflowRef = { id: workflow.id, source: workflow.source, ...refOf(workflow) };
   const key = keyOf(workflow);
   const editable = workflow.source !== "armada" && workflow.leftOut === undefined;
   const comparable = editable && armada !== undefined;

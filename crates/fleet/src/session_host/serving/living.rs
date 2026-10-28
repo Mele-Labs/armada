@@ -213,6 +213,7 @@ where
             let mut kept = hosting.clone();
             kept.ran = true;
             let _ = self.store().lock().await.keep_hosting(&kept);
+            self.started_kept(id, hosting).await;
         }
         tokio::spawn(Self::listening(
             Arc::clone(self),

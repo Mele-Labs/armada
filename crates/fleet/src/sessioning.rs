@@ -51,6 +51,8 @@ pub(crate) struct LedgerReads {
     touches: Vec<store::KeptTouch>,
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,
+    /// How the Job was started, and the Job that started it.
+    started: Option<ipc::SessionStarted>,
     /// The wait of a Session still waiting on another, and the title of the one it waits on.
     wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
     /// The follow-ups its agent keeps for itself, still open.

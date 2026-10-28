@@ -123,7 +123,7 @@ fn spelled(choice: DeliveryChoice) -> &'static str {
     }
 }
 
-fn chosen(word: &str) -> Option<DeliveryChoice> {
+pub(crate) fn chosen(word: &str) -> Option<DeliveryChoice> {
     DeliveryChoice::OFFERED.into_iter().find(|one| spelled(*one) == word)
 }
 
@@ -311,6 +311,27 @@ where
         let Some(workflow) = hosting.workflow.as_deref() else { return };
         if let Err(why) = store.keep_delivery_pick(&hosting.manifest_id, workflow, spelled(choice), self.now().as_str()) {
             self.session_warned(id, "how the work lands was not kept", format!("{why:?}"));
+        }
+    }
+
+    /// Keep how the Job starts, as it stands as its process first runs: the first write stands, so a
+    /// later change of model, effort or mode leaves what the Job began with. The model is the one the
+    /// process runs on, the machine's own where none was picked.
+    pub(crate) async fn started_kept(&self, id: &str, hosting: &KeptHosting) {
+        let rows = self.rows_of(id).await.unwrap_or_default();
+        let delivery = rows.iter().find_map(|row| match row {
+            SessionRow::Delivery { choice: Some(choice), .. } => Some(spelled(*choice).to_string()),
+            _ => None,
+        });
+        let started = store::KeptStarted {
+            workflow: hosting.workflow.as_deref().map(|workflow| self.workflow_name(&hosting.manifest_id, workflow)),
+            delivery,
+            model: hosting.model.clone().or_else(|| Some(self.session_model())),
+            effort: hosting.effort.clone(),
+            mode: hosting.mode.clone(),
+        };
+        if let Err(why) = self.store().lock().await.keep_session_started(id, &started) {
+            self.session_warned(id, "how the job started was not kept", format!("{why:?}"));
         }
     }
 

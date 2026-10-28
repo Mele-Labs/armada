@@ -282,12 +282,12 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.setManifestServerReach, name, reach),
 
   readWorkflows: (): Promise<WorkflowsRead> => ipcRenderer.invoke(CHANNELS.readWorkflows),
-  readWorkflowDefinition: (workflowId: string, source: string): Promise<WorkflowDefinitionRead> =>
-    ipcRenderer.invoke(CHANNELS.readWorkflowDefinition, workflowId, source),
+  readWorkflowDefinition: (workflowId: string, source: string, manifestId: string | null): Promise<WorkflowDefinitionRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowDefinition, workflowId, source, manifestId),
   saveWorkflow: (saving: SavingWorkflow): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
-  readWorkflowSteps: (workflowId: string, source: string): Promise<WorkflowStepsRead> =>
-    ipcRenderer.invoke(CHANNELS.readWorkflowSteps, workflowId, source),
+  readWorkflowSteps: (workflowId: string, source: string, manifestId: string | null): Promise<WorkflowStepsRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowSteps, workflowId, source, manifestId),
   deleteWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowCopyDeleteAnswer> =>
     ipcRenderer.invoke(CHANNELS.deleteWorkflowCopy, acting),
   resetWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowSaveAnswer> =>
@@ -297,8 +297,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.askWorkflowChange, asking),
   suggestWorkflowChange: (suggesting: SuggestingWorkflowChange): Promise<WorkflowChangeAnswer> =>
     ipcRenderer.invoke(CHANNELS.suggestWorkflowChange, suggesting),
-  readWorkflowChanges: (workflowId: string, source: string): Promise<WorkflowChangesRead> =>
-    ipcRenderer.invoke(CHANNELS.readWorkflowChanges, workflowId, source),
+  readWorkflowChanges: (workflowId: string, source: string, manifestId: string | null): Promise<WorkflowChangesRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowChanges, workflowId, source, manifestId),
   approveWorkflowChange: (change: number): Promise<WorkflowChangeApproveAnswer> =>
     ipcRenderer.invoke(CHANNELS.approveWorkflowChange, change),
   dismissWorkflowChange: (change: number): Promise<WorkflowChangeAnswer> =>
