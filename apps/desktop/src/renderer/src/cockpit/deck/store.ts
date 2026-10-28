@@ -143,6 +143,9 @@ export const scene = {
 export type Camera = { x: number; y: number; eye: number; tilt: boolean };
 export const camera = { current: undefined as Camera | undefined };
 
+/** A pane that was open over the map has been closed: the map is next drawn whole, at the fit, and does not lock on the drone the cursor holds. Not state: nothing draws from it. */
+export const wide = { now: false };
+
 /** A drone the camera is asked to ease to when the map is next drawn: `w` names the one it goes to. Not state: nothing draws from it. */
 export const aimAt = { key: undefined as string | undefined };
 
@@ -151,6 +154,7 @@ export const callTrail = { keys: [] as string[], at: -1 };
 
 export const forgetDeck = () => {
   camera.current = undefined;
+  wide.now = false;
   aimAt.key = undefined;
   callTrail.keys = [];
   callTrail.at = -1;
@@ -177,6 +181,10 @@ export const setHover = (hover: string | undefined) => state.hover !== hover && 
 
 export const select = (sel: Sel | undefined) => {
   forgetPlace();
+  if (sel === undefined && state.sel !== undefined) {
+    camera.current = undefined;
+    wide.now = true;
+  }
   set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "session" ? sel.key : state.cursor }) });
 };
 /** Opens a thing from what is open, which back returns to: a holder in a bay's history. */
