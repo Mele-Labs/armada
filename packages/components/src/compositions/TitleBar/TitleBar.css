@@ -200,11 +200,9 @@
   max-width: 100%;
   padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--space-4) + var(--space-1));
   color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 .armada-title-bar__repository[data-picker] .armada-button {
   flex: none;
@@ -788,4 +786,43 @@
   .armada-title-menu__button[data-calling]::after {
     animation: none;
   }
+}
+
+/* The wide picker's list: repositories as rows with a glyph, acts as a footer of verbs. The fill is the palette's row fill. */
+.armada-dropdown-menu__panel.armada-title-bar__repository-list > .armada-dropdown-menu__item + .armada-dropdown-menu__item {
+  border-top: 0;
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__item {
+  gap: var(--space-2);
+  height: var(--space-8);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-body);
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__item:hover:not([aria-disabled="true"]),
+.armada-title-bar__repository-list .armada-dropdown-menu__item:focus-visible {
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  outline: none;
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__item[aria-current] { font-weight: var(--weight-medium); }
+.armada-title-bar__repository-list .armada-dropdown-menu__icon { width: var(--space-4); color: var(--fg-muted); }
+.armada-title-bar__repository-list .armada-dropdown-menu__item[data-act] { color: var(--fg-default); }
+.armada-title-bar__repository-list .armada-dropdown-menu__item[data-act] .armada-dropdown-menu__icon { color: var(--accent); }
+.armada-title-bar__repository-list .armada-dropdown-menu__detail { color: var(--fg-subtle); }
+/* The filter field as the palette's: no box and no ring, one rule under it. */
+.armada-dropdown-menu__panel.armada-title-bar__repository-list > .armada-dropdown-menu__search {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__search :is(.armada-input, .armada-input-field__well) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  font-size: var(--text-sm);
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__search :is(.armada-input, .armada-input-field__well):is(:focus, :focus-visible, :focus-within) {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
 }

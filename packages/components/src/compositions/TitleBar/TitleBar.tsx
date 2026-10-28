@@ -1,4 +1,4 @@
-import { Activity, BellRing, Check, FolderGit2, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, Check, FolderGit2, FolderPlus, Layers, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
@@ -391,7 +391,8 @@ export function TitleBar({
               triggerAriaLabel="Repository"
               triggerDetail=""
               searchLabel="Find a repository"
-              entries={repositoryMenu.entries}
+              panelClass="armada-title-bar__repository-list"
+              entries={listed(repositoryMenu.entries)}
               onSelect={repositoryMenu.onSelect}
             />
             </span>
@@ -553,6 +554,28 @@ function FleetDot({ state }: { state: FleetState }) {
   ) : (
     <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[state]} aria-hidden />
   );
+}
+
+/** The shell's ids for the picker's acts and for All: `repository-entries.ts`, which this package cannot import. */
+const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = { "new-project": FolderPlus, "add-repository": Plus };
+
+/**
+ * The wide picker's rows told apart: a glyph before each repository (Layers for All), a quiet tag on one that is not set
+ * up in place of its heading, and the acts below the rule as verbs with their own glyphs.
+ */
+function listed(entries: DropdownMenuEntry[]): DropdownMenuEntry[] {
+  let loose = false;
+  return entries.flatMap((entry): DropdownMenuEntry[] => {
+    if (entry.kind === "separator") loose = false;
+    if (entry.kind === "label") {
+      loose = entry.id === "not-set-up";
+      return loose ? [] : [entry];
+    }
+    if (entry.kind !== "item") return [entry];
+    const act = REPOSITORY_ACTS[entry.id];
+    if (act !== undefined) return [{ ...entry, icon: act, act: true }];
+    return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}) }];
+  });
 }
 
 /** The picker's list, flat: the same entries its dropdown draws, one row each. */

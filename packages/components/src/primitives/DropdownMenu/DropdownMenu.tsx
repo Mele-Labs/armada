@@ -52,6 +52,8 @@ export type DropdownMenuEntry =
       detail?: string;
       /** Finished, and still choosable: `--fg-subtle`, as a finished drone on a Job's Field. */
       muted?: boolean;
+      /** An act the menu offers beside its choices, not one of them: `data-act`, for a menu that styles its footer apart. */
+      act?: boolean;
     }
   | { kind: "separator"; id: string }
   | { kind: "label"; id: string; label: string };
@@ -138,6 +140,8 @@ export type DropdownMenuProps = {
    * leading top corner sits on the point, kept inside the window. Open it through `open`.
    */
   at?: { x: number; y: number };
+  /** A class on the panel, for a menu that styles its own rows. */
+  panelClass?: string;
 };
 
 /**
@@ -183,6 +187,7 @@ export function DropdownMenu({
   triggerDetail,
   triggerTooltip,
   at,
+  panelClass,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -352,7 +357,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className={panelClass === undefined ? "armada-dropdown-menu__panel" : `armada-dropdown-menu__panel ${panelClass}`} data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
@@ -416,6 +421,7 @@ export function DropdownMenu({
                 aria-current={entry.selected || undefined}
                 aria-disabled={entry.disabled || undefined}
                 data-muted={entry.muted || undefined}
+                data-act={entry.act || undefined}
                 className={
                   entry.danger
                     ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
