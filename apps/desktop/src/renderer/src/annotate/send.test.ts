@@ -4,7 +4,7 @@ import type { SendSessionNote } from "@armada/protocol";
 
 import { isAnnotation, requestOf, serializeAnnotation, type Annotation } from "../../../shared/annotations";
 import { annotationNoteBody } from "../../../shared/pinned-note";
-import { sendToSession, titleOf, unsendable } from "./send";
+import { sendToSession, unsendable } from "./send";
 import type { Sink } from "./sink";
 
 function note(overrides: Partial<Annotation> = {}): Annotation {
@@ -100,11 +100,11 @@ describe("a note sent to a Session", () => {
     expect(isAnnotation({ ...note(), sent: { title: "x", at: AT.toISOString() } })).toBe(false);
   });
 
-  it("starts a Session named for the first note, then sends the note whole with its file's id and the screenshot as the crop", async () => {
+  it("starts a Session with no title, for Fleet to name, then sends the note whole with its file's id and the screenshot as the crop", async () => {
     const fleet = sessions();
     const answer = await sendToSession([item], null, sink(), fleet, ADDRESS, AT);
     // The notes' words ride as the request, so Fleet's proposer reads them at the start as it does a dispatch.
-    expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]), "/Users/user/armada", "Can we add an illustration here?", undefined, undefined, true);
+    expect(fleet.startSession).toHaveBeenCalledWith(undefined, "/Users/user/armada", "Can we add an illustration here?", undefined, undefined, true);
     expect(answer).toEqual({ ok: true, sent: { sessionId: "01NEW", title: "Can we add an illustration here?", at: AT.toISOString() } });
     expect(notesSent(fleet)).toEqual([annotationNoteBody(note(), "01NEW", ADDRESS, "iVBORw==")]);
     expect(notesSent(fleet)[0]).toMatchObject({ said: "Can we add an illustration here?", note_id: "20260917-135315-tsfq", crop: { media_type: "image/png", data: "iVBORw==" } });
