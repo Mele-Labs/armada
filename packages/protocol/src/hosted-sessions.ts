@@ -372,6 +372,8 @@ export type SessionRow =
    * 10 minutes. `review` is the review Job's session id; absent where no review was started.
    */
   | { kind: "disputed"; id: string; at: string; notice: string; why: string; spotted: "called" | "read"; review?: string }
+  /** The agent reached for a browser outside Bridge, as its mod told: `tool` as the person reads it, such as `cmux` or `Playwright`, and the address without its query, fragment or sign-in. */
+  | { kind: "browser_reminder"; id: string; at: string; tool: string; address?: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
   /** The slot given back, with the branch it was on. */

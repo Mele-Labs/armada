@@ -1,11 +1,11 @@
-# The Job browser: seven acts held for Bridge, and `answer_browser_request`
+# The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 28 Oct 2026. A Job's agent drives a page in Bridge, the one the owner sees in the side panel and may take over.
-Eight operations, eight routes and one event kind.
+Eight operations, eight routes, one event kind, one report kind and one row kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the event is in `events.ts`.
+Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
 Nothing in Bridge's main process acts on `browser.request` yet.
 
 ## How one act travels
@@ -69,6 +69,14 @@ An id nothing holds is refused with its reason: 404 `fleet.no_such_browser_reque
 **In the Job's scratch folder**, `<scratch>/browser/<request id>.png`, which Fleet makes before it publishes and names in the act.
 The agent reads the file there, and it goes when the Job ends, as the scratch folder does.
 Fleet's state rather than the worktree, so a picture is never committed by accident.
+
+## The reminder row
+
+The Armada mod reports `say($, id, { kind: "browser_outside", tool, address? })` when the agent reaches for a browser outside Bridge.
+`tool` is what the person reads, `cmux` or `Playwright`; `address` the address it opened, where the call named one.
+Fleet writes one `browser_reminder` row a report, `{ kind: "browser_reminder", id, at, tool, address? }`, and publishes it as `session.row`.
+**The address loses its query, fragment and sign-in**, where a token rides, and is cut to 300 characters.
+A blank `tool` is refused with 422 `fleet.session_unnamed`. Reminding once a session is the mod's.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** One event a call, a few hundred bytes, never a snapshot or a picture, which go back over HTTP.

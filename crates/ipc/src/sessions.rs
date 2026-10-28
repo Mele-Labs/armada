@@ -211,6 +211,14 @@ pub enum SessionFact {
     },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
+    /// The agent reached for a browser outside Bridge: `tool` as the person reads it, such as
+    /// `cmux` or `Playwright`, and the address it opened where the call named one. Fleet writes a
+    /// `browser_reminder` row; the mod sends it once a session.
+    BrowserOutside {
+        tool: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        address: Option<String>,
+    },
     /// The agent's task list, whole, as its last `TodoWrite`, `TaskCreate` or `TaskUpdate` left it.
     /// An empty list clears it. Fleet keeps it and records when each item was first seen completed
     /// (`docs/concepts/session.md`, *The build record*).

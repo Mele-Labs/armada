@@ -112,6 +112,8 @@ where
         let mut replied: Option<(String, String)> = None;
         // A terminal turn that failed on a sign-in that ran out, or one that finished, which is the account working.
         let (mut signed_out, mut answered) = (false, false);
+        // A browser reached for outside Bridge, written on the thread once the store is let go.
+        let mut reminder: Option<(String, Option<String>)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -321,6 +323,13 @@ where
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
             }
+            SessionFact::BrowserOutside { tool, address } => {
+                let tool = tool.trim().to_string();
+                if tool.is_empty() {
+                    return Err(self.ledger_unnamed("the tool on a browser_outside"));
+                }
+                reminder = Some((tool, address.as_deref().and_then(shown::address_shown)));
+            }
             // The harness's own prompt, waiting on a person at the terminal. A hosted session's is
             // Fleet's own ask, so only a terminal's is read here.
             SessionFact::PermissionAsked { tool, detail } if terminal => {
@@ -459,6 +468,10 @@ where
         }
         if answered {
             self.signed_in_by(&session.id);
+        }
+        if let Some((tool, address)) = reminder {
+            let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
+            self.row_put(&session.id, row).await;
         }
         if let Some((ended, said)) = replied {
             if let Some(claim) = self.unbacked_claim(&session.id, &ended, Some(&said)).await {

@@ -1,11 +1,15 @@
 //! The Job browser through a real Fleet: an agent's act held until Bridge answers it by id, a wait
-//! that runs out withdrawn, and an answer naming nothing held refused.
+//! that runs out withdrawn, an answer naming nothing held refused, and the mod's report of a
+//! browser outside Bridge written on the thread.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use api::{Next, Refusal, Sessions, Subscription};
-use ipc::{AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserError, BrowserRequest, Event, WalkTarget};
+use ipc::{
+    AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserError, BrowserRequest, Event, SessionFact, SessionReport,
+    SessionRow, WalkTarget,
+};
 
 use crate::job_browser::{OWNER_DRIVING_SAID, UNANSWERED_SAID};
 use crate::tests::session_running::{rig, Rig};
@@ -130,4 +134,25 @@ async fn with_no_bridge_open_a_call_is_refused_at_once() {
     let rig = rig().await;
     let call = rig.fleet.drive_browser(None, Some(rig.session.clone()), BrowserAct::Snapshot).await;
     assert_eq!(refused(call.expect_err("nobody listens")).1, "fleet.browser_no_bridge");
+}
+
+#[tokio::test]
+async fn the_mods_report_of_a_browser_outside_bridge_writes_one_reminder_row() {
+    let rig = rig().await;
+    let fact = SessionFact::BrowserOutside {
+        tool: "cmux".into(),
+        address: Some("https://owner:secret@staging.example.com/orders?token=abc#top".into()),
+    };
+    let report = SessionReport { harness: "a_harness".into(), session_id: rig.session.clone(), fact };
+    rig.fleet.report_session(report).await.expect("kept");
+
+    let rows = rig.fleet.rows_of(rig.session.as_str()).await.expect("read");
+    let reminders: Vec<(&str, Option<&str>)> = rows
+        .iter()
+        .filter_map(|row| match row {
+            SessionRow::BrowserReminder { tool, address, .. } => Some((tool.as_str(), address.as_deref())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(reminders, vec![("cmux", Some("https://staging.example.com/orders"))], "{rows:?}");
 }

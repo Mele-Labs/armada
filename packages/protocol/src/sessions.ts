@@ -735,6 +735,8 @@ export type SessionFact =
   /** Files written, relative to the session's `cwd`. Since 23.81. */
   | { kind: "touched"; paths: string[] }
   | { kind: "wrote" }
+  /** The agent reached for a browser outside Bridge: `tool` as the person reads it, and the address it opened. Fleet writes a `browser_reminder` row. */
+  | { kind: "browser_outside"; tool: string; address?: string }
   /** The agent's task list, whole, as its last task tool left it. An empty list clears it. */
   | { kind: "tasks"; tasks: ReportedTask[] }
   /** The agent left plan mode. */
