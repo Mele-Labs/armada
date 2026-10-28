@@ -30,6 +30,10 @@ pub struct StepReading {
     /// Absent where nothing Fleet observes ends it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ends_when: Option<String>,
+    /// Every end of the step, in order, as the page says them: any one of them ends it. Empty where
+    /// it has none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ends_any: Vec<String>,
     /// When the step is passed over instead of walked. Absent on a step that is always done.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub passed_over_when: Option<String>,

@@ -4,6 +4,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ACTIONS,
+  KEYMAP_GROUPS,
+  actsInGroup,
+  chordOf,
   conflictsOf,
   defaultSlotsOf,
   digitKeyFor,
@@ -94,6 +97,37 @@ describe("a press, as the shipped keys answer it", () => {
     expect(isPressed("queue_session", press("Enter", { meta: true }))).toBe(false);
     expect(isPressed("queue_session", press("Enter"))).toBe(false);
     expect(isPressed("send_message", press("Enter", { meta: true, shift: true }))).toBe(false);
+  });
+});
+
+describe("the keys on a Job's thread cards", () => {
+  it("answers ⌥↵, ⌥E, ⌥R and ⌥X with yes, change, send back and no", () => {
+    expect(isPressed("thread_yes", press("Enter", { alt: true }))).toBe(true);
+    expect(isPressed("thread_change", press("e", { alt: true }))).toBe(true);
+    expect(isPressed("thread_send_back", press("®", { alt: true, code: "KeyR" }))).toBe(true);
+    expect(isPressed("thread_no", press("≈", { alt: true, code: "KeyX" }))).toBe(true);
+    expect(isPressed("thread_yes", press("Enter"))).toBe(false);
+    expect(isPressed("thread_no", press("x"))).toBe(false);
+  });
+
+  it("reads a dead key pressed with Option by its place, so ⌥E on a US Mac is ⌥E", () => {
+    expect(chordOf(press("Dead", { alt: true, code: "KeyE" }))).toEqual({ ctrl: false, alt: true, meta: false, shift: false, key: "e" });
+    expect(isPressed("thread_change", press("Dead", { alt: true, code: "KeyE" }))).toBe(true);
+    expect(isPressed("thread_change", press("Dead", { alt: true, code: "KeyU" }))).toBe(false);
+  });
+
+  it("reads a dead key as no chord without Option, or with no place to read it by", () => {
+    expect(chordOf(press("Dead", { code: "KeyE" }))).toBeNull();
+    expect(chordOf(press("Dead", { alt: true }))).toBeNull();
+    expect(chordOf(press("Dead", { alt: true, code: "Space" }))).toBeNull();
+  });
+
+  it("lists the four and the hand off band's r and d under Job thread", () => {
+    const group = KEYMAP_GROUPS.find((one) => one.title === "Job thread");
+    expect(actsInGroup(group!).map((act) => act.id)).toEqual(["thread_yes", "thread_change", "thread_send_back", "thread_no", "handoff_retry", "handoff_dispatch"]);
+    expect(isPressed("handoff_retry", press("r"))).toBe(true);
+    expect(isPressed("handoff_dispatch", press("d"))).toBe(true);
+    expect(isPressed("handoff_retry", press("r", { meta: true }))).toBe(false);
   });
 });
 

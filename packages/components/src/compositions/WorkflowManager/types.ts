@@ -65,6 +65,8 @@ export type ManagedStep = {
   glyph?: StepGlyph;
   /** What ends the step, finishing "Ends when": `you reply`. Empty where nothing Fleet observes ends it. */
   ends: string;
+  /** Each thing that ends the step where any one of several does, in order: drawn as a list under "Ends when" in place of `ends`. */
+  endsAny?: readonly string[];
   /** When the step is passed over, finishing "Passed over when": `nothing would be seen`. */
   passedOver?: string;
   /** The instructions the agent is told. */

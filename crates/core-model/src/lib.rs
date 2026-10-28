@@ -50,7 +50,7 @@ pub use workflow::{
     BlankModel, BlankTitle, CheckOutcome, Citation, ContextSource, Covers,
     CriterionId, DIFF_NONEMPTY, DeclarePlanAt, DeclaredPaths, EVERY_MANIFEST_CHECK, Effort, EvidenceRef, EvidenceScope, EvidenceType,
     FrozenWorkflow, GateVerdict, Given, JudgeCheck, JudgeCriterion,
-    JudgeVerdict, Judgment, Lands, MANIFEST_CHECK, ManifestId, ModelName, Narrowing, OnRefusal, PLAN_RECORDED, PathPattern, PrMode, Prerequisite, RepoPath, ResolvedCheck, ResolvedStep, Runner, RunsAt, StepCheck, StepId, StepPhase,
+    JudgeVerdict, Judgment, Lands, MANIFEST_CHECK, ManifestId, ModelName, Narrowing, OnRefusal, PLAN_RECORDED, PathPattern, PrMode, Prerequisite, RepoPath, ResolvedCheck, ResolvedStep, Runner, RunsAt, StepCheck, StepEnd, StepId, StepPhase,
     Title, WorkflowId,
     WorkflowSource, under,
 };

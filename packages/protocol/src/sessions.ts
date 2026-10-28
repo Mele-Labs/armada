@@ -523,6 +523,17 @@ export type WindowSignIn = { sign_in: string[] };
  */
 export type ShowSketch = { title: string; scene: unknown; session_id?: string };
 
+/** How the person answered a sketch put to him, as `detail.settled` holds it. */
+export type SketchHow = "approved" | "sent_back";
+
+/**
+ * `POST /sessions/sketch/answer`, Bridge's: Approve, or Send back with a note, on a sketch's card. `sketch` is
+ * the ledger id, `sketch:<title>`, and `drawn` its `detail.drawn` as he read it; a sketch drawn again since is a
+ * 409, `fleet.sketch_redrawn`. `words` is required for `sent_back`. Every sketch shown carries `detail.asked`
+ * `"true"`, and once answered `detail.settled`, `detail.settled_at` and his `detail.words`.
+ */
+export type AnswerSketch = { session_id: string; sketch: string; drawn: string; how: SketchHow; words?: string };
+
 /**
  * `POST /sessions/show_file`, the agent's: a file to open in the side panel. `path` is absolute or relative
  * to the folder the job runs in; Fleet keeps the canonical path as an artifact of form `file`, `detail.by`

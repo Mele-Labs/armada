@@ -79,6 +79,70 @@
   opacity: 0.5;
 }
 
+/* A sketch put to him: one frame holding the drawing and, under a rule, its answers as a draft card has
+   them, then how it ended once settled. The frame moves from the press to the card. */
+.armada-session-sketch__asked {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.armada-session-sketch__asked:has(.armada-session-sketch__press:hover) {
+  border-color: var(--accent);
+}
+
+.armada-session-sketch__asked .armada-session-sketch__press {
+  border: none;
+  border-radius: 0;
+}
+
+.armada-session-sketch__answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+/* His note, quoted in his colour. */
+.armada-session-sketch__note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid var(--you-edge);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+.armada-session-sketch__settled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-session-sketch__mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--step-advanced);
+}
+
+.armada-session-sketch__settled[data-how="sent_back"] .armada-session-sketch__mark {
+  color: var(--fg-muted);
+}
+
 /* The panel's reading: the scene fills what the sheet gives it, under a band when it is a change. */
 .armada-session-sketch-read {
   display: flex;

@@ -284,6 +284,24 @@ notes = """
 **It is also what places the steps before the recording step.** A step before the recording step is current until a plan is recorded, and one with this key until he replies. The step after it is entered on the reply. The recording step itself, when something precedes it, is entered when a plan is recorded and is current until he approves it; with nothing before it, it is current from the start, as before. Two keys would say the same thing as the position does, so the second fact (a plan is recorded) is not a key.
 """
 
+[fields.ends_on]
+type = "array[enum]"
+concern = "Gating"
+parent = "steps[]"
+purpose = "What the person does that ends this step, any one of them. Optional, and absent means nothing he does ends it."
+notes = """
+**The owner's, 28 Oct 2026**: a step can end on any of several things. Fleet reads each off the Job's thread, never off the agent's word. `awaits_reply: true` means `["replied"]`, and the two spellings are read as one list. A word outside the set is refused at load, naming the set.
+
+**Placed as `awaits_reply` is.** A step before the recording step is current until a plan is recorded or any listed end holds. A walk approved before the plan was approved ends such a step and never passes a later `walks` step, which counts only an approval at or after the plan's.
+"""
+
+[fields.ends_on.values]
+replied = "The person writes after the agent's first turn"
+walk_approved = "The person approves a window the Job showed with show_window"
+sketch_approved = "The person approves a sketch the Job showed with show_sketch"
+draft_approved = "The person approves a draft the Job proposed with propose_draft, as written or with his own text. Sent back or withdrawn does not count"
+idea_picked = "The person answers the Job's AskUserQuestion by picking an option it gave a preview. Typed words, an option without a preview and Fleet's own questions do not count"
+
 [fields.for_requests]
 type = "string"
 concern = "Structure"
@@ -639,7 +657,7 @@ No sample carries one yet.
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"
-sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "walks", "awaits_reply", "phase"]
+sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "walks", "awaits_reply", "ends_on", "phase"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
 Ordered, and any step may send the work back to an earlier one through `verdict_routing`; there is no workflow-level label for it.

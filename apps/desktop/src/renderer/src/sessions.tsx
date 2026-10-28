@@ -34,6 +34,7 @@ import {
   type DropdownMenuEntry,
   SessionLedger,
   SessionThread,
+  ThreadKeys,
   RequestOpen,
   SavedOpen,
   type NoticeChoice,
@@ -48,7 +49,7 @@ import {
   useTerminalDock,
   FILE_SHOWN,
 } from "@armada/components";
-import type { DebugPayload, DraftAnswer, RunsPlace, TeachPick } from "@armada/components";
+import type { DebugPayload, DraftAnswer, RunsPlace, SketchAnswer, TeachPick } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -77,7 +78,7 @@ import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } fro
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
-import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
+import { forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
 import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
@@ -1177,6 +1178,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             })}
       >
         <div ref={centre} className="armada-session-frame__centre">
+          {/* The thread's waiting cards and the composer's answer to the same four keys (`thread-keys.tsx`). */}
+          <ThreadKeys key={session.id}>
           <Refused />
           {origin === undefined || carried ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
@@ -1209,6 +1212,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
             {...(draft.answerWaiting === undefined ? {} : { onDraft: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
             {...(draft.answerWaiting === undefined ? {} : { onWithdrawDraft: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
+            {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) })}
             noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
@@ -1299,6 +1303,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           )}
           </div>
           </>
+          </ThreadKeys>
         </div>
       </SessionFrame>
       </SessionWorkspace>

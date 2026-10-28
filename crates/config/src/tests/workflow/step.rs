@@ -13,7 +13,7 @@
 //! file's own second paragraph says not to make — the pair is read together
 //! because neither refusal can be stated without both.
 
-use core_model::{AdvanceGate, EvidenceType};
+use core_model::{AdvanceGate, EvidenceType, StepEnd};
 
 use super::{bug_with, parse, BUG};
 use crate::error::Fault;
@@ -449,8 +449,50 @@ fn a_step_may_say_it_walks_or_awaits_a_reply_and_absent_is_false() {
          walks: true\n    awaits_reply: true\n",
     )
     .expect("walks and awaits_reply are keys of a step");
-    assert!(def.steps()[3].walks() && def.steps()[3].awaits_reply());
-    assert!(!def.steps()[0].walks() && !def.steps()[0].awaits_reply(), "absent is false");
+    assert!(def.steps()[3].walks() && def.steps()[3].ends_on() == [StepEnd::Replied]);
+    assert!(!def.steps()[0].walks() && def.steps()[0].ends_on().is_empty(), "absent is false");
+}
+
+/// Every end a step lists is carried in the order written, and `awaits_reply: true` is `replied`
+/// beside them, said once.
+#[test]
+fn a_step_may_end_on_any_of_several_things_and_awaits_reply_is_replied() {
+    let def = bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         awaits_reply: true\n    ends_on: [idea_picked, replied, walk_approved, sketch_approved, draft_approved]\n",
+    )
+    .expect("ends_on is a key of a step");
+    assert_eq!(
+        def.steps()[3].ends_on(),
+        [
+            StepEnd::Replied,
+            StepEnd::IdeaPicked,
+            StepEnd::WalkApproved,
+            StepEnd::SketchApproved,
+            StepEnd::DraftApproved
+        ]
+    );
+}
+
+/// A word outside the set is refused naming the set, and so is a value that is not a list.
+#[test]
+fn an_end_outside_the_set_is_refused_naming_the_ones_allowed() {
+    let refused = refusals(bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         ends_on: [replied, approved]\n",
+    ));
+    assert!(
+        refused.iter().any(|r| r.key == "steps[3].ends_on[1]"
+            && matches!(&r.fault, Fault::NotInTheSchema { legal, .. } if legal.contains(&"idea_picked"))),
+        "{refused:?}"
+    );
+    let refused = refusals(bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    ends_on: replied\n",
+    ));
+    assert!(
+        refused.iter().any(|r| r.key == "steps[3].ends_on" && matches!(r.fault, Fault::WrongType { .. })),
+        "{refused:?}"
+    );
 }
 
 #[test]
