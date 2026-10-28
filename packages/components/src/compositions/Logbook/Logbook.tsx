@@ -432,7 +432,8 @@ function Detail({
   };
   return (
     <div className="armada-logbook__card">
-      {/* The entry's own head: what it is, where it is kept, and its state, never the list's section. */}
+      {/* The entry's own head, never the list's section: what it is, its id, its flags and its acts. It stays, with the
+          title under it; the rule and all that backs it scroll beneath, however long the rule runs. */}
       <div className="armada-logbook__band armada-logbook__head-band">
         <span className="armada-logbook__head-kind">
           <Mark Glyph={KIND[entry.kind].Glyph} said={KIND[entry.kind].said} />
@@ -441,7 +442,13 @@ function Detail({
         <span className="armada-logbook__head-id">{entry.id}</span>
         <span className="armada-logbook__head-where">
           {flagsOf(entry, now)}
-          {STATE[entry.state].word}
+          {kept && !editing ? (
+            <span className="armada-logbook__acts">
+              <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
+              <Act label={entry.locked ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.locked ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
+              <Act label="Forget" act="logbook_forget" onPress={onForget} />
+            </span>
+          ) : null}
         </span>
       </div>
       <div className="armada-logbook__top">
@@ -451,43 +458,38 @@ function Detail({
           </Alert>
         )}
         <h2 className="armada-logbook__title">{titleOf(entry)}</h2>
-        {editing && kept ? (
-          <div
-            ref={box}
-            className="armada-logbook__edit"
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && event.metaKey) {
-                event.preventDefault();
-                save();
-              }
-            }}
-          >
-            <Textarea aria-label="Entry text" keep={key} value={draft} rows={3} grow onChange={(event) => setDraft(event.currentTarget.value)} />
-            <div className="armada-logbook__acts">
-              <Tooltip label="Save" shortcut="⌘↵">
-                <Button variant="primary" size="sm" onClick={save} disabled={draft.trim() === ""}>
-                  Save
-                </Button>
-              </Tooltip>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="armada-logbook__said">
-              <Words text={entry.text} />
-            </p>
-            {also}
-            {kept ? (
-              <div className="armada-logbook__acts">
-                <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
-                <Act label={entry.locked ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.locked ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
-                <Act label="Forget" act="logbook_forget" onPress={onForget} />
-              </div>
-            ) : null}
-          </>
-        )}
       </div>
       <div className="armada-logbook__body">
+        <div className="armada-logbook__rule">
+          {editing && kept ? (
+            <div
+              ref={box}
+              className="armada-logbook__edit"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && event.metaKey) {
+                  event.preventDefault();
+                  save();
+                }
+              }}
+            >
+              <Textarea aria-label="Entry text" keep={key} value={draft} rows={3} grow onChange={(event) => setDraft(event.currentTarget.value)} />
+              <div className="armada-logbook__acts">
+                <Tooltip label="Save" shortcut="⌘↵">
+                  <Button variant="primary" size="sm" onClick={save} disabled={draft.trim() === ""}>
+                    Save
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="armada-logbook__said">
+                <Words text={entry.text} />
+              </p>
+              {also}
+            </>
+          )}
+        </div>
         <Table className="armada-logbook__record" aria-label="Record">
           <colgroup>
             <col className="armada-logbook__col-by" />
