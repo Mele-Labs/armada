@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Item } from "../../Dashboard";
 import { DECK_ORDER_KEY } from "../../remembered-views";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+import { arrivedOf, camera, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, select, setScope, setView, toggleChecks, toggleNeeds, wide, withoutOpenSession } from "./store";
 
 const panelFor = vi.hoisted(() => vi.fn(() => true));
 vi.mock("../../shared-panel/store", () => ({ openPullRequestInPanel: panelFor }));
@@ -128,6 +128,21 @@ test("moving the cursor to the row it is on tells nobody", () => {
   expect(deckNow()).toBe(before);
   moveCursor("session:b");
   expect(deckNow().cursor).toBe("session:b");
+});
+
+test("closing what is open forgets the map's camera and has the map drawn whole", () => {
+  select({ kind: "session", key: "session:a" });
+  camera.current = { x: 1, y: 2, eye: 3, tilt: true };
+  select(undefined);
+  expect(camera.current).toBeUndefined();
+  expect(wide.now).toBe(true);
+});
+
+test("selecting with nothing open to close leaves the camera and the map as they were", () => {
+  camera.current = { x: 1, y: 2, eye: 3, tilt: true };
+  select(undefined);
+  expect(camera.current).toEqual({ x: 1, y: 2, eye: 3, tilt: true });
+  expect(wide.now).toBe(false);
 });
 
 test("the open Session's own calls are cards in its thread and do not call from its row, the others' stay", () => {
