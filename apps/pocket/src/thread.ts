@@ -60,7 +60,8 @@ export const OPEN_ON_MAC = "Open on your Mac";
 
 export function rowsOf(session: Session): SessionThreadRow[] {
   const ledger = session.attachments;
-  const drawn = session.rows.map((row): SessionThreadRow => {
+  // A browser reminder offers the Mac's Job browser, which the phone has none of.
+  const drawn = session.rows.flatMap((row) => (row.kind === "browser_reminder" ? [] : [row])).map((row): SessionThreadRow => {
     if (row.kind === "tool") return sketchCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
     // A walk is the Mac's: the phone says where it is and nothing more.
     if (row.kind === "window") return { id: row.id, at: row.at, kind: "act", icon: AppWindow, said: row.title, text: OPEN_ON_MAC };
