@@ -3,7 +3,7 @@
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
-import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
@@ -175,6 +175,9 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   );
   ipc.handle(CHANNELS.sendBackWorkflowChange, (event, back: SendBackWorkflowChange) =>
     connection()?.workflowsFor(windowIdOf(event)).sendBackChange(back),
+  );
+  ipc.handle(CHANNELS.buildWorkflowSupport, (event, building: WorkflowChangeRef) =>
+    connection()?.workflowsFor(windowIdOf(event)).buildSupport(building.change),
   );
   ipc.handle(CHANNELS.proposeWorkflowToArmada, (event, proposing: ProposeToArmada) =>
     connection()?.workflowsFor(windowIdOf(event)).proposeToArmada(proposing),

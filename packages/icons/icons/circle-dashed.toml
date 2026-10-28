@@ -49,3 +49,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Tooltip `Not tried`, in the dormant hue. Proposed 23 Oct 2026 for the walk `mods-trackers`, for the owner to rule on. The stroke broken at rest, as for anything not started."
+
+[[icons.circle-dashed.usage]]
+  means = "A thing Armada lacks to carry out a workflow change asked for, one row each in the Proposed change region"
+  group = "Workflows"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workflows`. Tooltip `Not built yet`. Drawn at 14px, stroke 2. The stroke broken at rest, as for anything not started: the support is not built, which is not a failure."

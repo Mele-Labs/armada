@@ -235,4 +235,11 @@ where
     ) -> Result<ipc::ArmadaProposed, Refusal> {
         self.workflow_proposed_to_armada(proposed).await
     }
+
+    async fn build_workflow_support(
+        self: Arc<Self>,
+        change: ipc::WorkflowChangeRef,
+    ) -> Result<ipc::WorkflowSupportBuilding, Refusal> {
+        self.workflow_support_built(change).await
+    }
 }

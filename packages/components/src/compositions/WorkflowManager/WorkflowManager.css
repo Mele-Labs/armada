@@ -458,16 +458,111 @@
   color: var(--fg-default);
   font-size: var(--text-sm);
 }
-.armada-wm-diff__cols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4) var(--space-3);
+/* Each step the change touches is a card: the step's band, then its facts before and after. */
+.armada-wm-diff__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
-.armada-wm-diff__side {
+.armada-wm-diff__card {
   min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
-.armada-wm-diff__steps {
+.armada-wm-diff__card-band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--h-row);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-diff__card-sign {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  margin-left: auto;
+  color: var(--accent);
+}
+
+/* An added or a removed step wears the diff's hue for its kind on its leading edge and its mark. */
+.armada-wm-diff__card[data-kind="added"] {
+  border-inline-start: calc(var(--border-width) * 3) solid var(--diff-add-fg);
+}
+.armada-wm-diff__card[data-kind="removed"] {
+  border-inline-start: calc(var(--border-width) * 3) solid var(--diff-del-fg);
+}
+.armada-wm-diff__card[data-kind="added"] .armada-wm-diff__card-sign {
+  color: var(--diff-add-fg);
+}
+.armada-wm-diff__card[data-kind="removed"] .armada-wm-diff__card-sign {
+  color: var(--diff-del-fg);
+}
+/* A removed step's facts are gone: struck through and stepped back. */
+.armada-wm-diff__card[data-kind="removed"] .armada-table-body .armada-table-cell {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+}
+
+/* The Field column is as wide as its longest label and no wider; Before and After share the rest evenly, so every
+   card's columns line up whatever the words. */
+.armada-wm-diff__fields th:first-child {
+  width: 0;
+  white-space: nowrap;
+}
+.armada-wm-diff__fields[data-sides="2"] thead th:not(:first-child) {
+  width: 50%;
+}
+.armada-wm-diff__fields td {
+  vertical-align: top;
+}
+/* A fact that differs reads at full weight; one that is the same steps back. */
+.armada-wm-diff__fields tr[data-differs] > th {
+  color: var(--accent);
+  font-weight: var(--weight-heading);
+}
+/* Inline-block, so a removed step's strike does not run through the word for an absent fact. */
+.armada-wm-diff__nothing {
+  display: inline-block;
+  color: var(--fg-subtle);
+}
+
+.armada-wm-diff__unchanged {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+/* A request Armada can't carry out yet: the line that says so, and what it lacks. */
+.armada-wm-diff__cannot {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.armada-wm-diff__missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+.armada-wm-diff__missing-rows {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -475,14 +570,13 @@
   padding: 0;
   list-style: none;
 }
-/* A step's sign, number, name and ending sit in the same columns on both sides. */
-.armada-wm-diff__step {
+/* The mark and the fact sit in the same columns on every row. */
+.armada-wm-diff__missing-row {
   display: grid;
-  grid-template-columns: var(--space-6) var(--space-4) minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: var(--space-6) minmax(0, 1fr);
   align-items: baseline;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-sm);
+  color: var(--fg-default);
   font-size: var(--text-sm);
 }
 .armada-wm-diff__sign {
@@ -490,19 +584,7 @@
   align-items: center;
   justify-content: center;
   align-self: center;
-}
-.armada-wm-diff__n {
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-.armada-wm-diff__label {
-  color: var(--fg-default);
-  font-weight: var(--weight-medium);
-}
-.armada-wm-diff__ends {
   color: var(--fg-muted);
-  font-size: var(--text-xs);
 }
 .armada-wm-diff__notes {
   padding: 0 var(--space-4) var(--space-3);

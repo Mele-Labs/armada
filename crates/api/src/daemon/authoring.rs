@@ -13,7 +13,7 @@ use std::sync::Arc;
 use ipc::{
     ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeNewWorkflow, ProposeToArmada, SaveWorkflow,
     SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
-    WorkflowId, WorkflowSaved,
+    WorkflowId, WorkflowSaved, WorkflowSupportBuilding,
 };
 
 use crate::daemon::Refusal;
@@ -121,6 +121,14 @@ pub trait Authoring: Send + Sync + 'static {
         self: Arc<Self>,
         proposed: ProposeToArmada,
     ) -> impl Future<Output = Result<ArmadaProposed, Refusal>> + Send;
+
+    /// `build_workflow_support` — start a Job on Armada's own repository that builds what a `cannot`
+    /// change lacks, and close the change. [`Refusal::IllegalMove`] for a change that is not `cannot`,
+    /// [`Refusal::Unacceptable`] where this Fleet does not serve Armada's own repository.
+    fn build_workflow_support(
+        self: Arc<Self>,
+        change: WorkflowChangeRef,
+    ) -> impl Future<Output = Result<WorkflowSupportBuilding, Refusal>> + Send;
 
 
 

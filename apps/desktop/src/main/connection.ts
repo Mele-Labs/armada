@@ -60,6 +60,7 @@ import { PullRequestNotesHost } from "./pull-request-notes";
 import { OnboardingHost } from "./onboarding";
 import { SharingHost } from "./sharing";
 import { TimelineHost } from "./timeline";
+import { Remembered, type Picture } from "./remembered";
 import { ActFailures } from "./act-failed";
 import { IssuesHost } from "./issues";
 import { RequestsHost } from "./requests";
@@ -81,6 +82,8 @@ export type Wiring = {
   now: Clock;
   /** Where `sessions.ts` keeps the threads it holds, so a reopened Job draws at once. None where a test has no disk to use. */
   threadsDir?: string;
+  /** Where `remembered.ts` keeps the picture the screens draw from, so a restarted Bridge draws it before Fleet answers. None where a test has no disk to use. */
+  pictureFile?: string;
   /** `socket.ts`'s two waits, shortened where a test cannot spend minutes. */
   timing?: { graceMs: number; bootMs: number };
 };
@@ -88,6 +91,8 @@ export type Wiring = {
 export class FleetConnection {
   private readonly wiring: Wiring;
   private current: BridgeState = NOTHING_YET;
+  /** The picture kept on disk — `remembered.ts`. */
+  private readonly remembered: Remembered;
   /** The socket lifecycle — reading the runtime file, connecting, retrying. */
   private readonly socket: FleetSocket;
   /** Journey 9's run sheet and the servers it starts — see `rehearsal.ts`.
@@ -216,6 +221,21 @@ export class FleetConnection {
     // Resolved once, from the home main can see. A failure that cannot say
     // where its log is is half a failure.
     this.current = { ...NOTHING_YET, bridge: startingIdentity(wiring.home) };
+    // What the last run kept, if it is recent: drawn at once, and replaced by Fleet's own reads as they land.
+    this.remembered = new Remembered(wiring.pictureFile, wiring.now);
+    const picture = this.remembered.load();
+    if (picture !== null) {
+      this.current = {
+        ...this.current,
+        drawnFromDisk: picture.sessions !== undefined,
+        ...(picture.sessions === undefined ? {} : { sessions: { state: "read", sessions: picture.sessions } }),
+        ...(picture.mergeLines === undefined ? {} : { mergeLines: picture.mergeLines }),
+        ...(picture.holds === undefined ? {} : { holds: { ...this.current.holds, ...picture.holds } }),
+      };
+      if (picture.sessions !== undefined) this.sessions.remember(picture.sessions);
+    }
+    this.planUsage.remembering(picture?.planUsage ?? null, (planUsage) => this.remembered.keep({ planUsage }));
+    this.timeline.remembering(picture?.timeline ?? [], (timeline) => this.remembered.keep({ timeline }));
     if (wiring.threadsDir !== undefined) this.sessions.keepIn(wiring.threadsDir);
     this.socket = new FleetSocket({
       home: wiring.home,
@@ -379,6 +399,11 @@ export class FleetConnection {
     return this.current;
   }
 
+  /** Bridge is quitting: the picture goes to disk now, so the next launch finds it as current as it was. */
+  rememberNow(): void {
+    this.remembered.flush();
+  }
+
   /** Read the runtime file, verify the pid, connect. That order, always. */
   start(): void {
     this.socket.start();
@@ -521,6 +546,12 @@ export class FleetConnection {
     // Fleet's version rides on the identity, so it is brought current in the
     // one funnel every change passes through. `shared/bridge.ts` owns the rule.
     this.current = identifying({ ...this.current, ...change });
+    const part: Picture = {
+      ...(change.sessions?.state === "read" ? { sessions: change.sessions.sessions } : {}),
+      ...(change.mergeLines ? { mergeLines: change.mergeLines } : {}),
+      ...(change.holds ? { holds: { workflows: change.holds.workflows, manifests: change.holds.manifests, repositories: change.holds.repositories ?? [] } } : {}),
+    };
+    if (Object.keys(part).length > 0) this.remembered.keep(part);
     // Every repository Fleet serves is still shared through this funnel;
     // which one a window picked is not — `repository` moved onto `PickedView`
     // when picks went per-window, so that half of Helm's own targeting is
