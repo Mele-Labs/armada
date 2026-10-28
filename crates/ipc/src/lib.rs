@@ -289,7 +289,7 @@ pub use commanding::{
 };
 pub use configured::ManifestConfig;
 pub use workflow_changes::{
-    AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ProposeToArmada, SendBackWorkflowChange, SuggestWorkflowChange,
+    AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ProposeNewWorkflow, ProposeToArmada, SendBackWorkflowChange, SuggestWorkflowChange,
     WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
 };
 pub use workflow_page::{
