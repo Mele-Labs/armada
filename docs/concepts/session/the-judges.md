@@ -29,4 +29,4 @@ A settled concern leaves `waiting_for` and stays on the record in `settled`, a b
 `answer_waiting` and `dismiss_waiting` refuse a `judge` item, and sleep mode leaves it for the morning.
 
 **Held in memory:** `judging`, as a Fleet that restarts reads nothing as reading.
-Kept in the store: the rail's last step, the steps nudged and judged, the concerns and the last reading (`session_rail`, `session_concerns`, `session_judge_reading`).
+Kept in the store: the rail's last step, the steps nudged, stalled and judged, the concerns and the last reading (`session_rail`, `session_concerns`, `session_judge_reading`).
