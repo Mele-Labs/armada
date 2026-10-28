@@ -11,7 +11,7 @@ use std::time::Duration;
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
     CloseSession, ForkThisSession, HandToSession, LinkedEvent, ManifestId, PlanGroupInput, PlanTaskInput, RecordPlan,
-    SendSessionMessage, SessionFact, SessionHeld, SessionId, SessionRecord, SessionReport, SessionRow, SessionState,
+    RenameSession, SendSessionMessage, SessionFact, SessionHeld, SessionId, SessionRecord, SessionReport, SessionRow, SessionState,
     SessionVoice, SetWaitingFor, StartAnotherSession, StartSession, WaitingActKind, WaitingInput, WaitingSource,
 };
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
@@ -608,7 +608,6 @@ async fn a_session_an_agent_started_is_read_from_its_brief_before_the_person_sen
     assert_eq!(judge.asked().len(), before + 1);
     assert!(judge.asked().last().is_some_and(|asked| asked.contains(FIRST)), "from the brief the agent gave");
     let record = rig.record(&held.session_id).await;
-    assert_eq!(record.title.as_deref(), Some("Check the reader"), "the title the agent gave stands");
     assert_eq!(record.hosted.as_ref().expect("hosted").model.as_deref(), Some("another-model"));
     assert!(rig.card_message(&held.session_id).await.is_some(), "and the first message is still the person's to send");
 
@@ -624,7 +623,6 @@ async fn a_fork_an_agent_made_is_not_read() {
     let rig = rig_reading(&judge);
     let (agent, _) = rig.an_agent_that_has_spoken().await;
     eventually_read(&rig, &agent).await;
-    let before = judge.asked().len();
 
     let held = Arc::clone(&rig.fleet)
         .fork_this_session(caller(), ForkThisSession { title: "Another way".into(), message: FIRST.into(), at: None })
@@ -632,8 +630,97 @@ async fn a_fork_an_agent_made_is_not_read() {
         .expect("forked");
     rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
-    assert_eq!(judge.asked().len(), before, "a fork carries its source's conversation, and is not read");
-    assert!(rig.record(&held.session_id).await.proposal.is_none());
+    // Its title alone is asked for (`a_fork_an_agent_titled_is_named_when_start_sends_it`), and nothing else is read.
+    let record = rig.record(&held.session_id).await;
+    assert!(record.proposal.is_none_or(|one| !one.reading), "a fork carries its source's conversation, and is not read");
+    assert_eq!(record.hosted.expect("hosted").model, None, "its settings are not the proposer's");
+}
+
+const UNTITLED: &str = "workflow: none\nsettings: model=another-model, effort=high";
+
+/// A rig over `judge`, an agent already read, and the Job that agent started, titled "Check the reader".
+async fn an_agent_started(judge: &Arc<FakeJudge>) -> (Rig, SessionId) {
+    let rig = rig_reading(judge);
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    (rig, held.session_id)
+}
+
+#[tokio::test]
+async fn an_agents_title_is_replaced_by_the_proposers() {
+    let (rig, id) = an_agent_started(&Arc::new(FakeJudge::saying(READING))).await;
+    eventually_read(&rig, &id).await;
+    let record = rig.record(&id).await;
+    assert_eq!(record.title.as_deref(), Some("Why the reader drops lines"));
+    assert!(record.proposal.is_some_and(|one| one.picked.contains(&ipc::ProposedField::Title)), "listed as Armada's pick");
+}
+
+#[tokio::test]
+async fn an_agents_title_stays_when_the_answer_gives_none() {
+    let (rig, id) = an_agent_started(&Arc::new(FakeJudge::saying(UNTITLED))).await;
+    eventually_read(&rig, &id).await;
+    let record = rig.record(&id).await;
+    assert_eq!(record.title.as_deref(), Some("Check the reader"));
+    assert_eq!(record.hosted.as_ref().expect("hosted").model.as_deref(), Some("another-model"), "the rest of the answer lands");
+}
+
+#[tokio::test]
+async fn a_plan_groups_title_is_replaced_by_the_proposers() {
+    let judge = Arc::new(FakeJudge::saying(READING));
+    let rig = rig_reading(&judge);
+    rig.a_parent_with_a_plan().await;
+
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    assert_eq!(held.title, "Name the migrations", "the group's title is what the card says");
+    eventually_read(&rig, &held.session_id).await;
+    assert_eq!(rig.record(&held.session_id).await.title.as_deref(), Some("Why the reader drops lines"));
+}
+
+#[tokio::test]
+async fn a_rename_before_the_answer_keeps_his_title_over_an_agents_hint() {
+    let judge = Arc::new(FakeJudge::saying(READING).taking(Duration::from_millis(300)));
+    let (rig, id) = an_agent_started(&judge).await;
+    assert!(rig.record(&id).await.proposal.is_some_and(|one| one.reading), "the answer is still out");
+
+    Arc::clone(&rig.fleet).rename_session(RenameSession { session_id: id.clone(), title: "Mine".into() }).await.expect("renamed");
+    eventually_read(&rig, &id).await;
+    let record = rig.record(&id).await;
+    assert_eq!(record.title.as_deref(), Some("Mine"));
+    assert!(record.proposal.is_none_or(|one| !one.picked.contains(&ipc::ProposedField::Title)));
+}
+
+#[tokio::test]
+async fn the_question_carries_an_agents_title_as_a_hint() {
+    let judge = Arc::new(FakeJudge::saying(READING));
+    let (rig, id) = an_agent_started(&judge).await;
+    eventually_read(&rig, &id).await;
+    let asked = judge.asked().pop().expect("the Job was read");
+    let hint = asked.find("The agent that started this Job called it: Check the reader").expect("the hint");
+    assert!(hint < asked.find("Answer with nothing but the block below").expect("the format"), "ahead of the format: {asked}");
+}
+
+#[tokio::test]
+async fn a_fork_an_agent_titled_is_named_when_start_sends_it() {
+    let judge = Arc::new(FakeJudge::saying("workflow: none\ntitle: Same fix on a map"));
+    let rig = rig_reading(&judge);
+    let (agent, _) = rig.an_agent_that_has_spoken().await;
+    eventually_read(&rig, &agent).await;
+    let before = judge.asked().len();
+
+    let held = Arc::clone(&rig.fleet)
+        .fork_this_session(caller(), ForkThisSession { title: "Another way".into(), message: FIRST.into(), at: None })
+        .await
+        .expect("forked");
+    assert_eq!(rig.record(&held.session_id).await.title.as_deref(), Some("Another way"));
+    assert_eq!(judge.asked().len(), before, "nothing is asked before Start");
+
+    rig.begin(&held.session_id, None).await;
+    eventually(|| async { rig.record(&held.session_id).await.title.as_deref() == Some("Same fix on a map") }).await;
+    let asked = judge.asked();
+    assert_eq!(asked.len(), before + 1, "one call");
+    assert!(asked[before].contains(FIRST), "from the words Start sent: {}", asked[before]);
+    assert!(asked[before].contains("called it: Another way"), "with the agent's title as the hint: {}", asked[before]);
 }
 
 /// The reading of `id` has landed, if one began.

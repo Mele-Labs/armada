@@ -12,11 +12,12 @@
 //! written to the thread when it arrives and its turn is held here, and the process starts when
 //! the answer lands, on the values the answer settled. A call that fails, times out or cannot be
 //! read starts the Session on this machine's defaults and says why on Fleet's stderr. Nothing is
-//! refused.
+//! refused. One more call for the title alone then runs in the background (`naming.rs`).
 //!
 //! **What the person set wins.** A title, model or effort on the start, or changed in a panel
 //! while the call is out, is not overwritten. A field the proposer did fill is listed in
-//! `proposal.picked` until the person changes it.
+//! `proposal.picked` until the person changes it. A title an agent gave is a hint, not his: the
+//! question carries it and the answer's title replaces it.
 //!
 //! **Every change made through a panel reaches the agent.** A workflow change is a message at
 //! once; a model or effort change is a line on the turn that starts on it.
@@ -37,7 +38,7 @@ use super::uploads::Kept;
 use crate::daemon::Fleet;
 use crate::judging::watched;
 use crate::session_links::LinkedBy;
-use crate::session_proposer::{SessionBrief, SessionProposed};
+use crate::session_proposer::{Proposing, SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
 
 /// A workflow id the Session's repository does not hold. A 422.
@@ -83,6 +84,12 @@ pub(crate) struct ProposalState {
     pub defaulted: bool,
     /// The person set the workflow, custom too: no default goes over it.
     pub workflow_chosen: bool,
+    /// The title the agent that started the Job gave it. The question carries it as a hint, and the
+    /// answer's title replaces it as it fills one nothing gave.
+    pub hint: Option<String>,
+    /// The title the Job holds until one call for its title alone lands: after a failed reading, or on
+    /// a fork an agent titled. A title the person or the wand gives ends it.
+    pub stand_in: Option<String>,
 }
 
 impl ProposalState {
@@ -91,8 +98,12 @@ impl ProposalState {
         self.reading.is_some() || self.draining || self.start_held
     }
 
-    /// The person set `field`: the answer leaves it alone.
+    /// The person set `field`: the answer leaves it alone, and a title of his ends the hint and the stand-in.
     pub(crate) fn person_set(&mut self, field: ProposedField) {
+        if field == ProposedField::Title {
+            self.hint = None;
+            self.stand_in = None;
+        }
         if let Some(reading) = &mut self.reading {
             if !reading.person.contains(&field) {
                 reading.person.push(field);
@@ -107,6 +118,13 @@ impl ProposalState {
             ..ProposalState::default()
         }
     }
+}
+
+/// The proposer's answer to the start's question, and the workflows it was shown.
+pub(crate) struct Answered {
+    pub brief: SessionBrief,
+    pub reply: String,
+    pub workflows: Arc<std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>>,
 }
 
 /// The fields of a hosting's `proposed` list.
@@ -255,21 +273,23 @@ where
             return false;
         }
         let set = |value: &Option<String>| value.as_ref().is_some_and(|one| !one.trim().is_empty());
-        let person: Vec<ProposedField> = [
-            (ProposedField::Title, session.title.is_some()),
-            (ProposedField::Workflow, hosting.workflow.is_some()),
-            (ProposedField::Model, set(&hosting.model)),
-            (ProposedField::Effort, set(&hosting.effort)),
-        ]
-        .into_iter()
-        .filter_map(|(field, given)| given.then_some(field))
-        .collect();
         {
             let runtime = self.hosts().of(&session.id);
             let mut state = runtime.state();
             if state.proposal.asked {
                 return false;
             }
+            // An agent's title is not the person's: the answer names the Job over it.
+            let hinted = state.proposal.hint.is_some() && state.proposal.hint == session.title;
+            let person: Vec<ProposedField> = [
+                (ProposedField::Title, session.title.is_some() && !hinted),
+                (ProposedField::Workflow, hosting.workflow.is_some()),
+                (ProposedField::Model, set(&hosting.model)),
+                (ProposedField::Effort, set(&hosting.effort)),
+            ]
+            .into_iter()
+            .filter_map(|(field, given)| given.then_some(field))
+            .collect();
             let kept = std::mem::take(&mut state.proposal);
             state.proposal = ProposalState { reading: Some(Reading { person }), asked: true, ..kept };
         }
@@ -279,11 +299,18 @@ where
     }
 
     async fn read_request(self: Arc<Self>, id: String, request: String) {
-        let read = self.proposed_for_session(&id, &request).await;
+        let hint = self.hosts().of(&id).state().proposal.hint.clone();
+        let read = self.proposed_for_session(&id, &request, hint.as_deref()).await;
+        let failed = read.is_err();
         if let Err(why) = &read {
             eprintln!("job {id}: the request was not read, so it starts on the defaults: {why}");
         }
         self.reading_ended(&id, &request, read.ok()).await;
+        // The Job has started on the defaults, and nothing waits on the second try. A title he gave is no stand-in.
+        let standing_in = self.hosts().of(&id).state().proposal.stand_in.is_some();
+        if failed && standing_in {
+            tokio::spawn(async move { self.title_tried_again(id, request, hint).await });
+        }
     }
 
     /// One call, one reading. Whatever goes wrong is words for the log.
@@ -291,14 +318,32 @@ where
         &self,
         id: &str,
         request: &str,
+        hint: Option<&str>,
     ) -> Result<SessionProposed, String> {
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let (_, hosting) = self
             .session_and_hosting(id)
             .await
             .map_err(|_| String::from("the job is gone"))?;
+        let answered = self.proposer_answered(&proposing, &hosting.manifest_id, request, hint).await?;
+        answered
+            .brief
+            .read(&answered.reply, &answered.workflows, &proposing.choices)
+            .map_err(|why| why.to_string())
+    }
+
+    /// The start's question about `request` put to the proposer, with the workflows it was shown and
+    /// `hint`, the title an agent gave the Job. `name_session` and the second try for a title ask
+    /// through this too, so the questions cannot drift apart.
+    pub(crate) async fn proposer_answered(
+        &self,
+        proposing: &Proposing,
+        manifest_id: &str,
+        request: &str,
+        hint: Option<&str>,
+    ) -> Result<Answered, String> {
         let served = self
-            .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
+            .served_named(Some(&ManifestId::carried(manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
         // With workflows off the proposer is shown none, so it never picks one.
         let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
@@ -307,9 +352,12 @@ where
             .store()
             .lock()
             .await
-            .renames_for(&hosting.manifest_id, crate::session_proposer::RENAMES_SHOWN)
+            .renames_for(manifest_id, crate::session_proposer::RENAMES_SHOWN)
             .unwrap_or_default();
-        let brief = SessionBrief::about(request, &workflows, &proposing.choices, &renames);
+        let mut brief = SessionBrief::about(request, &workflows, &proposing.choices, &renames);
+        if let Some(hint) = hint {
+            brief = brief.hinted(hint);
+        }
         let ask = Ask::put(
             proposing.model.clone(),
             brief.question(),
@@ -325,9 +373,7 @@ where
         )
         .await
         .map_err(|why| why.to_string())?;
-        brief
-            .read(&reply, &workflows, &proposing.choices)
-            .map_err(|why| why.to_string())
+        Ok(Answered { brief, reply, workflows })
     }
 
     /// The call is over. Settle the Session's values, publish it, and send the turns that waited.
@@ -338,13 +384,12 @@ where
         read: Option<SessionProposed>,
     ) {
         let runtime = self.hosts().of(id);
-        let person = runtime
-            .state()
-            .proposal
-            .reading
-            .as_ref()
-            .map(|reading| reading.person.clone())
-            .unwrap_or_default();
+        let (person, hint) = {
+            let state = runtime.state();
+            let person = state.proposal.reading.as_ref().map(|reading| reading.person.clone());
+            (person.unwrap_or_default(), state.proposal.hint.clone())
+        };
+        let failed = read.is_none();
         {
             let mut store = self.store().lock().await;
             if let (Ok(Some(mut session)), Ok(Some(mut hosting))) =
@@ -359,7 +404,10 @@ where
                     taken
                 };
                 if let Some(proposed) = read {
-                    if session.title.is_none() && take(ProposedField::Title) {
+                    let hinted = hint.is_some() && session.title == hint;
+                    // An agent's title stays where the answer gives none.
+                    let titled = session.title.is_none() || (hinted && proposed.title.is_some());
+                    if titled && take(ProposedField::Title) {
                         session.title = proposed.title;
                     }
                     if let Some(workflow) = proposed.workflow {
@@ -396,6 +444,10 @@ where
                 }
                 let _ = store.keep_session(&session);
                 let _ = store.keep_hosting(&hosting);
+                // Marked with the store held, so a rename made now ends the stand-in after it is set.
+                if failed && !person.contains(&ProposedField::Title) {
+                    runtime.state().proposal.stand_in = session.title.clone();
+                }
             }
         }
         // Held turns go first, in the order they came, and nothing newer overtakes them. A Job still on its
@@ -448,6 +500,20 @@ where
             let mut picked = picked_of(&hosting.proposed);
             if picked.contains(&field) {
                 picked.retain(|one| *one != field);
+                hosting.proposed = listed(&picked);
+                let _ = store.keep_hosting(&hosting);
+            }
+        }
+    }
+
+    /// Armada named the Job on request: the title is listed as its pick, not his, and the answer to
+    /// a call still out leaves it alone. Called with the store held.
+    pub(crate) fn armada_named(&self, store: &mut Store, id: &str) {
+        self.hosts().of(id).state().proposal.person_set(ProposedField::Title);
+        if let Ok(Some(mut hosting)) = store.hosting(id) {
+            let mut picked = picked_of(&hosting.proposed);
+            if !picked.contains(&ProposedField::Title) {
+                picked.push(ProposedField::Title);
                 hosting.proposed = listed(&picked);
                 let _ = store.keep_hosting(&hosting);
             }

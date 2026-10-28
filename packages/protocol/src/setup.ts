@@ -451,8 +451,11 @@ export type NotADriftMarked = {
   nudge: number;
 };
 
-/** Where a workflow change came from: his words, or the nudges a step drifted on. */
-export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] };
+/**
+ * Where a workflow change came from: his words, the nudges a step drifted on, or a Job proposing a workflow
+ * nothing held before (`new`: `before` is empty, `after` is the definition, `state` is `ready` at once).
+ */
+export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] } | { kind: "new" };
 
 /** Where a change stands. `approved` and `dismissed` are never listed. */
 export type ChangeState = "drafting" | "ready" | "approved" | "dismissed" | "failed";
@@ -521,6 +524,18 @@ export type SendBackWorkflowChange = {
 export type WorkflowChangeApproved = {
   change: WorkflowChange;
   saved: WorkflowSaved;
+};
+
+/**
+ * `POST /workflows/changes/propose_new?manifest_id=`'s body. The answer is the `WorkflowChange`, `origin`
+ * `new`. 422 `fleet.workflow_change_empty` for a blank definition, 422 `fleet.workflow_exists` where `scope`
+ * already holds the id.
+ */
+export type ProposeNewWorkflow = {
+  workflow_id: string;
+  /** The definition, whole, as JSON text. */
+  definition: string;
+  scope: WorkflowScope;
 };
 
 /** `POST /workflows/propose`'s body. */

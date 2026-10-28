@@ -81,3 +81,20 @@
   display: flex;
   margin-inline-start: auto;
 }
+
+.armada-session-draft__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+.armada-session-draft__facts dt {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-session-draft__facts dd {
+  margin: 0;
+}

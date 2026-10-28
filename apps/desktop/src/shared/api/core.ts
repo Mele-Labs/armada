@@ -109,6 +109,8 @@ export type CoreState = {
   fleetBuild: FleetBuildReport | null;
   /** Events Fleet dropped before Bridge saw them, since the window opened. */
   missed: number;
+  /** Whether Bridge opened on the picture it kept on disk (`main/remembered.ts`) rather than on nothing. Set at launch and never cleared: it is how the Cockpit knows not to power on. */
+  drawnFromDisk: boolean;
   /**
    * When Bridge last had Fleet's picture whole, in epoch milliseconds: the last resync. `null`
    * until Fleet has answered once. It says how stale an unreachable Fleet's picture is.
@@ -147,6 +149,7 @@ export const CORE_NOTHING_YET: CoreState = {
   bridge: { auditPath: null, fleetProtocol: null },
   fleetBuild: null,
   missed: 0,
+  drawnFromDisk: false,
   readAt: null,
   holds: { workflows: [], manifests: [], models: null, repositories: [] },
   repository: null,

@@ -28,6 +28,7 @@ import type {
   PullRequestPage,
   PullRequestState,
   JudgeSession,
+  NameSession,
   RenameSession,
   SendConcern,
   SendPlanChanges,
@@ -159,6 +160,8 @@ export type SessionsApi = {
   runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
   /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
   renameSession: (rename: RenameSession) => Promise<SessionActed>;
+  /** Armada names a hosted session from its first message, as the start names one. Waits on a model call. */
+  nameSession: (name: NameSession) => Promise<SessionActed>;
   /**
    * Writes a retro of what happened in a Session since its last one, once Fleet has asked a live
    * agent what got in its way. Answers when it is written, which can take a minute.
@@ -371,6 +374,7 @@ export const SESSIONS_CHANNELS = {
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",
+  nameSession: "bridge:name-session",
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",

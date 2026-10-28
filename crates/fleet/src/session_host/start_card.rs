@@ -447,6 +447,9 @@ where
             // A box he filled on a Job that held nothing: his words are its first turn.
             (None, Some(words)) => (!words.is_empty()).then(|| FirstTurn::said(SessionVoice::You, words)),
         };
+        if let Some(first) = &first {
+            self.fork_named(id, &first.text);
+        }
         // The thread reads as the agent will: his first, then the rest in the order they came.
         let mut turns = Vec::new();
         if let Some(first) = first {

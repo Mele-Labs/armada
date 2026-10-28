@@ -15,7 +15,7 @@ const propose: Written = {
   id: "propose",
   label: "Propose",
   instructions:
-    "Say in a few lines what you took the request to mean and a first idea. Read only what that needs. Then stop and wait for the person's reply.",
+    "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Then stop and wait for the person's reply.",
 };
 const discuss: Written = {
   id: "discuss",

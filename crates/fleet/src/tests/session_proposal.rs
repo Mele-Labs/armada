@@ -12,7 +12,7 @@ use api::{HostedSessions, Sessions};
 use config::ResolvedWorkflow;
 use core_model::WorkflowId;
 use ipc::{
-    ProposedField, RenameSession, SessionId, SessionMode, SessionRecord, SessionRow, SessionTurn, SessionVoice,
+    NameSession, ProposedField, RenameSession, SessionId, SessionMode, SessionRecord, SessionRow, SessionTurn, SessionVoice,
     SetSessionWorkflow, TimelineAsk, TimelineEvent, TuneSession,
 };
 use testkit::FakeJudge;
@@ -463,6 +463,211 @@ async fn the_next_job_is_named_with_his_rename_in_the_question() {
     assert_eq!(asked.len(), 2);
     assert!(!asked[0].contains("he renamed it"), "the first Job had nothing to learn from");
     assert!(asked[1].contains("Armada named it: Log reader drops a line\n    he renamed it: Logs: last line lost"), "{}", asked[1]);
+}
+
+// ---- A failed reading tries once more, for the title alone ----
+
+const UNREADABLE: &str = "I would call this a bug.";
+const SECOND: &str = "workflow: none\ntitle: Last line lost in the reader\nsettings: model=another-model, effort=high";
+
+/// A rig whose first answer cannot be read and whose second is `second`, with the judge kept to count calls.
+fn failing_first_then(second: &str) -> (Arc<FakeJudge>, Rig) {
+    let judge = Arc::new(FakeJudge::answering_in_turn(&[UNREADABLE, second]));
+    let rig = counting(&judge);
+    (judge, rig)
+}
+
+async fn titled(rig: &Rig, id: &SessionId, title: &str) {
+    eventually(|| async { record(rig, id).await.title.as_deref() == Some(title) }).await;
+}
+
+#[tokio::test]
+async fn a_failed_reading_tries_once_more_for_the_title() {
+    let (judge, rig) = failing_first_then(SECOND);
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+
+    let started = landed(&rig, &id).await;
+    assert!(started.workflow.is_none() && started.proposal.is_none(), "the Job started on the defaults");
+    titled(&rig, &id, "Last line lost in the reader").await;
+
+    let named = record(&rig, &id).await;
+    assert_eq!(judge.asked().len(), 2, "one more call, and no third");
+    assert_eq!(named.workflow, None, "only the title is read from the second answer");
+    assert_eq!(named.hosted.expect("hosted").model, None, "and no setting");
+    assert_eq!(picked(&record(&rig, &id).await), [ProposedField::Title], "listed as Armada's pick");
+    assert!(renames(&rig).await.is_empty(), "and not his rename");
+}
+
+#[tokio::test]
+async fn the_second_try_leaves_a_title_he_gave_meanwhile() {
+    let judge = Arc::new(FakeJudge::answering_in_turn(&[UNREADABLE, SECOND]).taking(Duration::from_millis(300)));
+    let rig = counting(&judge);
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+    eventually(|| async { judge.asked().len() == 2 }).await;
+
+    renamed(&rig, &id, "Mine").await;
+    // The second answer lands in this time, if it is going to.
+    tokio::time::sleep(Duration::from_millis(900)).await;
+    assert_eq!(record(&rig, &id).await.title.as_deref(), Some("Mine"));
+    assert!(!picked(&record(&rig, &id).await).contains(&ProposedField::Title));
+}
+
+#[tokio::test]
+async fn a_second_failure_keeps_the_stand_in() {
+    let judge = Arc::new(FakeJudge::that_fails("the model is down"));
+    let rig = counting(&judge);
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+
+    eventually(|| async { judge.asked().len() == 2 }).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(judge.asked().len(), 2, "tried once more, not again");
+    let kept = record(&rig, &id).await;
+    assert_eq!(kept.title.as_deref(), Some(REQUEST), "the words stand in for the title");
+    assert!(kept.proposal.is_none(), "and nothing is marked as picked");
+}
+
+#[tokio::test]
+async fn a_start_with_his_title_is_not_tried_again() {
+    let (judge, rig) = failing_first_then(SECOND);
+    let id = rig
+        .start_requesting(REQUEST, |start| start.title = Some("Mine".to_string()))
+        .await
+        .id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(judge.asked().len(), 1, "his title is not a stand-in");
+    assert_eq!(record(&rig, &id).await.title.as_deref(), Some("Mine"));
+}
+
+#[tokio::test]
+async fn a_start_with_his_title_keeps_it_when_the_second_answer_lands() {
+    let (judge, rig) = failing_first_then(SECOND);
+    let id = rig
+        .start_requesting(REQUEST, |start| start.title = Some("Mine".to_string()))
+        .await
+        .id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+
+    // The answer of any second call lands in this time, if it is going to.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(record(&rig, &id).await.title.as_deref(), Some("Mine"), "after {} call(s)", judge.asked().len());
+}
+
+// ---- Armada names a Job on request ----
+
+const WAND: &str = "title: Named by the wand";
+
+/// A Job read at its start, which the proposer named by `ANSWER`, and the judge that names it again.
+async fn named_at_start(wand: &str) -> (Arc<FakeJudge>, Rig, SessionId) {
+    let judge = Arc::new(FakeJudge::answering_in_turn(&[ANSWER, wand]));
+    let rig = counting(&judge);
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+    eventually(|| async { !sent(&rig, 0).is_empty() }).await;
+    (judge, rig, id)
+}
+
+async fn named(rig: &Rig, id: &SessionId) -> Result<SessionRecord, api::Refusal> {
+    Arc::clone(&rig.fleet).name_session(NameSession { session_id: id.clone() }).await
+}
+
+#[tokio::test]
+async fn name_session_names_a_job_from_its_first_message_and_his_renames() {
+    let (judge, rig, id) = named_at_start(WAND).await;
+    renamed(&rig, &id, "Logs: last line lost").await;
+
+    let answer = named(&rig, &id).await.expect("named");
+    assert_eq!(answer.title.as_deref(), Some("Named by the wand"), "an answer with no workflow line still names it");
+    assert_eq!(record(&rig, &id).await.title, answer.title, "and it is the title the Job holds");
+    let asked = judge.asked();
+    assert_eq!(asked.len(), 2);
+    assert!(asked[1].contains(REQUEST), "from its first message: {}", asked[1]);
+    assert!(
+        asked[1].contains("Armada named it: Log reader drops a line\n    he renamed it: Logs: last line lost"),
+        "with his renames: {}",
+        asked[1]
+    );
+}
+
+#[tokio::test]
+async fn name_session_is_not_kept_as_his_rename() {
+    let (_, rig, id) = named_at_start(WAND).await;
+    named(&rig, &id).await.expect("named");
+    assert!(renames(&rig).await.is_empty(), "nothing for the proposer to learn from");
+}
+
+#[tokio::test]
+async fn name_session_lists_the_title_as_armadas_pick() {
+    // His own title at the start is not a pick, so what lists it after is the naming.
+    let judge = Arc::new(FakeJudge::answering_in_turn(&[ANSWER, WAND]));
+    let rig = counting(&judge);
+    let id = rig.start_requesting(REQUEST, |start| start.title = Some("Mine".to_string())).await.id;
+    rig.send(&id, REQUEST).await;
+    assert!(!picked(&landed(&rig, &id).await).contains(&ProposedField::Title));
+
+    named(&rig, &id).await.expect("named");
+    let after = record(&rig, &id).await;
+    assert_eq!(after.title.as_deref(), Some("Named by the wand"));
+    assert!(picked(&after).contains(&ProposedField::Title), "listed as Armada's pick");
+}
+
+#[tokio::test]
+async fn a_rename_after_armada_named_it_is_kept_against_that_name() {
+    let (_, rig, id) = named_at_start(WAND).await;
+    named(&rig, &id).await.expect("named");
+    renamed(&rig, &id, "Mine").await;
+    let kept = renames(&rig).await;
+    assert_eq!(kept.len(), 1);
+    assert_eq!((kept[0].was.as_str(), kept[0].title.as_str()), ("Named by the wand", "Mine"));
+}
+
+#[tokio::test]
+async fn name_session_refuses_a_job_with_no_message() {
+    let judge = Arc::new(FakeJudge::saying(ANSWER));
+    let rig = counting(&judge);
+    let id = rig.start_titled(Some("Notes")).await;
+
+    let refused = named(&rig, &id).await.expect_err("nothing to name it from");
+    assert!(format!("{refused:?}").contains("fleet.session_no_request"), "{refused:?}");
+    assert!(judge.asked().is_empty(), "the proposer is not asked");
+    assert_eq!(record(&rig, &id).await.title.as_deref(), Some("Notes"));
+}
+
+#[tokio::test]
+async fn name_session_refuses_when_the_proposer_gives_no_title() {
+    let (_, rig, id) = named_at_start("workflow: bug\nsettings: model=a-model").await;
+    let refused = named(&rig, &id).await.expect_err("no title");
+    assert!(format!("{refused:?}").contains("fleet.session_not_named"), "{refused:?}");
+    assert_eq!(record(&rig, &id).await.title.as_deref(), Some("Log reader drops a line"), "nothing is written");
+}
+
+#[tokio::test]
+async fn name_session_refuses_when_the_proposer_fails() {
+    let judge = Arc::new(FakeJudge::that_fails("the model is down"));
+    let rig = counting(&judge);
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+
+    let refused = named(&rig, &id).await.expect_err("the call failed");
+    assert!(format!("{refused:?}").contains("fleet.session_not_named"), "{refused:?}");
+    assert_eq!(record(&rig, &id).await.title.as_deref(), Some(REQUEST));
+}
+
+#[tokio::test]
+async fn name_session_refuses_a_job_fleet_does_not_host() {
+    let rig = proposing(FakeJudge::saying(ANSWER));
+    let refused = named(&rig, &SessionId::carried("nobody")).await.expect_err("no such job");
+    assert!(format!("{refused:?}").contains("fleet.no_such_session"), "{refused:?}");
 }
 
 // ---- A change made in a panel reaches the agent ----

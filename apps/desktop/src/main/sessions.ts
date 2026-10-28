@@ -63,6 +63,7 @@ import type {
   PullRequestState,
   ReadSessionWait,
   JudgeSession,
+  NameSession,
   RenameSession,
   RunSessionCommand,
  
@@ -232,6 +233,11 @@ export class SessionsHost {
   /** Keep held threads in this directory. Set once by main, which knows `userData`. */
   keepIn(dir: string): void {
     this.dir = dir;
+  }
+
+  /** Start from the list on disk: a session that changes before Fleet's read folds into it, and a read that fails keeps it. `readAt` stays null, so nothing in it is told as new. */
+  remember(sessions: SessionRecord[]): void {
+    this.sessions = sessions;
   }
 
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
@@ -867,6 +873,17 @@ export class SessionsHost {
 
   async rename(rename: RenameSession): Promise<SessionActed> {
     return await this.act("POST", "/sessions/rename", rename);
+  }
+
+  /** Fleet asks the proposer inside the request, so this waits `MODEL_CALL_MS` rather than a command's bound. */
+  async name(name: NameSession): Promise<SessionActed> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/name", name, MODEL_CALL_MS);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const record = answer.body as SessionRecord;
+    this.fold(record);
+    return { ok: true, value: record };
   }
 
   /** A new session as a copy of an ended or dead one, or of any one up to the row `at`. **The repository is the old session's own**, read off the record main holds. */

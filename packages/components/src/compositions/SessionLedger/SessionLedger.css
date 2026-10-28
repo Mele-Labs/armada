@@ -460,6 +460,17 @@ path.armada-session-ledger__picture-later {
   opacity: 0;
 }
 
+/* A row's Dismiss sits at its end like Release: shown on hover or focus, so Tab still reaches it. */
+.armada-session-ledger__dismiss {
+  display: inline-flex;
+  align-self: center;
+  padding-inline-end: var(--space-1);
+}
+
+.armada-session-ledger__row:not(:hover, :focus-within) > .armada-session-ledger__dismiss {
+  opacity: 0;
+}
+
 /* Given back from here: still drawn, so the person sees what went, in the muted ink of a row no longer held. */
 .armada-session-ledger__row[data-given] {
   color: var(--fg-muted);

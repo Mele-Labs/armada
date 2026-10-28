@@ -252,6 +252,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/rename",
     },
     Route {
+        operation: "name_session",
+        method: "POST",
+        path: "/sessions/name",
+    },
+    Route {
         operation: "start_session_run",
         method: "POST",
         path: "/sessions/run/start",

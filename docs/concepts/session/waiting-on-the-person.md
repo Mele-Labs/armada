@@ -31,7 +31,9 @@ A `choice` with `text` says both: the words go with the pick, to the agent as a 
 **`dismiss_waiting`** (`session_id`, `item_id`, and an optional `reason`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, save a walk the job shows again, and an agent item with it is removed and left off if the agent states it again.
 **An item the agent stated tells it so**: the Job is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave a reason that is not blank, so the agent does not take the silence for an answer.
 The owner, 14 Oct 2026: "when there is a 'needs me' item on a job, I should be able to delete it, which lets the agent know that I removed it.
-Maybe I can give a reason when I do." An item Fleet derived (a card, a permission, a walk, a window question, a task asked about, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
+Maybe I can give a reason when I do." **A walk, or a sentence Fleet read from the agent's reply, tells it too**: the Job is sent `Owner dismissed "<item text>"`, so it neither shows nor asks again for want of knowing; it comes back only if the agent shows or asks again.
+The owner, 28 Oct 2026: "I should be able to dismiss any needs you item, even walks and PRs. It should let the agent know I dismissed them."
+An item Fleet derived in any other way (a card, a permission, a window question, a task asked about, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
 **A draft item is withdrawn, not only dropped**: the Withdraw (Dismiss) on its card is `dismiss_waiting`, and the Job is sent `Withdrawn: <title>.` and `Do not propose it again.`, with the reason on the next line where one was given, and the row settles `withdrawn`.
 The job takes back a draft of its own with `withdraw_draft`, and is sent nothing; both are in [Proposing a draft](proposing-a-draft.md).
 The message goes before the item is dropped, so a send that fails leaves the item standing to try again.

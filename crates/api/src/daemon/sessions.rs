@@ -42,6 +42,15 @@ pub trait Sessions: Send + Sync + 'static {
         rename: RenameSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `name_session` — Armada names a hosted session from its first message, as the
+    /// proposer names one at the start. Not kept as the person's rename.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not know, one that is not hosted,
+    /// one with no message, or a proposer that is missing or failed.
+    fn name_session(
+        &self,
+        name: ipc::NameSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `start_session_run` — run a shell block from a Session's thread, in a terminal of its own.
     /// Answers at once with the run underway. [`Refusal::Unacceptable`] for a blank command, a
     /// Session Fleet has no row for, or one that has ended. **Takes the `Arc`** because the Session

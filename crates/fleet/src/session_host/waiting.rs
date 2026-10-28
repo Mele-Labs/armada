@@ -29,8 +29,9 @@
 //! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
 //! `dismiss_waiting` keeps the id; a derived item with it is
 //! left off every read and an agent item with it is dropped from the kept list. **Removing an agent
-//! item tells the agent** (`Owner removed "<item>"`, and his reason after it); a derived item is only
-//! dropped, since the agent never stated it.
+//! item tells the agent** (`Owner removed "<item>"`, and his reason after it). **So does putting away a
+//! walk or a pull request it asked about** (`Owner dismissed "<item>"`), so it does not show or ask
+//! again for want of knowing. Any other derived item is only dropped.
 //!
 //! **A reply is a wait only where it asks.** The turn ending on a message that only reports makes the
 //! Session read as `replied` (an unread mark under Idle) and raises no item. One whose close asks him
@@ -107,6 +108,8 @@ pub(crate) struct WaitingReads {
     asked_tasks: Vec<store::KeptAsked>,
     /// Its watches that ended not ours.
     not_ours: Vec<store::KeptWatchWhole>,
+    /// Every workflow change that is ready now: a proposal waits only while its change is among them.
+    ready_changes: Vec<i64>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -143,6 +146,7 @@ pub(crate) fn waiting_reads(
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         asked_tasks: store.asked_project_tasks(&session.id)?,
         not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
+        ready_changes: store.ready_workflow_change_ids()?,
     })
 }
 
@@ -328,7 +332,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours, ready_changes } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -529,9 +533,14 @@ where
                         confirmed: false,
                     })
                 }
-                SessionRow::Draft { id, at, title, settled: None, .. } => {
+                SessionRow::Draft { id, at, title, settled: None, change, .. } => {
                     let id = format!("{DRAFT_PREFIX}{id}");
-                    (!dismissed.contains(&id)).then(|| WaitingItem {
+                    let open = change.map_or(true, |one| ready_changes.contains(&one));
+                    let mut options = vec![WaitingOption { label: String::from("Approve"), description: None }];
+                    if change.is_some() {
+                        options.push(WaitingOption { label: String::from("Dismiss"), description: None });
+                    }
+                    (open && !dismissed.contains(&id)).then(|| WaitingItem {
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
                             target: id.clone(),
@@ -540,7 +549,7 @@ where
                         text: title,
                         since: at,
                         source: WaitingSource::Draft,
-                        options: vec![WaitingOption { label: String::from("Approve"), description: None }],
+                        options,
                         steps: Vec::new(),
                         place: None,
                         concern: None,
@@ -960,6 +969,20 @@ where
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
             // Settled only once the message is sent, so a failed send leaves the draft standing.
             WaitingSource::Draft => {
+                let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
+                // A proposed workflow: Approve saves it and Dismiss drops it, before the Job is told.
+                if let (Some(change), Some(choice)) = (self.draft_change(&id, row).await, said.choice) {
+                    let change = ipc::WorkflowChangeRef { change };
+                    let (body, how) = if choice == 0 {
+                        self.workflow_change_approved(change).await?;
+                        (drafting::approved(&item.text, None), DraftHow::Approved)
+                    } else {
+                        self.workflow_change_dismissed(change).await?;
+                        (drafting::withdrawn(&item.text, None), DraftHow::Withdrawn)
+                    };
+                    Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                    return self.draft_settled(&id, row, how, None).await;
+                }
                 let (body, how, kept) = match (fixed, said.choice, words) {
                     (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
                     (None, Some(_), words) => (drafting::approved(&item.text, words), DraftHow::Approved, words),
@@ -990,7 +1013,8 @@ where
     /// is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave one, so
     /// the agent does not state it again for want of knowing. **A draft is withdrawn**: the session is
     /// sent `Withdrawn: <title>`, not to propose it again, and the row is settled `withdrawn` with the
-    /// reason. Any other item Fleet derived is only dropped.
+    /// reason. **A walk, or a sentence read from the agent's reply, is told too**: the session is sent
+    /// `Owner dismissed "<item text>"`. Any other item Fleet derived is only dropped.
     /// The message goes first, so a send that fails leaves the item standing to try again.
     pub(crate) async fn dismiss_waited(
         self: Arc<Self>,
@@ -1055,6 +1079,7 @@ where
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
+            WaitingSource::Walk | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
             _ => None,
         };
         if let Some(text) = told {
@@ -1072,6 +1097,10 @@ where
         // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
         if item.source == WaitingSource::Draft {
             let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
+            if let Some(change) = self.draft_change(&id, row).await {
+                // Already settled elsewhere is the same end, so that refusal is not the person's.
+                let _ = self.workflow_change_dismissed(ipc::WorkflowChangeRef { change }).await;
+            }
             let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
             return self.draft_settled(&id, row, DraftHow::Withdrawn, reason.map(str::to_string)).await;
         }
@@ -1218,6 +1247,11 @@ fn removed(item: &str, reason: Option<&str>) -> String {
         Some(why) => format!("Owner removed \"{item}\": {why}"),
         None => format!("Owner removed \"{item}\""),
     }
+}
+
+/// What the agent is told when the person puts away a walk or a question read from its reply.
+fn dismissed_by_owner(item: &str) -> String {
+    format!("Owner dismissed \"{item}\"")
 }
 
 /// The message an answer to an agent item is: the item, the answer, and the mode line.

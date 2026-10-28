@@ -120,3 +120,28 @@ async fn an_aim_that_is_not_a_mod_kind_is_refused_before_the_daemon() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "an unknown aim is undecodable");
     assert!(seen.is_empty(), "nothing reached the daemon");
 }
+
+/// The route is hand-written: the body must decode and reach the daemon, whose answer is the route's.
+#[tokio::test]
+async fn naming_a_job_reaches_the_daemon_and_a_body_without_a_job_does_not() {
+    let events = Broadcaster::new();
+    let app = router(Served::by(FakeDaemon::new(events.clone()), run_id(), events));
+    let post = |body: &str| {
+        Request::builder()
+            .method("POST")
+            .uri("/sessions/name")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .expect("a well-formed request")
+    };
+    let response = app.clone().oneshot(post(r#"{"session_id":"s-1"}"#)).await.expect("an answer");
+    let status = response.status();
+    let said = response.into_body().collect().await.expect("a body").to_bytes();
+    let said = String::from_utf8_lossy(&said);
+    // The fake asks no proposer and refuses as Fleet does without one, which only a routed request can.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{said}");
+    assert!(said.contains("fleet.session_not_named"), "the daemon's refusal: {said}");
+
+    let response = app.oneshot(post(r#"{}"#)).await.expect("an answer");
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST, "a body with no job is the transport's 400");
+}

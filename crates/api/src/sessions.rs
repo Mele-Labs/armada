@@ -46,6 +46,22 @@ pub(crate) async fn rename_session<D: Sessions>(
     }
 }
 
+/// Armada's name for a hosted session. 200 with the row; 422 for a session that is not
+/// hosted, has no message, or that the proposer could not name.
+pub(crate) async fn name_session<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let name: ipc::NameSession = match ipc::decode_body("a job to name", &body) {
+        Ok(name) => name,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().name_session(name).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// 202: the run is underway. 422 for a Session that has ended or that Fleet does not know.
 pub(crate) async fn start_session_run<D: Sessions>(
     State(served): State<Served<D>>,

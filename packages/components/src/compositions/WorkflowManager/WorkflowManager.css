@@ -536,3 +536,9 @@
 .armada-wm-suggest__words {
   padding: var(--space-3) var(--space-4);
 }
+
+/* ---- New workflow ----------------------------------------------------------------------------- */
+
+.armada-wm__new {
+  align-self: flex-start;
+}
