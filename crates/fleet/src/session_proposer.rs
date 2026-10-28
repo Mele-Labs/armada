@@ -147,6 +147,22 @@ impl SessionBrief {
         SessionBrief { question }
     }
 
+    /// The question with the title an agent gave the Job, as a hint of what it is and never as the
+    /// name, ahead of the answer format as his renames are.
+    pub fn hinted(self, title: &str) -> SessionBrief {
+        let Some(asked) = self.question.strip_suffix(SESSION_ANSWER_FORMAT) else {
+            return self;
+        };
+        let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+        SessionBrief {
+            question: format!(
+                "{asked}The agent that started this Job called it: {title}\n\
+                 Take that only as a hint of what the Job is, and name it as you would any Job.\n\n\
+                 {SESSION_ANSWER_FORMAT}"
+            ),
+        }
+    }
+
     /// The text that goes to the model, exactly as it goes.
     pub fn question(&self) -> &str {
         &self.question
