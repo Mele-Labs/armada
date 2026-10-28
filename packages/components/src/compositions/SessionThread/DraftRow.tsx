@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { BadgeCheck, Ban, MessageSquarePlus, Pencil, Reply } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -10,8 +10,10 @@ import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { forgetKept, readKept } from "../../keep";
+import { isPressed } from "../../keymap";
 import { quoteOf } from "../ForkFromSelection/ForkFromSelection";
 import type { SessionThreadRow } from "./SessionThread";
+import { ThreadKbd, useThreadCard } from "./thread-keys";
 
 export type DraftThreadRow = Extract<SessionThreadRow, { kind: "draft" }>;
 
@@ -59,7 +61,8 @@ function Text({ text, onContextMenu }: { text: string; onContextMenu?: (event: M
  * and once settled how it ended, with nothing left to press. `keep` names it for the text he types, which a settle forgets.
  * Without `onAnswer` the card is read only. `onWithdraw` adds Withdraw, at the footer's end in read and note mode alike, which in the note
  * takes what he typed as the reason. **A right press on words selected in the text offers Edit and Add note**: Edit opens
- * the box with those words selected, where they stand in the source, and Add note opens the note with them quoted.
+ * the box with those words selected, where they stand in the source, and Add note opens the note with them quoted. While it waits it is one
+ * of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Approve, `⌥E` Edit, `⌥R` Note and `⌥X` Withdraw, and `⌘Enter` in a box sends it.
  */
 export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThreadRow; keep: string; onAnswer?: (rowId: string, answer: DraftAnswer) => void; onWithdraw?: (rowId: string, reason?: string) => void }) {
   const fixedKey = `${keep}:fixed`;
@@ -98,11 +101,43 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   };
   const proposed = row.workflow;
   const state = settled === undefined ? undefined : proposed !== undefined && settled.how === "withdrawn" ? { said: "Dismissed", Glyph: Ban } : SETTLED[settled.how];
+  // A box opened by its key takes the caret, as one opened by a press does; one already open takes it back.
+  const openBox = (to: "edit" | "note") => {
+    setMode(to);
+    window.requestAnimationFrame(() => home.current?.querySelector<HTMLTextAreaElement>(`textarea[aria-label="${to === "edit" ? "Draft text" : "Note"}"]`)?.focus());
+  };
+  const approve = () => onAnswer?.(row.id, { choice: 0 });
+  const approveFixed = () => onAnswer?.(row.id, fixed === row.text ? { choice: 0 } : { fixed });
+  const sendBack = () => onAnswer?.(row.id, { text: note.trim() });
+  const withdrawNow = () => onWithdraw?.(row.id, noting && note.trim() !== "" ? note.trim() : undefined);
+  // A proposed workflow has no Edit or Note, and its Withdraw reads Dismiss.
+  const { target, bind } = useThreadCard(
+    !open
+      ? undefined
+      : {
+          id: `draft:${row.id}`,
+          kind: proposed === undefined ? "Draft" : "Workflow",
+          title: row.title,
+          acts: {
+            ...(editing ? (fixed.trim() === "" ? {} : { yes: { verb: "Approve with fixes", run: approveFixed } }) : noting ? {} : { yes: { verb: "Approve", run: approve } }),
+            ...(noting || proposed !== undefined ? {} : { change: { verb: "Edit", run: () => openBox("edit") } }),
+            ...(editing || proposed !== undefined ? {} : { sendBack: { verb: "Note", run: () => openBox("note") } }),
+            ...(onWithdraw === undefined || editing ? {} : { no: { verb: proposed === undefined ? "Withdraw" : "Dismiss", run: withdrawNow } }),
+          },
+        },
+  );
+  // `⌘Enter` in a box sends what it holds, as in every message box.
+  const commits = (send: () => void, ready: boolean) => (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!isPressed("send_message", event)) return;
+    event.preventDefault();
+    if (ready) send();
+  };
   const withdraw =
     onWithdraw === undefined ? null : (
       <span className="armada-session-draft__withdraw">
-        <Button size="sm" variant="secondary" onClick={() => onWithdraw(row.id, noting && note.trim() !== "" ? note.trim() : undefined)}>
+        <Button size="sm" variant="secondary" onClick={withdrawNow}>
           {proposed === undefined ? "Withdraw" : "Dismiss"}
+          <ThreadKbd act="no" on={target} />
         </Button>
       </span>
     );
@@ -120,7 +155,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   };
   return (
     <li ref={home} className="armada-session-draft-row">
-      <Card flat className="armada-session-draft" role="article" aria-label={`${proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how}>
+      <Card flat className="armada-session-draft" role="article" aria-label={`${proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how} {...bind}>
         <div className="armada-session-draft__head">
           <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">{proposed === undefined ? "Draft" : "Workflow"}</span>
           <Stamp at={row.at} className="armada-session-draft__at" />
@@ -135,7 +170,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
           </dl>
         )}
         {editing ? (
-          <Textarea aria-label="Draft text" rows={8} grow autoFocus keep={fixedKey} value={fixed} onChange={(event) => setFixed(event.currentTarget.value)} />
+          <Textarea aria-label="Draft text" rows={8} grow autoFocus keep={fixedKey} value={fixed} onChange={(event) => setFixed(event.currentTarget.value)} onKeyDown={commits(approveFixed, fixed.trim() !== "")} />
         ) : (
           <Text
             text={settled?.how === "fixed" ? (settled.words ?? row.text) : row.text}
@@ -155,7 +190,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
             {before ? <Text text={row.before} /> : null}
           </div>
         )}
-        {noting ? <Textarea aria-label="Note" rows={3} autoFocus keep={noteKey} value={note} onChange={(event) => setNote(event.currentTarget.value)} /> : null}
+        {noting ? <Textarea aria-label="Note" rows={3} autoFocus keep={noteKey} value={note} onChange={(event) => setNote(event.currentTarget.value)} onKeyDown={commits(sendBack, note.trim() !== "")} /> : null}
         {(settled?.how === "sent_back" || settled?.how === "withdrawn") && settled.words !== undefined ? <blockquote className="armada-session-draft__note">{settled.words}</blockquote> : null}
         {state === undefined ? null : (
           <p className="armada-session-draft__settled" data-how={settled!.how}>
@@ -171,8 +206,9 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
           <CardFooter role="group" aria-label="Answers">
             {editing ? (
               <>
-                <Button size="sm" variant="primary" disabled={fixed.trim() === ""} onClick={() => onAnswer(row.id, fixed === row.text ? { choice: 0 } : { fixed })}>
+                <Button size="sm" variant="primary" disabled={fixed.trim() === ""} onClick={approveFixed}>
                   Approve with fixes
+                  <ThreadKbd act="yes" on={target} />
                 </Button>
                 <Button size="sm" variant="ghost" onClick={cancel}>
                   Cancel
@@ -180,7 +216,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
               </>
             ) : noting ? (
               <>
-                <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={() => onAnswer(row.id, { text: note.trim() })}>
+                <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={sendBack}>
                   Send back
                 </Button>
                 <Button size="sm" variant="ghost" onClick={cancel}>
@@ -190,16 +226,19 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
               </>
             ) : (
               <>
-                <Button size="sm" variant="primary" onClick={() => onAnswer(row.id, { choice: 0 })}>
+                <Button size="sm" variant="primary" onClick={approve}>
                   Approve
+                  <ThreadKbd act="yes" on={target} />
                 </Button>
                 {proposed !== undefined ? null : (
                   <>
                     <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
                       Edit
+                      <ThreadKbd act="change" on={target} />
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
                       Note
+                      <ThreadKbd act="sendBack" on={target} />
                     </Button>
                   </>
                 )}

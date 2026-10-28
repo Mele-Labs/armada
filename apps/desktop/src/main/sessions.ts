@@ -34,6 +34,7 @@ import type {
   JobTerminal,
   OpenTerminal,
   StartTerminalRun,
+  AnswerSketch,
   ApprovePlan,
   ChangeWaiting,
   ClaimIssue,
@@ -795,6 +796,11 @@ export class SessionsHost {
 
   async confirmWaiting(confirm: ConfirmWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/confirm", confirm);
+  }
+
+  /** The person approved a sketch or sent it back with a note. Fleet tells the agent and answers the record, which is folded. */
+  async answerSketch(answer: AnswerSketch): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/sketch/answer", answer);
   }
 
   /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */

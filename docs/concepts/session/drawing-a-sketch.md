@@ -27,6 +27,13 @@ The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`,
 No window opens.
 Through the door the answer is a receipt of `session_id` and `sketch`.
 
+**Every sketch shown is put to the person on its card**, with `detail.asked` `"true"` and `detail.drawn`, an id new on every draw.
+He approves it, or sends it back with a note, and `answer_sketch` tells the job as his message, as a draft's answer does: `Approved sketch: <title>`, or `Sent back sketch: <title>` with the note and to draw it again under the same title.
+It is never a Needs you item.
+The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
+Only the drawing he read is answered: one drawn again since is refused.
+A plan's sketch is not asked, because it is approved with the plan.
+
 **The person notes a part of it back to the job** by a right-click or a Shift+drag, and the note arrives as a message: [Noting what you read](noting-what-you-read.md).
 
 **`step` orders what plays.** It is a finite number on a node or an edge, with one numbering for both: everything with the same step plays together, in ascending order, the dot travels an edge from `from` to `to`, and an edge with no step never pulses.

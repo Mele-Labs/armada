@@ -956,6 +956,19 @@ describe("a sketch on the ledger", () => {
     expect(text(JSON.stringify({ ...SCENE, edges: [{ id: "a-b", from: "a", to: "b", step: "one" }] }))).toEqual(empty);
   });
 
+  it("reads a sketch put to him, the drawing he is shown, and how he answered it", () => {
+    const at = "2026-10-28T09:00:00.000Z";
+    const sketch = (detail: Record<string, string>) => attachmentsOfRecord(record("a", { attachments: [sketchRow("Flow", { scene: JSON.stringify(SCENE), asked: "true", drawn: "r7", ...detail })] }), beside())[0];
+    const open = sketch({});
+    expect(open).toMatchObject({ asked: true, drawn: "r7" });
+    expect(open).not.toHaveProperty("settled");
+    expect(sketch({ settled: "approved", settled_at: at })).toMatchObject({ settled: { how: "approved", at } });
+    expect(sketch({ settled: "approved", settled_at: at })).not.toHaveProperty("settled.words");
+    expect(sketch({ settled: "sent_back", settled_at: at, words: "Smaller." })).toMatchObject({ settled: { how: "sent_back", words: "Smaller.", at } });
+    const odds: Record<string, string>[] = [{ settled: "fixed", settled_at: at }, { settled: "approved" }];
+    for (const odd of odds) expect(sketch(odd)).not.toHaveProperty("settled");
+  });
+
   it("leaves a bad `against` off and keeps the sketch", () => {
     const [one] = attachmentsOfRecord(record("a", { attachments: [sketchRow("After", { scene: JSON.stringify(SCENE), against: againstText("Before", "{no") })] }), beside());
     expect(one).toMatchObject({ kind: "sketch", drawing: SCENE });

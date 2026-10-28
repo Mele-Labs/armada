@@ -70,12 +70,15 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 
 ### Walks and replies
 
-Two step keys place a Job around the owner.
-`crates/core-model/domain/workflowdef-fields.toml` carries both.
+Three step keys place a Job around the owner.
+`crates/core-model/domain/workflowdef-fields.toml` carries them.
 
-**`awaits_reply: true`** ends the step when the owner replies.
-The agent stops until he does.
-`feature` sets it on `propose`.
+**`ends_on`** lists what the owner does that ends the step, any one of them: `replied`, `walk_approved`, `sketch_approved`, `draft_approved` and `idea_picked`.
+The agent stops until one holds.
+`feature` sets it on `propose`, without `replied`: Propose ends on an approval, never on prose.
+`idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
+
+**`awaits_reply: true`** is `ends_on: ["replied"]`.
 
 **`walks: true`** is the step where he is shown the work and approves it before any test is written.
 It is current from the plan's approval until he approves a window the Job showed, and it needs a recording step before it.
