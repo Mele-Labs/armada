@@ -112,6 +112,22 @@ impl Store {
         Ok(self.conn.last_insert_rowid())
     }
 
+    /// The ids of every change that is ready now, for deciding which proposals still wait on the owner.
+    pub fn ready_workflow_change_ids(&self) -> Result<Vec<i64>, WriteError> {
+        let doing = "reading the ready workflow changes";
+        let mut statement = self
+            .conn
+            .prepare("SELECT id FROM workflow_changes WHERE state = ?1")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let ids = statement
+            .query_map([READY], |row| row.get::<_, i64>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(ids)
+    }
+
     /// One change by id, settled ones included.
     pub fn workflow_change(&self, id: i64) -> Result<Option<KeptWorkflowChange>, WriteError> {
         self.conn

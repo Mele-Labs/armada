@@ -169,6 +169,11 @@ where
             .workflow_change(id)
             .map_err(|why| self.change_not_kept(why))?
             .ok_or_else(|| self.change_not_kept("the change was not there to read"))?;
+        drop(store);
+        // Fleet raises the owner's call itself, on the Job the connection places; no caller, no call.
+        if let Some(job) = api::asking().and_then(|caller| self.session_holding(&caller)) {
+            self.proposal_waits(&job, id, &kept.workflow_id, &definition).await;
+        }
         Ok(change_wire(&kept))
     }
 
