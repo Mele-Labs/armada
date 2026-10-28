@@ -1,0 +1,12 @@
+[operations.browser_screenshot]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take a picture of the page in this Job's browser as the owner sees it. Body: empty, or session_id only where you run in a terminal. Answers the path of a PNG in your scratch folder, with the page's url and title; read the file to look at it. The folder is removed when the Job ends"
+notes = """
+`POST /sessions/browser/screenshot`, body `BrowserLook`: an optional `session_id`. Answered 200 with `BrowserAnswer` `screenshot`: `url`, `title` and `path`.
+
+**Fleet names the file.** The act is `{ kind: "screenshot", path }`, `path` being `<scratch>/browser/<request id>.png` in the Job's scratch folder (`$ARMADA_SCRATCH`), whose `browser` folder Fleet makes before it publishes. Bridge writes the PNG there and answers `screenshot` with no `path`; an answer while no file is there is refused, and the call is still held.
+
+Held and refused as `browser_open` is: `docs/practices/protocol/the-job-browser.md`.
+"""

@@ -922,6 +922,22 @@ where
         self.job_shell_read(caller, asked).await
     }
 
+    async fn drive_browser(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        act: ipc::BrowserAct,
+    ) -> Result<ipc::BrowserAnswer, Refusal> {
+        self.browser_driven(caller, session_id, act).await
+    }
+
+    async fn answer_browser_request(
+        &self,
+        answer: ipc::AnswerBrowserRequest,
+    ) -> Result<ipc::BrowserRequestAnswered, Refusal> {
+        self.browser_request_answered(answer).await
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

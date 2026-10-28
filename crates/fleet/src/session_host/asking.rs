@@ -106,12 +106,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Every call held for a person, Helm's and every hosted session's, answered now because Fleet
-    /// is stopping. **Called the moment a stop is asked for**, before graceful shutdown waits on
-    /// connections: a held call would keep it waiting until the process is killed. `#2663`.
+    /// Every call held for a person, Helm's and every hosted session's, and every Job browser act
+    /// held for Bridge, answered now because Fleet is stopping. **Called the moment a stop is asked
+    /// for**, before graceful shutdown waits on connections: a held call would keep it waiting until
+    /// the process is killed. `#2663`.
     pub fn asks_ended_for_stop(&self) {
         self.hosts().asks().all_withdrawn();
         self.helm().asks().all_withdrawn();
+        self.job_browser().all_withdrawn();
     }
 
     /// The hosted session whose process holds this call's connection.

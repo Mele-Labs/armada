@@ -1,0 +1,10 @@
+[operations.browser_click]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Press something on the page in this Job's browser. Body: target, {role, name}, role a role such as button, link, tab or textbox, or text for words the page draws, name a string inside its accessible name (exact: true for the whole name), within another target to look only inside it, as show_window's steps take; optional session_id, only where you run in a terminal. Answers the page's url, title and snapshot after the press, so you see what it did. Refused where no such target is on the page: read the snapshot for what is there"
+notes = """
+`POST /sessions/browser/click`, body `BrowserClick`: `target`, a `WalkTarget` as `show_window`'s steps take one, and an optional `session_id`. Answered 200 with `BrowserAnswer` `page`. The act is `{ kind: "click", target }`. A target with a blank role is refused with 422 `fleet.browser_refused`; one Bridge cannot find is refused with 422 `fleet.browser_target_not_found`.
+
+Held and refused as `browser_open` is: `docs/practices/protocol/the-job-browser.md`.
+"""

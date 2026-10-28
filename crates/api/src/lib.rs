@@ -33,6 +33,7 @@ mod adversarial_review;
 mod homing;
 mod amending;
 mod answers;
+mod browsing;
 /// Who the listener answers at all: a page in a browser is refused before any
 /// handler runs. **The seam's one rule about callers**, and `#1460`.
 mod callers;

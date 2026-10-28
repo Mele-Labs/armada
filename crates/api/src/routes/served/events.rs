@@ -123,6 +123,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // An agent's act on its Job browser, for Bridge to do and answer.
+    Route {
+        operation: "browser.request",
+        method: "GET",
+        path: "/events",
+    },
     // A Studio after a write, whole, and a Studio deleted.
     Route {
         operation: "studio.changed",

@@ -37,6 +37,7 @@ use crate::watches::WatchList;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::terminals::JobTerminal;
+use crate::job_browser::BrowserRequest;
 
 /// A position in the stream. Monotonic, assigned by Fleet, never reused.
 ///
@@ -161,6 +162,9 @@ pub enum Event {
     TerminalOpened(JobTerminal),
     #[serde(rename = "terminal.exited")]
     TerminalExited(JobTerminal),
+    // An agent's act on its Job browser, held by Fleet until Bridge answers it by `request_id`.
+    #[serde(rename = "browser.request")]
+    BrowserRequest(BrowserRequest),
     // Sleep mode, or a repository's Autopilot (#2092), after any change to it, whole.
     #[serde(rename = "sleep.changed")]
     SleepChanged(SleepState),
