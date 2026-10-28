@@ -11,9 +11,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeToArmada, RemoveTrigger,
-    SaveTrigger, SaveWorkflow, SendBackWorkflowChange, SuggestWorkflowChange, TriggerRemoved, TriggerSaved,
-    WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
+    ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeToArmada, SaveWorkflow,
+    SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
     WorkflowId, WorkflowSaved,
 };
 
@@ -113,24 +112,6 @@ pub trait Authoring: Send + Sync + 'static {
         self: Arc<Self>,
         proposed: ProposeToArmada,
     ) -> impl Future<Output = Result<ArmadaProposed, Refusal>> + Send;
-
-    /// `save_trigger` — check one Trigger against the repository's Commands and
-    /// write it in the scope named. **Checked before anything is written**, with
-    /// the loader's rules. A repository's is refused for a Command it does not
-    /// declare; a machine's is not, since the same file is right in the next
-    /// repository, and the answer says where it would be skipped.
-    fn save_trigger(
-        &self,
-        save: SaveTrigger,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<TriggerSaved, Refusal>> + Send;
-
-    /// `remove_trigger` — delete the file in a scope that holds one identity.
-    fn remove_trigger(
-        &self,
-        remove: RemoveTrigger,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<TriggerRemoved, Refusal>> + Send;
 
 
 

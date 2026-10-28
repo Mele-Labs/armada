@@ -635,14 +635,14 @@ Nothing else inherits the waiver.
 Its table also carries the Cockpit's strip of calls waiting behind the one in front and a Monitor on the ledger; its reservation keeps it from a Check, a Judge, a live Drone and a search.
 
 **A watch's state takes borrowed glyphs and mints none.**
-`waiting`, `running`, `passed` and `failed` answer what a Trigger's firing answers, and the three ends no reading says borrow the Check outcome that is the same ending.
+`waiting`, `running`, `passed` and `failed` answer the question a step does one level down, so they take the step glyphs, and the three ends no reading says borrow the Check outcome that is the same ending.
 The roster of what may be lent is `[conventions.watch_state_borrowing]` in `packages/icons/`.
 
 ```
-waiting   circle-dashed  borrowed  a Trigger's pending
-running   circle-dot     borrowed  a Trigger's running
-passed    check          borrowed  a Trigger's passed
-failed    x              borrowed  a Trigger's failed
+waiting   circle-dashed  borrowed  a step's pending
+running   circle-dot     borrowed  a step's running
+passed    check          borrowed  a step's passed
+failed    x              borrowed  a step's failed
 not_ours  corner-up-right  proposed  a pass while a part set aside failed: never green
 gave_up   clock          borrowed  check_outcome.timed_out: outran its time
 broken    unplug         borrowed  check_outcome.signalled: gave no line

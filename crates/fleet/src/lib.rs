@@ -338,8 +338,6 @@ mod tracking;
 /// Where a path an agent named lies in a repository, and its name from its worktree's root.
 mod tree_paths;
 pub mod transcript;
-mod trigger_authoring;
-mod trigger_wire;
 /// The live dials settings.json moves, shipped and overlaid by saved.
 pub mod tuning;
 mod worktrees_kept;
@@ -380,5 +378,4 @@ pub use seeding::{CopyOnWrite, NotCloned, TheVolume};
 pub use slots::Concurrency;
 pub use noticing::Noticing;
 pub use orphans::keep_ending_orphans;
-pub use trigger_wire::{trigger_definition, trigger_list};
 pub use wire::left_out_workflow;

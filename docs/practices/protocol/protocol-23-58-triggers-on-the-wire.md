@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`. **Additive only**: four operations, one event, the DTOs of `ipc::triggers` and one optional field on `JobDetail`. 23.52 is a job's name.
+`docs/concepts/trigger.md (deleted)`. **Additive only**: four operations, one event, the DTOs of `ipc::triggers` and one optional field on `JobDetail`. 23.52 is a job's name.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -18,4 +18,4 @@ A Bridge that missed some re-reads `get_job`.
 The rate is `[broadcast-capacity]`'s to measure.
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field.
-Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+Bridge's half is `packages/protocol/src/triggers.ts (deleted)`, written by hand like the rest.

@@ -245,7 +245,6 @@
 /* A Job's run, drawn as the workflow it froze: the canvas, its stacked
    alternative, the card both draw and the panel a step opens into. #1539. */
 @import "./compositions/WorkflowStepCard/WorkflowStepCard.css";
-@import "./compositions/WorkflowCanvas/WorkflowCanvas.css";
 
 /* Activity and Footprint, the two instruments on a Job page. #1268. */
 
@@ -326,7 +325,6 @@
 @import "./compositions/PoolSlots/PoolSlots.css";
 @import "./compositions/PoolSlots/TileSheet.css";
 @import "./compositions/WorkflowManager/WorkflowManager.css";
-@import "./compositions/WorkflowTriggers/WorkflowTriggers.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/RegisteredOwner/RegisteredOwner.css";
 @import "./compositions/SessionFrame/SessionFrame.css";

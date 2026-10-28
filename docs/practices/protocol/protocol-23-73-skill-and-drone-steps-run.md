@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *A Skill or a Drone step*.
+`docs/concepts/trigger.md (deleted)`, *A Skill or a Drone step*.
 **Additive only**: one optional field on `JobTrigger`.
 A Skill Trigger, a Skill added step and a Drone added step now run on a side Drone, on a branch cut from the Job's, and no state, operation or error is new.
 
@@ -18,4 +18,4 @@ A Skill Trigger, a Skill added step and a Drone added step now run on a side Dro
 
 **Skew.** A Fleet before 23.73 records a Skill `skipped` and sends no `drone`; Bridge draws it as it did.
 A Bridge before it sees a Skill run as a `running` Trigger that then ends `fix_ready`, which it draws as it draws a repair's fix.
-Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+Bridge's half is `packages/protocol/src/triggers.ts (deleted)`, written by hand like the rest.

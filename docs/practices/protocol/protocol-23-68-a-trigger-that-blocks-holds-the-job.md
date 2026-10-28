@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *A failed Trigger with `block` on*. **Additive only**: two operations, one state, one skip reason, one escalation reason and two optional fields.
+`docs/concepts/trigger.md (deleted)`, *A failed Trigger with `block` on*. **Additive only**: two operations, one state, one skip reason, one escalation reason and two optional fields.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

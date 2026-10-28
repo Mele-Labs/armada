@@ -227,23 +227,4 @@ where
     ) -> Result<ipc::ArmadaProposed, Refusal> {
         self.workflow_proposed_to_armada(proposed).await
     }
-
-    async fn save_trigger(
-        &self,
-        asked: ipc::SaveTrigger,
-        manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::TriggerSaved, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
-        // `kept_from` names an addition a Job made, and Jobs no longer make them: it is accepted
-        // and ignored.
-        self.save_trigger_file(asked, &served)
-    }
-
-    async fn remove_trigger(
-        &self,
-        asked: ipc::RemoveTrigger,
-        manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::TriggerRemoved, Refusal> {
-        self.remove_trigger_file(asked, &self.served_named(manifest_id.as_ref())?)
-    }
 }

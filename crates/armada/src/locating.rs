@@ -183,32 +183,6 @@ impl Locating for Locator {
         }
     }
 
-    fn save_trigger(
-        &self,
-        root: &Path,
-        manifest: &config::Manifest,
-        asked: &ipc::SaveTrigger,
-    ) -> Result<fleet::repositories::SavedTrigger, fleet::repositories::TriggerNotSaved> {
-        crate::trigger_authoring::save(root, &self.machine, manifest, asked)
-    }
-
-    fn remove_trigger(
-        &self,
-        root: &Path,
-        asked: &ipc::RemoveTrigger,
-    ) -> Result<String, fleet::repositories::TriggerNotRemoved> {
-        crate::trigger_authoring::remove(root, &self.machine, asked)
-    }
-
-    fn triggers(&self, root: &Path, base: Option<&str>) -> Vec<config::TriggerWritten> {
-        let mut written: Vec<_> = adapters::triggers_on_base(root, base)
-            .into_iter()
-            .map(|(path, text)| config::TriggerWritten::in_repository(path, text))
-            .collect();
-        written.extend(crate::trigger_authoring::on_machine(&self.machine));
-        written
-    }
-
     fn watch_recipes(&self, root: &Path, base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
         let mut written: Vec<_> = adapters::watch_recipes_on_base(root, base)
             .into_iter()
@@ -224,7 +198,7 @@ impl Locating for Locator {
             .map(|(path, text)| config::WatchRecipeWritten::by_armada(path, text))
             .collect();
         let machine = self.machine.join("machine").join("watches");
-        written.extend(crate::trigger_authoring::listed(&machine).into_iter().filter_map(|path| {
+        written.extend(listed(&machine).into_iter().filter_map(|path| {
             let text = std::fs::read_to_string(&path).ok()?;
             Some(config::WatchRecipeWritten::on_machine(path, text))
         }));
@@ -366,4 +340,23 @@ impl Locating for Locator {
         }
         watching::say(read, &file)
     }
+}
+
+/// The `.yml` and `.yaml` files in `dir`, sorted. Absent is none.
+fn listed(dir: &Path) -> Vec<PathBuf> {
+    let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && matches!(
+                    path.extension().and_then(|ext| ext.to_str()),
+                    Some("yml" | "yaml")
+                )
+        })
+        .collect();
+    found.sort();
+    found
 }
