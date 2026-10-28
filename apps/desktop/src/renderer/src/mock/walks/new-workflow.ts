@@ -1,23 +1,23 @@
-// A workflow made from nothing, and one a Job proposed. Over `new-workflow`, a mock with nothing written.
-// Keys: N opens the form from the list, Tab moves through name, definition, scope and Save, Enter in the name saves, Escape cancels.
+// Making a workflow: New workflow on the Workflows page opens the Dispatch sheet for a Job, which proposes it as a card in its thread
+// and an item in Needs you; Approve lists it under its scope. Over `new-workflow`, a mock with the Job scripted.
+// Keys: N opens the sheet from the Workflows page, Enter starts, Esc closes, 1 and 2 answer in Needs you.
 
-import { button, deckRow, inside, place, region, role, text, toSystemPage, walk } from "../walk";
+import { button, dialog, inside, region, role, toSystemPage, walk } from "../walk";
 
-const form = role("form", "New workflow");
+const sheet = dialog("Dispatch");
 const needs = region("Needs you");
-const card = role("article", "Workflow: release-notes", { exact: true });
 
 const newWorkflow = walk("new-workflow", [
   ...toSystemPage("Workflows", "Workflows, from System"),
-  { press: button(/^New workflow/), say: "New workflow opens a blank definition" },
-  { type: "release-notes", into: inside(form, role("textbox", "Name")), say: "A name" },
-  { press: inside(form, role("radio", "This repository")), say: "Kept for this repository only; the other choice is every repository on this Mac" },
-  { look: inside(form, button("Save", { exact: true })), say: "Save and Cancel" },
-  { press: place("Cockpit"), say: "Back to the Cockpit" },
-  { press: deckRow("Write release notes"), say: "A Job that proposed a workflow" },
-  { look: inside(card, text("Every repository on this Mac")), say: "The card names the workflow, its scope and its definition. Approve or Dismiss" },
-  { press: inside(needs, button(/^Needs you/)), say: "The same proposal is in Needs you" },
-  { look: inside(needs, text("Dismiss")), say: "Name, scope and definition, with Approve and Dismiss" },
+  { press: button(/^New workflow/), say: "New workflow opens the sheet" },
+  { type: "Release notes for a tag", into: inside(sheet, role("textbox", "Request")), say: "What it should do" },
+  { press: inside(sheet, role("radio", "This repository")), say: "Where it is kept" },
+  { press: inside(sheet, button("Start", { exact: true })), say: "Start begins a Job, which opens in the Cockpit" },
+  { press: inside(needs, button(/^Needs you/)), say: "The proposed workflow is in Needs you, and as a card in the thread" },
+  { press: inside(needs, role("radio", /Approve/)), say: "Approve" },
+  { press: inside(needs, button("Answer", { exact: true })), say: "Answer sends it" },
+  ...toSystemPage("Workflows", "Workflows, from System"),
+  { look: role("button", "release-notes", { exact: true }), say: "release-notes is listed" },
 ]);
 
 export { newWorkflow as "new-workflow" };

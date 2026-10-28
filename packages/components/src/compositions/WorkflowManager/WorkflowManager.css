@@ -528,19 +528,8 @@
   padding: var(--space-3) var(--space-4);
 }
 
-/* ---- A new workflow ------------------------------------------------------------------------- */
+/* ---- New workflow ----------------------------------------------------------------------------- */
 
 .armada-wm__new {
   align-self: flex-start;
-}
-
-.armada-wm-new {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.armada-wm-new__acts {
-  display: flex;
-  gap: var(--space-2);
 }

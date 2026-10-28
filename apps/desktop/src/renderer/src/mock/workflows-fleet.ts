@@ -65,6 +65,14 @@ const SPECIFIC: readonly Place[] = ["kit", "repository", "armada"];
 const fileOf = (source: Place, id: string) =>
   source === "armada" ? `[armada]/${id}` : `${source === "kit" ? KIT_FOLDER : REPOSITORY_FOLDER}/${id}.json`;
 
+/** Workflows approved elsewhere in the mock (a Job's proposal), waiting to be held by the next read. */
+const APPROVED: Held[] = [];
+
+/** A proposed workflow approved: the next read of the list holds it under its scope. A mock's route. */
+export function approveProposedWorkflow(id: string, scope: "kit" | "repository", text: string): void {
+  APPROVED.push({ source: scope, id, file: fileOf(scope, id), text, ...(scope === "repository" ? { manifest: FIRST } : {}) });
+}
+
 /** A change as the mock keeps it: the wire's, and the moment an agent finishes it. */
 type Kept = { change: WorkflowChange; readyAt: number; manifest: string };
 
@@ -122,7 +130,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
   const under = (manifest: string | null | undefined) => manifest ?? current() ?? FIRST;
   /** A repository's copy is in one repository; Armada's and Kit's are in all. */
   const held = (id: string, source: Place, manifest?: string | null) =>
-    files.find((one) => one.id === id && one.source === source && one.leftOut === undefined && (source !== "repository" || one.manifest === under(manifest)));
+    (files = [...files, ...APPROVED.splice(0)]).find((one) => one.id === id && one.source === source && one.leftOut === undefined && (source !== "repository" || one.manifest === under(manifest)));
   const missing = (id: string, source: string): Outcome =>
     refusal("fleet.no_such_workflow_definition", `No ${source} definition of \`${id}\` is held`);
   const place = (source: string): Place | undefined => (source === "armada" || source === "repository" || source === "kit" ? source : undefined);
@@ -215,6 +223,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
   return {
     // One summary per repository and workflow id, as Fleet lists them: Armada's and Kit's are the same under each.
     readWorkflows: async () => {
+      files = [...files, ...APPROVED.splice(0)];
       const summaries = SERVED.flatMap((manifest) => {
         const ids = [...new Set(files.filter((one) => one.leftOut === undefined && (one.source !== "repository" || one.manifest === manifest)).map((one) => one.id))];
         return ids.map((id): WorkflowSummary => {

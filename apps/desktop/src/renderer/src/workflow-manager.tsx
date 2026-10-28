@@ -29,6 +29,7 @@ import {
   sendBackWorkflowChange,
   suggestWorkflowChange,
 } from "./commands";
+import { useDispatching } from "./dispatch-panel/dispatching";
 import { askToOpenSessionInCockpit } from "./open-session";
 import { PieceActs } from "./sharing/PieceActs";
 import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
@@ -71,6 +72,7 @@ export function WorkflowManagerSurface({
 }
 
 function Held({ current, repository, root, served }: { current: string | null; repository: string; root: string | null; served: readonly Served[] }) {
+  const dispatching = useDispatching();
   const [listed, setListed] = useState<WorkflowsRead | null>(null);
   const [reads, setReads] = useState<Readonly<Record<string, Read>>>({});
   const [picked, setPicked] = useState<WorkflowRef | null>(null);
@@ -294,21 +296,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
         await loadChanges(one);
         return undefined;
       }}
-      onCreate={async ({ name, definition, scope }) => {
-        let parsed: Record<string, unknown> = { steps: [] };
-        if (definition.trim() !== "") {
-          try {
-            parsed = JSON.parse(definition) as Record<string, unknown>;
-          } catch {
-            return "The definition is not JSON";
-          }
-        }
-        const saved = await saveWorkflow({ manifestId: current, body: { scope, definition: JSON.stringify({ ...parsed, workflow_id: name }, null, 2), overwrite: false } });
-        if (!saved.ok) return refusalWords(saved.outcome);
-        await reread();
-        open({ id: name, source: scope === "kit" ? "yours" : "repository", ...(scope === "repository" && current !== null ? { manifestId: current } : {}) }, undefined);
-        return undefined;
-      }}
+      onNew={dispatching === undefined ? undefined : dispatching.openWorkflow}
       onApproveSuggestion={(one, stepId) => onChange(one, stepChange(stepId), approveWorkflowChange)}
       onDismissSuggestion={(one, stepId) => onChange(one, stepChange(stepId), dismissWorkflowChange)}
     />

@@ -1,11 +1,10 @@
-import { Ban, Check, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle } from "lucide-react";
+import { Ban, Check, Plus, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
-import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { STEP_GLYPHS, keyOf } from "./types";
@@ -66,12 +65,9 @@ export type WorkflowManagerProps = {
   onSuggest: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   onApproveSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
-  /** Saves a new workflow under `scope`: Kit's, for every repository on this Mac, or the repository's. Absent draws no New workflow. */
-  onCreate?: (made: NewWorkflow) => Promise<WorkflowActAnswer>;
+  /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
+  onNew?: () => void;
 };
-
-/** A workflow typed from nothing: its name, the text of its definition, and where it is kept. */
-export type NewWorkflow = { name: string; definition: string; scope: "kit" | "repository" };
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
 const refOf = (one: ManagedWorkflow): Pick<WorkflowRef, "manifestId" | "file"> => ({
@@ -97,7 +93,6 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   const search = useRef<HTMLInputElement>(null);
   // Words typed and not saved, kept across leaving a workflow.
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
-  const [creating, setCreating] = useState(false);
 
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
@@ -132,10 +127,10 @@ export function WorkflowManager(props: WorkflowManagerProps) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const typing = (event.target as HTMLElement).closest("input, textarea, select") !== null;
-    if (event.key.toLowerCase() === "n" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey && props.onCreate !== undefined) {
+    if (event.key.toLowerCase() === "n" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey && props.onNew !== undefined) {
       event.preventDefault();
       event.stopPropagation();
-      setCreating(true);
+      props.onNew();
       return;
     }
     if (event.key.toLowerCase() !== "f" || typing || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -148,10 +143,10 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   return (
     <div className="armada-wm" onKeyDown={onKeyDown}>
       <div className="armada-wm__list" data-col="list">
-        {props.onCreate === undefined ? null : (
-          <Button variant="secondary" size="sm" className="armada-wm__new" aria-pressed={creating} onClick={() => setCreating(true)}>
+        {props.onNew === undefined ? null : (
+          <Button variant="primary" size="default" className="armada-wm__new" onClick={props.onNew}>
+            <Plus size={16} strokeWidth={2} aria-hidden />
             New workflow
-            <Kbd>N</Kbd>
           </Button>
         )}
         <Input
@@ -222,9 +217,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
         </div>
       </div>
       <div className="armada-wm__detail" data-col="detail">
-        {creating && props.onCreate !== undefined ? (
-          <Creator onCreate={props.onCreate} onClose={() => setCreating(false)} />
-        ) : current === undefined ? null : (
+        {current === undefined ? null : (
           <Detail
             key={keyOf(current)}
             {...props}
@@ -236,60 +229,6 @@ export function WorkflowManager(props: WorkflowManagerProps) {
         )}
       </div>
     </div>
-  );
-}
-
-/** A blank definition: a name, the definition's text and where it is kept. Save is refused with Fleet's sentence, kept beside it. */
-function Creator({ onCreate, onClose }: { onCreate: (made: NewWorkflow) => Promise<WorkflowActAnswer>; onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [definition, setDefinition] = useState("");
-  const [scope, setScope] = useState<NewWorkflow["scope"]>("kit");
-  const [refused, setRefused] = useState<string | undefined>(undefined);
-  const save = async () => {
-    const answer = await onCreate({ name: name.trim(), definition, scope });
-    if (answer === undefined) onClose();
-    else setRefused(answer);
-  };
-  return (
-    <form
-      className="armada-wm-new"
-      aria-label="New workflow"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (name.trim() !== "") void save();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
-        }
-      }}
-    >
-      <Input aria-label="Name" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
-      <Textarea aria-label="Definition" rows={14} grow keep="workflows:new:definition" value={definition} onChange={(event) => setDefinition(event.target.value)} />
-      <RadioGroup label="Scope">
-        <Radio name="workflow-scope" checked={scope === "kit"} onChange={() => setScope("kit")}>
-          Every repository on this Mac
-        </Radio>
-        <Radio name="workflow-scope" checked={scope === "repository"} onChange={() => setScope("repository")}>
-          This repository
-        </Radio>
-      </RadioGroup>
-      {refused === undefined ? null : (
-        <p className="armada-wm__said" role="alert" data-refused>
-          {refused}
-        </p>
-      )}
-      <div className="armada-wm-new__acts">
-        <Button type="submit" variant="primary" size="sm" disabled={name.trim() === ""}>
-          Save
-        </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
-      </div>
-    </form>
   );
 }
 
