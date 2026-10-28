@@ -1,7 +1,7 @@
 // The four keys on a Job's thread cards. The target card, the newest waiting or the one holding focus, wears a ring and draws its keys;
 // ⌥↵ and ⌥X ask which card first, every time, and ⌥R opens the target's own note box. Over the `thread-shortcuts` scenario.
 
-import { deckRow, dialog, inside, role, walk } from "../walk";
+import { button, deckRow, dialog, inside, role, walk } from "../walk";
 
 const plan = role("article", "Plan to approve");
 const oldest = role("article", "Draft: Description for the resumable upload change", { exact: true });
@@ -12,7 +12,8 @@ const withdrawing = dialog("Withdraw which?");
 
 const threadShortcuts = walk("thread-shortcuts", [
   { press: deckRow("Resume large uploads"), say: "A Job with three drafts and a plan waiting in its thread" },
-  { look: inside(plan, role("group", "Answers")), say: "The plan is the newest card waiting: it wears the ring, and Approve and Not yet draw ⌥↵ and ⌥R" },
+  { look: inside(plan, role("group", "Answers")), say: "The plan is the newest card waiting: it wears the ring, and Approve, Suggest and Not yet draw ⌥↵, ⌥E and ⌥R" },
+  { look: inside(plan, button("Suggest", { exact: true })), say: "Suggest opens the plan in full to suggest in, as ⌥E does" },
   { key: "Alt+Enter", on: box, say: "⌥↵ from the message box" },
   { look: inside(approving, role("radio", "Plan · Keep the upload's parts on disk, Show where a resumed upload stands")), say: "Approve which? lists the four cards, numbered, with the plan picked" },
   { key: "2", on: approving, say: "2 picks the release note" },

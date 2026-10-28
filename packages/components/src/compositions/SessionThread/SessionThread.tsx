@@ -1438,6 +1438,13 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             Approve
             <ThreadKbd act="yes" on={target} />
           </Button>
+          {/* Opens the plan in full, where a group or task takes a suggestion: what `⌥E` does. */}
+          {aside || onReview === undefined ? null : (
+            <Button size="sm" variant="secondary" onClick={onReview}>
+              Suggest
+              <ThreadKbd act="change" on={target} />
+            </Button>
+          )}
           {aside || approval.onSetAside === undefined ? null : (
             <Button size="sm" variant="secondary" onClick={approval.onSetAside}>
               Not yet
