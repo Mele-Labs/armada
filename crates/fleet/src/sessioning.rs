@@ -970,6 +970,10 @@ where
         Ok(record)
     }
 
+    async fn name_session(&self, name: ipc::NameSession) -> Result<SessionRecord, Refusal> {
+        self.named_by_armada(name).await
+    }
+
     async fn list_sessions(
         &self,
         manifest_id: Option<ManifestId>,

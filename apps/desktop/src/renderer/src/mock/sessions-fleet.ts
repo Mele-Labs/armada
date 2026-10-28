@@ -36,6 +36,7 @@ import type {
   SessionRow,
   SessionAskState,
   PartialRetroItem,
+  NameSession,
   RenameSession,
   SessionSubagent,
   SessionLoadout,
@@ -62,6 +63,16 @@ import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
 
 const AT = "2026-10-07T13:48:02.000Z";
+
+/** How long Fleet's naming call takes: a model reads the first message. */
+const NAMING_MS = 1000;
+
+/** The short names Fleet gives these Jobs, by id. Any other is named from the first words of its message. */
+export const NAMED_FOR_ME: Record<string, string> = {
+  "7c41d9a2-3e58-4b1f-a0d6-91f2c5e8b370": "Checks tab beside Bays in the spine",
+};
+
+const firstWords = (text: string): string => text.trim().split(/\s+/).slice(0, 6).join(" ");
 
 /** A picture that decodes. A sent message draws what it carried, and a broken one raises an error the walks hear. */
 const ONE_PIXEL = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
@@ -158,6 +169,7 @@ export type Calls = {
   /** The Sessions begun from their start card, in order. */
   begun: BeginSession[];
   renamed: RenameSession[];
+  named: NameSession[];
   closed: string[];
   /** The Sessions whose running turn was stopped. */
   stopped: string[];
@@ -192,7 +204,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], startedRows: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0, reviewed: [], findingsSent: [], findingsDismissed: [] };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], startedRows: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], named: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0, reviewed: [], findingsSent: [], findingsDismissed: [] };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -458,6 +470,12 @@ export class FakeSessionsFleet {
           renameSession: async (rename) => {
             this.calls.renamed.push(rename);
             return this.change(rename.session_id, (one) => ({ ...one, title: rename.title }));
+          },
+          // Fleet names the Job from its first message: here a fixture, or the first words, after the wait a model takes.
+          nameSession: async (naming) => {
+            this.calls.named.push(naming);
+            await new Promise((done) => setTimeout(done, NAMING_MS));
+            return this.change(naming.session_id, (one) => ({ ...one, title: NAMED_FOR_ME[one.id] ?? firstWords(one.hosted?.start?.message ?? one.title ?? "") }));
           },
           forkSession: async (sessionId) => {
             this.calls.forked.push(sessionId);

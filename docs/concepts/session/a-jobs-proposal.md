@@ -26,7 +26,7 @@ Any other start is read at the first message it is sent or given, and that turn 
 | Dispatch sheet (`request`) | Yes | At the start. The Job is held, and the reading sends nothing |
 | Annotations, Lessons, Hand to Job, any Bridge start with no `request` | Yes | At the first message the Job is given: kept on a held Job, sent on any other |
 | `start_another_session` (an agent's start, with a plan group or a wait) | Yes | At creation, from the agent's brief, so the proposal is in the dispatcher before he presses Start. Start does not read it again |
-| A fork (`fork_this_session`, a fork in `start_session`, red main's fork) | No | It carries its source's conversation, model and settings |
+| A fork (`fork_this_session`, a fork in `start_session`, red main's fork) | No | It carries its source's conversation, model and settings. A fork an agent titled is asked for its title alone when Start sends it (`job-proposer.md`, *How a Job's request is read*) |
 | Helm, and Setup's Job | No | Helm is a conversation with fixed values, not a brief; Setup has no Manifest to read against |
 | Autopilot, Rescue's continuation | No | Fleet's own dispatch: its brief is fixed, and Autopilot has picked the workflow |
 | Fleet's words to a Job (`told_by_fleet`) | No | A notice is not a request |

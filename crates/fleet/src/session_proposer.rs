@@ -147,6 +147,22 @@ impl SessionBrief {
         SessionBrief { question }
     }
 
+    /// The question with the title an agent gave the Job, as a hint of what it is and never as the
+    /// name, ahead of the answer format as his renames are.
+    pub fn hinted(self, title: &str) -> SessionBrief {
+        let Some(asked) = self.question.strip_suffix(SESSION_ANSWER_FORMAT) else {
+            return self;
+        };
+        let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+        SessionBrief {
+            question: format!(
+                "{asked}The agent that started this Job called it: {title}\n\
+                 Take that only as a hint of what the Job is, and name it as you would any Job.\n\n\
+                 {SESSION_ANSWER_FORMAT}"
+            ),
+        }
+    }
+
     /// The text that goes to the model, exactly as it goes.
     pub fn question(&self) -> &str {
         &self.question
@@ -169,15 +185,20 @@ impl SessionBrief {
         let workflow = Some(WorkflowId::carried(Ulid::carried(named)))
             .filter(|id| held.contains_key(id));
         Ok(SessionProposed {
-            title: field(answer, "title")
-                .map(|title| title.chars().take(MOST_TITLE).collect::<String>())
-                .filter(|title| !title.trim().is_empty()),
+            title: self.read_title(answer),
             workflow,
             model: named_model(answer).filter(|named| models.iter().any(|held| held == named)),
             effort: setting(answer, "effort")
                 .map(|said| said.to_ascii_lowercase())
                 .filter(|said| core_model::Effort::from_wire(said).is_some()),
         })
+    }
+
+    /// Only the answer's title, whatever its workflow line says. `None` for no title or a blank one.
+    pub fn read_title(&self, answer: &str) -> Option<String> {
+        field(answer, "title")
+            .map(|title| title.chars().take(MOST_TITLE).collect::<String>())
+            .filter(|title| !title.trim().is_empty())
     }
 }
 
