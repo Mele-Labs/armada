@@ -108,6 +108,8 @@ where
             })
             .await?;
         let brief = words.message.clone();
+        // The agent's title, a plan group's too, is a hint the proposer names the Job over.
+        self.hosts().of(made.id.as_str()).state().proposal.hint = Some(words.title.clone());
         // The brief is read now, so the proposal is in the dispatcher before the person sends it.
         if let Ok((session, hosting)) = self.session_and_hosting(made.id.as_str()).await {
             self.reading_begun(&session, &hosting, &brief);
@@ -160,6 +162,13 @@ where
                 project_rows: Vec::new(),
             })
             .await?;
+        // A fork is not read, so its title alone is asked for when Start sends it (`fork_named`).
+        {
+            let runtime = self.hosts().of(made.id.as_str());
+            let mut state = runtime.state();
+            state.proposal.hint = Some(words.title.clone());
+            state.proposal.stand_in = Some(words.title.clone());
+        }
         self.held_with(made.id.as_str(), &words.message).await?;
         self.held_for_person(&me, made, words, true, None).await
     }

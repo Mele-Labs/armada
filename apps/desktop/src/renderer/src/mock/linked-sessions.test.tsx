@@ -39,7 +39,7 @@ test("in Work each linked Session stands right under its parent, at any depth, l
   await expect.element(work().getByLabelText("Linked Job, handed from Name the migrations")).toBeVisible();
 });
 
-test("in Now a group handed to a Session carries its row in two lines, and one not handed offers the hand off", async () => {
+test("in Now a group handed to a Session carries its row in two lines, and one not handed offers no hand off", async () => {
   await parent();
   await now().getByRole("button", { name: "Whole plan", exact: true }).click();
   const group = now().getByRole("region", { name: "Name the migrations", exact: true });
@@ -51,7 +51,8 @@ test("in Now a group handed to a Session carries its row in two lines, and one n
   expect(row.element().querySelector(".armada-linked__group")).toBeNull();
   const open = now().getByRole("button", { name: "List them in System", exact: true });
   await open.click();
-  await expect.element(now().getByRole("button", { name: "Hand to a Job" })).toBeVisible();
+  // Only the agent hands a group to a Job: the owner's press is not drawn.
+  await expect.element(now().getByRole("button", { name: "Hand to a Job" })).not.toBeInTheDocument();
 });
 
 test("in the Artifacts layer the same Jobs are under Jobs, each with the group it came from", async () => {

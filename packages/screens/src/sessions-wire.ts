@@ -547,6 +547,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           text: row.text,
           ...(row.before === undefined ? {} : { before: row.before }),
           ...(row.settled === undefined ? {} : { settled: row.settled }),
+          ...(row.change === undefined ? {} : { change: row.change }),
         });
         break;
       case "plan_changes":

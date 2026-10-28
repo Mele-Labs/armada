@@ -143,6 +143,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::ask_workflow_change::<D>),
         )
         .route(
+            "/workflows/changes/propose_new",
+            post(crate::repositories::propose_new_workflow::<D>),
+        )
+        .route(
             "/workflows/changes/suggest",
             post(crate::repositories::suggest_workflow_change::<D>),
         )
@@ -257,6 +261,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/rename",
             post(crate::sessions::rename_session::<D>),
         )
+        .route("/sessions/name", post(crate::sessions::name_session::<D>))
         .route(
             "/sessions/run/start",
             post(crate::sessions::start_session_run::<D>),

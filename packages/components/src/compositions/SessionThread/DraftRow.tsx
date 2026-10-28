@@ -20,6 +20,8 @@ export type DraftThreadRow = Extract<SessionThreadRow, { kind: "draft" }>;
 /** His answer to a draft, in `answer_waiting`'s words: approved as written, approved with his whole text, or sent back with a note. */
 export type DraftAnswer = { choice: 0 } | { fixed: string } | { text: string };
 
+const SCOPE = { kit: "Every repository on this Mac", repository: "This repository" } as const;
+
 const SETTLED = {
   approved: { said: "Approved", Glyph: BadgeCheck },
   fixed: { said: "Approved with your fixes", Glyph: BadgeCheck },
@@ -97,7 +99,8 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
     setNote("");
     setMode("read");
   };
-  const state = settled === undefined ? undefined : SETTLED[settled.how];
+  const proposed = row.workflow;
+  const state = settled === undefined ? undefined : proposed !== undefined && settled.how === "withdrawn" ? { said: "Dismissed", Glyph: Ban } : SETTLED[settled.how];
   // A box opened by its key takes the caret, as one opened by a press does; one already open takes it back.
   const openBox = (to: "edit" | "note") => {
     setMode(to);
@@ -107,18 +110,19 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   const approveFixed = () => onAnswer?.(row.id, fixed === row.text ? { choice: 0 } : { fixed });
   const sendBack = () => onAnswer?.(row.id, { text: note.trim() });
   const withdrawNow = () => onWithdraw?.(row.id, noting && note.trim() !== "" ? note.trim() : undefined);
+  // A proposed workflow has no Edit or Note, and its Withdraw reads Dismiss.
   const { target, bind } = useThreadCard(
     !open
       ? undefined
       : {
           id: `draft:${row.id}`,
-          kind: "Draft",
+          kind: proposed === undefined ? "Draft" : "Workflow",
           title: row.title,
           acts: {
             ...(editing ? (fixed.trim() === "" ? {} : { yes: { verb: "Approve with fixes", run: approveFixed } }) : noting ? {} : { yes: { verb: "Approve", run: approve } }),
-            ...(noting ? {} : { change: { verb: "Edit", run: () => openBox("edit") } }),
-            ...(editing ? {} : { sendBack: { verb: "Note", run: () => openBox("note") } }),
-            ...(onWithdraw === undefined || editing ? {} : { no: { verb: "Withdraw", run: withdrawNow } }),
+            ...(noting || proposed !== undefined ? {} : { change: { verb: "Edit", run: () => openBox("edit") } }),
+            ...(editing || proposed !== undefined ? {} : { sendBack: { verb: "Note", run: () => openBox("note") } }),
+            ...(onWithdraw === undefined || editing ? {} : { no: { verb: proposed === undefined ? "Withdraw" : "Dismiss", run: withdrawNow } }),
           },
         },
   );
@@ -132,7 +136,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
     onWithdraw === undefined ? null : (
       <span className="armada-session-draft__withdraw">
         <Button size="sm" variant="secondary" onClick={withdrawNow}>
-          Withdraw
+          {proposed === undefined ? "Withdraw" : "Dismiss"}
           <ThreadKbd act="no" on={target} />
         </Button>
       </span>
@@ -151,12 +155,20 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   };
   return (
     <li ref={home} className="armada-session-draft-row">
-      <Card flat className="armada-session-draft" role="article" aria-label={`Draft: ${row.title}`} data-settled={settled?.how} {...bind}>
+      <Card flat className="armada-session-draft" role="article" aria-label={`${proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how} {...bind}>
         <div className="armada-session-draft__head">
-          <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">Draft</span>
+          <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">{proposed === undefined ? "Draft" : "Workflow"}</span>
           <Stamp at={row.at} className="armada-session-draft__at" />
         </div>
         <p className="armada-session-draft__title">{row.title}</p>
+        {proposed === undefined ? null : (
+          <dl className="armada-session-draft__facts">
+            <dt>Name</dt>
+            <dd>{proposed.name}</dd>
+            <dt>Scope</dt>
+            <dd>{SCOPE[proposed.scope]}</dd>
+          </dl>
+        )}
         {editing ? (
           <Textarea aria-label="Draft text" rows={8} grow autoFocus keep={fixedKey} value={fixed} onChange={(event) => setFixed(event.currentTarget.value)} onKeyDown={commits(approveFixed, fixed.trim() !== "")} />
         ) : (
@@ -218,14 +230,18 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
                   Approve
                   <ThreadKbd act="yes" on={target} />
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
-                  Edit
-                  <ThreadKbd act="change" on={target} />
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
-                  Note
-                  <ThreadKbd act="sendBack" on={target} />
-                </Button>
+                {proposed !== undefined ? null : (
+                  <>
+                    <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
+                      Edit
+                      <ThreadKbd act="change" on={target} />
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
+                      Note
+                      <ThreadKbd act="sendBack" on={target} />
+                    </Button>
+                  </>
+                )}
                 {withdraw}
               </>
             )}
