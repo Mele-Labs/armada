@@ -406,7 +406,8 @@ Where several are confirmed, the one whose `pr` row holds the number.
 Where none is, the Job whose standing `pr` row is oldest, else the one whose standing `branch` row is.
 One Job, not every row: a Job that read the pull request from a directory in a slot it had left was told its checks failed while another Job worked it.
 `docs/concepts/session.md`, *Whose slot it is*.
-**News is the exception (decided 28 Oct 2026).** A merge, and auto-merge turned on, are told to every Job whose standing `pr` row holds the number, the owner first: a Job asked to see a pull request merge holds it from another branch than the one it was opened on, and was told nothing. A failure or a conflict still goes to one.
+**News is the exception (decided 28 Oct 2026).** A merge, and auto-merge turned on, are told to every Job whose standing `pr` row holds the number, the owner first: a Job asked to see a pull request merge holds it from another branch than the one it was opened on, and was told nothing.
+A failure or a conflict still goes to one.
 
 **A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
 While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
