@@ -61,6 +61,9 @@ void main() {
 /** Floats to a vertex: position (3), colour (4), and the stroke's normal and half width (3). */
 const STRIDE = 10;
 
+/** The most dashes one segment of a stroke is cut into; a longer one is drawn solid, so no stroke can grow without bound. */
+const MOST_DASHES = 2000;
+
 const program = () => GlProgram.from({ vertex: VERTEX, fragment: FRAGMENT, name: "bf-plane" });
 
 /** The camera the shaders of every layer read, one group shared so a move is written once. */
@@ -160,7 +163,13 @@ export class PlaneBuilder {
     for (let i = 0; i < path.length - 1; i += 1) {
       const [a, b] = [path[i]!, path[i + 1]!];
       const length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-      if (length === 0) continue;
+      // A segment to a point at infinity would be dashed forever, until the vertices outgrow what an array can hold.
+      if (length === 0 || !Number.isFinite(length)) continue;
+      if (length / cycle > MOST_DASHES) {
+        flush();
+        this.ribbon([a, b], half, c, shade, normal);
+        continue;
+      }
       const lerp = (s: number): P3 => ({ x: a.x + ((b.x - a.x) * s) / length, y: a.y + ((b.y - a.y) * s) / length, z: a.z + ((b.z - a.z) * s) / length });
       let at = 0;
       while (at < length) {

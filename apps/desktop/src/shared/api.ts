@@ -41,6 +41,7 @@ import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
 import type { FilesApi } from "./api/files";
 import type { FlightControlsApi } from "./api/flight-controls";
+import type { PullRequestNotesApi } from "./api/pull-request-notes";
 import type { OnboardingApi } from "./api/onboarding";
 import type { RequestsApi } from "./api/requests";
 import type { SharingApi } from "./api/sharing";
@@ -84,4 +85,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   RequestsApi &
   SharingApi &
   LogbookApi &
-  TeachingApi;
+  TeachingApi &
+  PullRequestNotesApi;

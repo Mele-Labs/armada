@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { FileCog } from "lucide-react";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { FLEET_DOT_TONE, type FleetState } from "../FleetPanel/FleetPanel";
 import { Select } from "../../primitives/Select/Select";
@@ -582,3 +583,88 @@ export const WithoutPlaces: Story = {
     await expect(canvas.getByText("Search, or describe work to dispatch")).toBeVisible();
   },
 };
+
+const REPOSITORY_ENTRIES = [
+  { kind: "item", id: "", label: "All repositories", selected: true },
+  { kind: "separator", id: "all-rule" },
+  { kind: "item", id: "/code/armada", label: "armada" },
+  { kind: "label", id: "not-set-up", label: "Not set up" },
+  { kind: "item", id: "/code/scratch", label: "scratch" },
+  { kind: "separator", id: "acts-rule" },
+  { kind: "item", id: "new-project", label: "New project" },
+  { kind: "item", id: "add-repository", label: "Add a repository" },
+] as const;
+
+/**
+ * The name is the picker, on every screen, with the Manifest's chip after it. Its list leads with All repositories, then
+ * the repositories, a repository that is not set up wears a tag on its own row, and the acts sit below a rule.
+ */
+export const RepositoryPicker: Story = {
+  args: {
+    ...Full.args,
+    repositoryPicker: undefined,
+    repository: "All repositories",
+    repositoryMenu: {
+      entries: [...REPOSITORY_ENTRIES],
+      onSelect: fn(),
+      manifest: { label: "Open the Manifest", icon: FileCog, onOpen: fn() },
+    },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Repository" }));
+    const items = screen.getAllByRole("menuitem").map((one) => one.textContent);
+    await expect(items).toEqual(["All repositories", "armada", "scratchNot set up", "New project", "Add a repository"]);
+    // The tag is on the row, not a heading of its own.
+    await expect(screen.queryByText("Not set up", { selector: ".armada-dropdown-menu__label" })).toBeNull();
+    await expect(screen.getByRole("menuitem", { name: /^scratch/ }).querySelector(".armada-dropdown-menu__detail")).toHaveTextContent("Not set up");
+    // The acts are marked apart from the repositories and carry a glyph each.
+    await expect(screen.getByRole("menuitem", { name: "New project" })).toHaveAttribute("data-act");
+    await expect(screen.getByRole("menuitem", { name: "armada" })).not.toHaveAttribute("data-act");
+    await expect(screen.getByRole("menuitem", { name: "Add a repository" }).querySelector("svg")).not.toBeNull();
+    await userEvent.click(screen.getByRole("menuitem", { name: "armada" }));
+    await expect(args.repositoryMenu!.onSelect).toHaveBeenCalledWith("/code/armada");
+  },
+};
+
+/** The Manifest's chip presses through to `onOpen`, with a tooltip-name, and is disabled where nothing is served. */
+export const ManifestChip: Story = {
+  args: RepositoryPicker.args!,
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Open the Manifest" }));
+    await expect(args.repositoryMenu!.manifest!.onOpen).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const ManifestChipNothingServed: Story = {
+  args: {
+    ...RepositoryPicker.args,
+    repositoryMenu: { ...RepositoryPicker.args!.repositoryMenu!, manifest: { label: "Open the Manifest", icon: FileCog, disabled: true, onOpen: fn() } },
+  },
+  play: async ({ args, canvas }) => {
+    const chip = canvas.getByRole("button", { name: "Open the Manifest" });
+    await expect(chip).toBeDisabled();
+    await expect(args.repositoryMenu!.manifest!.onOpen).not.toHaveBeenCalled();
+  },
+};
+
+/** A repository's row can carry a mark the app draws; → on the focused row runs its act and puts the list away. */
+export const RepositoryRowMark: Story = {
+  args: {
+    ...RepositoryPicker.args,
+    repositoryMenu: {
+      ...RepositoryPicker.args!.repositoryMenu!,
+      trailOf: (id, label) => (id === "/code/armada" ? { node: <span role="button" aria-label={`Armada configuration for ${label}`} />, open: openConfig } : undefined),
+    },
+  },
+  play: async ({ canvas, userEvent }) => {
+    openConfig.mockClear();
+    await userEvent.click(canvas.getByRole("button", { name: "Repository" }));
+    await expect(screen.getByRole("menuitem", { name: /^armada/ }).querySelector('[aria-label="Armada configuration for armada"]')).not.toBeNull();
+    await expect(screen.getByRole("menuitem", { name: /^scratch/ }).querySelector(".armada-dropdown-menu__trail")).toBeNull();
+    screen.getByRole("menuitem", { name: /^armada/ }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(openConfig).toHaveBeenCalledTimes(1);
+    await expect(screen.queryByRole("menu")).toBeNull();
+  },
+};
+const openConfig = fn();

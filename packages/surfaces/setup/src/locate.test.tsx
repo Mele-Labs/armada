@@ -20,14 +20,14 @@ const SLICES = { slices: ["core", "setup"] } as const;
 const URL = "https://forge.invalid/owner/storefront.git";
 const dialog = () => page.getByRole("dialog", { name: "Add a repository" });
 
-/** The repository picker on the Cockpit: a combobox labelled Repository, whose value is the name of the one chosen. */
+/** The repository picker on the Cockpit: a button labelled Repository, whose text is the name of the one chosen. */
 const repositoryPicker = (within: ReturnType<typeof page.elementLocator> | typeof page = page, options: { includeHidden?: boolean } = {}) =>
-  within.getByRole("combobox", { name: "Repository", exact: true, ...options });
+  within.getByRole("button", { name: "Repository", exact: true, ...options });
 
-/** Add a repository is the last row of the deck's repository picker: opening the dialog is opening the picker first. */
+/** Add a repository is in the footer of the title row's repository picker: opening the dialog is opening the picker first. */
 async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page) {
-  await within.getByRole("combobox", { name: "Repository", exact: true }).click();
-  await page.getByRole("option", { name: "Add a repository" }).click();
+  await within.getByRole("button", { name: "Repository", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add a repository" }).click();
   await entered(dialog());
   return dialog();
 }
@@ -64,8 +64,8 @@ test("a folder added: the dialog closes, the Cockpit holds it in the picker, and
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   // Nobody's Manifest yet, so it reads by its own name. The picker is on the Cockpit, which the add landed on.
   await repositoryPicker().click();
-  const menu = page.getByRole("listbox", { name: "Repositories" });
-  await expect.element(menu.getByRole("option", { name: "scratch" })).toBeInTheDocument();
+  const menu = page.getByRole("menu");
+  await expect.element(menu.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   await askForSetup();
 });
@@ -83,10 +83,10 @@ test("a clone that finished after its dialog closed says so, and moves nothing u
   await add.getByRole("button", { name: /^Cancel/ }).click();
   await expect.poll(() => dialog().query()).toBeNull();
   await expect.element(page.getByText("storefront is ready")).toBeVisible();
-  await expect.element(repositoryPicker()).toHaveValue(MANIFEST_NAME);
+  await expect.element(repositoryPicker()).toHaveTextContent(MANIFEST_NAME);
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await page.getByRole("button", { name: "Open", exact: true }).click();
-  await expect.element(repositoryPicker()).toHaveValue("storefront");
+  await expect.element(repositoryPicker()).toHaveTextContent("storefront");
   await expect.poll(() => page.getByText("storefront is ready").query()).toBeNull();
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await askForSetup();
@@ -94,6 +94,8 @@ test("a clone that finished after its dialog closed says so, and moves nothing u
 
 test("a late clone is heard in another window on the same main, and neither window's pick moves until Open", async () => {
   const [asked, other] = mountTwo(settingUp({ clone: "late" }), ["The window that asked", "Another window"], SLICES);
+  // One above the other, each the window's full width: side by side the title row has no room left for the picker.
+  asked.parentElement!.style.flexDirection = "column";
   const inAsked = page.elementLocator(asked);
   const inOther = page.elementLocator(other);
   const add = await cloneFrom(inAsked);
@@ -103,11 +105,11 @@ test("a late clone is heard in another window on the same main, and neither wind
   await expect.element(inAsked.getByText("storefront is ready")).toBeInTheDocument();
   for (const window of [inAsked, inOther]) {
     // Hidden, not absent: each window is narrow, and the picker is behind its menu.
-    await expect.element(repositoryPicker(window, { includeHidden: true })).toHaveValue(MANIFEST_NAME);
+    await expect.element(repositoryPicker(window, { includeHidden: true })).toHaveTextContent(MANIFEST_NAME);
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
   (inOther.getByRole("button", { name: "Open", exact: true }).element() as HTMLElement).click();
-  await expect.element(repositoryPicker(inOther, { includeHidden: true })).toHaveValue("storefront");
+  await expect.element(repositoryPicker(inOther, { includeHidden: true })).toHaveTextContent("storefront");
   expect(inOther.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   (inAsked.getByRole("button", { name: "Dismiss" }).element() as HTMLElement).click();
   await expect.poll(() => inAsked.getByText("storefront is ready").query()).toBeNull();
@@ -170,10 +172,10 @@ test("Escape closes it with nothing sent, and it opens again empty", async () =>
 
 const created = () => page.getByRole("dialog", { name: "New project" });
 
-/** New project is the row above Add a repository in the deck's picker: the same dialog, on a new project. */
+/** New project is the footer row above Add a repository in the title row's picker: the same dialog, on a new project. */
 async function newProject() {
   await repositoryPicker().click();
-  await page.getByRole("option", { name: "New project" }).click();
+  await page.getByRole("menuitem", { name: "New project" }).click();
   await entered(created());
   return created();
 }
@@ -197,7 +199,7 @@ test("a new project: offered where the projects are, made under it, and listed i
   expect(onCreated).toHaveBeenCalledWith("/Users/user/code", "my-app");
   await expect.poll(() => created().query()).toBeNull();
   await repositoryPicker().click();
-  await expect.element(page.getByRole("listbox", { name: "Repositories" }).getByRole("option", { name: "my-app" })).toBeInTheDocument();
+  await expect.element(page.getByRole("menu").getByRole("menuitem", { name: "my-app" })).toBeInTheDocument();
 });
 
 test("a name that is not one folder's is said under the field, and nothing is sent", async () => {
@@ -247,15 +249,15 @@ const SET_UP_API = named("api", "/Users/user/services/api");
 test("the picker's names: the Manifest's own, or a folder's, with the parent only where two share it", async () => {
   locating({ repositories: [SET_UP, SET_UP_API, LOOSE, API, OLD_API] });
   await repositoryPicker().click();
-  await expect.element(page.getByRole("option", { name: "storefront" })).toBeInTheDocument();
+  await expect.element(page.getByRole("menuitem", { name: "storefront" })).toBeInTheDocument();
   // Three repositories would read "api" — one set up and two not — so all three
   // widen. The ladder is one namespace since 28 Sep 2026: a set-up repository
   // used to be exempt because its label was its unique id, and its label is a
   // name now, which can collide like any other.
-  await expect.element(page.getByRole("option", { name: "services/api" })).toBeInTheDocument();
-  expect(page.getByRole("option", { name: "api", exact: true }).query()).toBeNull();
-  await expect.element(page.getByRole("option", { name: "scratch" })).toBeInTheDocument();
-  await expect.element(page.getByRole("option", { name: "code/api" })).toBeInTheDocument();
-  await expect.element(page.getByRole("option", { name: "old/api" })).toBeInTheDocument();
-  expect(page.getByRole("option", { name: "web-app" }).query()).toBeNull();
+  await expect.element(page.getByRole("menuitem", { name: "services/api" })).toBeInTheDocument();
+  expect(page.getByRole("menuitem", { name: "api", exact: true }).query()).toBeNull();
+  await expect.element(page.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
+  await expect.element(page.getByRole("menuitem", { name: "code/api" })).toBeInTheDocument();
+  await expect.element(page.getByRole("menuitem", { name: "old/api" })).toBeInTheDocument();
+  expect(page.getByRole("menuitem", { name: "web-app" }).query()).toBeNull();
 });

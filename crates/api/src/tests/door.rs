@@ -104,6 +104,16 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
     );
 }
 
+/// **A workflow read names which workflow.** Each route refuses a query without `workflow_id`, so a
+/// tool that left it out of its schema could never be called.
+#[test]
+fn the_workflow_reads_take_the_workflow_and_its_place() {
+    for operation in ["get_workflow", "get_workflow_steps", "list_workflow_changes"] {
+        let shape = offered().into_iter().find(|shape| shape.operation == operation).expect(operation);
+        assert_eq!(shape.query, ["workflow_id", "source"], "{operation}");
+    }
+}
+
 /// Every tool, called. **The door's half of `every_operation_the_table_names_is_routed`**:
 /// that one proves a path is in the router, and this proves the door builds a
 /// request that reaches it. A tool that answers "no such tool" or a route that
@@ -210,6 +220,23 @@ async fn a_command_reaches_the_post_route_with_its_body() {
         !body.contains("undecodable"),
         "the body did not decode: {body}"
     );
+}
+
+/// The agent's resolve tool reaches its route with its body decoded: the fake answers the note id it
+/// was handed, as `done`.
+#[tokio::test]
+async fn the_resolve_tool_reaches_its_route_with_its_body() {
+    let app = wired(holding_one());
+    let (status, body) = call(
+        &app,
+        r#"{"jsonrpc":"2.0","id":6,"method":"tools/call",
+            "params":{"name":"resolve_pull_request_note","arguments":
+            {"body":{"note_id":"note-9"}}}}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("note-9"), "{body}");
+    assert!(!body.contains("undecodable"), "the body did not decode: {body}");
 }
 
 /// The handshake says which Manifest the session is inside and what stands in

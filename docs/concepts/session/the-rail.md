@@ -37,6 +37,8 @@ A workflow edited under a running Job moves the indexes; the rail does not follo
 **Every move is entered on the timeline** as `session.step`, `says` `step: <old> → <new>`, a step by its label, `start` before the first and `done` past the last.
 
 **Entering a step sends its `instructions`.** A step may carry the words the agent follows at it, and Fleet sends them as one message from Fleet when the rail enters the step, naming the workflow and the step.
+The message ends with what ends the step, read off the same rules as the workflow's page and said to the agent, such as *This step ends when you record a plan with record_plan* (`rail_ends.rs`).
+Fleet does not move a step the Job's own act ends, so a Job that is not told waits for a move that never comes (the Logbook Job, 27 Oct 2026).
 A step with none sends nothing, and a step entered again is sent again.
 `about` is the owner's line and is never sent as instructions.
 A step with `asks_delivery` holds its instructions until the owner has said how the work is delivered, and the answer sends them: *The delivery question*.
@@ -63,6 +65,13 @@ A kept nudge marked Not a drift stops counting and stays listed (`workflow_nudge
 Two counting at one step inside seven days draw a suggested change to that step's words ([Workflow](../workflow.md), *The Workflows page*).
 Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*.
 A nudge that cannot be delivered because nobody is there is asked again later and not counted.
+
+**A Job stopped on a step only it can end is told once** (28 Oct 2026, the owner's decision).
+Fleet reads it off the row, never off the Job's words: the turn ended on a reply that asks nothing (`standing` is `replied`), nothing waits on the owner, and what ends the current step is the Job's own act.
+Those are a plan recorded, an edit, a Check run, a commit, a pull request opened, a push and a walk shown.
+A step the owner ends, by a reply or an approval, and a delivering step, which ends on the merge, never stall.
+The one message names the step and what ends it, and says to do it or ask the owner what is still open, and to carry on where the Job waits on work it started or he said to wait.
+It is told once for each step in a Job's life (`session_rail.stalled`), and is not kept against the workflow, since it is no drift.
 
 **With `features.workflows` off** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
 The Job keeps the workflow it has.

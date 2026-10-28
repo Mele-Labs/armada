@@ -1,4 +1,4 @@
-// The Cockpit's repository picker: what it calls a repository, and the control beside
+// The title row's repository picker: what it calls a repository, and the control beside
 // it that opens that repository's Manifest — the owner, 28 Sep 2026.
 //
 // *"Is it possible to use a real fake name of a repo/manifest here instead of a
@@ -22,9 +22,9 @@ test("the picker names a repository, and never its Manifest's minted id", async 
   mount("studios");
   await onScreen();
 
-  const field = page.getByRole("combobox", { name: "Repository", exact: true });
+  const field = page.getByRole("button", { name: "Repository", exact: true });
   await expect.element(field).toBeVisible();
-  const shown = (field.element() as HTMLInputElement).value;
+  const shown = field.element().textContent ?? "";
   expect(shown).toMatch(/armada/);
   expect(shown).not.toMatch(ULID);
 });

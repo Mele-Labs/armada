@@ -27,7 +27,7 @@ fn what_the_rail_did_survives_a_reopen_and_a_session_with_none_reads_as_default(
     let dir = TempDir::new();
     let mut store = open(&dir);
     assert_eq!(store.session_rail("s1").unwrap(), KeptRail::default());
-    let rail = KeptRail { step: Some(2), nudged: vec![0, 1], judged: vec![1], visits: Vec::new() };
+    let rail = KeptRail { step: Some(2), nudged: vec![0, 1], judged: vec![1], stalled: vec![2], visits: Vec::new() };
     store.keep_session_rail("s1", &rail).unwrap();
     store.keep_session_rail("s2", &KeptRail { step: None, ..KeptRail::default() }).unwrap();
     drop(store);

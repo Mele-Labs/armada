@@ -200,8 +200,8 @@ test("on a picked repository, the band and the horizon stay in view while the gl
   await page.viewport(1200, 600);
   mount("merge-line");
   await onScreen();
-  await page.getByRole("combobox", { name: "Repository" }).click();
-  await page.getByRole("option", { name: "armada", exact: true }).click();
+  await page.getByRole("button", { name: "Repository", exact: true }).click();
+  await page.getByRole("menuitem", { name: "armada", exact: true }).click();
   await palette();
   await row().click();
 

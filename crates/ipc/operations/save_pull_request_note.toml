@@ -1,0 +1,12 @@
+[operations.save_pull_request_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Make a note on a line of a pull request, or edit the words of one not yet sent"
+notes = """
+`POST /pull_request_notes/:repository/:number`, `repository` a manifest id, body `SavePullRequestNote`: `body`, and either `path`, `line` and `side` to make a note, or `id` to edit one. Answers the `PullRequestNote` as kept.
+
+Without `id` it makes a note, and `path`, `line` and `side` are required. With `id` it changes that note's `body` only, and only while the note is `open` and has not been sent to a Job.
+
+A 422 `fleet.pull_request_note_invalid` for a blank body, a new note missing `path`, `line` or `side`, a note that is not there, or one already sent or done. `body` is kept trimmed.
+"""

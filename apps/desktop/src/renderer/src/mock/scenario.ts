@@ -33,6 +33,8 @@ const ROW_FILES = (
 ).glob("./scenarios/*.ts", { eager: true });
 
 const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, Scenario>)
+  // A file may also export plain values (`job-notes.ts` does): only an object is a scenario row.
+  .filter(([, scenario]) => typeof scenario === "object")
   .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   .map(([, scenario]) => scenario);
 

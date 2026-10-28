@@ -157,6 +157,76 @@
   white-space: nowrap;
 }
 
+/* The name as the picker: a divider off the brand, then two chips of one height. The name's chip gives up its width first; the Manifest's stays whole. */
+.armada-title-bar__repository[data-picker] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: var(--space-6);
+  overflow: visible;
+  color: var(--fg-default);
+}
+.armada-title-bar__repository[data-picker]::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: var(--border-width);
+  height: var(--space-4);
+  margin-inline-end: var(--space-2);
+  background: var(--border-default);
+}
+.armada-title-bar__repository-chip { position: relative; display: flex; min-width: 0; }
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu { min-width: 0; }
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu__detail:empty { display: none; }
+.armada-title-bar__repository-glyph {
+  position: absolute;
+  inset-inline-start: var(--space-2);
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 1;
+  color: var(--accent);
+  pointer-events: none;
+}
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu__trigger,
+.armada-title-bar__repository[data-picker] .armada-button {
+  box-sizing: border-box;
+  height: var(--h-control-sm);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  transition: background-color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu__trigger {
+  max-width: 100%;
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--space-4) + var(--space-1));
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.armada-title-bar__repository[data-picker] .armada-button {
+  flex: none;
+  width: var(--h-control-sm);
+  padding: 0;
+  color: var(--fg-muted);
+}
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu__trigger:hover,
+.armada-title-bar__repository[data-picker] .armada-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--fg-default);
+}
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu__trigger[aria-expanded="true"] {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+}
+.armada-title-bar__repository[data-picker] .armada-dropdown-menu__trigger:focus-visible,
+.armada-title-bar__repository[data-picker] .armada-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.armada-title-bar__repository[data-picker] .armada-button:disabled { color: var(--fg-subtle); }
+
 .armada-title-bar__places {
   display: flex;
   align-items: center;
@@ -717,3 +787,47 @@
     animation: none;
   }
 }
+
+/* The wide picker's list: repositories as rows with a glyph, acts as a footer of verbs. The fill is the palette's row fill. */
+.armada-dropdown-menu__panel.armada-title-bar__repository-list > .armada-dropdown-menu__item + .armada-dropdown-menu__item {
+  border-top: 0;
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__item {
+  gap: var(--space-2);
+  height: var(--space-8);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-body);
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__item:hover:not([aria-disabled="true"]),
+.armada-title-bar__repository-list .armada-dropdown-menu__item:focus-visible {
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  outline: none;
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__item[aria-current] { font-weight: var(--weight-medium); }
+.armada-title-bar__repository-list .armada-dropdown-menu__icon { width: var(--space-4); color: var(--fg-muted); }
+.armada-title-bar__repository-list .armada-dropdown-menu__item[data-act] { color: var(--fg-default); }
+.armada-title-bar__repository-list .armada-dropdown-menu__item[data-act] .armada-dropdown-menu__icon { color: var(--accent); }
+.armada-title-bar__repository-list .armada-dropdown-menu__detail { color: var(--fg-subtle); }
+/* The filter field as the palette's: no box and no ring, one rule under it. */
+.armada-dropdown-menu__panel.armada-title-bar__repository-list > .armada-dropdown-menu__search {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__search :is(.armada-input, .armada-input-field__well) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  font-size: var(--text-sm);
+}
+.armada-title-bar__repository-list .armada-dropdown-menu__search :is(.armada-input, .armada-input-field__well):is(:focus, :focus-visible, :focus-within) {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+/* The place glyph at a repository row's end: the Cockpit's mark, drawn here as it was there. */
+.armada-title-bar__repository-list .armada-dropdown-menu__trail { display: inline-flex; flex: none; margin-left: auto; }
+.armada-title-bar__repository-list .armada-dropdown-menu__detail + .armada-dropdown-menu__trail { margin-left: 0; }
+.armada-title-bar__repository-list .armada-dropdown-menu__trail .deck-combo__mark { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-md); color: var(--step-advanced); }
+.armada-title-bar__repository-list .armada-dropdown-menu__trail .deck-combo__mark:hover { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }

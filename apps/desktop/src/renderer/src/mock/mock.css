@@ -1,6 +1,4 @@
-/* The mock's scenario picker, at the title row's leading end beside the
-   wordmark. It was in the left column until the flight deck became the Cockpit
-   (#2301) and the column went; the title row is the strip every page keeps. */
+/* The mock's scenario finder, opened from the palette. */
 .armada-mock-picker {
   display: inline-flex;
   position: relative;
@@ -11,32 +9,12 @@
   text-transform: none;
 }
 
-/* The one control at rest: the scenario, and nothing beside it saying so —
-   the button's own name and tooltip carry that for a reader. */
-.armada-mock-picker [data-said] {
-  justify-content: flex-start;
-  max-width: var(--w-menu);
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-mock-picker__current {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The list, while it is open. **Fixed, not absolute**: the title row clips, and
-   a layer anchored inside it would be cut off. It is pinned under the row at the
-   window's leading edge, so it grows down out of the control. */
+/* The finder: a layer centred in the window, over the palette that opened it. */
 .armada-mock-picker__layer {
   position: fixed;
-  left: var(--space-4);
-  /* Under the control, so the scenario it says is still readable while the
-     list is up — the one thing the picker has to draw at all times. */
-  top: calc(var(--h-title-bar) + var(--space-2));
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
   /* Above a walk's card, which can cross to this corner and would sit over the list. */
   z-index: calc(var(--z-palette) + 2);
   display: flex;

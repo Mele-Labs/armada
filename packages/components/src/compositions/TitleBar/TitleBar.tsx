@@ -1,9 +1,9 @@
-import { Activity, BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, Check, FolderGit2, FolderPlus, Layers, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
-import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
+import { DropdownMenu, filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -217,6 +217,8 @@ export type TitleBarProps = {
     onSelect: (id: string) => void;
     /** The Manifest button beside the picker in the full row. */
     manifest?: { label: string; icon: LucideIcon; disabled?: boolean; onOpen: () => void };
+    /** A repository row's trailing mark and the act → runs on it, from the entry's id and label. Absent, or `undefined` for a row, draws none. */
+    trailOf?: (id: string, label: string) => { node: ReactNode; open: () => void } | undefined;
   };
   /** Opens the command palette. The same surface ⌘K opens; this is the other way in. */
   onSearch?: () => void;
@@ -371,10 +373,38 @@ export function TitleBar({
       {teach.menu}
       <div ref={parts.start} className="armada-title-bar__start">
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
-        {repository === undefined ? null : (
+        {repository === undefined ? null : repositoryMenu === undefined ? (
           // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
           <span ref={parts.repository} className="armada-title-bar__repository" title={repository}>
             {repository}
+          </span>
+        ) : (
+          // The name is the picker: it opens the repository list, and the Manifest's icon follows it.
+          <span ref={parts.repository} className="armada-title-bar__repository" data-picker="">
+            <span className="armada-title-bar__repository-chip">
+            <span className="armada-title-bar__repository-glyph" aria-hidden>
+              <FolderGit2 size={16} strokeWidth={2} />
+            </span>
+            <DropdownMenu
+              plain
+              portal
+              align="start"
+              triggerLabel={repository}
+              triggerAriaLabel="Repository"
+              triggerDetail=""
+              searchLabel="Find a repository"
+              panelClass="armada-title-bar__repository-list"
+              entries={listed(repositoryMenu.entries, repositoryMenu.trailOf)}
+              onSelect={repositoryMenu.onSelect}
+            />
+            </span>
+            {repositoryMenu.manifest === undefined ? null : (
+              <Tooltip label={repositoryMenu.manifest.label} asChild>
+                <Button variant="ghost" size="sm" iconOnly aria-label={repositoryMenu.manifest.label} disabled={repositoryMenu.manifest.disabled} onClick={repositoryMenu.manifest.onOpen}>
+                  <repositoryMenu.manifest.icon size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            )}
           </span>
         )}
         {repositoryPicker === undefined ? null : (
@@ -526,6 +556,29 @@ function FleetDot({ state }: { state: FleetState }) {
   ) : (
     <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[state]} aria-hidden />
   );
+}
+
+/** The shell's ids for the picker's acts and for All: `repository-entries.ts`, which this package cannot import. */
+const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = { "new-project": FolderPlus, "add-repository": Plus };
+
+/**
+ * The wide picker's rows told apart: a glyph before each repository (Layers for All), a quiet tag on one that is not set
+ * up in place of its heading, and the acts below the rule as verbs with their own glyphs.
+ */
+function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps["repositoryMenu"]>["trailOf"]): DropdownMenuEntry[] {
+  let loose = false;
+  return entries.flatMap((entry): DropdownMenuEntry[] => {
+    if (entry.kind === "separator") loose = false;
+    if (entry.kind === "label") {
+      loose = entry.id === "not-set-up";
+      return loose ? [] : [entry];
+    }
+    if (entry.kind !== "item") return [entry];
+    const act = REPOSITORY_ACTS[entry.id];
+    if (act !== undefined) return [{ ...entry, icon: act, act: true }];
+    const trail = entry.id === "" ? undefined : trailOf?.(entry.id, entry.label);
+    return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}), ...(trail === undefined ? {} : { trail: trail.node, onRight: trail.open }) }];
+  });
 }
 
 /** The picker's list, flat: the same entries its dropdown draws, one row each. */

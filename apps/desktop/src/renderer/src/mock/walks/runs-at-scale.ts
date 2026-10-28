@@ -3,13 +3,16 @@
 
 import { button, inside, role, walk } from "../walk";
 
-const picker = role("combobox", "Repository");
+const picker = role("button", "Repository", { exact: true });
+const find = role("searchbox", "Find a repository");
+const row = role("menuitem", /^my-app/);
 const layer = role("dialog", "Armada configuration for my-app");
 
 const runsAtScale = walk("runs-at-scale", [
   { press: picker, say: "The repository picker opens" },
-  { key: "ArrowDown", on: picker, say: "my-app's row wears the laptop, where its Armada configuration is kept" },
-  { key: "ArrowRight", on: picker, say: "→ opens Armada configuration for my-app, by workspace" },
+  { key: "ArrowDown", on: find, say: "↓ goes to the list" },
+  { key: "ArrowDown", on: role("menuitem", "All repositories"), say: "my-app's row wears the laptop, where its Armada configuration is kept" },
+  { key: "ArrowRight", on: row, say: "→ opens Armada configuration for my-app, by workspace" },
   { press: inside(layer, button(/^packages\/api/)), say: "A workspace lists its commands" },
   { key: "x", on: inside(layer, role("listitem", /packages\/api\s+Build/)), say: "x drops a command. It is never kept again" },
   { key: "Escape", on: layer, say: "Esc goes back to the workspaces" },

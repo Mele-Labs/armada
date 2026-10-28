@@ -12,18 +12,34 @@ import { issueLabel, type SessionAttachment } from "@armada/screens/src/draft/se
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
 import { bayViewOf, ledgerOf, slotKey, spanOf, shortOf } from "../cockpit/deck/bays";
-import type { BayRead, CheckRead, IssueRead, PanelReads, PullRequestRead, PullRequestRefused } from "./reads";
+import type { BayRead, CheckRead, IssueRead, NotesRead, PanelReads, PullRequestNotesReads, PullRequestRead, PullRequestRefused } from "./reads";
 import type { PanelItem } from "./store";
 
 type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
 type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 
-export type FleetPanelApi = Pick<
+export type FleetPanelApi = Partial<FleetNotesApi> & Pick<
   BridgeApi,
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
   | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "deleteRequestEnvironment" | "sendRequest"
   | "startTerminalRun" | "writeSessionRun" | "resizeSessionRun" | "stopSessionRun" | "onSessionRunMessage"
 >;
+/** The note calls, apart from the rest so a window whose api has none still reads the panel. */
+export type FleetNotesApi = Pick<BridgeApi, "listPullRequestNotes" | "savePullRequestNote" | "removePullRequestNote" | "sendPullRequestNotes">;
+
+/** Fleet's answer to a note act as the panel takes it: the value, or Fleet's words. */
+const notesAnswer = <T>(answer: { ok: true; value: T } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }): NotesRead<T> => (answer.ok ? { ok: true, value: answer.value } : { ok: false, said: refusalWords(answer.outcome) });
+
+/** The owner's notes for the Job, over the Bridge api's four note calls. */
+export function pullRequestNotesReads(api: FleetNotesApi): PullRequestNotesReads {
+  return {
+    list: async (manifestId, number) => notesAnswer(await api.listPullRequestNotes(manifestId, number)),
+    save: async (manifestId, number, save) => notesAnswer(await api.savePullRequestNote(manifestId, number, save)),
+    remove: async (manifestId, number, id) => notesAnswer(await api.removePullRequestNote(manifestId, number, id)),
+    send: async (manifestId, number, send) => notesAnswer(await api.sendPullRequestNotes(manifestId, number, send)),
+  };
+}
+
 export type FleetPanelState = Pick<BridgeState, "holds" | "repository" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
 const NONE: readonly never[] = [];
@@ -183,6 +199,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
       const answer = await api.writeReview(manifestId, { pull_request: item.number, kind: write.kind, ...(write.body === undefined ? {} : { body: write.body }) });
       return answer.ok ? { ok: true, page: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
     },
+    ...(api.listPullRequestNotes === undefined || api.savePullRequestNote === undefined || api.removePullRequestNote === undefined || api.sendPullRequestNotes === undefined ? {} : { notes: pullRequestNotesReads(api as FleetNotesApi) }),
     pullRequestPatches: async (item) => {
       const manifestId = manifestOfPr(item)?.manifest?.id;
       if (manifestId === undefined) return { ok: false, said: refusalWords({ ok: false, why: "no_manifest" } as never) };
