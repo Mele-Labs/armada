@@ -219,6 +219,7 @@ mod review_walk_runs;
 mod review_walks;
 /// Where a pull request's change runs, and the places Fleet remembers.
 mod walk_places;
+mod pull_request_notes;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_request_acts;

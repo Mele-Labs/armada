@@ -1,0 +1,8 @@
+[operations.remove_pull_request_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Remove a note from a pull request"
+notes = """
+`POST /pull_request_notes/:repository/:number/:id/remove`, `repository` a manifest id, `id` a `PullRequestNote.id`. Answers `PullRequestNotes`, what is kept on the pull request now. A note already gone is not an error.
+"""

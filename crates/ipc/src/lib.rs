@@ -164,6 +164,8 @@ mod adversarial_review;
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
+/// The owner's notes on a pull request's lines, and a Job resolving one.
+mod pull_request_notes;
 /// A Session's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
@@ -507,6 +509,10 @@ pub use review_runs::{
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+};
+pub use pull_request_notes::{
+    NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,
+    SendPullRequestNotes,
 };
 pub use review_walks::{
     ForgetReviewSearch, OpenReviewWalk, RememberedPlace, RememberedPlaces, ReviewMatch, ReviewRequest, ReviewRequestMethod,

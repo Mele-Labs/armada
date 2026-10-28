@@ -468,6 +468,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/annotation_done",
     },
     Route {
+        operation: "resolve_pull_request_note",
+        method: "POST",
+        path: "/sessions/pull_request_note_resolved",
+    },
+    Route {
         operation: "answer_waiting",
         method: "POST",
         path: "/sessions/waiting/answer",

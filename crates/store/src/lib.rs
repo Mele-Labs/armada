@@ -129,6 +129,8 @@ mod retro;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
 mod walk_places;
+/// The owner's notes on a pull request's lines, and which Job each was sent to.
+mod pull_request_notes;
 mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
@@ -204,6 +206,7 @@ pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
+pub use pull_request_notes::KeptPullRequestNote;
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{

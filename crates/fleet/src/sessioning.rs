@@ -840,6 +840,14 @@ where
         self.annotation_done(caller, mark).await
     }
 
+    async fn resolve_pull_request_note(
+        &self,
+        caller: Option<api::Caller>,
+        resolve: ipc::ResolvePullRequestNote,
+    ) -> Result<ipc::PullRequestNote, Refusal> {
+        self.pull_request_note_resolved(caller, resolve).await
+    }
+
     async fn start_session_run(
         self: Arc<Self>,
         start: ipc::StartSessionRun,

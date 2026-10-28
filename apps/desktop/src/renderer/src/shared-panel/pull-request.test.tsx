@@ -5,11 +5,16 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { PullRequestPage, SessionRunMessage } from "@armada/protocol";
+import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import "../styles/index.css";
-import { fleetPanelReads } from "./fleet-reads";
+import { SessionsFrom } from "../sessions-draft";
+import { mockPullRequestNotesApi, resolvePullRequestNoteInMock } from "../mock/slices/pull-request-notes";
+import { fleetPanelReads, pullRequestNotesReads } from "./fleet-reads";
 import type { FleetPanelApi, FleetPanelState } from "./fleet-reads";
 import { SharedPanelHost } from "./host";
+import { forgetNotes, readNotes } from "./job-notes";
+import type { NoteHandle } from "./job-notes";
 import { SharedPanelFrom, forgetReadings } from "./reads";
 import type { PanelReads, PatchesRead, PullRequestRead } from "./reads";
 import { forgetPanel, openInPanel, usePanel } from "./store";
@@ -354,6 +359,152 @@ test("Files entered again shows the diff of the head the forge names now, not th
   await press("Files");
   expect(filesPanel()?.textContent).toContain("+let days = 3;");
   expect(filesPanel()?.textContent).not.toContain("+let days = 2;");
+});
+
+// ---- Notes for the Job: written on a line of the diff, kept on this Mac, never posted --------------------------
+
+/** The panel's reads with Fleet's notes over memory, each test starting with none. */
+const noted = (): PanelReads => {
+  forgetNotes();
+  return { ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES, notes: pullRequestNotesReads(mockPullRequestNotesApi()) };
+};
+/** What the window holds of this pull request's notes. */
+const kept = () => readNotes({ manifestId: "tidewater", number: 418 } as NoteHandle);
+
+/** Types into a controlled box the way a person does, so React sees the change. */
+const type = (box: HTMLTextAreaElement, words: string) =>
+  act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(box, words);
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+const gutter = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button.armada-diff__gutter")].find((one) => one.getAttribute("aria-label") === label);
+
+test("a press on a diff line opens a note box, and Save puts the note under that line and keeps it on this Mac", async () => {
+  await mount(noted());
+  await press("Files");
+  await act(async () => gutter("Note for the job on +let days = 2;")!.click());
+  const box = filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!;
+  await type(box, "Name the unit.");
+  await act(async () => [...filesPanel()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent === "Save note")!.click());
+  expect(sections()[0]!.querySelector('[aria-label="Note for the job"]')?.textContent).toContain("Name the unit.");
+  expect(filesPanel()!.querySelector('textarea[aria-label="Note for the job"]')).toBeNull();
+  expect(kept()).toMatchObject([{ path: "src/tide/tables.rs", line: 1, side: "right" }]);
+});
+
+const inFiles = (name: string) => [...filesPanel()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.getAttribute("aria-label") === name || one.textContent === name);
+
+test("a note is edited in place and removed, until it is sent", async () => {
+  await mount(noted());
+  await press("Files");
+  await act(async () => gutter("Note for the job on +let days = 2;")!.click());
+  await type(filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!, "Name the unit.");
+  await act(async () => inFiles("Save note")!.click());
+
+  await act(async () => inFiles("Edit the note")!.click());
+  const box = filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!;
+  expect(box.value).toBe("Name the unit.");
+  await type(box, "Name the unit, in seconds.");
+  await act(async () => inFiles("Save note")!.click());
+  expect(sections()[0]!.textContent).toContain("Name the unit, in seconds.");
+  expect(kept()[0]!.body).toContain("in seconds");
+
+  await act(async () => inFiles("Remove the note")!.click());
+  expect(sections()[0]!.textContent).not.toContain("in seconds");
+  expect(kept()).toEqual([]);
+});
+
+/** A window holding one Job, which holds the pull request, and the messages it was sent. */
+function heldJob(others: readonly { id: string; title: string; dead?: "ended" }[] = []) {
+  const send = vi.fn(async (_id: string, _message: { text: string }) => true);
+  const session = { id: "job-1", title: "Tide cache", attachments: [{ kind: "pull_request", number: 418, title: "Keep the tide tables a day", branch: "ines/tide-cache", address: ADDRESS, checks: { state: "passed" }, state: "open", auto: false }], waitingFor: [], rows: [] };
+  const sessions = [session, ...others.map((one) => ({ ...one, attachments: [], waitingFor: [], rows: [] }))];
+  const held = { get: () => sessions, subscribe: () => () => undefined, send } as unknown as SessionsDraft;
+  return { send, held };
+}
+async function mountHeld(reads: PanelReads, held: SessionsDraft | undefined) {
+  host = document.body.appendChild(document.createElement("div"));
+  root = createRoot(host);
+  await act(async () =>
+    root!.render(
+      <SessionsFrom held={held}>
+        <SharedPanelFrom reads={reads}>
+          <Watch />
+          <SharedPanelHost />
+        </SharedPanelFrom>
+      </SessionsFrom>,
+    ),
+  );
+  await act(async () => void openInPanel(ITEM));
+}
+const noteOn = async (line: string, words: string) => {
+  await act(async () => gutter(`Note for the job on ${line}`)!.click());
+  await type(filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!, words);
+  await act(async () => inFiles("Save note")!.click());
+};
+const sendButton = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent === "Send to job");
+
+test("Send to job sends one numbered message naming each note's file and line, and marks them sent", async () => {
+  const job = heldJob();
+  await mountHeld(noted(), job.held);
+  await press("Files");
+  expect(sendButton()).toBeUndefined();
+  await noteOn("+let days = 2;", "Name the unit.");
+  await noteOn("+pub struct Cache;", "Why public?");
+  // The bar says which Job the press goes to.
+  expect(document.querySelector('[role="group"][aria-label="Notes for the job"]')?.textContent).toContain("2 notes for Tide cache");
+  await act(async () => sendButton()!.click());
+  expect(job.send).toHaveBeenCalledTimes(1);
+  expect(job.send.mock.calls[0]![0]).toBe("job-1");
+  expect(job.send.mock.calls[0]![1].text).toBe(
+    "Notes on #418 from the owner, kept on his Mac and not posted to the pull request. When you have dealt with a note, call resolve_pull_request_note with its id.\n\n1. src/tide/tables.rs:1 [note-1]: Name the unit.\n2. src/tide/cache.rs:1 [note-2]: Why public?",
+  );
+  expect(sendButton()).toBeUndefined();
+  expect(sections()[0]!.querySelector('[aria-label="Note for the job"]')?.textContent).toContain("Name the unit.");
+  expect(kept().map((one) => [one.sent, one.title])).toEqual([[true, "Tide cache"], [true, "Tide cache"]]);
+});
+
+test("no Send to job is drawn where no Job holds the pull request", async () => {
+  await mount(noted());
+  await press("Files");
+  await noteOn("+let days = 2;", "Name the unit.");
+  expect(sendButton()).toBeUndefined();
+});
+
+test("the Send to job menu lists the other running Jobs, and picking one sends the notes there and marks them sent", async () => {
+  const job = heldJob([
+    { id: "job-2", title: "Cache key" },
+    { id: "job-3", title: "Old one", dead: "ended" },
+  ]);
+  await mountHeld(noted(), job.held);
+  await press("Files");
+  await noteOn("+let days = 2;", "Name the unit.");
+  await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Send to a job"]')!.click());
+  const menu = document.querySelector('[role="menu"][aria-label="Send to a job"]')!;
+  // The Job that holds it is the press itself, a Job that ended is not offered, and the one left is.
+  expect([...menu.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent)).toEqual(["Cache key"]);
+  await act(async () => menu.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click());
+  expect(job.send).toHaveBeenCalledTimes(1);
+  expect(job.send.mock.calls[0]![0]).toBe("job-2");
+  expect(job.send.mock.calls[0]![1].text).toContain("1. src/tide/tables.rs:1 [note-1]: Name the unit.");
+  expect(sendButton()).toBeUndefined();
+});
+
+test("a note the Job resolved is folded away when Files is entered again, and Show resolved draws it", async () => {
+  const job = heldJob();
+  await mountHeld(noted(), job.held);
+  await press("Files");
+  await noteOn("+let days = 2;", "Name the unit.");
+  await act(async () => sendButton()!.click());
+  expect(sections()[0]!.textContent).toContain("Name the unit.");
+  // The Job calls resolve_pull_request_note while the panel is open; Bridge reads again the next time Files is entered.
+  resolvePullRequestNoteInMock("tidewater", 418, "note-1");
+  await press("Conversation");
+  await press("Files");
+  expect(sections()[0]!.textContent).not.toContain("Name the unit.");
+  const toggle = () => [...filesPanel()!.ownerDocument.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent === "Show resolved (1)");
+  await act(async () => toggle()!.click());
+  expect(sections()[0]!.textContent).toContain("Name the unit.");
+  expect(sections()[0]!.querySelector('[aria-label="Note for the job"]')?.textContent).toContain("Resolved by Tide cache");
 });
 
 // ---- Ready for review: the forge assigns reviewers a few seconds after the press, so the panel reads again ----------

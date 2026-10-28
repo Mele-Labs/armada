@@ -90,6 +90,26 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/walk_places/:repository/:id/forget",
     },
     Route {
+        operation: "list_pull_request_notes",
+        method: "GET",
+        path: "/pull_request_notes/:repository/:number",
+    },
+    Route {
+        operation: "save_pull_request_note",
+        method: "POST",
+        path: "/pull_request_notes/:repository/:number",
+    },
+    Route {
+        operation: "remove_pull_request_note",
+        method: "POST",
+        path: "/pull_request_notes/:repository/:number/:id/remove",
+    },
+    Route {
+        operation: "send_pull_request_notes",
+        method: "POST",
+        path: "/pull_request_notes/:repository/:number/sent",
+    },
+    Route {
         operation: "open_review_walk",
         method: "POST",
         path: "/review_walks/:repository",

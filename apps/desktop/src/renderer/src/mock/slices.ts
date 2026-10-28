@@ -40,12 +40,13 @@ import { studios } from "./slices/studios";
 import { workflows } from "./slices/workflows";
 import { logbook } from "./slices/logbook";
 import { teaching } from "./slices/teaching";
+import { pullRequestNotes } from "./slices/pull-request-notes";
 
 /** A slice of any surface: what `fake.ts` composes, once each member is known to be answered. */
 export type AnySlice = Slice<Partial<BridgeApi>, Partial<BridgeState>>;
 
 /** **A `Record` over every name**, so a surface with no entry here fails typecheck. */
-const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, usageSummary, issues, autopilot, sketchShare, files, flightControls, onboarding, requests, sharing, logbook, teaching } satisfies Record<
+const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, usageSummary, issues, autopilot, sketchShare, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
   SliceName,
   AnySlice
 >;
