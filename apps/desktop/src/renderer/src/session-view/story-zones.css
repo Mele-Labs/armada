@@ -84,6 +84,8 @@
 .sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band { color: var(--fg-default); }
 .sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band::after { inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-2) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
 .sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
+/* Steps done and to come step back, faint and lighter, so the eye lands on the step it is on. The band is already at the heaviest weight, so Now stands out by the others easing off. */
+.sv-spine .sv-panel:is([data-area="step-done"], [data-area="step-next"]) > .sv-panel__band .sv-panel__label { color: var(--fg-subtle); font-weight: var(--weight-medium); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
