@@ -48,22 +48,26 @@ describe("the plan's windows over Fleet", () => {
     };
   }
 
-  it("reads once Fleet is connected, and holds each newer reading Fleet tells it", async () => {
+  it("reads at once and again once Fleet is connected, and holds each newer reading Fleet tells it", async () => {
     const held = fleet();
     const source = createFleetPlanUsage(held.api);
     const heard: (PlanUsage | undefined)[] = [];
     source.subscribe(() => heard.push(source.get()));
     expect(source.get()).toBeUndefined();
 
-    held.connect();
+    // Main answers the first read from the picture it kept on disk, before Fleet has answered.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(held.reads()).toBe(1);
+
+    held.connect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(held.reads()).toBe(2);
     expect(source.get()).toEqual(USAGE);
 
     const newer = { windows: [{ kind: "five_hour", percent_used: 86 }] };
     held.changed(newer);
     expect(source.get()).toEqual(newer);
-    expect(heard).toHaveLength(2);
+    expect(heard).toHaveLength(3);
   });
 
   it("holds Fleet's empty answer as no windows once connected, and nothing before, so the title row can tell loading from absent", async () => {
