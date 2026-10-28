@@ -33,8 +33,8 @@ export type ActsHost = {
   page(sessionId: string): JobPage | null;
   ownerDriving(sessionId: string): boolean;
   /**
-   * **An agent's `open` on a Job with no Job browser opens one in that Job's side panel**, on the address. The owner has not
-   * decided this yet: where he says the agent may not show a page unasked, this one branch refuses instead.
+   * **An agent's `open` on a Job with no Job browser opens one in that Job's side panel**, on the address, as the owner
+   * chose on 28 Oct 2026 over refusing the agent until he opens it.
    */
   openClosedInPanel(sessionId: string, url: string): JobPage;
   answer(body: AnswerBrowserRequest): Promise<unknown>;
