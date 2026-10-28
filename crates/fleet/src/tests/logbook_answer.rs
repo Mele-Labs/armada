@@ -70,3 +70,29 @@ fn the_question_asks_for_one_canonical_form_of_a_command() {
     }
     assert!(question.contains("one canonical form"), "the question never asks for one canonical form of a command");
 }
+
+#[test]
+fn a_logbook_answer_reads_titles_and_drops_a_bad_one_without_the_item() {
+    let said = r#"{"contradicted":[{"id":5,"title":"Chrome is missing","text":"Chrome is not in /Applications.","evidence":["tool:1"]}],
+ "new":[
+  {"section":"repo","kind":"gotcha","title":"  Pass --merge to gh pr merge  ","text":"Pass `--merge` to `gh pr merge`.","evidence":["tool:1"]},
+  {"section":"repo","kind":"gotcha","title":"two\nlines","text":"Second.","evidence":["tool:1"]},
+  {"section":"repo","kind":"gotcha","title":"   ","text":"Third.","evidence":["tool:1"]},
+  {"section":"repo","kind":"gotcha","text":"Fourth, no title.","evidence":["tool:1"]}
+ ],
+ "titles":[{"id":4,"title":"No rustfmt"},{"id":9,"title":"Not offered"},{"id":5,"title":""},"nonsense"]}"#;
+    let read = known_read(said);
+    assert_eq!(read.contradicted[0].title.as_deref(), Some("Chrome is missing"));
+    let titles: Vec<Option<&str>> = read.learnt.iter().map(|one| one.title.as_deref()).collect();
+    assert_eq!(titles, vec![Some("Pass --merge to gh pr merge"), None, None, None], "a bad title costs the title, not the entry");
+    let titled: Vec<(i64, &str)> = read.titled.iter().map(|one| (one.id, one.title.as_str())).collect();
+    assert_eq!(titled, vec![(4, "No rustfmt")], "an id that was not offered, and an empty title, go");
+}
+
+#[test]
+fn the_question_asks_for_a_title_on_each_kind_of_answer() {
+    let question = crate::logbook::QUESTION;
+    assert!(question.contains("`title` is three to seven plain words"), "the question never says what a title is");
+    assert!(question.contains("`titles`"), "the question never asks for titles of entries shown without one");
+    assert!(question.contains("\"titles\":[{\"id\":"), "the shape never shows `titles`");
+}
