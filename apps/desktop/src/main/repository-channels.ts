@@ -140,14 +140,14 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   // The Workflow creator's list, one definition, and a save; the Workflows page's steps, two acts on a
   // copy and a nudge marked not a drift.
   ipc.handle(CHANNELS.readWorkflows, (event) => connection()?.workflowsFor(windowIdOf(event)).list());
-  ipc.handle(CHANNELS.readWorkflowDefinition, (event, workflowId: string, source: string) =>
-    connection()?.workflowsFor(windowIdOf(event)).definition(workflowId, source),
+  ipc.handle(CHANNELS.readWorkflowDefinition, (event, workflowId: string, source: string, manifestId: string | null) =>
+    connection()?.workflowsFor(windowIdOf(event)).definition(workflowId, source, manifestId),
   );
   ipc.handle(CHANNELS.saveWorkflow, (event, saving: SavingWorkflow) =>
     connection()?.workflowsFor(windowIdOf(event)).save(saving.manifestId, saving.body),
   );
-  ipc.handle(CHANNELS.readWorkflowSteps, (event, workflowId: string, source: string) =>
-    connection()?.workflowsFor(windowIdOf(event)).steps(workflowId, source),
+  ipc.handle(CHANNELS.readWorkflowSteps, (event, workflowId: string, source: string, manifestId: string | null) =>
+    connection()?.workflowsFor(windowIdOf(event)).steps(workflowId, source, manifestId),
   );
   ipc.handle(CHANNELS.deleteWorkflowCopy, (event, acting: ActingOnWorkflowCopy) =>
     connection()?.workflowsFor(windowIdOf(event)).deleteCopy(acting.manifestId, acting.copy),
@@ -164,8 +164,8 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   ipc.handle(CHANNELS.suggestWorkflowChange, (event, suggesting: SuggestingWorkflowChange) =>
     connection()?.workflowsFor(windowIdOf(event)).suggestChange(suggesting.manifestId, suggesting.body),
   );
-  ipc.handle(CHANNELS.readWorkflowChanges, (event, workflowId: string, source: string) =>
-    connection()?.workflowsFor(windowIdOf(event)).changes(workflowId, source),
+  ipc.handle(CHANNELS.readWorkflowChanges, (event, workflowId: string, source: string, manifestId: string | null) =>
+    connection()?.workflowsFor(windowIdOf(event)).changes(workflowId, source, manifestId),
   );
   ipc.handle(CHANNELS.approveWorkflowChange, (event, change: number) =>
     connection()?.workflowsFor(windowIdOf(event)).approveChange(change),

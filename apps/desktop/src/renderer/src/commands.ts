@@ -199,18 +199,20 @@ export const restoreKitPiece = (body: RestoreKitPiece) => window.armada.restoreK
 export const listKitServers = () => window.armada.listKitServers();
 /** The Workflow creator: the list, one definition, and a save. */
 export const readWorkflows = () => window.armada.readWorkflows();
-export const readWorkflowDefinition = (workflowId: string, source: string) =>
-  window.armada.readWorkflowDefinition(workflowId, source);
+export const readWorkflowDefinition = (workflowId: string, source: string, manifestId: string | null) =>
+  window.armada.readWorkflowDefinition(workflowId, source, manifestId);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
 /** The Workflows page beside a definition's text: its steps, a copy deleted or reset to Armada's, a nudge marked not a drift. */
-export const readWorkflowSteps = (workflowId: string, source: string) => window.armada.readWorkflowSteps(workflowId, source);
+export const readWorkflowSteps = (workflowId: string, source: string, manifestId: string | null) =>
+  window.armada.readWorkflowSteps(workflowId, source, manifestId);
 export const deleteWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.deleteWorkflowCopy(acting);
 export const resetWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.resetWorkflowCopy(acting);
 export const markNotADrift = (nudge: number) => window.armada.markNotADrift(nudge);
 /** The changes an agent drafts for him to approve: typed, suggested, polled while drafting, then approved, dismissed or sent back. */
 export const askWorkflowChange = (asking: AskingForWorkflowChange) => window.armada.askWorkflowChange(asking);
 export const suggestWorkflowChange = (suggesting: SuggestingWorkflowChange) => window.armada.suggestWorkflowChange(suggesting);
-export const readWorkflowChanges = (workflowId: string, source: string) => window.armada.readWorkflowChanges(workflowId, source);
+export const readWorkflowChanges = (workflowId: string, source: string, manifestId: string | null) =>
+  window.armada.readWorkflowChanges(workflowId, source, manifestId);
 export const approveWorkflowChange = (change: number) => window.armada.approveWorkflowChange(change);
 export const dismissWorkflowChange = (change: number) => window.armada.dismissWorkflowChange(change);
 export const sendBackWorkflowChange = (back: SendBackWorkflowChange) => window.armada.sendBackWorkflowChange(back);

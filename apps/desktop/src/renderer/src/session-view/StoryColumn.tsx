@@ -1,18 +1,22 @@
 // The Job's right column as one story in three zones. **Completed** is what the Job has made, in the order it made it (`ledger.ts`), read By step (each finished
 // group or workflow step with its outputs beneath it) or By kind (Documents, Pull requests, Issues and Artifacts, newest first). **Now** is what it is doing
-// this minute: the brief and the agent before any plan, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
+// this minute: the agent, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
 // which pulses. **Next** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
 // ci, the merge queue, main; a document; a mod and its Check; findings) and the follow-ups not yet settled. The plan is the spine: a finished group moves to
 // Completed carrying what it produced, and a pending output moves there when its data arrives.
 //
-// The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
+// With a workflow whose step the Job is at, the zones are the workflow's steps instead: one for each, a check on the line for a finished step (folded until pressed, holding what
+// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Next holds about landing. ⌥1, ⌥2 and ⌥3
+// then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Completed, Now and Next.
+//
+// The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
-import { Fragment, useEffect, useRef, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler } from "lucide-react";
 import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
-import { owesOf, type Session, type SessionWork, type SessionWorkActs } from "@armada/screens/src/draft/sessions";
+import { owesOf, type Session, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
@@ -23,12 +27,14 @@ import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
 import { Mark } from "./DeliveryRoute";
-import { Brief, briefOf, FlightRows } from "./FlightPlan";
+import { BriefZone } from "./BriefZone";
+import { briefOf, FlightRows } from "./FlightPlan";
 import { LaterBlock } from "./LaterBlock";
 import { WALK_STEP, byKind, madeOf, reportOf, stepOf, type Made } from "./ledger";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
+import { MARK, stateOf } from "./StatusPanel";
 import { viewOf } from "./plan-marks";
 import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
@@ -50,9 +56,16 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const layout = useLayout("job.panels").all;
   const [view, setView] = useLedgerView();
   const everything = useWhole(id);
-  const doneFold = useFold(session, "done");
+  const flow = work.workflow?.steps ?? acts?.workflows.find((one) => one.id === work.proposal?.workflow)?.steps ?? [];
+  const at = work.workflow?.at;
+  // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Completed, Now and Next.
+  const stepped = work.railOff !== true && flow.length > 0 && at !== undefined;
+  const doneFold = useFold(session, "done", stepped);
   const nowFold = useFold(session, "now");
   const nextFold = useFold(session, "next");
+  // A finished step opened or shut by itself; ⌥1 sets them all and clears these.
+  const [own, setOwn] = useState<Record<number, boolean>>({});
+  useEffect(() => setOwn({}), [doneFold.open]);
   const mods = useModsMade(id).mods;
   const kind = landingOf(session);
 
@@ -78,8 +91,6 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const upcoming = by("upcoming");
   const broke = approved && groups.some((group) => group.tasks.some((task) => task.state === "failed"));
 
-  const flow = work.workflow?.steps ?? acts?.workflows.find((one) => one.id === work.proposal?.workflow)?.steps ?? [];
-  const at = work.workflow?.at;
   const workflowDone = at === undefined ? [] : flow.filter((_, i) => i < at);
   const workflowNow = at === undefined ? undefined : flow[at];
   const workflowNext = flow.filter((_, i) => at === undefined || i > at);
@@ -132,19 +143,13 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const switcher = <LedgerToggle view={view} onChange={setView} />;
 
   // A zone with nothing in it is its band alone: an empty slot stays empty.
-  const briefHere = brief !== undefined && plan !== undefined;
-  const hasDone = view === "step" ? briefHere || workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
+  const hasDone = view === "step" ? workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
   const done = (
     <SvPanel label="Completed" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
       {!hasDone ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {view === "step" ? (
           <ol className="sv-beats" aria-label="By step">
-            {!briefHere ? null : (
-              <li className="sv-beat sv-beat--brief">
-                <Brief text={brief} />
-              </li>
-            )}
             {workflowDone.map((name) => {
               const list = made.filter((one) => underStep(one) === name);
               return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} newest="last" /> })} />;
@@ -205,14 +210,13 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           working={detected !== undefined}
           line={working.length === 0 ? now : undefined}
         />
-        {workflowNow === undefined ? null : <StepBeat name={workflowNow} state="now" />}
+        {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}
         {checking.map((one) => (one.kind === "check" ? <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system /> : null))}
         {failedCheck === undefined ? null : <WorkBeat mark={<Mark state="failed" />} name={failedCheck.name} system />}
       </ul>
-      {plan !== undefined || brief === undefined ? null : <Brief text={brief} />}
       {tasks.length === 0 ? null : <AgentTasks tasks={tasks} />}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
       {session.live === undefined || live === undefined ? null : (
@@ -279,10 +283,123 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 
   const zones: Record<string, ReactNode> = { done, now: now_, next };
   const drawn = layout.map((one) => <Fragment key={one.id}>{zones[one.id]}</Fragment>);
+
+  // ---- Zones as the workflow's steps ----
+  // A finished thing stands under the step whose visit covers its time: the latest visit that began at or before it. A step the Job went back to is one zone with both
+  // visits' things stacked in time order. A thing with no time, a Job with no visits, or a time after the current step began, stands under the last finished step.
+  const visits = work.workflow?.visits;
+  const lastDone = (at ?? 0) - 1;
+  const stepOfTime = (when: string | undefined): number => {
+    if (when === undefined || visits === undefined) return lastDone;
+    const time = Date.parse(when);
+    const hit = visits.reduce((found, one) => (Date.parse(one.since) <= time ? one.step : found), -1);
+    return hit < 0 ? 0 : Math.min(hit, lastDone);
+  };
+  const groupTime = (group: WorkGroup) => group.tasks.reduce<string | undefined>((latest, one) => (one.changedAt !== undefined && (latest === undefined || one.changedAt > latest) ? one.changedAt : latest), undefined);
+  const madeTime = (one: Made): string | undefined => {
+    if (one.shape === "pr") return session.trail?.opened?.[one.pr.number];
+    if (one.shape === "row" && one.key.startsWith("walk:")) {
+      const shown = session.rows.find((row) => row.kind === "window" && `walk:${row.id}` === one.key);
+      return shown?.kind === "window" ? shown.ended : undefined;
+    }
+    return undefined;
+  };
+  type Done = { time: string | undefined; group: (typeof finished)[number] } | { time: string | undefined; made: Made };
+  const finishedThings: Done[] = [
+    ...finished.map((group): Done => ({ time: groupTime(group), group })),
+    ...made.filter((one) => !underGroup(one)).map((one): Done => ({ time: madeTime(one), made: one })),
+  ];
+  const doneIn = (step: number): Done[] =>
+    finishedThings.filter((one) => stepOfTime(one.time) === step).sort((a, b) => (a.time === undefined || b.time === undefined ? 0 : a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+  const underDone = (list: Done[]) => {
+    const rows: ReactNode[] = [];
+    let run: Made[] = [];
+    const flush = () => {
+      if (run.length > 0) rows.push(<li key={`made-${run[0]!.key}`} className="sv-beat sv-beat--made"><MadeList session={session} list={run} newest="last" /></li>);
+      run = [];
+    };
+    for (const one of list) {
+      if ("made" in one) run.push(one.made);
+      else {
+        flush();
+        rows.push(<DoneGroup key={one.group.id} group={one.group} open={all} session={session} onOpenSession={onOpenSession} />);
+      }
+    }
+    flush();
+    return <div className="sv-nav" onKeyDown={arrowsIn}><ol className="sv-beats" aria-label="Done">{rows}</ol></div>;
+  };
+
+  // What Next held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
+  const landing =
+    ahead.length === 0 && kept.length === 0 ? undefined : (
+      <div className="sv-nav" onKeyDown={arrowsIn}>
+        {ahead.length === 0 ? null : (
+          <ol className="sv-beats" aria-label="Ahead">
+            {ahead.map((step) => (
+              <RouteBeat key={step.key} step={step} />
+            ))}
+          </ol>
+        )}
+        {kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
+      </div>
+    );
+
+  const stepZones = !stepped
+    ? []
+    : flow.map((name, i) => {
+        const state = stateOf(i, at);
+        const last = i === flow.length - 1;
+        if (state === "done") {
+          const list = doneIn(i);
+          const open = own[i] ?? doneFold.open;
+          const { Glyph, said } = MARK.done;
+          const marker = (
+            <Tooltip asChild label={said}>
+              <span className="sv-panel__mark" role="img" aria-label={said}>
+                <Glyph size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          );
+          return (
+            <SvPanel key={`${i}-${name}`} label={name} area="step-done" place="side" marker={marker} fold={{ open, toggle: () => setOwn((was) => ({ ...was, [i]: !open })), current: false }} keycap={bandKeyFor("done")}>
+              {list.length === 0 ? undefined : underDone(list)}
+            </SvPanel>
+          );
+        }
+        if (state === "now") {
+          // Before the first step is reached nothing is finished under another step, so what is finished stands here.
+          const early = lastDone < 0 ? finishedThings : [];
+          return (
+            <SvPanel key={`${i}-${name}`} label={name} area="step-now" place="side" state={nowState} acts={nowActs} fold={nowFold} keycap={bandKeyFor("now")}>
+              <>
+                {early.length === 0 ? null : underDone(early)}
+                {nowBody}
+                {upcoming.length === 0 ? null : (
+                  <div className="sv-nav" onKeyDown={arrowsIn}>
+                    <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />
+                  </div>
+                )}
+                {last ? landing : null}
+              </>
+            </SvPanel>
+          );
+        }
+        return (
+          <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
+            {!last && !(WALK_STEP.test(name) && walks.length === 0) ? undefined : (
+              <>
+                {WALK_STEP.test(name) && walks.length === 0 ? <WalkToCome /> : null}
+                {last ? landing : null}
+              </>
+            )}
+          </SvPanel>
+        );
+      });
   return (
     <Spine session={session}>
       {head === null ? null : <div className="sv-story__head">{head}</div>}
-      {drawn}
+      {brief === undefined ? null : <BriefZone key={session.id} session={session} work={work} text={brief} onOpenSession={onOpenSession} />}
+      {stepped ? stepZones : drawn}
     </Spine>
   );
 }
@@ -299,7 +416,7 @@ export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"):
 function Spine({ session, children }: { session: Session; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const now = box.current?.querySelector<HTMLElement>('[data-area="now"]');
+    const now = box.current?.querySelector<HTMLElement>('[data-area="now"], [data-area="step-now"]');
     if (now !== null && now !== undefined) placeZone(now);
   }, [session.id]);
   return (

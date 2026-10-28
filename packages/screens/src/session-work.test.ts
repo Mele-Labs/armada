@@ -70,6 +70,12 @@ describe("the workflow", () => {
     expect(workOf(record({ workflow: "feature" }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"] });
   });
 
+  it("carries when each step began, in order, with a step it went back to twice", () => {
+    const workflow_visits = [{ step: 0, since: "2026-10-27T10:00:00Z" }, { step: 1, since: "2026-10-27T10:05:00Z" }, { step: 0, since: "2026-10-27T10:09:00Z" }];
+    expect(workOf(record({ workflow: "feature", workflow_step: 0, workflow_visits }), beside())?.workflow?.visits).toEqual(workflow_visits);
+    expect(workOf(record({ workflow: "feature" }), beside())?.workflow?.visits).toBeUndefined();
+  });
+
   it("lights the step Fleet names", () => {
     expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 });
     expect(workOf(record({ workflow: "feature", workflow_step: 0 }), beside())?.workflow?.at).toBe(0);

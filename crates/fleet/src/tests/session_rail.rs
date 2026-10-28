@@ -288,6 +288,41 @@ async fn the_step_moves_on_what_was_observed_and_each_move_is_entered_on_the_tim
     eventually(|| async { says_of_steps(&rig).await.contains(&"step: Plan the change → Implement".to_string()) }).await;
 }
 
+#[tokio::test]
+async fn the_steps_a_job_began_are_sent_with_when_each_began_and_in_order() {
+    let rig = ruled(Arc::new(FakeJudge::with_no_objection()));
+    let id = on_the_rail(&rig).await;
+    eventually(|| async { record(&rig, &id).await.workflow_visits.len() == 1 }).await;
+    approved_plan(&rig, &id).await;
+    eventually(|| async { record(&rig, &id).await.workflow_visits.len() == 2 }).await;
+
+    let visits = record(&rig, &id).await.workflow_visits;
+    assert_eq!(visits.iter().map(|one| one.step).collect::<Vec<_>>(), vec![0, 1]);
+    assert!(visits[0].since <= visits[1].since, "oldest first: {visits:?}");
+}
+
+#[tokio::test]
+async fn how_a_job_started_is_sent_and_a_later_tuning_does_not_change_it() {
+    let rig = ruled(Arc::new(FakeJudge::with_no_objection()));
+    let id = rig.start().await;
+    rig.fleet
+        .tune_session(ipc::TuneSession { session_id: id.clone(), model: Some("opus".into()), effort: Some("high".into()), mode: ipc::SessionMode::Plan })
+        .await
+        .expect("tuned");
+    rig.send(&id, REQUEST).await;
+    rig.stand_in.init(0);
+    let started = record(&rig, &id).await.started.expect("kept as the process first ran");
+    assert_eq!(started.model.as_deref(), Some("opus"));
+    assert_eq!(started.effort.as_deref(), Some("high"));
+    assert_eq!(started.mode, Some(ipc::SessionMode::Plan));
+
+    rig.fleet
+        .tune_session(ipc::TuneSession { session_id: id.clone(), model: Some("sonnet".into()), effort: None, mode: ipc::SessionMode::Auto })
+        .await
+        .expect("tuned");
+    assert_eq!(record(&rig, &id).await.started, Some(started), "what it began with stands");
+}
+
 #[test]
 fn entering_a_step_sends_its_instructions_and_a_step_with_none_sends_nothing() {
     let told = RailStep { instructions: Some("  Record the plan first.\n".into()), ..plan_step() };

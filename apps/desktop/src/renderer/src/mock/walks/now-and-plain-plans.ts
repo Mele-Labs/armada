@@ -5,7 +5,9 @@
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 import { LIVE_TITLE, NOT_YET_WORDS, REFUSAL_WORDS, TITLE } from "../scenarios/now-and-plain-plans";
 
-const now = region("Now", { exact: true });
+// The Job is at Plan until its turn ends, then at Build: the current step's zone holds Now.
+const now = region("Plan", { exact: true });
+const built = region("Build", { exact: true });
 const account = role("list", "Now");
 const live = role("figure", LIVE_TITLE);
 const card = role("article", "Plan to approve");
@@ -36,7 +38,7 @@ const nowAndPlainPlans = walk("now-and-plain-plans", [
   { press: inside(now, button(`Open ${LIVE_TITLE}`)), say: "Open it large" },
   { key: "Escape", on: dialog(LIVE_TITLE), say: "Esc closes it" },
   { later: inside(now, account), say: "The last part" },
-  { look: inside(now, role("button", "Approve")), say: "Turn over: the plan to approve is in Now, with Approve at its foot" },
+  { look: inside(built, role("button", "Approve")), say: "Turn over: the plan to approve is in Now, with Approve at its foot" },
   reply,
   ...plan,
 ]);

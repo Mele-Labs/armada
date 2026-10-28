@@ -13,5 +13,5 @@ export const layoutAsDrawn = walk("compact-session-view", [
   { press: place("Cockpit"), say: "The Cockpit" },
   { look: region("Bays", { exact: true }), say: "No Activity under Bays" },
   { press: deckRow("Retry the slot lease"), say: "A Job" },
-  { look: region("Now", { exact: true }), say: "The right column stands with Completed and Now. Next is gone" },
+  { look: region("Build", { exact: true }), say: "The right column stands with the Job's current step. Next is gone" },
 ]);
