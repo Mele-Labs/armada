@@ -133,6 +133,8 @@ export type LedgerEntry = {
   release?: { name: string; onPress: () => void };
   /** Released from here: given back, or kept by Fleet with `kept` saying why. */
   released?: { kept?: string };
+  /** A held Job's row: Start at its end begins that Job without opening it. `starting` while the start waits on the request being read. */
+  start?: { starting: boolean; onStart: () => void };
   onOpen: () => void;
 };
 

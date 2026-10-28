@@ -43,6 +43,7 @@ import type {
   ProjectRowRef,
   BeginSession,
   TuneSession,
+  WaitingItem,
   WaitReading,
 } from "@armada/protocol";
 
@@ -257,6 +258,10 @@ export class FakeSessionsFleet {
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** Hears each answer to an ask once it has settled, to script the agent's next call. */
   onAnswer: ((answer: AnswerSessionAsk) => void) | undefined;
+  /** Hears a start queued while the proposer reads, to script when the reading ends. */
+  onQueued: ((sessionId: string) => void) | undefined;
+  /** The presses queued while the proposer read, by Session, for what they named. */
+  private readonly queuedBegins = new Map<string, BeginSession>();
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
   startsNow = false;
   /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
@@ -269,7 +274,7 @@ export class FakeSessionsFleet {
   private rowed = 0;
 
   constructor(records: SessionRecord[] = [], threads: Record<string, SessionRow[]> = {}) {
-    this.records = records;
+    this.records = this.withHeldChildren(records);
     this.threads = threads;
   }
 
@@ -336,19 +341,16 @@ export class FakeSessionsFleet {
           },
           beginSession: async (begin) => {
             this.calls.begun.push(begin);
-            // The first message is his edit, else the one the card held. It lands in the thread now, and the agent plays in on it.
-            const first = begin.message ?? this.records.find((one) => one.id === begin.session_id)?.hosted?.start?.message;
-            // Fleet starts the agent and the card goes: `start` is gone from the record it answers.
-            const begun = this.change(begin.session_id, (one) => {
-              const { start: _start, ...rest } = one.hosted!;
-              return { ...one, hosted: { ...rest, turn: { state: "working" } } };
-            });
-            if (begun.ok && first !== undefined && first.trim() !== "") {
-              this.threads = { ...this.threads, [begin.session_id]: this.threads[begin.session_id] ?? [] };
-              this.row(begin.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: first });
-              this.onSend?.({ session_id: begin.session_id, text: first });
+            const found = this.records.find((one) => one.id === begin.session_id);
+            // Start pressed while the proposer reads is queued, his words with it; the Job starts when the reading ends (`proposes`).
+            if (found?.proposal?.reading === true && found.hosted?.start !== undefined) {
+              const { start } = found.hosted;
+              if (begin.message !== undefined || begin.delivery !== undefined) this.queuedBegins.set(begin.session_id, begin);
+              const queued = this.change(begin.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, start: { ...start, queued: true } } }));
+              this.onQueued?.(begin.session_id);
+              return queued;
             }
-            return begun;
+            return this.beginNow(begin);
           },
           setSessionWorkflow: async (sessionId, workflow) => this.change(sessionId, ({ workflow: _was, ...one }) => (workflow === undefined ? one : { ...one, workflow })),
           readSessionWait: async (sessionId, request) => {
@@ -696,7 +698,49 @@ export class FakeSessionsFleet {
     return { ok: true, value: answer.review };
   }
 
+  /** Fleet starts a held Job: the card goes, the first message lands in the thread, and the Job that started it is told. */
+  private beginNow(begin: BeginSession): SessionActed {
+    // The first message is his edit, else the one the card held. It lands in the thread now, and the agent plays in on it.
+    const first = begin.message ?? this.records.find((one) => one.id === begin.session_id)?.hosted?.start?.message;
+    // Fleet starts the agent and the card goes: `start` is gone from the record it answers.
+    const begun = this.change(begin.session_id, (one) => {
+      const { start: _start, ...rest } = one.hosted!;
+      return { ...one, hosted: { ...rest, turn: { state: "working" } } };
+    });
+    if (begun.ok && first !== undefined && first.trim() !== "") {
+      this.threads = { ...this.threads, [begin.session_id]: this.threads[begin.session_id] ?? [] };
+      this.row(begin.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: first });
+      this.onSend?.({ session_id: begin.session_id, text: first });
+    }
+    // The Job whose agent started it has a linked row, where its own row for Start was.
+    const parent = begun.ok ? begun.value.attachments.find((one) => one.kind === "started_by")?.target : undefined;
+    if (begun.ok && parent !== undefined) {
+      this.row(parent, { kind: "linked", id: this.rowId(), at: this.startsNow ? new Date().toISOString() : AT, session: { id: begin.session_id, title: begun.value.title ?? begin.session_id }, event: "started" });
+    }
+    return begun;
+  }
+
+  /**
+   * Fleet's `held_child` items, read off the records on every change: each Job lists every Job its agent started (`started_to`) that is
+   * still on its start card, and the item goes when that Job starts. A record whose items stand as they were is kept as it was.
+   */
+  private withHeldChildren(records: SessionRecord[]): SessionRecord[] {
+    const held = new Map(records.filter((one) => one.state === "live" && one.hosted?.start !== undefined).map((one) => [one.id, one]));
+    return records.map((one) => {
+      const was = (one.waiting_for ?? []).filter((item) => item.source === "held_child");
+      const children = one.attachments.flatMap((link) => (link.kind === "started_to" && held.has(link.target) ? [held.get(link.target)!] : []));
+      const items = children.map((child): WaitingItem => {
+        const text = `Press Start on "${child.title ?? child.id}"`;
+        const kept = was.find((item) => item.id === `start:${child.id}`);
+        return kept !== undefined && kept.text === text ? kept : { id: `start:${child.id}`, text, since: kept?.since ?? AT, source: "held_child", act: { kind: "message", target: child.id } };
+      });
+      if (items.length === was.length && items.every((item, at) => item === was[at])) return one;
+      return { ...one, waiting_for: [...(one.waiting_for ?? []).filter((item) => item.source !== "held_child"), ...items] };
+    });
+  }
+
   private set(records: SessionRecord[]): void {
+    records = this.withHeldChildren(records);
     this.records = records;
     this.fleet?.publish({ sessions: { state: "read", sessions: records } });
   }
@@ -756,7 +800,7 @@ export class FakeSessionsFleet {
    * it chose, and the landing his usual or his words gave.
    */
   proposes(id: string, reading: { reading: true } | { workflow: string; picked: ProposedField[]; landing?: DeliveryPicked }): void {
-    this.change(id, (one) => {
+    const read = this.change(id, (one) => {
       if ("reading" in reading) return { ...one, proposal: { reading: true } };
       const { landing, workflow, picked } = reading;
       return {
@@ -766,6 +810,13 @@ export class FakeSessionsFleet {
         ...(landing === undefined || one.hosted?.start === undefined ? {} : { hosted: { ...one.hosted, start: { ...one.hosted.start, picked: landing } } }),
       };
     });
+    // A start queued while it read goes now, with the landing the reading picked where the press named none.
+    const start = read.ok && !("reading" in reading) ? read.value.hosted?.start : undefined;
+    if (start?.queued !== true) return;
+    const pressed = this.queuedBegins.get(id);
+    this.queuedBegins.delete(id);
+    const delivery = pressed?.delivery ?? (start.asks_delivery ? start.picked?.choice : undefined);
+    this.beginNow({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(pressed?.message === undefined ? {} : { message: pressed.message }) });
   }
 
   /** The agent takes a turn on its own clock: working, then the rows it writes (a function is made as its turn reaches it), then idle. */

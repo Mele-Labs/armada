@@ -20,8 +20,8 @@ import type { StartAfter, WaitBy, WaiterEvent, WaiterSide } from "./session-wait
 /** The permission mode a session runs in. `auto` is the default. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 
-/** What a Session that is followed did, for its parent's thread. */
-export type LinkedEvent = "needs" | "done" | "merged";
+/** What a Session that is followed did, for its parent's thread. `started`: a Job the parent's agent started left its start card. */
+export type LinkedEvent = "needs" | "done" | "merged" | "started";
 
 /** How the person settled a draft: approved as written, approved with their own text, sent back with a note, or withdrawn, from his card or by the agent. */
 export type DraftHow = "approved" | "fixed" | "sent_back" | "withdrawn";
@@ -255,6 +255,11 @@ export type StartHeld = {
   picked?: DeliveryPicked;
   /** The first message the agent will read, as it will read it, which the composer holds for him to edit. Absent until one is kept for the Job. */
   message?: string;
+  /**
+   * Start was pressed while the proposer was still reading (`proposal.reading`): the Job starts once the reading ends, with the landing
+   * the reading picks where the press named none. Absent when no start waits.
+   */
+  queued?: boolean;
 };
 
 /** A landing the start card has ready, and where it came from. */
@@ -266,7 +271,8 @@ export type DeliveryPickedFrom = "usual" | "named" | "default";
 /**
  * `POST /sessions/begin`: Start pressed on a held Job's start card. Answers the `SessionRecord`.
  * `delivery` is required where `hosted.start.asks_delivery` holds (422 `fleet.session_waiting_empty` without it) and ignored elsewhere.
- * 409 `fleet.session_waiting_unheld` for a Job that is not held.
+ * 409 `fleet.session_waiting_unheld` for a Job that is not held. While the proposer is reading, the start is queued (`start.queued`)
+ * and `delivery` may be absent: the Job starts when the reading ends, with the reading's landing.
  */
 export type BeginSession = {
   session_id: string;

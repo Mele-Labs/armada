@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { GitMerge, Quote, Repeat, TextCursor, Workflow } from "lucide-react";
+import { GitMerge, LoaderCircle, Quote, Repeat, TextCursor, Workflow } from "lucide-react";
 import { Pick, Select, Tooltip } from "@armada/components";
 import type { DeliveryChoice, RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -55,10 +55,12 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
   const standingSaid =
     standing === "named" ? "Named in your request" : kindName === undefined || repository === undefined ? "Your usual" : `Your usual for ${plural(kindName)} in ${repository}`;
 
+  const queued = start.queued === true;
   const begin = async (text: string): Promise<boolean> => {
-    if (reading || draft.begin === undefined) return false;
+    if (queued || draft.begin === undefined) return false;
+    // While the proposer reads, the start is queued with no landing: Fleet starts it with the reading's once it ends.
     // The workflow shown is the one the Job runs under, so a default he did not change is recorded now.
-    if (proposed === null && kind !== null) draft.work?.choose(id, kind);
+    if (!reading && proposed === null && kind !== null) draft.work?.choose(id, kind);
     // The box goes as he left it; with no held turn Fleet takes it as the first one.
     const sent = await draft.begin(id, lands ? landing : undefined, text.trim() === "" ? undefined : text);
     return sent !== false;
@@ -72,6 +74,13 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
 
   const lead = (
     <>
+      {queued ? (
+        <Tooltip label="Starting">
+          <span role="img" aria-label="Starting" className="armada-session-composer__proposed" data-starting="">
+            <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
       {reading ? (
         <Tooltip label="Reading the request">
           <span role="img" aria-label="Reading the request" className="armada-session-composer__proposed">

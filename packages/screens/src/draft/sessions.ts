@@ -276,7 +276,7 @@ export type SessionVoice =
   | { kind: "session"; id: string; title: string };
 
 /** What a followed Session did that its parent is told of. */
-export type LinkedEvent = "needs" | "done" | "merged";
+export type LinkedEvent = "needs" | "done" | "merged" | "started";
 
 type SessionRowKinds =
   | {
@@ -568,7 +568,7 @@ export type Session = {
    * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: one his request named, else his usual for this
    * kind in this repository, else Fleet's `default`. Absent once the Job has begun.
    */
-  start?: { asksDelivery: boolean; picked?: DeliveryPicked; /** The first message the agent will read, held in the composer for him to edit. Absent until one is kept for the Job. */ message?: string };
+  start?: { asksDelivery: boolean; picked?: DeliveryPicked; /** The first message the agent will read, held in the composer for him to edit. Absent until one is kept for the Job. */ message?: string; /** Start was pressed while the proposer read: it starts when the reading ends. */ queued?: boolean };
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */

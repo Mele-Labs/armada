@@ -1,4 +1,4 @@
-import { ChevronRight, Eye, GitMerge, Link, Power } from "lucide-react";
+import { ChevronRight, CircleDot, Eye, GitMerge, Link, Power } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Stamp } from "../../primitives/Stamp/Stamp";
@@ -9,9 +9,10 @@ const EVENT: Record<Extract<SessionThreadRow, { kind: "linked" }>["event"], { Gl
   needs: { Glyph: Eye, said: "Needs you" },
   done: { Glyph: Power, said: "Done" },
   merged: { Glyph: GitMerge, said: "Merged" },
+  started: { Glyph: CircleDot, said: "Started" },
 };
 
-/** A Session this one follows needs the person, finished or merged. The agent was told in the same moment, so the row stands in the thread where it happened. */
+/** A Session this one follows needs the person, started, finished or merged. The agent was told in the same moment, so the row stands in the thread where it happened. */
 export function LinkedRow({ row, onOpen }: { row: Extract<SessionThreadRow, { kind: "linked" }>; onOpen: (sessionId: string) => void }) {
   const { Glyph, said } = EVENT[row.event];
   return (

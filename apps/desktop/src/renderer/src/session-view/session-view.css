@@ -386,6 +386,10 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+/* Start pressed while the request is read: the ring turns until the Job starts. */
+.sv-start-strip [data-starting] > svg { animation: sv-start-spin var(--duration-pulse) linear infinite; }
+@keyframes sv-start-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .sv-start-strip [data-starting] > svg { animation: none; } }
 .sv-dock[data-starting] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 .sv-dock[data-open="true"] .armada-session-composer,
 .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
