@@ -1,0 +1,16 @@
+[operations.name_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Have Armada name a hosted job from its first message, as it names one at the start"
+notes = """
+`POST /sessions/name`, body `NameSession`: `session_id`. Answered with the `SessionRecord`, and published as `session.changed` when the title changed. An unchanged title publishes nothing.
+
+**The proposer is asked the question the start asks**, with the job's first message and the person's last renames in this repository, and only the answer's title is read. An answer with no `workflow:` line still names the job. The title is cut at 80 characters.
+
+**It is Armada's name, not his.** The title is not kept as his rename, so the proposer does not learn from it, and it is listed in `proposal.picked` as `title`. A rename he makes after it is learned against it as usual. A start-time reading still out leaves this title alone.
+
+Refused with 422 and nothing written: `fleet.session_command_refused` for a terminal job, `fleet.no_such_session` for a job Fleet does not host, `fleet.session_no_request` for a job with no message, and `fleet.session_not_named` where there is no proposer, the call failed, or the answer had no title.
+
+`agent_access` is `No`: a job's name is the person's to ask for.
+"""

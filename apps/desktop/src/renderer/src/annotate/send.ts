@@ -86,12 +86,12 @@ export async function sendToSession(
     // On the notes' repository, which the window's pick may not be: on All repositories it is none.
     const root = await sink.root();
     if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
-    const title = titleOf(notes.map((one) => one.note));
     // Held on its start card: nothing runs until he presses Start. His words ride as the request, so Fleet's proposer reads them now.
     const request = notes.map((one) => one.note.text.trim()).filter((words) => words !== "").join("\n");
-    const started = await fleet.startSession(title, root, request === "" ? undefined : request, undefined, undefined, true);
+    // No title goes up: Fleet names the Job from his words, and the notice falls back to the first line until the record says.
+    const started = await fleet.startSession(undefined, root, request === "" ? undefined : request, undefined, undefined, true);
     if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
-    into = { id: started.value.id, title: started.value.title ?? title };
+    into = { id: started.value.id, title: started.value.title ?? titleOf(notes.map((one) => one.note)) };
   }
 
   const sent: Sent = { sessionId: into.id, title: into.title, at: at.toISOString() };
