@@ -2,7 +2,8 @@
 //! *The rail*. The rules are `rail`'s; this is the part that acts on them.
 //!
 //! **Three things, none of which blocks.** The move is entered on the timeline as `session.step`; a
-//! step skipped draws one short message to the agent, once for each step; and a step left behind that
+//! step skipped draws one short message to the agent, once for each step, and so does a step the Job
+//! stopped on that only its own act ends; and a step left behind that
 //! asks the Judge something is read in the background. The step itself is derived while the row is
 //! drawn (`Fleet::rail_drawn`), so this loop only reacts to a published row and never decides one.
 
@@ -31,6 +32,7 @@ const BOUNDARY_JUDGES: bool = false;
 struct Seen {
     step: Option<u32>,
     skipped: Vec<(usize, Skip)>,
+    stalled: Option<usize>,
 }
 
 /// Start reacting to a hosted Session's published row. Production starts it beside the timeline's, and
@@ -88,7 +90,8 @@ where
             facts = Facts::of(&record, self.rail_extra(&id).await);
         }
         let skips = rail::skipped(&steps, &facts);
-        let now = Seen { step: record.workflow_step, skipped: skips.clone() };
+        let stalled = rail::stalled(&steps, &record);
+        let now = Seen { step: record.workflow_step, skipped: skips.clone(), stalled: stalled.map(|(at, _)| at) };
         if seen.get(&id) == Some(&now) {
             return;
         }
@@ -113,6 +116,15 @@ where
                 if let Some(source) = self.nudge_kept(manifest.as_str(), workflow, step, &id, skip).await {
                     self.drift_suggested(manifest.as_str(), workflow, source, &step.id).await;
                 }
+            }
+        }
+        // A Job stopped on a step only its own act ends is told so once for each step.
+        if let Some((at, end)) = stalled.filter(|(at, _)| !kept.stalled.contains(&(*at as u32))) {
+            let Some(step) = steps.get(at) else { return };
+            let name = self.workflow_name(manifest.as_str(), workflow);
+            let sent = self.told_by_fleet(&id, &rail::stall_nudge(&name, step, end), ipc::Notice::RailNudge).await;
+            if matches!(sent, Ok(true)) {
+                self.rail_stalled(&id, at as u32).await;
             }
         }
     }
@@ -176,13 +188,13 @@ where
             return Some((kept, ran));
         }
         // The step's own instructions go once on each entry, so a move back is told again.
-        if let Some(step) = to.and_then(|at| steps.get(at)) {
+        if let Some((at, step)) = to.and_then(|at| steps.get(at).map(|step| (at, step))) {
             let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
             let workflow = record.workflow.as_deref().unwrap_or("");
             // A step that asks how the work is delivered holds its instructions until the answer,
             // which sends them with it.
             let held = step.asks_delivery && self.delivery_entered(id).await;
-            if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), step).filter(|_| !held) {
+            if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), steps, at).filter(|_| !held) {
                 let _ = self.told_by_fleet(id, &words, ipc::Notice::RailStep).await;
             }
         }
@@ -229,7 +241,7 @@ where
             self.step_noted(&session, &steps, from.map(|at| at as usize), Some(to as usize));
         }
         let step = &steps[to as usize];
-        let words = rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), step);
+        let words = rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), &steps, to as usize);
         let rows = self.rows_of(id).await.unwrap_or_default();
         let asked = delivery_asked(&rows);
         if step.asks_delivery && !asked && self.delivery_row_kept(id, text).await {
@@ -258,6 +270,17 @@ where
         if let Ok(mut kept) = store.session_rail(id) {
             if !kept.nudged.contains(&at) {
                 kept.nudged.push(at);
+                let _ = store.keep_session_rail(id, &kept);
+            }
+        }
+    }
+
+    /// Remember that the agent was told it had stopped on step `at`.
+    async fn rail_stalled(&self, id: &str, at: u32) {
+        let mut store = self.store().lock().await;
+        if let Ok(mut kept) = store.session_rail(id) {
+            if !kept.stalled.contains(&at) {
+                kept.stalled.push(at);
                 let _ = store.keep_session_rail(id, &kept);
             }
         }

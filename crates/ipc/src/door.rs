@@ -652,6 +652,7 @@ fn describe_in(operation: &str, name: &str) -> String {
             "`true` lists your ended watches too. Absent, only the live ones",
         ),
         ("get_logbook", "state") => String::from("`candidate`, `standing` or `faded`. Absent is every state"),
+        ("list_workflow_changes", "source") => String::from("`armada`, `kit` or `repository`: the place whose changes are listed"),
         _ => describe(name),
     }
 }
@@ -679,6 +680,10 @@ fn describe(name: &str) -> String {
             String::from("Which items: `open` (the default), `agreed`, `accepted` or `discarded`")
         }
         "lesson_id" => String::from("The retro item, as `list_lessons` names it"),
+        "workflow_id" => String::from("The workflow, as `list_workflows` names it, such as `feature`"),
+        "source" => String::from(
+            "`armada`, `kit` or `repository`. Absent, the one that runs; present, one it replaced",
+        ),
         other => format!("The `{other}` this route names"),
     }
 }

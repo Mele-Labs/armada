@@ -18,6 +18,7 @@ use testkit::FakeJudge;
 
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::rail::{self, Facts, Fit, RailStep, Skip};
+use crate::rail_ends;
 use crate::session_host::session_judging::place_in_diff;
 
 // ---- The rules ----
@@ -326,13 +327,26 @@ async fn how_a_job_started_is_sent_and_a_later_tuning_does_not_change_it() {
 #[test]
 fn entering_a_step_sends_its_instructions_and_a_step_with_none_sends_nothing() {
     let told = RailStep { instructions: Some("  Record the plan first.\n".into()), ..plan_step() };
-    let said = rail::instructed("Bug", &told).expect("instructions are sent");
-    for part in ["Bug workflow", "\"Plan the change\"", "Record the plan first."] {
+    let said = rail::instructed("Bug", &[told], 0).expect("instructions are sent");
+    for part in ["Bug workflow", "\"Plan the change\"", "Record the plan first.", "ends when the person approves the plan."] {
         assert!(said.contains(part), "{part}: {said}");
     }
-    assert_eq!(rail::instructed("Bug", &plan_step()), None, "no instructions, no message");
+    assert_eq!(rail::instructed("Bug", &[plan_step()], 0), None, "no instructions, no message");
     let blank = RailStep { instructions: Some("  ".into()), ..plan_step() };
-    assert_eq!(rail::instructed("Bug", &blank), None, "blank is none");
+    assert_eq!(rail::instructed("Bug", &[blank], 0), None, "blank is none");
+}
+
+/// **A step only the Job's own act ends says which act.** The Logbook Job (27 Oct 2026) settled the
+/// scope on Discuss and waited for Fleet to move it, while Fleet waited for its plan.
+#[test]
+fn a_step_before_the_plan_says_it_ends_when_the_job_records_one() {
+    let discuss = RailStep { instructions: Some("Ask what is unclear.".into()), ..step("Discuss") };
+    let propose = RailStep { awaits_reply: true, ..discuss.clone() };
+    let steps = [propose, discuss, plan_step()];
+    let said = rail::instructed("feature", &steps, 1).expect("instructions are sent");
+    assert!(said.ends_with("This step ends when you record a plan with record_plan."), "{said}");
+    let said = rail::instructed("feature", &steps, 0).expect("instructions are sent");
+    assert!(said.ends_with("This step ends when the person replies."), "{said}");
 }
 
 #[tokio::test]
@@ -343,6 +357,66 @@ async fn a_session_is_told_a_steps_instructions_when_it_enters_the_step() {
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("Record the plan")).cloned().unwrap();
     assert!(said.contains("Plan the change"), "{said}");
     assert_eq!(told(&rig, "Record the plan before editing."), 1, "once");
+}
+
+/// The rail's workflow with a step before the plan that nobody but the Job ends, as the feature
+/// workflow's Discuss is.
+fn discussed() -> config::ResolvedWorkflow {
+    let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
+        - id: discuss\n    label: \"Discuss\"\n    instructions: \"Settle the scope.\"\n    delivers: false\n    advance_gate: auto\n  \
+        - id: plan\n    label: \"Plan the change\"\n    evidence: {submitted: {type: plan}}\n    \
+        mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
+        - id: handoff\n    label: \"Hand off\"\n    delivers: true\n    advance_gate: auto\n";
+    let def = config::WorkflowDef::parse(std::path::Path::new("rail.yml"), text, &config::Roster::offering_nothing())
+        .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+const STALLED: &str = "Fleet does not move it for you";
+
+/// **A Job that stops on a step only its own act ends is told so, once.** Read from the row: the turn
+/// ended on a reply that asks nothing and nothing waits on the person. The Logbook Job, 27 Oct 2026.
+#[tokio::test]
+async fn a_job_that_reports_and_stops_on_a_step_only_it_can_end_is_told_once() {
+    let rig = ruled_on(Arc::new(FakeJudge::with_no_objection()), discussed());
+    let id = on_the_rail(&rig).await;
+    eventually(|| async { told(&rig, "Settle the scope.") == 1 }).await;
+
+    rig.stand_in.finishes(0, "Settled so far: one line per entry.\nOnce Fleet moves to the plan step, I will record it.");
+    eventually(|| async { told(&rig, STALLED) == 1 }).await;
+    let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains(STALLED)).cloned().unwrap();
+    for part in ["Discuss", "you record a plan with record_plan", "ask the person what is still open"] {
+        assert!(said.contains(part), "{part}: {said}");
+    }
+
+    rig.stand_in.finishes(0, "Still settled.");
+    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Replied) }).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, STALLED), 1, "once for each step");
+}
+
+/// A turn that ends on a question waits on the person, so the Job has not stopped on its own step.
+#[tokio::test]
+async fn a_job_that_ends_its_turn_on_a_question_is_not_told_it_stopped() {
+    let rig = ruled_on(Arc::new(FakeJudge::with_no_objection()), discussed());
+    let id = on_the_rail(&rig).await;
+    eventually(|| async { told(&rig, "Settle the scope.") == 1 }).await;
+
+    rig.stand_in.finishes(0, "Settled so far: one line per entry.\n\nShould I record the plan now?");
+    eventually(|| async { record(&rig, &id).await.waiting_for.iter().any(|one| one.source == WaitingSource::Replied) }).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, STALLED), 0, "the person is asked, so the Job waits on him");
+}
+
+/// **Only a step the Job's own act ends can stall it.** One the person ends (a reply, an approval) or
+/// a merge ends is his to move, and Fleet tells the Job nothing.
+#[test]
+fn a_step_stalls_only_where_the_jobs_own_act_ends_it() {
+    let propose = RailStep { awaits_reply: true, ..step("Propose") };
+    let steps = [propose, step("Discuss"), plan_step(), follows("Refine"), delivers("Deliver")];
+    let ends = (0..steps.len()).map(|at| rail_ends::end_of(&steps, at).map(rail_ends::End::by_the_job)).collect::<Vec<_>>();
+    assert_eq!(ends, [Some(false), Some(true), Some(false), Some(true), Some(false)], "reply, record, approve, push, merge");
 }
 
 #[tokio::test]

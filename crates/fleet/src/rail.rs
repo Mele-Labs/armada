@@ -26,7 +26,9 @@
 
 use config::ResolvedWorkflow;
 use core_model::{EvidenceType, JudgeCriterion, ResolvedCheck, ResolvedStep, StepPhase};
-use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord, TouchAct};
+use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord, SessionStanding, TouchAct};
+
+use crate::rail_ends;
 
 /// The observable fact a step between anchors fits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -345,11 +347,40 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
     )
 }
 
-/// What the agent is told on entering a step: the step's own instructions, named by its step.
-/// `None` where the step wrote none, and nothing is sent.
-pub(crate) fn instructed(workflow: &str, step: &RailStep) -> Option<String> {
+/// The step the Job stopped on, where only its own act ends it: the turn ended on a reply that asks
+/// nothing, nothing waits on the person, and what ends the step is something the Job does. Fleet never
+/// moves such a step, so a Job waiting for the move waits for good. Read from the row, never the words.
+pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord) -> Option<(usize, rail_ends::End)> {
+    if record.standing != Some(SessionStanding::Replied) || !record.waiting_for.is_empty() {
+        return None;
+    }
+    let at = record.workflow_step? as usize;
+    let end = rail_ends::end_of(steps, at).filter(|end| end.by_the_job())?;
+    Some((at, end))
+}
+
+/// The one message to a Job stopped on a step only it can end.
+pub(crate) fn stall_nudge(workflow: &str, step: &RailStep, end: rail_ends::End) -> String {
+    format!(
+        "Fleet: this Job follows the {workflow} workflow, and your turn ended on its \"{}\" step with nothing \
+         asked or shown. This step ends when {}, and Fleet does not move it for you. Do that now, or ask the \
+         person what is still open. If you are waiting on work you started, or the person said to wait, carry on.",
+        step.label,
+        end.for_agent()
+    )
+}
+
+/// What the agent is told on entering step `at`: the step's own instructions, named by its step, and
+/// what ends it. **The end is said because Fleet does not move a step the Job's own act ends**: a Job
+/// left to wait for the move waits for good. `None` where the step wrote none, and nothing is sent.
+pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Option<String> {
+    let step = steps.get(at)?;
     let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty())?;
-    Some(format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label))
+    let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label);
+    if let Some(end) = rail_ends::end_of(steps, at) {
+        said.push_str(&format!("\n\nThis step ends when {}.", end.for_agent()));
+    }
+    Some(said)
 }
 
 /// The step a boundary judge reads: the one the Session just left, if it asks the Judge anything and
