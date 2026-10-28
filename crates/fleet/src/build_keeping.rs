@@ -2,6 +2,8 @@
 //! needs is read back, under the lock the caller already holds. `docs/concepts/session.md`,
 //! *The build record*. The rules are `build_record`'s.
 
+use std::collections::HashMap;
+
 use ipc::{BuildStopId, SessionBuild};
 use store::{Holder, KeptAttachment, KeptBuild, KeptSession, KeptTask, RoadAsk, RoadTimes, Store, WriteError};
 
@@ -71,8 +73,31 @@ pub(crate) struct BuildReads {
     forecast: Vec<BuildStopId>,
 }
 
-/// Read what the build is derived from. A Session with no kept build reads nothing more.
-pub(crate) fn build_read(store: &Store, session: &KeptSession, held: &[KeptAttachment]) -> Result<BuildReads, WriteError> {
+/// Each repository's forecast, read once for every row a caller draws from one hold of the lock.
+/// It is a reading of the repository's recent landings and says nothing of the Session, yet costs
+/// twenty road reads, so a list of every Session paid it once per row.
+#[derive(Default)]
+pub(crate) struct Forecasts(HashMap<String, Vec<BuildStopId>>);
+
+impl Forecasts {
+    fn of(&mut self, store: &Store, manifest: &str) -> Result<Vec<BuildStopId>, WriteError> {
+        if let Some(read) = self.0.get(manifest) {
+            return Ok(read.clone());
+        }
+        let read = forecast_of(store, manifest)?;
+        self.0.insert(manifest.to_string(), read.clone());
+        Ok(read)
+    }
+}
+
+/// Read what the build is derived from. A Session with no kept build reads nothing more. A caller
+/// reading several rows under one hold of the lock shares `forecasts` between them.
+pub(crate) fn build_read(
+    store: &Store,
+    session: &KeptSession,
+    held: &[KeptAttachment],
+    forecasts: &mut Forecasts,
+) -> Result<BuildReads, WriteError> {
     let Some(build) = store.session_build(&session.id)? else {
         return Ok(BuildReads::default());
     };
@@ -89,7 +114,7 @@ pub(crate) fn build_read(store: &Store, session: &KeptSession, held: &[KeptAttac
     })?;
     let landed = road.merged.is_some() || pull.is_some_and(merged);
     // A road already closed needs no forecast.
-    let forecast = if landed || manifest.is_empty() { Vec::new() } else { forecast_of(store, manifest)? };
+    let forecast = if landed || manifest.is_empty() { Vec::new() } else { forecasts.of(store, manifest)? };
     Ok(BuildReads {
         road,
         pull_since: pull.map(|one| one.since.clone()),
