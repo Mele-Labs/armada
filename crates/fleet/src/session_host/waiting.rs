@@ -29,8 +29,9 @@
 //! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
 //! `dismiss_waiting` keeps the id; a derived item with it is
 //! left off every read and an agent item with it is dropped from the kept list. **Removing an agent
-//! item tells the agent** (`Owner removed "<item>"`, and his reason after it); a derived item is only
-//! dropped, since the agent never stated it.
+//! item tells the agent** (`Owner removed "<item>"`, and his reason after it). **So does putting away a
+//! walk or a pull request it asked about** (`Owner dismissed "<item>"`), so it does not show or ask
+//! again for want of knowing. Any other derived item is only dropped.
 //!
 //! **A reply is a wait only where it asks.** The turn ending on a message that only reports makes the
 //! Session read as `replied` (an unread mark under Idle) and raises no item. One whose close asks him
@@ -1012,7 +1013,8 @@ where
     /// is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave one, so
     /// the agent does not state it again for want of knowing. **A draft is withdrawn**: the session is
     /// sent `Withdrawn: <title>`, not to propose it again, and the row is settled `withdrawn` with the
-    /// reason. Any other item Fleet derived is only dropped.
+    /// reason. **A walk, or a sentence read from the agent's reply, is told too**: the session is sent
+    /// `Owner dismissed "<item text>"`. Any other item Fleet derived is only dropped.
     /// The message goes first, so a send that fails leaves the item standing to try again.
     pub(crate) async fn dismiss_waited(
         self: Arc<Self>,
@@ -1077,6 +1079,7 @@ where
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
+            WaitingSource::Walk | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
             _ => None,
         };
         if let Some(text) = told {
@@ -1244,6 +1247,11 @@ fn removed(item: &str, reason: Option<&str>) -> String {
         Some(why) => format!("Owner removed \"{item}\": {why}"),
         None => format!("Owner removed \"{item}\""),
     }
+}
+
+/// What the agent is told when the person puts away a walk or a question read from its reply.
+fn dismissed_by_owner(item: &str) -> String {
+    format!("Owner dismissed \"{item}\"")
 }
 
 /// The message an answer to an agent item is: the item, the answer, and the mode line.
