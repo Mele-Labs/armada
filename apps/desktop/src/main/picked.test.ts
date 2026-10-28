@@ -174,7 +174,7 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await new ServerCommands({ port: at, picked }).startServer("web");
   const workflows = new WorkflowCommands(at, picked);
   await workflows.list();
-  await workflows.definition("bug", "repository");
+  await workflows.definition("bug", "repository", null);
   await workflows.save(null, { scope: "kit", definition: "{}" });
   const commands = new Commands(boardOn(port, picked));
   await commands.searchFiles("src");

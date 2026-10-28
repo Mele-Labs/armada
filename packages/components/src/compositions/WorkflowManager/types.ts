@@ -76,6 +76,10 @@ export type ManagedWorkflow = {
   source: WorkflowSource;
   /** The requests it is for, as the workflow's `for_requests` line says them. */
   forRequests: string;
+  /** The Manifest of the repository this copy was read under. Armada's and Yours are the same under every one. */
+  manifestId?: string;
+  /** That repository's name, for the group a repository's copies sit in. Absent draws the `repository` prop. */
+  repository?: string;
   steps: readonly ManagedStep[];
   /**
    * Set on a file Fleet left out: its sentence for why, and the file that names it. Such a copy has no steps
@@ -84,13 +88,18 @@ export type ManagedWorkflow = {
   leftOut?: { said: string; file: string };
 };
 
-/** One workflow copy: the source and the id name it, and the file where it was left out. */
-export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source"> & { file?: string };
+/** One workflow copy: the source and the id name it, the Manifest it is read and acted on under, and the file where it was left out. */
+export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> & { file?: string };
 
-/** What names a copy: a row, which carries the file it was left out at under `leftOut`, or a ref, which carries it itself. */
+/**
+ * What names a copy: a row, which carries the file it was left out at under `leftOut`, or a ref, which carries it itself.
+ * **A repository's copy is also named by its repository**, since two repositories hold a copy of one id; Armada's
+ * and Yours are one copy whichever repository read them.
+ */
 export const keyOf = (one: WorkflowRef & { leftOut?: { file: string } }) => {
   const file = one.leftOut?.file ?? one.file;
-  return `${one.source}:${one.id}${file === undefined ? "" : `:${file}`}`;
+  const repository = one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : "";
+  return `${one.source}${repository}:${one.id}${file === undefined ? "" : `:${file}`}`;
 };
 
 /** A Job Fleet nudged at a step. `jobId` is the Job that Open Job opens. */

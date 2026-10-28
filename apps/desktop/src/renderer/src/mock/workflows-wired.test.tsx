@@ -66,7 +66,7 @@ test("saving a step's words sends the file with that step's instructions changed
   const app = await workflows();
   const saved = recordSaves(app);
   await pickRepositoryFeature();
-  const before = JSON.parse((await app.api.readWorkflowDefinition("feature", "repository").then((one) => (one.ok ? one.definition.definition : "{}")))) as {
+  const before = JSON.parse((await app.api.readWorkflowDefinition("feature", "repository", null).then((one) => (one.ok ? one.definition.definition : "{}")))) as {
     steps: { id: string }[];
   };
 
@@ -274,7 +274,7 @@ test("an Approve refused because the file changed is drawn as Fleet said it", as
   const region = page.getByRole("region", { name: "Proposed change" });
   await expect.element(region).toBeVisible();
   // The file changes under the draft.
-  const held = await app.api.readWorkflowDefinition("feature", "repository");
+  const held = await app.api.readWorkflowDefinition("feature", "repository", null);
   if (!held.ok) throw new Error("no feature");
   const changed = JSON.stringify({ ...JSON.parse(held.definition.definition), name: "renamed" });
   await app.api.saveWorkflow({ manifestId: app.scenario.state.holds.manifests[0]?.id ?? null, body: { scope: "repository", definition: changed, overwrite: true } });
