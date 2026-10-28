@@ -2,16 +2,21 @@
 // the picked one as its steps, with the words the agent is told editable where they stand. Armada's rows
 // are read-only, a repository's copy compares with Armada's, and a change of shape is typed to an agent whose
 // diff waits on Approve. Jobs Fleet nudged at a step are listed under it, each with Open Job and Not a drift, and
-// a suggested change for the step's words waits on Approve. A mock, no Fleet behind it.
+// a suggested change for the step's words waits on Approve. The diff draws only the steps a change touches, each
+// field before and after, an added or removed step only the side it has; a request Armada can't carry out says
+// what is missing and offers a job to build it, drawn as its Job card once started.
+// A mock, no Fleet behind it.
 // The decision of 27 Oct, a feature Job walks before it tests.
 
-import { button, inside, role, text, toSystemPage, walk } from "../walk";
+import { button, inside, region, role, row, text, toSystemPage, walk } from "../walk";
 
 const group = (name: string) => role("group", name, { exact: true });
 const ARMADA = group("Armada");
 const REPOSITORY = group("armada repository");
 const YOURS = group("Yours");
 const step = (name: string) => group(name);
+const PROPOSED = region("Proposed change");
+const ASK = role("textbox", "Tell an agent what to change");
 
 export const workflowsManaged = walk("workflows", [
   ...toSystemPage("Workflows", "Workflows, from System"),
@@ -38,12 +43,30 @@ export const workflowsManaged = walk("workflows", [
   { press: inside(step("Propose"), button("Save", { exact: true })), say: "Save" },
   { press: button("Compare with Armada's"), say: "Compare with Armada's" },
   { look: inside(step("Propose"), role("group", "Compared with Armada's")), say: "The changed step, Armada's words beside this copy's" },
-  { type: "split Refine into Wire and Tests", into: role("textbox", "Tell an agent what to change"), say: "A change of shape, typed to an agent" },
+  { type: "split Refine into Wire and Tests", into: ASK, say: "A change of shape, typed in the message box" },
   { press: button("Send to agent"), say: "Send" },
-  { look: role("region", "Proposed change"), say: "Refine removed, Wire and Tests added" },
+  { look: role("region", "Proposed change"), say: "Refine removed, Wire and Tests added, the rest named as unchanged" },
+  { look: inside(PROPOSED, group("Refine")), say: "Refine removed: only what it was, struck through" },
+  { look: inside(PROPOSED, group("Wire")), say: "Wire added: only what it will be" },
   { press: inside(role("region", "Proposed change"), button("Approve", { exact: true })), say: "Approve applies it" },
   { look: step("Wire"), say: "Wire is a step" },
   { look: step("Tests"), say: "Tests is a step" },
+  {
+    type: "Propose should end when a walk, a sketch or a document is approved, or last of all a question is answered",
+    into: ASK,
+    say: "A change Armada has no way to make",
+  },
+  { press: button("Send to agent"), say: "Send" },
+  { look: inside(PROPOSED, text("Armada can't do this yet")), say: "Armada can't do this yet, and what is missing" },
+  { hover: inside(PROPOSED, role("img", "Not built yet")), say: "Not built yet" },
+  { press: inside(PROPOSED, button("Start a job to build it")), say: "Start a job to build it" },
+  { look: button("Job A step that ends on any of several approvals"), say: "The job it started, as its card" },
+  { type: "Walk should say why when it skips the walk", into: ASK, say: "A change to Walk's words" },
+  { press: button("Send to agent"), say: "Send" },
+  { look: inside(PROPOSED, group("Walk")), say: "Walk is the only step changed" },
+  { look: inside(inside(PROPOSED, group("Walk")), row("Words, changed")), say: "Words differ, the new sentence marked" },
+  { look: inside(inside(PROPOSED, group("Walk")), row("Ends when, unchanged")), say: "Ends when is the same" },
+  { press: inside(PROPOSED, button("Dismiss", { exact: true })), say: "Dismiss" },
   { press: inside(ARMADA, button("bug", { exact: true })), say: "Armada's bug" },
   { press: button("Make my copy"), say: "Make my copy" },
   { look: inside(YOURS, button("bug", { exact: true })), say: "Bug, under Yours" },

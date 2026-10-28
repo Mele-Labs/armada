@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 27 Oct 2026. The System › Kit › Workflows page draws a workflow as its steps: the words, what ends each, and the Jobs Fleet nudged there.
-**Four operations, and seven for the changes an agent drafts (below), and one new field on `WorkflowCopy`.** The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations/*.toml`, the route table and `packages/protocol/src`, and there is no number to take.
+**Four operations, and eight for the changes an agent drafts (below), and one new field on `WorkflowCopy`.** The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations/*.toml`, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
 
 | Operation | Route | Side | Carries |
@@ -65,9 +65,11 @@ He sees it beside what it was and approves it, dismisses it or sends it back wit
 | `approve_workflow_change` | `POST /workflows/changes/approve` | Bridge sends `WorkflowChangeRef` (`change`) | `WorkflowChangeApproved`: the `change` and the `saved` |
 | `dismiss_workflow_change` | `POST /workflows/changes/dismiss` | Bridge sends `WorkflowChangeRef` | `WorkflowChange`, `dismissed` |
 | `send_back_workflow_change` | `POST /workflows/changes/send_back` | Bridge sends `SendBackWorkflowChange` (`change`, `notes`) | `WorkflowChange`, `drafting` |
+| `build_workflow_support` | `POST /workflows/changes/build` | Bridge sends `WorkflowChangeRef` | `WorkflowSupportBuilding`: `job_id` |
 | `propose_workflow_to_armada` | `POST /workflows/propose` | Bridge sends `ProposeToArmada` (`workflow_id`, `definition`) | `ArmadaProposed`: `workflow_id`, `session_id`, `send_failed?` |
 
-`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`), `reason?`, `notes?` and `at`.
+`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `notes?` and `at`.
+`ChangeStep` is `id`, `label`, `instructions?`, `ends_when?` and `passed_over_when?`, as `StepReading` says them.
 Fleet keeps it in `workflow_changes`; no event carries it.
 
 **Drafting is one short model run and not a Job.** The call is the proposer's: its client, budget and `models.proposer`.
@@ -77,6 +79,17 @@ The input is the definition's text and his words (or the step's words and what t
 An answer that does not fit is asked for once more with the loader's sentence and the answer that did not fit.
 After that the change is `failed` and `reason` is the last sentence.
 An answer unchanged from the definition fails at once and is not asked for twice.
+
+**A change Armada can't make is `cannot`, since 28 Oct 2026.** What ends a step and when one is passed over are read from its fields, never its words, and the question says so and lists what the fields can say.
+Where the request needs something they cannot say, even in part, the agent answers `CAN'T` and one line per missing capability.
+Fleet keeps those lines as `missing`, asks nothing again, and lists the change beside ready and failed ones; Dismiss settles it, and send back does not take it.
+A `CAN'T` that names nothing, or one answering a suggestion, leaves the change `failed`.
+
+**Each side step by step.** On a `ready` change Fleet reads `before` and `after` through the rail, resolved against the repository as a Job would freeze them, into `before_steps` and `after_steps`, so a step the draft adds says what ends it; a `cannot` change carries `before_steps`.
+A side whose text does not parse or resolve leaves its field absent, and Bridge reads the text.
+
+**Build support** starts a Job on `armada`, as Propose to Armada does, titled `Build workflow support:` and the first missing line, and sends it a fixed brief: the workflow's id, the request and the missing lines as material, and the ask to build that support in Armada with tests and land it as a pull request.
+The change is then dismissed. A brief that could not be sent is a line on the transcript, and the Job stands.
 
 **A read the page polls while one is `drafting`, and no event.** The event stream is untouched, so this makes the unbounded sink neither better nor worse.
 A change left drafting for longer than three proposer budgets is read as `failed`, since a Fleet that stopped mid-draft will never finish it; sending it back drafts it again.
@@ -105,13 +118,14 @@ Fleet holds no marker of which repository is Armada's, and a machine that serves
 | `fleet.workflow_step_not_here` (422) | suggest, a step the definition lacks |
 | `fleet.workflow_nothing_drifted` (422) | suggest, a step no nudge counts at |
 | `fleet.workflow_change_open` (422) | suggest, a step that has a change waiting; `change` names it |
-| `fleet.workflow_armada_not_served` (422) | propose, where Fleet does not serve `armada` |
-| `fleet.no_such_workflow_change` (404) | approve, dismiss, send back |
+| `fleet.workflow_armada_not_served` (422) | propose and build, where Fleet does not serve `armada` |
+| `fleet.no_such_workflow_change` (404) | approve, dismiss, send back, build |
 | `fleet.workflow_change_not_ready` (409) | approve of a change that is not `ready` |
 | `fleet.workflow_changed_since` (409) | approve, the file no longer holds `before` |
 | `fleet.workflow_change_settled` (409) | dismiss of an approved or dismissed change |
+| `fleet.workflow_change_not_buildable` (409) | build of a change that is not `cannot` |
 | `fleet.workflow_change_not_sendable` (409) | send back of a change that is drafting or settled |
 | `fleet.workflow_unfit` (422) | approve, the checks refuse it now |
 | `fleet.workflow_change_not_kept` (500) | the store would not answer |
 
-**Agents.** `list_workflow_changes` is `Yes`, `get_workflow_steps`' terms. The six acts are `Bridge only`: each spends a model run, writes a definition, or starts a Job, on his press.
+**Agents.** `list_workflow_changes` is `Yes`, `get_workflow_steps`' terms. The seven acts are `Bridge only`: each spends a model run, writes a definition, or starts a Job, on his press.

@@ -158,6 +158,53 @@ test("a change he asked for is the box: working, a draft with the steps before a
   expect(proposed.after[2]).toMatchObject({ ends: "", words: "More." });
 });
 
+test("a change Armada can't make is the box saying so, with what is missing, and no steps to approve", () => {
+  const cannot = change({ state: "cannot", missing: ["A step that ends on any of several approvals"] });
+  expect(agentOf([cannot], KNOWN)).toEqual({ phase: "cannot", missing: ["A step that ends on any of several approvals"], asked: "add a step" });
+  // Fleet may say nothing of what is missing; the box still says it cannot.
+  expect(agentOf([change({ state: "cannot" })], KNOWN)).toEqual({ phase: "cannot", missing: [], asked: "add a step" });
+  // Whatever drafted text it carries is not offered as a change.
+  const after = JSON.stringify({ ...FILE, steps: [...FILE.steps, { id: "extra", label: "Extra" }] });
+  expect(agentOf([change({ state: "cannot", missing: ["x"], after })], KNOWN).phase).toBe("cannot");
+});
+
+test("a draft's steps are Fleet's own reading of each side where it gives one, with what ends them and when they are passed over", () => {
+  const after = JSON.stringify({ ...FILE, steps: [...FILE.steps, { id: "extra", label: "Extra", instructions: "More." }] });
+  const proposed = agentOf(
+    [
+      change({
+        state: "ready",
+        after,
+        before_steps: [{ id: "propose", label: "Propose", instructions: "Say it.", ends_when: "you reply" }],
+        after_steps: [
+          { id: "propose", label: "Propose", instructions: "Say it.", ends_when: "you reply" },
+          { id: "extra", label: "Extra", instructions: "More.", ends_when: "any of two approvals", passed_over_when: "nothing is seen" },
+        ],
+      }),
+    ],
+    KNOWN,
+  );
+  expect(proposed).toEqual({
+    phase: "proposed",
+    asked: "add a step",
+    before: [{ id: "propose", label: "Propose", glyph: "propose", ends: "you reply", words: "Say it." }],
+    after: [
+      { id: "propose", label: "Propose", glyph: "propose", ends: "you reply", words: "Say it." },
+      { id: "extra", label: "Extra", ends: "any of two approvals", passedOver: "nothing is seen", words: "More." },
+    ],
+  });
+});
+
+test("a draft with no steps from Fleet is read from its text, and each side is read on its own", () => {
+  const after = JSON.stringify({ ...FILE, steps: [...FILE.steps, { id: "extra", label: "Extra", instructions: "More." }] });
+  const proposed = agentOf([change({ state: "ready", after, after_steps: [{ id: "only", label: "Only", ends_when: "done" }] })], KNOWN);
+  if (proposed.phase !== "proposed") throw new Error("not proposed");
+  // Fleet's reading of the after side, and the text for the before side it did not give.
+  expect(proposed.after).toEqual([{ id: "only", label: "Only", ends: "done", words: "" }]);
+  expect(proposed.before.map((one) => one.id)).toEqual(["propose", "deliver"]);
+  expect(proposed.before[0]).toMatchObject({ ends: "you reply", words: "Say it." });
+});
+
 test("a change drawn from drift is a card on its step, or the step an agent is drawing one for, and is not the box", () => {
   const after = JSON.stringify({ ...FILE, steps: [{ ...FILE.steps[0], instructions: "Say it twice." }, FILE.steps[1]] });
   const drift: Partial<WorkflowChange> = { origin: { kind: "drift", nudges: [7, 8] }, step_id: "propose" };

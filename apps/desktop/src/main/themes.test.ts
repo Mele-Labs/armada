@@ -50,6 +50,16 @@ test("every theme's text reads on every ground it sits on", () => {
   }
 });
 
+test("every theme's text colour reads on the picked ground, the accent tinted over the base by the theme's own share", () => {
+  for (const one of index) {
+    const css = declared(readFileSync(join(themes, "css", `${one.id.slice("catalogue:".length)}.css`), "utf8"));
+    const share = Number.parseInt(css["--select-tint"] ?? "", 10) / 100;
+    expect(share, `${one.id} says its tint`).toBeGreaterThanOrEqual(0);
+    const base = hex(css["--bg-base"]);
+    const ground = hex(css["--accent"]).map((channel, i) => Math.round((base[i]! + (channel - base[i]!) * share) * 255) / 255);
+    expect(contrast(hex(css["--fg-default"]), ground), `${one.id} text on the picked ground`).toBeGreaterThanOrEqual(4.5);
+  }
+});
 
 // The strip a theme is previewed by is read from named tokens, and these hold that: each token is a
 // different colour, with decoys beside it that a strip from the wrong tokens would pick up.

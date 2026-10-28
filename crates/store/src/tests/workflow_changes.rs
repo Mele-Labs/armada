@@ -2,7 +2,7 @@
 //! and listed while open for the workflow and place they belong to.
 
 use crate::tests::{open, TempDir};
-use crate::{NewWorkflowChange, CHANGE_APPROVED, CHANGE_DISMISSED, CHANGE_DRAFTING, CHANGE_FAILED, CHANGE_READY};
+use crate::{NewWorkflowChange, CHANGE_APPROVED, CHANGE_CANNOT, CHANGE_DISMISSED, CHANGE_DRAFTING, CHANGE_FAILED, CHANGE_READY};
 
 const AT: &str = "2026-10-27T09:00:00.000Z";
 const LATER: &str = "2026-10-27T09:05:00.000Z";
@@ -100,4 +100,29 @@ fn only_open_changes_are_listed_for_the_workflow_and_place_and_a_repositorys_is_
     let ids = |found: Vec<crate::KeptWorkflowChange>| found.into_iter().map(|one| one.id).collect::<Vec<_>>();
     assert_eq!(ids(store.open_workflow_changes("feature", "repository", "repo").unwrap()), [mine]);
     assert_eq!(ids(store.open_workflow_changes("feature", "kit", "another").unwrap()), [kit], "Kit's is every repository's");
+}
+
+#[test]
+fn a_change_armada_cannot_make_keeps_what_it_lacks_is_listed_and_is_dismissed_but_not_sent_back() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let id = store.begin_workflow_change(&asked("repo", "repository"), AT).unwrap();
+    let missing = vec![String::from("A step can't end when a document is approved."), String::from("A step can't end on a sketch\nbeing approved.")];
+    assert!(store.workflow_change_cannot(id, &missing, LATER).unwrap());
+    drop(store);
+    let mut store = open(&dir);
+    let kept = store.workflow_change(id).unwrap().unwrap();
+    assert_eq!(kept.state, CHANGE_CANNOT);
+    assert_eq!(kept.missing, ["A step can't end when a document is approved.", "A step can't end on a sketch being approved."], "one line each");
+    assert_eq!(kept.after_text, None);
+    assert_eq!(store.open_workflow_changes("feature", "repository", "repo").unwrap().len(), 1, "it is open");
+    assert!(!store.workflow_change_drafted(id, "{late}", LATER).unwrap(), "a straggler does not draft it");
+    assert!(!store.workflow_change_sent_back(id, "try again", LATER).unwrap());
+    assert!(!store.workflow_change_cannot(id, &missing, LATER).unwrap(), "only from drafting");
+    assert!(store.workflow_change_dismissed(id, LATER).unwrap());
+    let dismissed = store.workflow_change(id).unwrap().unwrap();
+    assert_eq!((dismissed.state.as_str(), dismissed.missing.len()), (CHANGE_DISMISSED, 2));
+    assert!(store.open_workflow_changes("feature", "repository", "repo").unwrap().is_empty());
+    let other = store.begin_workflow_change(&asked("repo", "repository"), AT).unwrap();
+    assert!(store.workflow_change(other).unwrap().unwrap().missing.is_empty(), "every other change lacks nothing");
 }
