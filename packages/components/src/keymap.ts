@@ -313,7 +313,9 @@ function keyOf(press: Press): string {
 
 /** A press as a chord, or `null` for a modifier pressed alone — which is half a chord, not one. */
 export function chordOf(press: Press): Chord | null {
-  if (MODIFIER_KEYS.has(press.key) || press.key === "Dead" || press.key === "Unidentified") return null;
+  if (MODIFIER_KEYS.has(press.key) || press.key === "Unidentified") return null;
+  // Option makes some letters a dead key (⌥E, ⌥U, ⌥N on a US Mac); with it held, the key's place still names the chord.
+  if (press.key === "Dead" && !(press.altKey && /^(Key[A-Z]|Digit\d)$/.test(press.code ?? ""))) return null;
   const key = keyOf(press);
   // An upper-case letter is a shifted one whatever the flag says — Caps Lock types it too, and
   // `B` has always answered to the letter typed rather than to the key held.
@@ -377,7 +379,7 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "projects", "plan"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "projects", "plan", "thread"],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
   // The Reviews list is not here: it moves by `j`, `k` and `Enter` as a list does, but its `r` goes to the reader, where a
@@ -402,6 +404,9 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   logbook: ["logbook"],
   // A plan card or the plan in full holds focus while its keys are pressed, and takes them before the page it sits on.
   plan: ["plan"],
+  // The cards waiting in a Job's thread and on its composer. The `⌥` keys answer from anywhere in the Job's view, the message box
+  // included, and meet the global keys there; a hand off band's letters answer only inside the band, so they meet neither a plan's nor a list's.
+  thread: ["thread"],
 };
 
 const overlaps = (a: ActionScope, b: ActionScope): boolean => PLACES[a].some((place) => PLACES[b].includes(place));
@@ -462,6 +467,7 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "Reviews", scopes: ["review"] },
   { title: "Logbook", scopes: ["logbook"] },
   { title: "Plans", scopes: ["plan"] },
+  { title: "Job thread", scopes: ["thread"] },
   { title: "Issues", scopes: ["issues"] },
   { title: "Projects", scopes: ["projects"] },
   { title: "Studios", scopes: ["open studio"] },
