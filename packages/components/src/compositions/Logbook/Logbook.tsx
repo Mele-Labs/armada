@@ -22,7 +22,7 @@ import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Kbd } from "../../primitives/Kbd/Kbd";
-import { Readout } from "../../primitives/Readout/Readout";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -89,18 +89,19 @@ export type LogbookViewProps = {
  */
 export const isKept = (entry: Pick<LogbookEntry, "id">): boolean => !entry.id.startsWith("runs-") && !entry.id.startsWith("machine-");
 
-const KIND: Record<LogbookKind, { Glyph: LucideIcon; said: string }> = {
-  command: { Glyph: SquareChevronRight, said: "Command" },
-  gotcha: { Glyph: TrafficCone, said: "Gotcha" },
-  convention: { Glyph: Ruler, said: "Convention" },
-  environment: { Glyph: Container, said: "Environment" },
-  habit: { Glyph: Repeat, said: "Habit" },
+/** Each kind's mark, its word, and the three letters its column reads, as a log codes a line. */
+const KIND: Record<LogbookKind, { Glyph: LucideIcon; said: string; code: string }> = {
+  command: { Glyph: SquareChevronRight, said: "Command", code: "CMD" },
+  gotcha: { Glyph: TrafficCone, said: "Gotcha", code: "GOT" },
+  convention: { Glyph: Ruler, said: "Convention", code: "CNV" },
+  environment: { Glyph: Container, said: "Environment", code: "ENV" },
+  habit: { Glyph: Repeat, said: "Habit", code: "HAB" },
 };
 
-const STATE: Record<LogbookState, { Glyph: LucideIcon; said: string }> = {
-  standing: { Glyph: BookMarked, said: "Standing: handed to every new Job" },
-  candidate: { Glyph: BookPlus, said: "Candidate: handed out once two Jobs confirm it" },
-  faded: { Glyph: BookDashed, said: "Faded: kept, no longer handed out" },
+const STATE: Record<LogbookState, { Glyph: LucideIcon; said: string; word: string }> = {
+  standing: { Glyph: BookMarked, said: "Standing: handed to every new Job", word: "In use" },
+  candidate: { Glyph: BookPlus, said: "Candidate: handed out once two Jobs confirm it", word: "New" },
+  faded: { Glyph: BookDashed, said: "Faded: kept, no longer handed out", word: "Archived" },
 };
 
 const TABS: { id: LogbookShown; label: string; hint: string }[] = [
@@ -144,28 +145,24 @@ function Mark({ Glyph, said, tone }: { Glyph: LucideIcon; said: string; tone?: "
   );
 }
 
-function marksOf(entry: LogbookEntry, now: number, withState: boolean): ReactNode {
-  const kind = KIND[entry.kind];
-  const state = STATE[entry.state];
+/** What sets an entry apart in its row: tripped on, or locked. */
+function flagsOf(entry: LogbookEntry, now: number): ReactNode {
   return (
     <>
       {entry.last_tripped === undefined ? null : <Mark Glyph={CircleAlert} said={`Tripped ${ago(entry.last_tripped, now)}`} tone="tripped" />}
       {entry.locked ? <Mark Glyph={Lock} said={LOCKED} /> : null}
-      {withState ? <Mark Glyph={state.Glyph} said={state.said} /> : null}
-      <Mark Glyph={kind.Glyph} said={kind.said} />
     </>
   );
 }
 
-/** A time drawn as its age in a readout, with the date on hover, and the column kept where a row sits in a list. */
-function When({ at, now, said, fixed = false }: { at: string; now: number; said?: string; fixed?: boolean }) {
-  return (
-    <Tooltip label={said === undefined ? dated(at) : `${said} ${dated(at)}`}>
-      <Readout fixed={fixed}>
-        <time dateTime={at}>{ago(at, now)}</time>
-      </Readout>
-    </Tooltip>
-  );
+/**
+ * The few words a row reads: the entry's title, or for one written before titles its first clause with the quoting
+ * dropped, so the line is words and not the half of a command.
+ */
+export function titleOf(entry: Pick<LogbookEntry, "title" | "text">): string {
+  if (entry.title !== undefined && entry.title !== "") return entry.title;
+  const plain = entry.text.replaceAll("`", "").replace(/\s*\([^)]*\)/g, "");
+  return plain.split(/(?<=[.:;])\s|\.$/)[0]?.replace(/[.:;]$/, "") ?? plain;
 }
 
 /** Words with their `quoted` spans set in the mono face, as an entry writes a command. */
@@ -189,7 +186,7 @@ const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
 export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOpenJob, also, refusal, now }: LogbookViewProps) {
-  const list = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLTableElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const [forgetting, setForgetting] = useState<string>();
@@ -285,42 +282,73 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
         <p className="armada-logbook__unread">Fleet serves no Logbook yet.</p>
       ) : (
         <div className="armada-logbook__page">
-          <div
-            ref={list}
-            className="armada-logbook__list"
-            role="listbox"
-            aria-label="Entries"
-            tabIndex={0}
-            aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
-          >
-            {panels.map((panel) => (
-              <div key={panel.key} className="armada-logbook__panel" role="group" aria-labelledby={`logbook-panel-${panel.key}`}>
-                <Tooltip label={panel.hint} asChild>
-                  <div className="armada-logbook__band" id={`logbook-panel-${panel.key}`}>
-                    {panel.title}
-                  </div>
-                </Tooltip>
-                {panel.entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    id={optionId(entry.id)}
-                    className="armada-logbook__row"
-                    role="option"
-                    aria-selected={entry.id === selected}
-                    onClick={() => {
-                      onSelect(entry.id);
-                      list.current?.focus();
-                    }}
-                  >
-                    <span className="armada-logbook__text">
-                      <Words text={entry.text} />
-                    </span>
-                    <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
-                    <When at={entry.last_confirmed} now={now} said="Last confirmed" fixed />
-                  </div>
-                ))}
-              </div>
-            ))}
+          <div className="armada-logbook__panel armada-logbook__log">
+            {/* The Table primitive's chrome, as a bare table so the keys can hold it. */}
+            <table
+              ref={list}
+              className="armada-table armada-logbook__table"
+              role="grid"
+              aria-label="Entries"
+              tabIndex={0}
+              aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
+            >
+              <colgroup>
+                <col className="armada-logbook__col-kind" />
+                <col />
+                <col className="armada-logbook__col-flags" />
+                <col className="armada-logbook__col-jobs" />
+                <col className="armada-logbook__col-when" />
+              </colgroup>
+              <TableHead>
+                <tr>
+                  <TableHeaderCell>Kind</TableHeaderCell>
+                  <TableHeaderCell>Entry</TableHeaderCell>
+                  <TableHeaderCell aria-label="Flags" />
+                  <TableHeaderCell className="armada-logbook__num">Jobs</TableHeaderCell>
+                  <TableHeaderCell className="armada-logbook__num">Last</TableHeaderCell>
+                </tr>
+              </TableHead>
+              {panels.map((panel) => (
+                <TableBody key={panel.key} aria-labelledby={`logbook-panel-${panel.key}`}>
+                  <tr className="armada-logbook__section">
+                    <Tooltip label={panel.hint} asChild>
+                      <th scope="rowgroup" colSpan={5} id={`logbook-panel-${panel.key}`}>
+                        {panel.title}
+                      </th>
+                    </Tooltip>
+                  </tr>
+                  {panel.entries.map((entry) => (
+                    <TableRow
+                      key={entry.id}
+                      id={optionId(entry.id)}
+                      aria-selected={entry.id === selected}
+                      selected={entry.id === selected}
+                      className="armada-logbook__row"
+                      onClick={() => {
+                        onSelect(entry.id);
+                        list.current?.focus();
+                      }}
+                    >
+                      <TableCell variant="mono" className="armada-logbook__kind">
+                        <Tooltip label={KIND[entry.kind].said}>
+                          <span>{KIND[entry.kind].code}</span>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell truncates>{titleOf(entry)}</TableCell>
+                      <TableCell className="armada-logbook__flags">{flagsOf(entry, now)}</TableCell>
+                      <TableCell variant="mono" className="armada-logbook__num">
+                        {entry.confirmed_by}
+                      </TableCell>
+                      <TableCell variant="mono" className="armada-logbook__num">
+                        <Tooltip label={`Last confirmed ${dated(entry.last_confirmed)}`}>
+                          <time dateTime={entry.last_confirmed}>{ago(entry.last_confirmed, now)}</time>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              ))}
+            </table>
           </div>
           <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
             {open === undefined ? null : (
@@ -404,15 +432,25 @@ function Detail({
   };
   return (
     <div className="armada-logbook__card">
-      <div className="armada-logbook__band">{where}</div>
-      {/* The text and its acts stay put; what backs it scrolls under them. */}
+      {/* The entry's own head: what it is, where it is kept, and its state, never the list's section. */}
+      <div className="armada-logbook__band armada-logbook__head-band">
+        <span className="armada-logbook__head-kind">
+          <Mark Glyph={KIND[entry.kind].Glyph} said={KIND[entry.kind].said} />
+          {KIND[entry.kind].code}
+        </span>
+        <span className="armada-logbook__head-id">{entry.id}</span>
+        <span className="armada-logbook__head-where">
+          {flagsOf(entry, now)}
+          {STATE[entry.state].word}
+        </span>
+      </div>
       <div className="armada-logbook__top">
-        <div className="armada-logbook__marks">{marksOf(entry, now, true)}</div>
         {refusal === undefined ? null : (
           <Alert tone="escalated" title={refusal.title}>
             {refusal.said}
           </Alert>
         )}
+        <h2 className="armada-logbook__title">{titleOf(entry)}</h2>
         {editing && kept ? (
           <div
             ref={box}
@@ -448,91 +486,146 @@ function Detail({
             ) : null}
           </>
         )}
-        <dl className="armada-logbook__facts">
-          <div>
-            <dt>Confirmed by</dt>
-            <dd>{entry.confirmed_by === 1 ? "1 Job" : `${entry.confirmed_by} Jobs`}</dd>
-          </div>
-          <div>
-            <dt>Confirmed</dt>
-            <dd>
-              <When at={entry.last_confirmed} now={now} said="Last confirmed" />
-            </dd>
-          </div>
-          <div>
-            <dt>First seen</dt>
-            <dd>
-              <When at={entry.first_seen} now={now} said="First seen" />
-            </dd>
-          </div>
-          {entry.last_served === undefined ? null : (
-            <div>
-              <dt>Served</dt>
-              <dd>
-                <When at={entry.last_served} now={now} said="Last served" />
-              </dd>
-            </div>
-          )}
-        </dl>
       </div>
       <div className="armada-logbook__body">
-        {entry.paths === undefined || entry.paths.length === 0 ? null : (
-          <div className="armada-logbook__part">
-            <h3 className="armada-logbook__head">Paths</h3>
-            <ul className="armada-logbook__paths">
-              {entry.paths.map((path) => (
-                <li key={path}>{path}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <Table className="armada-logbook__record" aria-label="Record">
+          <colgroup>
+            <col className="armada-logbook__col-by" />
+            <col />
+          </colgroup>
+          <TableHead>
+            <tr>
+              <TableHeaderCell colSpan={2}>Record</TableHeaderCell>
+            </tr>
+          </TableHead>
+          <TableBody>
+            <Fact name="Kept in">{where}</Fact>
+            <Fact name="Kind">{KIND[entry.kind].said}</Fact>
+            <Fact name="State">{STATE[entry.state].word}</Fact>
+            <Fact name="Confirmed by" mono>
+              {entry.confirmed_by === 1 ? "1 Job" : `${entry.confirmed_by} Jobs`}
+            </Fact>
+            <Fact name="Last confirmed" mono>
+              <Stamp at={entry.last_confirmed} now={now} />
+            </Fact>
+            <Fact name="First seen" mono>
+              <Stamp at={entry.first_seen} now={now} />
+            </Fact>
+            {entry.last_served === undefined ? null : (
+              <Fact name="Last served" mono>
+                <Stamp at={entry.last_served} now={now} />
+              </Fact>
+            )}
+            {entry.last_tripped === undefined ? null : (
+              <Fact name="Last tripped" mono>
+                <Stamp at={entry.last_tripped} now={now} />
+              </Fact>
+            )}
+            <Fact name="Locked">{entry.locked ? "Yes" : "No"}</Fact>
+            {entry.paths === undefined || entry.paths.length === 0 ? null : (
+              <Fact name="Paths" mono>
+                {entry.paths.join("  ")}
+              </Fact>
+            )}
+          </TableBody>
+        </Table>
         {entry.evidence.length === 0 ? null : (
-          <div className="armada-logbook__part">
-            <h3 className="armada-logbook__head">Evidence</h3>
-            <ul className="armada-logbook__evidence">
+          <Table className="armada-logbook__evidence" aria-label="Evidence">
+            <colgroup>
+              <col />
+              <col className="armada-logbook__col-cites" />
+              <col className="armada-logbook__col-when" />
+            </colgroup>
+            <TableHead>
+              <tr>
+                <TableHeaderCell>Evidence · Job</TableHeaderCell>
+                <TableHeaderCell>Cites</TableHeaderCell>
+                <TableHeaderCell className="armada-logbook__num">Last</TableHeaderCell>
+              </tr>
+            </TableHead>
+            <TableBody>
               {byJob(entry.evidence).map((job) => (
-                <li key={job.job_id}>
-                  <Tooltip label={job.job_title}>
-                    {onOpenJob === undefined ? (
-                      <span className="armada-logbook__job">{job.job_title}</span>
-                    ) : (
-                      <button type="button" className="armada-logbook__job" onClick={() => onOpenJob(job.job_id)}>
-                        {job.job_title}
-                      </button>
-                    )}
-                  </Tooltip>
-                  <span className="armada-logbook__cites">
-                    {job.rows.map((row) => (
-                      <Tooltip key={row.cite} label={row.says === undefined ? dated(row.at) : `${row.says.replaceAll("`", "")} · ${dated(row.at)}`}>
-                        <Readout className="armada-logbook__cite">{row.cite}</Readout>
-                      </Tooltip>
-                    ))}
-                  </span>
-                  <When at={job.rows.reduce((a, b) => (Date.parse(a.at) > Date.parse(b.at) ? a : b)).at} now={now} fixed />
-                </li>
+                <TableRow key={job.job_id}>
+                  <TableCell truncates>
+                    <Tooltip label={job.job_title} asChild>
+                      {onOpenJob === undefined ? (
+                        <span>{job.job_title}</span>
+                      ) : (
+                        <button type="button" className="armada-logbook__job" onClick={() => onOpenJob(job.job_id)}>
+                          {job.job_title}
+                        </button>
+                      )}
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell variant="mono">
+                    <span className="armada-logbook__cites">
+                      {job.rows.map((row) => (
+                        <Tooltip key={row.cite} label={row.says === undefined ? dated(row.at) : `${row.says.replaceAll("`", "")} · ${dated(row.at)}`}>
+                          <span className="armada-logbook__cite">{row.cite}</span>
+                        </Tooltip>
+                      ))}
+                    </span>
+                  </TableCell>
+                  <TableCell variant="mono" className="armada-logbook__num">
+                    <Stamp at={job.rows.reduce((a, b) => (Date.parse(a.at) > Date.parse(b.at) ? a : b)).at} now={now} />
+                  </TableCell>
+                </TableRow>
               ))}
-            </ul>
-          </div>
+            </TableBody>
+          </Table>
         )}
         {entry.history.length === 0 ? null : (
-          <div className="armada-logbook__part">
-            <h3 className="armada-logbook__head">Earlier</h3>
-            <ul className="armada-logbook__history">
+          <Table className="armada-logbook__earlier" aria-label="Earlier">
+            <colgroup>
+              <col className="armada-logbook__col-by" />
+              <col />
+              <col className="armada-logbook__col-when" />
+            </colgroup>
+            <TableHead>
+              <tr>
+                <TableHeaderCell>Earlier · By</TableHeaderCell>
+                <TableHeaderCell>Text</TableHeaderCell>
+                <TableHeaderCell className="armada-logbook__num">Until</TableHeaderCell>
+              </tr>
+            </TableHead>
+            <TableBody>
               {entry.history.map((one) => (
-                <li key={`${one.until}:${one.text}`}>
-                  <span className="armada-logbook__says">
+                <TableRow key={`${one.until}:${one.text}`}>
+                  <TableCell variant="secondary">{EARLIER[one.by]}</TableCell>
+                  <TableCell variant="secondary">
                     <Words text={one.text} />
-                  </span>
-                  <span className="armada-logbook__from">
-                    {EARLIER[one.by]} <When at={one.until} now={now} />
-                  </span>
-                </li>
+                  </TableCell>
+                  <TableCell variant="mono" className="armada-logbook__num">
+                    <Stamp at={one.until} now={now} />
+                  </TableCell>
+                </TableRow>
               ))}
-            </ul>
-          </div>
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>
+  );
+}
+
+/** One row of the record: its name, and its value. */
+function Fact({ name, mono = false, children }: { name: string; mono?: boolean; children: ReactNode }) {
+  return (
+    <TableRow>
+      <th scope="row" className="armada-logbook__fact">
+        {name}
+      </th>
+      <TableCell variant={mono ? "mono" : "primary"}>{children}</TableCell>
+    </TableRow>
+  );
+}
+
+/** A time as its age, with the date on hover. */
+function Stamp({ at, now }: { at: string; now: number }) {
+  return (
+    <Tooltip label={dated(at)}>
+      <time dateTime={at}>{ago(at, now)}</time>
+    </Tooltip>
   );
 }
 

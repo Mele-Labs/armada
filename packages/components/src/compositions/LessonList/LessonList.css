@@ -19,8 +19,9 @@
   list-style: none;
 }
 
-/* The Logbook's Retros tab: the items one line each on the left and the open one on the right, each scrolling on its
-   own inside the tab's height, as the entries do. Narrow, one column. */
+/* The Logbook's Retros tab: the items as a log on the left and the open one on the right, as the entries are
+   (`Logbook.css` draws the log, the head and the record). The card is held at the top of the item; its route and its
+   Job are the head's and the record's, so the card does not repeat them. Narrow, one column. */
 .armada-lessons-split {
   display: grid;
   gap: var(--gap-panel);
@@ -28,19 +29,18 @@
   align-items: start;
   min-height: 0;
 }
-.armada-lessons-split__rows { display: flex; flex-direction: column; padding-block: var(--space-1); outline: none; }
-.armada-lessons-split__rows > .armada-logbook__row:first-child { border-top: none; }
-.armada-lessons-split__rows:focus-visible .armada-logbook__row[aria-selected="true"] { box-shadow: inset 0 0 0 var(--border-width) var(--fg-default); }
-.armada-lessons-split__detail { min-width: 0; min-height: 0; outline: none; }
-.armada-lessons-split__detail .armada-lesson { align-items: stretch; }
-.armada-lessons-split__detail:focus-visible .armada-lesson { border-color: var(--border-strong); }
+.armada-lessons-split__col-route { width: calc(var(--space-12) + var(--space-4)); }
+.armada-lessons-split__col-job { width: 30%; }
+.armada-lessons-split__route { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--fg-muted); white-space: nowrap; }
+
+.armada-lessons-split__card { flex: none; border-bottom: var(--border-width) solid var(--border-default); }
+:root[data-look] .armada-lessons-page .armada-lessons-split .armada-lessons-split__card .armada-lessons,
+.armada-lessons-split__card .armada-lessons { border: 0; border-radius: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root .armada-lessons-split__card .armada-lessons > .armada-lesson { align-items: stretch; padding: var(--space-4); border: 0; background: transparent; }
+.armada-lessons-split__card .armada-lesson__labels { display: none; }
 
 /* armada-allow-off-contract: a container condition cannot read a custom property, and no layout breakpoint token names a container width
    820px is the Logbook's own two-column width — docs/contracts/design-system.md */
 @container (min-width: 820px) {
   .armada-lessons-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
-  .armada-lessons-split__list { max-height: 100%; min-height: 0; }
-  .armada-lessons-split__detail { max-height: 100%; }
-  .armada-lessons-split__rows { overflow-y: auto; overscroll-behavior: contain; }
-  .armada-lessons-split__detail { overflow-y: auto; overscroll-behavior: contain; }
 }

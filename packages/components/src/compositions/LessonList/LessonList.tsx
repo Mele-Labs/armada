@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { MoveRight } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { isPressed, pressedSlot } from "../../keymap";
-import { Readout } from "../../primitives/Readout/Readout";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
-import { LessonCard, type LessonAnswers, type LessonEvidence, type LessonSettled, type RetroCite } from "../LessonCard/LessonCard";
-import { LandsMark, type Lands } from "../LandsMark/LandsMark";
-import { WhoMark, type Who } from "../WhoMark/WhoMark";
+import { LessonCard, LessonRoute, type LessonAnswers, type LessonEvidence, type LessonSettled, type RetroCite } from "../LessonCard/LessonCard";
+import { LandsMark, landsWord, type Lands } from "../LandsMark/LandsMark";
+import { WhoMark, whoWord, type Who } from "../WhoMark/WhoMark";
 
 /** One item of one Session's retro, as the Lessons page lists it. */
 export type LessonRow = {
@@ -65,12 +66,12 @@ export function LessonList({ rows, onOpen }: LessonListProps) {
 const optionId = (id: string) => `retro-item-${id}`;
 
 /**
- * The retro items as the Logbook's Retros tab draws them: one line an item on the left, and the item open on the right
- * as its `LessonCard`. The rows take the Logbook's own row look, so the two tabs read alike. The arrows move, `Enter`
- * goes to the item and `Esc` comes back.
+ * The retro items as the Logbook's Retros tab draws them, as its entries are: on the left a log of them, a line each
+ * under a column head that stays, and on the right the open one under its own head, its card held at the top and its
+ * record under it. The arrows move, `Enter` goes to the item and `Esc` comes back.
  */
 export function LessonSplit({ rows, onOpen }: LessonListProps) {
-  const list = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLTableElement>(null);
   const detail = useRef<HTMLElement>(null);
   const [picked, setPicked] = useState<string>();
   const open = rows.find((row) => row.id === picked) ?? rows[0];
@@ -103,49 +104,122 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
 
   return (
     <div className="armada-lessons-split" onKeyDown={pressed}>
-      <div className="armada-lessons-split__list armada-logbook__panel">
-        <div
+      <div className="armada-logbook__panel armada-logbook__log armada-lessons-split__list">
+        <table
           ref={list}
-          role="listbox"
+          role="grid"
           aria-label="Retros"
           tabIndex={0}
-          className="armada-lessons-split__rows"
+          className="armada-table armada-logbook__table"
           aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
         >
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              id={optionId(row.id)}
-              role="option"
-              aria-selected={row.id === open?.id}
-              className="armada-logbook__row"
-              onClick={() => {
-                setPicked(row.id);
-                list.current?.focus();
-              }}
-            >
-              <span className="armada-logbook__text">{row.title ?? row.statement}</span>
-              <span className="armada-logbook__marks">
-                <WhoMark who={row.who} />
-                {row.landsIn === undefined ? null : <LandsMark lands={row.landsIn} />}
-              </span>
-              <Tooltip label={new Date(row.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}>
-                <Readout fixed>
-                  <time dateTime={row.at}>{ageOf(Date.parse(row.at), now)}</time>
-                </Readout>
-              </Tooltip>
-            </div>
-          ))}
-        </div>
+          <colgroup>
+            <col className="armada-lessons-split__col-route" />
+            <col />
+            <col className="armada-lessons-split__col-job" />
+            <col className="armada-logbook__col-when" />
+          </colgroup>
+          <TableHead>
+            <tr>
+              <TableHeaderCell>Route</TableHeaderCell>
+              <TableHeaderCell>Item</TableHeaderCell>
+              <TableHeaderCell>Job</TableHeaderCell>
+              <TableHeaderCell className="armada-logbook__num">Written</TableHeaderCell>
+            </tr>
+          </TableHead>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow
+                key={row.id}
+                id={optionId(row.id)}
+                aria-selected={row.id === open?.id}
+                selected={row.id === open?.id}
+                className="armada-logbook__row"
+                onClick={() => {
+                  setPicked(row.id);
+                  list.current?.focus();
+                }}
+              >
+                <TableCell>
+                  <span className="armada-lessons-split__route">
+                    <WhoMark who={row.who} />
+                    <MoveRight size={10} strokeWidth={2} aria-hidden />
+                    {row.landsIn === undefined ? null : <LandsMark lands={row.landsIn} />}
+                  </span>
+                </TableCell>
+                <TableCell truncates>{row.title ?? row.statement}</TableCell>
+                <TableCell variant="secondary" truncates>
+                  {row.session}
+                </TableCell>
+                <TableCell variant="mono" className="armada-logbook__num">
+                  <Tooltip label={dated(row.at)}>
+                    <time dateTime={row.at}>{ageOf(Date.parse(row.at), now)}</time>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </table>
       </div>
-      <section ref={detail} className="armada-lessons-split__detail" aria-label="Retro item" tabIndex={-1}>
+      <section ref={detail} className="armada-logbook__detail armada-lessons-split__detail" aria-label="Retro item" tabIndex={-1}>
         {open === undefined ? null : (
-          <ul className="armada-lessons">
-            <RowCard key={open.id} row={open} onOpen={onOpen} />
-          </ul>
+          <div className="armada-logbook__card">
+            <div className="armada-logbook__band armada-logbook__head-band">
+              <span className="armada-logbook__head-kind">Retro item</span>
+              <span className="armada-logbook__head-where">
+                <LessonRoute who={open.who} {...(open.landsIn === undefined ? {} : { landsIn: open.landsIn })} />
+              </span>
+            </div>
+            <div className="armada-lessons-split__card">
+              <ul className="armada-lessons">
+                <RowCard key={open.id} row={open} onOpen={onOpen} />
+              </ul>
+            </div>
+            <div className="armada-logbook__body">
+              <Table className="armada-logbook__record" aria-label="Record">
+                <colgroup>
+                  <col className="armada-logbook__col-by" />
+                  <col />
+                </colgroup>
+                <TableHead>
+                  <tr>
+                    <TableHeaderCell colSpan={2}>Record</TableHeaderCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  <Fact name="Got in the way of">{whoWord(open.who)}</Fact>
+                  <Fact name="Fix lands in">{open.landsIn === undefined ? "Not said" : landsWord(open.landsIn)}</Fact>
+                  <Fact name="Job">
+                    <button type="button" className="armada-logbook__job" onClick={() => onOpen(open.sessionId, open.id)}>
+                      {open.session}
+                    </button>
+                  </Fact>
+                  <Fact name="Written" mono>
+                    <Tooltip label={dated(open.at)}>
+                      <time dateTime={open.at}>{ageOf(Date.parse(open.at), now)}</time>
+                    </Tooltip>
+                  </Fact>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         )}
       </section>
     </div>
+  );
+}
+
+const dated = (at: string): string => new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+/** One row of the record: its name, and its value. */
+function Fact({ name, mono = false, children }: { name: string; mono?: boolean; children: ReactNode }) {
+  return (
+    <TableRow>
+      <th scope="row" className="armada-logbook__fact">
+        {name}
+      </th>
+      <TableCell variant={mono ? "mono" : "primary"}>{children}</TableCell>
+    </TableRow>
   );
 }
 
