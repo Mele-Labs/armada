@@ -15,7 +15,7 @@ const step = (id: string, label: string, ends: string, words: string, over: Part
 });
 
 const FEATURE = [
-  step("propose", "Propose", "you reply", "Say in a few lines what you took the request to mean. Then stop and wait for the person's reply."),
+  step("propose", "Propose", "you reply", "Show what you took the request to mean as a sketch, with two lines of text at most. Then stop and wait for the person's reply."),
   step("walk", "Walk", "you approve the walk", "Build the mock on fixtures and show it as a walk. Write no tests until it is approved.", { passedOver: "nothing would be seen" }),
   step("deliver", "Deliver", "it is merged", "Open the pull request and merge it on a green ci."),
 ];
