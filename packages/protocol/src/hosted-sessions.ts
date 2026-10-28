@@ -196,6 +196,12 @@ export type SetSessionWorkflow = {
   workflow?: string;
 };
 
+/**
+ * `POST /sessions/step-skip`: the person skipped a step of the Session's workflow, or undid it with `skipped` false.
+ * Answers the `SessionRecord`, whose `skipped_steps` reads it; skipping the current step moves `workflow_step` past it. Refused for the last, delivering step.
+ */
+export type SkipSessionStep = { session_id: string; step: number; skipped: boolean };
+
 /** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
 export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };
 

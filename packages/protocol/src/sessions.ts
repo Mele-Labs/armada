@@ -194,6 +194,8 @@ export type SessionRecord = {
   started?: SessionStarted;
   /** When each step of the workflow began, oldest first. A step the Job went back to appears again. Absent when none was entered. */
   workflow_visits?: StepVisit[];
+  /** The steps the person skipped, by the same index as `workflow_step`. The Job passes over each one. Absent where none is. */
+  skipped_steps?: number[];
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */

@@ -199,7 +199,7 @@ export type SessionWork = {
   /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
   proposal?: { /** The id of the workflow chosen. */ workflow: string | null; /** The proposer's call is out: the Session starts on its answer. */ reading?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
   /** The workflow's steps and the index of the one the Session is at, where Fleet says. Absent is a custom Session, which has no rail; `at` absent draws the steps unlit. */
-  workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase; /** When each step began, in order, as an RFC 3339 time. A step the Job went back to appears again. */ visits?: readonly { step: number; since: string }[] };
+  workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase; /** When each step began, in order, as an RFC 3339 time. A step the Job went back to appears again. */ visits?: readonly { step: number; since: string }[]; /** The steps the person skipped, by index; the Job passes over each. Absent where none is. */ skipped?: readonly number[] };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
   /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
@@ -228,6 +228,8 @@ export type SessionWorkActs = {
   workflows: readonly WorkflowChoice[];
   /** Changes the workflow at any time, from the next turn; `null` is none, a custom Session. */
   choose: (id: string, workflow: string | null) => void;
+  /** Skips a step of the workflow by its index, or undoes the skip with `skipped` false. Absent where nothing serves it, and no step offers Skip. */
+  skip?: (id: string, step: number, skipped: boolean) => void;
   /** The person changed a value the proposer picked, so its mark goes. */
   unpick: (id: string, value: "workflow" | "model" | "effort") => void;
   approve: (id: string) => void;

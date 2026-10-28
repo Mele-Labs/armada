@@ -602,6 +602,7 @@ const api: BridgeApi = {
   resumeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
   setSessionAutoLand: (sessionId: string, on: boolean): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionAutoLand, sessionId, on),
   setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
+  skipSessionStep: (sessionId: string, step: number, skipped: boolean): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.skipSessionStep, sessionId, step, skipped),
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
     ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),
   handToSession: (sessionId: string, group: string): Promise<SessionActed<SessionHeld>> => ipcRenderer.invoke(CHANNELS.handToSession, sessionId, group),

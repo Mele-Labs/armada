@@ -23,6 +23,7 @@ import type {
   ReleaseSessionHolds,
   SessionHeld,
   SetNoticeMute,
+  SkipSessionStep,
   SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
@@ -897,6 +898,12 @@ export class SessionsHost {
   /** The Session's workflow, or none with no `workflow`. Fleet tells the agent; the record it answers is folded in. */
   async setWorkflow(sessionId: string, workflow?: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/workflow", workflow === undefined ? { session_id: sessionId } : { session_id: sessionId, workflow });
+  }
+
+  /** A step of the Session's workflow skipped, or the skip undone. Fleet moves the current step past a skipped one; the record it answers is folded in. */
+  async skipStep(sessionId: string, step: number, skipped: boolean): Promise<SessionActed> {
+    const body: SkipSessionStep = { session_id: sessionId, step, skipped };
+    return await this.act("POST", "/sessions/step-skip", body);
   }
 
   /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
