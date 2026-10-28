@@ -393,18 +393,4 @@
   width: auto;
   height: calc(100vh - var(--space-12));
 }
-.armada-mock-browser-window__body {
-  display: grid;
-  flex: 1;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: var(--space-2);
-  min-height: 0;
-}
-.armada-mock-browser-window__job {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-}
+

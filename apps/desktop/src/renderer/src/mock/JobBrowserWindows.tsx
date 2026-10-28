@@ -1,12 +1,11 @@
 // A Job browser's window in the mock, drawn over the page because a browser has no second window, in the frame the terminal's
-// window is drawn in (`TerminalWindows.tsx`). **The page with the Job beside it**, as the walk window draws its Job: the pane is
-// the app's own, and so is the Job beside it (`JobBeside`). The OS close is Close window, which puts it away.
+// window is drawn in (`TerminalWindows.tsx`). **The page with the Job beside it**, as the walk window draws its Job: the window's
+// body is the app's own (`JobBrowserWindow`). The OS close is Close window, which puts it away.
 
 import { Button } from "@armada/components";
 
 import { useSessions } from "../sessions-draft";
-import { JobBeside } from "../job-browser/BrowserSide";
-import { JobBrowserPane } from "../job-browser/JobBrowserPane";
+import { JobBrowserWindow } from "../job-browser/JobBrowserWindow";
 import { closeBrowserWindow, useBrowserWindows, useJobBrowser } from "../job-browser/store";
 import "./mock.css";
 
@@ -23,12 +22,7 @@ function Frame({ sessionId }: { sessionId: string }) {
           Close window
         </Button>
       </div>
-      <div className="armada-mock-browser-window__body">
-        <div className="armada-mock-terminal-window__document">
-          <JobBrowserPane sessionId={sessionId} browser={browser} placed="window" />
-        </div>
-        <JobBeside sessionId={sessionId} className="armada-mock-browser-window__job" />
-      </div>
+      <JobBrowserWindow sessionId={sessionId} />
     </section>
   );
 }

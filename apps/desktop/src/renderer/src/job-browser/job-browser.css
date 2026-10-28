@@ -113,3 +113,14 @@
 .job-browser-beside { width: calc(var(--space-12) * 9); }
 .job-browser-beside__job { display: flex; flex: 1 1 0; flex-direction: column; align-self: stretch; min-height: 0; overflow: hidden; }
 .job-browser__document { display: contents; }
+
+/* In a window of its own: the page, and the Job beside it on the right, as the walk window draws its Job. */
+.job-browser-window {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-2);
+  min-height: 0;
+}
+.job-browser-window__page { display: flex; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
+.job-browser-window__job { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
