@@ -1,24 +1,32 @@
 // The Job browser's pane: the page the Job's agent drives with Armada's tools, which the person can take over and annotate. In the
-// side panel beside the Job's thread, as Requests is, or in a window of its own with the thread beside the page. The store says what it holds.
+// side panel with the Job's thread floating beside it (`BrowserSide.tsx`), or in a window of its own with the thread beside the page.
+// The store says what it holds.
 
-import { useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { AppWindowMac, Bot, PanelRight, UserCheck } from "lucide-react";
-import { Button, Input, Kbd, Sheet, Textarea, Tooltip } from "@armada/components";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { AppWindowMac, Bot, ChevronLeft, ChevronRight, Crosshair, PanelRight, RefreshCw, UserCheck } from "lucide-react";
+import { ACTION, Button, Input, Kbd, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
-import { useAtFloor } from "@armada/shell";
 
-import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { useBack } from "../shared-panel/panels";
-import { closePanel, usePanel, type PanelItem } from "../shared-panel/store";
-import { browserToWindow, handBack, openBrowser, pinNote, takeOver, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { useSessionsDraft } from "../sessions-draft";
+import { closePanel, usePanel } from "../shared-panel/store";
+import { browserToWindow, goBack, goForward, navigate, openBrowser, pinNote, reload, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import "./job-browser.css";
 
-const DRIVER = { agent: { said: "Agent driving", glyph: <Bot size={16} strokeWidth={2} aria-hidden /> }, you: { said: "You're driving", glyph: <UserCheck size={16} strokeWidth={2} aria-hidden /> } } as const;
+/** Who drives, and what a press on the mark does: the mark is the toggle. */
+const DRIVER = {
+  agent: { said: "Agent driving. Take over", glyph: <Bot size={16} strokeWidth={2} aria-hidden /> },
+  you: { said: "You're driving. Hand back to the agent", glyph: <UserCheck size={16} strokeWidth={2} aria-hidden /> },
+} as const;
 
-function IconAct({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+/** The walk window's note key, from the action registry rather than retyped: `⌥⌘C`. */
+const CAPTURE = ACTION.capture_note?.shortcut ?? "";
+/** The walk window's reload key, and the history act's. */
+const KEYS = { reload: "⌘R", back: "⌘[", forward: "⌘]" } as const;
+
+function IconAct({ label, shortcut, disabled, onClick, children }: { label: string; shortcut?: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <Tooltip label={label}>
-      <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={onClick}>
+    <Tooltip label={label} {...(shortcut === undefined ? {} : { shortcut })}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={label} disabled={disabled === true} onClick={onClick}>
         {children}
       </Button>
     </Tooltip>
@@ -35,7 +43,7 @@ function nameOf(part: HTMLElement): string {
 /** The nearest part of the page a note can be pinned on. */
 const PART = "button, input, label, h1, h2, h3, li, p, dt, dd";
 
-type Picked = Omit<BrowserPin, "id" | "note">;
+type Picked = Omit<BrowserPin, "id" | "note" | "url">;
 
 /** The note being written on a part, under it: Send puts it to the Job as a message. */
 function NoteCard({ sessionId, url, picked, onDone }: { sessionId: string; url: string; picked: Picked; onDone: (note?: string) => void }) {
@@ -78,10 +86,11 @@ function NoteCard({ sessionId, url, picked, onDone }: { sessionId: string; url: 
   );
 }
 
-/** The page, and the notes pinned on it. While Annotate is on, a press on a part of the page picks it instead of pressing it. */
+/** The page, and the notes pinned on it. While Capture is on, a press on a part of the page picks it instead of pressing it. */
 function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string; browser: JobBrowser; annotating: boolean; onPicked: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const [picked, setPicked] = useState<Picked>();
+  const url = urlOf(browser);
   const pick = (event: MouseEvent<HTMLDivElement>) => {
     const into = frame.current;
     const part = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(PART) : null;
@@ -97,8 +106,10 @@ function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string;
   };
   return (
     <div ref={frame} className="job-browser__page" data-annotating={annotating ? "" : undefined} data-driver={browser.driver} onClickCapture={pick}>
-      {browser.page}
-      {browser.pins.map((pin) => (
+      <div key={`${browser.at}:${browser.loads}`} className="job-browser__document">
+        {browser.page?.(url)}
+      </div>
+      {browser.pins.filter((pin) => pin.url === url).map((pin) => (
         <Tooltip key={pin.id} label={pin.note} asChild>
           <span className="job-browser__pin" role="img" aria-label={`Note on ${pin.on}`} style={{ top: pin.box.top, left: pin.box.left, width: pin.box.width, height: pin.box.height }} />
         </Tooltip>
@@ -108,10 +119,10 @@ function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string;
           <span className="job-browser__pin" data-writing="" aria-hidden style={{ top: picked.box.top, left: picked.box.left, width: picked.box.width, height: picked.box.height }} />
           <NoteCard
             sessionId={sessionId}
-            url={browser.url}
+            url={url}
             picked={picked}
             onDone={(note) => {
-              if (note !== undefined) pinNote(sessionId, { ...picked, id: `${picked.on}:${browser.pins.length}`, note });
+              if (note !== undefined) pinNote(sessionId, { ...picked, url, id: `${picked.on}:${browser.pins.length}`, note });
               setPicked(undefined);
             }}
           />
@@ -121,35 +132,71 @@ function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string;
   );
 }
 
+/** The address: the page's, and while the person drives, one he types, which Enter goes to. */
+function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+  const url = urlOf(browser);
+  const [typed, setTyped] = useState(url);
+  useEffect(() => setTyped(url), [url]);
+  const driving = browser.driver === "you";
+  return (
+    <Input
+      aria-label="Address"
+      mono
+      readOnly={!driving}
+      value={driving ? typed : url}
+      onChange={(event) => setTyped(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || !driving) return;
+        event.preventDefault();
+        const to = typed.trim();
+        if (to !== "" && to !== url) navigate(sessionId, to);
+      }}
+    />
+  );
+}
+
 /**
- * The pane: who is driving, the page's address, Take over or Hand back, Annotate, and its move. In the side panel it moves to a
- * window; in its window it moves back to the side panel, and the window's own close puts it away.
+ * The pane: who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
+ * note control; and its move. In the side panel it moves to a window; in its window it moves back to the side panel.
  */
 export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" }) {
-  const [annotating, setAnnotating] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const driver = DRIVER[browser.driver];
+  const keys = (event: KeyboardEvent<HTMLElement>) => {
+    // The letter from its key's place, since ⌥ changes the character a key types.
+    const key = event.code.startsWith("Key") ? event.code.slice(3) : event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    const chord = `${event.altKey ? "⌥" : ""}${event.metaKey ? "⌘" : ""}${key}`;
+    const act = chord === CAPTURE ? () => setCapturing((was) => !was) : chord === KEYS.reload ? () => reload(sessionId) : chord === KEYS.back ? () => goBack(sessionId) : chord === KEYS.forward ? () => goForward(sessionId) : undefined;
+    if (act === undefined) return;
+    event.preventDefault();
+    act();
+  };
   return (
-    <section className="job-browser" role="group" aria-label="Job browser" data-placed={placed}>
+    <section className="job-browser" role="group" aria-label="Job browser" data-placed={placed} onKeyDown={keys}>
       <header className="job-browser__head">
         <Tooltip label={driver.said}>
-          <span className="job-browser__driver" data-driver={browser.driver} role="img" aria-label={driver.said}>
+          <Button variant="ghost" size="sm" iconOnly data-driver={browser.driver} aria-label={driver.said} onClick={() => toggleDriver(sessionId)}>
             {driver.glyph}
-          </span>
-        </Tooltip>
-        <Input aria-label="Address" mono readOnly value={browser.url} />
-        <span className="job-browser__acts">
-          {browser.driver === "agent" ? (
-            <Button variant="secondary" size="sm" onClick={() => takeOver(sessionId)}>
-              Take over
-            </Button>
-          ) : (
-            <Button variant="secondary" size="sm" onClick={() => handBack(sessionId)}>
-              Hand back
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" aria-pressed={annotating} onClick={() => setAnnotating((was) => !was)}>
-            Annotate
           </Button>
+        </Tooltip>
+        <span className="job-browser__acts">
+          <IconAct label="Back" shortcut={KEYS.back} disabled={browser.at === 0} onClick={() => goBack(sessionId)}>
+            <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+          </IconAct>
+          <IconAct label="Forward" shortcut={KEYS.forward} disabled={browser.at >= browser.visited.length - 1} onClick={() => goForward(sessionId)}>
+            <ChevronRight size={16} strokeWidth={2} aria-hidden />
+          </IconAct>
+          <IconAct label="Reload" shortcut={KEYS.reload} onClick={() => reload(sessionId)}>
+            <RefreshCw size={16} strokeWidth={2} aria-hidden />
+          </IconAct>
+        </span>
+        <Address sessionId={sessionId} browser={browser} />
+        <span className="job-browser__acts">
+          <Tooltip label={capturing ? "Capturing" : "Capture"} shortcut={CAPTURE}>
+            <Button variant={capturing ? "primary" : "ghost"} size="sm" iconOnly aria-label="Capture" aria-pressed={capturing} onClick={() => setCapturing((was) => !was)}>
+              <Crosshair size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
           {placed === "panel" ? (
             <IconAct
               label="Open in a window"
@@ -167,22 +214,8 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
           )}
         </span>
       </header>
-      <Page sessionId={sessionId} browser={browser} annotating={annotating} onPicked={() => setAnnotating(false)} />
+      <Page sessionId={sessionId} browser={browser} annotating={capturing} onPicked={() => setCapturing(false)} />
     </section>
-  );
-}
-
-/** The Job browser in the side panel, beside the Job's thread. Its Close puts the page away, and the Job keeps it. */
-export function BrowserSide({ item }: { item: Extract<PanelItem, { kind: "browser" }> }) {
-  const browser = useJobBrowser(item.sessionId);
-  const title = useSessions().find((one) => one.id === item.sessionId)?.title;
-  const floor = useAtFloor();
-  const back = useBack();
-  if (browser === undefined) return null;
-  return (
-    <Sheet kind="side-panel" open floating floor={floor} title="Job browser" {...(title === undefined ? {} : { subtitle: title })} size="panel" bleed {...(back === undefined ? {} : { back })} closeLabel="Close" closeBinding="Esc" onClose={closePanel}>
-      <JobBrowserPane sessionId={item.sessionId} browser={browser} placed="panel" />
-    </Sheet>
   );
 }
 

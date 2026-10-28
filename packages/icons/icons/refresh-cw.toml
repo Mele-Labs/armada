@@ -12,3 +12,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 21 Oct 2026 for the walk `sharing-in-bridge`, after the owner asked Import to show each piece as it will look, with colour. `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*."
+
+  [[icons.refresh-cw.usage]]
+    means = "Reload on the Job browser's head, as the walk window's bar draws it"
+    group = "Chrome"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The walk window's bar draws this glyph for Reload with no entry here, and the reservation above keeps refresh for `rotate-cw`. Tooltip `Reload`, key ⌘R."

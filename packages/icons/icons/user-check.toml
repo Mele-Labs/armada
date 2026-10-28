@@ -53,4 +53,4 @@
     group = "Session"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. Actor=human, which the reservation names: the person is the one acting on the page. --accent; tooltip and aria-label: You're driving."
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. Actor=human, which the reservation names: the person is the one acting on the page. A press hands the page back. --accent; tooltip and aria-label: You're driving. Hand back to the agent."

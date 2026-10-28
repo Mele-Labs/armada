@@ -5,10 +5,9 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
-import { createElement } from "react";
 
 import { remindOfBrowser, setJobBrowser } from "../../job-browser/store";
-import { CheckoutPage, resetCheckout } from "../job-browser-page";
+import { resetCheckout, shopPage } from "../job-browser-page";
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
@@ -16,6 +15,7 @@ import { onTimePassing } from "../time-passes";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const JOB = "01SESSIONJOBBROWSERAAAAAAA";
+const CART = "http://localhost:5173/cart";
 const CHECKOUT = "http://localhost:5173/checkout";
 
 function fleet(): FakeSessionsFleet {
@@ -24,7 +24,8 @@ function fleet(): FakeSessionsFleet {
   const thread = {
     [JOB]: [
       { kind: "message" as const, id: "m1", at: ago(9), from: { kind: "you" as const }, text: "The checkout total ignores the discount code. Find out why." },
-      { kind: "tool" as const, id: "t1", at: ago(8), text: `browser_open ${CHECKOUT}` },
+      { kind: "tool" as const, id: "t0", at: ago(8), text: `browser_open ${CART}` },
+      { kind: "tool" as const, id: "t1", at: ago(8), text: "browser_click Check out" },
       { kind: "tool" as const, id: "t2", at: ago(8), text: "browser_type SPRING10 into Discount code" },
       { kind: "tool" as const, id: "t3", at: ago(7), text: "browser_click Apply" },
       { kind: "tool" as const, id: "t4", at: ago(7), text: "browser_snapshot" },
@@ -37,7 +38,7 @@ function fleet(): FakeSessionsFleet {
 /** The Job's browser as the agent left it: the agent driving, on the checkout. Flight control's Browser opens it in the side panel. */
 function seed(): void {
   resetCheckout();
-  setJobBrowser(JOB, { url: CHECKOUT, driver: "agent", windowed: false, pins: [], reminders: [], page: createElement(CheckoutPage) });
+  setJobBrowser(JOB, { visited: [CART, CHECKOUT], at: 1, loads: 0, driver: "agent", windowed: false, pins: [], reminders: [], threadHidden: false, page: shopPage });
 }
 
 function build(): Scenario {

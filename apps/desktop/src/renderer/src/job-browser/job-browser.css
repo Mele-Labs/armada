@@ -20,9 +20,8 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
-.job-browser__driver { display: inline-flex; flex: none; color: var(--fg-muted); }
-/* The person driving is the state worth seeing from across the room. */
-.job-browser__driver[data-driver="you"] { color: var(--accent); }
+/* The mark of who drives is the toggle. The person driving is the state worth seeing from across the room. */
+.job-browser__head .armada-button[data-driver="you"] { color: var(--accent); }
 
 .job-browser__head > .armada-input-field { flex: 1 1 0; min-width: 0; }
 
@@ -79,3 +78,32 @@
 }
 .job-browser-reminder__said { flex: 1 1 0; min-width: 0; }
 .job-browser-reminder > .armada-button { flex: none; }
+
+/* The Job floating left of the Job browser's sheet, on the plate `Sheet` draws off its leading edge: held at the window's leading
+   edge instead, the full height, and the sheet takes the rest of the width. */
+.armada-sheet-scrim > .armada-sheet__aside:has(> .job-browser-beside) {
+  align-self: stretch;
+  margin: var(--space-4) 0 var(--space-4) var(--space-4);
+  overflow: visible;
+}
+.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-sheet[data-kind="job-browser"] {
+  flex: 1 1 0;
+  max-width: none;
+}
+.job-browser-beside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+.job-browser-beside:not([data-shown]) { height: auto; }
+/* Wide enough that the composer's pickers keep their words. */
+.job-browser-beside[data-shown] { width: calc(var(--space-12) * 9); }
+.job-browser-beside__job { display: flex; flex: 1 1 0; flex-direction: column; align-self: stretch; min-height: 0; overflow: hidden; }
+.job-browser__document { display: contents; }

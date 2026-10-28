@@ -32,4 +32,4 @@
     group = "Session"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The agent is the one pressing and typing on the page, and this is the drawing of the agent a Session's retro already takes. --fg-muted; tooltip and aria-label: Agent driving."
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The agent is the one pressing and typing on the page, and this is the drawing of the agent a Session's retro already takes. A press takes the page over. --fg-muted; tooltip and aria-label: Agent driving. Take over."

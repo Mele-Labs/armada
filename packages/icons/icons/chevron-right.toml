@@ -30,3 +30,10 @@
     status = "Specified"
     reserved = "An icon-only ghost button in a log panel's head, going to the Record row the log belongs to: a Check's log to that Check's own row. Named by its tooltip, `Open in the Record`. Never in a list row, never beside a label, and never drawn off where there is no row to go to."
     notes = "Added 2026-10-02, the owner's call on walking the Check log panel: the log leads on to the Check's Record row, as an icon with a tooltip and no word. It is the goes-to usage above with its label moved into the tooltip, which is the one exception to that row's never-alone: a sheet's head carries Close as a word beside it, so a second word there would read as a second way out. Refused: `shield`, the Check's own Record mark, under a rule-4 waiver nothing else inherits; `external-link`, which hands something to the OS rather than going somewhere in Bridge; `list-ordered`, an Outline's."
+
+  [[icons.chevron-right.usage]]
+    means = "Forward on the Job browser's head: the page Back left, in its history"
+    group = "Chrome"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. It is the history act's forward, as the usage above names it, but drawn alone, which that usage refuses. Tooltip `Forward`, key ⌘]."

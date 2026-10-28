@@ -10,21 +10,30 @@ import { openInPanel } from "../shared-panel/store";
 export type BrowserDriver = "agent" | "you";
 
 /** A note the person pinned on part of the page, at that part's box within the page. */
-export type BrowserPin = { id: string; on: string; note: string; box: { top: number; left: number; width: number; height: number } };
+export type BrowserPin = { id: string; url: string; on: string; note: string; box: { top: number; left: number; width: number; height: number } };
 
 /** The Job reached for a browser outside Bridge: which one, and when. */
 export type BrowserReminder = { id: string; at: string; tool: "cmux" | "Playwright" };
 
 export type JobBrowser = {
-  url: string;
+  /** The addresses visited, oldest first, and which of them shows: Back and Forward move along it. */
+  visited: readonly string[];
+  at: number;
+  /** Bumped by Reload, so the page is drawn again. */
+  loads: number;
   driver: BrowserDriver;
   /** In a window of its own, which the side panel gives way to. */
   windowed: boolean;
   pins: readonly BrowserPin[];
   reminders: readonly BrowserReminder[];
-  /** **A mock's field**: what is drawn where the page goes. In the app the page is a view main places, which nothing does yet. */
-  page?: ReactNode;
+  /** The Job's thread, floating left of the side panel, is folded away. */
+  threadHidden: boolean;
+  /** **A mock's field**: what is drawn where the page goes, for an address. In the app the page is a view main places, which nothing does yet. */
+  page?: (url: string) => ReactNode;
 };
+
+/** The address showing. */
+export const urlOf = (browser: JobBrowser): string => browser.visited[browser.at] ?? "";
 
 let held: Readonly<Record<string, JobBrowser>> = {};
 const listeners = new Set<() => void>();
@@ -53,8 +62,14 @@ export function setJobBrowser(sessionId: string, browser: JobBrowser): void {
   listeners.forEach((hear) => hear());
 }
 
-export const takeOver = (sessionId: string) => edit(sessionId, (one) => ({ ...one, driver: "you" }));
-export const handBack = (sessionId: string) => edit(sessionId, (one) => ({ ...one, driver: "agent" }));
+/** Take over, or hand back to the agent. */
+export const toggleDriver = (sessionId: string) => edit(sessionId, (one) => ({ ...one, driver: one.driver === "agent" ? "you" : "agent" }));
+/** A new address, which drops whatever Forward would have gone to. */
+export const navigate = (sessionId: string, url: string) => edit(sessionId, (one) => ({ ...one, visited: [...one.visited.slice(0, one.at + 1), url], at: one.at + 1 }));
+export const goBack = (sessionId: string) => edit(sessionId, (one) => ({ ...one, at: Math.max(0, one.at - 1) }));
+export const goForward = (sessionId: string) => edit(sessionId, (one) => ({ ...one, at: Math.min(one.visited.length - 1, one.at + 1) }));
+export const reload = (sessionId: string) => edit(sessionId, (one) => ({ ...one, loads: one.loads + 1 }));
+export const showThread = (sessionId: string, shown: boolean) => edit(sessionId, (one) => ({ ...one, threadHidden: !shown }));
 /** The Job browser in the side panel, out of any window it had. */
 export function openBrowser(sessionId: string): void {
   edit(sessionId, (one) => ({ ...one, windowed: false }));

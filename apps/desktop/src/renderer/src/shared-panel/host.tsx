@@ -14,7 +14,7 @@ import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RequestsPanel } from "./requests";
 import { TerminalPanel } from "./terminal";
-import { BrowserSide } from "../job-browser/JobBrowserPane";
+import { BrowserSide } from "../job-browser/BrowserSide";
 import { RunPanel } from "./run";
 import { TeachSide } from "./teach";
 import { WatchPanel } from "./watch";

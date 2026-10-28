@@ -6,3 +6,10 @@
   paired_with = "chevron-right"
   reserved = "Leading the label of the control that returns to where a person was before a jump — Sheet's `back` slot, `Back to T6`, and actions.toml's `history` act, ⌘[. Never alone without a label, never collapse or disclosure, which are chevron-up's and chevron-down's, and never a sort, a previous page or a direction indicator."
   notes = "Registered 2026-09-30 by the owner. The Back trail landed on 29 Sep with its control in words alone, because the registry had no left chevron and the `history` row said neither half had a glyph to take. Leading, where chevron-right's goes-to trails: the mark points the way the press goes, and back goes the other way from where a label reads. 12px, strokeWidth 2, at the label's own size and colour, as the goes-to usage does."
+
+  [[icons.chevron-left.usage]]
+    means = "Back on the Job browser's head: the page before, in its history"
+    group = "Chrome"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. It is the history act's back, as the reservation names it, but drawn alone, which the reservation refuses. Tooltip `Back`, key ⌘[."
