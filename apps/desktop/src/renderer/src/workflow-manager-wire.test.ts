@@ -155,3 +155,9 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
   expect(suggestionsOf([change({ ...drift })], "feature")).toEqual({ suggestions: {}, suggesting: "feature/propose" });
   expect(suggestionsOf([change({ ...drift, state: "failed", reason: "Unchanged" })], "feature").suggestions.propose).toEqual({ words: "", from: ["7", "8"], failed: "Unchanged" });
 });
+
+test("a workflow a Job proposed is a fresh draft: approved or dismissed, never sent back", () => {
+  const out = agentOf([change({ origin: { kind: "new" }, before: "", state: "ready", after: JSON.stringify(FILE) })], []);
+  expect(out).toMatchObject({ phase: "proposed", fresh: true });
+  expect(out).not.toHaveProperty("asked");
+});

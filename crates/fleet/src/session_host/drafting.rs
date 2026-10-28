@@ -98,6 +98,7 @@ where
                 text,
                 before,
                 settled: None,
+                change: None,
             },
         )
         .await;
@@ -151,12 +152,13 @@ where
         words: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         let found = self.rows_of(session).await?.into_iter().find_map(|row| match row {
-            SessionRow::Draft { id, at, title, text, before, .. } if id == row_id => Some(SessionRow::Draft {
+            SessionRow::Draft { id, at, title, text, before, change, .. } if id == row_id => Some(SessionRow::Draft {
                 id,
                 at,
                 title,
                 text,
                 before,
+                change,
                 settled: Some(DraftSettled { how, words: words.clone(), at: self.instant() }),
             }),
             _ => None,
@@ -165,6 +167,33 @@ where
             self.row_put(session, row).await;
         }
         self.draft_record(session).await
+    }
+
+    /// A workflow a Job proposed waits on the owner as a draft that names its change. The item
+    /// leaves the list when the change is no longer ready, whoever settled it.
+    pub(crate) async fn proposal_waits(&self, session: &str, change: i64, workflow: &str, definition: &str) {
+        self.row_put(
+            session,
+            SessionRow::Draft {
+                id: self.row_id(session),
+                at: self.instant(),
+                title: format!("Workflow {workflow}"),
+                text: definition.to_string(),
+                before: None,
+                settled: None,
+                change: Some(change),
+            },
+        )
+        .await;
+        let _ = self.draft_record(session).await;
+    }
+
+    /// The change an open draft is the say on, where it is one.
+    pub(crate) async fn draft_change(&self, session: &str, row: &str) -> Option<i64> {
+        self.rows_of(session).await.ok()?.into_iter().find_map(|one| match one {
+            SessionRow::Draft { id, change, .. } if id == row => change,
+            _ => None,
+        })
     }
 
     async fn draft_record(&self, id: &str) -> Result<SessionRecord, Refusal> {

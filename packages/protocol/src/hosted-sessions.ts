@@ -480,9 +480,10 @@ export type SessionRow =
     }
   /**
    * A draft the session put to the person with `propose_draft`: `title` names what it is and where it goes, `text`
-   * is the draft in markdown, `before` the text it replaces. **Replaced by id once settled**, with `settled` saying how.
+   * is the draft in markdown, `before` the text it replaces. **Replaced by id once settled**, with `settled` saying how. `change` names the
+   * workflow change a proposed workflow is: Approve saves it, Dismiss drops it, `text` is its definition.
    */
-  | { kind: "draft"; id: string; at: string; title: string; text: string; before?: string; settled?: DraftSettled }
+  | { kind: "draft"; id: string; at: string; title: string; text: string; before?: string; settled?: DraftSettled; change?: number }
   /** A call put to the person. Replaced as it is answered. */
   | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string }
   /**

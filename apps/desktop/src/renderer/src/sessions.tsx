@@ -72,7 +72,7 @@ import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
-import { chooseFolder, openLink, readRetro, searchFiles } from "./commands";
+import { chooseFolder, openLink, readRetro, readWorkflowChanges, searchFiles } from "./commands";
 import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } from "./session-view/watch-marks";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
@@ -93,7 +93,7 @@ import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, planAsked } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
-import type { ChipRef, DrawnSketch, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -552,11 +552,12 @@ export function entriesOf(
   runner: Runner | undefined,
   removeWaiting?: (itemId: string, reason: string) => void,
   release?: LedgerRelease["rowOf"],
+  scopes: ProposedScopes = new Map(),
   begin?: (id: string, delivery: DeliveryChoice | undefined) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, a judge's concern and a draft are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "draft" && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -564,6 +565,7 @@ export function entriesOf(
     // A message act naming another Job opens it: a Job this one's agent started, held on its start card.
     const other = act?.kind === "message" && act.target !== session.id ? sessions.find((that) => that.id === act.target) : undefined;
     const childStart = one.source === "held_child" ? other?.start : undefined;
+    const proposed = one.source === "draft" ? proposedOf(session, one.id, scopes) : undefined;
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
@@ -575,7 +577,7 @@ export function entriesOf(
         : {
             card: {
               title: one.text,
-              facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
+              facts: proposed !== undefined ? proposed : act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
             },
           }),
       ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
@@ -870,7 +872,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   }, [session, repositories]);
   const teachOpen = useTeachFrom(teachHere);
   const noticeRules = useNoticeRules(session.id, session.manifestId);
-  const batched = useMemo(() => batchNotices(shown, noticeRules), [shown, noticeRules]);
+  const scopes = useProposedScopes(session);
+  const batched = useMemo(() => batchNotices(withWorkflowCards(shown, session, scopes), noticeRules), [shown, session, scopes, noticeRules]);
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
@@ -970,6 +973,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
     released.rowOf,
+    scopes,
     draft.begin === undefined ? undefined : (childId, delivery) => void draft.begin?.(childId, delivery),
     ),
   ];
@@ -1404,4 +1408,65 @@ export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session
       />
     </>
   );
+}
+
+type ProposedScopes = ReadonlyMap<number, "kit" | "repository">;
+
+/** The name a proposed workflow's waiting item carries: `Workflow <id>`. */
+const proposedName = (session: Session, rowId: string, fallback: string) =>
+  owesOf(session).find((one) => one.id === `draft:${rowId}`)?.text.replace(/^Workflow\s+/, "") ?? fallback;
+
+/** Where each proposed workflow would be kept, by its change id: the scope is on the change, not on the draft row. */
+function useProposedScopes(session: Session): ProposedScopes {
+  const [scopes, setScopes] = useState<ProposedScopes>(new Map());
+  const wanted = session.rows.flatMap((one) => (one.kind === "draft" && one.change !== undefined ? [{ id: one.id, change: one.change }] : []));
+  const key = wanted.map((one) => `${one.id}:${one.change}`).join(",");
+  const rowIds = wanted.map((one) => one.id);
+  useEffect(() => {
+    if (key === "") return;
+    let live = true;
+    void (async () => {
+      const found = new Map<number, "kit" | "repository">();
+      for (const rowId of rowIds) {
+        const row = session.rows.find((one) => one.id === rowId);
+        if (row === undefined || row.kind !== "draft" || row.change === undefined) continue;
+        const id = proposedName(session, rowId, row.title);
+        for (const source of ["repository", "kit"] as const) {
+          const answer = await readWorkflowChanges(id, source, session.manifestId ?? null);
+          if (answer.ok && answer.changes.changes.some((one) => one.id === row.change)) found.set(row.change, source);
+        }
+      }
+      if (live) setScopes(found);
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return scopes;
+}
+
+/** A draft row that is a proposed workflow becomes the workflow card, once its change says where it would be kept. */
+function withWorkflowCards<T extends { id: string; kind: string }>(rows: readonly T[], session: Session, scopes: ProposedScopes): T[] {
+  return rows.map((one) => {
+    const row = one as unknown as SessionRow;
+    if (row.kind !== "draft" || row.change === undefined || row.workflow !== undefined) return one;
+    const scope = scopes.get(row.change);
+    if (scope === undefined) return one;
+    return { ...row, workflow: { name: proposedName(session, row.id, row.title), scope } } as unknown as T;
+  });
+}
+
+/** A workflow a Job proposed, as the facts its Needs you card names: the draft row the waiting item stands for. */
+function proposedOf(session: Session, itemId: string, scopes: ProposedScopes): { label: string; value: string; mono?: boolean }[] | undefined {
+  const row = session.rows.find((one) => `draft:${one.id}` === itemId);
+  if (row === undefined || row.kind !== "draft") return undefined;
+  const found = row.workflow ?? (row.change === undefined || !scopes.has(row.change) ? undefined : { name: proposedName(session, row.id, row.title), scope: scopes.get(row.change)! });
+  if (found === undefined) return undefined;
+  const scope = found.scope === "kit" ? "Every repository on this Mac" : "This repository";
+  return [
+    { label: "Name", value: found.name },
+    { label: "Scope", value: scope },
+    { label: "Definition", value: row.text.replace(/```(json)?\n?/g, "").trim(), mono: true },
+  ];
 }

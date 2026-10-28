@@ -211,7 +211,7 @@ type SessionThreadKinds =
   /** The agent showed a file with `show_file`: a quiet row, a press that opens it in the side panel. */
   | { id: string; at: string; kind: "file"; path: string; name: string }
   /** A draft the agent put to the person with `propose_draft`: a card answered in place, and how it ended once `settled`. */
-  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled }
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
   /**
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card

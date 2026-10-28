@@ -47,7 +47,7 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 
 | Step | The agent | Ends when |
 |---|---|---|
-| `propose` | Says what it took the request to mean and a first idea, then stops | you reply |
+| `propose` | Shows what it took the request to mean as a sketch, or a rough walk for a look, then stops | you reply |
 | `discuss` | Settles the scope with sketches; builds a rough walk when the idea is about the look | a plan is recorded |
 | `approve_plan` | Records the plan, with a walk named for each piece he would see | you approve the plan |
 | `walk` | Builds the mock in the real Bridge on fixtures and shows it as a walk; writes no test | you approve the walk |
