@@ -21,7 +21,7 @@ where
     ) -> HostedFacts {
         let runtime = self.hosts().of(id);
         let state = runtime.state();
-        let start = start.map(|reads| self.start_wire(&hosting, reads));
+        let start = start.map(|reads| self.start_wire(&hosting, reads, state.proposal.queued.is_some()));
         HostedFacts {
             turn: state.turn.clone(),
             asked: state.asked.clone(),

@@ -27,8 +27,20 @@ While sleep is on, the item is left on the list and not decided for him.
 
 Nothing runs before Start, and no step prompt goes out either: the first turn carries the workflow line, the step's instructions and the message (*The rail*).
 
+**The caller waits on it too**, in its own Needs you, while the Job is live and held: id `start:<child id>`, text *Press Start on "<child title>"*, source `held_child`, act `message` on the child, so a press opens it.
+Fleet reads it off the child on every read of the caller, so Start or ending the child takes it off, and both publish the caller again.
+`answer_waiting` and `dismiss_waiting` refuse it, since Start is the answer.
+An item of the caller's agent whose act is `message` on a held child is left off, as Fleet's already says it, and the tool tells the agent to list none.
+
 **The brief is read at creation**, so the proposal (title kept as the agent gave it, workflow, model, effort) is on the new Job before he presses Start, and Start goes out on it.
 A fork is not read (*A Job's proposal*).
+
+**Start pressed while the brief is still read is queued.** The Job stays held, `start.queued` says so and the caller's item stands.
+When the reading ends the Job begins with the press's edit and landing, or, where the press named none, the landing the card then picks (`start.picked`: the one the first message names, then his usual, then Auto land).
+A second press meanwhile is refused as settled already.
+The queue is in memory, as the reading is: a Fleet that restarts mid-reading loses both, the Job is still held and not queued, and he presses Start again.
+
+**The caller's agent is told when it starts**: once, with a `linked` row `started` in the caller's thread and a message that wakes it, `Linked Job "<title>" (<id>) started.` and the plan group after it where there is one (*Linked Jobs*).
 
 **Both ledgers record it.** A start writes `started_by` on the new Job and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked job*, with `at` and `cut`.
 The caller's thread gets a `started` row naming the Job and whether it is a fork, which Bridge draws as the press that opens it.

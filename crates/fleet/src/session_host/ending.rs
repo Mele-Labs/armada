@@ -150,6 +150,7 @@ where
         // Out of the line if it was in it: an ended session is granted nothing.
         self.hosts().slot_queue().leave(&id);
         let now = self.now().as_str().to_string();
+        let parent;
         {
             let mut store = self.store().lock().await;
             let mut row = session;
@@ -163,13 +164,22 @@ where
             // (`freed_from_ended_sessions`).
             let holder = Holder::session(&id);
             let held = store.attachments_of(&holder).map_err(|why| self.ledger_fault(why))?;
+            // A Job ended on its start card leaves its starter's list, which says Press Start on it.
+            parent = hosting
+                .start_held
+                .then(|| held.iter().find(|one| one.kind == super::agent_starting::STARTED_BY).map(|one| one.target.clone()))
+                .flatten();
             for kind in held.iter().map(|one| one.kind.as_str()).filter(|kind| !SLOT_KINDS.contains(kind)) {
                 store.give_back(&holder, Some(kind), &now).map_err(|why| self.ledger_fault(why))?;
             }
         }
         self.session_wound_up(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
-        Ok((self.published_hosted(&id).await?, Some((id, hosting))))
+        let ended = self.published_hosted(&id).await?;
+        if let Some(parent) = parent {
+            let _ = self.published_hosted(&parent).await;
+        }
+        Ok((ended, Some((id, hosting))))
     }
 
     /// The slow half of a close: every slot the session holds is parked, and only then does the

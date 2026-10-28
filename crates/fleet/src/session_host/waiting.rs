@@ -111,6 +111,8 @@ pub(crate) struct WaitingReads {
     not_ours: Vec<store::KeptWatchWhole>,
     /// Every workflow change that is ready now: a proposal waits only while its change is among them.
     ready_changes: Vec<i64>,
+    /// The Jobs its agent started that wait on their start cards.
+    held_children: Vec<super::agent_starting::HeldChild>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -148,6 +150,7 @@ pub(crate) fn waiting_reads(
         asked_tasks: store.asked_project_tasks(&session.id)?,
         not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
         ready_changes: store.ready_workflow_change_ids()?,
+        held_children: super::agent_starting::held_children(store, &session.id)?,
     })
 }
 
@@ -333,7 +336,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours, ready_changes } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, paused, asked_tasks, not_ours, ready_changes, held_children } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -371,6 +374,7 @@ where
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
                 let labels: Vec<&str> = one.options.iter().map(|option| option.label.as_str()).collect();
@@ -478,6 +482,8 @@ where
                     confirmed: false,
                 });
             }
+            // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
+            items.extend(held_children.iter().map(super::agent_starting::held_child_item));
             // Every slot is held and it is in the line for one: Wait or Add, until he says.
             items.extend(
                 self.hosts()

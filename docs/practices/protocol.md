@@ -961,7 +961,7 @@ Bridge's half is `held_child` on `WaitingSource` in `packages/protocol/src/sessi
 | `BeginSession.delivery` | Bridge writes | No new field. While the proposer is reading, the press is queued and `delivery` may be absent: the reading's landing is taken |
 | `LinkedEvent` (a `linked` row's `event`) | Fleet writes, Bridge reads | Gains `started`: a Job the parent's agent started left its start card, written in the parent's thread |
 
-**Fleet writes none of the three yet.** The values and the refusals land first; deriving the item, queuing the press and writing the row follow in Fleet.
+**Fleet writes all three since the change after it.** The item is read off the child on every read of the parent, the queued press is in memory as the reading is, and `started` is told once per child.
 **A Bridge that matches `WaitingSource` or `LinkedEvent` exhaustively** meets values it did not know; the mirror gained them first, and equal IDs hold the two together.
 
 **Skew.** As above.

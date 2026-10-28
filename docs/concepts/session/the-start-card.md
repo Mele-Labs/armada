@@ -99,6 +99,8 @@ Where it differs from the kept first message his words replace it, what the agen
 Where it does not, the kept turn goes as held.
 The turn is written to the thread then, and the agent's first turn carries the workflow line, the step's instructions and the message (*The rail*).
 
+**Start pressed while the proposer is still reading is queued**, and the Job begins when the reading ends, on the landing the card then picks where the press named none (*A Job an agent started*).
+
 **Start keeps the landing as the answer to the delivery question**, so nothing asks later.
 Auto land turns the Job's Auto land flag on, as the delivery question's answer does.
 The wire is `docs/practices/protocol/a-job-starts-on-its-start-card.md`.
