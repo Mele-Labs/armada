@@ -1,0 +1,17 @@
+/* The target card of a Job's thread: the card the four ⌥ keys answer. Ringed as focus is, so the ring reads as "this one". */
+[data-thread-target] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A row of the confirm dialog: the digit that picks it, then the card's kind and what it is. */
+.armada-thread-confirm__row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-thread-confirm__title {
+  overflow-wrap: anywhere;
+}

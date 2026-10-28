@@ -34,6 +34,7 @@ import {
   type DropdownMenuEntry,
   SessionLedger,
   SessionThread,
+  ThreadKeys,
   RequestOpen,
   SavedOpen,
   type NoticeChoice,
@@ -1170,6 +1171,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             })}
       >
         <div ref={centre} className="armada-session-frame__centre">
+          {/* The thread's waiting cards and the composer's answer to the same four keys (`thread-keys.tsx`). */}
+          <ThreadKeys key={session.id}>
           <Refused />
           {origin === undefined || carried ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
@@ -1292,6 +1295,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           )}
           </div>
           </>
+          </ThreadKeys>
         </div>
       </SessionFrame>
       </SessionWorkspace>

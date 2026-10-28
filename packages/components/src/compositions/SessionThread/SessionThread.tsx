@@ -49,6 +49,7 @@ import { SketchRow } from "./SketchRow";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
 import { DraftRow } from "./DraftRow";
+import { ThreadKbd, useThreadCard } from "./thread-keys";
 import type { DraftAnswer } from "./DraftRow";
 export type { DraftAnswer } from "./DraftRow";
 import { callsLine } from "./calls-line";
@@ -1173,6 +1174,9 @@ const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"] } as const;
 /** The answer that allows a kind of call, drawn in the Calls like row and only where the ask names its kind. */
 const LIKE_THIS = "allow_like_this_for_session";
 
+/** The answer that refuses a permission: the card's no. */
+const REFUSE = "refuse";
+
 /**
  * A call's kind as its words, `node drive.mjs`, each a press, the way `PathPicker` draws a path:
  * the word chosen and every word after it are lit, so a press on the program reads as covering any
@@ -1202,7 +1206,7 @@ function KindPicker({ kind, wide, onWiden }: { kind: CallKind; wide: boolean; on
  * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
  * by the path, so a new ask opens on its whole path. A card that names its call's kind adds Calls
  * like under it, whose answer can be narrowed to the same folder. */
-function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer }: { reaches: string; reachesTo?: "read" | "write"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
+function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer, keyed = false }: { reaches: string; reachesTo?: "read" | "write"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"]; /** The card is the thread's target: its refuse draws `⌥X`. */ keyed?: boolean }) {
   const [folder, setFolder] = useState(reaches);
   const [wide, setWide] = useState(false);
   // Off at the start: the kind alone is the answer's own width, and a folder narrows it only when asked.
@@ -1221,6 +1225,7 @@ function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer }: { reaches:
           <Tooltip key={offer.id} label={offer.means}>
             <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id)}>
               {offer.label}
+              <ThreadKbd act="no" on={keyed && offer.id === REFUSE} />
             </Button>
           </Tooltip>
         ))}
@@ -1308,6 +1313,22 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
       adversarial.onRun();
     } else review?.onKeyDown(event);
   };
+  // While it waits, one of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Approve, `⌥E` the plan in full to suggest in, `⌥R` Not yet.
+  const waiting = !approved && !aside && approval.going !== true;
+  const { target, bind } = useThreadCard(
+    !waiting
+      ? undefined
+      : {
+          id: "plan",
+          kind: "Plan",
+          title: approval.groups.map((group) => group.title).join(", "),
+          acts: {
+            yes: { verb: "Approve", run: approval.onApprove },
+            ...(onReview === undefined ? {} : { change: { verb: "Suggest", run: onReview } }),
+            ...(approval.onSetAside === undefined ? {} : { sendBack: { verb: "Not yet", run: approval.onSetAside } }),
+          },
+        },
+  );
   const groups = (
     <ul className="armada-session-thread__groups">
       {approval.groups.map((group) => (
@@ -1340,7 +1361,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   );
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
       <div className="armada-session-thread__plan-head">
         <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label={aside ? "Plan set aside" : "Plan"} onClick={() => setFolded(!folded)}>
           <ListChecks size={12} strokeWidth={2} aria-hidden />
@@ -1358,6 +1379,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         {approved || !folded || aside ? null : (
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
             Approve
+            <ThreadKbd act="yes" on={target} />
           </Button>
         )}
       </div>
@@ -1414,10 +1436,12 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         <div className="armada-session-thread__answers" role="group" aria-label="Answers">
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
             Approve
+            <ThreadKbd act="yes" on={target} />
           </Button>
           {aside || approval.onSetAside === undefined ? null : (
             <Button size="sm" variant="secondary" onClick={approval.onSetAside}>
               Not yet
+              <ThreadKbd act="sendBack" on={target} />
             </Button>
           )}
           {adversarial === undefined ? null : <AdversarialReviewPress review={adversarial.review} onRun={adversarial.onRun} {...(adversarial.shortcut === undefined ? {} : { shortcut: adversarial.shortcut })} />}
@@ -1439,6 +1463,8 @@ export type ThreadDone = { onEnd: () => void; onKeep: () => void; made?: readonl
 
 /** What the agent made, and the two ways on: End session and Keep going. The body of the Session end panel. */
 export function DoneBody({ done }: { done: ThreadDone }) {
+  // One of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` End job, `⌥X` Keep going.
+  const { target, bind } = useThreadCard({ id: "done", kind: "Done", title: "Nothing left to do", acts: { yes: { verb: "End job", run: done.onEnd }, no: { verb: "Keep going", run: done.onKeep } } });
   return (
     <>
           {done.made === undefined || done.made.length === 0 ? null : (
@@ -1467,12 +1493,14 @@ export function DoneBody({ done }: { done: ThreadDone }) {
               })}
             </ul>
           )}
-          <div className="armada-session-done__acts">
+          <div className="armada-session-done__acts" {...bind}>
             <Button size="sm" variant="secondary" onClick={done.onEnd}>
               End job
+              <ThreadKbd act="yes" on={target} />
             </Button>
             <Button size="sm" variant="ghost" onClick={done.onKeep}>
               Keep going
+              <ThreadKbd act="no" on={target} />
             </Button>
           </div>
     </>
@@ -1481,8 +1509,15 @@ export function DoneBody({ done }: { done: ThreadDone }) {
 
 /** A judge's concern as a card: where it came from, the claim, what it cites, and the two ways on. `bare` leaves the band off, for a panel that already says what it is. */
 export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern: ThreadConcern; onSend?: () => void; onDismiss?: () => void; bare?: true }) {
+  // One of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Send to job, `⌥X` Dismiss.
+  const { target, bind } = useThreadCard({
+    id: `concern:${one.id}`,
+    kind: "Judge",
+    title: one.text,
+    acts: { ...(onSend === undefined ? {} : { yes: { verb: "Send to job", run: onSend } }), ...(onDismiss === undefined ? {} : { no: { verb: "Dismiss", run: onDismiss } }) },
+  });
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`} {...bind}>
       {bare === undefined ? (
         <div className="armada-session-thread__concern-band">
           <Tooltip label="Judge">
@@ -1499,10 +1534,12 @@ export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern
         <Tooltip label="Goes to the agent as your message">
           <Button size="sm" variant="secondary" onClick={onSend}>
             Send to job
+            <ThreadKbd act="yes" on={target} />
           </Button>
         </Tooltip>
         <Button size="sm" variant="ghost" onClick={onDismiss}>
           Dismiss
+          <ThreadKbd act="no" on={target} />
         </Button>
       </div>
     </Card>
@@ -1524,10 +1561,31 @@ export function askText({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "l
 
 /** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
 export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true; /** What the ask is about: its answers are kept under it until it is answered. */ keep?: string }) {
+  // A permission is one of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Allow once, `⌥X` its refuse. A question's deck registers itself.
+  const permission = asked !== undefined && (asked.questions?.length ?? 0) === 0 ? asked : undefined;
+  const refuse = permission?.offers?.find((offer) => offer.id === REFUSE);
+  const { target, bind } = useThreadCard(
+    permission === undefined
+      ? undefined
+      : {
+          id: `permission:${permission.command}`,
+          kind: permission.reachesTo === undefined ? "Permission" : `Permission to ${permission.reachesTo}`,
+          title: permission.command.split("\n")[0] ?? "",
+          acts: {
+            ...(permission.offers === undefined ? { yes: { verb: "Allow once", run: () => onAnswer() } } : allowsOnce(permission) ? { yes: { verb: "Allow once", run: () => onAnswer("allow_once") } } : {}),
+            ...(permission.offers === undefined ? { no: { verb: "Deny", run: () => onAnswer() } } : refuse === undefined ? {} : { no: { verb: refuse.label, run: () => onAnswer(REFUSE) } }),
+          },
+        },
+  );
+  const cardRef = (element: HTMLDivElement | null) => {
+    bind.ref(element);
+    if (typeof askRef === "function") askRef(element);
+    else if (askRef !== undefined && askRef !== null) (askRef as { current: HTMLDivElement | null }).current = element;
+  };
   return (
     <>
       {asked === undefined ? null : (
-        <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
+        <Card flat {...bind} ref={cardRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : (
             <span className="armada-session-thread__eyebrow">{asked.reachesTo === undefined ? "Permission" : `Permission to ${asked.reachesTo}`}</span>
           )}
@@ -1544,6 +1602,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
                       <Play size={16} strokeWidth={2} aria-hidden />
                     </Button>
                   </Tooltip>
+                  <ThreadKbd act="yes" on={target} />
                 </span>
               </div>
             </div>
@@ -1560,16 +1619,18 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
             />
           ) : asked.reaches !== undefined && asked.offers?.some((offer) => FOLDER_ANSWERS.has(offer.id)) === true ? (
-            <ReachAnswers key={asked.reaches} reaches={asked.reaches} {...(asked.reachesTo === undefined ? {} : { reachesTo: asked.reachesTo })} {...(asked.kind === undefined ? {} : { kind: asked.kind })} offers={asked.offers} onAnswer={onAnswer} />
+            <ReachAnswers key={asked.reaches} keyed={target} reaches={asked.reaches} {...(asked.reachesTo === undefined ? {} : { reachesTo: asked.reachesTo })} {...(asked.kind === undefined ? {} : { kind: asked.kind })} offers={asked.offers} onAnswer={onAnswer} />
           ) : (
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
             {asked.offers === undefined ? (
               <>
                 <Button size="sm" variant="secondary" onClick={() => onAnswer()}>
                   Allow once
+                  <ThreadKbd act="yes" on={target} />
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => onAnswer()}>
                   Deny
+                  <ThreadKbd act="no" on={target} />
                 </Button>
               </>
             ) : (
@@ -1577,6 +1638,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
                 <Tooltip key={offer.id} label={offer.means}>
                   <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id)}>
                     {offer.label}
+                    <ThreadKbd act="no" on={target && offer.id === REFUSE} />
                   </Button>
                 </Tooltip>
               ))
