@@ -110,6 +110,7 @@ fn what_is_taken_back_is_what_the_agent_opened_on_the_step_and_has_not_closed() 
         text: "It stops at the end.".into(),
         before: None,
         settled: None,
+        change: None,
     };
     let rows = [window(1, false), draft(2), window(5, false), window(6, true), draft(7)];
     let open = open_since(&rows, at_second(4).as_str());

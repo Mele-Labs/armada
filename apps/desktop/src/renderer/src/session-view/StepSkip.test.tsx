@@ -40,7 +40,7 @@ function mount(own: { skipped?: number[]; skip?: SessionWorkActs["skip"] } = {})
     work,
     rows: [{ id: "m1", at: "2026-10-27T09:02:00Z", kind: "message", from: { kind: "you" }, text: "Rotate the audit log" }],
   } as unknown as Session;
-  const acts = (own.skip === undefined ? undefined : { skip: own.skip }) as unknown as SessionWorkActs | undefined;
+  const acts = (own.skip === undefined ? undefined : { skip: own.skip, workflows: [] }) as unknown as SessionWorkActs | undefined;
   const ed = { id: ID, plan, marks: [], set: () => undefined, send: () => undefined } as unknown as ComponentProps<typeof StoryColumn>["ed"];
   const host = document.createElement("div");
   document.body.append(host);
