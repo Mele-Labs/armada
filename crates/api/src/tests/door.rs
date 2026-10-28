@@ -104,6 +104,16 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
     );
 }
 
+/// **A workflow read names which workflow.** Each route refuses a query without `workflow_id`, so a
+/// tool that left it out of its schema could never be called.
+#[test]
+fn the_workflow_reads_take_the_workflow_and_its_place() {
+    for operation in ["get_workflow", "get_workflow_steps", "list_workflow_changes"] {
+        let shape = offered().into_iter().find(|shape| shape.operation == operation).expect(operation);
+        assert_eq!(shape.query, ["workflow_id", "source"], "{operation}");
+    }
+}
+
 /// Every tool, called. **The door's half of `every_operation_the_table_names_is_routed`**:
 /// that one proves a path is in the router, and this proves the door builds a
 /// request that reaches it. A tool that answers "no such tool" or a route that

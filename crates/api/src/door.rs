@@ -58,6 +58,9 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_watches", &["session_id", "ended"]),
     ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["lines", "session_id", "until", "regex", "wait_seconds"]),
+    ("get_workflow", &["workflow_id", "source"]),
+    ("get_workflow_steps", &["workflow_id", "source"]),
+    ("list_workflow_changes", &["workflow_id", "source"]),
 ];
 
 /// The query parameters `operation`'s route reads, none where it reads none.
