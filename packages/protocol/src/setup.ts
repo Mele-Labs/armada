@@ -394,7 +394,7 @@ export type StepReading = {
   instructions?: string;
   /** What ends the step, as a short fact. Absent where nothing Fleet observes ends it. */
   ends_when?: string;
-  /** **Proposed, not on the wire**: each thing that ends the step where any one of several does, in order. Absent where one does. */
+  /** Every end of the step, in order, as the page says them: any one of them ends it. Absent where it has none. */
   ends_any?: string[];
   /** When the step is passed over instead of walked. Absent on a step that is always done. */
   passed_over_when?: string;

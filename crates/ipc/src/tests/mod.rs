@@ -78,5 +78,6 @@ mod bay_history;
 mod window_asks;
 mod sketch;
 mod sketch_answers;
+mod step_reading;
 mod taught_mods;
 mod watch_wire;
