@@ -12,8 +12,8 @@ const glassGrid = walk("one-session-view", [
   { look: inside(stage, role("textbox", "Message")), say: "The thread is the sheet itself. The message box is a frosted chip on it" },
   { press: region("Flight controls"), say: "Focus moves to Flight control" },
   { look: region("Flight controls"), say: "The focused panel lifts its edge and shadow. No header fills" },
-  { press: role("combobox", "Repository"), say: "The repository field opens its list" },
-  { look: role("listbox", "Repositories"), say: "The list floats over the panels as glass at the overlay level" },
+  { press: role("button", "Repository", { exact: true }), say: "The repository field opens its list" },
+  { look: role("menu"), say: "The list floats over the panels as glass at the overlay level" },
 ]);
 
 export { glassGrid as "glass-grid" };

@@ -45,6 +45,7 @@ import { CallAlerts } from "./cockpit/CallAlerts";
 import { DockCount } from "./cockpit/DockCount";
 import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
 import { HELM_HOME, SLEEP_HOME, useCallingHomes } from "./cockpit/deck/homes";
+import { useRepositoryRuns } from "./cockpit/deck/repository-runs";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { focusPanel } from "./cockpit/deck/keys";
 import { deckNow } from "./cockpit/deck/store";
@@ -423,6 +424,7 @@ export function App() {
 
   // The picked repository's Manifest, absent until it has one.
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
+  const repositoryRuns = useRepositoryRuns(repositories);
   const scoped = pickedRepository?.manifest;
   // A call no Session's row holds pulses the control that already shows it: Sleep's menu and Helm's button here.
   const callingHomes = useCallingHomes(state, pickedRepository);
@@ -491,6 +493,7 @@ export function App() {
           onAddRepository={locate.onOpen}
           onNewProject={locate.onNew}
           onOpenManifest={() => goTo(SURFACE.manifest)}
+          repositoryTrail={repositoryRuns.trailOf}
           onCompose={() => newSession()}
           onSearch={palette.onOpen}
           {...titleRow}
@@ -498,8 +501,8 @@ export function App() {
           {...(titleRow.sleep === undefined ? {} : { sleep: { ...titleRow.sleep, calling: callingHomes.has(SLEEP_HOME) } })}
           helmCalling={callingHomes.has(HELM_HOME)}
           wordmark={<ArmadaMark size={20} title="Armada" />}
-          // The Cockpit's picker names it there; every other surface has none, so the row does.
-          {...(atCockpit || repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
+          // The title row's picker, on every surface.
+          repository={pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories)}
           places={<DeckPlaces state={state} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
           asking={asks.length}
           helm={
@@ -727,6 +730,7 @@ export function App() {
             )}
           </div>
         </Shell>
+        {repositoryRuns.layer}
 
         {/* Studio capture — #1290. Last, so its layer paints over every surface
             and every overlay the shell draws under it. */}

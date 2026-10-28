@@ -3,12 +3,12 @@
 
 import { button, inside, place, role, walk } from "../walk";
 
-const picker = role("combobox", "Repository");
+const picker = role("button", "Repository", { exact: true });
 const frame = role("region", "Dispatch", { exact: true });
 
 const pickWithoutManifest = walk("nothing-set-up", [
   { press: picker, say: "The repository picker opens" },
-  { press: role("option", /^scratch/), say: "scratch has no Manifest" },
+  { press: role("menuitem", /^scratch/), say: "scratch has no Manifest" },
   { look: place("Cockpit"), say: "Its Cockpit, not Setup" },
   { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "Dispatch" },
   { look: frame, say: "Dispatch opens" },

@@ -6,13 +6,12 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, CircleDashed, FileCog, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { ChartNoAxesGantt, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
-import { RepositoryCombobox } from "./RepositoryCombobox";
 import { clashingOf, useWriteClashes } from "../../clashes";
 import { baysOf } from "../../session-view/slot-trouble";
 import { askToOpenHolder } from "../../open-holder";
@@ -86,35 +85,6 @@ export const slotsOf = (props: Pick<CockpitProps, "state" | "picked">): readonly
 const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => manifestLabel(manifest, props.state.holds.repositories ?? []);
 
 // ---- The left column ----------------------------------------------------------------------------------
-
-/** The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue, as the title row's picker does. */
-function RepositoryScope({ props }: { props: CockpitProps }) {
-  const repositories = props.state.holds.repositories ?? [];
-  const pick = props.onPickRepository;
-  const add = props.onAddRepository;
-  const create = props.onNewProject;
-  if (props.onGoTo === undefined && (repositories.length === 0 || pick === undefined)) return null;
-  return (
-    <div className="deck-scope">
-      {repositories.length === 0 || pick === undefined ? null : (
-        <RepositoryCombobox
-          repositories={repositories}
-          picked={props.picked}
-          onPick={(root) => pick(root)}
-          onAdd={add}
-          onNew={create}
-        />
-      )}
-      {props.onGoTo === undefined ? null : (
-        <Tooltip label="Open the Manifest" asChild>
-          <Button variant="ghost" size="sm" iconOnly aria-label="Open the Manifest" disabled={repositories.length === 0} onClick={() => props.onGoTo?.(DECK_LINK.picker)}>
-            <FileCog size={16} aria-hidden="true" />
-          </Button>
-        </Tooltip>
-      )}
-    </div>
-  );
-}
 
 /** Where a Session is in its build, as the one glyph of its phase. A Session with no build has an empty cell. */
 function Phase({ subject, builds }: { subject: Subject; builds: ReadonlyMap<string, BuildIn> }) {
@@ -1113,7 +1083,6 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
-          <RepositoryScope props={props} />
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
           {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}

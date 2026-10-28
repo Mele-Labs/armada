@@ -44,8 +44,8 @@ test("the cursor steps from the last row of one group to the first of the next",
 
 test("one repository picked draws the list with no heading and only its Sessions", async () => {
   await onAll();
-  await userEvent.click(page.getByRole("combobox", { name: "Repository" }));
-  await userEvent.click(page.getByRole("option", { name: "storefront" }));
+  await userEvent.click(page.getByRole("button", { name: "Repository", exact: true }));
+  await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
   await expect.element(list().getByRole("button", { name: "Round the cart totals" })).toBeVisible();
   expect(headings()).toEqual([]);
   await expect.element(list().getByRole("button", { name: "Prune the stale branches" })).not.toBeInTheDocument();

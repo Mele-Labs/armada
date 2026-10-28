@@ -1,19 +1,18 @@
-// Off the Cockpit the title row names the picked repository, or "All repositories". The Cockpit has the
-// picker and draws no tag. Over `sessions-by-repository`, which serves two.
+// The title row's name is the repository picker on every surface, the Cockpit too. Over `sessions-by-repository`, which serves two.
 
-import { place, role, text, walk } from "../walk";
+import { button, place, role, walk } from "../walk";
 
 const titleBarRepository = walk("sessions-by-repository", [
-  { look: place("Cockpit"), say: "The Cockpit, where the picker names the repository and the title row draws no tag" },
+  { look: button("Repository", { exact: true }), say: "The Cockpit, where the title row holds the picker" },
   { press: place("Logbook"), say: "Logbook" },
-  { look: text("All repositories"), say: "On the Logbook the title row says All repositories" },
-  { press: place("Cockpit"), say: "Back to the Cockpit, where the picker is" },
-  { press: role("combobox", "Repository"), say: "Pick one repository" },
-  { press: role("option", "storefront"), say: "storefront" },
+  { look: button("Repository", { exact: true }), say: "On the Logbook the picker is still there" },
+  { press: place("Cockpit"), say: "Back to the Cockpit" },
+  { press: button("Repository", { exact: true }), say: "Pick one repository" },
+  { press: role("menuitem", "storefront"), say: "storefront" },
   { press: place("Logbook"), say: "Logbook" },
-  { look: text("storefront"), say: "On the Logbook the title row names storefront" },
+  { look: button("Repository", { exact: true }), say: "On the Logbook the picker names storefront" },
   { press: place("Studios"), say: "Studios" },
-  { look: text("storefront"), say: "It names storefront there too" },
+  { look: button("Repository", { exact: true }), say: "And on Studios" },
 ]);
 
 export { titleBarRepository as "title-bar-repository" };

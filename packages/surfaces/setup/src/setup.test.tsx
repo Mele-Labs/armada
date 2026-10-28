@@ -47,7 +47,7 @@ async function setup(options: SettingUp = {}) {
 const manifestTabs = () => page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Set up workspaces" }) });
 
 /** The repository picker on the Cockpit: labelled Repository, and its text is the name of the one chosen. */
-const repositoryPicker = () => page.getByRole("combobox", { name: "Repository", exact: true });
+const repositoryPicker = () => page.getByRole("button", { name: "Repository", exact: true });
 
 /** A workspace's proposal, opened from the picker, in place to be pressed. */
 async function open(list: ReturnType<typeof page.getByRole>, dir: string) {
@@ -221,9 +221,9 @@ const TWO: SettingUp = { repositories: [repository(), SCRATCH], sheet: SHEET_REA
 test("a set-up and a not-set-up repository: both listed", async () => {
   mount(settingUp(TWO), SLICES);
   await repositoryPicker().click();
-  await expect.element(page.getByRole("option", { name: MANIFEST_NAME })).toBeInTheDocument();
-  const menu = page.getByRole("listbox", { name: "Repositories" });
-  await expect.element(menu.getByRole("option", { name: "scratch" })).toBeInTheDocument();
+  await expect.element(page.getByRole("menuitem", { name: MANIFEST_NAME })).toBeInTheDocument();
+  const menu = page.getByRole("menu");
+  await expect.element(menu.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
 });
@@ -232,8 +232,8 @@ test("picking one not set up stays on the Cockpit; asked for, Setup opens, and a
   const onVerify = vi.fn();
   mount(settingUp({ ...TWO, onVerify }), SLICES);
   await repositoryPicker().click();
-  await page.getByRole("option", { name: "scratch" }).click();
-  await expect.element(repositoryPicker()).toHaveValue("scratch");
+  await page.getByRole("menuitem", { name: "scratch" }).click();
+  await expect.element(repositoryPicker()).toHaveTextContent("scratch");
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   const list = await askForSetup();
   const sheet = await open(list, "apps/web");
@@ -248,7 +248,7 @@ test("picking one not set up stays on the Cockpit; asked for, Setup opens, and a
 test("pick one not set up, ask for Setup, write its root, and it reads as set up with an Edit tab", async () => {
   mount(settingUp(TWO), SLICES);
   await repositoryPicker().click();
-  await page.getByRole("option", { name: "scratch" }).click();
+  await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = await askForSetup();
   expect(page.getByRole("tab", { name: "Edit" }).query()).toBeNull();
   const sheet = await open(list, ".");
@@ -258,8 +258,8 @@ test("pick one not set up, ask for Setup, write its root, and it reads as set up
   await sheet.getByRole("button", { name: "Back to the workspaces" }).click();
   await toPlace("Cockpit");
   await repositoryPicker().click();
-  const menu = page.getByRole("listbox", { name: "Repositories" });
-  await expect.element(menu.getByRole("option", { name: "scratch" })).toBeInTheDocument();
+  const menu = page.getByRole("menu");
+  await expect.element(menu.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
   await expect.element(page.getByRole("tab", { name: "Edit" })).toBeVisible();

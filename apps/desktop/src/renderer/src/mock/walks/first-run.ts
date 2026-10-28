@@ -9,7 +9,9 @@ const message = role("textbox", "Message");
 const glyph = button("Armada configuration kept on this Mac");
 const dispatch = dialog("Dispatch");
 const thread = region("Thread");
-const picker = role("combobox", "Repository");
+const picker = role("button", "Repository", { exact: true });
+const find = role("searchbox", "Find a repository");
+const row = role("menuitem", /^my-app/);
 const layer = role("dialog", "Armada configuration for my-app");
 const places = role("group", "Where Armada configuration is kept");
 
@@ -27,8 +29,9 @@ const firstRun = walk("first-run", [
   { key: "Enter", on: inside(dispatch, role("textbox", "Request")), say: "↵ starts the Job" },
   { hover: glyph, say: "A later Job keeps only the glyph, and its tooltip names the place" },
   { press: picker, say: "The repository picker opens" },
-  { key: "ArrowDown", on: picker, say: "my-app's row wears the laptop, where its Armada configuration is kept" },
-  { key: "ArrowRight", on: picker, say: "→ opens Armada configuration for my-app" },
+  { key: "ArrowDown", on: find, say: "↓ goes to the list" },
+  { key: "ArrowDown", on: role("menuitem", "All repositories"), say: "my-app's row wears the laptop, where its Armada configuration is kept" },
+  { key: "ArrowRight", on: row, say: "→ opens Armada configuration for my-app" },
   { look: inside(layer, role("img", "Tests: Kept on this Mac")), say: "pnpm test passed and is kept on this Mac. npm test failed and is not there" },
   { look: inside(layer, role("img", "Dev server: Kept on this Mac")), say: "The dev server, on :5173, is kept the same way" },
 ]);

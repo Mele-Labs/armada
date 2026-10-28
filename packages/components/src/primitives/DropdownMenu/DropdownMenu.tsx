@@ -52,6 +52,12 @@ export type DropdownMenuEntry =
       detail?: string;
       /** Finished, and still choosable: `--fg-subtle`, as a finished drone on a Job's Field. */
       muted?: boolean;
+      /** An act the menu offers beside its choices, not one of them: `data-act`, for a menu that styles its footer apart. */
+      act?: boolean;
+      /** A node at the row's trailing end, before its check: a mark the menu's caller draws. */
+      trail?: ReactNode;
+      /** Run by → on the focused row, which then puts the menu away. */
+      onRight?: () => void;
     }
   | { kind: "separator"; id: string }
   | { kind: "label"; id: string; label: string };
@@ -138,6 +144,8 @@ export type DropdownMenuProps = {
    * leading top corner sits on the point, kept inside the window. Open it through `open`.
    */
   at?: { x: number; y: number };
+  /** A class on the panel, for a menu that styles its own rows. */
+  panelClass?: string;
 };
 
 /**
@@ -183,6 +191,7 @@ export function DropdownMenu({
   triggerDetail,
   triggerTooltip,
   at,
+  panelClass,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -352,7 +361,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className={panelClass === undefined ? "armada-dropdown-menu__panel" : `armada-dropdown-menu__panel ${panelClass}`} data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
@@ -416,6 +425,7 @@ export function DropdownMenu({
                 aria-current={entry.selected || undefined}
                 aria-disabled={entry.disabled || undefined}
                 data-muted={entry.muted || undefined}
+                data-act={entry.act || undefined}
                 className={
                   entry.danger
                     ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
@@ -425,6 +435,12 @@ export function DropdownMenu({
                   if (entry.disabled === true) return;
                   choose(entry.id);
                 }}
+                onKeyDown={(event) => {
+                  if (event.key !== "ArrowRight" || entry.onRight === undefined) return;
+                  event.preventDefault();
+                  setOpen(false);
+                  entry.onRight();
+                }}
               >
                 {entry.icon === undefined ? null : <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />}
                 <span className="armada-dropdown-menu__text">
@@ -432,6 +448,7 @@ export function DropdownMenu({
                   <Count of={entry.count} />
                 </span>
                 {entry.detail === undefined ? null : <span className="armada-dropdown-menu__detail">{entry.detail}</span>}
+                {entry.trail === undefined ? null : <span className="armada-dropdown-menu__trail">{entry.trail}</span>}
                 {entry.selected ? (
                   <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden />
                 ) : entry.shortcut ? (

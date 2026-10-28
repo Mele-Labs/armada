@@ -1,9 +1,8 @@
-// The mock's own scenario picker, through `mountPicker` — the mount the page
-// uses, so what is asserted here is the control the owner presses.
+// The mock's own scenario finder, through `mountPicker` — the mount the page uses. It has no button: the
+// palette's "Mock scenario" row (⌘K) opens it as a centred layer.
 //
-// **The picker is not part of the app**, but it is drawn inside it: its root
-// is a second one beside the app's, and what it renders goes into the app's
-// own left column through a portal. So a test here puts up both.
+// **The finder is not part of the app**, but it fills a row of the app's palette (`palette-extra.ts`), so a
+// test here puts up both.
 //
 // The owner, 30 Sep 2026: *"I still would like to find a better way to overlay
 // the mock scenarios. What if we put it in the left side panel? Also I would
@@ -45,7 +44,14 @@ async function show(): Promise<void> {
   host.id = "picker";
   document.body.append(host);
   takePicker = mountPicker(SCENARIO, host);
-  await expect.element(said()).toBeVisible();
+}
+
+/** ⌘K, then the palette's Mock scenario row. */
+async function openFinder(): Promise<void> {
+  await userEvent.click(page.getByRole("button", { name: /Search, or describe work/ }));
+  await userEvent.fill(page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").element() as HTMLInputElement, "Mock scenario");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(field()).toBeVisible();
 }
 
 /**
@@ -67,52 +73,50 @@ function intercept(): string[] {
   return went;
 }
 
-const said = () => page.getByRole("button", { name: `Mock scenario — ${SCENARIO}` });
 const field = () => page.getByRole("textbox", { name: "Find a scenario" });
 const rows = () => [...document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row")];
 const names = () => rows().map((row) => row.textContent ?? "");
-
-/** What the picker drew, so a claim about where it is can be made about the element itself. */
-const pickerEl = (): HTMLElement => document.querySelector<HTMLElement>(".armada-mock-picker")!;
 
 /** Typed into the field, replacing whatever was there. */
 async function find(query: string): Promise<void> {
   await userEvent.fill(field().element() as HTMLInputElement, query);
 }
 
-test("the picker is in the title row, not over the content", async () => {
+test("the title row has no scenario button, and the palette lists the finder", async () => {
   await show();
-
-  // Not a coordinate: being a child of the title row is what makes it impossible
-  // for it to cover anything, and a box that happens to miss the content today
-  // would still be a layer over it.
-  expect(pickerEl().closest(".armada-title-bar")).not.toBeNull();
+  expect(document.querySelector('.armada-title-bar [aria-label^="Mock scenario"]')).toBeNull();
   expect(document.getElementById("picker")?.children.length).toBe(0);
-  expect(getComputedStyle(pickerEl()).position).not.toBe("fixed");
+
+  await userEvent.click(page.getByRole("button", { name: /Search, or describe work/ }));
+  await userEvent.fill(page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").element() as HTMLInputElement, "Mock scenario");
+  await expect.element(page.getByRole("option", { name: /^Mock scenario/ })).toBeVisible();
 });
 
-test("it says which scenario is on without being opened", async () => {
+test("the finder is a centred layer, closed until the row runs", async () => {
   await show();
-  await expect.element(said()).toHaveTextContent(SCENARIO);
+  expect(field().query()).toBeNull();
+  await openFinder();
+  const layer = document.querySelector<HTMLElement>(".armada-mock-picker__layer")!;
+  expect(getComputedStyle(layer).position).toBe("fixed");
+  const box = layer.getBoundingClientRect();
+  expect(Math.abs(box.left + box.width / 2 - window.innerWidth / 2)).toBeLessThan(2);
 });
 
 test("typing part of a name narrows to it", async () => {
   await show();
-  await said().click();
-  await expect.element(field()).toBeVisible();
+  await openFinder();
 
   // Every scenario and every walk is listed before a word is typed — the list is the roster.
   expect(rows().length).toBe(SCENARIOS.length + EVERY_WALK.size);
 
-  await find("fleetnot");
+  await find("fleet-not-running");
   expect(names().length).toBeLessThan(SCENARIOS.length + EVERY_WALK.size);
   expect(names()[0]).toBe("fleet-not-running");
 });
 
 test("every row is a line tall, however many there are", async () => {
   await show();
-  await said().click();
-  await expect.element(field()).toBeVisible();
+  await openFinder();
 
   // 1 Oct 2026: the open list drew as one thin bar. Each row is a flex item
   // with `overflow: hidden`, so the list shrank all of them to their padding.
@@ -122,7 +126,7 @@ test("every row is a line tall, however many there are", async () => {
 
 test("the search is fuzzy — the initials of a long name reach it", async () => {
   await show();
-  await said().click();
+  await openFinder();
 
   // Nothing in `merge-line-failed-check` spells `mlfch`; every letter of it
   // is in that name in that order, which is the whole ask.
@@ -135,8 +139,8 @@ test("choosing one mounts it — the reload `?scenario=` is read on", async () =
   await show();
   const went = intercept();
 
-  await said().click();
-  await find("fleetnot");
+  await openFinder();
+  await find("fleet-not-running");
   await page.getByRole("link", { name: "fleet-not-running" }).click();
 
   expect(went).toHaveLength(1);
@@ -159,7 +163,7 @@ test("a walk is a row too, and choosing one plays it — the reload `?walk=` is 
   await show();
   const went = intercept();
 
-  await said().click();
+  await openFinder();
   await find("cockpit sessions list");
   await page.getByRole("link", { name: "cockpit sessions list" }).click();
 
@@ -174,27 +178,24 @@ test("Enter takes the top row, so a narrowed query is two keys", async () => {
   await show();
   const went = intercept();
 
-  await said().click();
-  await find("fleetnot");
+  await openFinder();
+  await find("fleet-not-running");
   await userEvent.keyboard("{Enter}");
 
   expect(new URL(went[0]!).searchParams.get("scenario")).toBe("fleet-not-running");
 });
 
-test("Esc gives it up, and the scenario is still readable", async () => {
+test("Esc gives it up", async () => {
   await show();
-  await said().click();
-  await expect.element(field()).toBeVisible();
+  await openFinder();
 
   await userEvent.keyboard("{Escape}");
   expect(field().query()).toBeNull();
-  await expect.element(said()).toHaveTextContent(SCENARIO);
 });
 
 test("walks are listed first, in words, above the scenarios", async () => {
   await show();
-  await said().click();
-  await expect.element(field()).toBeVisible();
+  await openFinder();
 
   const all = rows();
   expect(all.slice(0, EVERY_WALK.size).every((row) => row.dataset.walk !== undefined)).toBe(true);
@@ -203,18 +204,19 @@ test("walks are listed first, in words, above the scenarios", async () => {
   expect(names()).not.toContain("cockpitSessionsList");
 });
 
-test("on a walk page the picker names the walk and marks its row", async () => {
+test("on a walk page the finder marks the walk's row", async () => {
   mount("default");
   await onScreen();
   host = document.createElement("div");
   document.body.append(host);
   takePicker = mountPicker("cockpitSessionsList", host, true);
-  const said2 = page.getByRole("button", { name: "Mock scenario — cockpit sessions list" });
-  await expect.element(said2).toBeVisible();
-
-  await said2.click();
+  await openFinder();
   const current = document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row[data-current]");
   expect(current).toHaveLength(1);
   expect(current[0]?.textContent).toBe("cockpit sessions list");
   expect(current[0]?.href).toContain("walk=cockpitSessionsList");
+});
+
+test("every scenario row has a name: a plain value a scenarios file exports is not one", () => {
+  expect(SCENARIOS.every((one) => typeof one.name === "string")).toBe(true);
 });

@@ -3,12 +3,12 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const combobox = role("combobox", "Repository");
+const combobox = role("button", "Repository", { exact: true });
 const dialog = role("dialog", "New project");
 
 const newProjectFromPicker = walk("new-project-from-picker", [
   { press: combobox, say: "The repository picker" },
-  { press: role("option", "New project"), say: "New project sits above Add a repository, and opens the dialog on a new project" },
+  { press: role("menuitem", "New project"), say: "New project sits above Add a repository, and opens the dialog on a new project" },
   { look: inside(dialog, role("textbox", "Location")), say: "The location starts where most projects are kept, here ~/code" },
   { press: inside(dialog, button("Choose a folder")), say: "Choose a folder changes it, and ~/Developer is chosen" },
   { type: "my-app", into: inside(dialog, role("textbox", "Name")), say: "The name. The other two ways in stay under the fields" },

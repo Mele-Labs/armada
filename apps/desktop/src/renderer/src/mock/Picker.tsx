@@ -2,46 +2,15 @@
 // Electron build bundles imports this file.
 
 import { Fragment, StrictMode, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { Button, Input } from "@armada/components";
+import { Input } from "@armada/components";
 import { FlaskConical } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 
+import { setPaletteExtras } from "../palette-extra";
 import "./mock.css";
 import { SCENARIOS } from "./scenario";
 import { EVERY_WALK } from "./walks";
-
-/**
- * The title row's leading end, beside the wordmark. The owner asked for the picker in the left side panel on
- * 30 Sep 2026, so that it covered nothing; the window has no left panel since the flight deck became the Cockpit
- * (#2301), and the title row is the one strip every page keeps and nothing draws under.
- *
- * **In the row, not over it.** #1618 answered the same complaint by making the card draggable, which moved the problem
- * rather than ending it: wherever it was dropped it was still on top of something, and every screenshot taken all night
- * had to hide it first. A child of the title row is in the flow, so it covers nothing at any width.
- */
-const COLUMN = ".armada-title-bar__wordmark";
-
-/**
- * The column, once the app has drawn it. `main.tsx` mounts the app first, but
- * React renders on its own schedule, so it is not there when this root mounts
- * — and it never arrives inside a `?frame` capture, where the picker is not
- * mounted at all. Watching is what covers both without polling.
- */
-function useColumn(): Element | null {
-  const [column, setColumn] = useState<Element | null>(() => document.querySelector(COLUMN));
-  useEffect(() => {
-    if (column !== null) return;
-    const watch = new MutationObserver(() => {
-      const found = document.querySelector(COLUMN);
-      if (found !== null) setColumn(found);
-    });
-    watch.observe(document.body, { childList: true, subtree: true });
-    return () => watch.disconnect();
-  }, [column]);
-  return column;
-}
 
 /**
  * Where each character of `query` sits in `name`, in order, or `null` where
@@ -142,18 +111,13 @@ function to(hit: Pick<Hit, "name" | "walk">): string {
 }
 
 /**
- * The picker, in the title row's leading end.
- *
- * **One control at rest, saying which scenario is on**, and a layer over the
- * content only while it is open — which is the difference the owner asked for:
- * a card parked over his work, however draggable, is a card he has to move.
+ * The finder, a centred layer the palette's Mock scenario row opens: there is no button at rest.
  *
  * **The list is fuzzy-searched**, because there are over a hundred scenarios
  * and the `<select>` this replaces made finding one a scroll. Typing narrows,
  * the arrows walk what is left, Enter takes the top row, Esc gives up.
  */
 export function Picker({ current, walk = false }: { current: string; walk?: boolean }) {
-  const column = useColumn();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [at, setAt] = useState(0);
@@ -164,11 +128,11 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
   // Walks first and then scenarios: the walks are the few things worth demoing, and a hundred
   // scenarios ahead of them hid them. Enter on a query both reach is a walk.
   const found = useMemo(() => [...hits(query, WALK_ROWS), ...hits(query, SCENARIO_ROWS)], [query]);
-  const shown = walk ? words(current) : current;
   // The first row is always the one Enter takes, so a query narrowed to one
   // scenario is a two-key act. Reset with the query rather than clamped: a
   // cursor left at row nine of a list that now has two is nowhere he put it.
   useEffect(() => setAt(0), [query]);
+  useEffect(() => setPaletteExtras([{ id: "mock-scenario", label: "Mock scenario", icon: FlaskConical, run: () => setOpen(true) }]), []);
   useEffect(() => {
     if (open) field.current?.focus();
     else setQuery("");
@@ -206,23 +170,11 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
     event.preventDefault();
   }
 
-  if (column === null) return null;
+  if (!open) return null;
 
-  return createPortal(
-    <div className="armada-mock-picker" ref={root} data-open={open || undefined}>
-      <Button
-        variant="ghost"
-        size="sm"
-        data-said
-        aria-expanded={open}
-        aria-label={`Mock scenario — ${shown}`}
-        title={`Mock scenario — ${shown}`}
-        onClick={() => setOpen((held) => !held)}
-      >
-        <FlaskConical size={16} strokeWidth={2} aria-hidden />
-        <span className="armada-mock-picker__current">{shown}</span>
-      </Button>
-      {open ? (
+  return (
+    <div className="armada-mock-picker" ref={root}>
+      {(
         <div className="armada-mock-picker__layer" role="dialog" aria-label="Mock scenario">
           <Input
             ref={field}
@@ -254,9 +206,8 @@ export function Picker({ current, walk = false }: { current: string; walk?: bool
             ))}
           </div>
         </div>
-      ) : null}
-    </div>,
-    column,
+      )}
+    </div>
   );
 }
 
