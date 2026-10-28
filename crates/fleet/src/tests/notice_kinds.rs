@@ -61,3 +61,35 @@ async fn a_merge_is_told_as_pr_merged() {
 
     assert_eq!(notices_of(&rig, &session).await, vec![Some(String::from("pr_merged"))]);
 }
+
+/// **A merge is told to every Job that holds the pull request**, not only the one whose hold is
+/// oldest: a Job asked to see it merge holds it from another branch than the one it was opened on.
+#[tokio::test]
+async fn a_merge_is_told_to_every_holder() {
+    let rig = a_rig();
+    let opener = rig.a_hosted_session_on(1).await;
+    let follower = rig.a_hosted_session_on(1).await;
+    for session in [&opener, &follower] {
+        rig.holds(Holder::session(session), "pr", "1", AttachmentState::Spent).await;
+        rig.holds(Holder::session(session), "branch", "armada/1", AttachmentState::GivenBack).await;
+    }
+    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
+        number: 1,
+        title: FromOutside::verbatim("Fix the reader"),
+        branch: FromOutside::verbatim("armada/1"),
+        url: FromOutside::verbatim("https://forge.invalid/armada/pull/1"),
+        author: None,
+        merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
+        commit: None,
+    }]));
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.notice_merged(&served).await;
+
+    rig.reads().await;
+    rig.reads().await;
+
+    let merged = vec![Some(String::from("pr_merged"))];
+    assert_eq!(notices_of(&rig, &opener).await, merged);
+    assert_eq!(notices_of(&rig, &follower).await, merged);
+}

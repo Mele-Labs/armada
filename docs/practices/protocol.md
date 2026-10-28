@@ -919,9 +919,10 @@ Bridge's half is `job` on `SessionNote` in `packages/protocol/src/session-notes.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `SessionNote.job` | Bridge sends | Labelled lines of what Bridge held about the Job open when he pinned the note; left off when empty |
+| `SessionNote.job` | Bridge sends | Labelled lines naming the Job open when he pinned the note: its title and id, branch and transcript; left off when empty |
 
-**Fleet puts them after his words**, under a line calling them background, not the task, and before the handoff.
+They name the Job and no more: Report's messages, tool calls and timeline, carried with a note, read as the task and buried his words.
+**Fleet puts them after his words and a blank line**, under a line calling them background, not the task, and before the handoff.
 A batch puts them in the block of the note that carries them.
 Bridge sends them on the first note of a send alone, and none to the Job that is open.
 

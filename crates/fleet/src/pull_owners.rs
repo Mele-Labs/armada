@@ -70,4 +70,21 @@ where
         }
         owners
     }
+
+    /// Who hears news of a pull request, a merge or auto-merge turned on: [`Self::owners_of`], and
+    /// every other Session whose `pr` row holds it. **A failure is told to one Job, news to each.**
+    pub(crate) async fn holders_told_of(
+        &self,
+        served: &Served,
+        number: u64,
+        branch: &str,
+        spent: bool,
+    ) -> Vec<Owner> {
+        let manifest = served.manifest().id().as_str().to_string();
+        let store = self.store().lock().await;
+        slot_holders::sessions_told_of_pull(&store, &manifest, served.root(), number, branch, spent)
+            .into_iter()
+            .map(Owner::Session)
+            .collect()
+    }
 }
