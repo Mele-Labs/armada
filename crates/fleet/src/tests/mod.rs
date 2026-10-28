@@ -127,6 +127,7 @@ mod session_proposal;
 mod delivery_gate;
 mod start_card;
 mod session_rail;
+mod step_skip;
 mod walk_rail;
 mod workflow_page;
 mod workflow_changes;

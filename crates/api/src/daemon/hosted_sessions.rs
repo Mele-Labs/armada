@@ -253,6 +253,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         set: SetSessionWorkflow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+    /// `skip_session_step`: the person skipped a step of the Session's workflow, or undid the skip.
+    /// A Session that has run is told at once.
+    fn skip_session_step(
+        self: Arc<Self>,
+        skip: ipc::SkipSessionStep,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
     /// `begin_session`: Start pressed on a held Job's start card.
     fn begin_session(
         self: Arc<Self>,

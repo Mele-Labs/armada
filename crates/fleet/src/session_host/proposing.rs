@@ -41,10 +41,10 @@ use crate::session_proposer::{SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
 
 /// A workflow id the Session's repository does not hold. A 422.
-const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
+pub(super) const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
 
 /// A workflow set while `features.workflows` is off. A 422.
-const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
+pub(super) const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
 
 /// A Session whose proposal call is out. In memory: a Fleet that restarts reads nothing.
 #[derive(Debug, Default)]
@@ -596,6 +596,12 @@ where
             store
                 .keep_hosting(&fresh)
                 .map_err(|why| self.ledger_fault(why))?;
+            // A skip names a step by its index, which means another step in another workflow.
+            let mut rail = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
+            if !rail.skipped.is_empty() {
+                rail.skipped.clear();
+                store.keep_session_rail(&id, &rail).map_err(|why| self.ledger_fault(why))?;
+            }
             self.person_changed(&mut store, &id, ProposedField::Workflow);
         }
         self.session_noted(

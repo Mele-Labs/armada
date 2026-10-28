@@ -1105,6 +1105,10 @@ pub struct SessionRecord {
     /// Empty for a custom Session and for one that has entered no step.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflow_visits: Vec<StepVisit>,
+    /// The steps the person skipped, by the index `workflow_step` uses, ascending. The rail counts each
+    /// one passed. Empty where none is. `skip_session_step`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_steps: Vec<u32>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

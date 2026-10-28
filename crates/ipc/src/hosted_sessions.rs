@@ -197,6 +197,16 @@ pub struct SetSessionWorkflow {
     pub workflow: Option<String>,
 }
 
+/// `skip_session_step`: a person skipped a step of the Session's workflow, or undid the skip.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkipSessionStep {
+    pub session_id: SessionId,
+    /// The step's index, from zero as `SessionRecord::workflow_step`.
+    pub step: u32,
+    /// `false` undoes the skip.
+    pub skipped: bool,
+}
+
 /// `begin_session`: Start pressed on the start card. Answers the `SessionRecord`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BeginSession {

@@ -212,9 +212,24 @@ where
     /// The step a Job that has not run begins on, as the words its first turn carries, with the step
     /// **kept before the process starts** so the rail, seeing the Job run, finds it entered and sends
     /// nothing. The step's instructions; or, for a step that asks how the work is delivered, the question
-    /// where `text` names no delivery, and the instructions go with the answer. `None` where there is
-    /// nothing to carry.
+    /// where `text` names no delivery, and the instructions go with the answer. The steps the person
+    /// skipped are said after it. `None` where there is nothing to carry.
     pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
+        let said = self.first_step_said(id, hosting, text).await;
+        if hosting.ran || !self.workflows_on() {
+            return said;
+        }
+        let workflow = hosting.workflow.as_deref()?;
+        let steps = self.rail_steps(&hosting.manifest_id, workflow)?;
+        let skipped = self.store().lock().await.session_rail(id).map(|kept| kept.skipped).unwrap_or_default();
+        let skips = rail::skips_said(&self.workflow_name(&hosting.manifest_id, workflow), &steps, &skipped);
+        match (said, skips) {
+            (Some(said), Some(skips)) => Some(format!("{said}\n\n{skips}")),
+            (said, skips) => said.or(skips),
+        }
+    }
+
+    async fn first_step_said(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
         if hosting.ran || !self.workflows_on() {
             return None;
         }

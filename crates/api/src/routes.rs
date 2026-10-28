@@ -501,6 +501,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::set_session_workflow::<D>),
         )
         .route(
+            "/sessions/step-skip",
+            post(crate::hosted_sessions::skip_session_step::<D>),
+        )
+        .route(
             "/sessions/begin",
             post(crate::hosted_sessions::begin_session::<D>),
         )

@@ -109,6 +109,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
+        skipped_steps: Vec::new(),
     }
 }
 
