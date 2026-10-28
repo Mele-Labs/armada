@@ -16,6 +16,13 @@ export type TerminalScreenProps = {
   grows?: number;
 };
 
+/** Whether a text box outside the screen holds the keyboard. */
+function typingElsewhere(screen: HTMLElement | null): boolean {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || screen?.contains(active) === true) return false;
+  return active instanceof HTMLTextAreaElement || active.isContentEditable || (active instanceof HTMLInputElement && !["button", "checkbox", "radio", "submit", "reset", "range", "color", "file"].includes(active.type));
+}
+
 /** A token's colour as the browser computes it, which is what xterm is given. */
 function colorOf(host: HTMLElement, token: string): string {
   const probe = document.createElement("span");
@@ -173,8 +180,10 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
     if (terminal === null) return;
     terminal.options.disableStdin = !running;
     terminal.options.cursorBlink = running;
-    if (running) terminal.focus();
-    else {
+    // A shell an agent opened leaves the keyboard in the box the owner is typing in.
+    if (running) {
+      if (!typingElsewhere(host.current)) terminal.focus();
+    } else {
       terminal.write(HIDE_CURSOR);
       // Keys are the window's again once nothing is listening for them.
       terminal.blur();

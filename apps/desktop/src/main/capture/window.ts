@@ -187,6 +187,8 @@ export class CaptureWindow {
   private relocating: ReturnType<typeof setTimeout> | null = null;
   /** Questions answered from this bar, so a publish from before the answer cannot raise one again. */
   private readonly settled = new Set<string>();
+  /** Questions already shown here. Fleet takes a question off while its Job works and puts it back, and the same one comes forward once. */
+  private readonly shownAsks = new Set<string>();
   /** The walk the page is playing, as last read and bounded here. `null`: the page is not a walk. */
   private walk: CaptureWalk | null = null;
   private walkTimer: ReturnType<typeof setTimeout> | null = null;
@@ -550,10 +552,11 @@ export class CaptureWindow {
   /**
    * The Session's open question, or `null` where none is. **A new one brings the window forward,
    * moves the page to its address and finds its place**: the owner, 11 Oct 2026, a question about the
-   * walk takes him where it is asking about. The address is held to the window's own origin. Not
-   * `raise`: a walk the walk window opened behind, or came to on its own, which takes no focus.
+   * walk takes him where it is asking about. The address is held to the window's own origin. Never with
+   * focus, which stays in the box he is typing in: the owner, 19 Oct 2026, said the walk window takes it
+   * by itself never. Not `forward`: a walk the walk window opened behind, or came to on its own.
    */
-  question(question: WindowQuestion | null, raise = true): void {
+  question(question: WindowQuestion | null, forward = true): void {
     if (question === null) {
       if (this.asked === null) return;
       this.asked = null;
@@ -570,7 +573,9 @@ export class CaptureWindow {
     this.askShown = true;
     this.askBox = undefined;
     this.tell();
-    if (raise) this.raise();
+    const first = !this.shownAsks.has(question.id);
+    this.shownAsks.add(question.id);
+    if (forward && first && !this.window.isDestroyed()) this.window.showInactive();
     if (!this.serving || this.page.webContents.isDestroyed() || !onOrigin(this.pin.origin, question.place.url)) {
       void this.locate();
       return;
