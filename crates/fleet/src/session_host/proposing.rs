@@ -37,7 +37,7 @@ use super::uploads::Kept;
 use crate::daemon::Fleet;
 use crate::judging::watched;
 use crate::session_links::LinkedBy;
-use crate::session_proposer::{SessionBrief, SessionProposed};
+use crate::session_proposer::{Proposing, SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
 
 /// A workflow id the Session's repository does not hold. A 422.
@@ -107,6 +107,13 @@ impl ProposalState {
             ..ProposalState::default()
         }
     }
+}
+
+/// The proposer's answer to the start's question, and the workflows it was shown.
+pub(crate) struct Answered {
+    pub brief: SessionBrief,
+    pub reply: String,
+    pub workflows: Arc<std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>>,
 }
 
 /// The fields of a hosting's `proposed` list.
@@ -297,8 +304,23 @@ where
             .session_and_hosting(id)
             .await
             .map_err(|_| String::from("the job is gone"))?;
+        let answered = self.proposer_answered(&proposing, &hosting.manifest_id, request).await?;
+        answered
+            .brief
+            .read(&answered.reply, &answered.workflows, &proposing.choices)
+            .map_err(|why| why.to_string())
+    }
+
+    /// The start's question about `request` put to the proposer, with the workflows it was shown.
+    /// `name_session` asks through this too, so the two questions cannot drift apart.
+    pub(crate) async fn proposer_answered(
+        &self,
+        proposing: &Proposing,
+        manifest_id: &str,
+        request: &str,
+    ) -> Result<Answered, String> {
         let served = self
-            .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
+            .served_named(Some(&ManifestId::carried(manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
         // With workflows off the proposer is shown none, so it never picks one.
         let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
@@ -307,7 +329,7 @@ where
             .store()
             .lock()
             .await
-            .renames_for(&hosting.manifest_id, crate::session_proposer::RENAMES_SHOWN)
+            .renames_for(manifest_id, crate::session_proposer::RENAMES_SHOWN)
             .unwrap_or_default();
         let brief = SessionBrief::about(request, &workflows, &proposing.choices, &renames);
         let ask = Ask::put(
@@ -325,9 +347,7 @@ where
         )
         .await
         .map_err(|why| why.to_string())?;
-        brief
-            .read(&reply, &workflows, &proposing.choices)
-            .map_err(|why| why.to_string())
+        Ok(Answered { brief, reply, workflows })
     }
 
     /// The call is over. Settle the Session's values, publish it, and send the turns that waited.
@@ -448,6 +468,20 @@ where
             let mut picked = picked_of(&hosting.proposed);
             if picked.contains(&field) {
                 picked.retain(|one| *one != field);
+                hosting.proposed = listed(&picked);
+                let _ = store.keep_hosting(&hosting);
+            }
+        }
+    }
+
+    /// Armada named the Job on request: the title is listed as its pick, not his, and the answer to
+    /// a call still out leaves it alone. Called with the store held.
+    pub(crate) fn armada_named(&self, store: &mut Store, id: &str) {
+        self.hosts().of(id).state().proposal.person_set(ProposedField::Title);
+        if let Ok(Some(mut hosting)) = store.hosting(id) {
+            let mut picked = picked_of(&hosting.proposed);
+            if !picked.contains(&ProposedField::Title) {
+                picked.push(ProposedField::Title);
                 hosting.proposed = listed(&picked);
                 let _ = store.keep_hosting(&hosting);
             }

@@ -169,15 +169,20 @@ impl SessionBrief {
         let workflow = Some(WorkflowId::carried(Ulid::carried(named)))
             .filter(|id| held.contains_key(id));
         Ok(SessionProposed {
-            title: field(answer, "title")
-                .map(|title| title.chars().take(MOST_TITLE).collect::<String>())
-                .filter(|title| !title.trim().is_empty()),
+            title: self.read_title(answer),
             workflow,
             model: named_model(answer).filter(|named| models.iter().any(|held| held == named)),
             effort: setting(answer, "effort")
                 .map(|said| said.to_ascii_lowercase())
                 .filter(|said| core_model::Effort::from_wire(said).is_some()),
         })
+    }
+
+    /// Only the answer's title, whatever its workflow line says. `None` for no title or a blank one.
+    pub fn read_title(&self, answer: &str) -> Option<String> {
+        field(answer, "title")
+            .map(|title| title.chars().take(MOST_TITLE).collect::<String>())
+            .filter(|title| !title.trim().is_empty())
     }
 }
 
