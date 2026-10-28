@@ -1,4 +1,4 @@
-// A Session selected on the Cockpit is drawn compact: Completed, Now and Next share the right column on one line, and there is no Ledger, Status, Plan
+// A Session selected on the Cockpit is drawn compact: the Brief and a zone for each step of its workflow (Completed, Now and Next for a Job with no workflow) share the right column on one line, and there is no Ledger, Status, Plan
 // or Incoming calls panel and no Field in the foot. A Session calling him pulses its row in Work, and its tooltip names the call. Through
 // `App` on `one-session-view` and `compact-session-view`.
 
@@ -22,29 +22,32 @@ async function open(scenario: string, title: string) {
 const panels = (name: string) => document.querySelectorAll(`section[aria-label="${name}"]`);
 const calling = () => [...document.querySelectorAll<HTMLElement>("[data-row][data-calling]")].map((one) => one.getAttribute("aria-label"));
 
-test("Completed, Now and Next share the right column on one line, in that order, and nothing else of the old column is drawn", async () => {
+const labels = (spine: Element) => [...spine.children].filter((one) => one.matches("section.sv-panel")).map((one) => one.getAttribute("aria-label"));
+
+test("the Brief and a zone for each step of the workflow share the right column on one line, in order, and nothing else of the old column is drawn", async () => {
   await open("one-session-view", "Queue session for later");
-  await expect.poll(() => panels("Now").length).toBe(1);
-  expect(panels("Completed")).toHaveLength(1);
-  expect(panels("Next")).toHaveLength(1);
-  const [done, now, next] = ["Completed", "Now", "Next"].map((name) => page.getByRole("region", { name, exact: true }).element());
-  expect(done!.compareDocumentPosition(now!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(now!.compareDocumentPosition(next!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(done!.parentElement).toBe(now!.parentElement);
-  expect(done!.parentElement).toBe(next!.parentElement);
-  expect(done!.parentElement!.classList.contains("sv-spine")).toBe(true);
-  for (const gone of ["Blueprint", "Delivery", "Workflow", "Ledger", "Status", "Plan", "Incoming calls"]) expect(panels(gone), gone).toHaveLength(0);
+  await expect.poll(() => panels("Plan").length).toBe(1);
+  const spine = document.querySelector(".sv-spine")!;
+  expect(labels(spine)).toEqual(["Brief", "Plan", "Build", "Verify", "Pull request"]);
+  for (const gone of ["Completed", "Now", "Next", "Blueprint", "Delivery", "Workflow", "Ledger", "Status", "Incoming calls"]) expect(panels(gone), gone).toHaveLength(0);
   expect(document.querySelector(".sv-slot[data-place='foot']")).toBeNull();
 });
 
-test("the workflow heads the story as glyphs and Now carries the plan's groups", async () => {
+test("a Job with no workflow keeps Completed, Now and Next in that order", async () => {
+  await open("one-session-view", "Name the store migrations");
+  await expect.poll(() => panels("Now").length).toBe(1);
+  expect(labels(document.querySelector(".sv-spine")!)).toEqual(["Completed", "Now", "Next"]);
+});
+
+test("the workflow heads the story as its name alone, its steps are the zones, and the current one carries the plan's groups", async () => {
   await open("compact-session-view", "Retry the slot lease");
-  await expect.element(page.getByRole("list", { name: "Workflow" })).toBeVisible();
-  await expect.element(page.getByRole("img", { name: "Build · current" })).toBeVisible();
-  const now = page.getByRole("region", { name: "Now", exact: true });
+  expect(document.querySelector(".sv-workflow")!.textContent).toContain("Feature");
+  expect(document.querySelector(".sv-workflow ol, .sv-workflow .sv-rail")).toBeNull();
+  await expect.element(page.getByRole("list", { name: "Workflow" })).not.toBeInTheDocument();
+  const now = page.getByRole("region", { name: "Build", exact: true });
   // The plan is approved, so a press on Whole plan opens every group with its tasks.
   await now.getByRole("button", { name: "Whole plan", exact: true }).click();
-  await expect.element(now.getByRole("region", { name: "Attempt count on the wire", exact: true })).toBeVisible();
+  await expect.element(now.getByText("Add attempts to the lease reply")).toBeVisible();
 });
 
 test("a Session calling him pulses its row and names the call, and the open Session's own row does not", async () => {
@@ -63,7 +66,7 @@ test("the right column starts level with the open Job whichever of the handle's 
   document.head.append(later);
   try {
     await open("compact-session-view", "Retry the slot lease");
-    await expect.poll(() => panels("Now").length).toBe(1);
+    await expect.poll(() => panels("Build").length).toBe(1);
     const top = (name: string) => page.getByRole("region", { name, exact: true }).element().getBoundingClientRect().top;
     expect(document.querySelector(".sv-spine")!.getBoundingClientRect().top).toBe(top("Job: Retry the slot lease"));
   } finally {

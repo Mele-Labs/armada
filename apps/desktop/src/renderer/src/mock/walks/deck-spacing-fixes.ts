@@ -14,7 +14,7 @@ const deckSpacingFixes = walk("flight-control", [
   { look: region("Field", { exact: true }), say: "Each side panel stands apart, folded or open" },
   { press: inside(region("Field", { exact: true }), button(/\bField\b/)), say: "Field folds by its band" },
   { press: inside(region("Field", { exact: true }), button(/\bField\b/)), say: "And opens again" },
-  { press: inside(region("Now", { exact: true }), button(/\bNow\b/)), say: "Now folds by its band too" },
+  { press: inside(region("Plan the change", { exact: true }), button(/Plan the change/)), say: "The current step folds by its band too" },
   { look: role("textbox", "Message"), say: "The composer is two lines tall" },
 ]);
 

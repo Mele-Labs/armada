@@ -35,7 +35,8 @@ test("a layout hides an open Job's Next, and cannot hide Now", async () => {
   await onScreen();
   await expect.element(list()).toBeVisible();
   install('{"version":1,"job.panels":{"hidden":["next","now"]}}');
-  await list().getByRole("button", { name: "Queue session for later", exact: true }).click();
+  // A Job with no workflow, whose story is Completed, Now and Next: a workflow's step zones are not the layout's to hide.
+  await list().getByRole("button", { name: "Name the store migrations", exact: true }).click();
   await expect.poll(() => panels("Now").length).toBe(1);
   expect(panels("Completed")).toHaveLength(1);
   expect(panels("Next")).toHaveLength(0);
