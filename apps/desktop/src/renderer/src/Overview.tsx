@@ -74,10 +74,10 @@ export function Overview({
 }) {
   const guarded = { bridge: state.bridge, onCopied };
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
-  // A Fleet coming online draws the deck powering on, whatever the connection says on the way; past the grace it is a fault.
+  // A Fleet coming online draws the deck powering on, whatever the connection says on the way; past the grace it is a fault. The picture kept on disk is not one while Fleet answers.
   const coming = powering(power);
   // Fleet unreachable, still starting, or nothing served: the empty state says so.
-  const fault = !coming && (disconnected !== null || state.connection.state === "starting");
+  const fault = !coming && power !== "kept" && (disconnected !== null || state.connection.state === "starting");
   // A Fleet that serves nothing is not a fault: the stage is a prompt, and a Session starts on any folder.
   const fresh = !fault && !coming && repositories.length === 0;
 
