@@ -70,6 +70,7 @@
   --bg-raised: #161C23;      /* cards, table rows, panels */
   --bg-overlay: #1D242D;     /* dialogs, popovers, dropdowns */
   --bg-hover: #212A34;       /* row and control hover */
+  --select-tint: 40%;        /* the accent's share of a picked ground; a theme lowers it to keep text at 4.5:1 */
   --border-subtle: #232B35;  /* table rules, dividers */
   --border-default: #2E3946; /* card and input edges */
   --border-strong: #3D4A5A;  /* focus rings, active edges */

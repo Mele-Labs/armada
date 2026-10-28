@@ -20,6 +20,8 @@
   --accent: #79C0FF;
   --accent-hover: #8BC7FE;
   --accent-muted: #223242;
+  /* Selection */
+  --select-tint: 40%;
   /* Depth */
   --bg-glass: rgb(20 24 30 / 0.86);
   --bg-glass-end: rgb(13 17 23 / 0.86);

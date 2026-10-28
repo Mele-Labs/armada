@@ -32,7 +32,7 @@ header row   28px · --bg-base · --text-2xs · --fg-subtle
 body row     28px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
 hover        --bg-hover
-selected     --select-ground, with a --select-frame hairline (not an accent fill)
+selected     --select-ground, the accent tinted
 primary cell --fg-default · --text-sm
 secondary    --fg-muted · --text-sm
 metadata     --fg-subtle · --text-2xs   (timestamps, elapsed)
