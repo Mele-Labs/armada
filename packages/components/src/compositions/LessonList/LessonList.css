@@ -18,3 +18,33 @@
   padding: 0;
   list-style: none;
 }
+
+/* The Logbook's Retros tab: the items as a log on the left and the open one on the right, as the entries are
+   (`Logbook.css` draws the log, the head and the record). The card is held at the top of the item; its route and its
+   Job are the head's and the record's, so the card does not repeat them. Narrow, one column. */
+.armada-lessons-split {
+  display: grid;
+  gap: var(--gap-panel);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-height: 0;
+}
+.armada-lessons-split__col-route { width: calc(var(--space-12) + var(--space-4)); }
+.armada-lessons-split__col-job { width: 30%; }
+.armada-lessons-split__route { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--fg-muted); white-space: nowrap; }
+
+.armada-lessons-split__card { flex: none; border-bottom: var(--border-width) solid var(--border-default); }
+:root[data-look] .armada-lessons-page .armada-lessons-split .armada-lessons-split__card .armada-lessons,
+.armada-lessons-split__card .armada-lessons { border: 0; border-radius: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root .armada-lessons-split__card .armada-lessons > .armada-lesson { align-items: stretch; padding: var(--space-4); border: 0; background: transparent; }
+.armada-lessons-split__card .armada-lesson__labels { display: none; }
+
+/* armada-allow-off-contract: a container condition cannot read a custom property, and no layout breakpoint token names a container width
+   820px is the Logbook's own two-column width — docs/contracts/design-system.md */
+@container (min-width: 820px) {
+  .armada-lessons-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
+  .armada-lessons-split .armada-logbook__log { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  .armada-lessons-split .armada-logbook__detail { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
+  .armada-lessons-split .armada-logbook__card { max-height: 100%; min-height: 0; }
+  .armada-lessons-split .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+}

@@ -1,6 +1,8 @@
-/* The Logbook page: the filter over a list of panels, one a repository and then Habits and This Mac, each under a legend
-   strip (`depth.css`), and the open entry on the right. The panels are the Cockpit's (`depth.css`); a picked entry is
-   framed by its shape, never a glow or a hue. The layout follows the page's own width. Tokens only. */
+/* The Logbook page, drawn as a mission log: on the left one table of entries, a line each, coded by kind, under a column
+   head that stays as the log scrolls and a section row for each repository, Habits and This Mac that stays until the next
+   takes its place. On the right the open entry under its own head: its title, its words and its acts held at the top, and
+   its record, evidence and earlier texts as tables that scroll under them. Wide, the two scroll on their own inside the
+   page's height; narrow, the page is one column. The panels are the Cockpit's (`depth.css`). Tokens only. */
 
 .armada-logbook {
   display: flex;
@@ -14,6 +16,7 @@
   container-type: inline-size;
 }
 .armada-logbook > * { width: min(100%, 90rem); align-self: center; flex: none; }
+.armada-logbook > :is(.armada-logbook__page, .armada-logbook__fixes) { flex: 1 1 auto; min-height: 0; }
 
 .armada-logbook__page {
   display: grid;
@@ -21,27 +24,21 @@
   align-items: start;
   grid-template-columns: minmax(0, 1fr);
 }
-/* The list and the open entry sit side by side once the page is wide enough for two columns.
+/* The log and the open entry sit side by side once the page is wide enough for two columns, each scrolling on its own.
 
    armada-allow-off-contract: a container condition cannot read a custom property, and no layout breakpoint token names a container width
-   820px is where the list and the open entry both fit — docs/contracts/design-system.md */
+   820px is where the log and the open entry both fit — docs/contracts/design-system.md */
 @container (min-width: 820px) {
-  .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .armada-logbook__detail { position: sticky; top: 0; }
+  .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
+  /* Under `.armada-logbook__page`, so they outweigh the panel's own `overflow: hidden` further down. */
+  .armada-logbook__page .armada-logbook__log { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  .armada-logbook__page .armada-logbook__detail { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
+  .armada-logbook__page .armada-logbook__card { max-height: 100%; min-height: 0; }
+  .armada-logbook__page .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 }
 
 .armada-logbook__filters { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-3); }
 .armada-logbook__tidied { color: var(--fg-muted); font-size: var(--text-sm); }
-
-/* ---- The list ------------------------------------------------------------------------------- */
-
-.armada-logbook__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-panel);
-  min-width: 0;
-  outline: none;
-}
 
 .armada-logbook__panel,
 .armada-logbook__card {
@@ -53,11 +50,13 @@
   background: var(--bg-sunken);
   overflow: hidden;
 }
+.armada-logbook__log { display: block; }
 
 /* The legend strip's own look is `depth.css`'s; this is its fallback where the look is not loaded. */
 .armada-logbook__band {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   min-height: var(--h-control-sm);
   padding: 0 var(--space-3);
   border-bottom: var(--border-width) solid var(--border-subtle);
@@ -70,171 +69,143 @@
   text-transform: uppercase;
 }
 
-.armada-logbook__row {
-  --readout-chars: 7;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  margin-inline: var(--space-1);
-  padding: var(--space-2) var(--space-2);
-  border-top: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-inset, var(--radius-sm));
+/* ---- The log ---------------------------------------------------------------------------------- */
+
+.armada-logbook__table { table-layout: fixed; background: transparent; outline: none; }
+.armada-logbook__col-kind { width: calc(var(--space-12) + var(--space-2)); }
+.armada-logbook__col-flags { width: calc(var(--space-12) - var(--space-4)); }
+.armada-logbook__col-jobs { width: var(--space-12); }
+.armada-logbook__col-when { width: calc(var(--space-12) + var(--space-8)); }
+
+/* The column head stays as the log scrolls; each section row stays under it until the next section pushes it out. A
+   collapsed table's borders belong to its grid and do not travel with a sticky cell, so each sticky row draws its rule
+   as a shadow, and a section row tucks a pixel under the head so no row shows between them at any scale. */
+.armada-logbook__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  border-bottom: none;
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default);
+  background: var(--bg-raised);
+}
+.armada-logbook__section th {
+  position: sticky;
+  top: calc(var(--h-row-header) - var(--border-width));
+  z-index: 3;
+  height: var(--h-row-header);
+  padding: 0 var(--space-3);
+  border-bottom: none;
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default);
+  background: var(--bg-sunken);
   color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  cursor: default;
-}
-.armada-logbook__band + .armada-logbook__row { border-top: none; }
-.armada-logbook__panel > .armada-logbook__row:last-child { margin-block-end: var(--space-1); }
-.armada-logbook__row:hover { background: color-mix(in srgb, var(--bg-hover) 50%, transparent); }
-.armada-logbook__row[aria-selected="true"] { background: var(--bg-hover); font-weight: var(--weight-heading); }
-/* A row picked is framed by its shape (`depth.css`); where the list holds focus, the frame goes to the stronger edge so the keys' target is plain. */
-.armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] { box-shadow: inset 0 0 0 var(--border-width) var(--fg-default); }
-
-.armada-logbook__text {
-  flex: 1;
-  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-align: left;
+  text-transform: uppercase;
 }
 
-.armada-logbook__marks {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-  min-height: var(--leading-sm);
-  color: var(--fg-muted);
-}
+.armada-logbook__row { cursor: default; }
+.armada-logbook__row .armada-table-cell { height: var(--h-row); padding-block: var(--space-1); }
+.armada-logbook__table:focus-visible .armada-logbook__row[data-selected] { border-left-color: var(--accent); }
+.armada-logbook__kind { color: var(--fg-muted); letter-spacing: var(--tracking-caps); }
+.armada-logbook__num { text-align: right; }
+.armada-logbook__flags { color: var(--fg-muted); }
+.armada-logbook__flags > * + * { margin-inline-start: var(--space-1); }
 
 .armada-logbook__mark {
   display: inline-flex;
   align-items: center;
+  vertical-align: middle;
 }
 .armada-logbook__mark[data-tone="tripped"] { color: var(--fg-default); }
 
-/* ---- The open entry ------------------------------------------------------------------------- */
+/* ---- The open entry --------------------------------------------------------------------------- */
 
-.armada-logbook__detail {
-  min-width: 0;
-  outline: none;
-}
+.armada-logbook__detail { min-width: 0; outline: none; }
 .armada-logbook__detail:focus-visible .armada-logbook__card { border-color: var(--border-strong); }
 
-.armada-logbook__body {
+/* The entry's head: its kind code, its id, and its flags and state at the far end. */
+.armada-logbook__head-band { flex: none; padding-block: var(--space-1); }
+.armada-logbook__head-kind { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--fg-default); }
+.armada-logbook__head-id { color: var(--fg-subtle); text-transform: none; letter-spacing: normal; font-weight: var(--weight-body); }
+.armada-logbook__head-where { display: inline-flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+
+.armada-logbook__top {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+/* The rule, first in what scrolls: however long it runs, the record and evidence follow it down. */
+.armada-logbook__rule {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+
+.armada-logbook__title {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
 }
 
 .armada-logbook__said {
   margin: 0;
   color: var(--fg-default);
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-logbook__edit { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-logbook__acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* The record, the evidence and the earlier texts: tables one under another, each head staying as the body scrolls. */
+.armada-logbook__body { display: flex; flex-direction: column; }
+.armada-logbook__body > .armada-table { table-layout: fixed; background: transparent; }
+.armada-logbook__body > .armada-table + .armada-table { border-top: var(--border-width) solid var(--border-default); }
+/* The acts in the head keep their own words' case and face, not the strip's. */
+.armada-logbook__head-band .armada-logbook__acts { font-family: var(--font-sans); text-transform: none; letter-spacing: normal; }
+.armada-logbook__body thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-raised); }
+.armada-logbook__body .armada-table-row:hover { background: transparent; }
+.armada-logbook__body .armada-table-row:last-child { border-bottom: none; }
+.armada-logbook__body .armada-table-cell { height: var(--h-row); padding-block: var(--space-1); }
+
+.armada-logbook__record .armada-table-cell { overflow-wrap: anywhere; white-space: normal; }
+.armada-logbook__fact {
+  padding: var(--space-1) var(--space-3);
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
+  text-align: left;
+  vertical-align: middle;
 }
 
-.armada-logbook__edit {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-logbook__acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.armada-logbook__facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  column-gap: var(--space-4);
-  row-gap: var(--space-1);
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-.armada-logbook__facts dt { color: var(--fg-muted); }
-.armada-logbook__facts dd { margin: 0; color: var(--fg-default); font-family: var(--font-mono); }
-
-.armada-logbook__part {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-logbook__head {
-  margin: 0;
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-logbook__paths,
-.armada-logbook__evidence,
-.armada-logbook__history {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.armada-logbook__paths { gap: var(--space-1); }
-.armada-logbook__paths li {
-  color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  overflow-wrap: anywhere;
-}
-
-.armada-logbook__evidence li,
-.armada-logbook__history li {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) 0;
-  border-top: var(--border-width) solid var(--border-subtle);
-}
-.armada-logbook__evidence li:first-child,
-.armada-logbook__history li:first-child { border-top: none; padding-top: 0; }
-
-.armada-logbook__from {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
+.armada-logbook__col-cites { width: 45%; }
+.armada-logbook__col-by { width: calc(var(--space-12) * 3); }
+.armada-logbook__cites { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); white-space: normal; }
+.armada-logbook__cite { color: var(--fg-default); }
 
 .armada-logbook__job {
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
   background: none;
   color: var(--fg-default);
   font: inherit;
-  font-weight: var(--weight-medium);
   cursor: pointer;
 }
+.armada-logbook__body td[data-truncates] > :is(.armada-logbook__job, span) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
 .armada-logbook__job:hover { color: var(--accent-hover); }
-.armada-logbook__job:focus-visible { outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: var(--border-width); }
-
-.armada-logbook__cite { font-family: var(--font-mono); }
-
-.armada-logbook__says {
-  color: var(--fg-default);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-.armada-logbook__history .armada-logbook__says { color: var(--fg-muted); }
+.armada-logbook__job:focus-visible { outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: var(--border-width); border-radius: var(--radius-sm); }
 
 .armada-logbook__unread {
   margin: 0;
@@ -250,24 +221,10 @@
   color: var(--fg-default);
 }
 
-/* ---- Armada fixes ----------------------------------------------------------------------------- */
-/* The retro items, drawn by the Lessons list inside the panel's body. Its own card chrome steps back so the panel is
-   the one frame. */
+/* ---- Retros ----------------------------------------------------------------------------------- */
+/* The retro items fill the tab and lay out their own log and item (`LessonList.css`). */
 
-.armada-logbook__fixes { outline: none; }
-.armada-logbook__fixes:focus-visible { border-color: var(--border-strong); }
-.armada-logbook__fixes-body .armada-lessons-page {
-  padding: 0;
-  gap: var(--space-3);
-}
-.armada-logbook__fixes-body .armada-lessons__bar { padding: var(--space-3) var(--space-4) 0; }
-:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page > :is(.armada-lessons, .armada-alert, .armada-lessons__bar) {
-  width: 100%;
-  align-self: stretch;
-}
-:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page .armada-lessons {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
+.armada-logbook__fixes { display: flex; flex-direction: column; outline: none; }
+.armada-logbook__fixes > .armada-lessons-page { flex: 1 1 auto; min-height: 0; padding: 0; gap: var(--space-3); }
+:root[data-look] .armada-logbook .armada-logbook__fixes > .armada-lessons-page > * { width: 100%; align-self: stretch; }
+.armada-logbook__fixes .armada-lessons-split { flex: 1 1 auto; }

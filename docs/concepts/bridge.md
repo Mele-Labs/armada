@@ -65,7 +65,7 @@ Below the row's narrow width the other controls are listed in the menu, and the 
 | Cockpit | The flight deck | `⌘1` |
 | Jobs | Every Job | `⌘2` |
 | Studios | One repository's Studios, and a Studio opened from the list | `⌘3` |
-| Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘4` |
+| Logbook | What agents know, and on its Retros tab the items every Job's retro raised | `⌘4` |
 | Reviews | The pull requests waiting on him | `⌘5` |
 | Issues | A repository's tracker | `⌘6` |
 | Projects | His own projects and their tasks, across repositories | `⌘7` |
@@ -78,7 +78,7 @@ A tab that is not drawn takes no key, and the keys behind it move up.
 Settings answers `⌘,` and the title menu's entry.
 **Doctor is a row of the title menu** and not a page of the strip (the owner, 15 Oct 2026: *"Doctor should live in the menu in the top right"*); `⌘K` reaches it by name.
 **Studios is a tab** (the owner, 15 Oct 2026: *"Studios and retros should live in the main bar at the top of the app"*), and every page of an open Studio counts as the Studios tab being current.
-**Retros is not a tab since 22 Oct 2026**: its items are Armada fixes, the lower part of the Logbook, and every way to Retros opens the Logbook there.
+**Retros is not a place since 22 Oct 2026**: its items are a tab of the Logbook, and every way to Retros opens the Logbook on it.
 A page with no tab and no strip place stays reachable: Worktree Slots, Merge line, Manifest and Checks open from the palette (`⌘K`) by name.
 The rule is that no page is reachable only by a place the window does not draw.
 `packages/shell/src/surfaces.ts` is the one roster the tabs, the strip and the palette read.
