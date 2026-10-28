@@ -10,7 +10,6 @@ import { writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import type { AnswerBrowserRequest, BrowserRequest, Outcome, SendSessionNote, StudioCapture } from "@armada/protocol";
-import type { PageBounds } from "@armada/screens/src/draft/sessions";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
@@ -33,8 +32,8 @@ export type PageTold = { changed: () => void; chord: (chord: Chord) => void };
 
 /** One Job's page, as `JobBrowsers` moves it. */
 export type BrowserPage = JobPage & {
-  /** Into `host`'s content at `bounds`, out of wherever it was. */
-  placeIn(host: Host, bounds: PageBounds): void;
+  /** Into `host`'s content at `bounds`, as the renderer reported them, held to the window, out of wherever it was. */
+  placeIn(host: Host, bounds: unknown): void;
   /** Put away, where it is in `host`: hidden, and kept. */
   leave(host: Host): void;
   hostOf(): Host | null;
@@ -150,7 +149,7 @@ export class JobBrowsers {
     this.told(sessionId);
   }
 
-  place(host: Host, sessionId: string, bounds: PageBounds): void {
+  place(host: Host, sessionId: string, bounds: unknown): void {
     this.held.get(sessionId)?.page.placeIn(host, bounds);
   }
 
@@ -278,7 +277,9 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
     event.preventDefault();
     told.chord(chord);
   });
-  for (const moved of ["did-navigate", "did-navigate-in-page", "page-title-updated", "did-finish-load"] as const) contents.on(moved as "did-finish-load", () => told.changed());
+  contents.on("did-navigate", () => told.changed());
+  contents.on("did-navigate-in-page", () => told.changed());
+  contents.on("page-title-updated", () => told.changed());
   const finder = new PageFinder(
     () => (contents.isDestroyed() ? null : contents),
     () => viewportOf(),
@@ -296,8 +297,11 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
     parent = window;
     if (window !== null && !window.isDestroyed()) window.contentView.addChildView(view);
   };
+  view.setVisible(false);
+  into(parkIn());
   return {
-    url: () => (contents.isDestroyed() ? "" : contents.getURL()),
+    // A Job browser made empty shows no address until a page is opened in it.
+    url: () => (contents.isDestroyed() || contents.getURL() === "about:blank" ? "" : contents.getURL()),
     title: () => (contents.isDestroyed() ? "" : contents.getTitle()),
     load: (url, patience) =>
       new Promise((resolve) => {

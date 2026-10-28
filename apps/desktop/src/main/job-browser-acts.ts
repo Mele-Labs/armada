@@ -40,8 +40,8 @@ export type ActsHost = {
   answer(body: AnswerBrowserRequest): Promise<unknown>;
 };
 
-/** An address finishes loading within this, or the agent is told it did not: Fleet holds the call 20 seconds. */
-export const LOAD_MS = 15_000;
+/** An address finishes loading within this, or the agent is told it did not: Fleet holds the call 20 seconds, and the snapshot after it takes up to 7. */
+export const LOAD_MS = 12_000;
 
 export const CLOSED = "The Job browser is closed. Call browser_open first.";
 

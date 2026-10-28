@@ -6,7 +6,7 @@ Since 28 Oct 2026. A Job's agent drives a page in Bridge, the one the owner sees
 Eight operations, eight routes, one event kind, one report kind and one row kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
-Nothing in Bridge's main process acts on `browser.request` yet.
+Bridge's main process acts on `browser.request` in `apps/desktop/src/main/job-browsers.ts` and `job-browser-acts.ts`.
 
 ## How one act travels
 

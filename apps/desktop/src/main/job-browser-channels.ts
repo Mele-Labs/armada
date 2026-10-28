@@ -9,15 +9,16 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 const number = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const GOES = ["back", "forward", "reload"] as const;
 
-export function handleJobBrowsers({ ipc, browsers }: { ipc: IpcMain; browsers: JobBrowsers }): void {
+/** `known`: whether Fleet holds a Job by this id, so a window can make a browser only for a Job that is one. */
+export function handleJobBrowsers({ ipc, browsers, known }: { ipc: IpcMain; browsers: JobBrowsers; known: (sessionId: string) => boolean }): void {
   const hostOf = (event: Electron.IpcMainInvokeEvent) => BrowserWindow.fromWebContents(event.sender);
   ipc.handle(CHANNELS.jobBrowserList, () => browsers.list());
   ipc.handle(CHANNELS.jobBrowserShow, (_event, sessionId: unknown) => {
-    if (text(sessionId)) browsers.show(sessionId);
+    if (text(sessionId) && known(sessionId)) browsers.show(sessionId);
   });
   ipc.handle(CHANNELS.jobBrowserPlace, (event, sessionId: unknown, bounds: unknown) => {
     const host = hostOf(event);
-    if (text(sessionId) && host !== null) browsers.place(host, sessionId, bounds as never);
+    if (text(sessionId) && host !== null) browsers.place(host, sessionId, bounds);
   });
   ipc.handle(CHANNELS.jobBrowserUnplace, (event, sessionId: unknown) => {
     const host = hostOf(event);

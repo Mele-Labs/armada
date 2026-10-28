@@ -561,7 +561,7 @@ void app.whenReady().then(() => {
     },
   );
   connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
-  handleJobBrowsers({ ipc: ipcMain, browsers: jobBrowsers });
+  handleJobBrowsers({ ipc: ipcMain, browsers: jobBrowsers, known: (sessionId) => connection?.sessions.recordOf(sessionId) !== undefined });
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {
