@@ -204,9 +204,9 @@ fn asked(record: &SessionRecord) -> Option<&ipc::WaitingItem> {
 }
 
 /// A hosted turn that ends on a question raises the item by itself, with the agent having called
-/// nothing. Dismissing it clears it for good and says nothing to the agent.
+/// nothing. Dismissing it clears it for good and tells the agent it was dismissed.
 #[tokio::test]
-async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_tells_the_agent_nothing() {
+async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_tells_the_agent() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.send(&id, "cap the retries").await;
@@ -219,7 +219,6 @@ async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_
     let item = asked(&row).expect("the item");
     assert_eq!(item.text, "Want me to land it?");
     let item_id = item.id.clone();
-    let before = rig.rows(&id).await.len();
 
     let gone = Arc::clone(&rig.fleet)
         .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id, reason: None, misread: false })
@@ -229,7 +228,8 @@ async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_
     let again = record(&rig, &id).await;
     assert!(asked(&again).is_none(), "a dismissed id does not return on the next read");
     assert_eq!(again.standing, Some(SessionStanding::Idle));
-    assert_eq!(rig.rows(&id).await.len(), before, "nothing was said to the agent");
+    let told = rig.rows(&id).await.into_iter().any(|one| matches!(one, ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } if text == r#"Owner dismissed "Want me to land it?""#));
+    assert!(told, "the agent was told it was dismissed");
 }
 
 /// What `/mcp` printed in a hosted job, captured from the hosted agent CLI, 2.1.301: an assistant line with no
