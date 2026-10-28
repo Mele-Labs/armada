@@ -5,7 +5,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { FilesReach } from "@armada/components";
-import type { MergeLines, PullRequestFilePatches, PullRequestPage, RepositorySummary, WorktreeSlot } from "@armada/protocol";
+import type { MergeLines, PullRequestFilePatches, PullRequestNote, PullRequestNotes, PullRequestPage, RepositorySummary, SavePullRequestNote, SendPullRequestNotes, WorktreeSlot } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { RequestsApi } from "../../../shared/api/requests";
@@ -76,6 +76,17 @@ export type PatchesRead = { ok: true; files: PullRequestFilePatches["files"] } |
 /** The forge's refusal in Fleet's words. `root` is the repository's checkout, where a command the words name is run. */
 export type PullRequestRefused = { refused: string; root?: string };
 
+/** What Fleet answered of a note act: the value, or its words for why not. */
+export type NotesRead<T> = { ok: true; value: T } | { ok: false; said: string };
+
+/** The owner's notes for the Job that holds a pull request, kept by Fleet so that Job can resolve one. Keyed by the Manifest and the number. */
+export type PullRequestNotesReads = {
+  list: (manifestId: string, number: number) => Promise<NotesRead<PullRequestNotes>>;
+  save: (manifestId: string, number: number, save: SavePullRequestNote) => Promise<NotesRead<PullRequestNote>>;
+  remove: (manifestId: string, number: number, id: string) => Promise<NotesRead<PullRequestNotes>>;
+  send: (manifestId: string, number: number, send: SendPullRequestNotes) => Promise<NotesRead<PullRequestNotes>>;
+};
+
 export type PanelReads = {
   pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | PullRequestRefused | undefined>;
   /** Every file's patch, read once the first time the Files tab is shown. Absent leaves the Files tab a list. */
@@ -86,6 +97,8 @@ export type PanelReads = {
    * Fleet serves none: the real window has no such read yet.
    */
   testsReaching?: (item: Of<"pr">) => Promise<FilesReach | undefined>;
+  /** The owner's notes for the Job. Absent where Fleet serves none, and the Files tab draws no gutter for a note. */
+  notes?: PullRequestNotesReads;
   /** A comment or a review written on the forge. Answers the page as it stands after. */
   writePullRequest?: (item: Of<"pr">, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => Promise<{ ok: true; page: PullRequestPage } | { ok: false; said: string }>;
   /** A forge act on a pull request nobody here owns. A pull request a Job holds goes through that Job. */

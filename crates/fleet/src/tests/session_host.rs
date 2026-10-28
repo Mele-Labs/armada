@@ -121,7 +121,7 @@ impl StandIn {
 pub(super) struct Rig {
     pub(super) fleet: Arc<Hosted>,
     pub(super) stand_in: Arc<StandIn>,
-    manifest: ManifestId,
+    pub(super) manifest: ManifestId,
     pub(super) root: String,
     _home: TempDir,
 }

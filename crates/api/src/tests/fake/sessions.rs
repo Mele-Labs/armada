@@ -474,6 +474,27 @@ impl Sessions for FakeDaemon {
         Ok(ipc::AnnotationMarked { path: format!("/repo/.armada/annotations/{}.json", mark.note_id) })
     }
 
+    async fn resolve_pull_request_note(
+        &self,
+        _caller: Option<crate::Caller>,
+        resolve: ipc::ResolvePullRequestNote,
+    ) -> Result<ipc::PullRequestNote, Refusal> {
+        Ok(ipc::PullRequestNote {
+            id: resolve.note_id,
+            repository: "armada/armada".into(),
+            number: 7,
+            path: "src/lib.rs".into(),
+            line: 1,
+            side: ipc::NoteSide::Right,
+            body: "Too tight".into(),
+            status: ipc::NoteStatus::Done,
+            sent_to: None,
+            sent_title: None,
+            sent_at: None,
+            created_at: "2026-10-27T09:00:00Z".into(),
+        })
+    }
+
     async fn dispute_fleet(
         self: std::sync::Arc<Self>,
         _caller: Option<crate::Caller>,

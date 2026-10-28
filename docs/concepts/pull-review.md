@@ -167,6 +167,13 @@ A save that would replace a file of the same id is refused unless the press said
 Send to Job and Request changes to Job go to that Job.
 A note on a pull request with no holding Job stays in Armada.
 
+## Notes for the Job
+
+**He can leave a note on a line of a pull request's diff for the Job that holds it.**
+Fleet keeps the notes in its store on his Mac and never posts one to the forge, and they are not the review's drafts, which are comments he means to publish.
+Bridge sends the unsent notes to the Job as one numbered message, and the Job a note was sent to resolves it with `resolve_pull_request_note`.
+The wire is [the owner's notes on a pull request's lines](../practices/protocol/the-owners-notes-on-a-pull-requests-lines.md).
+
 ## Where it lives
 
 

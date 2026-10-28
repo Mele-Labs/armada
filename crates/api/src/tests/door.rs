@@ -222,6 +222,23 @@ async fn a_command_reaches_the_post_route_with_its_body() {
     );
 }
 
+/// The agent's resolve tool reaches its route with its body decoded: the fake answers the note id it
+/// was handed, as `done`.
+#[tokio::test]
+async fn the_resolve_tool_reaches_its_route_with_its_body() {
+    let app = wired(holding_one());
+    let (status, body) = call(
+        &app,
+        r#"{"jsonrpc":"2.0","id":6,"method":"tools/call",
+            "params":{"name":"resolve_pull_request_note","arguments":
+            {"body":{"note_id":"note-9"}}}}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("note-9"), "{body}");
+    assert!(!body.contains("undecodable"), "the body did not decode: {body}");
+}
+
 /// The handshake says which Manifest the session is inside and what stands in
 /// for the stream it does not get.
 #[tokio::test]

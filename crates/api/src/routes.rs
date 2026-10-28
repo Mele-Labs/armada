@@ -223,6 +223,19 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .route(
+            "/pull_request_notes/:repository/:number",
+            get(crate::pull_request_notes::list_pull_request_notes::<D>)
+                .post(crate::pull_request_notes::save_pull_request_note::<D>),
+        )
+        .route(
+            "/pull_request_notes/:repository/:number/:id/remove",
+            post(crate::pull_request_notes::remove_pull_request_note::<D>),
+        )
+        .route(
+            "/pull_request_notes/:repository/:number/sent",
+            post(crate::pull_request_notes::send_pull_request_notes::<D>),
+        )
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
         .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))
@@ -327,6 +340,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
         .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))
         .route("/sessions/annotation_done", post(crate::sessions::mark_annotation_done::<D>))
+        .route(
+            "/sessions/pull_request_note_resolved",
+            post(crate::sessions::resolve_pull_request_note::<D>),
+        )
         .route(
             "/sessions/waiting/answer",
             post(crate::hosted_sessions::answer_waiting::<D>),
