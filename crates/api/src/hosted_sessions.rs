@@ -469,6 +469,20 @@ pub(crate) async fn set_session_workflow<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn skip_session_step<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let skip: ipc::SkipSessionStep = match ipc::decode_body("a step to skip", &body) {
+        Ok(skip) => skip,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().skip_session_step(skip).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn begin_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

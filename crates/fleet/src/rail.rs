@@ -24,6 +24,9 @@
 //! approval until he approves a window the Job showed, at or after that approval, and is passed over
 //! when the plan named no walk and no window was shown. A `follows_plan` step after it is entered only
 //! once it is passed.
+//!
+//! **A step the person skipped is passed and never entered**, so the Job moves on past it. A skipped
+//! recording step reads as a plan approved once the Job has edited, since no plan is coming.
 
 use config::ResolvedWorkflow;
 use core_model::{EvidenceType, JudgeCriterion, ResolvedCheck, ResolvedStep, StepEnd, StepPhase};
@@ -133,6 +136,27 @@ pub(crate) struct Extra {
     pub plan_expects_walk: bool,
 }
 
+/// The most steps the person can skip: the bits of [`Skipped`].
+pub(crate) const SKIPPABLE: usize = 64;
+
+/// The steps the person skipped, one bit an index, so the facts stay `Copy`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Skipped(u64);
+
+impl Skipped {
+    pub(crate) fn of(steps: &[u32]) -> Skipped {
+        Skipped(steps.iter().filter(|at| (**at as usize) < SKIPPABLE).fold(0, |bits, at| bits | 1 << at))
+    }
+
+    pub(crate) fn has(self, at: usize) -> bool {
+        at < SKIPPABLE && self.0 & (1 << at) != 0
+    }
+
+    fn last(self) -> Option<usize> {
+        (self.0 != 0).then(|| SKIPPABLE - 1 - self.0.leading_zeros() as usize)
+    }
+}
+
 /// What was observed, as the rules read it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Facts {
@@ -156,6 +180,8 @@ pub(crate) struct Facts {
     pub plan_expects_walk: bool,
     /// A test file was written or edited.
     pub test_edited: bool,
+    /// The steps the person skipped.
+    pub skipped: Skipped,
 }
 
 impl Facts {
@@ -193,6 +219,18 @@ impl Facts {
                 .touches
                 .iter()
                 .any(|touch| touch.act != TouchAct::Remove && crate::test_paths::is_test_path(&touch.path)),
+            skipped: Skipped::of(&record.skipped_steps),
+        }
+    }
+
+    /// The facts with the person's skips counted: a skipped recording step reads as a plan recorded and
+    /// approved once the Job has edited, or every step that waits on the plan would wait for good.
+    fn waived(self, steps: &[RailStep]) -> Facts {
+        match recorder(steps) {
+            Some(at) if self.skipped.has(at) && self.edited && !self.plan_approved => {
+                Facts { plan_recorded: true, plan_approved: true, ..self }
+            }
+            _ => self,
         }
     }
 
@@ -241,6 +279,9 @@ fn recorder(steps: &[RailStep]) -> Option<usize> {
 
 /// Whether the Session is past an anchor. A step that is no anchor is not in the way.
 fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
+    if facts.skipped.has(at) {
+        return true;
+    }
     let step = &steps[at];
     if step.records_plan {
         return facts.plan_approved;
@@ -261,6 +302,9 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
 }
 
 fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
+    if facts.skipped.has(at) {
+        return false;
+    }
     let step = &steps[at];
     if step.records_plan {
         return match at {
@@ -286,16 +330,26 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit))
 }
 
-/// The step the Session is on: the last one entered, else the first. **Absent** once the delivering
-/// step's pull request merged and nothing follows it, and for a workflow of no steps.
+/// The step the Session is on: the last one entered, else the first standing. **Absent** once the
+/// delivering step's pull request merged and nothing follows it, and for a workflow of no steps.
 pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
     if steps.is_empty() {
         return None;
     }
+    let facts = &facts.waived(steps);
     if let Some(delivering) = steps.iter().position(|step| step.delivers).filter(|_| facts.landed) {
-        return (delivering + 1 < steps.len()).then_some(delivering + 1);
+        return (delivering + 1..steps.len()).find(|at| !facts.skipped.has(*at));
     }
-    Some((0..steps.len()).rev().find(|at| entered(steps, *at, facts)).unwrap_or(0))
+    Some((0..steps.len()).rev().find(|at| entered(steps, *at, facts)).unwrap_or_else(|| standing(steps, facts)))
+}
+
+/// Where no step is entered: the first step, or, past the person's skips, the first step neither
+/// skipped nor passed before the last of them. With nothing skipped this is the first step.
+fn standing(steps: &[RailStep], facts: &Facts) -> usize {
+    let last = facts.skipped.last();
+    (0..steps.len())
+        .find(|at| !facts.skipped.has(*at) && !last.is_some_and(|last| *at < last && passed(steps, *at, facts)))
+        .unwrap_or(0)
 }
 
 /// Which step was skipped, and how.
@@ -329,6 +383,7 @@ impl Skip {
 /// The steps the observed facts show skipped. A step is named however often it is skipped; saying so
 /// only once is the caller's.
 pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
+    let facts = &facts.waived(steps);
     let mut found = Vec::new();
     if let Some(at) = steps.iter().position(|step| step.records_plan).filter(|_| !facts.plan_approved) {
         // Where the workflow walks, a rough mock may be edited while the plan is discussed.
@@ -349,7 +404,43 @@ pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
     }) {
         found.push((at, Skip::Walk));
     }
+    // A step the person skipped is his call, not the agent's drift.
+    found.retain(|(at, _)| !facts.skipped.has(*at));
     found
+}
+
+/// The one message to a Job that has run when the person skips a step of its workflow, or undoes it.
+pub(crate) fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> String {
+    if skipped {
+        format!(
+            "Fleet: the person skipped the \"{}\" step of this Job's {workflow} workflow. Do not do that step, \
+             and do not ask about it. Fleet counts it passed.",
+            step.label
+        )
+    } else {
+        format!(
+            "Fleet: the person undid the skip of the \"{}\" step of this Job's {workflow} workflow, so that step \
+             is wanted again. Fleet places the Job on it when it comes.",
+            step.label
+        )
+    }
+}
+
+/// The steps the person skipped, said with a Job's first turn: a message before it would start the
+/// Job ahead of the turn it waits for. `None` where none is.
+pub(crate) fn skips_said(workflow: &str, steps: &[RailStep], skipped: &[u32]) -> Option<String> {
+    let labels: Vec<String> =
+        skipped.iter().filter_map(|at| steps.get(*at as usize)).map(|step| format!("\"{}\"", step.label)).collect();
+    match labels.as_slice() {
+        [] => None,
+        [one] => Some(format!(
+            "Fleet: the person skipped the {one} step of this Job's {workflow} workflow. Do not do it, and do not ask about it."
+        )),
+        _ => Some(format!(
+            "Fleet: the person skipped these steps of this Job's {workflow} workflow: {}. Do not do them, and do not ask about them.",
+            labels.join(", ")
+        )),
+    }
 }
 
 /// The most of a step's own words a nudge repeats.

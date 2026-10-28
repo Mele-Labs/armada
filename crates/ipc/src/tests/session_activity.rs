@@ -49,6 +49,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
+        skipped_steps: Vec::new(),
     }
 }
 

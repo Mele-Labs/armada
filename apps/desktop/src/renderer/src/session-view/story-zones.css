@@ -92,6 +92,10 @@
 /* The workflow's steps are the zones. A folded step keeps its stretch of line, since the steps run on one after another; a finished step has a check on the line in place of the dot. */
 .sv-spine .sv-panel[data-area^="step-"][data-collapsed]::before { display: block; }
 .sv-spine .sv-panel[data-marked] > .sv-panel__band::after { display: none; }
+/* A skipped step reads as passed over: its name struck and faint, the word beside it, and its mark on the line in the same faint hue. */
+.sv-spine .sv-panel[data-skipped] > .sv-panel__band .sv-panel__label { color: var(--fg-subtle); text-decoration: line-through; }
+.sv-panel__skipped { color: var(--fg-subtle); font-size: var(--text-2xs); text-transform: none; letter-spacing: normal; }
+.sv-spine .sv-panel__mark.sv-panel__mark--skipped { color: var(--fg-subtle); }
 .sv-spine .sv-panel__mark { position: absolute; inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-4) / 2); inset-block-start: 50%; translate: 0 -50%; display: grid; place-items: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--ground); color: var(--step-advanced); }
 
 /* The brief reads as prose, not as the panel's mono. */

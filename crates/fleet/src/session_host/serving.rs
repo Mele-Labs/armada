@@ -473,6 +473,10 @@ where
         self.workflow_set(set).await
     }
 
+    async fn skip_session_step(self: Arc<Self>, skip: ipc::SkipSessionStep) -> Result<SessionRecord, Refusal> {
+        self.step_skipped(skip).await
+    }
+
     async fn begin_session(self: Arc<Self>, begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {
         self.session_begun(begin).await
     }
