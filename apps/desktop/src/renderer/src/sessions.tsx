@@ -597,6 +597,8 @@ export function entriesOf(
       ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
       // A call a taught rule made is the person's to take off. The agent is told nothing, so a reason typed is not sent.
       ...(one.source !== "fleet_call" ? {} : { onRemove: () => void dismissWaiting(session.id, one.id), removeKeep: `remove:${session.id}:${one.id}` }),
+      // A walk, or a pull request Fleet derived, is put away in one press with no reason box; Fleet tells the agent.
+      ...(one.source === "walk" || (one.source === "replied" && act?.kind === "approve_pr") ? { onDismiss: () => void dismissWaiting(session.id, one.id) } : {}),
       onOpen: () => {
         if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
         if (act === undefined || restart !== undefined) return;

@@ -129,6 +129,8 @@ export type LedgerEntry = {
   onRemove?: (reason: string) => void;
   /** What the reason box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   removeKeep?: string;
+  /** A `waiting` row he can put away in one press, with no reason box: a walk, a PR, anything the agent did not state itself. The row draws Dismiss at its end, shown on hover or focus. */
+  onDismiss?: () => void;
   /** Release at the row's end, shown on hover or focus, `name` what its tooltip names. Its press is the host's, which confirms first. */
   release?: { name: string; onPress: () => void };
   /** Released from here: given back, or kept by Fleet with `kept` saying why. */
@@ -600,6 +602,7 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
               </Inspect>
             )}
             {removal(row)}
+            {row.onDismiss === undefined ? null : <DismissAct name={row.name} onPress={row.onDismiss} />}
             {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
             {row.released?.kept === undefined ? null : <span className="armada-session-ledger__kept">{row.released.kept}</span>}
             {replies && replying === row.key && row.onReply !== undefined ? (
@@ -747,6 +750,19 @@ export function RemoveAct({ name, open, onPress }: { name: string; open: boolean
         <Trash2 size={12} strokeWidth={2} aria-hidden />
       </Button>
     </Tooltip>
+  );
+}
+
+/** Puts one row away for good in one press. The row's hover or focus shows it; its tooltip names the row. */
+function DismissAct({ name, onPress }: { name: string; onPress: () => void }) {
+  return (
+    <span className="armada-session-ledger__dismiss">
+      <Tooltip label="Dismiss">
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Dismiss ${name}`} onClick={onPress}>
+          <X size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
   );
 }
 
