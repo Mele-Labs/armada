@@ -20,7 +20,7 @@ test("a step only in the new workflow is added, one only in the old is removed, 
 
 test("a step matched by id whose facts differ is changed, with both sides", () => {
   const out = stepChangesOf([step("a", { words: "old" })], [step("a", { words: "new" })]);
-  expect(out.changes).toEqual([{ kind: "changed", n: 1, before: step("a", { words: "old" }), after: step("a", { words: "new" }) }]);
+  expect(out.changes).toEqual([{ kind: "changed", n: 1, was: 1, before: step("a", { words: "old" }), after: step("a", { words: "new" }) }]);
   expect(out.unchanged).toEqual([]);
 });
 
@@ -56,4 +56,21 @@ test("a step removed from the front reads first, and from an otherwise empty res
   expect(kinds([step("x"), step("a")], [step("y"), step("a")])).toEqual(["removed:1:x", "added:1:y"]);
   expect(stepChangesOf([step("x")], [])).toEqual({ changes: [{ kind: "removed", n: 1, before: step("x") }], unchanged: [] });
   expect(stepChangesOf([], [step("x")])).toEqual({ changes: [{ kind: "added", n: 1, after: step("x") }], unchanged: [] });
+});
+
+test("a step that only moves is changed, with the place it left and the place it took", () => {
+  const out = stepChangesOf([step("discuss"), step("walk"), step("land")], [step("walk"), step("discuss"), step("land")]);
+  // Walk is the one said to move: the earlier step stays put where two readings tie.
+  expect(out.changes).toEqual([{ kind: "changed", n: 1, was: 2, before: step("walk"), after: step("walk") }]);
+  expect(out.unchanged).toEqual(["DISCUSS", "LAND"]);
+});
+
+test("a step moved a long way is the one changed, not each step it passed", () => {
+  expect(kinds([step("a"), step("b"), step("c"), step("d")], [step("d"), step("a"), step("b"), step("c")])).toEqual(["changed:1:d"]);
+});
+
+test("a step that only shifted because another was added or removed is not moved", () => {
+  expect(kinds([step("a"), step("b")], [step("new"), step("a"), step("b")])).toEqual(["added:1:new"]);
+  expect(kinds([step("x"), step("a"), step("b")], [step("a"), step("b")])).toEqual(["removed:1:x"]);
+  expect(stepChangesOf([step("a"), step("b")], [step("new"), step("a"), step("b")]).unchanged).toEqual(["A", "B"]);
 });

@@ -985,6 +985,11 @@ function StepChangeCard({ change }: { change: StepChange }) {
   const label = (after ?? before)!.label;
   const sign = SIGNS[change.kind];
   const sides: readonly ("Before" | "After")[] = change.kind === "changed" ? ["Before", "After"] : change.kind === "added" ? ["After"] : ["Before"];
+  // A changed step also sets its place first, so a step that only moved shows what moved; every changed card has the same rows.
+  const rows = [
+    ...(change.kind === "changed" ? [{ name: "Place", was: String(change.was), is: String(change.n) }] : []),
+    ...STEP_FIELDS.map((field) => ({ name: field.name, was: before === undefined ? "" : field.of(before), is: after === undefined ? "" : field.of(after) })),
+  ];
   return (
     <div role="group" aria-label={label} className="armada-wm-diff__card" data-kind={change.kind}>
       <div className="armada-wm-diff__card-band">
@@ -1008,9 +1013,8 @@ function StepChangeCard({ change }: { change: StepChange }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {STEP_FIELDS.map((field) => {
-            const was = before === undefined ? "" : field.of(before);
-            const is = after === undefined ? "" : field.of(after);
+          {rows.map((field) => {
+            const { was, is } = field;
             const differs = change.kind === "changed" && was !== is;
             const state = change.kind === "changed" ? (differs ? "changed" : "unchanged") : change.kind;
             return (

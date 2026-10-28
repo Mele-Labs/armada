@@ -413,7 +413,17 @@ test("a changed step's card sets each field before and after, and names the fiel
   await expect.element(card.getByRole("row", { name: "Passed over when, changed" })).toBeVisible();
   await expect.element(card.getByRole("row", { name: "Ends when, unchanged" })).toBeVisible();
   await expect.element(card.getByRole("row", { name: "Name, unchanged" })).toBeVisible();
+  await expect.element(card.getByRole("row", { name: "Place, unchanged" })).toBeVisible();
   await expect.element(card.getByRole("img", { name: "Changed" })).toBeVisible();
+});
+
+test("a step that only moved is a changed card whose Place row is marked and first", async () => {
+  draws([step("talk", "Talk", "Say."), step("walk", "Walk", "Go.")], [step("walk", "Walk", "Go."), step("talk", "Talk", "Say.")]);
+  const card = region().getByRole("group", { name: "Walk", exact: true });
+  await expect.element(card).toBeVisible();
+  await expect.element(card.getByRole("row", { name: "Place, changed" })).toBeVisible();
+  await expect.element(card.getByRole("row", { name: "Words, unchanged" })).toBeVisible();
+  expect(card.getByRole("row").elements()[1]?.getAttribute("aria-label")).toBe("Place, changed");
 });
 
 test("changed words are shown in full, and the words that are the same, or an added step's, stay behind View more", async () => {
