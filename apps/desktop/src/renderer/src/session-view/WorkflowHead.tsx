@@ -1,54 +1,14 @@
-// The workflow at the head of the Job's story (`StoryColumn.tsx`), a band of its own: the name at reading size with its picker, then the steps under it. Two takes of the
-// steps, chosen by `?take=` in the mock: `labelled` writes each step's name along the band, `glyphs` draws larger glyphs with the current step's name beside them. Where the
-// Job's workflow can be changed, pressing the name opens the picker as a menu under it, and ⌥W puts the focus on it. A change applies from the next turn.
+// The workflow at the head of the Job's story (`StoryColumn.tsx`), a band of its own: the name with its picker and the proposer's mark. Its steps are the spine's zones below it.
+// Where the Job's workflow can be changed, pressing the name opens the picker as a menu under it, and ⌥W puts the focus on it. A change applies from the next turn.
 
 import { useRef, useState } from "react";
 import { ChevronDown, Lightbulb } from "lucide-react";
 import { DropdownMenu, Tooltip, type DropdownMenuEntry } from "@armada/components";
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
-import { MARK, StepRail, stateOf } from "./StatusPanel";
 import { BAND_KEYS } from "./story";
 
 const NONE = "none";
-export type StepTake = "labelled" | "glyphs";
-
-/** The take of the stepper being looked at: labelled unless the page asks for glyphs. */
-export const stepTakeOf = (search: string = typeof window === "undefined" ? "" : window.location.search): StepTake => (new URLSearchParams(search).get("take") === "glyphs" ? "glyphs" : "labelled");
-
-/** One row of steps: done ones a check with the step named on hover, the current one lit and named, the ones to come named and dim. */
-function LabelledSteps({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
-  return (
-    <ol className="sv-steps" aria-label="Workflow">
-      {steps.map((step, i) => {
-        const state = stateOf(i, at);
-        const { Glyph, said } = MARK[state];
-        return (
-          <li key={step} className="sv-steps__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <Tooltip asChild label={state === "done" ? `${step}, ${said.toLowerCase()}` : said}>
-              <span className="sv-steps__mark" role="img" aria-label={state === "done" ? `${step}, ${said.toLowerCase()}` : said}>
-                <Glyph size={14} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-            {state === "done" ? null : <span className="sv-steps__name">{step}</span>}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/** Larger glyphs, each naming its step on hover, and the current step written beside them. */
-function GlyphSteps({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
-  const current = at === undefined ? undefined : steps[at];
-  return (
-    <div className="sv-steps-glyphs">
-      <StepRail steps={steps} at={at} size={16} />
-      {current === undefined ? null : <span className="sv-steps-glyphs__now">{current}</span>}
-    </div>
-  );
-}
-
 const KEY = BAND_KEYS.find((one) => one.area === "workflow")?.cap;
 
 export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined; }) {
@@ -70,9 +30,8 @@ export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork
     setAt({ x: box.left, y: box.bottom + 4 });
   };
   const picking = proposal !== undefined && acts !== undefined;
-  const take = stepTakeOf();
   return (
-    <div className="sv-workflow" data-take={take}>
+    <div className="sv-workflow">
       <div className="sv-workflow__top">
       {picking ? (
         <>
@@ -124,7 +83,6 @@ export function WorkflowHead({ work, acts, id, manifestId }: { work: SessionWork
         </Tooltip>
       )}
       </div>
-      {flow === undefined ? null : take === "glyphs" ? <GlyphSteps steps={flow.steps} at={flow.at} /> : <LabelledSteps steps={flow.steps} at={flow.at} />}
     </div>
   );
 }

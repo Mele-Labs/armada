@@ -37,7 +37,7 @@ function StateMark({ state, said }: { state: PanelState; said: string }) {
 }
 
 /** A panel with nothing to show stays open: it is never folded for being empty, only by a press (`story.ts`). */
-export function SvPanel({ label, state, acts, place, area, fold, keycap, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; /** The story's say on whether the panel is open and whether the stage is at it: open at every stage unless pressed shut, and the current one takes the larger share (`story.ts`). */ fold?: Fold | undefined; /** The key that opens and folds the panel, named on the label's tooltip. */ keycap?: string | undefined; children?: ReactNode }) {
+export function SvPanel({ label, state, acts, place, area, fold, keycap, marker, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; /** The story's say on whether the panel is open and whether the stage is at it: open at every stage unless pressed shut, and the current one takes the larger share (`story.ts`). */ fold?: Fold | undefined; /** The key that opens and folds the panel, named on the label's tooltip. */ keycap?: string | undefined; /** A mark of its own on the spine line, in place of the dot. */ marker?: ReactNode; children?: ReactNode }) {
   // Pressing the band folds the panel to it.
   const { collapsed: kept, band: own } = useCollapse(area);
   const collapsed = fold !== undefined ? !fold.open : kept;
@@ -62,9 +62,10 @@ export function SvPanel({ label, state, acts, place, area, fold, keycap, childre
   });
   const band = fold !== undefined ? pressed(fold.open, fold.toggle) : own;
   return (
-    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-current={fold?.current || undefined} data-band-only={children === undefined || undefined} aria-label={label} {...teach.on}>
+    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-current={fold?.current || undefined} data-marked={marker !== undefined || undefined} data-band-only={children === undefined || undefined} aria-label={label} {...teach.on}>
       {teach.menu}
       <header className="sv-panel__band" {...band}>
+        {marker}
         {state === undefined ? null : <StateMark state={state} said={SAID[area]?.[state] ?? MARK[state].said} />}
         {keycap === undefined ? (
           <h3 className="sv-panel__label">{label}</h3>

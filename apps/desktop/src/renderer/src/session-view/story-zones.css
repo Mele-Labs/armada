@@ -48,7 +48,7 @@
 .sv-kind + .sv-kind { margin-block-start: var(--space-2); }
 .sv-kind__label { margin: 0; padding: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
 
-/* The workflow at the head of the story, a band of its own: its name at reading size with the picker's caret and the proposer's mark, and the steps under it. */
+/* The workflow at the head of the story, a band of its own: its name with the picker's caret and the proposer's mark. The steps are the zones below. */
 .sv-story__head { display: flex; flex: none; flex-direction: column; justify-content: center; padding-block: var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
 .sv-workflow { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .sv-workflow__top { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: var(--h-control); }
@@ -58,20 +58,6 @@
 .sv-workflow__pick:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .sv-workflow__name { display: inline-flex; min-width: 0; }
 
-/* Take labelled: one row, never wrapped. Done steps fold to their check so the current step and the ones to come keep their names; a column too narrow even for that scrolls sideways. */
-.sv-steps { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-1); margin: 0; padding: 0; overflow-x: auto; scrollbar-width: none; list-style: none; font-family: var(--font-sans); }
-.sv-steps__step { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding: calc(var(--space-1) / 2) var(--space-2); border-radius: var(--radius-md); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
-.sv-steps__mark { display: inline-flex; }
-.sv-steps__step[data-state="done"] { padding-inline: var(--space-1); color: var(--fg-muted); }
-.sv-steps__step[data-state="done"] .sv-steps__mark { color: var(--step-advanced); }
-.sv-steps__step[data-state="now"] { background: color-mix(in srgb, var(--step-running) 14%, transparent); box-shadow: inset 0 0 0 var(--border-width) var(--step-running); color: var(--fg-default); font-weight: var(--weight-medium); }
-.sv-steps__step[data-state="now"] .sv-steps__mark { color: var(--step-running); }
-
-/* Take glyphs: larger glyphs on a hairline, and the current step's name beside them. */
-.sv-steps-glyphs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); min-width: 0; }
-.sv-steps-glyphs .sv-rail { flex: 0 1 auto; }
-.sv-rail[data-large] .sv-rail__step + .sv-rail__step::before { width: var(--space-3); }
-.sv-steps-glyphs__now { color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
 .sv-panel__body > .sv-workflow { padding-block: var(--space-1); }
 
 /* How Completed is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
@@ -85,8 +71,8 @@
 .sv-spine .sv-story__head { padding-inline-start: var(--lead); }
 .sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
 .sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
-.sv-spine .sv-panel[data-area="now"]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
-.sv-spine .sv-panel[data-area="next"]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
+.sv-spine .sv-panel.sv-panel:is([data-area="now"], [data-area="step-now"])[data-area]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
+.sv-spine .sv-panel.sv-panel:is([data-area="next"], [data-area="step-next"])[data-area]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
 /* The line starts at Completed's first marker. The bands hold at the column's top while their zone passes under them, so each has the column's ground to cover it. */
 .sv-spine .sv-panel:is([data-area="brief"], [data-area="done"])::before { inset-block-start: calc(var(--legend-h) / 2); }
 /* Folded, the Brief keeps a stretch of line under it down to Completed. */
@@ -94,14 +80,19 @@
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: sticky; inset-block-start: 0; z-index: 2; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: var(--ground); box-shadow: none; color: var(--fg-muted); }
 /* The marker on the line: a hollow dot for Completed and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
-.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1) - var(--border-width) / 2); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
-.sv-spine .sv-panel[data-area="now"] > .sv-panel__band { color: var(--fg-default); }
-.sv-spine .sv-panel[data-area="now"] > .sv-panel__band::after { inset-inline-start: calc(var(--line) - var(--space-2) / 2 - var(--border-width) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
-.sv-spine .sv-panel[data-area="now"] > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
+.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1)); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
+.sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band { color: var(--fg-default); }
+.sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band::after { inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-2) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
+.sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
 .sv-spine .sv-panel[data-collapsed]::before { display: none; }
+
+/* The workflow's steps are the zones. A folded step keeps its stretch of line, since the steps run on one after another; a finished step has a check on the line in place of the dot. */
+.sv-spine .sv-panel[data-area^="step-"][data-collapsed]::before { display: block; }
+.sv-spine .sv-panel[data-marked] > .sv-panel__band::after { display: none; }
+.sv-spine .sv-panel__mark { position: absolute; inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-4) / 2); inset-block-start: 50%; translate: 0 -50%; display: grid; place-items: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--ground); color: var(--step-advanced); }
 
 /* The brief reads as prose, not as the panel's mono. */
 .sv-nav .sv-flight__brief { padding-inline: var(--space-2); font-family: var(--font-sans); }
