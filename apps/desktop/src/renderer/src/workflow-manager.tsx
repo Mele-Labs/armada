@@ -30,6 +30,7 @@ import {
   sendBackWorkflowChange,
   suggestWorkflowChange,
 } from "./commands";
+import { useDispatching } from "./dispatch-panel/dispatching";
 import { IssueJobCard } from "./issues-tab/marks";
 import { askToOpenSessionInCockpit } from "./open-session";
 import { useSessions } from "./sessions-draft";
@@ -74,6 +75,7 @@ export function WorkflowManagerSurface({
 }
 
 function Held({ current, repository, root, served }: { current: string | null; repository: string; root: string | null; served: readonly Served[] }) {
+  const dispatching = useDispatching();
   const [listed, setListed] = useState<WorkflowsRead | null>(null);
   const [reads, setReads] = useState<Readonly<Record<string, Read>>>({});
   const [picked, setPicked] = useState<WorkflowRef | null>(null);
@@ -310,6 +312,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
         await loadChanges(one);
         return undefined;
       }}
+      onNew={dispatching === undefined ? undefined : dispatching.openWorkflow}
       onApproveSuggestion={(one, stepId) => onChange(one, stepChange(stepId), approveWorkflowChange)}
       onDismissSuggestion={(one, stepId) => onChange(one, stepChange(stepId), dismissWorkflowChange)}
     />

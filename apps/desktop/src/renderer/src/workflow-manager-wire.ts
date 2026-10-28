@@ -67,7 +67,8 @@ export function agentOf(changes: readonly WorkflowChange[], known: readonly Mana
     // Fleet's own reading of each side says what ends a step it adds; the text alone cannot.
     const before = one.before_steps?.map(stepOf) ?? stepsOfText(one.before, known);
     const after = one.after_steps?.map(stepOf) ?? stepsOfText(one.after, known);
-    return { phase: "proposed", before, after, ...asked };
+    const fresh = one.origin.kind === "new" ? { fresh: true as const } : {};
+    return { phase: "proposed", before, after, ...asked, ...fresh };
   }
   return { phase: "idle" };
 }

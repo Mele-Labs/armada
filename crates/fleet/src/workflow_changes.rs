@@ -23,10 +23,10 @@ use config::settings as keys;
 use core_model::{Component, Envelope, FieldValue, Level};
 use config::ResolvedWorkflow;
 use ipc::{
-    ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, ManifestId, ProposeToArmada,
-    SaveWorkflow, SendBackWorkflowChange, SendSessionMessage, SessionId, StartSession, StepId, SuggestWorkflowChange,
-    WireError, WireValue, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowId,
-    WorkflowScope, WorkflowSupportBuilding,
+    ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, ManifestId, ProposeNewWorkflow,
+    ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SendSessionMessage, SessionId, StartSession, StepId,
+    SuggestWorkflowChange, WireError, WireValue, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    WorkflowId, WorkflowScope, WorkflowSupportBuilding,
 };
 use store::{KeptWorkflowChange, NewWorkflowChange};
 
@@ -181,6 +181,38 @@ where
         self.change_begun(&new).await
     }
 
+    /// Keep a workflow a Job proposes as a change that is ready at once. **Nothing is written**: the
+    /// definition is checked as a save would check it, without replacing, so an id the scope already
+    /// holds is refused here and not at Approve.
+    pub(crate) async fn new_workflow_proposed(
+        &self,
+        proposed: ProposeNewWorkflow,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<WorkflowChange, Refusal> {
+        if proposed.definition.trim().is_empty() {
+            return Err(self.change_blank("The definition is blank; there is nothing to propose"));
+        }
+        let served = self.served_named(manifest_id.as_ref())?;
+        let definition = proposed.definition.trim().to_string();
+        self.check_workflow_file(&SaveWorkflow { scope: proposed.scope, definition: definition.clone(), overwrite: false }, &served)?;
+        let at = self.now();
+        let mut store = self.store().lock().await;
+        let id = store
+            .begin_new_workflow_change(served.manifest().id().as_str(), proposed.workflow_id.as_str(), proposed.scope.as_wire(), &definition, at.as_str())
+            .map_err(|why| self.change_not_kept(why))?;
+        let kept = store
+            .workflow_change(id)
+            .map_err(|why| self.change_not_kept(why))?
+            .ok_or_else(|| self.change_not_kept("the change was not there to read"))?;
+        drop(store);
+        // Fleet raises the owner's call itself, on the Job the connection places; no caller, no call.
+        if let Some(job) = api::asking().and_then(|caller| self.session_holding(&caller)) {
+            self.proposal_waits(&job, id, &kept.workflow_id, &definition).await;
+        }
+        // Read as the listing reads it, so the answer and the list carry the same steps.
+        Ok(self.change_read(&served, &kept))
+    }
+
     /// Ask for new words for one step, now.
     pub(crate) async fn workflow_change_suggested(
         self: &Arc<Self>,
@@ -279,7 +311,8 @@ where
         let served = self.served_named(Some(&ManifestId::carried(kept.manifest_id.clone())))?;
         self.read_workflows_again(&served);
         let now = self.copy_text(&served, &kept.workflow_id, &kept.source).ok();
-        if now.as_deref() != Some(kept.before_text.as_str()) {
+        // A new workflow has no earlier text to have changed; the save refuses it if the id is taken now.
+        if !kept.is_new && now.as_deref() != Some(kept.before_text.as_str()) {
             return Err(Refusal::IllegalMove(
                 WireError::raised(
                     CHANGED_SINCE,
@@ -299,7 +332,7 @@ where
                 self.run_id(),
             )));
         };
-        let saved = self.save_workflow_file(SaveWorkflow { scope: scope_of(&kept.source), definition: after, overwrite: true }, &served)?;
+        let saved = self.save_workflow_file(SaveWorkflow { scope: scope_of(&kept.source), definition: after, overwrite: !kept.is_new }, &served)?;
         let at = self.now();
         let mut store = self.store().lock().await;
         store.workflow_change_approved(kept.id, at.as_str()).map_err(|why| self.change_not_kept(why))?;
@@ -392,6 +425,13 @@ where
             return Err(self.change_blank("The notes are blank; say what was wrong with the draft"));
         }
         let kept = self.change_held(back.change).await?;
+        if kept.is_new {
+            return Err(Refusal::IllegalMove(WireError::raised(
+                NOT_SENDABLE,
+                format!("change {} is a proposed workflow, which is approved or dismissed and not sent back", kept.id),
+                self.run_id(),
+            )));
+        }
         self.agent_to_ask()?;
         let again = {
             let at = self.now();
@@ -803,6 +843,7 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         _ => ChangeState::Failed,
     };
     let origin = match &kept.asked {
+        _ if kept.is_new => ChangeOrigin::New,
         Some(text) => ChangeOrigin::Asked { text: text.clone() },
         None => ChangeOrigin::Drift { nudges: kept.nudges.clone() },
     };

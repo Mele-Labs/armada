@@ -186,6 +186,14 @@ where
         self.workflow_change_asked(asked, manifest_id).await
     }
 
+    async fn propose_new_workflow(
+        &self,
+        proposed: ipc::ProposeNewWorkflow,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.new_workflow_proposed(proposed, manifest_id).await
+    }
+
     async fn suggest_workflow_change(
         self: Arc<Self>,
         asked: ipc::SuggestWorkflowChange,

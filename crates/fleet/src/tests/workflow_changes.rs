@@ -744,3 +744,90 @@ async fn an_override_that_drops_the_definition_is_refused() {
         .await;
     assert!(refused.is_err(), "a prompt with no definition rewrites nothing");
 }
+
+// ---- a Job proposes a new workflow -----------------------------------------------------------------------
+
+const FRESH: &str = "version: 1\nworkflow_id: fresh\nname: fresh\nsteps: []";
+
+fn proposing(scope: ipc::WorkflowScope, definition: &str) -> String {
+    ipc::encode(&ipc::ProposeNewWorkflow { workflow_id: ipc::WorkflowId::carried("fresh"), definition: definition.into(), scope }).expect("plain data")
+}
+
+impl Rig {
+    async fn open_fresh(&self, source: &str) -> Vec<WorkflowChange> {
+        let (_, body) = call(&self.app, "GET", &format!("/workflows/changes?workflow_id=fresh&source={source}"), "").await;
+        decoded::<WorkflowChanges>("changes", &body).changes
+    }
+
+    async fn proposed(&self, scope: ipc::WorkflowScope) -> WorkflowChange {
+        let (status, body) = self.post("/workflows/changes/propose_new", &proposing(scope, FRESH)).await;
+        assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        decoded("a change", &body)
+    }
+}
+
+/// **A proposed workflow is ready at once with no earlier text, listed in its scope, and nothing is written.**
+#[tokio::test]
+async fn a_proposed_workflow_is_held_ready_in_its_scope_and_nothing_is_written() {
+    let rig = rig(&[]).await;
+    let change = rig.proposed(ipc::WorkflowScope::Kit).await;
+    assert_eq!((change.state, change.origin.clone()), (ChangeState::Ready, ChangeOrigin::New));
+    assert_eq!((change.before.as_str(), change.after.as_deref(), change.source.as_str()), ("", Some(FRESH), "kit"));
+    assert_eq!(rig.open_fresh("kit").await, [change]);
+    assert!(rig.open_fresh("repository").await.is_empty());
+    assert!(rig.planted.saves().is_empty());
+    assert!(rig.judge.asked().is_empty(), "no model drafts it");
+}
+
+/// **A blank definition and an id the scope already holds are refused, and keep nothing.**
+#[tokio::test]
+async fn a_proposal_is_refused_when_blank_or_when_the_scope_already_holds_the_id() {
+    let rig = rig(&[]).await;
+    let (status, body) = rig.post("/workflows/changes/propose_new", &proposing(ipc::WorkflowScope::Repository, "  ")).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_change_empty"));
+
+    rig.planted.will_check(vec![Err(WorkflowNotSaved::Exists { id: "fresh".into(), file: "/repo/.armada/workflows/fresh.json".into() })]);
+    let (status, body) = rig.post("/workflows/changes/propose_new", &proposing(ipc::WorkflowScope::Repository, FRESH)).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_exists"));
+    assert_eq!(rig.planted.checks().last().map(|one| one.overwrite), Some(false));
+    assert!(rig.open_fresh("repository").await.is_empty());
+}
+
+/// **Approve saves it to the scope without replacing anything**, and it leaves the list.
+#[tokio::test]
+async fn approving_a_proposed_workflow_saves_it_to_its_scope_without_overwrite() {
+    let rig = rig(&[]).await;
+    let change = rig.proposed(ipc::WorkflowScope::Kit).await;
+    rig.planted.will_save(Ok(SavedWorkflow { id: carried_id("fresh"), file: "/home/.armada/workflows/fresh.json".into(), replaced: false }));
+
+    let (status, body) = rig.post("/workflows/changes/approve", &change_of(change.id)).await;
+
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let approved: ipc::WorkflowChangeApproved = decoded("approved", &body);
+    assert_eq!(approved.change.state, ChangeState::Approved);
+    assert_eq!(rig.planted.saves(), [ipc::SaveWorkflow { scope: ipc::WorkflowScope::Kit, definition: FRESH.into(), overwrite: false }]);
+    assert!(rig.open_fresh("kit").await.is_empty());
+}
+
+/// **If the id was taken after the proposal, Approve's refusal is shown and the change stays ready.**
+#[tokio::test]
+async fn approve_refuses_a_proposed_workflow_whose_id_was_taken_meanwhile() {
+    let rig = rig(&[]).await;
+    let change = rig.proposed(ipc::WorkflowScope::Repository).await;
+    rig.planted.will_save(Err(WorkflowNotSaved::Exists { id: "fresh".into(), file: "/repo/.armada/workflows/fresh.json".into() }));
+    let (status, body) = rig.post("/workflows/changes/approve", &change_of(change.id)).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "fleet.workflow_exists"));
+    assert_eq!(rig.open_fresh("repository").await.iter().map(|one| one.state).collect::<Vec<_>>(), [ChangeState::Ready]);
+}
+
+/// **Dismiss drops it and writes nothing.**
+#[tokio::test]
+async fn dismissing_a_proposed_workflow_writes_nothing() {
+    let rig = rig(&[]).await;
+    let change = rig.proposed(ipc::WorkflowScope::Repository).await;
+    let (status, body) = rig.post("/workflows/changes/dismiss", &change_of(change.id)).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    assert_eq!(decoded::<WorkflowChange>("change", &body).state, ChangeState::Dismissed);
+    assert!(rig.open_fresh("repository").await.is_empty());
+    assert!(rig.planted.saves().is_empty());
+}

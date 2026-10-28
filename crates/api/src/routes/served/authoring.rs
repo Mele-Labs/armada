@@ -63,6 +63,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workflows/changes/suggest",
     },
     Route {
+        operation: "propose_new_workflow",
+        method: "POST",
+        path: "/workflows/changes/propose_new",
+    },
+    Route {
         operation: "approve_workflow_change",
         method: "POST",
         path: "/workflows/changes/approve",

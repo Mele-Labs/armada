@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, SessionId, StepId, WorkflowId, WorkflowSaved};
+use crate::{Instant, SessionId, StepId, WorkflowId, WorkflowSaved, WorkflowScope};
 
 /// Where a change came from.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,6 +17,9 @@ pub enum ChangeOrigin {
     /// Armada drafted it, or he pressed Suggest a change, from the nudges kept for one step. `nudges` are
     /// their `StepNudge::id`s.
     Drift { nudges: Vec<i64> },
+    /// A Job proposed a workflow nothing held before. `before` is empty and `after` is the definition,
+    /// whole; approving it saves it to `source` without replacing anything.
+    New,
 }
 
 /// Where a change stands.
@@ -143,6 +146,17 @@ pub struct WorkflowChangeApproved {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowSupportBuilding {
     pub job_id: SessionId,
+}
+
+/// `propose_new_workflow`'s body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposeNewWorkflow {
+    /// The id the definition declares, which the change is listed under.
+    pub workflow_id: WorkflowId,
+    /// The definition, whole, as JSON text.
+    pub definition: String,
+    /// Where approving saves it.
+    pub scope: WorkflowScope,
 }
 
 /// `propose_workflow_to_armada`'s body.

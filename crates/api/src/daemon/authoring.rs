@@ -11,7 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeToArmada, SaveWorkflow,
+    ArmadaProposed, AskWorkflowChange, ManifestId, MarkNotADrift, NotADriftMarked, ProposeNewWorkflow, ProposeToArmada, SaveWorkflow,
     SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted,
     WorkflowId, WorkflowSaved, WorkflowSupportBuilding,
 };
@@ -75,6 +75,15 @@ pub trait Authoring: Send + Sync + 'static {
     fn suggest_workflow_change(
         self: Arc<Self>,
         asked: SuggestWorkflowChange,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
+
+    /// `propose_new_workflow` — keep a workflow a Job proposes as a change that is ready at once and
+    /// writes nothing until approved. [`Refusal::Unacceptable`] for a blank definition and for an id
+    /// the scope already holds.
+    fn propose_new_workflow(
+        &self,
+        proposed: ProposeNewWorkflow,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowChange, Refusal>> + Send;
 

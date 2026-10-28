@@ -117,7 +117,7 @@ export type AgentState =
   | { phase: "idle" }
   | { phase: "working"; asked?: string }
   | { phase: "failed"; reason: string; asked?: string }
-  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string }
+  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string; /** A workflow nothing held before: approved or dismissed, never sent back. */ fresh?: true }
   | { phase: "cannot"; asked?: string; missing: readonly string[] };
 
 /** New words for a step, and the nudged Jobs they were drawn from. A draft that did not fit has no words and says why. */

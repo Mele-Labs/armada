@@ -59,6 +59,7 @@ He sees it beside what it was and approves it, dismisses it or sends it back wit
 | --- | --- | --- | --- |
 | `ask_workflow_change` | `POST /workflows/changes/ask?manifest_id=` | Bridge sends `AskWorkflowChange` (`workflow_id`, `source`, `text`) | `WorkflowChange`, `drafting` |
 | `suggest_workflow_change` | `POST /workflows/changes/suggest?manifest_id=` | Bridge sends `SuggestWorkflowChange` (`workflow_id`, `source`, `step_id`) | `WorkflowChange`, `drafting` |
+| `propose_new_workflow` | `POST /workflows/changes/propose_new?manifest_id=` | A Job sends `ProposeNewWorkflow` (`workflow_id`, `definition`, `scope`) | `WorkflowChange`, `ready`, `origin` `new`, `before` empty |
 | `list_workflow_changes` | `GET /workflows/changes?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowChanges`: the open ones, oldest first |
 | `approve_workflow_change` | `POST /workflows/changes/approve` | Bridge sends `WorkflowChangeRef` (`change`) | `WorkflowChangeApproved`: the `change` and the `saved` |
 | `dismiss_workflow_change` | `POST /workflows/changes/dismiss` | Bridge sends `WorkflowChangeRef` | `WorkflowChange`, `dismissed` |
@@ -66,7 +67,7 @@ He sees it beside what it was and approves it, dismisses it or sends it back wit
 | `build_workflow_support` | `POST /workflows/changes/build` | Bridge sends `WorkflowChangeRef` | `WorkflowSupportBuilding`: `job_id` |
 | `propose_workflow_to_armada` | `POST /workflows/propose` | Bridge sends `ProposeToArmada` (`workflow_id`, `definition`) | `ArmadaProposed`: `workflow_id`, `session_id`, `send_failed?` |
 
-`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}` or `{kind: drift, nudges}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `notes?` and `at`.
+`WorkflowChange` is `id`, `workflow_id`, `source` (`repository` or `kit`), `step_id?`, `origin` (`{kind: asked, text}`, `{kind: drift, nudges}` or `{kind: new}`), `before`, `after?`, `state` (`drafting`, `ready`, `approved`, `dismissed`, `failed`, `cannot`), `reason?`, `missing?`, `before_steps?`, `after_steps?`, `notes?` and `at`.
 `ChangeStep` is `id`, `label`, `instructions?`, `ends_when?` and `passed_over_when?`, as `StepReading` says them.
 Fleet keeps it in `workflow_changes`; no event carries it.
 

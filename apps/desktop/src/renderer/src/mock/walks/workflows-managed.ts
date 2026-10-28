@@ -36,7 +36,7 @@ export const workflowsManaged = walk("workflows", [
   { press: inside(step("Approve plan"), button("Not a drift")), say: "Not a drift takes the row, and the suggestion with it" },
   { press: inside(step("Propose"), role("textbox", "Words")), say: "Propose's words, edited in place" },
   {
-    type: "Say in a few lines what you took the request to mean and a first idea. Read only what that needs. Name what you could not tell. Then stop and wait for the person's reply.",
+    type: "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Name what you could not tell. Then stop and wait for the person's reply.",
     into: inside(step("Propose"), role("textbox", "Words")),
     say: "A sentence added",
   },
