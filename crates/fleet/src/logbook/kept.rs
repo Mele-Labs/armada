@@ -36,6 +36,8 @@ struct File {
 #[derive(Serialize, Deserialize)]
 struct Line {
     kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
     text: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     paths: Vec<String>,
@@ -66,6 +68,7 @@ fn line_of(entry: &LogEntry) -> Line {
     sessions.dedup();
     Line {
         kind: entry.kind.as_text().to_string(),
+        title: entry.title.clone(),
         text: entry.text.clone(),
         paths: entry.paths.clone(),
         state: entry.state.as_text().to_string(),
@@ -89,6 +92,7 @@ fn entry_of(line: Line, section: LogSection, repository: &str) -> Option<LogEntr
             .into_iter()
             .map(|session_id| LogEvidence { session_id, cites: Vec::new(), how: LogHow::Confirmed, hard: false, at: line.last_confirmed })
             .collect(),
+        title: line.title,
         text: line.text,
         paths: line.paths,
         first_seen: line.first_seen,
@@ -229,6 +233,17 @@ mod tests {
 
     const LINE: &str = "version = 1\nsection = \"habits\"\n\n[[entry]]\nkind = \"habit\"\ntext = \"Chrome is in /Applications.\"\nstate = \"standing\"\n";
     const TIMES: &str = "first_seen = 1\nlast_confirmed = 2\n";
+
+    #[test]
+    fn a_title_is_written_to_the_file_and_read_back_and_a_file_without_one_reads_untitled() {
+        let old = format!("{LINE}{TIMES}");
+        let mut entries = decode(Some(&old), LogSection::Habits, "").expect("reads");
+        assert_eq!(entries[0].title, None);
+        assert!(!encode(LogSection::Habits, "", &entries).expect("encodes").contains("title"));
+        entries[0].title = Some("Chrome location".into());
+        let written = encode(LogSection::Habits, "", &entries).expect("encodes");
+        assert_eq!(decode(Some(&written), LogSection::Habits, "").expect("reads back")[0].title.as_deref(), Some("Chrome location"));
+    }
 
     #[test]
     fn a_file_written_with_pinned_still_loads_as_locked_and_is_written_back_as_locked() {

@@ -79,6 +79,9 @@ pub struct LogbookEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
     pub kind: LogbookKind,
+    /// A few words naming it, as its line in the log reads. Absent on an entry written before titles were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     pub text: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub paths: Vec<String>,

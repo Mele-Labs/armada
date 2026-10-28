@@ -116,9 +116,9 @@ export const systemPage = (name: string): Target => {
   return inside(role("navigation", "System"), button(new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`)));
 };
 
-/** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios is a place of its own, one press, and Retros is the Logbook's Armada fixes. */
+/** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios is a place of its own, one press, and Retros is the Logbook's Retros tab. */
 export function toSystemPage(name: string, say: string): Step[] {
-  if (name === "Retros") return [{ press: place("Logbook"), say }];
+  if (name === "Retros") return [{ press: place("Logbook"), say: "The Logbook" }, { press: tab("Retros"), say }];
   if (name === "Studios") return [{ press: place(name), say }];
   return [
     { press: place("System"), say: `System, for ${name}` },

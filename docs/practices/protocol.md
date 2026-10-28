@@ -618,6 +618,8 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 
 **An id is a number for an entry Fleet keeps, and a word and a hash (`runs-…`, `machine-…`) for one read in from run memory or the machine note.** The acts refuse the second kind with `fleet.logbook_entry_not_kept`: Fleet rebuilds them on every read.
 **`LogbookEvidence.says` is optional**, since a list does not read each Job's record back. `last_tripped` is the latest time a Job tripped on the entry, read off its evidence.
+**`LogbookEntry.title` is optional**, added 28 Oct 2026: a few words Distil writes with the entry, absent on one written before titles were until a later Distil run gives it one.
+A Bridge that predates it ignores the field.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.

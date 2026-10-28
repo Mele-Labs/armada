@@ -34,6 +34,8 @@ export type LogbookEntry = {
   /** The repository's root, on a `repo` entry only. */
   repository?: string;
   kind: LogbookKind;
+  /** A few words naming it, as its line in the log reads. Absent on an entry written before titles were. */
+  title?: string;
   /** One or two lines saying what to do. */
   text: string;
   /** Where it applies, so a subagent working there is handed it. */

@@ -14,6 +14,7 @@ fn entry(id: &str, section: LogbookSection, kind: LogbookKind, text: &str, paths
         section,
         repository: None,
         kind,
+        title: None,
         text: text.to_string(),
         paths,
         evidence: Vec::new(),

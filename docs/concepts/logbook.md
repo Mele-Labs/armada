@@ -124,10 +124,13 @@ Standing entries reach agents three ways.
 
 **The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it.
 Nothing else is asked of him.
-**The page has two parts**: what agents know, one panel per repository and then Habits and This Mac, and below it Armada fixes, the [retro](retro.md) items: what got in a Job's way and where its fix lands.
-Three tabs say which entries the panels hold: In use, the entries handed to every new Job, which is where the page opens; New, the candidates; and Archived, the faded ones.
-An entry draws the same in each tab, and its state shows in the open entry.
-Armada fixes stays below in every tab.
+**The page reads as a log.** On the left, one table of entries, a line each: its kind as a code, its title, its flags, how many Jobs confirmed it and when one last did.
+A row heads each repository's entries, then Habits' and This Mac's, and the column head and that row stay as the table scrolls.
+On the right, the open entry under its own head, which holds its kind, id, flags and the acts. Its title stays above, and its rule, its record and its evidence, a row a Job, scroll under it.
+Three tabs say which entries the log holds: In use, the entries handed to every new Job, which is where the page opens; New, the candidates; and Archived, the faded ones.
+A fourth, Retros, holds the [retro](retro.md) items in place of the entries: what got in a Job's way and where its fix lands, drawn as a log and the item open beside it.
+**An entry's title is a few words naming it**, written by Distil with the entry.
+An entry written before titles were is given one on a later Distil run, and until then its line reads the first clause of its rule.
 
 | Act | Does |
 |---|---|
