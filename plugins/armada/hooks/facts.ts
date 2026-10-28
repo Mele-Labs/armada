@@ -112,6 +112,36 @@ export function pagesOpenedIn(command: string): string[] {
   return pages
 }
 
+/** A browser the agent drove outside Bridge: `tool` as the owner reads it, and the address the call named. */
+export type OutsideBrowser = { tool: 'cmux' | 'Playwright'; address?: string }
+
+/**
+ * Whether a shell line drives cmux's browser (`cmux browser ...`, behind `&&`, `;` or env prefixes),
+ * and the first http(s) address it names. A test suite's `playwright test` is not a browser the owner could share.
+ */
+export function cmuxBrowserIn(command: string): OutsideBrowser | undefined {
+  for (const segment of command.replace(/&&|\|\|/g, ';').split(/[;|\n]/)) {
+    const words = segment
+      .split(/\s+/)
+      .filter(word => word !== '')
+      .map(word => word.replace(/^['"]+|['"]+$/g, ''))
+    while (/^\w+=/.test(words[0] ?? '')) words.shift()
+    if (words[0] !== 'cmux') continue
+    const rest = words.slice(1).filter(word => !word.startsWith('-'))
+    if (rest[0] !== 'browser') continue
+    const address = words.find(word => /^https?:\/\//.test(word))
+    return address === undefined ? { tool: 'cmux' } : { tool: 'cmux', address }
+  }
+  return undefined
+}
+
+/** Whether a tool call reaches for a browser outside Bridge: cmux's skill, or Playwright's browser tools over MCP. */
+export function outsideBrowserOf(tool: string, input: Record<string, unknown>): OutsideBrowser | undefined {
+  if (tool === 'Skill') return /(^|:)cmux-browser$/.test(String(input.skill)) ? { tool: 'cmux' } : undefined
+  if (!/^mcp__.*playwright.*__browser_/i.test(tool)) return undefined
+  return typeof input.url === 'string' && input.url !== '' ? { tool: 'Playwright', address: input.url } : { tool: 'Playwright' }
+}
+
 // A harness wraps what it adds to a prompt in hyphenated tags. A command's and a reminder's
 // contents are the harness's words, so the whole block goes; any other wrapper, such as
 // `<agent-message from="…">`, only loses its tag and the words inside are the person's.

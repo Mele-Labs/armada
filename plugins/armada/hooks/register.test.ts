@@ -1812,3 +1812,87 @@ test('a Drone tells no Loadout and no use', async ($, on) => {
 
   expect(posts).toEqual([])
 })
+
+const outside = (posts: Posted[]) => facts(posts).filter(fact => fact.kind === 'browser_outside')
+
+test('a cmux browser call is allowed, told to Fleet once and answered with the Job browser reminder', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const ran = await $.tool.call({ tool: 'Bash', command: 'CMUX_X=1 cmux browser open https://example.com/a?b=1 && echo done' })
+  await clock.settle()
+
+  expect(ran.deny).toBeUndefined()
+  expect(ran.text).toBe('ok')
+  expect(ran.context).toEqual([expect.stringContaining('Job browser')])
+  expect(outside(posts)).toEqual([{ kind: 'browser_outside', tool: 'cmux', address: 'https://example.com/a?b=1' }])
+})
+
+test('a Playwright browser tool is told to Fleet with the address it names', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'mcp__plugin_playwright_playwright__browser_navigate' }, () => ({ result: {}, text: 'navigated' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const ran = await $.tool.call({ tool: 'mcp__plugin_playwright_playwright__browser_navigate', url: 'http://localhost:5173/' } as never)
+  await clock.settle()
+
+  expect(ran.deny).toBeUndefined()
+  expect(ran.context).toEqual([expect.stringContaining('browser_open')])
+  expect(outside(posts)).toEqual([{ kind: 'browser_outside', tool: 'Playwright', address: 'http://localhost:5173/' }])
+})
+
+test('the cmux-browser skill is told to Fleet without an address', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Skill' }, () => ({ result: { success: true, commandName: 'cmux-browser' }, text: '' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  await $.tool.call({ tool: 'Skill', skill: 'cmux-browser' })
+  await clock.settle()
+
+  expect(outside(posts)).toEqual([{ kind: 'browser_outside', tool: 'cmux' }])
+})
+
+test('a second browser call in the same session is not told again and carries no reminder', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, text: 'ok' }))
+  on('tool.call', { tool: 'mcp__plugin_playwright_playwright__browser_click' }, () => ({ result: {}, text: 'clicked' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  await $.tool.call({ tool: 'Bash', command: 'cmux browser snapshot' })
+  const again = await $.tool.call({ tool: 'mcp__plugin_playwright_playwright__browser_click', ref: 'e3' } as never)
+  await clock.settle()
+
+  expect(again.context).toBeUndefined()
+  expect(outside(posts)).toHaveLength(1)
+})
+
+test('a Playwright test run in a shell is not a browser outside Bridge', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const ran = await $.tool.call({ tool: 'Bash', command: 'pnpm exec playwright test --project=chromium' })
+  await $.tool.call({ tool: 'Bash', command: 'cmux notify done' })
+  await clock.settle()
+
+  expect(ran.context).toBeUndefined()
+  expect(outside(posts)).toEqual([])
+})
+
+test('a Drone is not reminded of the Job browser', async ($, on) => {
+  const { posts, clock } = world(on, { env: { ARMADA_DRONE: '1' } })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+
+  const ran = await $.tool.call({ tool: 'Bash', command: 'cmux browser open https://example.com' })
+  await clock.settle()
+
+  expect(ran.context).toBeUndefined()
+  expect(posts).toEqual([])
+})

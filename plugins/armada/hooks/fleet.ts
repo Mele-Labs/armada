@@ -70,6 +70,7 @@ export type Fact =
   | { kind: 'permission_asked'; tool: string; detail?: string }
   | { kind: 'permission_settled' }
   | { kind: 'ended'; reason: string }
+  | { kind: 'browser_outside'; tool: 'cmux' | 'Playwright'; address?: string }
   // The Loadout: the whole list, replacing the last, and one use in the turn it began in.
   | { kind: 'equipped'; loadout: { items: LoadoutItem[] } }
   | { kind: 'used'; use: LoadoutUse }

@@ -5,7 +5,9 @@ import {
   artifactOf,
   backgroundEndOf,
   backgroundOf,
+  cmuxBrowserIn,
   commitIn,
+  outsideBrowserOf,
   effortOf,
   ghAct,
   ghIssueCreate,
@@ -641,4 +643,20 @@ test('a skill or subagent used is sourced from the listing, else by its prefix, 
   expect(agentUseOrigin('reviewer', 'engine', breakdown)).toEqual({ source: 'repository' })
   expect(agentUseOrigin('Explore', 'engine', breakdown)).toEqual({ source: 'built_in' })
   expect(agentUseOrigin('judge', 'armada', breakdown)).toEqual({ source: 'armada' })
+})
+
+test('cmux browser acts are told from other cmux commands and from a Playwright test run', () => {
+  expect(cmuxBrowserIn('cmux browser open https://example.com')).toEqual({ tool: 'cmux', address: 'https://example.com' })
+  expect(cmuxBrowserIn('cd web && cmux browser surface:2 snapshot')).toEqual({ tool: 'cmux' })
+  expect(cmuxBrowserIn('X=1 cmux --json browser click e2; true')).toEqual({ tool: 'cmux' })
+  expect(cmuxBrowserIn('cmux notify "browser ready"')).toBeUndefined()
+  expect(cmuxBrowserIn('pnpm exec playwright test')).toBeUndefined()
+})
+
+test('an MCP tool is a browser outside Bridge when Playwright names it so', () => {
+  expect(outsideBrowserOf('mcp__plugin_playwright_playwright__browser_click', {})).toEqual({ tool: 'Playwright' })
+  expect(outsideBrowserOf('mcp__playwright__browser_navigate', { url: 'http://localhost:1/' })).toEqual({ tool: 'Playwright', address: 'http://localhost:1/' })
+  expect(outsideBrowserOf('mcp__github__get_me', {})).toBeUndefined()
+  expect(outsideBrowserOf('Skill', { skill: 'cmux:cmux-browser' })).toEqual({ tool: 'cmux' })
+  expect(outsideBrowserOf('Skill', { skill: 'cmux' })).toBeUndefined()
 })
