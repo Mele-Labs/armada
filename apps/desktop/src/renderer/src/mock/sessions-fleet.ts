@@ -61,6 +61,7 @@ import { removedSaid } from "./sessions/removed";
 import { onTimePassing } from "./time-passes";
 import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
+import { skipStep } from "./skip-step";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
@@ -363,6 +364,7 @@ export class FakeSessionsFleet {
             return begun;
           },
           setSessionWorkflow: async (sessionId, workflow) => this.change(sessionId, ({ workflow: _was, ...one }) => (workflow === undefined ? one : { ...one, workflow })),
+          skipSessionStep: async (sessionId, step, skipped) => this.skipping(sessionId, step, skipped),
           readSessionWait: async (sessionId, request) => {
             this.calls.readWaits.push({ sessionId, request });
             return { ok: true, value: this.reading };
@@ -744,6 +746,22 @@ export class FakeSessionsFleet {
 
   private publishThreads(): void {
     this.fleet?.publish({ sessionThreads: this.threads });
+  }
+
+  /** `skip_session_step` as Fleet takes it (`skip-step.ts`), against the steps of the workflow the record follows. */
+  private skipping(sessionId: string, step: number, skipped: boolean): SessionActed {
+    const found = this.records.find((one) => one.id === sessionId);
+    if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const steps = this.fleet?.state().holds.workflows.find((one) => one.id === found.workflow && (found.manifest_id === undefined || one.manifest_id === found.manifest_id))?.steps.length ?? 0;
+    const stands = skipStep({ at: found.workflow_step, skipped: found.skipped_steps ?? [] }, steps, step, skipped);
+    if (stands === undefined) {
+      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_step_not_skippable", message: `step ${step} is not one this Job can skip` } } as never };
+    }
+    return this.change(sessionId, ({ skipped_steps: _was, ...one }) => {
+      // A step the Job moves onto is a visit begun now, so what it makes next stands under it.
+      const moved = stands.at !== undefined && stands.at !== one.workflow_step ? { workflow_visits: [...(one.workflow_visits ?? []), { step: stands.at, since: new Date().toISOString() }] } : {};
+      return { ...one, ...(stands.skipped.length === 0 ? {} : { skipped_steps: stands.skipped }), ...(stands.at === undefined ? {} : { workflow_step: stands.at }), ...moved };
+    });
   }
 
   private change(sessionId: string, how: (one: SessionRecord) => SessionRecord): SessionActed {

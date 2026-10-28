@@ -40,3 +40,23 @@ test("the Merge line frames the open Session's pull request, and the frame moves
   await open("Retry the slot lease");
   await expect.poll(related).toEqual([expect.stringMatching(/^#2390/)]);
 });
+
+// The owner, 28 Oct 2026: the open Session's pull requests were framed in the line but drew too little to see. A related chip stands on a ground, in an edge and a weight a plain one does not.
+test("the open Session's pull request chip is drawn apart from the others", async () => {
+  mount("session-view-feedback");
+  await onScreen();
+  await open("Rotate the audit log");
+  await expect.poll(related).toHaveLength(1);
+  const look = (chip: Element) => {
+    const style = getComputedStyle(chip);
+    return { ground: style.backgroundColor, edge: style.borderTopColor, weight: style.fontWeight };
+  };
+  const chips = [...queue().element().querySelectorAll("button.deck-chip")];
+  const mine = look(chips.find((chip) => chip.hasAttribute("data-related"))!);
+  for (const other of chips.filter((chip) => !chip.hasAttribute("data-related"))) {
+    const plain = look(other);
+    expect(mine.ground).not.toBe(plain.ground);
+    expect(mine.edge).not.toBe(plain.edge);
+    expect(mine.weight).not.toBe(plain.weight);
+  }
+});

@@ -13,7 +13,7 @@
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { ListTree, PencilRuler } from "lucide-react";
+import { ListTree, PencilRuler, SkipForward } from "lucide-react";
 import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import { owesOf, type Session, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
@@ -42,6 +42,7 @@ import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
 import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
+import { SkipStep, skipMenu } from "./StepSkip";
 import { SvPanel, type PanelState } from "./SvPanel";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
 import { WatchingBlock } from "./WatchingBlock";
@@ -351,11 +352,32 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
       </div>
     );
 
+  // A step the person skipped stays on the spine, muted, with its Undo. Skip is offered on the current step and the ones to come, never on the last,
+  // which delivers, nor on one finished.
+  const skippedSteps = new Set(work.workflow?.skipped ?? []);
+  const skipOf = (i: number, skipped: boolean) => (acts?.skip === undefined ? undefined : () => acts.skip?.(id, i, !skipped));
+  const skippedMark = (
+    <Tooltip asChild label="Skipped">
+      <span className="sv-panel__mark sv-panel__mark--skipped" role="img" aria-label="Skipped">
+        <SkipForward size={16} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+
   const stepZones = !stepped
     ? []
     : flow.map((name, i) => {
         const state = stateOf(i, at);
         const last = i === flow.length - 1;
+        const isSkipped = skippedSteps.has(i) && !last;
+        const press = last ? undefined : skipOf(i, isSkipped);
+        // Fleet moves the current step past a skipped one; were it ever at one, it is drawn as current, with its Undo.
+        if (isSkipped && state !== "now") {
+          return (
+            <SvPanel key={`${i}-${name}`} label={name} area={state === "done" ? "step-done" : "step-next"} place="side" marker={skippedMark} skipped acts={press === undefined ? undefined : <SkipStep skipped onPress={press} />} menu={press === undefined ? undefined : skipMenu(true, press)} />
+          );
+        }
+        const skipping = press === undefined || state === "done" ? undefined : { acts: <SkipStep skipped={isSkipped} onPress={press} />, menu: skipMenu(isSkipped, press) };
         if (state === "done") {
           const list = doneIn(i);
           const open = own[i] ?? doneFold.open;
@@ -377,7 +399,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           // Before the first step is reached nothing is finished under another step, so what is finished stands here.
           const early = lastDone < 0 ? finishedThings : [];
           return (
-            <SvPanel key={`${i}-${name}`} label={name} area="step-now" place="side" state={nowState} acts={nowActs} fold={nowFold} keycap={bandKeyFor("now")}>
+            <SvPanel key={`${i}-${name}`} label={name} area="step-now" place="side" state={nowState} acts={<>{nowActs}{skipping?.acts}</>} menu={skipping?.menu} skipped={isSkipped} fold={nowFold} keycap={bandKeyFor("now")}>
               <>
                 {early.length === 0 ? null : underDone(early)}
                 {nowBody}
@@ -401,7 +423,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           );
         }
         return (
-          <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
+          <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" acts={skipping?.acts} menu={skipping?.menu} fold={nextFold} keycap={bandKeyFor("next")}>
             {!last && !(WALK_STEP.test(name) && walks.length === 0) ? undefined : (
               <>
                 {WALK_STEP.test(name) && walks.length === 0 ? <WalkToCome /> : null}

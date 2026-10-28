@@ -152,5 +152,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
+        skipped_steps: Vec::new(),
     }
 }

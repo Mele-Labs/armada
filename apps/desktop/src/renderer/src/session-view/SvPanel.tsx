@@ -2,9 +2,10 @@
 // `asks` is what the person is owed, `draft` is a plan waiting on its approval, `live` is work going on, `done` is work finished, `failed` is work that broke, and none is a panel at rest.
 // `place` is where it stands (the Cockpit's left column, its right column, its foot), which decides how its body is laid out.
 
-import { type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { GraduationCap } from "lucide-react";
 
-import { Tooltip, useTeachMenu } from "@armada/components";
+import { DropdownMenu, Tooltip, useTeachMenu, type DropdownMenuEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 
 import { useCollapse } from "../cockpit/deck/collapse";
@@ -40,7 +41,12 @@ function StateMark({ state, said }: { state: PanelState; said: string }) {
 /** The layout entry each kind of step zone answers to: finished steps to Completed, the current one to Now, the ones to come to Next. */
 const STEP_ZONE: Readonly<Record<string, string>> = { "step-done": "done", "step-now": "now", "step-next": "next" };
 
-export function SvPanel({ label, state, acts, place, area, fold, keycap, marker, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; /** The story's say on whether the panel is open and whether the stage is at it: open at every stage unless pressed shut, and the current one takes the larger share (`story.ts`). */ fold?: Fold | undefined; /** The key that opens and folds the panel, named on the label's tooltip. */ keycap?: string | undefined; /** A mark of its own on the spine line, in place of the dot. */ marker?: ReactNode; children?: ReactNode }) {
+/** What the band's own menu offers, on a right press or the ContextMenu key or Shift+F10 on the band. Teach joins it where the window offers Teach. */
+export type BandMenu = { entries: readonly DropdownMenuEntry[]; onSelect: (id: string) => void };
+
+const opensMenu = (event: KeyboardEvent<HTMLElement>) => event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+
+export function SvPanel({ label, state, acts, place, area, fold, keycap, marker, skipped, menu, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; /** The story's say on whether the panel is open and whether the stage is at it: open at every stage unless pressed shut, and the current one takes the larger share (`story.ts`). */ fold?: Fold | undefined; /** The key that opens and folds the panel, named on the label's tooltip. */ keycap?: string | undefined; /** A mark of its own on the spine line, in place of the dot. */ marker?: ReactNode; /** A step the person skipped: drawn muted, with the word. */ skipped?: boolean; menu?: BandMenu | undefined; children?: ReactNode }) {
   // Pressing the band folds the panel to it.
   const { collapsed: kept, band: own } = useCollapse(area);
   const collapsed = fold !== undefined ? !fold.open : kept;
@@ -50,6 +56,7 @@ export function SvPanel({ label, state, acts, place, area, fold, keycap, marker,
   const placed = useLayout("job.panels").all.find((one) => one.id === listed);
   const teachBridge = useTeachBridge();
   const teach = useTeachMenu(`Panel ${label}`, teachBridge === undefined ? undefined : () => teachBridge("panel", label, [area]));
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; from: HTMLElement } | undefined>(undefined);
   if (placed !== undefined && !placed.visible) return null;
   const pressed = (expanded: boolean, flip: () => void) => ({
     role: "button",
@@ -65,10 +72,43 @@ export function SvPanel({ label, state, acts, place, area, fold, keycap, marker,
       flip();
     },
   });
-  const band = fold !== undefined ? pressed(fold.open, fold.toggle) : own;
+  const folding = fold !== undefined ? pressed(fold.open, fold.toggle) : own;
+  // The band's menu is opened before the frame's Teach menu sees the press, which a press already handled leaves shut.
+  const band =
+    menu === undefined
+      ? folding
+      : {
+          ...folding,
+          onContextMenu: (event: MouseEvent<HTMLElement>) => {
+            event.preventDefault();
+            setMenuAt({ x: event.clientX, y: event.clientY, from: event.currentTarget });
+          },
+          onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+            if (!opensMenu(event)) return folding.onKeyDown?.(event);
+            event.preventDefault();
+            const box = event.currentTarget.getBoundingClientRect();
+            setMenuAt({ x: box.left + box.width / 2, y: box.bottom, from: event.currentTarget });
+          },
+        };
+  const bandMenu =
+    menu === undefined || menuAt === undefined ? null : (
+      <DropdownMenu
+        triggerLabel={label}
+        at={{ x: menuAt.x, y: menuAt.y }}
+        open
+        entries={[...menu.entries, ...(teachBridge === undefined ? [] : [{ kind: "separator" as const, id: "teach-rule" }, { kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }])]}
+        onOpenChange={(open) => {
+          if (open) return;
+          setMenuAt(undefined);
+          menuAt.from.focus();
+        }}
+        onSelect={(chosen) => (chosen === "teach" ? teachBridge?.("panel", label, [area]) : menu.onSelect(chosen))}
+      />
+    );
   return (
-    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-current={fold?.current || undefined} data-marked={marker !== undefined || undefined} data-band-only={children === undefined || undefined} aria-label={label} {...teach.on}>
+    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-current={fold?.current || undefined} data-marked={marker !== undefined || undefined} data-band-only={children === undefined || undefined} data-skipped={skipped || undefined} aria-label={label} {...teach.on}>
       {teach.menu}
+      {bandMenu}
       <header className="sv-panel__band" {...band}>
         {marker}
         {state === undefined ? null : <StateMark state={state} said={SAID[area]?.[state] ?? MARK[state].said} />}
@@ -79,6 +119,7 @@ export function SvPanel({ label, state, acts, place, area, fold, keycap, marker,
             <h3 className="sv-panel__label">{label}</h3>
           </Tooltip>
         )}
+        {skipped === true ? <span className="sv-panel__skipped">Skipped</span> : null}
         {acts === undefined ? null : <span className="sv-panel__acts">{acts}</span>}
       </header>
       <div className="sv-panel__body">{children}</div>

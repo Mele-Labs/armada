@@ -461,8 +461,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 /* Selected is told by its shape: the text colour's frame on a raised ground. */
 .deck-chip[data-selected] { border-color: var(--select-edge, var(--fg-default)); background: var(--select-ground, var(--bg-hover)); color: var(--fg-default); font-weight: var(--weight-heading); }
-/* A pull request of the Session that is open reads in the full ink with a stronger edge; picked as well, it is framed too. */
-.deck-chip[data-related] { border-color: var(--border-strong); color: var(--fg-default); }
+/* A pull request of the Session that is open reads in the full ink on a raised ground with a text-colour edge; picked as well, its edge is the stronger one. */
+.deck-chip[data-related] { border-color: var(--select-edge, var(--fg-default)); background: color-mix(in srgb, var(--fg-default) 22%, transparent); color: var(--fg-default); font-weight: var(--weight-heading); }
+.deck-chip[data-related][data-selected] { border-color: var(--fg-default); }
 .deck-chip[data-calling] { position: relative; }
 .deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; }
 .deck-chip[data-calling] .deck-chip__dot { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }

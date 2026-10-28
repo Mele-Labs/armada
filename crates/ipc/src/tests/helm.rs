@@ -165,6 +165,7 @@ fn a_helm_record() -> SessionRecord {
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
+        skipped_steps: Vec::new(),
     }
 }
 
