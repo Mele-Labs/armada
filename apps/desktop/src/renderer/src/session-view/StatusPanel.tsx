@@ -18,27 +18,27 @@ export const stateOf = (i: number, at: number | undefined) => (at === undefined 
 const WORD = { done: "done", now: "current", next: "next" } as const;
 
 /** One step as its state glyph, which names itself and its state on hover or focus: "Draft · done". The rail and the spine's step nodes (`StoryParts.tsx`) draw the same. */
-export function StepGlyph({ step, state }: { step: string; state: "done" | "now" | "next" }) {
+export function StepGlyph({ step, state, size = 12 }: { step: string; state: "done" | "now" | "next"; size?: number }) {
   const { Glyph } = MARK[state];
   const said = `${step} · ${WORD[state]}`;
   return (
     <Inspect card={<InspectCard kind={{ Glyph, label: "Step" }} title={step} state={{ said: WORD[state].charAt(0).toUpperCase() + WORD[state].slice(1) }} />} name={said} side="below" pin={false}>
       <span className="sv-rail__mark" role="img" aria-label={said}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
+        <Glyph size={size} strokeWidth={2} aria-hidden />
       </span>
     </Inspect>
   );
 }
 
 /** The workflow's steps as one line of glyphs joined by a hairline; the current one is the dotted circle. Hovering or focusing a step names it and its state. `named` writes each step's name beside its glyph. */
-export function StepRail({ steps, at, named = false }: { steps: readonly string[]; at: number | undefined; named?: boolean }) {
+export function StepRail({ steps, at, named = false, size }: { steps: readonly string[]; at: number | undefined; named?: boolean; size?: number }) {
   return (
-    <ol className="sv-rail" aria-label="Workflow" data-named={named || undefined}>
+    <ol className="sv-rail" aria-label="Workflow" data-named={named || undefined} data-large={size !== undefined || undefined}>
       {steps.map((step, i) => {
         const state = stateOf(i, at);
         return (
           <li key={step} className="sv-rail__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <StepGlyph step={step} state={state} />
+            <StepGlyph step={step} state={state} {...(size === undefined ? {} : { size })} />
             {named ? <span className="sv-rail__name">{step}</span> : null}
           </li>
         );

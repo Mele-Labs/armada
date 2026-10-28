@@ -1,11 +1,11 @@
 // The Job's right column as one story in three zones. **Completed** is what the Job has made, in the order it made it (`ledger.ts`), read By step (each finished
 // group or workflow step with its outputs beneath it) or By kind (Documents, Pull requests, Issues and Artifacts, newest first). **Now** is what it is doing
-// this minute: the brief and the agent before any plan, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
+// this minute: the agent, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
 // which pulses. **Next** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
 // ci, the merge queue, main; a document; a mod and its Check; findings) and the follow-ups not yet settled. The plan is the spine: a finished group moves to
 // Completed carrying what it produced, and a pending output moves there when its data arrives.
 //
-// The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
+// The Brief is the first beat on the spine, above Completed, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
@@ -23,7 +23,8 @@ import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
 import { Mark } from "./DeliveryRoute";
-import { Brief, briefOf, FlightRows } from "./FlightPlan";
+import { BriefZone } from "./BriefZone";
+import { briefOf, FlightRows } from "./FlightPlan";
 import { LaterBlock } from "./LaterBlock";
 import { WALK_STEP, byKind, madeOf, reportOf, stepOf, type Made } from "./ledger";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
@@ -132,19 +133,13 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const switcher = <LedgerToggle view={view} onChange={setView} />;
 
   // A zone with nothing in it is its band alone: an empty slot stays empty.
-  const briefHere = brief !== undefined && plan !== undefined;
-  const hasDone = view === "step" ? briefHere || workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
+  const hasDone = view === "step" ? workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
   const done = (
     <SvPanel label="Completed" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
       {!hasDone ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {view === "step" ? (
           <ol className="sv-beats" aria-label="By step">
-            {!briefHere ? null : (
-              <li className="sv-beat sv-beat--brief">
-                <Brief text={brief} />
-              </li>
-            )}
             {workflowDone.map((name) => {
               const list = made.filter((one) => underStep(one) === name);
               return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} newest="last" /> })} />;
@@ -212,7 +207,6 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         {checking.map((one) => (one.kind === "check" ? <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system /> : null))}
         {failedCheck === undefined ? null : <WorkBeat mark={<Mark state="failed" />} name={failedCheck.name} system />}
       </ul>
-      {plan !== undefined || brief === undefined ? null : <Brief text={brief} />}
       {tasks.length === 0 ? null : <AgentTasks tasks={tasks} />}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
       {session.live === undefined || live === undefined ? null : (
@@ -282,6 +276,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   return (
     <Spine session={session}>
       {head === null ? null : <div className="sv-story__head">{head}</div>}
+      {brief === undefined ? null : <BriefZone key={session.id} session={session} work={work} text={brief} onOpenSession={onOpenSession} />}
       {drawn}
     </Spine>
   );

@@ -578,6 +578,8 @@ export type Session = {
   effort?: string;
   /** The permission mode. **A Session runs in auto**, so absent is auto. */
   mode?: SessionMode;
+  /** How the Job was started, read at the top of its story under the Brief. Absent falls back to what the Job holds now. A row left out is not drawn. */
+  started?: { workflow?: string; delivery?: DeliveryChoice; model?: string; effort?: string; mode?: SessionMode; /** The Job it was started from. */ by?: { job: string; title: string } };
   /** The plan, workflow, subagents and concerns the view draws round the thread. Absent draws the thread and its ledger as before. */
   work?: SessionWork;
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
