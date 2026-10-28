@@ -390,7 +390,7 @@ export function App() {
   useOpenModAsked((kind) => (openSystemEntry(`bridge:${kind}`), goTo(SURFACE.settings))); // A taught entry's mod, opened in Mods.
 
   function goTo(requested: string): void {
-    // Retros is the Logbook's Armada fixes: every way to the old page arrives there, with that part in view.
+    // Retros is the Logbook's Retros tab: every way to the old page arrives there, on that tab.
     if (requested === SURFACE.lessons) askForFixes();
     const place = requested === SURFACE.lessons ? SURFACE.logbook : requested;
     // The Sessions page is the Cockpit's list: ⌘3, a Sessions link and the palette arrive there with focus on it. Jobs has no page.

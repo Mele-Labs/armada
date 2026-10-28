@@ -210,7 +210,7 @@ mark until the press answers.
 
 | Where | What |
 | --- | --- |
-| **Armada fixes**, the lower part of the Logbook tab (glyph `rewind`, Proposed, on the palette's row) | `list_lessons`, narrowed to the picker's pick and every repository on All, in one list, newest first, with no place tabs. Each card carries its word, Armada, Kit or Manifest, and its own acts. Each item is a card; a Job's row reads `Title · s-xxxxxxxx` and opens that Job's retro |
+| **Retros**, a tab of the Logbook (glyph `rewind`, Proposed, on the palette's row) | `list_lessons`, narrowed to the picker's pick and every repository on All, newest first, with no place tabs. On the left a log, a line an item: whose way it got in and where its fix lands, its title, its Job and when it was written. On the right the open item's card with its own acts, and its record; its Job opens that Job's retro |
 | **Retro**, in a Job's thread | One card that stays, below |
 
 Both read when they open and again when the window regains focus, because

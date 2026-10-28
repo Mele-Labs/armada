@@ -1,5 +1,5 @@
 // The Logbook surface, as the window draws it: every repository's Logbook, Habits and This Mac, read on open, and
-// Armada fixes below them (`docs/concepts/logbook.md`). Apart from `App.tsx`, which is at its length.
+// the retro items on their Retros tab (`docs/concepts/logbook.md`). Apart from `App.tsx`, which is at its length.
 
 import { useCallback, useState } from "react";
 
@@ -22,7 +22,7 @@ export function LogbookSurface({
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
 }) {
-  // Armada fixes comes into view when something asked for it before this page opened, and again when it is asked of the open page.
+  // The Retros tab opens when something asked for it before this page opened, and again when it is asked of the open page.
   const [toFixes, setToFixes] = useState(() => (takeFixesAsked() ? 1 : 0));
   useFixesAsked(useCallback(() => setToFixes((was) => was + 1), []));
   return (

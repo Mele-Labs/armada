@@ -110,17 +110,20 @@ test("A refused retro says why and opens nothing", async () => {
   await expect.element(sheet()).not.toBeInTheDocument();
 });
 
-test("Closed, the retro's items stay on the Retros page beside the other Sessions', each from its Session and as the agent's way", async () => {
+test("Closed, the retro's items stay on the Logbook's Retros tab beside the other Sessions', each from its Session and as the agent's way", async () => {
   mount(s205SessionRetro);
   await onScreen();
   await writeAndOpen();
   await expect.element(sheet()).toBeVisible();
   await userEvent.click(sheet().getByRole("button", { name: "Close" }));
 
-  const list = page.getByRole("list", { name: "Retros" });
-  await expect.element(list.getByRole("button", { name: "Fix the flaky store test · s-01IDLECC" }).first()).toBeVisible();
-  await expect.element(list.getByRole("button", { name: /^Retire guides 8 and 20/ }).first()).toBeVisible();
-  await expect.element(list.getByRole("listitem", { name: "A restart of Fleet killed the subagents" }).getByText("Agent", { exact: true }).last()).toBeVisible();
+  // The Logbook's Retros tab is open behind the sheet: a line for each item, from its Job, the retro's own and the others'.
+  const list = page.getByRole("grid", { name: "Retros" });
+  await expect.element(list.getByRole("row", { name: /A restart of Fleet killed the subagents.*Fix the flaky store test · s-01IDLECC/ }).first()).toBeVisible();
+  await expect.element(list.getByRole("row", { name: /Retire guides 8 and 20/ }).first()).toBeVisible();
+  // The open item's record names whose way it was.
+  await list.getByRole("row", { name: /A restart of Fleet killed the subagents/ }).first().click();
+  await expect.element(page.getByRole("region", { name: "Retro item" }).getByRole("table", { name: "Record" }).getByText("Agent", { exact: true })).toBeVisible();
 });
 
 test("A Session's read honours n: the numbered retro, the newest without it, and an unknown n refused", async () => {
