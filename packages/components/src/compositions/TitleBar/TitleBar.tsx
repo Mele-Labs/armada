@@ -1,4 +1,4 @@
-import { Activity, BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, Check, FolderGit2, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
@@ -379,16 +379,22 @@ export function TitleBar({
         ) : (
           // The name is the picker: it opens the repository list, and the Manifest's icon follows it.
           <span ref={parts.repository} className="armada-title-bar__repository" data-picker="">
+            <span className="armada-title-bar__repository-chip">
+            <span className="armada-title-bar__repository-glyph" aria-hidden>
+              <FolderGit2 size={16} strokeWidth={2} />
+            </span>
             <DropdownMenu
               plain
               portal
               align="start"
               triggerLabel={repository}
               triggerAriaLabel="Repository"
+              triggerDetail=""
               searchLabel="Find a repository"
               entries={repositoryMenu.entries}
               onSelect={repositoryMenu.onSelect}
             />
+            </span>
             {repositoryMenu.manifest === undefined ? null : (
               <Tooltip label={repositoryMenu.manifest.label} asChild>
                 <Button variant="ghost" size="sm" iconOnly aria-label={repositoryMenu.manifest.label} disabled={repositoryMenu.manifest.disabled} onClick={repositoryMenu.manifest.onOpen}>
