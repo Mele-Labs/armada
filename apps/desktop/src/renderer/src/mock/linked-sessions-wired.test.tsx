@@ -1,6 +1,6 @@
-// Linked Sessions on a real Fleet's path, through `App`: the plan comes off the Session's record, Hand to a Job on a group that has none
-// is `hand_to_session` to Fleet, and the Session Fleet starts stands on that group in Now, in the Artifacts layer and under its
-// parent in Work, all read off the `detail.group` of the two link rows.
+// Linked Sessions on a real Fleet's path, through `App`: the plan comes off the Session's record, and the Session Fleet says was
+// handed a group stands on that group in Now, in the Artifacts layer and under its parent in Work, all read off the `detail.group`
+// of the two link rows. A group with none offers no hand off, since only the agent hands one.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -62,14 +62,12 @@ test("a Session Fleet says was handed a group stands on that group, in the Ledge
   await expect.element(work.getByLabelText("Linked Job, handed from Name the migrations")).toBeVisible();
 });
 
-test("Hand to a Job on a group not handed is hand_to_session, and the Session it starts stands on the group", async () => {
+test("a group not handed opens with no Hand to a Job, and nothing is handed to Fleet", async () => {
   const served = fleet();
   await open(served);
   const plan = page.getByRole("region", { name: "Now", exact: true });
   await plan.getByRole("button", { name: "Whole plan", exact: true }).click();
   await plan.getByRole("button", { name: "Apply them in order", exact: true }).click();
-  await userEvent.click(plan.getByRole("button", { name: "Hand to a Job" }));
-  await expect.poll(() => served.calls.handed).toEqual([{ sessionId: PARENT, group: "g2" }]);
-  await expect.element(plan.getByRole("region", { name: "Apply them in order", exact: true }).getByRole("button", { name: "Open Apply them in order" })).toBeVisible();
   await expect.element(plan.getByRole("button", { name: "Hand to a Job" })).not.toBeInTheDocument();
+  expect(served.calls.handed).toEqual([]);
 });

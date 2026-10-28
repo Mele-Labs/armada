@@ -441,17 +441,31 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
 /// The step the Job stopped on, where only its own act ends it: the turn ended on a reply that asks
 /// nothing, nothing waits on the person, and what ends the step is something the Job does. Fleet never
 /// moves such a step, so a Job waiting for the move waits for good. Read from the row, never the words.
+/// **A delivering step with no pull request opened is the Job's too**: the merge that ends it is not, but
+/// nothing reaches the merge until the Job delivers.
 pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord) -> Option<(usize, rail_ends::End)> {
     if record.standing != Some(SessionStanding::Replied) || !record.waiting_for.is_empty() {
         return None;
     }
     let at = record.workflow_step? as usize;
+    if steps.get(at)?.delivers {
+        return (!Facts::of(record, Extra::default()).pr_opened).then_some((at, rail_ends::End::Undelivered));
+    }
     let end = rail_ends::end_of(steps, at).filter(|end| end.by_the_job())?;
     Some((at, end))
 }
 
 /// The one message to a Job stopped on a step only it can end.
 pub(crate) fn stall_nudge(workflow: &str, step: &RailStep, end: rail_ends::End) -> String {
+    if end == rail_ends::End::Undelivered {
+        return format!(
+            "Fleet: this Job follows the {workflow} workflow, and your turn ended on its \"{}\" step with no pull \
+             request opened and nothing asked or shown. Deliver now, the way the person chose: with Auto land or \
+             Open PR only, open the pull request; with Keep local, call finish_up and then all_done. If you are \
+             waiting on work you started, or the person said to wait, carry on.",
+            step.label
+        );
+    }
     format!(
         "Fleet: this Job follows the {workflow} workflow, and your turn ended on its \"{}\" step with nothing \
          asked or shown. This step ends when {}, and Fleet does not move it for you. Do that now, or ask the \
@@ -470,6 +484,14 @@ pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Optio
     let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label);
     if let Some(end) = rail_ends::end_of(steps, at) {
         said.push_str(&format!("\n\nThis step ends when {}.", end.for_agent()));
+        // A Job that pushed and stopped, waiting to be told to deliver, sat idle (28 Oct 2026).
+        if let Some(next) = steps.get(at + 1).filter(|next| next.delivers && end.by_the_job()) {
+            said.push_str(&format!(
+                " Then carry straight on with its \"{}\" step in the same turn, the way the person chose to deliver: \
+                 do not end your turn to wait for Fleet's message.",
+                next.label
+            ));
+        }
     }
     Some(said)
 }
