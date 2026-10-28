@@ -1,12 +1,12 @@
-// The Logbook page: what agents know, read on open, and Armada fixes below it. `docs/concepts/logbook.md`.
+// The Logbook page: what agents know, read on open, and the retro items on their own tab. `docs/concepts/logbook.md`.
 //
 // **Nothing in the entries waits on the owner.** He reads an entry and its evidence, and can edit, lock or forget it.
-// Each act goes to Fleet and the entry is drawn as it came back. Armada fixes, the retro items, is the host's (`fixes`).
+// Each act goes to Fleet and the entry is drawn as it came back. The retro items are the host's (`fixes`).
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { LogbookView } from "@armada/components";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState, LogbookTidied, LogbookTidy, LogbookTidyLast, Outcome } from "@armada/protocol";
+import { LogbookView, type LogbookShown } from "@armada/components";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy, LogbookTidyLast, Outcome } from "@armada/protocol";
 
 import { refusalWords } from "../refusal-words";
 import { groupsOf, orderOf } from "./groups";
@@ -23,9 +23,9 @@ export type LogbookProps = {
   onOpenJob?: (jobId: string) => void;
   /** What else an entry changed, drawn under its text. */
   also?: (entry: LogbookEntry) => ReactNode;
-  /** Armada fixes, the retro items, drawn below the entries. */
+  /** The retro items, drawn under the Retros tab while it is open. */
   fixes?: ReactNode;
-  /** Changes when something asks for Armada fixes. */
+  /** Changes when something asks for the retro items: the Retros tab opens. */
   toFixes?: number;
 };
 
@@ -48,7 +48,11 @@ type Refused = { id: string; title: string; said: string };
 
 export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, also, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
-  const [shown, setShown] = useState<LogbookState>("standing");
+  const [shown, setShown] = useState<LogbookShown>(toFixes === undefined || toFixes === 0 ? "standing" : "retros");
+  // Something asked for the retro items after the page opened: their tab opens.
+  useEffect(() => {
+    if (toFixes !== undefined && toFixes !== 0) setShown("retros");
+  }, [toFixes]);
   const [selected, setSelected] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [refused, setRefused] = useState<Refused>();
@@ -116,7 +120,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
   };
 
   const entries = held.state === "read" ? held.entries : [];
-  const panels = groupsOf(entries, shown);
+  const panels = shown === "retros" ? [] : groupsOf(entries, shown);
   const order = orderOf(panels);
   // The first entry is open until another is picked, and again after the open one is no longer drawn.
   const open = order.some((one) => one.id === selected) ? selected : order[0]?.id;

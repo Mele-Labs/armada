@@ -29,13 +29,14 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
 
 /**
- * The Logbook: what agents know, and below it what Armada got wrong. `docs/concepts/logbook.md`.
+ * The Logbook: what agents know, and on its own tab what Armada got wrong. `docs/concepts/logbook.md`.
  *
- * **Nothing in the top part asks him for anything.** He reads an entry and its evidence, and can edit, lock or forget
+ * **Nothing in the entries asks him for anything.** He reads an entry and its evidence, and can edit, lock or forget
  * it. Every repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. Three tabs say which
- * entries the panels hold: those in use, the new ones, the archived. An entry draws the same in each; its state is in the detail.
+ * entries the panels hold: those in use, the new ones, the archived. An entry draws one line in the list and whole on the right.
  *
- * Below the panels, Armada fixes holds every retro item, whether its fix lands in Armada, Kit or Manifest, drawn by the host (`fixes`).
+ * The Retros tab holds every retro item, whether its fix lands in Armada, Kit or Manifest, drawn by the host (`fixes`) only
+ * while the tab is open.
  *
  * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `l` and `f` edit, lock and
  * forget it, and `Esc` backs out a level. The tabs take the arrows when focused.
@@ -44,16 +45,19 @@ import { ageOf } from "../../time-format";
 /** One panel: a repository's Logbook, Habits, or This Mac. `hint` is what its header says on hover. */
 export type LogbookPanel = { key: string; title: string; hint: string; entries: readonly LogbookEntry[] };
 
+/** A tab: the entries in one state, or the retro items. */
+export type LogbookShown = LogbookState | "retros";
+
 export type LogbookViewProps = {
   panels: readonly LogbookPanel[];
-  /** The tab chosen: the panels hold entries in this state. */
-  shown: LogbookState;
-  onShown: (shown: LogbookState) => void;
-  /** Armada fixes, drawn by the host. Absent, the part is not drawn. */
+  /** The tab chosen: the panels hold entries in this state, or Retros holds `fixes`. */
+  shown: LogbookShown;
+  onShown: (shown: LogbookShown) => void;
+  /** The retro items, drawn by the host under the Retros tab. Absent, the tab is not drawn. */
   fixes?: ReactNode;
-  /** Changes when something asks for Armada fixes: it is scrolled to and focused. */
+  /** Changes when something asks for the retro items: their tab takes focus. */
   toFixes?: number;
-  /** The Logbook could not be read, so only Armada fixes is drawn. */
+  /** The Logbook could not be read, so only the Retros tab is drawn. */
   unread?: boolean;
   /** The entry open on the right. */
   selected?: string;
@@ -99,11 +103,27 @@ const STATE: Record<LogbookState, { Glyph: LucideIcon; said: string }> = {
   faded: { Glyph: BookDashed, said: "Faded: kept, no longer handed out" },
 };
 
-const TABS: { id: LogbookState; label: string; hint: string }[] = [
+const TABS: { id: LogbookShown; label: string; hint: string }[] = [
   { id: "standing", label: "In use", hint: "Handed to every new Job" },
   { id: "candidate", label: "New", hint: "Seen in one Job. A second Job puts it in use" },
   { id: "faded", label: "Archived", hint: "Unused for 30 days. Recall still finds it" },
 ];
+const RETROS = { id: "retros" as const, label: "Retros", hint: "What got in a Job's way, and where its fix lands" };
+
+/** One Job's evidence: its rows, newest first, under the Job once. */
+type JobEvidence = { job_id: string; job_title: string; rows: LogbookEntry["evidence"][number][] };
+
+/** The evidence one row a Job, the Job with the newest row first. */
+function byJob(evidence: LogbookEntry["evidence"]): JobEvidence[] {
+  const jobs = new Map<string, JobEvidence>();
+  for (const row of evidence) {
+    const job = jobs.get(row.job_id) ?? { job_id: row.job_id, job_title: row.job_title, rows: [] };
+    job.rows.push(row);
+    jobs.set(row.job_id, job);
+  }
+  const newest = (job: JobEvidence) => Math.max(...job.rows.map((row) => Date.parse(row.at)));
+  return [...jobs.values()].sort((a, b) => newest(b) - newest(a));
+}
 
 /** Who replaced an earlier text, in the words its line in Earlier opens with. */
 const EARLIER: Record<LogbookEarlier["by"], string> = { person: "Replaced by you", distil: "Rewritten by Armada", merged: "Merged" };
@@ -182,10 +202,9 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
     if (selected !== undefined) document.getElementById(optionId(selected))?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
-  // Something asked for Armada fixes: it comes into view and takes focus.
+  // Something asked for the retro items: their tab is the host's to open, and it takes focus once drawn.
   useEffect(() => {
     if (toFixes === undefined || toFixes === 0) return;
-    part.current?.scrollIntoView({ block: "start" });
     part.current?.focus({ preventScroll: true });
   }, [toFixes]);
 
@@ -207,14 +226,8 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
       }
       return;
     }
-    // Armada fixes keeps its own keys; Esc is the way back up to the entries.
-    if (part.current?.contains(target) === true) {
-      if (isPressed("close", event) && target !== part.current) {
-        event.preventDefault();
-        list.current?.focus();
-      }
-      return;
-    }
+    // The retro items keep their own keys.
+    if (part.current?.contains(target) === true) return;
     const inList = list.current?.contains(target) === true;
     const slot = pressedSlot("move_focus", event);
     if (slot !== -1 && inList) {
@@ -245,96 +258,92 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
     }
   }
 
+  const retros = shown === "retros" && fixes !== undefined;
+  const tabs = fixes === undefined ? TABS : [...TABS, RETROS];
   return (
     <div className="armada-logbook" onKeyDown={pressed}>
-      {unread === true ? (
+      <div className="armada-logbook__filters">
+        <Tabs items={tabs} value={shown} onChange={(id) => onShown(id as LogbookShown)} />
+        {retros || unread === true || onTidy === undefined ? null : (
+          <Tooltip label="Tidy now">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Tidy now" pending={tidying === true} onClick={onTidy}>
+              <Combine size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
+        {retros ? null : (
+          <span className="armada-logbook__tidied" role="status">
+            {tidied}
+          </span>
+        )}
+      </div>
+      {retros ? (
+        <section ref={part} className="armada-logbook__fixes" aria-label="Retros" tabIndex={-1}>
+          {fixes}
+        </section>
+      ) : unread === true ? (
         <p className="armada-logbook__unread">Fleet serves no Logbook yet.</p>
       ) : (
-        <>
-          <div className="armada-logbook__filters">
-            <Tabs items={TABS} value={shown} onChange={(id) => onShown(id as LogbookState)} />
-            {onTidy === undefined ? null : (
-              <Tooltip label="Tidy now">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Tidy now" pending={tidying === true} onClick={onTidy}>
-                  <Combine size={12} strokeWidth={2} aria-hidden />
-                </Button>
-              </Tooltip>
+        <div className="armada-logbook__page">
+          <div
+            ref={list}
+            className="armada-logbook__list"
+            role="listbox"
+            aria-label="Entries"
+            tabIndex={0}
+            aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
+          >
+            {panels.map((panel) => (
+              <div key={panel.key} className="armada-logbook__panel" role="group" aria-labelledby={`logbook-panel-${panel.key}`}>
+                <Tooltip label={panel.hint} asChild>
+                  <div className="armada-logbook__band" id={`logbook-panel-${panel.key}`}>
+                    {panel.title}
+                  </div>
+                </Tooltip>
+                {panel.entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    id={optionId(entry.id)}
+                    className="armada-logbook__row"
+                    role="option"
+                    aria-selected={entry.id === selected}
+                    onClick={() => {
+                      onSelect(entry.id);
+                      list.current?.focus();
+                    }}
+                  >
+                    <span className="armada-logbook__text">
+                      <Words text={entry.text} />
+                    </span>
+                    <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
+                    <When at={entry.last_confirmed} now={now} said="Last confirmed" fixed />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
+            {open === undefined ? null : (
+              <Detail
+                key={open.id}
+                entry={open}
+                where={panelOf(open.id)?.title ?? ""}
+                editing={editing}
+                now={now}
+                {...(refusal === undefined ? {} : { refusal })}
+                onEdit={onEdit}
+                onSave={(text) => {
+                  onSave(open.id, text);
+                  window.requestAnimationFrame(() => detail.current?.focus());
+                }}
+                onLock={() => onLock(open.id, !open.locked)}
+                onForget={() => setForgetting(open.id)}
+                {...(onOpenJob === undefined ? {} : { onOpenJob })}
+                {...(also === undefined ? {} : { also: also(open) })}
+              />
             )}
-            <span className="armada-logbook__tidied" role="status">
-              {tidied}
-            </span>
-          </div>
-          <div className="armada-logbook__page">
-            <div
-              ref={list}
-              className="armada-logbook__list"
-              role="listbox"
-              aria-label="Entries"
-              tabIndex={0}
-              aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
-            >
-              {panels.map((panel) => (
-                <div key={panel.key} className="armada-logbook__panel" role="group" aria-labelledby={`logbook-panel-${panel.key}`}>
-                  <Tooltip label={panel.hint} asChild>
-                    <div className="armada-logbook__band" id={`logbook-panel-${panel.key}`}>
-                      {panel.title}
-                    </div>
-                  </Tooltip>
-                  {panel.entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      id={optionId(entry.id)}
-                      className="armada-logbook__row"
-                      role="option"
-                      aria-selected={entry.id === selected}
-                      onClick={() => {
-                        onSelect(entry.id);
-                        list.current?.focus();
-                      }}
-                    >
-                      <span className="armada-logbook__text">
-                        <Words text={entry.text} />
-                      </span>
-                      <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
-                      <When at={entry.last_confirmed} now={now} said="Last confirmed" fixed />
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
-              {open === undefined ? null : (
-                <Detail
-                  key={open.id}
-                  entry={open}
-                  where={panelOf(open.id)?.title ?? ""}
-                  editing={editing}
-                  now={now}
-                  {...(refusal === undefined ? {} : { refusal })}
-                  onEdit={onEdit}
-                  onSave={(text) => {
-                    onSave(open.id, text);
-                    window.requestAnimationFrame(() => detail.current?.focus());
-                  }}
-                  onLock={() => onLock(open.id, !open.locked)}
-                  onForget={() => setForgetting(open.id)}
-                  {...(onOpenJob === undefined ? {} : { onOpenJob })}
-                  {...(also === undefined ? {} : { also: also(open) })}
-                />
-              )}
-            </section>
-          </div>
-        </>
-      )}
-      {fixes === undefined ? null : (
-        <section ref={part} className="armada-logbook__panel armada-logbook__fixes" aria-labelledby="logbook-panel-fixes" tabIndex={-1}>
-          <Tooltip label="What got in a Job's way, and where its fix lands" asChild>
-            <div className="armada-logbook__band" id="logbook-panel-fixes">
-              Armada fixes
-            </div>
-          </Tooltip>
-          <div className="armada-logbook__fixes-body">{fixes}</div>
-        </section>
+          </section>
+        </div>
       )}
       <Dialog
         open={forgetting !== undefined}
@@ -396,7 +405,8 @@ function Detail({
   return (
     <div className="armada-logbook__card">
       <div className="armada-logbook__band">{where}</div>
-      <div className="armada-logbook__body">
+      {/* The text and its acts stay put; what backs it scrolls under them. */}
+      <div className="armada-logbook__top">
         <div className="armada-logbook__marks">{marksOf(entry, now, true)}</div>
         {refusal === undefined ? null : (
           <Alert tone="escalated" title={refusal.title}>
@@ -439,25 +449,33 @@ function Detail({
           </>
         )}
         <dl className="armada-logbook__facts">
-          <dt>Confirmed by</dt>
-          <dd>{entry.confirmed_by === 1 ? "1 Job" : `${entry.confirmed_by} Jobs`}</dd>
-          <dt>Last confirmed</dt>
-          <dd>
-            <When at={entry.last_confirmed} now={now} />
-          </dd>
-          <dt>First seen</dt>
-          <dd>
-            <When at={entry.first_seen} now={now} />
-          </dd>
+          <div>
+            <dt>Confirmed by</dt>
+            <dd>{entry.confirmed_by === 1 ? "1 Job" : `${entry.confirmed_by} Jobs`}</dd>
+          </div>
+          <div>
+            <dt>Confirmed</dt>
+            <dd>
+              <When at={entry.last_confirmed} now={now} said="Last confirmed" />
+            </dd>
+          </div>
+          <div>
+            <dt>First seen</dt>
+            <dd>
+              <When at={entry.first_seen} now={now} said="First seen" />
+            </dd>
+          </div>
           {entry.last_served === undefined ? null : (
-            <>
-              <dt>Last served</dt>
+            <div>
+              <dt>Served</dt>
               <dd>
-                <When at={entry.last_served} now={now} />
+                <When at={entry.last_served} now={now} said="Last served" />
               </dd>
-            </>
+            </div>
           )}
         </dl>
+      </div>
+      <div className="armada-logbook__body">
         {entry.paths === undefined || entry.paths.length === 0 ? null : (
           <div className="armada-logbook__part">
             <h3 className="armada-logbook__head">Paths</h3>
@@ -472,24 +490,25 @@ function Detail({
           <div className="armada-logbook__part">
             <h3 className="armada-logbook__head">Evidence</h3>
             <ul className="armada-logbook__evidence">
-              {entry.evidence.map((row) => (
-                <li key={`${row.job_id}:${row.cite}`}>
-                  <span className="armada-logbook__from">
+              {byJob(entry.evidence).map((job) => (
+                <li key={job.job_id}>
+                  <Tooltip label={job.job_title}>
                     {onOpenJob === undefined ? (
-                      <span>{row.job_title}</span>
+                      <span className="armada-logbook__job">{job.job_title}</span>
                     ) : (
-                      <button type="button" className="armada-logbook__job" onClick={() => onOpenJob(row.job_id)}>
-                        {row.job_title}
+                      <button type="button" className="armada-logbook__job" onClick={() => onOpenJob(job.job_id)}>
+                        {job.job_title}
                       </button>
                     )}
-                    <Readout className="armada-logbook__cite">{row.cite}</Readout>
-                    <When at={row.at} now={now} />
+                  </Tooltip>
+                  <span className="armada-logbook__cites">
+                    {job.rows.map((row) => (
+                      <Tooltip key={row.cite} label={row.says === undefined ? dated(row.at) : `${row.says.replaceAll("`", "")} · ${dated(row.at)}`}>
+                        <Readout className="armada-logbook__cite">{row.cite}</Readout>
+                      </Tooltip>
+                    ))}
                   </span>
-                  {row.says === undefined ? null : (
-                    <span className="armada-logbook__says">
-                      <Words text={row.says} />
-                    </span>
-                  )}
+                  <When at={job.rows.reduce((a, b) => (Date.parse(a.at) > Date.parse(b.at) ? a : b)).at} now={now} fixed />
                 </li>
               ))}
             </ul>

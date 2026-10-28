@@ -1,6 +1,7 @@
-/* The Logbook page: the filter over a list of panels, one a repository and then Habits and This Mac, each under a legend
+/* The Logbook page: the tabs over a list of panels, one a repository and then Habits and This Mac, each under a legend
    strip (`depth.css`), and the open entry on the right. The panels are the Cockpit's (`depth.css`); a picked entry is
-   framed by its shape, never a glow or a hue. The layout follows the page's own width. Tokens only. */
+   framed by its shape, never a glow or a hue. Wide, the list and the entry each scroll on their own inside the page's
+   height; narrow, the page scrolls as one column. Tokens only. */
 
 .armada-logbook {
   display: flex;
@@ -14,6 +15,7 @@
   container-type: inline-size;
 }
 .armada-logbook > * { width: min(100%, 90rem); align-self: center; flex: none; }
+.armada-logbook > :is(.armada-logbook__page, .armada-logbook__fixes) { flex: 1 1 auto; min-height: 0; }
 
 .armada-logbook__page {
   display: grid;
@@ -26,8 +28,12 @@
    armada-allow-off-contract: a container condition cannot read a custom property, and no layout breakpoint token names a container width
    820px is where the list and the open entry both fit — docs/contracts/design-system.md */
 @container (min-width: 820px) {
-  .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .armada-logbook__detail { position: sticky; top: 0; }
+  .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; align-items: stretch; }
+  .armada-logbook__list { overflow-y: auto; overscroll-behavior: contain; }
+  .armada-logbook__list > * { flex: none; }
+  .armada-logbook__detail { display: flex; flex-direction: column; min-height: 0; }
+  .armada-logbook__card { max-height: 100%; min-height: 0; }
+  .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 }
 
 .armada-logbook__filters { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-3); }
@@ -73,7 +79,7 @@
 .armada-logbook__row {
   --readout-chars: 7;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
   margin-inline: var(--space-1);
   padding: var(--space-2) var(--space-2);
@@ -91,9 +97,13 @@
 /* A row picked is framed by its shape (`depth.css`); where the list holds focus, the frame goes to the stronger edge so the keys' target is plain. */
 .armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] { box-shadow: inset 0 0 0 var(--border-width) var(--fg-default); }
 
+/* One line a row: the whole text is the open entry's. */
 .armada-logbook__text {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .armada-logbook__marks {
@@ -119,12 +129,16 @@
 }
 .armada-logbook__detail:focus-visible .armada-logbook__card { border-color: var(--border-strong); }
 
+.armada-logbook__top,
 .armada-logbook__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
 }
+.armada-logbook__top { flex: none; border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-logbook__body:empty { display: none; }
+.armada-logbook__top:has(+ .armada-logbook__body:empty) { border-bottom: none; }
 
 .armada-logbook__said {
   margin: 0;
@@ -146,15 +160,18 @@
   gap: var(--space-2);
 }
 
+/* The facts on one line, each a word and its value. */
 .armada-logbook__facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  column-gap: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-6);
   row-gap: var(--space-1);
   margin: 0;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+.armada-logbook__facts > div { display: inline-flex; align-items: center; gap: var(--space-2); }
 .armada-logbook__facts dt { color: var(--fg-muted); }
 .armada-logbook__facts dd { margin: 0; color: var(--fg-default); font-family: var(--font-mono); }
 
@@ -193,7 +210,6 @@
   overflow-wrap: anywhere;
 }
 
-.armada-logbook__evidence li,
 .armada-logbook__history li {
   display: flex;
   flex-direction: column;
@@ -201,6 +217,31 @@
   padding: var(--space-2) 0;
   border-top: var(--border-width) solid var(--border-subtle);
 }
+/* One Job a line: its title, its cites, and the newest one's age, each in a column kept down the list. */
+.armada-logbook__evidence {
+  --readout-chars: 7;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(45%) max-content;
+  column-gap: var(--space-3);
+}
+.armada-logbook__evidence li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-logbook__evidence .armada-logbook__job {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: start;
+}
+.armada-logbook__cites { display: flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
 .armada-logbook__evidence li:first-child,
 .armada-logbook__history li:first-child { border-top: none; padding-top: 0; }
 
@@ -250,24 +291,10 @@
   color: var(--fg-default);
 }
 
-/* ---- Armada fixes ----------------------------------------------------------------------------- */
-/* The retro items, drawn by the Lessons list inside the panel's body. Its own card chrome steps back so the panel is
-   the one frame. */
+/* ---- Retros --------------------------------------------------------------------------------- */
+/* The retro items fill the tab and lay out their own list and item (`LessonList.css`). */
 
-.armada-logbook__fixes { outline: none; }
-.armada-logbook__fixes:focus-visible { border-color: var(--border-strong); }
-.armada-logbook__fixes-body .armada-lessons-page {
-  padding: 0;
-  gap: var(--space-3);
-}
-.armada-logbook__fixes-body .armada-lessons__bar { padding: var(--space-3) var(--space-4) 0; }
-:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page > :is(.armada-lessons, .armada-alert, .armada-lessons__bar) {
-  width: 100%;
-  align-self: stretch;
-}
-:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page .armada-lessons {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
+.armada-logbook__fixes { display: flex; flex-direction: column; outline: none; }
+.armada-logbook__fixes > .armada-lessons-page { flex: 1 1 auto; min-height: 0; padding: 0; gap: var(--space-3); }
+:root[data-look] .armada-logbook .armada-logbook__fixes > .armada-lessons-page > * { width: 100%; align-self: stretch; }
+.armada-logbook__fixes .armada-lessons-split { flex: 1 1 auto; }
