@@ -278,7 +278,7 @@ where
             let cause = if pull.auto_merge { Cause::AutoMerge } else { Cause::Queued };
             let once = About { head: "", ..about };
             let named = PullNamed { number: pull.number, branch, title: once.title };
-            for owner in self.owners_of(served, pull.number, branch, false).await {
+            for owner in self.holders_told_of(served, pull.number, branch, false).await {
                 // Waiting in the queue is nothing to say by itself: only a wait taken off speaks.
                 if cause == Cause::AutoMerge {
                     let mut none = None;
@@ -518,7 +518,7 @@ where
                 base,
                 title: Some(one.pull.title.as_written()),
             };
-            let owners = self.owners_of(served, one.pull.number, branch, true).await;
+            let owners = self.holders_told_of(served, one.pull.number, branch, true).await;
             for owner in owners {
                 let mut none = None;
                 self.told(
