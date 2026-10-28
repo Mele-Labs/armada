@@ -52,17 +52,17 @@
 .sv-story__head { display: flex; flex: none; flex-direction: column; justify-content: center; padding-block: var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
 .sv-workflow { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .sv-workflow__top { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: var(--h-control); }
-.sv-workflow__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); }
+.sv-workflow__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
 .sv-workflow__pick { display: inline-flex; flex: 0 1 auto; align-items: center; gap: var(--space-1); min-width: 0; padding: var(--space-1) var(--space-2); margin-inline-start: calc(var(--space-2) * -1); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-subtle); cursor: pointer; }
 .sv-workflow__pick:hover, .sv-workflow__pick[aria-expanded="true"] { background: var(--bg-hover); color: var(--fg-default); }
 .sv-workflow__pick:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .sv-workflow__name { display: inline-flex; min-width: 0; }
 
-/* Take labelled: every step written along the band, wrapping whole under each other where the column is narrow. The current step is lit, the ones to come dim. */
-.sv-steps { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-sans); }
-.sv-steps__step { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
+/* Take labelled: one row, never wrapped. Done steps fold to their check so the current step and the ones to come keep their names; a column too narrow even for that scrolls sideways. */
+.sv-steps { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-1); margin: 0; padding: 0; overflow-x: auto; scrollbar-width: none; list-style: none; font-family: var(--font-sans); }
+.sv-steps__step { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding: calc(var(--space-1) / 2) var(--space-2); border-radius: var(--radius-md); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
 .sv-steps__mark { display: inline-flex; }
-.sv-steps__step[data-state="done"] { color: var(--fg-muted); }
+.sv-steps__step[data-state="done"] { padding-inline: var(--space-1); color: var(--fg-muted); }
 .sv-steps__step[data-state="done"] .sv-steps__mark { color: var(--step-advanced); }
 .sv-steps__step[data-state="now"] { background: color-mix(in srgb, var(--step-running) 14%, transparent); box-shadow: inset 0 0 0 var(--border-width) var(--step-running); color: var(--fg-default); font-weight: var(--weight-medium); }
 .sv-steps__step[data-state="now"] .sv-steps__mark { color: var(--step-running); }

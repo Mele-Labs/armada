@@ -16,7 +16,7 @@ export type StepTake = "labelled" | "glyphs";
 /** The take of the stepper being looked at: labelled unless the page asks for glyphs. */
 export const stepTakeOf = (search: string = typeof window === "undefined" ? "" : window.location.search): StepTake => (new URLSearchParams(search).get("take") === "glyphs" ? "glyphs" : "labelled");
 
-/** Each step named along the band: done ones checked, the current one lit, the ones to come dim. */
+/** One row of steps: done ones a check with the step named on hover, the current one lit and named, the ones to come named and dim. */
 function LabelledSteps({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
   return (
     <ol className="sv-steps" aria-label="Workflow">
@@ -25,12 +25,12 @@ function LabelledSteps({ steps, at }: { steps: readonly string[]; at: number | u
         const { Glyph, said } = MARK[state];
         return (
           <li key={step} className="sv-steps__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <Tooltip asChild label={said}>
-              <span className="sv-steps__mark" role="img" aria-label={said}>
+            <Tooltip asChild label={state === "done" ? `${step}, ${said.toLowerCase()}` : said}>
+              <span className="sv-steps__mark" role="img" aria-label={state === "done" ? `${step}, ${said.toLowerCase()}` : said}>
                 <Glyph size={14} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>
-            <span className="sv-steps__name">{step}</span>
+            {state === "done" ? null : <span className="sv-steps__name">{step}</span>}
           </li>
         );
       })}
