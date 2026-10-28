@@ -7,9 +7,9 @@ import { AppWindowMac, Bot, ChevronLeft, ChevronRight, Crosshair, PanelLeftClose
 import { ACTION, Button, Input, Kbd, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
-import { useSessionsDraft } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { closePanel, usePanel } from "../shared-panel/store";
-import { answerReminder, browserToWindow, goBack, goForward, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { browserToWindow, goBack, goForward, jobBrowserApi, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import "./job-browser.css";
 
 /** Who drives, and what a press on the mark does: the mark is the toggle. */
@@ -45,22 +45,20 @@ const PART = "button, input, label, h1, h2, h3, li, p, dt, dd";
 
 type Picked = Omit<BrowserPin, "id" | "note" | "url">;
 
-/** The note being written on a part, under it: Send puts it to the Job as a message. */
-function NoteCard({ sessionId, url, picked, onDone }: { sessionId: string; url: string; picked: Picked; onDone: (note?: string) => void }) {
-  const draft = useSessionsDraft();
+/** The note being written on a part, under it: Send puts it to the Job as the person's. */
+function NoteCard({ keep, picked, onSend, onDone }: { keep: string; picked: Picked; onSend: (words: string) => void; onDone: () => void }) {
   const [note, setNote] = useState("");
   const send = () => {
     const words = note.trim();
     if (words === "") return;
-    void draft?.send(sessionId, { text: `Note on ${picked.on} at ${url}:\n\n${words}`, files: [], sketches: [], tags: [] });
     setNote("");
-    onDone(words);
+    onSend(words);
   };
   return (
     <div className="job-browser__note" role="dialog" aria-label={`Note on ${picked.on}`} style={{ top: picked.box.top + picked.box.height, left: picked.box.left }}>
       <Textarea
         aria-label="Note"
-        keep={`job-browser:${sessionId}:${picked.on}`}
+        keep={keep}
         rows={2}
         autoFocus
         value={note}
@@ -73,7 +71,7 @@ function NoteCard({ sessionId, url, picked, onDone }: { sessionId: string; url: 
         }}
       />
       <div className="job-browser__note-acts">
-        <Button variant="ghost" size="sm" onClick={() => onDone()}>
+        <Button variant="ghost" size="sm" onClick={onDone}>
           Cancel
           <Kbd>esc</Kbd>
         </Button>
@@ -86,9 +84,10 @@ function NoteCard({ sessionId, url, picked, onDone }: { sessionId: string; url: 
   );
 }
 
-/** The page, and the notes pinned on it. While Capture is on, a press on a part of the page picks it instead of pressing it. */
-function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string; browser: JobBrowser; annotating: boolean; onPicked: () => void }) {
+/** **The mock's** page, drawn from fixtures, and the notes pinned on it. While Capture is on, a press on a part of the page picks it instead of pressing it. */
+function FixturePage({ sessionId, browser, draw, annotating, onPicked }: { sessionId: string; browser: JobBrowser; draw: (url: string) => ReactNode; annotating: boolean; onPicked: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
+  const draft = useSessionsDraft();
   const [picked, setPicked] = useState<Picked>();
   const url = urlOf(browser);
   const pick = (event: MouseEvent<HTMLDivElement>) => {
@@ -106,8 +105,8 @@ function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string;
   };
   return (
     <div ref={frame} className="job-browser__page" data-annotating={annotating ? "" : undefined} data-driver={browser.driver} onClickCapture={pick}>
-      <div key={`${browser.at}:${browser.loads}`} className="job-browser__document">
-        {browser.page?.(url)}
+      <div key={`${url}:${browser.loads}`} className="job-browser__document">
+        {draw(url)}
       </div>
       {browser.pins.filter((pin) => pin.url === url).map((pin) => (
         <Tooltip key={pin.id} label={pin.note} asChild>
@@ -118,13 +117,86 @@ function Page({ sessionId, browser, annotating, onPicked }: { sessionId: string;
         <>
           <span className="job-browser__pin" data-writing="" aria-hidden style={{ top: picked.box.top, left: picked.box.left, width: picked.box.width, height: picked.box.height }} />
           <NoteCard
-            sessionId={sessionId}
-            url={url}
+            keep={`job-browser:${sessionId}:${picked.on}`}
             picked={picked}
-            onDone={(note) => {
-              if (note !== undefined) pinNote(sessionId, { ...picked, url, id: `${picked.on}:${browser.pins.length}`, note });
+            onSend={(note) => {
+              void draft?.send(sessionId, { text: `Note on ${picked.on} at ${url}:\n\n${note}`, files: [], sketches: [], tags: [] });
+              pinNote(sessionId, { ...picked, url, id: `${picked.on}:${browser.pins.length}`, note });
               setPicked(undefined);
             }}
+            onDone={() => setPicked(undefined)}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+const sameBox = (a: Box | undefined, b: Box): boolean => a !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+
+/**
+ * The page main holds, a view it lies over this frame. **The frame is reported on every frame it moves**, as `PageFrame`'s is, since
+ * the side panel travels in and no resize event says so. Under Capture the view is hidden and its picture drawn here instead, so a
+ * press picks a part of it: the walk window's own layer reads that part in the page, and the note goes to the Job as the person's.
+ */
+function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string; api: NonNullable<ReturnType<typeof jobBrowserApi>>; capturing: boolean; onCaptured: () => void }) {
+  const frame = useRef<HTMLDivElement>(null);
+  const [picture, setPicture] = useState<string>();
+  const [picked, setPicked] = useState<Picked>();
+  useEffect(() => {
+    let moving = 0;
+    let last: Box | undefined;
+    const follow = () => {
+      const box = frame.current?.getBoundingClientRect();
+      if (box !== undefined) {
+        const now = { x: box.x, y: box.y, width: box.width, height: box.height };
+        if (!sameBox(last, now)) void api.place(sessionId, now);
+        last = now;
+      }
+      moving = requestAnimationFrame(follow);
+    };
+    moving = requestAnimationFrame(follow);
+    return () => {
+      cancelAnimationFrame(moving);
+      void api.unplace(sessionId);
+    };
+  }, [api, sessionId]);
+  useEffect(() => {
+    if (!capturing) return;
+    let shown: string | undefined;
+    let live = true;
+    void api.freeze(sessionId).then((png) => {
+      if (!live || png === null) return;
+      shown = URL.createObjectURL(new Blob([png as Uint8Array<ArrayBuffer>], { type: "image/png" }));
+      setPicture(shown);
+    });
+    return () => {
+      live = false;
+      setPicture(undefined);
+      setPicked(undefined);
+      if (shown !== undefined) URL.revokeObjectURL(shown);
+      void api.thaw(sessionId);
+    };
+  }, [api, sessionId, capturing]);
+  const pick = (event: MouseEvent<HTMLDivElement>) => {
+    const at = frame.current?.getBoundingClientRect();
+    if (picture === undefined || picked !== undefined || at === undefined) return;
+    void api.hold(sessionId, event.clientX - at.left, event.clientY - at.top).then((held) => {
+      if (held !== null) setPicked({ on: held.chain, box: { top: held.box.y, left: held.box.x, width: held.box.width, height: held.box.height } });
+    });
+  };
+  return (
+    <div ref={frame} className="job-browser__page" role="region" aria-label="Page" data-annotating={capturing ? "" : undefined} onClick={pick}>
+      {picture === undefined ? null : <img className="job-browser__picture" src={picture} alt="" />}
+      {picked === undefined ? null : (
+        <>
+          <span className="job-browser__pin" data-writing="" aria-hidden style={{ top: picked.box.top, left: picked.box.left, width: picked.box.width, height: picked.box.height }} />
+          <NoteCard
+            keep={`job-browser:${sessionId}:${picked.on}`}
+            picked={picked}
+            onSend={(note) => void api.note(sessionId, note).then((outcome) => outcome.ok && onCaptured())}
+            onDone={() => setPicked(undefined)}
           />
         </>
       )}
@@ -161,6 +233,9 @@ function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowse
  */
 export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" }) {
   const [capturing, setCapturing] = useState(false);
+  const api = jobBrowserApi();
+  // ⌥⌘C pressed in the page, which holds the keyboard where this pane cannot hear it.
+  useEffect(() => api?.onCapture((id) => id === sessionId && setCapturing((was) => !was)), [api, sessionId]);
   const driver = DRIVER[browser.driver];
   const threadShown = !browser.threadHidden;
   const keys = (event: KeyboardEvent<HTMLElement>) => {
@@ -188,10 +263,10 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
           </Button>
         </Tooltip>
         <span className="job-browser__acts">
-          <IconAct label="Back" shortcut={KEYS.back} disabled={browser.at === 0} onClick={() => goBack(sessionId)}>
+          <IconAct label="Back" shortcut={KEYS.back} disabled={!browser.back} onClick={() => goBack(sessionId)}>
             <ChevronLeft size={16} strokeWidth={2} aria-hidden />
           </IconAct>
-          <IconAct label="Forward" shortcut={KEYS.forward} disabled={browser.at >= browser.visited.length - 1} onClick={() => goForward(sessionId)}>
+          <IconAct label="Forward" shortcut={KEYS.forward} disabled={!browser.forward} onClick={() => goForward(sessionId)}>
             <ChevronRight size={16} strokeWidth={2} aria-hidden />
           </IconAct>
           <IconAct label="Reload" shortcut={KEYS.reload} onClick={() => reload(sessionId)}>
@@ -222,7 +297,11 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
           )}
         </span>
       </header>
-      <Page sessionId={sessionId} browser={browser} annotating={capturing} onPicked={() => setCapturing(false)} />
+      {browser.page !== undefined ? (
+        <FixturePage sessionId={sessionId} browser={browser} draw={browser.page} annotating={capturing} onPicked={() => setCapturing(false)} />
+      ) : api !== undefined ? (
+        <LivePage sessionId={sessionId} api={api} capturing={capturing} onCaptured={() => setCapturing(false)} />
+      ) : null}
     </section>
   );
 }
@@ -237,32 +316,50 @@ export function useJobBrowserTile(sessionId: string): JobBrowserTile | undefined
   return { shown: browser.windowed || (open?.kind === "browser" && open.sessionId === sessionId), press: () => openBrowser(sessionId) };
 }
 
-/** Each time the Job reached for a browser outside Bridge, a line in its thread where it did, with the press that shows its own and tells the Job to use it. */
+/** What the press on a reminder tells the Job, as the person's message. */
+export const reminderSaid = (address: string | undefined): string => `Use the Job browser for this.${address === undefined ? "" : ` You were on ${address}.`}`;
+
+/**
+ * Each time the Job reached for a browser outside Bridge, a line in its thread where it did, with the press that shows its own and
+ * tells the Job to use it. **Answered is read off the thread**, the person's message after the row, since the row carries no answer.
+ */
 export function useBrowserReminders(sessionId: string): readonly ThreadCard[] {
-  const browser = useJobBrowser(sessionId);
+  const rows = useSessions().find((one) => one.id === sessionId)?.rows;
   const draft = useSessionsDraft();
-  return (browser?.reminders ?? []).map((one) => ({
-    key: `browser:${one.id}`,
-    at: one.at,
-    node: (
-      <div className="job-browser-reminder" role="note" aria-label={`Browser outside Bridge: ${one.tool}`}>
-        <span className="job-browser-reminder__said">{`Opened a browser outside Bridge with ${one.tool}. This job has a Job browser.`}</span>
-        {one.answered === true ? (
-          <span className="job-browser-reminder__sent">Sent to the job</span>
-        ) : (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              openBrowser(sessionId);
-              answerReminder(sessionId, one.id);
-              void draft?.send(sessionId, { text: `Use the Job browser for this. You were on ${one.url}.`, files: [], sketches: [], tags: [] });
-            }}
-          >
-            Open Job browser
-          </Button>
-        )}
-      </div>
-    ),
-  }));
+  // Held in a ref as well as state: a second press before the line redraws would otherwise send it again.
+  const sending = useRef(new Set<string>());
+  const [pressed, setPressed] = useState<ReadonlySet<string>>(() => new Set());
+  return (rows ?? []).flatMap((one, at) => {
+    if (one.kind !== "browser_reminder") return [];
+    const said = reminderSaid(one.address);
+    const answered = pressed.has(one.id) || (rows ?? []).slice(at + 1).some((later) => later.kind === "message" && later.from.kind === "you" && later.text === said);
+    return [
+      {
+        key: `browser:${one.id}`,
+        at: one.at,
+        node: (
+          <div className="job-browser-reminder" role="note" aria-label={`Browser outside Bridge: ${one.tool}`}>
+            <span className="job-browser-reminder__said">{`Opened a browser outside Bridge with ${one.tool}. This job has a Job browser.`}</span>
+            {answered ? (
+              <span className="job-browser-reminder__sent">Sent to the job</span>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  if (sending.current.has(one.id)) return;
+                  sending.current.add(one.id);
+                  setPressed(new Set(sending.current));
+                  openBrowser(sessionId);
+                  void draft?.send(sessionId, { text: said, files: [], sketches: [], tags: [] });
+                }}
+              >
+                Open Job browser
+              </Button>
+            )}
+          </div>
+        ),
+      },
+    ];
+  });
 }

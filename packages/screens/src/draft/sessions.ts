@@ -327,6 +327,8 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "compaction"; text: string }
   /** The agent disputed Fleet's notice `notice`: its reason, how it was spotted, and the review Job where one was started. */
   | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
+  /** The agent reached for a browser outside Bridge: `tool` as the person reads it, and the address it was on. Drawn by the Job browser's reminder, not the thread's own rows. */
+  | { id: string; at: string; kind: "browser_reminder"; tool: string; address?: string }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** The slot given back, drawn in the thread where it happened. */

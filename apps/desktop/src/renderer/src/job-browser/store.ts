@@ -1,48 +1,88 @@
 // A Job's browser: one page the Job's agent and the person drive together, drawn in the side panel beside the Job's thread, or in
-// a window of its own with the Job's thread beside the page, as the walk window draws it. **Proposed, not on the wire**: nothing in Fleet or main carries it yet, so only the mock fills this store
-// (`mock/scenarios/job-browser.ts`), and where nothing fills it no pane and no reminder is drawn.
+// a window of its own with the Job's thread beside the page, as the walk window draws it. **Main holds the page** (`main/job-browsers.ts`)
+// and tells this store what it shows; the acts here go to main. The mock has no `jobBrowser` on its bridge, so there this store plays
+// the browser itself over a page drawn from fixtures (`mock/scenarios/job-browser.ts`).
 
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import type { JobBrowserApi, JobBrowserState } from "../../../shared/api/job-browser";
 import { openInPanel } from "../shared-panel/store";
 
 /** Who is driving the page: the agent through Armada's tools, or the person, who took it over. */
 export type BrowserDriver = "agent" | "you";
 
-/** A note the person pinned on part of the page, at that part's box within the page. */
+/** A note the person pinned on part of the page, at that part's box within the page. Only the mock draws them. */
 export type BrowserPin = { id: string; url: string; on: string; note: string; box: { top: number; left: number; width: number; height: number } };
 
-/** The Job reached for a browser outside Bridge: which one, when, on which page, and whether the person has told it to use the Job browser. */
-export type BrowserReminder = { id: string; at: string; tool: "cmux" | "Playwright"; url: string; answered?: true };
-
 export type JobBrowser = {
-  /** The addresses visited, oldest first, and which of them shows: Back and Forward move along it. */
-  visited: readonly string[];
-  at: number;
-  /** Bumped by Reload, so the page is drawn again. */
+  url: string;
+  title: string;
+  back: boolean;
+  forward: boolean;
+  /** Bumped by Reload, so the mock's page is drawn again. */
   loads: number;
   driver: BrowserDriver;
   /** In a window of its own, which the side panel gives way to. */
   windowed: boolean;
   pins: readonly BrowserPin[];
-  reminders: readonly BrowserReminder[];
   /** The Job's thread, floating left of the side panel, is folded away. */
   threadHidden: boolean;
-  /** **A mock's field**: what is drawn where the page goes, for an address. In the app the page is a view main places, which nothing does yet. */
+  /** **The mock's**: what is drawn where the page goes. In the app the page is a view main places over the pane. */
   page?: (url: string) => ReactNode;
 };
 
-/** The address showing. */
-export const urlOf = (browser: JobBrowser): string => browser.visited[browser.at] ?? "";
+/** Main's, where the bridge has one: the browser is real. */
+type Wired = NonNullable<JobBrowserApi["jobBrowser"]>;
+let wired: Wired | undefined;
 
 let held: Readonly<Record<string, JobBrowser>> = {};
+/** The mock's history for each Job, which main keeps for the app. */
+const visits = new Map<string, { visited: string[]; at: number }>();
 const listeners = new Set<() => void>();
+
+function told(): void {
+  listeners.forEach((hear) => hear());
+}
 
 function edit(sessionId: string, change: (one: JobBrowser) => JobBrowser): void {
   const one = held[sessionId];
   if (one === undefined) return;
   held = { ...held, [sessionId]: change(one) };
-  listeners.forEach((hear) => hear());
+  told();
+}
+
+/** The address showing. */
+export const urlOf = (browser: JobBrowser): string => browser.url;
+
+/** The bridge this document talks to, once: what main holds is read, and each change after it is folded in. */
+export function wireJobBrowsers(api: Wired): () => void {
+  wired = api;
+  const fold = (state: JobBrowserState) => {
+    const was = held[state.sessionId];
+    held = {
+      ...held,
+      [state.sessionId]: {
+        url: state.url,
+        title: state.title,
+        back: state.back,
+        forward: state.forward,
+        loads: was?.loads ?? 0,
+        driver: state.driver === "owner" ? "you" : "agent",
+        windowed: state.windowed,
+        pins: was?.pins ?? [],
+        threadHidden: was?.threadHidden ?? false,
+      },
+    };
+    told();
+  };
+  void api.list().then((all) => all.forEach(fold));
+  const offChanged = api.onChanged(fold);
+  const offShow = api.onShow((sessionId) => openInPanel({ kind: "browser", sessionId }));
+  return () => {
+    offChanged();
+    offShow();
+    wired = undefined;
+  };
 }
 
 /** The Job's browser as it stands, or nothing where the Job has none. */
@@ -56,33 +96,74 @@ export function useJobBrowser(sessionId: string | undefined): JobBrowser | undef
   );
 }
 
-/** The Job's browser, whole, in place of any it had. */
-export function setJobBrowser(sessionId: string, browser: JobBrowser): void {
-  held = { ...held, [sessionId]: browser };
-  listeners.forEach((hear) => hear());
+/** Main's own calls, where this document has them: the pane reports the page's place and holds it still under Capture. */
+export const jobBrowserApi = (): Wired | undefined => wired;
+
+/** **The mock's**: a Job's browser on its first addresses, the last showing. */
+export function seedJobBrowser(sessionId: string, seed: { visited: string[]; driver?: BrowserDriver; page: (url: string) => ReactNode }): void {
+  visits.set(sessionId, { visited: [...seed.visited], at: seed.visited.length - 1 });
+  held = { ...held, [sessionId]: { url: "", title: "", back: false, forward: false, loads: 0, driver: seed.driver ?? "agent", windowed: false, pins: [], threadHidden: false, page: seed.page } };
+  moved(sessionId);
+}
+
+/** The mock's history moved: what shows, and whether Back and Forward go anywhere. */
+function moved(sessionId: string): void {
+  const history = visits.get(sessionId);
+  if (history === undefined) return;
+  edit(sessionId, (one) => ({ ...one, url: history.visited[history.at] ?? "", back: history.at > 0, forward: history.at < history.visited.length - 1 }));
+}
+
+function walked(sessionId: string, step: (history: { visited: string[]; at: number }) => void): void {
+  const history = visits.get(sessionId);
+  if (history === undefined) return;
+  step(history);
+  moved(sessionId);
 }
 
 /** Take over, or hand back to the agent. */
-export const toggleDriver = (sessionId: string) => edit(sessionId, (one) => ({ ...one, driver: one.driver === "agent" ? "you" : "agent" }));
+export function toggleDriver(sessionId: string): void {
+  if (wired !== undefined) void wired.drive(sessionId);
+  else edit(sessionId, (one) => ({ ...one, driver: one.driver === "agent" ? "you" : "agent" }));
+}
 /** A new address, which drops whatever Forward would have gone to. */
-export const navigate = (sessionId: string, url: string) => edit(sessionId, (one) => ({ ...one, visited: [...one.visited.slice(0, one.at + 1), url], at: one.at + 1 }));
-export const goBack = (sessionId: string) => edit(sessionId, (one) => ({ ...one, at: Math.max(0, one.at - 1) }));
-export const goForward = (sessionId: string) => edit(sessionId, (one) => ({ ...one, at: Math.min(one.visited.length - 1, one.at + 1) }));
-export const reload = (sessionId: string) => edit(sessionId, (one) => ({ ...one, loads: one.loads + 1 }));
+export function navigate(sessionId: string, url: string): void {
+  if (wired !== undefined) void wired.navigate(sessionId, url);
+  else
+    walked(sessionId, (history) => {
+      history.visited.splice(history.at + 1, Infinity, url);
+      history.at += 1;
+    });
+}
+export function goBack(sessionId: string): void {
+  if (wired !== undefined) void wired.go(sessionId, "back");
+  else walked(sessionId, (history) => void (history.at = Math.max(0, history.at - 1)));
+}
+export function goForward(sessionId: string): void {
+  if (wired !== undefined) void wired.go(sessionId, "forward");
+  else walked(sessionId, (history) => void (history.at = Math.min(history.visited.length - 1, history.at + 1)));
+}
+export function reload(sessionId: string): void {
+  if (wired !== undefined) void wired.go(sessionId, "reload");
+  else edit(sessionId, (one) => ({ ...one, loads: one.loads + 1 }));
+}
 export const showThread = (sessionId: string, shown: boolean) => edit(sessionId, (one) => ({ ...one, threadHidden: !shown }));
-/** The Job browser in the side panel, out of any window it had. */
+/** The Job browser in Bridge's side panel, out of any window it had. Main makes an empty one where the Job has none. */
 export function openBrowser(sessionId: string): void {
+  if (wired !== undefined) {
+    void wired.show(sessionId);
+    return;
+  }
   edit(sessionId, (one) => ({ ...one, windowed: false }));
   openInPanel({ kind: "browser", sessionId });
 }
 /** The Job browser in a window of its own. The side panel it moved from is closed by its own button. */
-export const browserToWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: true }));
-/** The window's own close: the page is put away, and the Job keeps it. */
+export function browserToWindow(sessionId: string): void {
+  if (wired !== undefined) void wired.toWindow(sessionId);
+  else edit(sessionId, (one) => ({ ...one, windowed: true }));
+}
+/** **The mock's** window close: the page is put away, and the Job keeps it. */
 export const closeBrowserWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: false }));
 export const pinNote = (sessionId: string, pin: BrowserPin) => edit(sessionId, (one) => ({ ...one, pins: [...one.pins, pin] }));
-export const answerReminder = (sessionId: string, id: string) =>
-  edit(sessionId, (one) => ({ ...one, reminders: one.reminders.map((each) => (each.id === id ? { ...each, answered: true as const } : each)) }));
-export const remindOfBrowser = (sessionId: string, reminder: BrowserReminder) => edit(sessionId, (one) => ({ ...one, reminders: [...one.reminders, reminder] }));
 
 /** The Jobs whose browser has a window of its own. */
 export function useBrowserWindows(): readonly string[] {

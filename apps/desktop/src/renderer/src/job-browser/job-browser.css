@@ -39,6 +39,9 @@
 .job-browser__page[data-annotating] { cursor: crosshair; }
 .job-browser__page[data-annotating] > :not(.job-browser__pin, .job-browser__note) :hover { outline: var(--border-width) dashed var(--accent); }
 
+/* Under Capture, the page's picture in its place: main hides the page's view, and a press picks the part under the pointer. */
+.job-browser__picture { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+
 /* A note pinned on a part of the page: a ring round the part, its note in the tooltip, over the tooltip's own `position: relative`. */
 .job-browser__page > .job-browser__pin {
   position: absolute;

@@ -1,12 +1,12 @@
 // A Job driving its Job browser: the agent opened the shop's checkout in it, typed a discount code and applied it, and its
 // thread shows each act. Once time passes the agent reaches for Playwright's own browser instead, and the thread says it has
-// one of its own. The browser is the store's (`../../job-browser/store.ts`), which only the mock fills. Mock data only.
+// one of its own, in the `browser_reminder` row Fleet writes. The browser is the store's (`../../job-browser/store.ts`), which the mock plays itself. Mock data only.
 // The walk `job-browser` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { remindOfBrowser, setJobBrowser } from "../../job-browser/store";
+import { seedJobBrowser } from "../../job-browser/store";
 import { resetCheckout, shopPage } from "../job-browser-page";
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -38,7 +38,7 @@ function fleet(): FakeSessionsFleet {
 /** The Job's browser as the agent left it: the agent driving, on the checkout. Flight control's Browser opens it in the side panel. */
 function seed(): void {
   resetCheckout();
-  setJobBrowser(JOB, { visited: [CART, CHECKOUT], at: 1, loads: 0, driver: "agent", windowed: false, pins: [], reminders: [], threadHidden: false, page: shopPage });
+  seedJobBrowser(JOB, { visited: [CART, CHECKOUT], page: shopPage });
 }
 
 function build(): Scenario {
@@ -56,7 +56,10 @@ function build(): Scenario {
       queueMicrotask(() =>
         onTimePassing(() => {
           const at = new Date().toISOString();
-          void served.agentTurn(JOB, [{ kind: "tool", id: "t5", at, text: `mcp__playwright__browser_navigate ${CHECKOUT}` }]).then(() => remindOfBrowser(JOB, { id: "r1", at, tool: "Playwright", url: CHECKOUT }));
+          void served.agentTurn(JOB, [
+            { kind: "tool", id: "t5", at, text: `mcp__playwright__browser_navigate ${CHECKOUT}` },
+            { kind: "browser_reminder", id: "r1", at, tool: "Playwright", address: CHECKOUT },
+          ]);
         }),
       );
       return own;
