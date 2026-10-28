@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use adapter_traits::{CallDetail, DroneEvent};
 use api::{HostedSessions, Refusal, Sessions};
-use core_model::{CriterionId, JudgeCriterion, OnRefusal};
+use core_model::{CriterionId, JudgeCriterion, OnRefusal, StepEnd};
 use ipc::{
     ApprovePlan, ConcernFrom, ConcernHow, DismissConcern, JudgeSession, PlanGroupInput, PlanTaskInput, RecordPlan,
     SendConcern, SessionFact, SessionId, SessionRecord, SessionReport, SetSessionWorkflow, WaitingSource,
@@ -48,7 +48,7 @@ pub(super) fn step(label: &str) -> RailStep {
         delivers: false,
         asks_delivery: false,
         walks: false,
-        awaits_reply: false,
+        ends_on: Vec::new(),
         criteria: Vec::new(),
         fit: None,
     }
@@ -341,7 +341,7 @@ fn entering_a_step_sends_its_instructions_and_a_step_with_none_sends_nothing() {
 #[test]
 fn a_step_before_the_plan_says_it_ends_when_the_job_records_one() {
     let discuss = RailStep { instructions: Some("Ask what is unclear.".into()), ..step("Discuss") };
-    let propose = RailStep { awaits_reply: true, ..discuss.clone() };
+    let propose = RailStep { ends_on: vec![StepEnd::Replied], ..discuss.clone() };
     let steps = [propose, discuss, plan_step()];
     let said = rail::instructed("feature", &steps, 1).expect("instructions are sent");
     assert!(said.ends_with("This step ends when you record a plan with record_plan."), "{said}");
@@ -465,7 +465,7 @@ fn the_step_before_delivering_says_to_carry_straight_on_with_it() {
 /// a merge ends is his to move, and Fleet tells the Job nothing.
 #[test]
 fn a_step_stalls_only_where_the_jobs_own_act_ends_it() {
-    let propose = RailStep { awaits_reply: true, ..step("Propose") };
+    let propose = RailStep { ends_on: vec![StepEnd::Replied], ..step("Propose") };
     let steps = [propose, step("Discuss"), plan_step(), follows("Refine"), delivers("Deliver")];
     let ends = (0..steps.len()).map(|at| rail_ends::end_of(&steps, at).map(rail_ends::End::by_the_job)).collect::<Vec<_>>();
     assert_eq!(ends, [Some(false), Some(true), Some(false), Some(true), Some(false)], "reply, record, approve, push, merge");

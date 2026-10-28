@@ -564,7 +564,8 @@ pub use phone::{PhoneGateway, SetPhoneGateway};
 pub use show_file::{ShowFile, ShownText};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use sketch::{
-    page_scene_problems, RawScene, ShowSketch, Sketch,
+    page_scene_problems, AnswerSketch, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
+    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WORDS,
 };
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession,

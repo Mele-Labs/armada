@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
 import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, ReadWatchLog } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -162,6 +162,13 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.confirmWaiting, (_event, confirm: ConfirmWaiting) => {
     if (!text(confirm?.session_id) || !text(confirm.item_id)) return unread;
     return connection()?.sessions.confirmWaiting(confirm) ?? unsent;
+  });
+  ipc.handle(CHANNELS.answerSketch, (_event, answer: AnswerSketch) => {
+    if (!text(answer?.session_id) || !text(answer.sketch) || !text(answer.drawn)) return unread;
+    if (answer.how !== "approved" && answer.how !== "sent_back") return unread;
+    if (answer.words !== undefined && typeof answer.words !== "string") return unread;
+    const words = text(answer.words) ? { words: answer.words } : {};
+    return connection()?.sessions.answerSketch({ session_id: answer.session_id, sketch: answer.sketch, drawn: answer.drawn, how: answer.how, ...words }) ?? unsent;
   });
   ipc.handle(CHANNELS.approvePlan, (_event, approve: ApprovePlan) => {
     if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unread;

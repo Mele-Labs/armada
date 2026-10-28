@@ -45,6 +45,7 @@ use crate::workflow::prerequisite::Prerequisite;
 use crate::workflow::runs_at::RunsAt;
 use crate::workflow::scope::EvidenceScope;
 use crate::workflow::source::WorkflowSource;
+use crate::workflow::step_end::StepEnd;
 use crate::workflow::tuning::Effort;
 use crate::workflow::verdict::GateVerdict;
 use crate::workflow::Runner;
@@ -512,8 +513,9 @@ pub struct ResolvedStep {
     /// Whether the step is the one where the person is shown the work and approves it before
     /// tests are written. **False** on every step that does not say so.
     walks: bool,
-    /// Whether the step ends when the person replies. **False** on every step that does not say so.
-    awaits_reply: bool,
+    /// What the person does that ends the step, any one of them. **Empty** on every step that lists
+    /// none; `awaits_reply: true` is `[Replied]`.
+    ends_on: Vec<StepEnd>,
 }
 
 impl ResolvedStep {
@@ -572,7 +574,7 @@ impl ResolvedStep {
             records_plan: evidence_type == Some(EvidenceType::Plan),
             asks_delivery: false,
             walks: false,
-            awaits_reply: false,
+            ends_on: Vec::new(),
         }
     }
 
@@ -650,14 +652,14 @@ impl ResolvedStep {
         self.walks
     }
 
-    /// Whether the step ends on the person's reply, for the same reason.
-    pub fn awaiting_reply(mut self, awaits: bool) -> ResolvedStep {
-        self.awaits_reply = awaits;
+    /// What the person does that ends the step, for the same reason.
+    pub fn ending_on(mut self, ends: Vec<StepEnd>) -> ResolvedStep {
+        self.ends_on = ends;
         self
     }
 
-    pub fn awaits_reply(&self) -> bool {
-        self.awaits_reply
+    pub fn ends_on(&self) -> &[StepEnd] {
+        &self.ends_on
     }
 
     /// What the step does for the Job, for the reason [`frozen`](Self::frozen)

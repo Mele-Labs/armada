@@ -4,6 +4,7 @@
 import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
+  AnswerSketch,
   AnswerWaiting,
   ApprovePlan,
   CheckoutCaughtUp,
@@ -135,6 +136,8 @@ export type SessionsApi = {
   confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
   /** Thumbs up on a question Fleet read from a reply: the item stays and reads `confirmed`. Fleet refuses an item of any other source. */
   confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
+  /** Approves a sketch a Session showed, or sends it back with a note, as drawn when he read it. Fleet tells the agent. A newer drawing refuses. */
+  answerSketch: (answer: AnswerSketch) => Promise<SessionActed>;
   /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
   approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
   /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
@@ -361,6 +364,7 @@ export const SESSIONS_CHANNELS = {
   dismissWaiting: "bridge:dismiss-waiting",
   confirmWaiting: "bridge:confirm-waiting",
   confirmLater: "bridge:confirm-later",
+  answerSketch: "bridge:answer-sketch",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
   judgeSession: "bridge:judge-session",

@@ -1,0 +1,16 @@
+[operations.answer_sketch]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Approve a sketch a Job showed, or send it back with a note, as drawn when he read it"
+notes = """
+`POST /sessions/sketch/answer`, body `AnswerSketch`: `session_id`, `sketch` (the ledger id, `sketch:<title>`), `drawn` (the sketch's `detail.drawn` as he read it), `how` (`approved` or `sent_back`) and optional `words`. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+**Every sketch `show_sketch` draws is put to the person**: its `detail` carries `asked` `"true"` and `drawn`, an id new on every draw. It stays open to Approve and Send back on its card until he answers it or the job draws the title again, which replaces it with a new `drawn` and asks again. A plan's sketch is not asked: it is approved with the plan. **It is never a `waiting_for` item.**
+
+**The job is told as his message**, as a draft's answer is: `Approved sketch: <title>` and to go on from it as drawn, or `Sent back sketch: <title>`, his note, and to draw it again with `show_sketch` under the same title. Words with an approval go on the line after it. The sketch is settled only once the message is sent, so a failed send leaves it open: `detail` gains `settled` (`approved` or `sent_back`), `settled_at` and, where he gave any, `words`.
+
+**Only the drawing he read is answered.** A `drawn` that is not the sketch's now is a 409, `fleet.sketch_redrawn`, since the job drew it again after he read it. A sketch the job does not hold, one not asked, or one already settled is a 422, `fleet.sketch_not_open`; `sent_back` with no note is a 422, `fleet.sketch_answer_empty`; a job Fleet does not know is a 422, `fleet.sketch_answer_unnamed`. Nothing is written or sent on any refusal.
+
+`agent_access` is `No`: it is the person's answer.
+"""

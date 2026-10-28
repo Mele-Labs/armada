@@ -57,6 +57,20 @@ test("a step is drawn with the glyph its id carries, what ends it and when it is
   expect(stepOf({ id: "odd", label: "Odd" })).toEqual({ id: "odd", label: "Odd", ends: "", words: "" });
 });
 
+test("a step that ends on any of several things keeps them beside the one it ends when", () => {
+  const ends_any = ["you approve a walk", "you approve a sketch"];
+  expect(stepOf({ id: "propose", label: "Propose", ends_when: "you approve a walk", ends_any })).toEqual({
+    id: "propose",
+    label: "Propose",
+    glyph: "propose",
+    ends: "you approve a walk",
+    endsAny: ends_any,
+    words: "",
+  });
+  // A step with one end carries no list.
+  expect(stepOf({ id: "odd", label: "Odd", ends_when: "x" })).not.toHaveProperty("endsAny");
+});
+
 test("nudges become drifted Jobs under their step, with how long ago", () => {
   const now = Date.parse("2026-10-27T12:00:00Z");
   const drift = driftOf(

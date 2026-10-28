@@ -394,6 +394,8 @@ export type StepReading = {
   instructions?: string;
   /** What ends the step, as a short fact. Absent where nothing Fleet observes ends it. */
   ends_when?: string;
+  /** Every end of the step, in order, as the page says them: any one of them ends it. Absent where it has none. */
+  ends_any?: string[];
   /** When the step is passed over instead of walked. Absent on a step that is always done. */
   passed_over_when?: string;
   /** The newest nudges for this step in this place's definition, newest first, those marked not a drift left out. Absent when there are none. */
@@ -467,6 +469,8 @@ export type ChangeStep = {
   label: string;
   instructions?: string;
   ends_when?: string;
+  /** Every end of the step, as `StepReading.ends_any`. Absent where it has none. */
+  ends_any?: string[];
   passed_over_when?: string;
 };
 
