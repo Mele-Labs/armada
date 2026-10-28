@@ -265,6 +265,20 @@ this window, and that is another security review. `#1294`.
 > the person's own words, and can do nothing else. That is the whole authority
 > this channel carries.
 
+> **Rule.** The Job browser's acts bring back four things and no more: the page's
+> address and title, a snapshot of its accessibility tree, a screenshot written
+> to a path Fleet named, and an expression's JSON result.
+> Why: an agent's act is the one place a page's content is read on purpose, so
+> each answer is bounded on Fleet's side. A snapshot is cut to 48 KiB and a
+> result to 32 KiB, with `truncated: true`, and a screenshot is a file in the
+> Job's scratch folder (`docs/practices/protocol/the-job-browser.md`).
+
+> **Rule.** An agent's expression runs in an isolated world of the page's own,
+> never in the world the finder's layer uses, and never in a Bridge document.
+> Why: an isolated world shares the page's document and none of its scripts'
+> globals, and its id (2001) is not the finder's (2000), so an expression cannot
+> reach `ArmadaFinder`.
+
 ## The four protections
 
 | Protection | This window | Bridge's window |
@@ -308,6 +322,13 @@ this window, and that is another security review. `#1294`.
 | The screen | None | Fullscreen and pointer lock denied, and every permission but one |
 | An app on this machine | Local network access, for the shown origin and the `origins` a Job names | `local-network-access` is the one permission granted, to those origins only |
 | A dialog that looks like Armada's | None | `disableDialogs` |
+
+> **Rule.** A Job's agent driving the Job browser adds nothing to this table. The
+> page still has no preload, no IPC and no channel to main, every permission is
+> refused (the Job browser names no origin to grant local network access to),
+> and downloads stay refused.
+> Why: the agent reaches into the page and nothing reaches back out. Each act is
+> main's call, answered once, and the page cannot ask for one.
 
 > **Rule.** A page runs in a job partition of its own, persistent, one
 > per repository. A Job's walk is keyed by the Job's `manifest_id`.

@@ -59,6 +59,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [A Job's retro in its thread](session/a-jobs-retro-in-its-thread.md) |
 | [Running a block](session/running-a-block.md) |
 | [The shared terminal](session/shared-terminal.md) |
+| [The Job browser](session/job-browser.md) |
 | [A terminal job's thread](session/a-terminal-jobs-thread.md) |
 | [Not built](session/not-built.md) |
 | [Sleep mode](session/sleep-mode.md) |
