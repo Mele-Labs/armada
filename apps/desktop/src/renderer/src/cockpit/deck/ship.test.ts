@@ -83,6 +83,17 @@ test("a Job at work with a plan put to him is under Needs you, and its call stay
   expect(ship.asking.has(subject.key)).toBe(true);
 });
 
+test("a Job holding a question nobody answered, with no item behind it, is under Needs you and its row pulses", () => {
+  const night = { question: "Which night?", header: "Night", multi_select: false, options: [{ label: "Thursday", description: "" }, { label: "Friday", description: "" }] };
+  const lapsed = reply("lapsed", { lapsed: { id: "l3", questions: [night] } });
+  const ship = shipOf({ sessions: [lapsed], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const subject = ship.subjects.find((one) => one.id === "lapsed")!;
+  expect(subject.mark.said).toBe("Waiting on you");
+  expect(subject.needs).toBe(true);
+  expect(groupOf(subject)).toBe("needs");
+  expect(ship.asking.has(subject.key)).toBe(true);
+});
+
 test("a Mod Job's subject carries the mark the list groups it by, and another's does not", () => {
   const ship = shipOf({ sessions: [reply("mod", { mod: true }), reply("plain")], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
   const of = (id: string) => ship.subjects.find((one) => one.id === id)!;

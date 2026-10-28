@@ -44,6 +44,12 @@ describe("a reply is unread until he has been in the Session since it ended", ()
     const stated = { id: "a", text: "Pick one", since: TURN_ENDED, source: "agent" };
     expect(stateOf(session({ waitingFor: [stated] })).state).toBe("waiting");
   });
+
+  test("a question nobody answered, which Fleet keeps no item for, is waiting on him after he has read the reply", () => {
+    markViewed("s1", at + 1);
+    const lapsed = { id: "q", questions: [{ question: "Which night?", header: "Night", multi_select: false, options: [] }] };
+    expect(stateOf(session({ lapsed }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
 });
 
 describe("working is what Fleet derived, not only a turn of its own", () => {
