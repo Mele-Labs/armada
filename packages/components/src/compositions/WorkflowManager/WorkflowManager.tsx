@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { Clamped } from "../Clamped/Clamped";
+import { SessionComposer } from "../SessionComposer/SessionComposer";
+import type { SentFromComposer } from "../SessionComposer/SessionComposer";
 import { STEP_FIELDS, stepChangesOf } from "./diff";
 import type { StepChange } from "./diff";
 import { STEP_GLYPHS, keyOf } from "./types";
@@ -63,6 +65,8 @@ export type WorkflowManagerProps = {
   onSendBack: (one: WorkflowRef, notes: string) => Promise<WorkflowActAnswer>;
   /** A job that builds what a request Armada can't do yet needs: the Job it started, to open; or Fleet's sentence. */
   onBuildSupport: (one: WorkflowRef) => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
+  /** The Job a press started, as the shared Job card, once the host holds it. Absent or null, a line says it started. */
+  jobFor?: (jobId: string) => ReactNode;
   /** The suggested changes waiting, and the step one is being drawn up for (`workflow/step`). */
   suggestions: Suggestions;
   suggesting: string | null;
@@ -88,6 +92,9 @@ function replacesOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[]): stri
   if (one.source === "yours" && has("armada")) return "Yours replaces Armada's";
   return undefined;
 }
+
+const NONE: readonly never[] = [];
+const NOBODY = () => undefined;
 
 const sentencesOf = (words: string) => words.split(/(?<=[.!?])\s+/).filter((one) => one !== "");
 
@@ -232,7 +239,7 @@ type DetailProps = WorkflowManagerProps & {
   setDrafts: (next: (was: Readonly<Record<string, string>>) => Readonly<Record<string, string>>) => void;
 };
 
-function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions, suggesting, actsFor, ...acts }: DetailProps) {
+function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions, suggesting, actsFor, jobFor, ...acts }: DetailProps) {
   const ref: WorkflowRef = { id: workflow.id, source: workflow.source, ...refOf(workflow) };
   const key = keyOf(workflow);
   const editable = workflow.source !== "armada" && workflow.leftOut === undefined;
@@ -367,6 +374,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           onSendBack={(notes) => acts.onSendBack(ref, notes)}
           onBuildSupport={() => acts.onBuildSupport(ref)}
           onOpenJob={(job) => acts.onOpenJob(ref, job)}
+          jobFor={jobFor}
         />
       ) : null}
     </>
@@ -737,6 +745,7 @@ function Agent({
   onSendBack,
   onBuildSupport,
   onOpenJob,
+  jobFor,
 }: {
   keep: string;
   agent: AgentState;
@@ -746,8 +755,8 @@ function Agent({
   onSendBack: (notes: string) => Promise<WorkflowActAnswer>;
   onBuildSupport: () => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
   onOpenJob: (job: string) => void;
+  jobFor: ((jobId: string) => ReactNode) | undefined;
 }) {
-  const [text, setText] = useState("");
   const [asked, setAsked] = useState("");
   const [notes, setNotes] = useState<string | null>(null);
   // Fleet's sentence for the last act it would not take, said on the card until the next act.
@@ -763,13 +772,14 @@ function Agent({
     setRefused(out);
     return out === undefined;
   };
-  const send = async () => {
-    const request = text.trim();
-    if (request === "") return;
-    if (!(await settle(() => onAsk(request)))) return;
+  /** The composer is given the words back where Fleet refused them. */
+  const send = async (sent: SentFromComposer): Promise<boolean> => {
+    const request = sent.text.trim();
+    if (request === "") return false;
+    if (!(await settle(() => onAsk(request)))) return false;
     setStarted(null);
     setAsked(request);
-    setText("");
+    return true;
   };
   const build = async () => {
     setRefused(undefined);
@@ -923,29 +933,37 @@ function Agent({
     );
   }
 
+  // The job drawn as the shared Job card once the host holds it; until then, the line that says it started.
+  const job = started?.job === undefined ? null : (jobFor?.(started.job) ?? null);
   return (
     <div className="armada-wm-agent" data-phase="idle">
-      {started === null ? null : <Said {...started} onOpenJob={onOpenJob} />}
+      {started === null ? null : job !== null ? <div className="armada-wm-agent__job">{job}</div> : <Said {...started} onOpenJob={onOpenJob} />}
       {said}
-      <Textarea
+      {/* The composer has no visible label of its own; this one says what the box is for. */}
+      <h4 className="armada-wm__caption" aria-hidden="true">
+        Tell an agent what to change
+      </h4>
+      <SessionComposer
+        working={false}
+        bare
         label="Tell an agent what to change"
-        rows={2}
-        keep={`workflows:agent:${keep}`}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            void send();
-          }
-        }}
+        send="secondary"
+        sendLabel="Send to agent"
+        model={null}
+        effort={null}
+        models={NONE}
+        efforts={NONE}
+        onTune={NOBODY}
+        commands={NONE}
+        taggable={NONE}
+        tags={NONE}
+        onTags={NOBODY}
+        drawn={NONE}
+        onDraw={NOBODY}
+        onRemoveDrawn={NOBODY}
+        draftKey={`workflows:agent:${keep}`}
+        onSend={send}
       />
-      <div className="armada-wm-agent__acts">
-        <Kbd>⌘Enter</Kbd>
-        <Button variant="secondary" size="sm" disabled={text.trim() === ""} onClick={() => void send()}>
-          Send to agent
-        </Button>
-      </div>
     </div>
   );
 }
@@ -956,14 +974,19 @@ const SIGNS = {
   changed: { words: "Changed", Glyph: GitCompare },
 } as const;
 
-/** One step a proposed change touches: its place and name, how it changed, and each of its facts before and after. */
+/**
+ * One step a proposed change touches: its place and name, how it changed, and its facts. A changed step draws each
+ * fact before and after; an added one only after, and a removed one only before, struck through, its edge in the
+ * diff's hue for the kind, so no column stands empty.
+ */
 function StepChangeCard({ change }: { change: StepChange }) {
   const before = change.kind === "added" ? undefined : change.before;
   const after = change.kind === "removed" ? undefined : change.after;
   const label = (after ?? before)!.label;
   const sign = SIGNS[change.kind];
+  const sides: readonly ("Before" | "After")[] = change.kind === "changed" ? ["Before", "After"] : change.kind === "added" ? ["After"] : ["Before"];
   return (
-    <div role="group" aria-label={label} className="armada-wm-diff__card">
+    <div role="group" aria-label={label} className="armada-wm-diff__card" data-kind={change.kind}>
       <div className="armada-wm-diff__card-band">
         <span className="armada-wm-step__n">{change.n}</span>
         <span className="armada-wm-step__label">{label}</span>
@@ -975,28 +998,34 @@ function StepChangeCard({ change }: { change: StepChange }) {
           </Tooltip>
         </span>
       </div>
-      <Table className="armada-wm-diff__fields">
+      <Table className="armada-wm-diff__fields" data-sides={sides.length}>
         <TableHead>
           <TableRow>
             <TableHeaderCell>Field</TableHeaderCell>
-            <TableHeaderCell>Before</TableHeaderCell>
-            <TableHeaderCell>After</TableHeaderCell>
+            {sides.map((side) => (
+              <TableHeaderCell key={side}>{side}</TableHeaderCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
           {STEP_FIELDS.map((field) => {
             const was = before === undefined ? "" : field.of(before);
             const is = after === undefined ? "" : field.of(after);
-            const differs = was !== is;
+            const differs = change.kind === "changed" && was !== is;
+            const state = change.kind === "changed" ? (differs ? "changed" : "unchanged") : change.kind;
             return (
-              <TableRow key={field.name} aria-label={`${field.name}, ${differs ? "changed" : "unchanged"}`} data-differs={differs || undefined}>
+              <TableRow key={field.name} aria-label={`${field.name}, ${state}`} data-differs={differs || undefined}>
                 <TableHeaderCell scope="row">{field.name}</TableHeaderCell>
-                <TableCell variant={differs ? "primary" : "secondary"}>
-                  <FieldValue value={was} words={field.name === "Words"} against={change.kind === "changed" ? is : undefined} mark="removed" />
-                </TableCell>
-                <TableCell variant={differs ? "primary" : "secondary"}>
-                  <FieldValue value={is} words={field.name === "Words"} against={change.kind === "changed" ? was : undefined} mark="added" />
-                </TableCell>
+                {sides.map((side) => (
+                  <TableCell key={side} variant={change.kind === "changed" && !differs ? "secondary" : "primary"}>
+                    <FieldValue
+                      value={side === "Before" ? was : is}
+                      words={field.name === "Words"}
+                      against={change.kind === "changed" ? (side === "Before" ? is : was) : undefined}
+                      mark={side === "Before" ? "removed" : "added"}
+                    />
+                  </TableCell>
+                ))}
               </TableRow>
             );
           })}

@@ -30,7 +30,9 @@ import {
   sendBackWorkflowChange,
   suggestWorkflowChange,
 } from "./commands";
+import { IssueJobCard } from "./issues-tab/marks";
 import { askToOpenSessionInCockpit } from "./open-session";
+import { useSessions } from "./sessions-draft";
 import { PieceActs } from "./sharing/PieceActs";
 import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
@@ -77,6 +79,8 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const [picked, setPicked] = useState<WorkflowRef | null>(null);
   const [changes, setChanges] = useState<readonly WorkflowChange[]>([]);
   const [notice, setNotice] = useState<string | undefined>(undefined);
+  // The Jobs the window holds, so a Job a press started is drawn as the shared Job card once Fleet lists it.
+  const sessions = useSessions();
   // The copy the changes below belong to, so an answer that comes back after another was picked is let go.
   const asking = useRef<string | null>(null);
 
@@ -283,6 +287,10 @@ function Held({ current, repository, root, served }: { current: string | null; r
         return answer.ok ? { jobId: answer.building.job_id } : refusalWords(answer.outcome);
       }}
       onOpenJob={(_one, jobId) => askToOpenSessionInCockpit(jobId)}
+      jobFor={(jobId) => {
+        const job = sessions.find((one) => one.id === jobId);
+        return job === undefined ? null : <IssueJobCard session={job} onOpen={askToOpenSessionInCockpit} />;
+      }}
       onNotDrift={async (one, stepId, driftId) => {
         const marked = await markNotADrift(Number(driftId));
         if (!marked.ok) return refusalWords(marked.outcome);

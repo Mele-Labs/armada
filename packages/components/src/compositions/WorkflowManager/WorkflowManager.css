@@ -496,12 +496,33 @@
   color: var(--accent);
 }
 
-/* Field, Before and After keep their widths on every card, whatever the words. */
-.armada-wm-diff__fields {
-  table-layout: fixed;
+/* An added or a removed step wears the diff's hue for its kind on its leading edge and its mark. */
+.armada-wm-diff__card[data-kind="added"] {
+  border-inline-start: calc(var(--border-width) * 3) solid var(--diff-add-fg);
 }
+.armada-wm-diff__card[data-kind="removed"] {
+  border-inline-start: calc(var(--border-width) * 3) solid var(--diff-del-fg);
+}
+.armada-wm-diff__card[data-kind="added"] .armada-wm-diff__card-sign {
+  color: var(--diff-add-fg);
+}
+.armada-wm-diff__card[data-kind="removed"] .armada-wm-diff__card-sign {
+  color: var(--diff-del-fg);
+}
+/* A removed step's facts are gone: struck through and stepped back. */
+.armada-wm-diff__card[data-kind="removed"] .armada-table-body .armada-table-cell {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+}
+
+/* The Field column is as wide as its longest label and no wider; Before and After share the rest evenly, so every
+   card's columns line up whatever the words. */
 .armada-wm-diff__fields th:first-child {
-  width: 18ch;
+  width: 0;
+  white-space: nowrap;
+}
+.armada-wm-diff__fields[data-sides="2"] thead th:not(:first-child) {
+  width: 50%;
 }
 .armada-wm-diff__fields td {
   vertical-align: top;
@@ -511,7 +532,9 @@
   color: var(--accent);
   font-weight: var(--weight-heading);
 }
+/* Inline-block, so a removed step's strike does not run through the word for an absent fact. */
 .armada-wm-diff__nothing {
+  display: inline-block;
   color: var(--fg-subtle);
 }
 

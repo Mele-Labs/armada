@@ -13,6 +13,7 @@ import type {
   LeftOutWorkflow,
   Outcome,
   RepositorySummary,
+  SessionRecord,
   StepNudge,
   StepReading,
   WorkflowChange,
@@ -73,6 +74,10 @@ type Kept = { change: WorkflowChange; readyAt: number; manifest: string };
 /** A nudge as the mock keeps it. */
 type KeptNudge = { id: number; source: Place; workflow: string; step: string; nudge: StepNudge };
 
+/** The job a change Armada can't make yet starts, to build what it lacks. */
+const SUPPORT_JOB = "mock-armada-support";
+const SUPPORT_JOB_TITLE = "A step that ends on any of several approvals";
+
 /** The first served repository, which holds the repository copies `workflows-managed.ts` defines. */
 const FIRST = repository().manifest!.id;
 const LEDGER_ID = "01M1CNPKTV0018H2M1CXDNBK07";
@@ -99,7 +104,7 @@ const LEDGER_BUG = (): Held | undefined => {
  * A fresh Fleet's workflows. `current` is the Manifest the window is in, which a repository act with no Manifest named is
  * under; on All it is none, and the first repository stands in.
  */
-export function workflowsServed(current: () => string | null, options: { leftOut?: LeftOutWorkflow[] } = {}): Served {
+export function workflowsServed(current: () => string | null, options: { leftOut?: LeftOutWorkflow[]; started?: (record: SessionRecord) => void } = {}): Served {
   const started = Date.now();
   let files: Held[] = MANAGED_DEFINITIONS.map(({ source, definition }) => ({
     source,
@@ -379,7 +384,21 @@ export function workflowsServed(current: () => string | null, options: { leftOut
       if (kept === undefined) return { ok: false, outcome: noChange };
       if (settled(kept).state !== "cannot") return { ok: false, outcome: refusal("fleet.workflow_change_not_cannot", "Armada can already do what that change asks") };
       changes = changes.filter((one) => one.change.id !== id);
-      return { ok: true, building: { job_id: "mock-armada-support" } };
+      const now = new Date().toISOString();
+      options.started?.({
+        id: SUPPORT_JOB,
+        harness: "claude",
+        origin: "bridge",
+        manifest_id: FIRST,
+        cwd: repository().root,
+        title: SUPPORT_JOB_TITLE,
+        state: "live",
+        started_at: now,
+        last_seen_at: now,
+        usage: {},
+        attachments: [],
+      });
+      return { ok: true, building: { job_id: SUPPORT_JOB } };
     },
     proposeWorkflowToArmada: async ({ workflow_id, definition }) =>
       definition.trim() === ""
