@@ -77,6 +77,17 @@ describe("Remembered", () => {
     next.flush();
     expect(readFileSync(file, "utf8")).toBe("kept");
   });
+
+  it("stamps the picture again at quit after a quiet spell, so an idle Fleet does not age it out", () => {
+    const file = join(dir, "p.json");
+    let now = NOW;
+    const remembered = new Remembered(file, () => now);
+    remembered.keep({ planUsage: { windows: [] } });
+    remembered.flush();
+    now = NOW + REMEMBERED_FOR_MS * 2;
+    remembered.flush();
+    expect(JSON.parse(readFileSync(file, "utf8")).at).toBe(now);
+  });
 });
 
 describe("a Bridge opened on the picture", () => {

@@ -14,7 +14,8 @@ import type { Holdings, MergeLines, PlanUsage, SessionRecord, TimelineEvent } fr
 
 /** How old the file may be and still be drawn. Fixed, not a setting. */
 export const REMEMBERED_FOR_MS = 5 * 60_000;
-const WRITE_AFTER_MS = 2000;
+/** The Jobs list alone is megabytes, so a busy Fleet is written this often at most; the quit write is the one a restart reads. */
+const WRITE_AFTER_MS = 15_000;
 
 /** What is kept: each part is absent where it was not read or did not look right. */
 export type Picture = {
@@ -60,8 +61,8 @@ export function parsePicture(text: string, now: number): Picture | null {
 export class Remembered {
   private picture: Picture = {};
   private writing: ReturnType<typeof setTimeout> | undefined;
-  /** Whether Fleet changed anything since the file was written: a picture only ever loaded is never stamped again, so it ages out. */
-  private changed = false;
+  /** Whether Fleet has said anything since boot: a picture only ever loaded is never stamped again, so it ages out. */
+  private heard = false;
 
   constructor(
     private readonly file: string | undefined,
@@ -85,7 +86,7 @@ export class Remembered {
   /** Parts that changed. They are written `WRITE_AFTER_MS` after the first change since the last write. */
   keep(part: Picture): void {
     this.picture = { ...this.picture, ...part };
-    this.changed = true;
+    this.heard = true;
     if (this.file === undefined) return;
     this.writing ??= setTimeout(() => void this.write(), WRITE_AFTER_MS);
   }
@@ -95,19 +96,17 @@ export class Remembered {
     this.writing = undefined;
     const file = this.file;
     if (file === undefined) return;
-    this.changed = false;
     try {
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify({ at: this.now(), ...this.picture }));
     } catch {}
   }
 
-  /** Bridge is quitting: what changed since the last write goes now, stamped now, since the picture is as current as it was. */
+  /** Bridge is quitting: the picture goes now, stamped now, since Fleet's stream kept it current until this moment. */
   flush(): void {
-    if (this.file === undefined || !this.changed) return;
+    if (this.file === undefined || !this.heard) return;
     clearTimeout(this.writing);
     this.writing = undefined;
-    this.changed = false;
     try {
       writeFileSync(this.file, JSON.stringify({ at: this.now(), ...this.picture }));
     } catch {}
