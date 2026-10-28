@@ -120,6 +120,9 @@ fn what_is_taken_back_is_what_the_agent_opened_on_the_step_and_has_not_closed() 
 
 // ---- Through a Fleet ----
 
+/// What the agent is sent is a JSON line, so the label's quotes arrive escaped.
+const SKIP_SAID: &str = r#"skipped the \"Plan the change\" step"#;
+
 fn rigged() -> Rig {
     ruled_on(Arc::new(FakeJudge::with_no_objection()), workflow())
 }
@@ -154,13 +157,13 @@ async fn skipping_the_current_step_moves_the_job_on_tells_it_once_and_is_entered
     let answered = skip(&rig, &id, 0, true).await.expect("skipped");
     assert_eq!(answered.skipped_steps, [0]);
     assert_eq!(answered.workflow_step, Some(1), "the plan step passed over");
-    eventually(|| async { told(&rig, "skipped the \"Plan the change\" step") == 1 }).await;
+    eventually(|| async { told(&rig, SKIP_SAID) == 1 }).await;
     eventually(|| async { says_of_steps(&rig).await.contains(&"skipped: Plan the change".to_string()) }).await;
 
     let again = skip(&rig, &id, 0, true).await.expect("the row");
     assert_eq!(again.skipped_steps, [0], "skipping it again changes nothing");
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    assert_eq!(told(&rig, "skipped the \"Plan the change\" step"), 1, "and says nothing twice");
+    assert_eq!(told(&rig, SKIP_SAID), 1, "and says nothing twice");
     assert_eq!(says_of_steps(&rig).await.iter().filter(|says| says.starts_with("skipped:")).count(), 1);
 }
 
@@ -242,5 +245,5 @@ async fn a_job_that_has_not_run_is_told_its_skips_with_its_first_turn() {
         .begin_session(BeginSession { session_id: id.clone(), delivery: Some(DeliveryChoice::OpenPr), message: None })
         .await
         .expect("begun");
-    eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, "skipped the \"Plan the change\" step") == 1 }).await;
+    eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, SKIP_SAID) == 1 }).await;
 }

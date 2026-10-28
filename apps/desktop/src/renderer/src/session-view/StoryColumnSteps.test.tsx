@@ -183,7 +183,7 @@ test("a time after the current step began stands under the last done step, never
 });
 
 test("a finished pull request stands under the step its opening time falls in", () => {
-  const pr = { kind: "pull_request", number: 3012, title: "Search the issues", branch: "armada/issues", address: "https://forge/3012", checks: { state: "passed" }, state: "open", auto: false };
+  const pr = { kind: "pull_request", number: 3012, title: "Search the issues", branch: "armada/issues", address: "https://forge/3012", checks: { state: "passed" }, state: "merged", auto: false };
   const host = mount({ attachments: [pr], trail: { started: "2026-10-27T09:02:00Z", opened: { 3012: "2026-10-27T10:10:00Z" } } });
   // 10:10 falls in Discuss's second visit (from 09:55), before Approve plan's second (10:20).
   expect(zone(host, "Discuss").textContent).toContain("Search the issues");

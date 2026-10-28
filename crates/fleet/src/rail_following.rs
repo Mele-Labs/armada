@@ -162,7 +162,15 @@ where
         if let Some(left) = left {
             kept.judged.push(left as u32);
         }
-        if let Err(why) = self.store().lock().await.keep_session_rail(id, &kept) {
+        let keeping = {
+            let mut store = self.store().lock().await;
+            // A skip kept since the read above is the person's, and is not written away.
+            if let Ok(now) = store.session_rail(id) {
+                kept.skipped = now.skipped;
+            }
+            store.keep_session_rail(id, &kept)
+        };
+        if let Err(why) = keeping {
             self.session_warned(id, "the rail was not kept", why);
             return None;
         }
