@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.49'
+export const MOD_VERSION = '0.3.50'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -545,12 +545,28 @@ export function commitIn(command: string, output: string): { branch?: string; co
 /**
  * The branch a successful `git push` updated, from the ref line it printed: `abc..def  main -> main`,
  * `* [new branch]  topic -> topic`, a forced `+ abc...def`. A push with nothing to send, one that was
- * rejected and a `--dry-run` print no such line or are not one, and tell nothing.
+ * rejected and a `--dry-run` print no such line or are not one, and tell nothing. **A quiet push prints
+ * nothing at all**, so one that succeeded is a push of the branch its refspec names (28 Oct 2026: a Job
+ * pushed with `-q` and Fleet never moved it to Deliver).
  */
 export function pushIn(command: string, output: string): { branch?: string } | undefined {
-  if (!/\bgit\b[^|;&\n]*\bpush\b/.test(command) || /--dry-run|(?:^|\s)-n(?:\s|$)/.test(command)) return undefined
+  const push = /\bgit\b[^|;&\n]*?\bpush\b([^|;&\n]*)/.exec(command)
+  if (push === null || /--dry-run|(?:^|\s)-n(?:\s|$)/.test(command)) return undefined
   const sent = /^\s*(?:[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}|\*\s+\[new (?:branch|tag)\]|\+\s+[0-9a-f]{7,40}\.\.\.[0-9a-f]{7,40})\s+\S+\s+->\s+(\S+)/m.exec(output)
-  return sent === null ? undefined : { branch: sent[1] }
+  if (sent !== null) return { branch: sent[1] }
+  const words = (push[1] ?? '').trim().split(/\s+/).filter(word => word !== '')
+  if (!words.some(word => word === '-q' || word === '--quiet')) return undefined
+  const named = words.filter(word => !word.startsWith('-')).slice(1).at(-1)
+  const branch = named?.replace(/^\+/, '').split(':').at(-1)?.replace(/^refs\/heads\//, '')
+  return branch === undefined || branch === '' || branch === 'HEAD' ? {} : { branch }
+}
+
+/**
+ * Whether a push is the session's own: it names no branch, the session's is not known, or they are the
+ * same. A push of another branch, such as one into a scratch repository, moves no Job (28 Oct 2026).
+ */
+export function isOwnPush(pushed: { branch?: string }, own: string | undefined): boolean {
+  return pushed.branch === undefined || own === undefined || pushed.branch === own
 }
 
 /** One item of a session's `waiting_for` list, as the agent stated it (`WaitingInput`, `crates/ipc/src/sessions.rs`). */

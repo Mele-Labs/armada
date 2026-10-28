@@ -8,7 +8,7 @@ The Plan is the Blueprint now and the Ledger is gone from a Job's view; the same
 
 | | |
 |---|---|
-| Handing a group | `start_another_session` with `group` (the agent's, held for the owner like any start) or `hand_to_session` (the owner's press on **Hand to a Job**, which sends the brief). The new Job is in the same repository, titled with the group's title |
+| Handing a group | `start_another_session` with `group`, the agent's, held for the owner like any start. `hand_to_session` sends the same brief for a press of the owner's, but Bridge draws no **Hand to a Job**: he never pressed it, and on a group already in flight it would start a second Job on the same tasks. The owner, 28 Oct 2026. The new Job is in the same repository, titled with the group's title |
 | The brief | The group's tasks word for word, its paths, then the parent's handoff: its title and id, slot, branches, open pull requests and the last six messages of its thread. The agent's own `message` follows when it gave one |
 | The link | `started_by` on the child and `started_to` on the parent, as for any started Job, with `detail.group` on both. A group is handed once (409 `fleet.group_handed`), and a group the plan lacks is refused (422 `fleet.group_unknown`) |
 | The parent keeps track | When a child **ends** or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
@@ -22,7 +22,7 @@ Bridge draws it from the wire, with no state of its own:
 
 | Where | What |
 |---|---|
-| The Blueprint | Under a group of the plan handed to a Job, that Job's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Job** in its open body |
+| The Blueprint | Under a group of the plan handed to a Job, that Job's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed opens to its tasks alone |
 | The Artifacts layer | A Jobs group: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
 | The parent's thread | A `linked` row where it happened, `power` for done, `git-merge` for merged, the press that opens the child |
 | Work | `docs/concepts/cockpit.md` |

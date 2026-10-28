@@ -44,6 +44,11 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 - **A question he sends mid-turn is answered before the next tool call**, and
   a check or build runs with `run_in_background` so the turn ends and he can
   reach the job (15 Oct: asked twice during a five-minute foreground check).
+- **A turn never ends on a next step it names.** Do it in the same turn, or end
+  on a real wait: a question, a `waiting_for` item, a live watch, an open pull
+  request, or `all_done`. A Job is autonomous except where he must review or
+  it is completely blocked (28 Oct: a Job pushed, wrote "next is opening the
+  PR" with Auto land chosen, and sat idle until he asked).
 - **Plumbing is yours to decide** (CI, manifests, layers, test layout). State
   the choice in a line. Ask about what he would see (6 Oct).
 

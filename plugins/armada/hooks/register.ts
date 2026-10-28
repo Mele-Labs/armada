@@ -39,6 +39,7 @@ import {
   pagesOpenedIn,
   pullRequestsIn,
   pushIn,
+  isOwnPush,
   senderOf,
   titleOf,
   todoTasks,
@@ -659,7 +660,7 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
   const committed = commitIn(command, text)
   if (committed !== undefined) say($, id, { kind: 'committed', ...committed })
   const pushed = pushIn(command, text)
-  if (pushed !== undefined) say($, id, { kind: 'pushed', ...pushed })
+  if (pushed !== undefined && isOwnPush(pushed, one.branch)) say($, id, { kind: 'pushed', ...pushed })
   if (mayMoveBranch(command) || act?.act === 'create') {
     const cwd = await $.session.cwd()
     if (cwd !== one.cwd) {

@@ -24,8 +24,8 @@
     {
       "id": "propose",
       "label": "Propose",
-      "about": "Says what it took the request to mean and a first idea, then stops until you reply.",
-      "instructions": "Say in a few lines what you took the request to mean and a first idea. Read only what that needs. Then stop and wait for the person's reply.",
+      "about": "Shows what it took the request to mean as a sketch, or a rough walk for a look, with two lines at most, then stops until you reply.",
+      "instructions": "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Then stop and wait for the person's reply.",
       "awaits_reply": true,
       "asks_delivery": true,
       "delivers": false,
