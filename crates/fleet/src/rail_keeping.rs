@@ -25,6 +25,8 @@ const RECENT_NUDGES: u32 = 20;
 pub(crate) struct RailReads {
     pub extra: Extra,
     pub reading: Option<KeptReading>,
+    /// When each step began, as the rail kept it.
+    pub visits: Vec<(u32, String)>,
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
@@ -45,7 +47,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
     } else {
         Extra::default()
     };
-    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)? })
+    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: store.session_rail(&session.id)?.visits })
 }
 
 /// What the thread shows: the person wrote after the agent's first turn (a message or a tool call),
@@ -176,6 +178,8 @@ where
             return;
         }
         record.judge = reads.reading.as_ref().map(reading_wire);
+        record.workflow_visits =
+            reads.visits.iter().map(|(step, since)| ipc::StepVisit { step: *step, since: Instant::carried(since) }).collect();
         if session.state != store::SessionState::Live {
             return;
         }

@@ -148,6 +148,24 @@ where
             }
             None => Default::default(),
         };
+        let by = held.iter().find(|one| one.kind == "started_by").map(|link| ipc::SessionLink {
+            title: store.session(&link.target).ok().flatten().and_then(|parent| parent.title).unwrap_or_default(),
+            id: ipc::SessionId::carried(&link.target),
+        });
+        let started = match (store.session_started(&session.id).map_err(fault)?, by) {
+            (None, None) => None,
+            (kept, by) => Some(match kept {
+                Some(kept) => ipc::SessionStarted {
+                    workflow: kept.workflow,
+                    delivery: kept.delivery.as_deref().and_then(crate::session_host::start_card::chosen),
+                    model: kept.model,
+                    effort: kept.effort,
+                    mode: Some(crate::session_host::mode_of(&kept.mode)),
+                    by,
+                },
+                None => ipc::SessionStarted { by, ..Default::default() },
+            }),
+        };
         let wait = store
             .wait_of(&session.id)
             .map_err(fault)?
@@ -176,6 +194,7 @@ where
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.first_live_watch_name(&session.id).map_err(fault)?,
             start,
+            started,
         })
     }
 
@@ -281,6 +300,7 @@ where
             .wait
             .filter(|_| session.state == store::SessionState::Live)
             .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
+        record.started = reads.started;
         self.rail_drawn(session, &reads.rail, &mut record);
         record
     }

@@ -454,6 +454,12 @@ describe("a session's trail", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).trail).toEqual({ started: AT });
   });
 
+  it("reads how the Job was started, naming the Job that started it", () => {
+    const started = { workflow: "Feature", delivery: "open_pr" as const, model: "opus", effort: "high", mode: "plan" as const, by: { id: "s-parent", title: "Plan the lease" } };
+    expect(sessionOfRecord(record("a", { started }), undefined, beside()).started).toEqual({ ...started, by: { job: "s-parent", title: "Plan the lease" } });
+    expect(sessionOfRecord(record("a"), undefined, beside()).started).toBeUndefined();
+  });
+
   it("keeps each slot it held, a given-back one with when it let go, which the ledger leaves out", () => {
     const wire = record("a", {
       started_at: "2026-10-13T08:00:00Z",

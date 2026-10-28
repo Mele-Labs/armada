@@ -19,6 +19,21 @@ pub struct KeptRail {
     pub nudged: Vec<u32>,
     /// Steps a boundary judge has read.
     pub judged: Vec<u32>,
+    /// Each step the Session began, in order, with the time. A step it went back to appears again.
+    pub visits: Vec<(u32, String)>,
+}
+
+/// How a Session was started, as it stood when its process first ran.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptStarted {
+    /// The workflow's name as it read then. `None` is a custom Session.
+    pub workflow: Option<String>,
+    /// `auto_land`, `open_pr` or `keep_local`, where one was chosen by then.
+    pub delivery: Option<String>,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    /// `ask`, `auto`, `accept_edits` or `plan`.
+    pub mode: String,
 }
 
 /// Where a concern points.
@@ -75,6 +90,14 @@ fn unlisted(text: &str) -> Vec<u32> {
     text.split(',').filter_map(|one| one.trim().parse().ok()).collect()
 }
 
+fn visits_text(visits: &[(u32, String)]) -> String {
+    visits.iter().map(|(step, since)| format!("{step}\t{since}")).collect::<Vec<_>>().join("\n")
+}
+
+fn visits_of(text: &str) -> Vec<(u32, String)> {
+    text.lines().filter_map(|line| line.split_once('\t').and_then(|(step, since)| Some((step.parse().ok()?, since.to_string())))).collect()
+}
+
 fn cites_text(cites: &[KeptCite]) -> String {
     cites
         .iter()
@@ -128,9 +151,9 @@ impl Store {
     pub fn session_rail(&self, session_id: &str) -> Result<KeptRail, WriteError> {
         let found = self
             .conn
-            .query_row("SELECT step, nudged, judged FROM session_rail WHERE session_id = ?1", [session_id], |row| {
-                let (nudged, judged): (String, String) = (row.get(1)?, row.get(2)?);
-                Ok(KeptRail { step: row.get(0)?, nudged: unlisted(&nudged), judged: unlisted(&judged) })
+            .query_row("SELECT step, nudged, judged, visits FROM session_rail WHERE session_id = ?1", [session_id], |row| {
+                let (nudged, judged, visits): (String, String, String) = (row.get(1)?, row.get(2)?, row.get(3)?);
+                Ok(KeptRail { step: row.get(0)?, nudged: unlisted(&nudged), judged: unlisted(&judged), visits: visits_of(&visits) })
             })
             .optional()
             .map_err(reading)?;
@@ -140,9 +163,31 @@ impl Store {
     pub fn keep_session_rail(&mut self, session_id: &str, rail: &KeptRail) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO session_rail (session_id, step, nudged, judged) VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT (session_id) DO UPDATE SET step = ?2, nudged = ?3, judged = ?4",
-                params![session_id, rail.step, listed(&rail.nudged), listed(&rail.judged)],
+                "INSERT INTO session_rail (session_id, step, nudged, judged, visits) VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT (session_id) DO UPDATE SET step = ?2, nudged = ?3, judged = ?4, visits = ?5",
+                params![session_id, rail.step, listed(&rail.nudged), listed(&rail.judged), visits_text(&rail.visits)],
+            )
+            .map(|_| ())
+            .map_err(keeping)
+    }
+
+    /// How the Session was started, where it has begun.
+    pub fn session_started(&self, session_id: &str) -> Result<Option<KeptStarted>, WriteError> {
+        self.conn
+            .query_row("SELECT workflow, delivery, model, effort, mode FROM session_started WHERE session_id = ?1", [session_id], |row| {
+                Ok(KeptStarted { workflow: row.get(0)?, delivery: row.get(1)?, model: row.get(2)?, effort: row.get(3)?, mode: row.get(4)? })
+            })
+            .optional()
+            .map_err(reading)
+    }
+
+    /// Keep how the Session was started. **The first write stands**: a Session that starts a process
+    /// again keeps the start it had.
+    pub fn keep_session_started(&mut self, session_id: &str, started: &KeptStarted) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO session_started (session_id, workflow, delivery, model, effort, mode) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![session_id, started.workflow, started.delivery, started.model, started.effort, started.mode],
             )
             .map(|_| ())
             .map_err(keeping)
