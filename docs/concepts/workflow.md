@@ -89,6 +89,18 @@ A test edited after the plan is approved and before an expected walk is approved
 Where a workflow has a walks step, a rough mock edited before the plan is approved is no skip, but a push or a test then is.
 [The rail](session/the-rail.md) owns the nudges.
 
+### Skipping a step
+
+**A person can skip any step of a Job's workflow**, the current one or one still to come, from an icon on the step's header or from its right-click menu, and can undo it.
+Fleet then counts the step as passed, so the Job's current step moves past it.
+The step shows as skipped, and the timeline enters `skipped: <step label>`.
+
+The agent is sent one message saying the step is not wanted, so it neither does the step nor asks about it, and another when the skip is undone.
+**The delivering step cannot be skipped**; Fleet refuses it with `fleet.session_step_not_skippable`.
+
+**This is not the skipped-step nudge.** That nudge is Fleet noticing from what it observed that the agent skipped a step on its own.
+A step the person skipped is the person's call and never draws it.
+
 ### Where a definition comes from
 
 **Three places, merged by `workflow_id`, a person's own winning**: the set Armada carries, then the repository's own `.armada/workflows/`, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`.
