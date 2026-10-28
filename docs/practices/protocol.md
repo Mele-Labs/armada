@@ -177,6 +177,7 @@ WebSocket event stream, read this first.
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
+| [How a Job started, and when each step began: `SessionRecord.started`, `SessionRecord.workflow_visits`](protocol/how-a-job-started-and-when-each-step-began.md) |
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`, `mark_not_a_drift`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |

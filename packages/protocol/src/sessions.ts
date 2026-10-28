@@ -5,7 +5,7 @@
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
 import type { HelmCallInFlight } from "./helm-calls";
-import type { HostedFacts, SessionMode } from "./hosted-sessions";
+import type { DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { LoadoutItems, LoadoutSummary, LoadoutUse } from "./loadout";
 import type { TurnUsage } from "./turn-usage";
@@ -187,7 +187,30 @@ export type SessionRecord = {
    * Absent otherwise.
    */
   held_open_by?: string;
+  /**
+   * How the Job was started, as it stood when its process first ran: a later change of model, effort or mode does not rewrite it.
+   * Absent for a Job started before Fleet kept it and for a terminal session.
+   */
+  started?: SessionStarted;
+  /** When each step of the workflow began, oldest first. A step the Job went back to appears again. Absent when none was entered. */
+  workflow_visits?: StepVisit[];
 };
+
+/** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
+export type SessionStarted = {
+  workflow?: string;
+  /** The landing chosen by then. A Job that is asked later has none here. */
+  delivery?: DeliveryChoice;
+  /** The model it ran on, the machine's own where none was picked. */
+  model?: string;
+  effort?: string;
+  mode?: SessionMode;
+  /** The Job that started it. */
+  by?: { id: string; title: string };
+};
+
+/** The time a workflow step began. `step` is its index in the workflow. */
+export type StepVisit = { step: number; since: string };
 
 /** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */
 export type SessionLater = { id: string; sentence: string; said_at: string; /** Thumbs up on it (`confirm_later`). Absent where not. */ confirmed?: boolean };

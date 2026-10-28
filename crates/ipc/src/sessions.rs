@@ -1096,6 +1096,44 @@ pub struct SessionRecord {
     /// otherwise. Not a Needs you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub held_open_by: Option<String>,
+    /// How the Job was started, as it stood when its process first ran, so a later change of model,
+    /// effort or mode does not rewrite it. Absent for a Job started before Fleet kept it, and for a
+    /// terminal session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started: Option<SessionStarted>,
+    /// When each step of the workflow began, oldest first. A step the Job went back to appears again.
+    /// Empty for a custom Session and for one that has entered no step.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflow_visits: Vec<StepVisit>,
+}
+
+/// How a Job was started. Every part is absent where it was not set then.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionStarted {
+    /// The workflow's name as it read then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
+    /// The landing chosen by then. A Job that is asked later has none here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery: Option<crate::session_delivery::DeliveryChoice>,
+    /// The model it ran on, the machine's own where none was picked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::hosted_sessions::SessionMode>,
+    /// The Job that started it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<crate::session_starts::SessionLink>,
+}
+
+/// The time a workflow step began.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StepVisit {
+    /// The step's index in the workflow.
+    pub step: u32,
+    pub since: Instant,
 }
 
 /// A value of a Session the proposer can pick.

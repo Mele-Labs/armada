@@ -75,6 +75,7 @@ function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]
     steps: found.steps.map((step) => step.label),
     ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }),
     ...(phase === undefined ? {} : { phase }),
+    ...((record.workflow_visits ?? []).length === 0 ? {} : { visits: (record.workflow_visits ?? []).map((one) => ({ step: one.step, since: one.since })) }),
   };
 }
 

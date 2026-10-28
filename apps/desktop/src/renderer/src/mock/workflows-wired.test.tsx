@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
-import { workflowing } from "./workflows-fleet";
+import { workflowing, workflowingOnAll } from "./workflows-fleet";
 
 unmountAfterEach();
 
@@ -66,7 +66,7 @@ test("saving a step's words sends the file with that step's instructions changed
   const app = await workflows();
   const saved = recordSaves(app);
   await pickRepositoryFeature();
-  const before = JSON.parse((await app.api.readWorkflowDefinition("feature", "repository").then((one) => (one.ok ? one.definition.definition : "{}")))) as {
+  const before = JSON.parse((await app.api.readWorkflowDefinition("feature", "repository", null).then((one) => (one.ok ? one.definition.definition : "{}")))) as {
     steps: { id: string }[];
   };
 
@@ -274,7 +274,7 @@ test("an Approve refused because the file changed is drawn as Fleet said it", as
   const region = page.getByRole("region", { name: "Proposed change" });
   await expect.element(region).toBeVisible();
   // The file changes under the draft.
-  const held = await app.api.readWorkflowDefinition("feature", "repository");
+  const held = await app.api.readWorkflowDefinition("feature", "repository", null);
   if (!held.ok) throw new Error("no feature");
   const changed = JSON.stringify({ ...JSON.parse(held.definition.definition), name: "renamed" });
   await app.api.saveWorkflow({ manifestId: app.scenario.state.holds.manifests[0]?.id ?? null, body: { scope: "repository", definition: changed, overwrite: true } });
@@ -319,4 +319,39 @@ test("F reaches the find box and narrows the list", async () => {
   await userEvent.keyboard("docs");
   await expect.element(YOURS.getByRole("button", { name: "docs_only", exact: true })).toBeVisible();
   expect(ARMADA.elements()).toHaveLength(0);
+});
+
+test("on All repositories each repository's copies sit in a group of its own, and no Manifest is asked for", async () => {
+  mount(workflowingOnAll());
+  await onScreen();
+  await toSystemPage("Workflows");
+  await expect.element(ARMADA).toBeVisible();
+  await expect.element(group("armada repository")).toBeVisible();
+  await expect.element(group("ledger repository")).toBeVisible();
+  await expect.element(YOURS).toBeVisible();
+  await expect.element(group("ledger repository").getByRole("button", { name: "bug", exact: true })).toBeVisible();
+  expect(page.getByText("has no Manifest yet").elements()).toHaveLength(0);
+  expect(ARMADA.getByRole("button", { name: "bug", exact: true }).elements()).toHaveLength(1);
+});
+
+test("on All repositories a copy's words save under its own repository and are kept when read again", async () => {
+  const app = mount(workflowingOnAll());
+  const saved = recordSaves(app);
+  await onScreen();
+  await toSystemPage("Workflows");
+  const ledger = group("ledger repository");
+  await ledger.getByRole("button", { name: "bug", exact: true }).click();
+  await expect.element(words("Fix")).toBeVisible();
+  expect(wordsOf("Fix")()).toContain("Add a line to the changelog.");
+  const edited = "Make the smallest change that addresses the cause. Write no tests yet.";
+  await words("Fix").fill(edited);
+  await stepCard("Fix").getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => saved.length).toBe(1);
+  // Read again: leave the copy for Armada's, come back to ledger's.
+  await ARMADA.getByRole("button", { name: "bug", exact: true }).click();
+  await ledger.getByRole("button", { name: "bug", exact: true }).click();
+  await expect.element(words("Fix")).toBeVisible();
+  expect(wordsOf("Fix")()).toBe(edited);
+  // The first repository's copies were not touched.
+  expect(group("armada repository").getByRole("button", { name: "bug", exact: true }).elements()).toHaveLength(0);
 });

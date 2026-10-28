@@ -87,13 +87,18 @@ const touched = (session: string) => {
   changed();
 };
 
-/** Whether the panel is open: folded only where it was pressed, so open at every stage. */
-export function useFold(session: Session, area: Area): Fold {
+// Panels that open shut until pressed: the finished steps of a workflow drawn as the spine's zones (`StoryColumn.tsx`).
+const shutFirst = new Set<string>();
+
+/** Whether the panel is open: folded only where it was pressed, so open at every stage. `shut` is a panel that starts folded. */
+export function useFold(session: Session, area: Area, shut = false): Fold {
+  if (shut) shutFirst.add(keyOf(session.id, area));
+  else shutFirst.delete(keyOf(session.id, area));
   const byHand = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
     () => held(session.id, area),
   );
-  const open = byHand ?? true;
+  const open = byHand ?? !shut;
   const id = session.id;
   const toggle = useCallback(() => {
     forced.set(keyOf(id, area), !open);
@@ -104,7 +109,7 @@ export function useFold(session: Session, area: Area): Fold {
 
 /** A press of a panel's key: opens it if folded, folds it if open. */
 export function pressBand(session: Session, area: Area): void {
-  const was = held(session.id, area) ?? true;
+  const was = held(session.id, area) ?? !shutFirst.has(keyOf(session.id, area));
   forced.set(keyOf(session.id, area), !was);
   touched(session.id);
 }

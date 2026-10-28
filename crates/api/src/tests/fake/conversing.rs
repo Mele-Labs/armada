@@ -247,5 +247,7 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         waits: None,
         later: Vec::new(),
         held_open_by: None,
+        started: None,
+        workflow_visits: Vec::new(),
     }
 }

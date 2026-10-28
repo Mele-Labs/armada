@@ -144,6 +144,9 @@ where
         self.step_noted(&session, steps, from, to);
         let left = if BOUNDARY_JUDGES { rail::left_behind(steps, from, to, facts.landed, &kept.judged) } else { None };
         kept.step = record.workflow_step;
+        if let Some(to) = record.workflow_step {
+            kept.visits.push((to, self.now().as_str().to_string()));
+        }
         if let Some(left) = left {
             kept.judged.push(left as u32);
         }
@@ -214,6 +217,7 @@ where
             let from = kept.step;
             if from != Some(to) {
                 kept.step = Some(to);
+                kept.visits.push((to, self.now().as_str().to_string()));
                 if let Err(why) = store.keep_session_rail(id, &kept) {
                     self.session_warned(id, "the rail was not kept", why);
                     return None;
