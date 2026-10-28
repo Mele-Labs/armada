@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -154,6 +154,11 @@ export type SessionFrameProps = {
    * Enter saves it and Esc, or leaving it, keeps the old one.
    */
   onRename?: (title: string) => void;
+  /**
+   * Has Fleet name the Job from its first message: a wand after the title, busy until this settles. The caller says a
+   * refusal. Absent draws no wand.
+   */
+  onNameForMe?: () => Promise<unknown>;
   /** The Session's mod is older than the repository's: marked beside the state. */
   modOutOfDate?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
@@ -192,15 +197,39 @@ export type SessionFrameProps = {
 };
 
 /** The title, in place, on one line with the whole of it in a tooltip; a field while it is being changed. */
-function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: string) => void }) {
+function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRename?: (title: string) => void; onNameForMe?: () => Promise<unknown> }) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
+  const [naming, setNaming] = useState(false);
+  const wand =
+    onNameForMe === undefined ? null : (
+      <Tooltip label="Name it for me">
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label="Name it for me"
+          pending={naming}
+          onClick={() => {
+            setNaming(true);
+            // The caller says its own refusal; the button only waits.
+            void onNameForMe().then(
+              () => setNaming(false),
+              () => setNaming(false),
+            );
+          }}
+        >
+          <WandSparkles size={16} strokeWidth={2} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+    );
   if (onRename === undefined) {
-    if (title === undefined) return <span className="armada-session-frame__title" />;
+    if (title === undefined) return <span className="armada-session-frame__title">{wand}</span>;
     return (
       <span className="armada-session-frame__title">
         <Tooltip label={title}>
           <span className="armada-session-frame__title-text">{title}</span>
         </Tooltip>
+        {wand}
       </span>
     );
   }
@@ -212,6 +241,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
             <SquarePen size={16} strokeWidth={2} aria-hidden="true" />
           </Button>
         </Tooltip>
+        {wand}
       </span>
     );
   }
@@ -223,6 +253,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
             {title}
           </button>
         </Tooltip>
+        {wand}
       </span>
     );
   }
@@ -253,7 +284,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -263,7 +294,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
     <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
       <header className="armada-session-frame__head">
         <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
-        <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+        <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} {...(onNameForMe === undefined ? {} : { onNameForMe })} />
         {repository}
         {headViews}
         {actions}

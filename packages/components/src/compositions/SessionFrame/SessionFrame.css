@@ -72,6 +72,10 @@
   white-space: nowrap;
 }
 
+.armada-session-frame__title > .armada-tooltip:has(.armada-button) {
+  flex: none;
+}
+
 /* A title that can be renamed is a button that looks like the text it holds. */
 button.armada-session-frame__title-text {
   padding: 0;
