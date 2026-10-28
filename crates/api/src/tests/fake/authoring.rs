@@ -138,6 +138,13 @@ impl Authoring for FakeDaemon {
         })
     }
 
+    async fn build_workflow_support(
+        self: Arc<Self>,
+        _change: ipc::WorkflowChangeRef,
+    ) -> Result<ipc::WorkflowSupportBuilding, Refusal> {
+        Ok(ipc::WorkflowSupportBuilding { job_id: ipc::SessionId::carried("session") })
+    }
+
 
 
 
@@ -165,6 +172,9 @@ fn drafting(
         after: None,
         state: ipc::ChangeState::Drafting,
         reason: None,
+        missing: Vec::new(),
+        before_steps: None,
+        after_steps: None,
         notes: None,
         at: ipc::Instant::carried("2026-10-27T09:00:00.000Z"),
     }
