@@ -1,4 +1,4 @@
-// A Session's retro card, in its thread, asks the app for Armada fixes, on the Logbook, with that retro open. A
+// A Session's retro card, in its thread, asks the app for the Logbook's Retros tab, with that retro open. A
 // window event, as `open-session.ts` is, because the press sits in lists that do not hold the
 // app's navigation. The ask is kept until the page mounts and takes it.
 
@@ -7,7 +7,7 @@ import { useEffect } from "react";
 const OPEN_RETRO = "armada:open-retro";
 
 /**
- * The Session whose retro Armada fixes opens on: its id, and the name it is read by. **`n` names
+ * The Session whose retro the Retros tab opens on: its id, and the name it is read by. **`n` names
  * the retro** from the Session's thread card, which is one of several; absent, the newest.
  */
 export type RetroAsked = { id: string; label: string; n?: number };
@@ -42,7 +42,7 @@ const OPEN_FIXES = "armada:open-fixes";
 
 let fixesWaiting = false;
 
-/** Asks the Logbook to bring Armada fixes into view: from a retro card, the palette, or a link to Retros. */
+/** Asks the Logbook to open its Retros tab: from a retro card, the palette, or a link to Retros. */
 export function askForFixes(): void {
   fixesWaiting = true;
   window.dispatchEvent(new Event(OPEN_FIXES));

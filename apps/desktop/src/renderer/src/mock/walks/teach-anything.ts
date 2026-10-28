@@ -106,13 +106,13 @@ function steps(): Step[] {
 
     // Seven: all of it, on the Logbook page.
     { press: place("Logbook"), say: "Everything taught is on the Logbook page" },
-    { key: "Enter", on: role("listbox", "Entries"), say: "Enter opens an entry" },
+    { key: "Enter", on: role("grid", "Entries"), say: "Enter opens an entry" },
     { look: inside(region("Entry"), text("desktop_unit failed")), say: "What Teach was pressed on, and the Job, as its evidence" },
-    { key: "ArrowDown", on: role("listbox", "Entries"), say: "↓ moves down" },
+    { key: "ArrowDown", on: role("grid", "Entries"), say: "↓ moves down" },
     { look: inside(region("Entry"), role("group", "Also changes")), say: "A notice also changed what Fleet does" },
-    { press: inside(role("listbox", "Entries"), text(/Tickets are Jira keys/)), say: "The Jira key entry" },
+    { press: inside(role("grid", "Entries"), text(/Tickets are Jira keys/)), say: "The Jira key entry" },
     { look: inside(region("Entry"), role("group", "Also changes")), say: "It also changed how Bridge draws keys, in every repository" },
-    { key: "f", on: role("listbox", "Entries"), say: "F forgets it, after asking" },
+    { key: "f", on: role("grid", "Entries"), say: "F forgets it, after asking" },
     { press: inside(dialog("Forget this entry"), button("Forget", { exact: true })), say: "Forget takes back all of it" },
     toSessions,
     { press: deckRow(PAYMENTS_TITLE), say: "The second repository's key" },

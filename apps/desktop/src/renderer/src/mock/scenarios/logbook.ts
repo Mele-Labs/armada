@@ -1,5 +1,5 @@
 // The Logbook with something in every part: two repositories' entries, Habits and This Mac, a tripped entry, a locked
-// one, a candidate and two faded ones, and the retro items under Armada fixes. `docs/concepts/logbook.md`.
+// one, a candidate and two faded ones, and the retro items on the Retros tab. `docs/concepts/logbook.md`.
 // The walk `logbook` plays over it.
 
 import type { LogbookEntry, LogbookEvidence, RepositorySummary } from "@armada/protocol";
@@ -175,7 +175,7 @@ const ENTRIES: LogbookEntry[] = [
 ];
 
 export const logbookPage: Scenario = {
-  ...holding("logbook", "The Logbook: two repositories, Habits and This Mac, with a tripped entry, a locked one, a candidate and two faded, and Armada fixes", [repository(), LEDGER]),
+  ...holding("logbook", "The Logbook: two repositories, Habits and This Mac, with a tripped entry, a locked one, a candidate and two faded, and the Retros tab", [repository(), LEDGER]),
   logbook: ENTRIES,
   retros,
   lessons,
