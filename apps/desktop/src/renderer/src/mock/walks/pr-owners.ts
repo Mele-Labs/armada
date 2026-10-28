@@ -32,8 +32,8 @@ const optIn = walk("pr-owners", [
   { press: role("tab", "Edit"), say: "Edit" },
   { hover: SWITCH, say: "On for armada" },
   { press: place("Cockpit"), say: "Back on the Cockpit, whose picker holds the repository" },
-  { press: role("combobox", "Repository"), say: "The picker" },
-  { press: role("option", "pocket"), say: "pocket" },
+  { press: role("button", "Repository", { exact: true }), say: "The picker" },
+  { press: role("menuitem", "pocket"), say: "pocket" },
   { press: button(/^Open the/), say: "Its Manifest" },
   { look: SWITCH, say: "Off for pocket" },
 ]);

@@ -499,7 +499,7 @@ export function App() {
           helmCalling={callingHomes.has(HELM_HOME)}
           wordmark={<ArmadaMark size={20} title="Armada" />}
           // The title row's picker, on every surface.
-          {...(repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
+          repository={pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories)}
           places={<DeckPlaces state={state} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
           asking={asks.length}
           helm={
