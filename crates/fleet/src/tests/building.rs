@@ -5,11 +5,11 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild};
 
-use crate::building::{checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered};
+use crate::building::{checkout_of, left_out_in, left_out_moved, Building, LeftOut, Moved, NotChanged, NotOffered};
 use crate::tests::tmp::TempDir;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -321,6 +321,39 @@ async fn the_report_names_nothing_left_out_on_main_or_without_a_file_or_for_anot
     assert!(none.left_out.is_empty(), "no file");
 }
 
+#[tokio::test]
+async fn the_report_marks_a_left_out_branch_whose_local_tip_moved() {
+    let (checkout, support) = rig();
+    let root = checkout.path();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "base"]);
+    git(root, &["branch", "armada/a"]);
+    let tip = git(root, &["rev-parse", "armada/a"]);
+    fs::write(support.path().join("restart-source"), "/Users/user/armada/.armada/preview\n").unwrap();
+    fs::write(support.path().join("restart-commit"), format!("{SHA}\n")).unwrap();
+    fs::write(
+        support.path().join("preview-left-out"),
+        format!("{SHA}\narmada/a\t{tip}\tconflict: apps/a.ts\narmada/gone\t{tip}\tconflict: apps/b.ts\n"),
+    )
+    .unwrap();
+    let building = Building::default();
+    let moved = |report: ipc::FleetBuildReport| -> Vec<(String, bool)> {
+        report.left_out.into_iter().map(|one| (one.branch, one.moved)).collect()
+    };
+
+    let still = building.report(Some(root), support.path(), SystemTime::now()).await.unwrap();
+    assert_eq!(moved(still), [("armada/a".to_string(), false), ("armada/gone".to_string(), false)]);
+
+    git(root, &["checkout", "-q", "armada/a"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "moved on"]);
+    let after = building.report(Some(root), support.path(), SystemTime::now()).await.unwrap();
+    assert_eq!(
+        moved(after),
+        [("armada/a".to_string(), true), ("armada/gone".to_string(), false)],
+        "a branch git cannot find has not moved"
+    );
+}
+
 /// The preview at `SHA`, which left out `armada/a` at the tip `"a" * 40` and `armada/m` for a
 /// migration that is not on main.
 fn a_preview_that_left_branches_out(support: &Path) {
@@ -341,79 +374,42 @@ fn tips(moved: &'static [(&'static str, char)]) -> impl Fn(&str) -> Option<Strin
     move |branch| moved.iter().find(|(name, _)| *name == branch).map(|(_, tip)| tip.to_string().repeat(40))
 }
 
-#[tokio::test]
-async fn a_left_out_branch_that_moved_past_its_tip_refreshes_the_preview_without_adopt() {
+#[test]
+fn a_left_out_branch_that_moved_past_its_tip_is_read_with_its_tip_and_why_and_nothing_restarts() {
     let (checkout, support) = rig();
     a_preview_that_left_branches_out(support.path());
-    let started = Building::default().refresh_when_left_out_moved(
-        Some(checkout.path()),
-        support.path(),
-        SystemTime::now(),
-        Instant::now(),
-        tips(&[("armada/a", 'b'), ("armada/m", 'c')]),
-    );
-    assert!(started);
-    assert_eq!(wait_for(&checkout.path().join("ran")).await.trim(), "preview");
+    let read = || left_out_moved(support.path(), SystemTime::now(), tips(&[("armada/a", 'b'), ("armada/m", 'd')]));
+    let moved = vec![Moved {
+        branch: "armada/a".into(),
+        tip: "b".repeat(40),
+        why: "conflict: apps/a.ts".into(),
+        build: SHA.into(),
+    }];
+    assert_eq!(read(), moved);
+    assert_eq!(read(), moved, "a reading changes nothing, so a second reads the same");
+    assert!(!support.path().join("restart-build.status").exists(), "no restart was started");
+    assert!(!checkout.path().join("ran").exists(), "the wrapper never ran");
 }
 
-#[tokio::test]
-async fn a_branch_left_out_for_a_breaking_migration_or_not_moved_or_gone_does_not_refresh() {
-    let (checkout, support) = rig();
+#[test]
+fn a_branch_left_out_for_a_breaking_migration_or_not_moved_or_gone_is_not_read_as_moved() {
+    let (_checkout, support) = rig();
     a_preview_that_left_branches_out(support.path());
-    let building = Building::default();
-    for moved in [
-        &[("armada/a", 'a'), ("armada/m", 'd')][..],
-        &[("armada/m", 'd')][..],
-    ] {
+    for moved in [&[("armada/a", 'a'), ("armada/m", 'd')][..], &[("armada/m", 'd')][..]] {
         let moved: &'static [(&'static str, char)] = Box::leak(moved.to_vec().into_boxed_slice());
-        let started = building.refresh_when_left_out_moved(
-            Some(checkout.path()),
-            support.path(),
-            SystemTime::now(),
-            Instant::now(),
-            tips(moved),
-        );
-        assert!(!started, "{moved:?}");
+        assert!(left_out_moved(support.path(), SystemTime::now(), tips(moved)).is_empty(), "{moved:?}");
     }
-    assert!(!checkout.path().join("ran").exists(), "nothing was started");
 }
 
-#[tokio::test]
-async fn the_same_moved_tips_are_not_tried_twice_and_a_refresh_waits_ten_minutes() {
-    let (checkout, support) = rig();
+#[test]
+fn nothing_is_read_as_moved_while_a_restart_is_under_way_or_when_main_is_the_build() {
+    let (_checkout, support) = rig();
     a_preview_that_left_branches_out(support.path());
-    let building = Building::default();
-    let (now, at) = (SystemTime::now(), Instant::now());
-    let sweep = |at: Instant, moved: &'static [(&'static str, char)]| {
-        building.refresh_when_left_out_moved(Some(checkout.path()), support.path(), now, at, tips(moved))
-    };
-    assert!(sweep(at, &[("armada/a", 'b')]));
-    wait_for(&checkout.path().join("ran")).await;
-
-    // The refresh failed: the wrapper left no status behind, and the preview is as it was.
-    fs::remove_file(support.path().join("restart-build.status")).unwrap();
-    fs::remove_file(checkout.path().join("ran")).unwrap();
-    let later = at + Duration::from_secs(11 * 60);
-    assert!(!sweep(later, &[("armada/a", 'b')]), "that tip was tried");
-    assert!(sweep(later, &[("armada/a", 'e')]), "a newer tip is a new pair");
-    wait_for(&checkout.path().join("ran")).await;
-
-    fs::remove_file(support.path().join("restart-build.status")).unwrap();
-    assert!(!sweep(later + Duration::from_secs(60), &[("armada/a", 'f')]), "ten minutes not yet");
-}
-
-#[tokio::test]
-async fn nothing_refreshes_while_a_restart_is_under_way_or_when_main_is_the_build() {
-    let (checkout, support) = rig();
-    a_preview_that_left_branches_out(support.path());
-    let building = Building::default();
     let moved = tips(&[("armada/a", 'b')]);
     fs::write(support.path().join("restart-build.status"), "running\npreview\n").unwrap();
-    let now = SystemTime::now();
-    assert!(!building.refresh_when_left_out_moved(Some(checkout.path()), support.path(), now, Instant::now(), &moved));
+    assert!(left_out_moved(support.path(), SystemTime::now(), &moved).is_empty(), "the commit on file is not yet the build");
 
     fs::remove_file(support.path().join("restart-build.status")).unwrap();
     fs::remove_file(support.path().join("restart-source")).unwrap();
-    assert!(!building.refresh_when_left_out_moved(Some(checkout.path()), support.path(), now, Instant::now(), &moved));
-    assert!(!checkout.path().join("ran").exists(), "nothing was started");
+    assert!(left_out_moved(support.path(), SystemTime::now(), &moved).is_empty(), "main leaves nothing out");
 }

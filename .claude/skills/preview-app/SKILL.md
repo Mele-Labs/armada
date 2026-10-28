@@ -96,11 +96,14 @@ and a read of `scripts/preview` to find why a branch was missing.
 When `--restart` fails, the branches behind it are left out and it goes again
 until it builds: a branch with a breaking migration `origin/main` lacks
 (`skipped (breaking migration <name> is not on main)`), and one that changed a
-file the compiler errors name (`skipped (does not build: <files>)`). Fleet tells
-each left-out branch's Job why. The work is not lost, it is not in this preview.
+file the compiler errors name (`skipped (does not build: <files>)`). The work is
+not lost, it is not in this preview.
 With no merged branch behind a failure it fails as before. A failure Bridge
 shows starts with its cause: the compiler's first error and its file, or the
 migration and its branch.
+
+Fleet tells each left-out branch's Job why, and offers it a Refresh preview once
+the branch moves. The restart waits for the owner's press.
 
 **A branch that conflicts with another in-flight branch is skipped.** To preview
 both, merge the other into a preview-only copy of yours, and open the pull

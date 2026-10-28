@@ -988,6 +988,28 @@ The job is told as his message, as a draft's answer is, and the rail reads an ap
 **Skew.** As above.
 **The event stream.** No new event: an answer publishes `session.changed`, as a draft's does. The open risk below is neither better nor worse.
 
+## Fleet offers a refresh of the preview: `preview_offer`, and `moved` on a left-out branch
+
+Since 28 Oct 2026. `crates/fleet/src/session_host/preview_offers.rs`.
+**One enum value and one optional field**: no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `preview_offer` on `WaitingSource` in `packages/protocol/src/sessions.ts` and `moved` on `left_out` in `building.ts`, written by hand, and it came first.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `preview_offer`: id `preview:<branch>@<tip>`, text `<branch> moved since the preview left it out: <why>`, act `run` whose `target` is `scripts/preview --restart`. Raised on each live Job holding a branch the preview left out, once that branch's local tip moves past the one it was left out at, and not for a branch left out for a breaking migration. Kept once a (Job, branch, tip, build), so a Fleet restart raises nothing again; dropped once the build changes |
+| `dismiss_waiting` on it | Bridge writes | No new field. Skip: the id is dismissed and the agent is told nothing. The same tip is not offered again; a newer one is |
+| `answer_waiting` on it | Bridge writes | Refused 422 `fleet.session_waiting_empty`, and the item stands. Refresh preview runs the command, as the Fleet panel's switch does |
+| `FleetBuildReport.left_out[].moved` | Fleet writes, Bridge reads | `bool`, left out when false. The branch's local tip is not the one it was left out at. Read off local refs, so the report never waits on the network |
+
+**Fleet no longer restarts the preview by itself.** Before this, the sweep ran `scripts/preview --restart` when a left-out branch moved; now it only offers, and the restart waits for the owner's press.
+The build notice does not take an offer for a restart wait it answers, so a new build never sends the agent an answer to it.
+**A Bridge that matches `WaitingSource` exhaustively** meets a value it did not know; the mirror gained it first, and equal IDs hold the two together.
+
+**Skew.** As above.
+**The event stream.** No new event: a new offer publishes `session.changed` on its Job, and so does a build change that drops one.
+The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

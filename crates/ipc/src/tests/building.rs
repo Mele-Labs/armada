@@ -4,7 +4,7 @@
 
 use crate::{
     decode, encode, BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildReport,
-    LeftOutBranch,
+    LeftOutBranch, WaitingActKind, WaitingItem, WaitingSource,
 };
 
 #[test]
@@ -35,13 +35,22 @@ fn a_full_report_round_trips() {
         restarting: Some(BuildSource::Main),
         stage: None,
         failed: Some("main cannot fast-forward to origin/main".into()),
-        left_out: vec![LeftOutBranch { branch: "armada/a".into(), why: "conflict: apps/a.ts".into() }],
+        left_out: vec![
+            LeftOutBranch { branch: "armada/a".into(), why: "conflict: apps/a.ts".into(), moved: false },
+            LeftOutBranch { branch: "armada/b".into(), why: "conflict: apps/b.ts".into(), moved: true },
+        ],
     };
     let json = encode(&report).expect("a report is plain data");
     assert!(json.contains(r#""on":"preview""#), "{json}");
     assert!(json.contains(r#""position":{"ahead":4,"behind":0}"#), "{json}");
     assert!(json.contains(r#""restarting":"main""#), "{json}");
-    assert!(json.contains(r#""left_out":[{"branch":"armada/a","why":"conflict: apps/a.ts"}]"#), "{json}");
+    // `moved` is left out where false, as Bridge's `moved?` reads it.
+    assert!(
+        json.contains(
+            r#""left_out":[{"branch":"armada/a","why":"conflict: apps/a.ts"},{"branch":"armada/b","why":"conflict: apps/b.ts","moved":true}]"#
+        ),
+        "{json}"
+    );
     assert_eq!(
         decode::<FleetBuildReport>("build", json.as_bytes()).expect("it round-trips"),
         report
@@ -104,4 +113,19 @@ fn a_request_that_omits_adopt_does_not_adopt() {
 fn a_build_that_is_neither_main_nor_the_preview_is_refused() {
     let refused = decode::<ChangeFleetBuild>("build to change to", br#"{"build":"feature"}"#);
     assert!(refused.is_err(), "only main and preview exist");
+}
+
+#[test]
+fn an_offer_to_refresh_the_preview_crosses_as_preview_offer_with_its_command() {
+    let item = serde_json::json!({
+        "id": "preview:feat/billing-export@0123456789abcdef0123456789abcdef01234567",
+        "text": "feat/billing-export moved since the preview left it out: merge conflict with feat/ledger",
+        "since": "2026-10-28T09:00:00Z",
+        "source": "preview_offer",
+        "act": {"kind": "run", "target": "scripts/preview --restart"}
+    });
+    let read: WaitingItem = serde_json::from_value(item.clone()).unwrap();
+    assert_eq!(read.source, WaitingSource::PreviewOffer);
+    assert_eq!(read.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((WaitingActKind::Run, "scripts/preview --restart")));
+    assert_eq!(serde_json::to_value(&read).unwrap(), item);
 }

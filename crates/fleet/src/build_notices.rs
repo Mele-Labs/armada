@@ -10,8 +10,9 @@
 //! repeat it. A session that cannot be told now is asked again next reading, with nothing kept.
 //! Who is told: a live session waiting on the person to restart onto this build — the act Bridge
 //! draws as Refresh preview or Update to main — as the answer to that wait, with every branch it
-//! holds. And a session whose branch the build newly holds, holds newer commits of, or dropped,
-//! with those branches only: a rebuild that leaves its branches where they were says nothing.
+//! holds. Fleet's own offer of a refresh is not such a wait: a new build drops it unanswered.
+//! And a session whose branch the build newly holds, holds newer commits of, or dropped, with
+//! those branches only: a rebuild that leaves its branches where they were says nothing.
 //! A branch the preview left out is told with the reason `scripts/preview` recorded for it, and
 //! that is news the first time even to a session never told the branch was in.
 
@@ -21,8 +22,8 @@ use std::time::SystemTime;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::BranchInBuild;
-use ipc::{AnswerWaiting, BuildSource, SessionId, WaitingActKind};
-use store::{AttachmentState, HolderKind, SessionSearch, SessionState};
+use ipc::{AnswerWaiting, BuildSource, SessionId, WaitingActKind, WaitingSource};
+use store::{AttachmentState, HolderKind, SessionSearch, SessionState, Store};
 
 use crate::building::{build_word, commit_in, left_out_in, restarting_in, source_in, LeftOut};
 use crate::clock::elapsed;
@@ -105,6 +106,23 @@ fn answer(session: &str, item: String, text: &str) -> AnswerWaiting {
         mode: None,
         fixed: None,
     }
+}
+
+/// The branches each live Session of `served` stands on, as the slot pool allows, by Session.
+pub(crate) fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, BTreeSet<String>> {
+    let manifest = served.manifest().id().as_str();
+    let live = |id: &str| store.session(id).ok().flatten().is_some_and(|one| one.state != SessionState::Ended);
+    let mut held: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for row in store.standing_of_kind("branch", manifest).unwrap_or_default() {
+        if row.holder.kind == HolderKind::Session
+            && row.state == AttachmentState::Standing
+            && live(&row.holder.id)
+            && crate::slot_holders::pool_allows_branch(store, manifest, served.root(), &row.holder.id, &row.target)
+        {
+            held.entry(row.holder.id).or_default().insert(row.target);
+        }
+    }
+    held
 }
 
 /// A session's reasons to be told: the branches it holds, and the waits that ask for a restart.
@@ -261,21 +279,8 @@ where
         let mut reads = Vec::new();
         {
             let store = self.store().lock().await;
-            let live = |id: &str| {
-                store
-                    .session(id)
-                    .ok()
-                    .flatten()
-                    .is_some_and(|one| one.state != SessionState::Ended)
-            };
-            for row in store.standing_of_kind("branch", &manifest).unwrap_or_default() {
-                if row.holder.kind == HolderKind::Session
-                    && row.state == AttachmentState::Standing
-                    && live(&row.holder.id)
-                    && crate::slot_holders::pool_allows_branch(&store, &manifest, served.root(), &row.holder.id, &row.target)
-                {
-                    reasons.entry(row.holder.id).or_default().branches.insert(row.target);
-                }
+            for (session, branches) in branches_held(&store, served) {
+                reasons.entry(session).or_default().branches = branches;
             }
             let search = SessionSearch {
                 manifest_id: Some(&manifest),
@@ -289,7 +294,8 @@ where
             }
         }
         for (session, taken) in reads {
-            for item in self.ledger_waiting(&session, taken) {
+            // Fleet's own offer is no wait to answer: answering it would wake the agent, and a new build drops it.
+            for item in self.ledger_waiting(&session, taken).into_iter().filter(|one| one.source != WaitingSource::PreviewOffer) {
                 let Some(act) = item.act.filter(|act| act.kind == WaitingActKind::Run) else {
                     continue;
                 };

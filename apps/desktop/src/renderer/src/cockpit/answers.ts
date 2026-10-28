@@ -333,7 +333,21 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         // The key says the verb; the command itself is on the card, whole and in its own case.
         if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
         // A restart is the Fleet panel's build switch: one key, nothing to copy or say. The runner switches it.
-        if (restart !== undefined) return runner === undefined ? [] : [answer(restart.label, () => guarded.start(act.target), { once: true })];
+        // Fleet's offer of one also takes Skip, which dismisses it and tells the agent nothing.
+        if (restart !== undefined) {
+          const skip =
+            given.source !== "preview_offer"
+              ? []
+              : [
+                  oneTap("Skip", () =>
+                    wait("Skip", async (): Promise<Told> => {
+                      const skipped = await dismissWaiting(waiting.sessionId, given.id);
+                      return skipped.kind === "dismissed" ? { kind: "dismissed" } : skipped;
+                    }, dismissed),
+                  ),
+                ];
+          return [...(runner === undefined ? [] : [answer(restart.label, () => guarded.start(act.target), { once: true })]), ...skip];
+        }
         const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
         return [
           ...(runner === undefined ? [] : [answer("Run", () => guarded.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),

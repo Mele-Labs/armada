@@ -111,7 +111,7 @@ export type LedgerEntry = {
    * switches it, with nothing to copy and no command to read. `command` is its tooltip. Without a
    * `runner` the key does nothing.
    */
-  restart?: { command: string; runner?: CodeRunner; keep?: string };
+  restart?: { command: string; runner?: CodeRunner; keep?: string; /** The key's own name where the row reads something else, as an offer does. */ label?: string };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
   /** A `waiting` row Fleet read out of the agent's reply rather than the agent stating it: where it asks, its glyph says so in place of Reply or Question. */
@@ -131,6 +131,11 @@ export type LedgerEntry = {
   removeKeep?: string;
   /** A `waiting` row he can put away in one press, with no reason box: a walk, a PR, anything the agent did not state itself. The row draws Dismiss at its end, shown on hover or focus. */
   onDismiss?: () => void;
+  /**
+   * What Dismiss is called on this row: `Skip` on a restart Fleet offers. Absent is Dismiss. A `restart` row with
+   * `onDismiss` is such an offer: it reads its `text`, with the key and this act at its end.
+   */
+  dismissSaid?: string;
   /** Release at the row's end, shown on hover or focus, `name` what its tooltip names. Its press is the host's, which confirms first. */
   release?: { name: string; onPress: () => void };
   /** Released from here: given back, or kept by Fleet with `kept` saying why. */
@@ -608,7 +613,7 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
               </Inspect>
             )}
             {removal(row)}
-            {row.onDismiss === undefined ? null : <DismissAct name={row.name} onPress={row.onDismiss} />}
+            {row.onDismiss === undefined ? null : <DismissAct name={row.name} said={row.dismissSaid} onPress={row.onDismiss} />}
             {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
             {row.released?.kept === undefined ? null : <span className="armada-session-ledger__kept">{row.released.kept}</span>}
             {replies && replying === row.key && row.onReply !== undefined ? (
@@ -627,6 +632,16 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
  * once it has passed and the row is about to go; a failure leaves the key to press again.
  */
 function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<LedgerEntry["restart"]> }) {
+  // An offer reads its sentence, so the key carries its own label beside it.
+  if (row.onDismiss !== undefined) {
+    return (
+      <li className="armada-session-ledger__row armada-session-ledger__offer" aria-label={row.name}>
+        <span className="armada-session-ledger__offer-text">{row.text}</span>
+        <RestartKey className="armada-session-ledger__offer-key" name={restart.label ?? row.name} restart={restart} />
+        <DismissAct name={row.name} said={row.dismissSaid} onPress={row.onDismiss} />
+      </li>
+    );
+  }
   return (
     <li className="armada-session-ledger__row" aria-label={row.name}>
       <RestartKey className="armada-session-ledger__open" name={row.name} restart={restart} text={row.text} />
@@ -760,11 +775,11 @@ export function RemoveAct({ name, open, onPress }: { name: string; open: boolean
 }
 
 /** Puts one row away for good in one press. The row's hover or focus shows it; its tooltip names the row. */
-function DismissAct({ name, onPress }: { name: string; onPress: () => void }) {
+function DismissAct({ name, said = "Dismiss", onPress }: { name: string; said?: string | undefined; onPress: () => void }) {
   return (
     <span className="armada-session-ledger__dismiss">
-      <Tooltip label="Dismiss">
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Dismiss ${name}`} onClick={onPress}>
+      <Tooltip label={said}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={`${said} ${name}`} onClick={onPress}>
           <X size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>

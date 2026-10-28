@@ -567,12 +567,14 @@ export function entriesOf(
     const other = act?.kind === "message" && act.target !== session.id ? sessions.find((that) => that.id === act.target) : undefined;
     const childStart = one.source === "held_child" ? other?.start : undefined;
     const proposed = one.source === "draft" ? proposedOf(session, one.id, scopes) : undefined;
+    // Fleet's offer of a restart reads its sentence, with the key beside it and Skip at its end.
+    const offer = one.source === "preview_offer" && restart !== undefined;
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
-      name: restart?.label ?? one.text,
+      name: offer ? one.text : (restart?.label ?? one.text),
       // A procedure reads as its words: its command is in the steps it opens.
-      text: restart !== undefined ? restart.label : act?.kind === "run" && one.steps === undefined ? <code>{act.target}</code> : one.text,
+      text: offer ? one.text : restart !== undefined ? restart.label : act?.kind === "run" && one.steps === undefined ? <code>{act.target}</code> : one.text,
       ...(restart !== undefined
         ? {}
         : {
@@ -582,7 +584,7 @@ export function entriesOf(
             },
           }),
       ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
-      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, keep: waitingRunKey(session.id, one.id), ...(runner === undefined ? {} : { runner }) } } : {}),
+      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, keep: waitingRunKey(session.id, one.id), ...(runner === undefined ? {} : { runner }), ...(offer ? { label: restart.label } : {}) } } : {}),
       ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner, keep: waitingRunKey(session.id, one.id) } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
@@ -606,6 +608,8 @@ export function entriesOf(
       ...(one.source !== "fleet_call" ? {} : { onRemove: () => void dismissWaiting(session.id, one.id), removeKeep: `remove:${session.id}:${one.id}` }),
       // A walk, or a pull request Fleet derived, is put away in one press with no reason box; Fleet tells the agent.
       ...(one.source === "walk" || (one.source === "replied" && act?.kind === "approve_pr") ? { onDismiss: () => void dismissWaiting(session.id, one.id) } : {}),
+      // Fleet's offer is skipped the same way, and the agent is told nothing.
+      ...(offer ? { onDismiss: () => void dismissWaiting(session.id, one.id), dismissSaid: "Skip" } : {}),
       // While the proposer reads, no landing goes and Fleet takes the reading's; once read, the landing the child's card has ready.
       ...(childStart === undefined || other === undefined || begin === undefined
         ? {}
@@ -1061,8 +1065,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
-  // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
-  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || notOurs.length > 0;
+  // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
+  const listed = needs.some((one) => one.restart === undefined || one.onDismiss !== undefined) || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
   const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.

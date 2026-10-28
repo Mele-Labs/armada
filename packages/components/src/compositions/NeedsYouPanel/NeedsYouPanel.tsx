@@ -23,7 +23,7 @@ function focusIsFree(): boolean {
 const TYPES_WORDS = "input, textarea, select, [contenteditable]";
 
 /** What the arrows move between in the list: a question's row, and an action's one press. */
-const LIST_KEYS = ".armada-needs-panel__list :is(.armada-session-ledger__open, [data-aside], .armada-prose__run-acts button)";
+const LIST_KEYS = ".armada-needs-panel__list :is(.armada-session-ledger__open, .armada-session-ledger__offer-key, [data-aside], .armada-prose__run-acts button)";
 
 /** The actions, by what their one press does, in the order they are drawn. */
 const ACTIONS: readonly { label: string; holds: (row: LedgerEntry) => boolean }[] = [
@@ -32,10 +32,13 @@ const ACTIONS: readonly { label: string; holds: (row: LedgerEntry) => boolean }[
   { label: "PRs", holds: (row) => row.act === "approve_pr" },
 ];
 
-const acts = (row: LedgerEntry): boolean => row.restart === undefined && row.options === undefined && ACTIONS.some((group) => group.holds(row));
+/** A restart is the band's own key, unless he may put it away: then it is Fleet's offer, listed under Commands with its sentence. */
+const banded = (row: LedgerEntry): boolean => row.restart !== undefined && row.onDismiss === undefined;
 
-/** A row that asks him something: choices, a reply, or a press that goes to a question or a message. A restart is the band's own key. */
-const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(row);
+const acts = (row: LedgerEntry): boolean => !banded(row) && row.options === undefined && ACTIONS.some((group) => group.holds(row));
+
+/** A row that asks him something: choices, a reply, or a press that goes to a question or a message. */
+const asks = (row: LedgerEntry): boolean => !banded(row) && !acts(row);
 
 /** One question waiting, as the list draws it and the detail opens it. */
 type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A sentence Fleet read from a reply: `no` is Not a question, `yes` is A question and is absent once Fleet has it confirmed. Both are thumbs at the row's end and items of its menu. */ misread?: { no: () => void; yes?: () => void } };
@@ -133,7 +136,7 @@ export function NeedsYouPanel({
   ];
   const menuOf = menu === undefined ? undefined : questions.find((one) => one.key === menu.key)?.misread;
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
-  const restarts = rows.filter((row) => row.restart !== undefined);
+  const restarts = rows.filter(banded);
   const things: Thing[] = [...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
   // What opens the panel on arriving: the question.
   const arrived = [question?.id].filter((one) => one !== undefined).join("\n");
