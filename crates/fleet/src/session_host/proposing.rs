@@ -306,8 +306,9 @@ where
             eprintln!("job {id}: the request was not read, so it starts on the defaults: {why}");
         }
         self.reading_ended(&id, &request, read.ok()).await;
-        // The Job has started on the defaults, and nothing waits on the second try.
-        if failed {
+        // The Job has started on the defaults, and nothing waits on the second try. A title he gave is no stand-in.
+        let standing_in = self.hosts().of(&id).state().proposal.stand_in.is_some();
+        if failed && standing_in {
             tokio::spawn(async move { self.title_tried_again(id, request, hint).await });
         }
     }
