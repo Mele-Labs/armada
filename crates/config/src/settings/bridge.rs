@@ -10,6 +10,7 @@ pub const KEY_BINDINGS: Json = Json("bridge.keyBindings");
 pub const TIME_FORMAT: Json = Json("bridge.timeFormat");
 pub const ROW_VIEW: Json = Json("bridge.rowView");
 pub const WHERE_THINGS_ARE_OPEN: Flag = Flag("bridge.whereThingsAreOpen");
+pub const OPEN_GROUP: Flag = Flag("bridge.openGroup");
 /// Compact, Default or Roomy: which set of space tokens Bridge draws with (`packages/tokens/src/spacing-sets.css`).
 pub const SPACING: Words = Words("spacing.density");
 pub const SPACINGS: &[&str] = &["compact", "default", "roomy"];
@@ -101,6 +102,18 @@ pub(super) const BRIDGE: &[Entry] = &[
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("job-detail-where-things-are-open"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: OPEN_GROUP.0,
+        section: Section::Bridge,
+        title: "Open group",
+        description: "A Job's story ends with the pull requests, issues and follow-ups still open. A right press on the group hides it.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
         env: None,
         tip: None,
     },
