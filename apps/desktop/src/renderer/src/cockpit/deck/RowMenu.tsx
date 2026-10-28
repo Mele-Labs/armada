@@ -1,7 +1,7 @@
-// A Session row's context menu: Pause (Resume while paused), Auto Pilot, Mod, Report, Teach, Close. It opens at the pointer on a right press, and beside the
+// A Session row's context menu: Pause (Resume while paused), Auto Pilot, Mod, Report, Name it for me, Teach, Close, then View. It opens at the pointer on a right press, and beside the
 // row on the ContextMenu key or Shift+F10; the row carries no icon for it. Mounted once by the list.
 
-import { CirclePause, Flag, GraduationCap, Play, Plane, Puzzle, X } from "lucide-react";
+import { CirclePause, Flag, GraduationCap, Play, Plane, Puzzle, WandSparkles, X } from "lucide-react";
 import { DropdownMenu, type DropdownMenuEntry } from "@armada/components";
 
 import { startModJob } from "../../mod-job";
@@ -26,11 +26,12 @@ export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | 
     { kind: "item", id: "autopilot", label: "Auto Pilot", icon: Plane },
     ...(at.row !== null ? [{ kind: "item" as const, id: "mod", label: "Mod", icon: Puzzle }] : []),
     ...(canReport() && at.row !== null ? [{ kind: "item" as const, id: "report", label: "Report", icon: Flag }] : []),
+    ...(draft?.nameForMe === undefined ? [] : [{ kind: "item" as const, id: "name", label: "Name it for me", icon: WandSparkles }]),
     ...(teach === undefined ? [] : [{ kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }]),
+    ...(draft?.close === undefined ? [] : [{ kind: "item" as const, id: "close", label: "Close", danger: true, icon: X }]),
   ];
-  const close: DropdownMenuEntry[] = draft?.close === undefined ? [] : [{ kind: "separator", id: "rule" }, { kind: "item", id: "close", label: "Close", danger: true, icon: X }];
-  // The View group (`row-view.tsx`) comes before the destructive Close, and is all of the menu where no Job is under the press.
-  const entries: DropdownMenuEntry[] = at.viewOnly === true ? viewEntries(view) : [...acts, { kind: "separator", id: "view-rule" }, ...viewEntries(view), ...close];
+  // The View group (`row-view.tsx`) comes after the Job's own acts, and is all of the menu where no Job is under the press.
+  const entries: DropdownMenuEntry[] = at.viewOnly === true ? viewEntries(view) : [...acts, { kind: "separator", id: "view-rule" }, ...viewEntries(view)];
   return (
     <DropdownMenu
       triggerLabel="Job"
@@ -49,6 +50,7 @@ export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | 
         if (chosen === "autopilot") onAutopilot(at.root);
         if (chosen === "mod" && at.row !== null) void startModJob(at.row, at.title);
         if (chosen === "report" && at.row !== null) askToReport(at.row);
+        if (chosen === "name") void draft?.nameForMe?.(at.id);
         if (chosen === "teach") teach?.("row", at.title);
         if (chosen === "close") draft?.close?.(at.id);
       }}

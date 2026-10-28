@@ -55,6 +55,9 @@
   display: flex;
   flex: 1;
   min-width: 0;
+  align-items: center;
+  /* The wand keeps clear of the title's last letter. */
+  gap: var(--space-3);
   color: var(--fg-default);
   font-weight: var(--weight-medium);
 }
