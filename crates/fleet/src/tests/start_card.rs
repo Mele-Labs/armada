@@ -87,13 +87,15 @@ async fn on_gate(rig: &Rig, id: &SessionId) {
         .expect("set");
 }
 
-/// A held Job on the gate workflow, with the rail watching, whose first message is waiting.
+/// A held Job on the gate workflow, with the rail watching, whose first message is waiting and read:
+/// Start pressed during the reading is queued (`held_children.rs`), which these tests do not ask about.
 async fn held_with(rig: &Rig, first: &str) -> SessionId {
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
     crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
     let id = rig.start_held().await;
     on_gate(rig, &id).await;
     rig.send_unsettled(&id, first).await;
+    read(rig, &id).await;
     id
 }
 
@@ -130,6 +132,7 @@ async fn a_held_jobs_first_message_waits_off_the_thread_in_his_box_until_begin()
     assert!(said_on_the_thread(&rig, &id).await.is_empty(), "the first message is not on the thread");
     assert_eq!(card(&rig, &id).await.and_then(|one| one.message).as_deref(), Some(FIRST), "it is the card's");
 
+    read(&rig, &id).await;
     let begun = begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     assert!(begun.hosted.expect("hosted").start.is_none(), "the card is gone once it has begun");
     eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, FIRST) == 1 }).await;
@@ -215,6 +218,7 @@ async fn a_held_job_waits_in_needs_you_until_begin() {
     assert_eq!((act.kind, act.target.as_str()), (ipc::WaitingActKind::Message, id.as_str()));
 
     rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
     begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     assert!(record(&rig, &id).await.waiting_for.iter().all(|one| one.source != WaitingSource::FirstMessage), "Start settles it");
 
