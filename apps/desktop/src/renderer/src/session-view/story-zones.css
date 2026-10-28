@@ -12,7 +12,7 @@
 .sv-beat__line { grid-column: 2 / -1; min-width: 0; padding-bottom: var(--space-1); color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); overflow-wrap: anywhere; }
 /* What a row produced, under it and indented to its label. */
 .sv-beat__made { display: flex; flex-direction: column; gap: var(--space-1); grid-column: 2 / -1; min-width: 0; padding-block: var(--space-1) var(--space-2); }
-.sv-beat--made, .sv-beat--brief { display: block; min-height: 0; padding-block: var(--space-1); }
+.sv-beat--made { display: block; min-height: 0; padding-block: var(--space-1); }
 
 .sv-beat[data-state="done"] .sv-beat__label { color: var(--fg-muted); }
 .sv-beat[data-state="working"] .sv-beat__label,
@@ -48,16 +48,16 @@
 .sv-kind + .sv-kind { margin-block-start: var(--space-2); }
 .sv-kind__label { margin: 0; padding: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
 
-/* The workflow at the head of the story: its name as a reading, its steps as glyphs beside it. Pressing the name opens the picker. */
-.sv-story__head { display: flex; flex: none; align-items: center; min-height: var(--h-control); }
-.sv-workflow { display: flex; flex: none; align-items: center; gap: var(--space-2); min-width: 0; }
-.sv-story__head > .sv-workflow { flex: 1 1 auto; }
-.sv-workflow .sv-rail { flex: 0 1 auto; }
-.sv-workflow__pick { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding: 0; border: 0; border-radius: var(--radius-inset); background: none; color: var(--fg-subtle); cursor: pointer; }
-.sv-workflow__pick:hover, .sv-workflow__pick[aria-expanded="true"] { color: var(--fg-default); }
-.sv-workflow__pick:hover .armada-readout, .sv-workflow__pick[aria-expanded="true"] .armada-readout { border-color: var(--border-default); color: var(--fg-default); }
+/* The workflow at the head of the story, a band of its own: its name with the picker's caret and the proposer's mark. The steps are the zones below. */
+.sv-story__head { display: flex; flex: none; flex-direction: column; justify-content: center; padding-block: var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
+.sv-workflow { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.sv-workflow__top { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: var(--h-control); }
+.sv-workflow__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
+.sv-workflow__pick { display: inline-flex; flex: 0 1 auto; align-items: center; gap: var(--space-1); min-width: 0; padding: var(--space-1) var(--space-2); margin-inline-start: calc(var(--space-2) * -1); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-subtle); cursor: pointer; }
+.sv-workflow__pick:hover, .sv-workflow__pick[aria-expanded="true"] { background: var(--bg-hover); color: var(--fg-default); }
 .sv-workflow__pick:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.sv-workflow__name { display: inline-flex; flex: none; }
+.sv-workflow__name { display: inline-flex; min-width: 0; }
+
 .sv-panel__body > .sv-workflow { padding-block: var(--space-1); }
 
 /* How Completed is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
@@ -71,26 +71,57 @@
 .sv-spine .sv-story__head { padding-inline-start: var(--lead); }
 .sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
 .sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
-.sv-spine .sv-panel[data-area="now"]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
-.sv-spine .sv-panel[data-area="next"]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
+.sv-spine .sv-panel.sv-panel:is([data-area="now"], [data-area="step-now"])[data-area]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
+.sv-spine .sv-panel.sv-panel:is([data-area="next"], [data-area="step-next"])[data-area]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
 /* The line starts at Completed's first marker. The bands hold at the column's top while their zone passes under them, so each has the column's ground to cover it. */
-.sv-spine .sv-panel[data-area="done"]::before { inset-block-start: calc(var(--legend-h) / 2); }
+.sv-spine .sv-panel:is([data-area="brief"], [data-area="done"])::before { inset-block-start: calc(var(--legend-h) / 2); }
+/* Folded, the Brief keeps a stretch of line under it down to Completed. */
+.sv-spine .sv-panel[data-area="brief"] { padding-block-end: var(--space-3); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: sticky; inset-block-start: 0; z-index: 2; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: var(--ground); box-shadow: none; color: var(--fg-muted); }
 /* The marker on the line: a hollow dot for Completed and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
-.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1) - var(--border-width) / 2); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
-.sv-spine .sv-panel[data-area="now"] > .sv-panel__band { color: var(--fg-default); }
-.sv-spine .sv-panel[data-area="now"] > .sv-panel__band::after { inset-inline-start: calc(var(--line) - var(--space-2) / 2 - var(--border-width) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
-.sv-spine .sv-panel[data-area="now"] > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
+.sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1)); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
+.sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band { color: var(--fg-default); }
+.sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band::after { inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-2) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
+.sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band .sv-panel__label { color: var(--fg-default); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
 .sv-spine .sv-panel[data-collapsed]::before { display: none; }
 
+/* The workflow's steps are the zones. A folded step keeps its stretch of line, since the steps run on one after another; a finished step has a check on the line in place of the dot. */
+.sv-spine .sv-panel[data-area^="step-"][data-collapsed]::before { display: block; }
+.sv-spine .sv-panel[data-marked] > .sv-panel__band::after { display: none; }
+.sv-spine .sv-panel__mark { position: absolute; inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-4) / 2); inset-block-start: 50%; translate: 0 -50%; display: grid; place-items: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--ground); color: var(--step-advanced); }
+
 /* The brief reads as prose, not as the panel's mono. */
 .sv-nav .sv-flight__brief { padding-inline: var(--space-2); font-family: var(--font-sans); }
-.sv-beat--brief .sv-flight__brief { padding-inline: 0; }
 /* The groups' rows start where the beats do: the mark column is the first column, with no inset. */
 .sv-nav .sv-flight__row { padding-inline: 0; }
 .sv-nav .sv-flight__open { padding-inline: 0; }
 .sv-nav .sv-flight__open > .sv-group__tasks { padding-inline: 0; }
+
+/* ---- The Brief: the first beat on the spine, above Completed -------------------------------------------------- */
+
+/* Its band is one press across the width: the label, the first line of the brief, a caret that turns when it is open. Its band covers the line above its marker as the other bands do, and Completed's runs on from the Brief's. */
+.sv-panel__body[hidden] { display: none; }
+.sv-brief__press { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-3); min-width: 0; min-height: var(--legend-h); padding: 0 var(--space-2) 0 0; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: start; cursor: pointer; }
+.sv-brief__press:hover { color: var(--fg-default); }
+.sv-brief__press:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-brief__excerpt { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); letter-spacing: normal; text-transform: none; }
+/* The new look grows a band's label to push its tools right; here the excerpt follows the label instead. */
+:root .sv-spine .sv-brief__press .sv-panel__label.sv-panel__label { flex: none; }
+.sv-brief__caret { flex: none; margin-inline-start: auto; color: var(--fg-subtle); }
+.sv-brief__press[aria-expanded="true"] .sv-brief__caret { rotate: 180deg; }
+.sv-brief__text { margin: 0; padding-inline-end: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.sv-brief__started { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-2) 0 0; border-top: var(--border-width) solid var(--border-subtle); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-brief__row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: baseline; }
+.sv-brief__row dt { margin: 0; color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.sv-brief__row dd { margin: 0; min-width: 0; color: var(--fg-default); overflow-wrap: anywhere; }
+.sv-brief__by { padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--accent); font: inherit; text-align: start; cursor: pointer; }
+.sv-brief__by:hover { text-decoration: underline; }
+.sv-brief__by:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+
+/* A folded step has nothing passing under its band, so the band drops the ground that hides the line, and the line runs on through it to the next step. */
+.sv-spine .sv-panel.sv-panel:is([data-collapsed][data-area="step-done"], [data-area="step-next"]) { padding-block-end: var(--space-2); }
+.sv-spine .sv-panel.sv-panel:is([data-collapsed][data-area="step-done"], [data-area="step-next"]) > .sv-panel__band { background: none; }

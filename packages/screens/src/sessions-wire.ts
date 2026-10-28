@@ -60,6 +60,16 @@ const NO_PICKS: ReadonlySet<ProposedField> = new Set();
 /** What other sessions call a session: `s-` and the first eight characters of its id. */
 export const addressOf = (id: string): string => `s-${id.slice(0, 8)}`;
 
+/** How the Job started, with the Job that started it under the name the draft gives it. */
+const startedOfWire = (started: NonNullable<SessionRecord["started"]>): NonNullable<Session["started"]> => ({
+  ...(started.workflow === undefined ? {} : { workflow: started.workflow }),
+  ...(started.delivery === undefined ? {} : { delivery: started.delivery }),
+  ...(started.model === undefined ? {} : { model: started.model }),
+  ...(started.effort === undefined ? {} : { effort: started.effort }),
+  ...(started.mode === undefined ? {} : { mode: started.mode }),
+  ...(started.by === undefined ? {} : { by: { job: started.by.id, title: started.by.title } }),
+});
+
 function checksOf(detail: Record<string, string>): SessionChecks {
   const failing = detail["failing"] ?? "";
   // Fleet words a failure outside the gate as `pending` or `passed` with the names still in `failing`.
@@ -652,6 +662,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
     ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at, ...(one.confirmed === true ? { confirmed: true } : {}) })) }),
     ...(ended || record.held_open_by === undefined ? {} : { heldOpenBy: record.held_open_by }),
+    ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
     ...(work === undefined ? {} : { work }),
   };

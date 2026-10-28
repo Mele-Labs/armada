@@ -7,7 +7,8 @@ const map = role("listbox", "Map");
 const places = role("navigation", "Places");
 const dock = inside(map, role("option", "Rebuild the dock panel"));
 const stage = region(/^Job: /);
-const now = region("Now", { exact: true });
+// The workflow is at its second step, Implement, so Now is the current step's zone.
+const now = region("Implement", { exact: true });
 const tasks = inside(now, role("list", "Tasks"));
 const subagents = inside(now, role("list", "Subagents"));
 const opened = [

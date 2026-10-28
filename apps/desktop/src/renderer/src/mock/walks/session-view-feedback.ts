@@ -8,7 +8,7 @@ const queue = region("Merge queue");
 export const sessionViewFeedback = walk("session-view-feedback", [
   { press: deckRow("Rotate the audit log"), say: "A Job is selected" },
   { look: region("Field"), say: "The Field shows the whole floor of the repository, centred, whatever the Cockpit's map was last zoomed to. A zoom or a pan stays until he opens another Job" },
-  { look: region("Now", { exact: true }), say: "The right column is the Job's story: Completed, Now and Next. There is no Ledger and no Status" },
+  { look: region("Brief", { exact: true }), say: "The right column is the Job's story: the Brief, then a zone for each step of its workflow. There is no Ledger and no Status" },
   { look: inside(queue, button(/^#2388/)), say: "In the Merge line this Job's pull request has the accent's ring round it. The others are as they were" },
   { press: deckRow("Retry the slot lease"), say: "Another Job" },
   { look: inside(queue, button(/^#2390/)), say: "The ring has moved to this Job's pull request, and the Field is fitted to its own floor" },
