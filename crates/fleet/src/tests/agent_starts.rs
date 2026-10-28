@@ -717,10 +717,10 @@ async fn a_fork_an_agent_titled_is_named_when_start_sends_it() {
 
     rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.record(&held.session_id).await.title.as_deref() == Some("Same fix on a map") }).await;
-    let asked = judge.asked();
-    assert_eq!(asked.len(), before + 1, "one call");
-    assert!(asked[before].contains(FIRST), "from the words Start sent: {}", asked[before]);
-    assert!(asked[before].contains("called it: Another way"), "with the agent's title as the hint: {}", asked[before]);
+    // Start also wakes the starter with a `started` row, and reading its reply is a call of its own.
+    let asked: Vec<String> = judge.asked().into_iter().skip(before).filter(|one| one.contains(FIRST)).collect();
+    assert_eq!(asked.len(), 1, "one call, from the words Start sent: {asked:?}");
+    assert!(asked[0].contains("called it: Another way"), "with the agent's title as the hint: {}", asked[0]);
 }
 
 /// The reading of `id` has landed, if one began.
