@@ -187,6 +187,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DEEP_LINKS,
         s::AUTOPILOT_PANEL,
         s::WHERE_THINGS_ARE_OPEN,
+        s::OPEN_GROUP,
         s::CONTEXT_WATCH,
         s::SUBAGENT_WATCH,
         s::CACHE_WATCH,
