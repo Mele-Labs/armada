@@ -60,7 +60,11 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
   const start = (): void => {
     const offState = fleet.subscribe(connectedIn);
     const offAppended = fleet.onTimelineAppended((one) => merge([one]));
-    void fleet.state().then(connectedIn);
+    // Read at once whether or not Fleet answers: main answers from the picture it kept on disk until it does.
+    void fleet.state().then((facts) => {
+      if (facts.connection.state !== "connected") read();
+      connectedIn(facts);
+    });
     stop = () => {
       offState();
       offAppended();

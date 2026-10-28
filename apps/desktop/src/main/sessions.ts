@@ -233,6 +233,11 @@ export class SessionsHost {
     this.dir = dir;
   }
 
+  /** Start from the list on disk: a session that changes before Fleet's read folds into it, and a read that fails keeps it. `readAt` stays null, so nothing in it is told as new. */
+  remember(sessions: SessionRecord[]): void {
+    this.sessions = sessions;
+  }
+
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
   async again(port: number): Promise<void> {
     this.heardWatches.clear();

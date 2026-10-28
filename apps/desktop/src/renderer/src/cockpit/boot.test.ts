@@ -66,3 +66,20 @@ describe("nextPowerAt", () => {
     expect(nextPowerAt("protocol_mismatch", OPENED, opened)).toBeUndefined();
   });
 });
+
+describe("a launch on the picture kept on disk", () => {
+  const kept: PowerClock = { opened: OPENED, dropped: null, since: null, kept: true };
+
+  it("never stands by or fills: not answering is kept, answering is live at once", () => {
+    for (const state of ["reading", "connecting", "starting", "not_running", "unreachable"] as const) {
+      expect(powerOf(state, OPENED, kept)).toBe("kept");
+    }
+    expect(powerOf("connected", OPENED, { ...kept, since: OPENED })).toBe("live");
+    expect(nextPowerAt("connected", OPENED, { ...kept, since: OPENED })).toBeUndefined();
+  });
+
+  it("is a fault once a Fleet that is down has been silent past the grace", () => {
+    expect(powerOf("not_running", OPENED + POWER_GRACE_MS - 1, kept)).toBe("kept");
+    expect(powerOf("not_running", OPENED + POWER_GRACE_MS, kept)).toBe("fault");
+  });
+});
