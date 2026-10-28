@@ -69,7 +69,7 @@
   --radius-inset: max(calc(var(--radius-bezel) - var(--space-1)), var(--radius-floor)); /* content a gutter (4px) inside: a row, a chip, a bay, a track */
   --select-edge: color-mix(in srgb, var(--fg-default) 70%, transparent);  /* a picked thing's frame: the text colour, so it reads in any theme */
   --select-frame: none;
-  --select-ground: var(--bg-hover);
+  --select-ground: color-mix(in srgb, var(--accent) 40%, var(--bg-base));
   --lamp: var(--dot);                                              /* a state lamp: 6px and round, the one round thing on a row */
   --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
   --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
