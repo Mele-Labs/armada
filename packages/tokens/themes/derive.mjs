@@ -200,6 +200,10 @@ export function derive(id, title, scheme) {
   const add = diff(p[2]);
   const del = diff(p[1]);
 
+  // The picked ground is the accent over the base; the strongest tint, to 40%, that still holds text at TEXT:1.
+  let tint = 40;
+  while (tint > 0 && contrast(fgDefault, over(accent, ground.base, tint / 100)) < TEXT) tint -= 1;
+
   const v = (name, c) => `  --${name}: ${typeof c === "string" ? c : toHex(c)};`;
   const lines = [
     "  /* Ground */",
@@ -208,6 +212,8 @@ export function derive(id, title, scheme) {
     "  /* Foreground and accent */",
     v("fg-default", fgDefault), v("fg-muted", fgMuted), v("fg-subtle", fgSubtle), v("fg-inverse", inverse),
     v("accent", accent), v("accent-hover", accentHover), v("accent-muted", muted),
+    "  /* Selection */",
+    v("select-tint", `${tint}%`),
     "  /* Depth */",
     v("bg-glass", rgba(ground.raised, 0.86)), v("bg-glass-end", rgba(ground.base, 0.86)),
     v("border-glass", dark ? "rgb(255 255 255 / 0.07)" : rgba(fgDefault, 0.08)),

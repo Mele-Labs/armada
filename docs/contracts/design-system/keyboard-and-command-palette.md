@@ -349,7 +349,7 @@ something stronger.
 
 ```
 focused row   2px --accent left edge bar + --bg-hover
-selected row  --select-ground fill and a --select-frame hairline
+selected row  --select-ground fill, the accent tinted
 focused ctrl  2px --accent ring at 2px offset, per the global focus rule
 ```
 

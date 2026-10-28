@@ -3,7 +3,7 @@
 
 import { ageOf, glyphOf, keyOf, stepsOfDefinition } from "@armada/components";
 import type { AgentState, DriftedJob, ManagedStep, Suggestion, WorkflowSource } from "@armada/components";
-import type { LeftOutWorkflow, StepNudge, StepReading, WorkflowChange, WorkflowSummary } from "@armada/protocol";
+import type { ChangeStep, LeftOutWorkflow, StepNudge, StepReading, WorkflowChange, WorkflowSummary } from "@armada/protocol";
 
 /** Fleet's name for each place the page groups by. */
 export const WIRE_OF: Readonly<Record<WorkflowSource, string>> = { armada: "armada", repository: "repository", yours: "kit" };
@@ -13,8 +13,8 @@ export function placeOf(wire: string): WorkflowSource | undefined {
   return wire === "armada" ? "armada" : wire === "repository" ? "repository" : wire === "kit" ? "yours" : undefined;
 }
 
-/** A step Fleet read, as the page draws it. */
-export function stepOf(reading: StepReading): ManagedStep {
+/** A step Fleet read, or one side of a change it worked out, as the page draws it. */
+export function stepOf(reading: StepReading | ChangeStep): ManagedStep {
   const glyph = glyphOf(reading.id);
   return {
     id: reading.id,
@@ -62,9 +62,13 @@ export function agentOf(changes: readonly WorkflowChange[], known: readonly Mana
   const asked = one.origin.kind === "asked" ? { asked: one.origin.text } : {};
   if (one.state === "drafting") return { phase: "working", ...asked };
   if (one.state === "failed") return { phase: "failed", reason: one.reason ?? "", ...asked };
+  if (one.state === "cannot") return { phase: "cannot", missing: one.missing ?? [], ...asked };
   if (one.state === "ready" && one.after !== undefined) {
+    // Fleet's own reading of each side says what ends a step it adds; the text alone cannot.
+    const before = one.before_steps?.map(stepOf) ?? stepsOfText(one.before, known);
+    const after = one.after_steps?.map(stepOf) ?? stepsOfText(one.after, known);
     const fresh = one.origin.kind === "new" ? { fresh: true as const } : {};
-    return { phase: "proposed", before: stepsOfText(one.before, known), after: stepsOfText(one.after, known), ...asked, ...fresh };
+    return { phase: "proposed", before, after, ...asked, ...fresh };
   }
   return { phase: "idle" };
 }

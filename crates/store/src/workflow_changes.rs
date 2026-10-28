@@ -1,7 +1,7 @@
 //! The changes to a workflow an agent drafted for the owner to approve, kept so the Workflows page can
 //! show the card and the drafting state. `docs/concepts/workflow.md`.
 //!
-//! **A change is open until it is settled**: drafting, ready or failed. Approving or dismissing one keeps
+//! **A change is open until it is settled**: drafting, ready, failed or cannot. Approving or dismissing one keeps
 //! the row and takes it off the page. `source` is where the definition came from, since the
 //! repository's copy and Kit's of one id are two workflows.
 
@@ -16,6 +16,8 @@ pub const READY: &str = "ready";
 pub const APPROVED: &str = "approved";
 pub const DISMISSED: &str = "dismissed";
 pub const FAILED: &str = "failed";
+/// The agent answered that Armada has no way to do what was asked; `missing` says what it lacks.
+pub const CANNOT: &str = "cannot";
 
 /// One change, as the store keeps it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,6 +36,8 @@ pub struct KeptWorkflowChange {
     pub after_text: Option<String>,
     pub state: String,
     pub failed_because: Option<String>,
+    /// What Armada lacks to make a `cannot` change, one sentence each. Empty on every other.
+    pub missing: Vec<String>,
     /// What the owner said when he sent it back, the latest.
     pub notes: Option<String>,
     pub created_at: String,
@@ -54,7 +58,7 @@ pub struct NewWorkflowChange<'a> {
 }
 
 const COLUMNS: &str = "id, manifest_id, workflow_id, source, step_id, asked, nudges, before_text, after_text, state, \
-                       failed_because, notes, created_at, changed_at, is_new";
+                       failed_because, notes, created_at, changed_at, missing, is_new";
 
 fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
     let nudges: String = row.get(6)?;
@@ -73,7 +77,8 @@ fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
         notes: row.get(11)?,
         created_at: row.get(12)?,
         changed_at: row.get(13)?,
-        is_new: row.get::<_, i64>(14)? != 0,
+        missing: row.get::<_, String>(14)?.lines().map(str::to_string).collect(),
+        is_new: row.get::<_, i64>(15)? != 0,
     })
 }
 
@@ -150,13 +155,13 @@ impl Store {
             .conn
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM workflow_changes
-                 WHERE workflow_id = ?1 AND source = ?2 AND state IN (?3, ?4, ?5) AND (source <> 'repository' OR manifest_id = ?6)
+                 WHERE workflow_id = ?1 AND source = ?2 AND state IN (?3, ?4, ?5, ?7) AND (source <> 'repository' OR manifest_id = ?6)
                  ORDER BY id"
             ))
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         let rows = statement
-            .query_map(params![workflow_id, source, DRAFTING, READY, FAILED, manifest_id], read)
+            .query_map(params![workflow_id, source, DRAFTING, READY, FAILED, manifest_id, CANNOT], read)
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
@@ -198,6 +203,20 @@ impl Store {
         self.move_workflow_change(id, &[DRAFTING], FAILED, None, Some(because), at)
     }
 
+    /// The agent answered that Armada can't do what was asked: the change is `cannot`, with what it lacks.
+    /// A line break inside one would read back as two, so each is kept on one line.
+    pub fn workflow_change_cannot(&mut self, id: i64, missing: &[String], at: &str) -> Result<bool, WriteError> {
+        if !self.move_workflow_change(id, &[DRAFTING], CANNOT, None, None, at)? {
+            return Ok(false);
+        }
+        let lines: Vec<String> = missing.iter().map(|one| one.split_whitespace().collect::<Vec<_>>().join(" ")).collect();
+        self.conn
+            .execute("UPDATE workflow_changes SET missing = ?2 WHERE id = ?1", params![id, lines.join("\n")])
+            .map_err(fault("keeping what a workflow change lacks"))
+            .map_err(WriteError::Database)?;
+        Ok(true)
+    }
+
     /// The owner sent a ready or failed change back with `notes`: it is drafting again, keeping the draft
     /// it is sent back from until the new one comes.
     pub fn workflow_change_sent_back(&mut self, id: i64, notes: &str, at: &str) -> Result<bool, WriteError> {
@@ -226,6 +245,6 @@ impl Store {
     pub fn workflow_change_dismissed(&mut self, id: i64, at: &str) -> Result<bool, WriteError> {
         let held = self.workflow_change(id)?;
         let (after, because) = held.map(|one| (one.after_text, one.failed_because)).unwrap_or_default();
-        self.move_workflow_change(id, &[DRAFTING, READY, FAILED], DISMISSED, after.as_deref(), because.as_deref(), at)
+        self.move_workflow_change(id, &[DRAFTING, READY, FAILED, CANNOT], DISMISSED, after.as_deref(), because.as_deref(), at)
     }
 }

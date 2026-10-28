@@ -1,7 +1,7 @@
 // The Workflow creator.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 
 import type {
   ActingOnWorkflowCopy,
@@ -17,6 +17,7 @@ import type {
   WorkflowProposeAnswer,
   WorkflowSaveAnswer,
   WorkflowStepsRead,
+  WorkflowSupportBuildAnswer,
   WorkflowsRead,
 } from "../workflows";
 
@@ -50,6 +51,8 @@ export type WorkflowsApi = {
   approveWorkflowChange: (change: number) => Promise<WorkflowChangeApproveAnswer>;
   dismissWorkflowChange: (change: number) => Promise<WorkflowChangeAnswer>;
   sendBackWorkflowChange: (back: SendBackWorkflowChange) => Promise<WorkflowChangeAnswer>;
+  /** A job that builds what a change Armada can't do yet lacks; the change closes. */
+  buildWorkflowSupport: (building: WorkflowChangeRef) => Promise<WorkflowSupportBuildAnswer>;
   /** A Job on Armada's own repository that lands a definition, so it ships to every install. */
   proposeWorkflowToArmada: (proposing: ProposeToArmada) => Promise<WorkflowProposeAnswer>;
 };
@@ -74,5 +77,6 @@ export const WORKFLOWS_CHANNELS = {
   approveWorkflowChange: "bridge:approve-workflow-change",
   dismissWorkflowChange: "bridge:dismiss-workflow-change",
   sendBackWorkflowChange: "bridge:send-back-workflow-change",
+  buildWorkflowSupport: "bridge:build-workflow-support",
   proposeWorkflowToArmada: "bridge:propose-workflow-to-armada",
 } as const;

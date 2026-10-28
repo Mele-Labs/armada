@@ -30,6 +30,7 @@ import { Mark } from "./DeliveryRoute";
 import { BriefZone } from "./BriefZone";
 import { briefOf, FlightRows } from "./FlightPlan";
 import { LaterBlock } from "./LaterBlock";
+import { OpenGroupMenu, useOpenGroupShown } from "./OpenGroup";
 import { WALK_STEP, byKind, madeOf, reportOf, stepOf, type Made } from "./ledger";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
@@ -61,6 +62,8 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const at = work.workflow?.at;
   // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Completed, Now and Next.
   const stepped = work.railOff !== true && flow.length > 0 && at !== undefined;
+  const openShown = useOpenGroupShown();
+  const [openOpen, setOpenOpen] = useState(true);
   const doneFold = useFold(session, "done", stepped);
   const nowFold = useFold(session, "now");
   const nextFold = useFold(session, "next");
@@ -305,10 +308,14 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     }
     return undefined;
   };
+  // A pull request not yet merged and an issue not yet closed are work in hand, so they never stand under a finished step.
+  const stillOpen = (one: Made) => (one.shape === "pr" && one.pr.state !== "merged") || (one.shape === "issue" && one.issue.state === "open");
+  const openMade = made.filter(stillOpen);
+  const keptBlock = kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />;
   type Done = { time: string | undefined; group: (typeof finished)[number] } | { time: string | undefined; made: Made };
   const finishedThings: Done[] = [
     ...finished.map((group): Done => ({ time: groupTime(group), group })),
-    ...made.filter((one) => !underGroup(one)).map((one): Done => ({ time: madeTime(one), made: one })),
+    ...made.filter((one) => !underGroup(one) && !stillOpen(one)).map((one): Done => ({ time: madeTime(one), made: one })),
   ];
   const doneIn = (step: number): Done[] =>
     finishedThings.filter((one) => stepOfTime(one.time) === step).sort((a, b) => (a.time === undefined || b.time === undefined ? 0 : a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
@@ -401,7 +408,16 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
                     <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />
                   </div>
                 )}
-                {last ? landing : null}
+                {openMade.length === 0 ? null : (
+                  <div className="sv-nav" onKeyDown={arrowsIn}>
+                    <ol className="sv-beats" aria-label="Open">
+                      <li className="sv-beat sv-beat--made">
+                        <MadeList session={session} list={openMade} newest="last" />
+                      </li>
+                    </ol>
+                  </div>
+                )}
+                {last ? landing : keptBlock}
               </>
             </SvPanel>
           );
@@ -417,11 +433,23 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           </SvPanel>
         );
       });
+  const pinned =
+    !stepped || !openShown || (openMade.length === 0 && kept.length === 0) ? null : (
+      <OpenGroupMenu>
+        <SvPanel label="Open" area="step-next" place="side" fold={{ open: openOpen, toggle: () => setOpenOpen((was) => !was), current: false }} keycap={bandKeyFor("next")}>
+          <div className="sv-nav" onKeyDown={arrowsIn}>
+            <MadeList session={session} list={openMade} newest="last" />
+            {keptBlock}
+          </div>
+        </SvPanel>
+      </OpenGroupMenu>
+    );
   return (
     <Spine session={session}>
       {head === null ? null : <div className="sv-story__head">{head}</div>}
       {brief === undefined ? null : <BriefZone key={session.id} session={session} work={work} text={brief} onOpenSession={onOpenSession} />}
       {stepped ? stepZones : drawn}
+      {pinned}
     </Spine>
   );
 }

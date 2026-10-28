@@ -399,6 +399,142 @@ async fn armadas_own_definitions_are_never_drafted_for() {
     assert!(decoded::<WorkflowChanges>("changes", &body).changes.is_empty());
 }
 
+/// What an agent answers when the fields can't say what was asked: `CAN'T`, then what is missing.
+const CANT: &str = "CAN'T\nA step can't end when a document is approved.\n- A step can't end when a sketch is approved.";
+
+/// **An agent that answers `CAN'T` leaves a change Armada can't make**, with each missing line as the
+/// person reads it, and the definition as it stands read step by step; it is not asked again, nothing
+/// is drafted, and he can dismiss it.
+#[tokio::test]
+async fn a_cant_answer_is_kept_as_a_change_armada_cannot_make_with_what_it_lacks() {
+    let rig = rig(&[CANT]).await;
+
+    let cannot = rig.asked("Propose should end when a walk, a sketch or a document is approved").await;
+
+    assert_eq!(cannot.state, ChangeState::Cannot, "{cannot:?}");
+    assert_eq!(cannot.missing, ["A step can't end when a document is approved.", "A step can't end when a sketch is approved."]);
+    assert_eq!((cannot.after.as_deref(), cannot.after_steps.as_ref(), cannot.reason.as_deref()), (None, None, None));
+    let before: Vec<&str> = cannot.before_steps.iter().flatten().map(|step| step.id.as_str()).collect();
+    assert_eq!(before, ["propose", "plan", "walk", "deliver"]);
+    assert_eq!(rig.judge.asked().len(), 1, "a can't is not asked for again");
+    assert!(rig.judge.asked()[0].contains("never from its words"), "the agent was told what ends a step");
+    assert_eq!(rig.open().await, [cannot.clone()]);
+
+    let (status, body) = rig.post("/workflows/changes/dismiss", &change_of(cannot.id)).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    assert!(rig.open().await.is_empty());
+}
+
+/// **A ready change reads each side step by step through the rail**, so a step the draft adds says
+/// what ends it, which its text alone cannot.
+#[tokio::test]
+async fn a_ready_change_reads_each_side_through_the_rail_so_a_new_step_says_what_ends_it() {
+    let rig = rig(&[&with_refine()]).await;
+
+    let ready = rig.asked("split the work before Deliver into a Refine step").await;
+
+    assert_eq!(ready.state, ChangeState::Ready, "{ready:?}");
+    let ends = |steps: &Option<Vec<ipc::ChangeStep>>| -> Vec<(String, Option<String>)> {
+        steps.iter().flatten().map(|step| (step.id.as_str().to_string(), step.ends_when.clone())).collect()
+    };
+    let said = |pairs: &[(&str, &str)]| -> Vec<(String, Option<String>)> {
+        pairs.iter().map(|(id, end)| (id.to_string(), Some(end.to_string()))).collect()
+    };
+    assert_eq!(
+        ends(&ready.before_steps),
+        said(&[("propose", "you reply"), ("plan", "you approve the plan"), ("walk", "you approve the walk"), ("deliver", "it is merged")])
+    );
+    assert_eq!(
+        ends(&ready.after_steps),
+        said(&[
+            ("propose", "you reply"),
+            ("plan", "you approve the plan"),
+            ("walk", "you approve the walk"),
+            ("refine", "it is pushed"),
+            ("deliver", "it is merged"),
+        ])
+    );
+    let walk = ready.after_steps.iter().flatten().find(|step| step.id.as_str() == "walk").expect("walk");
+    assert_eq!((walk.instructions.as_deref(), walk.passed_over_when.as_deref()), (Some("Show the mock."), Some("nothing would be seen")));
+}
+
+/// **Build is refused for a change Armada can make**, and for one it never kept.
+#[tokio::test]
+async fn build_is_refused_on_a_change_armada_can_make() {
+    let rig = rig(&[&with_refine()]).await;
+    let (status, body) = rig.post("/workflows/changes/build", &change_of(99)).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::NOT_FOUND, "fleet.no_such_workflow_change"));
+
+    let ready = rig.asked("add Refine").await;
+    let (status, body) = rig.post("/workflows/changes/build", &change_of(ready.id)).await;
+
+    assert_eq!((status, code(&body).as_str()), (StatusCode::CONFLICT, "fleet.workflow_change_not_buildable"));
+    assert_eq!(rig.open().await.iter().map(|one| one.state).collect::<Vec<_>>(), [ChangeState::Ready], "it stays");
+}
+
+/// A change kept as Armada can't make it, as `change_drafted` leaves one, in a rig's own store.
+async fn kept_cannot(rig: &crate::tests::session_host::Rig, manifest: &str) -> i64 {
+    let mut kept = rig.fleet.store().lock().await;
+    let new = store::NewWorkflowChange {
+        manifest_id: manifest,
+        workflow_id: "feature",
+        source: "repository",
+        step_id: None,
+        asked: Some("Propose should end when a document is approved"),
+        nudges: &[],
+        before_text: STAGED,
+    };
+    let id = kept.begin_workflow_change(&new, RECENT).unwrap();
+    let missing = [String::from("A step can't end when a document is approved."), String::from("A step can't end when a sketch is approved.")];
+    assert!(kept.workflow_change_cannot(id, &missing, RECENT).unwrap());
+    id
+}
+
+/// **Build starts a Job on Armada's own repository**, titled after the first missing line and briefed
+/// with the workflow, his request and every missing line, and the change closes.
+#[tokio::test]
+async fn building_support_starts_a_job_on_armadas_repository_briefed_with_the_request_and_what_is_missing() {
+    use crate::tests::session_dispute::{brief_of, serving_armada};
+    let rig = serving_armada().await;
+    let id = kept_cannot(&rig, "armada").await;
+
+    let building = Authoring::build_workflow_support(Arc::clone(&rig.fleet), ipc::WorkflowChangeRef { change: id })
+        .await
+        .expect("building");
+
+    let kept = rig.fleet.store().lock().await.session(building.job_id.as_str()).unwrap().expect("a Job");
+    assert_eq!(kept.manifest_id.as_deref(), Some("armada"));
+    assert_eq!(kept.title.as_deref(), Some("Build workflow support: A step can't end when a document is approved"));
+    let brief = brief_of(&rig, building.job_id.as_str()).await;
+    for said in [
+        "`feature`",
+        "Propose should end when a document is approved",
+        "- A step can't end when a document is approved.",
+        "- A step can't end when a sketch is approved.",
+        "pull request",
+    ] {
+        assert!(brief.contains(said), "the brief lacks {said:?}:\n{brief}");
+    }
+    let closed = rig.fleet.store().lock().await.workflow_change(id).unwrap().expect("kept");
+    assert_eq!(closed.state, store::CHANGE_DISMISSED);
+}
+
+/// **Where this Fleet does not serve Armada's repository, nothing starts** and the change stays.
+#[tokio::test]
+async fn building_support_is_refused_where_armada_is_not_served() {
+    use crate::tests::session_dispute::serving;
+    let rig = serving("somewhere-else").await;
+    let id = kept_cannot(&rig, "somewhere-else").await;
+
+    let refused = Authoring::build_workflow_support(Arc::clone(&rig.fleet), ipc::WorkflowChangeRef { change: id })
+        .await
+        .expect_err("not served");
+
+    assert_eq!(refused.error().code, "fleet.workflow_armada_not_served");
+    assert!(rig.fleet.store().lock().await.find_sessions(&store::SessionSearch::default()).unwrap().is_empty());
+    assert_eq!(rig.fleet.store().lock().await.workflow_change(id).unwrap().expect("kept").state, store::CHANGE_CANNOT);
+}
+
 // ---- approve, dismiss, send back ------------------------------------------------------------------------
 
 fn saved(file: &str) -> SavedWorkflow {
