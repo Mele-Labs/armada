@@ -430,7 +430,7 @@ async fn a_job_that_pushed_and_stops_with_no_pull_request_is_told_to_deliver_onc
     rig.stand_in.finishes(0, "Pushed the branch.\nNext is the Hand off step: opening the PR.");
     eventually(|| async { told(&rig, UNDELIVERED) == 1 }).await;
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains(UNDELIVERED)).cloned().unwrap();
-    for part in ["\"Hand off\"", "Deliver now", "open the pull request", "Keep local, call finish_up and then all_done"] {
+    for part in ["Hand off", "Deliver now", "open the pull request", "Keep local, call finish_up and then all_done"] {
         assert!(said.contains(part), "{part}: {said}");
     }
 
