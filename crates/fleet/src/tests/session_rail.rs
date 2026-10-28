@@ -409,6 +409,58 @@ async fn a_job_that_ends_its_turn_on_a_question_is_not_told_it_stopped() {
     assert_eq!(told(&rig, STALLED), 0, "the person is asked, so the Job waits on him");
 }
 
+const UNDELIVERED: &str = "with no pull request opened";
+
+/// **A Job that pushed and stops with no pull request open is told to deliver, once.** The merge that
+/// ends the delivering step is nobody's act until the Job opens one. 28 Oct 2026: a Job pushed with Auto
+/// land chosen, wrote "next is opening the PR" and sat idle until the owner asked.
+#[tokio::test]
+async fn a_job_that_pushed_and_stops_with_no_pull_request_is_told_to_deliver_once() {
+    let rig = ruled(Arc::new(FakeJudge::with_no_objection()));
+    let id = on_the_rail(&rig).await;
+    approved_plan(&rig, &id).await;
+    rig.stand_in.says(0, vec![edit("crates/reader/src/lib.rs")]);
+    let harness = record(&rig, &id).await.harness;
+    rig.fleet
+        .report_session(SessionReport { harness, session_id: id.clone(), fact: SessionFact::Pushed { branch: Some("armada/reader".into()) } })
+        .await
+        .expect("kept");
+    eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
+
+    rig.stand_in.finishes(0, "Pushed the branch.\nNext is the Hand off step: opening the PR.");
+    eventually(|| async { told(&rig, UNDELIVERED) == 1 }).await;
+    let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains(UNDELIVERED)).cloned().unwrap();
+    for part in ["\"Hand off\"", "Deliver now", "open the pull request", "Keep local, call finish_up and then all_done"] {
+        assert!(said.contains(part), "{part}: {said}");
+    }
+
+    rig.stand_in.finishes(0, "Still pushed.");
+    eventually(|| async { record(&rig, &id).await.standing == Some(ipc::SessionStanding::Replied) }).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, UNDELIVERED), 1, "once for each step");
+
+    // With its pull request open, the Job waits on the merge Fleet tells it of.
+    let mut opened = record(&rig, &id).await;
+    let build = opened.build.as_mut().expect("a build record");
+    build.stops.push(ipc::BuildStop { id: ipc::BuildStopId::Pr, at: Some(ipc::Instant::carried(String::from("2026-10-28T12:00:00.000Z"))) });
+    let steps = rail::steps_of(&workflow());
+    assert!(rail::stalled(&steps, &opened).is_none(), "a pull request open is a wait, not a stall");
+}
+
+/// **The step before a delivering one says to carry straight on**, so a Job that pushed does not stop
+/// to wait for Fleet's word on the next step.
+#[test]
+fn the_step_before_delivering_says_to_carry_straight_on_with_it() {
+    let refine = RailStep { instructions: Some("Wire it and write the tests.".into()), ..follows("Refine") };
+    let steps = [plan_step(), refine, delivers("Deliver")];
+    let said = rail::instructed("feature", &steps, 1).expect("instructions are sent");
+    assert!(said.contains("This step ends when you push the branch."), "{said}");
+    assert!(said.contains("carry straight on with its \"Deliver\" step in the same turn"), "{said}");
+    let discuss = RailStep { instructions: Some("Settle the scope.".into()), ..step("Discuss") };
+    let said = rail::instructed("feature", &[discuss, plan_step(), delivers("Deliver")], 0).expect("instructions are sent");
+    assert!(!said.contains("carry straight on"), "only the step whose end enters delivering: {said}");
+}
+
 /// **Only a step the Job's own act ends can stall it.** One the person ends (a reply, an approval) or
 /// a merge ends is his to move, and Fleet tells the Job nothing.
 #[test]

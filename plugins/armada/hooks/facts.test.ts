@@ -18,6 +18,7 @@ import {
   planOf,
   pullRequestsIn,
   pushIn,
+  isOwnPush,
   senderOf,
   spentUntil,
   customTitleIn,
@@ -335,6 +336,25 @@ test('a push is read from the ref line git printed, and a rejected, empty or dry
   expect(pushIn('git push', to + ' ! [rejected]        topic -> topic (fetch first)')).toBeUndefined()
   expect(pushIn('git push --dry-run', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toBeUndefined()
   expect(pushIn('git pull', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toBeUndefined()
+})
+
+// 28 Oct 2026: a Job pushed with `-q`, which prints nothing, and Fleet never moved it to Deliver.
+test('a quiet push that succeeded is a push of the branch its refspec names', () => {
+  const helped = "git -c credential.helper= -c credential.helper='!gh auth git-credential' push -q"
+  expect(pushIn(`${helped} https://github.com/Mele-Labs/armada.git HEAD:armada/session-1`, '')).toEqual({ branch: 'armada/session-1' })
+  expect(pushIn('git push --quiet origin +topic', '')).toEqual({ branch: 'topic' })
+  expect(pushIn('git push -q origin HEAD:refs/heads/topic', '')).toEqual({ branch: 'topic' })
+  expect(pushIn('git push -q', '')).toEqual({})
+  expect(pushIn('git push -q origin', '')).toEqual({})
+  expect(pushIn('git push -q --dry-run origin topic', '')).toBeUndefined()
+  expect(pushIn('git push origin topic', '')).toBeUndefined()
+})
+
+test('a push of another branch is not the session own', () => {
+  expect(isOwnPush({ branch: 'topic' }, 'armada/session-1')).toBe(false)
+  expect(isOwnPush({ branch: 'armada/session-1' }, 'armada/session-1')).toBe(true)
+  expect(isOwnPush({}, 'armada/session-1')).toBe(true)
+  expect(isOwnPush({ branch: 'topic' }, undefined)).toBe(true)
 })
 
 test('a permission prompt is named by its command line, its path or its address, never content', () => {
