@@ -125,6 +125,10 @@ pub const THEME: &[(&str, Slot)] = &[
         "--text-touch-field",
         Slot::CssOnly("a field a phone types in, held at 16px so iOS does not zoom; not a step of the ladder"),
     ),
+    (
+        "--select-tint",
+        Slot::CssOnly("a percentage read by color-mix in --select-ground, not a utility"),
+    ),
     ("--radius-", Slot::Literal),
     ("--font-sans", Slot::Literal),
     ("--font-mono", Slot::Literal),

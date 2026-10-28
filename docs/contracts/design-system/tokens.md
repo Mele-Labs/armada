@@ -105,7 +105,7 @@ controls, rows and tiles; `--radius-sm` 3px for badges. No pill except an avatar
 Inside a panel a corner is the panel's curve less what sits between (`--radius-bezel`, `--radius-inset`), never under `--radius-floor` (spacing-and-shape.md).
 
 **Selection is a tinted ground** (26 Oct 2026, changed 28 Oct 2026).
-A selected row, chip, bay, rail entry or index tab sits on `--select-ground`, the theme's `--accent` at 40% over `--bg-base`, and its title takes `--weight-heading`.
+A selected row, chip, bay, rail entry or index tab sits on `--select-ground`, the theme's `--accent` at `--select-tint` (40%, or less where a theme needs it for 4.5:1 text) over `--bg-base`, and its title takes `--weight-heading`.
 A picked Job row's quiet text takes `--fg-default` so it holds 4.5:1 on that ground.
 `--select-frame` draws nothing.
 There is no accent ring or accent bar on a selected thing.
