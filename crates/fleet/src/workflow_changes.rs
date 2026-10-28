@@ -634,6 +634,7 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         store::CHANGE_READY => ChangeState::Ready,
         store::CHANGE_APPROVED => ChangeState::Approved,
         store::CHANGE_DISMISSED => ChangeState::Dismissed,
+        store::CHANGE_CANNOT => ChangeState::Cannot,
         _ => ChangeState::Failed,
     };
     let origin = match &kept.asked {
@@ -650,6 +651,9 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         after: kept.after_text.clone().filter(|_| matches!(state, ChangeState::Ready | ChangeState::Approved | ChangeState::Dismissed)),
         state,
         reason: kept.failed_because.clone(),
+        missing: kept.missing.clone(),
+        before_steps: None,
+        after_steps: None,
         notes: kept.notes.clone(),
         at: Instant::carried(kept.changed_at.clone()),
     }

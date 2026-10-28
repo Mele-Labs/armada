@@ -174,7 +174,7 @@ pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, KeptStarted
 pub use session_tells::KeptTell;
 pub use workflow_nudges::KeptWorkflowNudge;
 pub use workflow_changes::{
-    KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
+    KeptWorkflowChange, NewWorkflowChange, APPROVED as CHANGE_APPROVED, CANNOT as CHANGE_CANNOT, DISMISSED as CHANGE_DISMISSED, DRAFTING as CHANGE_DRAFTING,
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
 pub use session_later::KeptLater;

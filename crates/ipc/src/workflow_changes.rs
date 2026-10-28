@@ -33,6 +33,25 @@ pub enum ChangeState {
     Dismissed,
     /// No draft fit, and `reason` says why.
     Failed,
+    /// The agent answered that Armada has no way to do what was asked, and `missing` says what it lacks.
+    /// Listed, and settled by Dismiss or by `build_workflow_support`.
+    Cannot,
+}
+
+/// One step of either side of a change, as Fleet's rail reads it: its words, and what ends it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangeStep {
+    pub id: StepId,
+    pub label: String,
+    /// What the agent is told on entering it. Absent where the step says nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
+    /// What ends the step, to the person, as `StepReading::ends_when` says it. Absent where nothing does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ends_when: Option<String>,
+    /// When the step is passed over instead of walked. Absent on a step that never is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub passed_over_when: Option<String>,
 }
 
 /// One change to one workflow in one place.
@@ -56,6 +75,15 @@ pub struct WorkflowChange {
     /// Why no draft fit. Present on a failed change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// What Armada lacks to do what was asked, one sentence each. Present on a `cannot` change.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing: Vec<String>,
+    /// `before`, step by step. Absent where the text no longer reads as a definition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before_steps: Option<Vec<ChangeStep>>,
+    /// `after`, step by step, present with it where it reads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_steps: Option<Vec<ChangeStep>>,
     /// What the owner said when he sent it back, the latest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
@@ -108,6 +136,13 @@ pub struct SendBackWorkflowChange {
 pub struct WorkflowChangeApproved {
     pub change: WorkflowChange,
     pub saved: WorkflowSaved,
+}
+
+/// What `build_workflow_support` started: the Job on Armada's own repository that builds what a
+/// `cannot` change lacks. Its body is a [`WorkflowChangeRef`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowSupportBuilding {
+    pub job_id: SessionId,
 }
 
 /// `propose_workflow_to_armada`'s body.

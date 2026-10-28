@@ -154,6 +154,9 @@ fn drafting(
         after: None,
         state: ipc::ChangeState::Drafting,
         reason: None,
+        missing: Vec::new(),
+        before_steps: None,
+        after_steps: None,
         notes: None,
         at: ipc::Instant::carried("2026-10-27T09:00:00.000Z"),
     }

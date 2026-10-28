@@ -289,8 +289,8 @@ pub use commanding::{
 };
 pub use configured::ManifestConfig;
 pub use workflow_changes::{
-    AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ProposeToArmada, SendBackWorkflowChange, SuggestWorkflowChange,
-    WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeToArmada, SendBackWorkflowChange,
+    SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges, WorkflowSupportBuilding,
 };
 pub use workflow_page::{
     MarkNotADrift, NotADriftMarked, StepNudge, StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
