@@ -43,4 +43,8 @@
    820px is the Logbook's own two-column width — docs/contracts/design-system.md */
 @container (min-width: 820px) {
   .armada-lessons-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
+  .armada-lessons-split .armada-logbook__log { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  .armada-lessons-split .armada-logbook__detail { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
+  .armada-lessons-split .armada-logbook__card { max-height: 100%; min-height: 0; }
+  .armada-lessons-split .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 }

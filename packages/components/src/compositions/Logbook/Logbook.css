@@ -30,10 +30,11 @@
    820px is where the log and the open entry both fit — docs/contracts/design-system.md */
 @container (min-width: 820px) {
   .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
-  .armada-logbook__log { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
-  .armada-logbook__detail { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
-  .armada-logbook__card { max-height: 100%; min-height: 0; }
-  .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  /* Under `.armada-logbook__page`, so they outweigh the panel's own `overflow: hidden` further down. */
+  .armada-logbook__page .armada-logbook__log { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  .armada-logbook__page .armada-logbook__detail { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
+  .armada-logbook__page .armada-logbook__card { max-height: 100%; min-height: 0; }
+  .armada-logbook__page .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 }
 
 .armada-logbook__filters { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-3); }
