@@ -4,7 +4,7 @@
 import { writeKept, type ComposerFile } from "@armada/components";
 
 import { requestOf, type Annotation, type Box } from "../../../shared/annotations";
-import { pictureOf, refusal, titleOf, type SendAnswer, type SessionSender } from "./send";
+import { pictureOf, refusal, type SendAnswer, type SessionSender } from "./send";
 import type { Sink } from "./sink";
 
 /** The message box's own key for a Session (`SessionComposer`'s `draftKey`). */
@@ -34,7 +34,7 @@ export async function startWithDraft(
   const picture = await pictureOf(note, box, sink);
   const words = requestOf(note);
   // Held on its start card, with the note's words as the request so Fleet's proposer reads them at the start.
-  const started = await fleet.startSession(titleOf([note]), root, words, undefined, undefined, true);
+  const started = await fleet.startSession(undefined, root, words, undefined, undefined, true);
   if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
   leaveDraft(started.value.id, words, picture, `annotation-${note.id}.png`);
   return { ok: true, sessionId: started.value.id };
