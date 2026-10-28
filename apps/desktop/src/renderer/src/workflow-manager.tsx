@@ -294,6 +294,21 @@ function Held({ current, repository, root, served }: { current: string | null; r
         await loadChanges(one);
         return undefined;
       }}
+      onCreate={async ({ name, definition, scope }) => {
+        let parsed: Record<string, unknown> = { steps: [] };
+        if (definition.trim() !== "") {
+          try {
+            parsed = JSON.parse(definition) as Record<string, unknown>;
+          } catch {
+            return "The definition is not JSON";
+          }
+        }
+        const saved = await saveWorkflow({ manifestId: current, body: { scope, definition: JSON.stringify({ ...parsed, workflow_id: name }, null, 2), overwrite: false } });
+        if (!saved.ok) return refusalWords(saved.outcome);
+        await reread();
+        open({ id: name, source: scope === "kit" ? "yours" : "repository", ...(scope === "repository" && current !== null ? { manifestId: current } : {}) }, undefined);
+        return undefined;
+      }}
       onApproveSuggestion={(one, stepId) => onChange(one, stepChange(stepId), approveWorkflowChange)}
       onDismissSuggestion={(one, stepId) => onChange(one, stepChange(stepId), dismissWorkflowChange)}
     />
