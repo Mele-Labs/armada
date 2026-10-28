@@ -9,6 +9,7 @@
 
 import { stepsOfDefinition, withWords } from "@armada/components";
 import type {
+  ChangeStep,
   LeftOutWorkflow,
   Outcome,
   RepositorySummary,
@@ -22,7 +23,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { BridgeApi } from "../../../shared/api";
 import { manifesting } from "./manifest-fake";
 import { connected, type Scenario } from "./moment";
-import { MANAGED_DEFINITIONS, MANAGED_ENDS, MANAGED_NUDGES, SUGGESTED_SENTENCE, WIRE_AND_TESTS } from "./workflows-managed";
+import { CANNOT_YET, MANAGED_DEFINITIONS, MANAGED_ENDS, MANAGED_NUDGES, SAY_WHY_SKIPPED, SUGGESTED_SENTENCE, WIRE_AND_TESTS } from "./workflows-managed";
 
 type Served = Pick<
   BridgeApi,
@@ -39,6 +40,7 @@ type Served = Pick<
   | "approveWorkflowChange"
   | "dismissWorkflowChange"
   | "sendBackWorkflowChange"
+  | "buildWorkflowSupport"
   | "proposeWorkflowToArmada"
 >;
 
@@ -132,7 +134,20 @@ export function workflowsServed(current: () => string | null, options: { leftOut
     return words.includes(closing) ? words.replace(closing, `${sentence} ${closing}`) : `${words} ${sentence}`;
   };
 
-  /** The change as a read sees it: `drafting` until its beat has passed, then the draft or why none fit. */
+  /** A definition's steps with what ends each, as Fleet works out both sides of a change. */
+  const changeStepsOf = (workflowId: string, text: string): ChangeStep[] =>
+    (stepsOfDefinition(text) ?? []).map((step) => {
+      const end = MANAGED_ENDS[`${workflowId}/${step.id}`] ?? MANAGED_ENDS[step.id];
+      return {
+        id: step.id,
+        label: step.label,
+        ...(step.instructions === undefined ? {} : { instructions: step.instructions }),
+        ...(end === undefined ? {} : { ends_when: end.ends }),
+        ...(end?.passedOver === undefined ? {} : { passed_over_when: end.passedOver }),
+      };
+    });
+
+  /** The change as a read sees it: `drafting` until its beat has passed, then the draft, why none fit, or what Armada lacks to do it. */
   const settled = (kept: Kept): WorkflowChange => {
     const { change } = kept;
     if (change.state !== "drafting" || Date.now() < kept.readyAt) return change;
@@ -141,9 +156,13 @@ export function workflowsServed(current: () => string | null, options: { leftOut
     let after: string | undefined;
     if (asked !== undefined) {
       const steps = JSON.parse(text) as { steps: { id: string }[] };
+      // A step ends on one fact read from its fields, so an end on any of several approvals is beyond what Armada does.
+      if (/\bpropose\b.*\bend\b.*\bapproved\b/i.test(asked)) return { ...change, state: "cannot", missing: [...CANNOT_YET] };
       if (/split\s+refine/i.test(asked) && steps.steps.some((one) => one.id === "refine")) {
         after = JSON.stringify({ ...steps, steps: steps.steps.flatMap((one): unknown[] => (one.id === "refine" ? [...WIRE_AND_TESTS] : [one])) }, null, 2);
       }
+      const walkWords = stepsOfDefinition(text)?.find((one) => one.id === "walk")?.instructions;
+      if (/\bwalk\b.*\bsay why\b.*\bskips?\b/i.test(asked) && walkWords !== undefined) after = withWords(text, "walk", insertSentence(walkWords, SAY_WHY_SKIPPED));
     } else if (change.step_id !== undefined) {
       const sentence = SUGGESTED_SENTENCE[change.step_id];
       const words = stepsOfDefinition(text)?.find((one) => one.id === change.step_id)?.instructions;
@@ -152,7 +171,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
     if (after === undefined) {
       return { ...change, state: "failed", reason: "The drafted workflow is the same as the one it was made from" };
     }
-    return { ...change, state: "ready", after };
+    return { ...change, state: "ready", after, before_steps: changeStepsOf(change.workflow_id, text), after_steps: changeStepsOf(change.workflow_id, after) };
   };
 
   const open = (id: string, source: string, manifest: string) =>
@@ -353,6 +372,14 @@ export function workflowsServed(current: () => string | null, options: { leftOut
       delete again.reason;
       revise(id, () => ({ change: again, readyAt: Date.now() + DRAFTING_MS, manifest: kept.manifest }));
       return { ok: true, change: again };
+    },
+    // The job is Fleet's to start; the change it answers closes.
+    buildWorkflowSupport: async ({ change: id }) => {
+      const kept = outcomeOfChange(id);
+      if (kept === undefined) return { ok: false, outcome: noChange };
+      if (settled(kept).state !== "cannot") return { ok: false, outcome: refusal("fleet.workflow_change_not_cannot", "Armada can already do what that change asks") };
+      changes = changes.filter((one) => one.change.id !== id);
+      return { ok: true, building: { job_id: "mock-armada-support" } };
     },
     proposeWorkflowToArmada: async ({ workflow_id, definition }) =>
       definition.trim() === ""

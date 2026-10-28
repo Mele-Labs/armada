@@ -452,8 +452,20 @@ export type NotADriftMarked = {
 /** Where a workflow change came from: his words, or the nudges a step drifted on. */
 export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] };
 
-/** Where a change stands. `approved` and `dismissed` are never listed. */
-export type ChangeState = "drafting" | "ready" | "approved" | "dismissed" | "failed";
+/**
+ * Where a change stands. `approved` and `dismissed` are never listed. `cannot` is a request Armada has no way to
+ * carry out yet; `missing` says what it lacks.
+ */
+export type ChangeState = "drafting" | "ready" | "approved" | "dismissed" | "failed" | "cannot";
+
+/** One step of a change's either side, as Fleet works it out: its words and what ends it, as `StepReading` says them. */
+export type ChangeStep = {
+  id: string;
+  label: string;
+  instructions?: string;
+  ends_when?: string;
+  passed_over_when?: string;
+};
 
 /**
  * A change to one workflow in one place that an agent drafted for the owner to approve. Nothing is saved until
@@ -475,6 +487,12 @@ export type WorkflowChange = {
   state: ChangeState;
   /** Why no draft fit. Present on a failed change. */
   reason?: string;
+  /** What Armada lacks to do what was asked, one fact each. Present on a `cannot` change. */
+  missing?: string[];
+  /** `before`, step by step. Absent from a Fleet older than the field, where the page reads the text. */
+  before_steps?: ChangeStep[];
+  /** `after`, step by step, present with it. */
+  after_steps?: ChangeStep[];
   /** What he said when he sent it back, the latest. */
   notes?: string;
   /** When it last moved. */
@@ -519,6 +537,11 @@ export type SendBackWorkflowChange = {
 export type WorkflowChangeApproved = {
   change: WorkflowChange;
   saved: WorkflowSaved;
+};
+
+/** The Job `POST /workflows/changes/build` started to build what a `cannot` change lacks. Its body is a `WorkflowChangeRef`. */
+export type WorkflowSupportBuilding = {
+  job_id: string;
 };
 
 /** `POST /workflows/propose`'s body. */

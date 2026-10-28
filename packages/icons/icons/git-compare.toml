@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Marks a step in the Workflows page's compare that differs from the same step in Armada's workflow. Two ends and a path between them is a comparison. Tooltip `Differs from Armada's`. Drawn at 14px, stroke 2. Refused: `pencil-line`, reserved to a Drone's write on the flight deck, and `diff`, reserved to an edited issue."
+
+[[icons.git-compare.usage]]
+  means = "A step a proposed change to a workflow alters, on its card in the Proposed change region"
+  group = "Workflows"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workflows`. Tooltip `Changed`. Drawn at 14px, stroke 2. The same comparison the step's `Differs from Armada's` mark draws, between a step before and after the change. `list-plus` and `list-minus` mark an added and a removed step's card, tooltips `Added` and `Removed`."

@@ -80,7 +80,7 @@ import type {
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInstallRead, KitInventoryRead, KitLookRead, KitRemoveRead, KitRestoreRead, KitServersRead } from "@armada/screens/src/manifest-kit";
-import type { ProposeToArmada, SendBackWorkflowChange } from "@armada/protocol";
+import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
@@ -95,6 +95,7 @@ import type {
   WorkflowProposeAnswer,
   WorkflowSaveAnswer,
   WorkflowStepsRead,
+  WorkflowSupportBuildAnswer,
   WorkflowsRead,
 } from "../shared/workflows";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
@@ -305,6 +306,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.dismissWorkflowChange, change),
   sendBackWorkflowChange: (back: SendBackWorkflowChange): Promise<WorkflowChangeAnswer> =>
     ipcRenderer.invoke(CHANNELS.sendBackWorkflowChange, back),
+  buildWorkflowSupport: (building: WorkflowChangeRef): Promise<WorkflowSupportBuildAnswer> =>
+    ipcRenderer.invoke(CHANNELS.buildWorkflowSupport, building),
   proposeWorkflowToArmada: (proposing: ProposeToArmada): Promise<WorkflowProposeAnswer> =>
     ipcRenderer.invoke(CHANNELS.proposeWorkflowToArmada, proposing),
 

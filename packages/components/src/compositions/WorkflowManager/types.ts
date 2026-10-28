@@ -109,15 +109,16 @@ export type DriftedJob = { id: string; jobId: string; job: string; what: string;
 export type Drift = Readonly<Record<string, Readonly<Record<string, readonly DriftedJob[]>>>>;
 
 /**
- * An agent asked to change a workflow's shape: nothing, working, a draft that did not fit, or a change waiting
- * on Approve. `asked` is what he typed, where a reload has lost it; `refused` is Fleet's sentence for an Approve
- * it would not take.
+ * An agent asked to change a workflow's shape: nothing, working, a draft that did not fit, a change waiting
+ * on Approve, or a request Armada can't carry out yet. `asked` is what he typed, where a reload has lost it;
+ * `refused` is Fleet's sentence for an Approve it would not take; `missing` is what Armada lacks, one fact each.
  */
 export type AgentState =
   | { phase: "idle" }
   | { phase: "working"; asked?: string }
   | { phase: "failed"; reason: string; asked?: string }
-  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string };
+  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string }
+  | { phase: "cannot"; asked?: string; missing: readonly string[] };
 
 /** New words for a step, and the nudged Jobs they were drawn from. A draft that did not fit has no words and says why. */
 export type Suggestion = { words: string; from: readonly string[]; failed?: string };

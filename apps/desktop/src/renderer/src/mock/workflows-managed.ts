@@ -145,6 +145,16 @@ export const SUGGESTED_SENTENCE: Readonly<Record<string, string>> = {
   approve_plan: "Edit nothing before approval, including the mock.",
 };
 
+/** What Armada lacks for "Propose should end when a walk, a sketch or a document is approved, or last of all a question is answered". */
+export const CANNOT_YET: readonly string[] = [
+  "A step ends on one thing, not on any of several",
+  "Nothing ends a step when a sketch is approved",
+  "Nothing ends a step when a document is approved",
+];
+
+/** The sentence an agent adds to Walk's words for "Walk should say why when it skips the walk". */
+export const SAY_WHY_SKIPPED = "Where nothing would be seen, say so and why before going on.";
+
 /** The steps an agent comes back with for "split Refine into Wire and Tests". */
 export const WIRE_AND_TESTS: readonly Written[] = [
   { id: "wire", label: "Wire", instructions: "Wire it to the real thing. Show a new walk only if the look changed." },

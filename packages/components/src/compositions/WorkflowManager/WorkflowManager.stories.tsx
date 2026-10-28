@@ -63,6 +63,7 @@ const meta: Meta<typeof WorkflowManager> = {
     onApprove: fn(done),
     onDismiss: fn(done),
     onSendBack: fn(done),
+    onBuildSupport: fn(async () => ({ jobId: "job-2" })),
     onOpenJob: fn(),
     onNotDrift: fn(done),
     onSuggest: fn(done),
@@ -99,6 +100,21 @@ export const ProposedChange: Story = {
       asked: "add a Review step before Deliver",
       before: FEATURE,
       after: [...FEATURE.slice(0, 2), step("review", "Review", "", "Read the diff."), FEATURE[2]!],
+    },
+  },
+};
+
+/** A request Armada can't carry out yet: what is missing, and a job to build it. No Approve. */
+export const Cannot: Story = {
+  args: {
+    agent: {
+      phase: "cannot",
+      asked: "Propose should end when a walk, a sketch or a document is approved, or last of all a question is answered",
+      missing: [
+        "A step ends on one thing, not on any of several",
+        "Nothing ends a step when a sketch is approved",
+        "Nothing ends a step when a document is approved",
+      ],
     },
   },
 };

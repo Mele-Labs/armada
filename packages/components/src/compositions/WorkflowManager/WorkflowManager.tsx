@@ -1,12 +1,16 @@
-import { Ban, Check, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Ban, Check, CircleDashed, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { Clamped } from "../Clamped/Clamped";
+import { STEP_FIELDS, stepChangesOf } from "./diff";
+import type { StepChange } from "./diff";
 import { STEP_GLYPHS, keyOf } from "./types";
 import type {
   AgentState,
@@ -57,6 +61,8 @@ export type WorkflowManagerProps = {
   onApprove: (one: WorkflowRef) => Promise<WorkflowActAnswer>;
   onDismiss: (one: WorkflowRef) => Promise<WorkflowActAnswer>;
   onSendBack: (one: WorkflowRef, notes: string) => Promise<WorkflowActAnswer>;
+  /** A job that builds what a request Armada can't do yet needs: the Job it started, to open; or Fleet's sentence. */
+  onBuildSupport: (one: WorkflowRef) => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
   /** The suggested changes waiting, and the step one is being drawn up for (`workflow/step`). */
   suggestions: Suggestions;
   suggesting: string | null;
@@ -314,17 +320,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
             </>
           )}
         </div>
-        {said === null ? null : (
-          <p className="armada-wm__said" role={said.refused === true ? "alert" : "status"} data-refused={said.refused}>
-            {said.refused === true ? null : <Check size={14} strokeWidth={2} aria-hidden />}
-            {said.words}
-            {said.job === undefined ? null : (
-              <Button variant="ghost" size="sm" onClick={() => acts.onOpenJob(ref, said.job!)}>
-                Open Job
-              </Button>
-            )}
-          </p>
-        )}
+        {said === null ? null : <Said {...said} onOpenJob={(job) => acts.onOpenJob(ref, job)} />}
       </header>
 
       <div className="armada-wm__steps">
@@ -369,9 +365,26 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           onApprove={() => acts.onApprove(ref)}
           onDismiss={() => acts.onDismiss(ref)}
           onSendBack={(notes) => acts.onSendBack(ref, notes)}
+          onBuildSupport={() => acts.onBuildSupport(ref)}
+          onOpenJob={(job) => acts.onOpenJob(ref, job)}
         />
       ) : null}
     </>
+  );
+}
+
+/** What an act said, beside the acts: done, or Fleet's sentence for why not, with Open Job where it started one. */
+function Said({ words, refused, job, onOpenJob }: { words: string; refused?: true; job?: string; onOpenJob: (job: string) => void }) {
+  return (
+    <p className="armada-wm__said" role={refused === true ? "alert" : "status"} data-refused={refused}>
+      {refused === true ? null : <Check size={14} strokeWidth={2} aria-hidden />}
+      {words}
+      {job === undefined ? null : (
+        <Button variant="ghost" size="sm" onClick={() => onOpenJob(job)}>
+          Open Job
+        </Button>
+      )}
+    </p>
   );
 }
 
@@ -722,6 +735,8 @@ function Agent({
   onApprove,
   onDismiss,
   onSendBack,
+  onBuildSupport,
+  onOpenJob,
 }: {
   keep: string;
   agent: AgentState;
@@ -729,13 +744,18 @@ function Agent({
   onApprove: () => Promise<WorkflowActAnswer>;
   onDismiss: () => Promise<WorkflowActAnswer>;
   onSendBack: (notes: string) => Promise<WorkflowActAnswer>;
+  onBuildSupport: () => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
+  onOpenJob: (job: string) => void;
 }) {
   const [text, setText] = useState("");
   const [asked, setAsked] = useState("");
   const [notes, setNotes] = useState<string | null>(null);
   // Fleet's sentence for the last act it would not take, said on the card until the next act.
   const [refused, setRefused] = useState<string | undefined>(undefined);
+  // The job a request Armada can't do yet started, said over the box once the request has closed.
+  const [started, setStarted] = useState<{ words: string; job?: string } | null>(null);
   const diff = useRef<HTMLElement>(null);
+  const missingId = useId();
   /** Runs an act and keeps its refusal; the answer is whether it went through. */
   const settle = async (act: () => Promise<WorkflowActAnswer>): Promise<boolean> => {
     setRefused(undefined);
@@ -747,8 +767,15 @@ function Agent({
     const request = text.trim();
     if (request === "") return;
     if (!(await settle(() => onAsk(request)))) return;
+    setStarted(null);
     setAsked(request);
     setText("");
+  };
+  const build = async () => {
+    setRefused(undefined);
+    const out = await onBuildSupport();
+    if (typeof out === "string") setRefused(out);
+    else setStarted({ words: out?.note ?? "A job started to build it", ...(out === undefined ? {} : { job: out.jobId }) });
   };
   const said =
     refused === undefined ? null : (
@@ -757,7 +784,7 @@ function Agent({
       </p>
     );
   useEffect(() => {
-    if (agent.phase === "proposed") diff.current?.scrollIntoView({ block: "nearest" });
+    if (agent.phase === "proposed" || agent.phase === "cannot") diff.current?.scrollIntoView({ block: "nearest" });
   }, [agent.phase]);
   useEffect(() => {
     if (agent.phase !== "proposed") setNotes(null);
@@ -796,18 +823,62 @@ function Agent({
     );
   }
 
+  if (agent.phase === "cannot") {
+    return (
+      <section ref={diff} className="armada-wm-diff" role="region" aria-label="Proposed change">
+        <div className="armada-wm-diff__band">Proposed change</div>
+        <p className="armada-wm-diff__asked">{request}</p>
+        <p className="armada-wm-diff__cannot">Armada can't do this yet</p>
+        <div className="armada-wm-diff__missing">
+          <h4 className="armada-wm__caption" id={missingId}>
+            Missing
+          </h4>
+          <ul className="armada-wm-diff__missing-rows" aria-labelledby={missingId}>
+            {agent.missing.map((one) => (
+              <li key={one} className="armada-wm-diff__missing-row">
+                <span className="armada-wm-diff__sign">
+                  <Tooltip label="Not built yet">
+                    <span role="img" aria-label="Not built yet">
+                      <CircleDashed size={14} strokeWidth={2} aria-hidden />
+                    </span>
+                  </Tooltip>
+                </span>
+                <span>{one}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {said}
+        <div className="armada-wm-diff__acts">
+          <Button variant="ghost" size="sm" onClick={() => void settle(onDismiss)}>
+            Dismiss
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => void build()}>
+            Start a job to build it
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
   if (agent.phase === "proposed") {
-    const after = new Set(agent.after.map((one) => one.id));
-    const before = new Set(agent.before.map((one) => one.id));
+    const { changes, unchanged } = stepChangesOf(agent.before, agent.after);
     const sendNotes = (written: string) => void settle(() => onSendBack(written));
     return (
       <section ref={diff} className="armada-wm-diff" role="region" aria-label="Proposed change">
         <div className="armada-wm-diff__band">Proposed change</div>
         <p className="armada-wm-diff__asked">{request}</p>
-        <div className="armada-wm-diff__cols">
-          <DiffSide label="Before" steps={agent.before} gone={(id) => !after.has(id)} sign="removed" />
-          <DiffSide label="After" steps={agent.after} gone={(id) => !before.has(id)} sign="added" />
+        <div className="armada-wm-diff__cards">
+          {changes.map((one) => (
+            <StepChangeCard key={`${one.kind}:${one.kind === "removed" ? one.before.id : one.after.id}`} change={one} />
+          ))}
         </div>
+        {unchanged.length === 0 ? null : (
+          <p className="armada-wm-diff__unchanged">
+            <span className="armada-wm__fact-label">Unchanged</span>
+            <span>{unchanged.join(", ")}</span>
+          </p>
+        )}
         {notes === null ? null : (
           <div className="armada-wm-diff__notes">
             <Textarea
@@ -854,6 +925,7 @@ function Agent({
 
   return (
     <div className="armada-wm-agent" data-phase="idle">
+      {started === null ? null : <Said {...started} onOpenJob={onOpenJob} />}
       {said}
       <Textarea
         label="Tell an agent what to change"
@@ -878,42 +950,76 @@ function Agent({
   );
 }
 
-function DiffSide({
-  label,
-  steps,
-  gone,
-  sign,
-}: {
-  label: string;
-  steps: readonly ManagedStep[];
-  gone: (id: string) => boolean;
-  sign: "removed" | "added";
-}) {
+const SIGNS = {
+  added: { words: "Added", Glyph: ListPlus },
+  removed: { words: "Removed", Glyph: ListMinus },
+  changed: { words: "Changed", Glyph: GitCompare },
+} as const;
+
+/** One step a proposed change touches: its place and name, how it changed, and each of its facts before and after. */
+function StepChangeCard({ change }: { change: StepChange }) {
+  const before = change.kind === "added" ? undefined : change.before;
+  const after = change.kind === "removed" ? undefined : change.after;
+  const label = (after ?? before)!.label;
+  const sign = SIGNS[change.kind];
   return (
-    <div role="group" aria-label={label} className="armada-wm-diff__side">
-      <h4 className="armada-wm__caption">{label}</h4>
-      <ol className="armada-wm-diff__steps">
-        {steps.map((one, at) => {
-          const marked = gone(one.id);
-          const words = sign === "removed" ? "Removed" : "Added";
-          return (
-            <li key={one.id} className="armada-wm-diff__step" data-mark={marked ? sign : undefined}>
-              <span className="armada-wm-diff__sign">
-                {marked ? (
-                  <Tooltip label={words}>
-                    <span role="img" aria-label={words}>
-                      {sign === "removed" ? <ListMinus size={14} strokeWidth={2} aria-hidden /> : <ListPlus size={14} strokeWidth={2} aria-hidden />}
-                    </span>
-                  </Tooltip>
-                ) : null}
-              </span>
-              <span className="armada-wm-diff__n">{at + 1}</span>
-              <span className="armada-wm-diff__label">{one.label}</span>
-              <span className="armada-wm-diff__ends">{one.ends}</span>
-            </li>
-          );
-        })}
-      </ol>
+    <div role="group" aria-label={label} className="armada-wm-diff__card">
+      <div className="armada-wm-diff__card-band">
+        <span className="armada-wm-step__n">{change.n}</span>
+        <span className="armada-wm-step__label">{label}</span>
+        <span className="armada-wm-diff__card-sign">
+          <Tooltip label={sign.words}>
+            <span role="img" aria-label={sign.words}>
+              <sign.Glyph size={14} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        </span>
+      </div>
+      <Table className="armada-wm-diff__fields">
+        <TableHead>
+          <TableRow>
+            <TableHeaderCell>Field</TableHeaderCell>
+            <TableHeaderCell>Before</TableHeaderCell>
+            <TableHeaderCell>After</TableHeaderCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {STEP_FIELDS.map((field) => {
+            const was = before === undefined ? "" : field.of(before);
+            const is = after === undefined ? "" : field.of(after);
+            const differs = was !== is;
+            return (
+              <TableRow key={field.name} aria-label={`${field.name}, ${differs ? "changed" : "unchanged"}`} data-differs={differs || undefined}>
+                <TableHeaderCell scope="row">{field.name}</TableHeaderCell>
+                <TableCell variant={differs ? "primary" : "secondary"}>
+                  <FieldValue value={was} words={field.name === "Words"} against={change.kind === "changed" ? is : undefined} mark="removed" />
+                </TableCell>
+                <TableCell variant={differs ? "primary" : "secondary"}>
+                  <FieldValue value={is} words={field.name === "Words"} against={change.kind === "changed" ? was : undefined} mark="added" />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
+  );
+}
+
+/** One fact on one side: `nothing` where the step has none; words held to a few lines, a sentence marked where the sides part. */
+function FieldValue({ value, words, against, mark }: { value: string; words: boolean; against: string | undefined; mark: "added" | "removed" }) {
+  if (value === "") return <span className="armada-wm-diff__nothing">nothing</span>;
+  if (!words) return <>{value}</>;
+  const other = against === undefined ? undefined : sentencesOf(against);
+  return (
+    <Clamped lines={3}>
+      <p className="armada-wm-step__words">
+        {sentencesOf(value).map((one) => (
+          <span key={one} data-mark={other === undefined || other.includes(one) ? undefined : mark}>
+            {one}{" "}
+          </span>
+        ))}
+      </p>
+    </Clamped>
   );
 }

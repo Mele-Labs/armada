@@ -16,6 +16,7 @@ import type { WorkflowsRead } from "../../shared/workflows";
 import {
   approveWorkflowChange,
   askWorkflowChange,
+  buildWorkflowSupport,
   deleteWorkflowCopy,
   dismissWorkflowChange,
   markNotADrift,
@@ -273,6 +274,13 @@ function Held({ current, repository, root, served }: { current: string | null; r
         const answer = await sendBackWorkflowChange({ change: change.id, notes });
         await loadChanges(one);
         return answer.ok ? undefined : refusalWords(answer.outcome);
+      }}
+      onBuildSupport={async (one) => {
+        const change = askedChange(changes);
+        if (change === undefined) return undefined;
+        const answer = await buildWorkflowSupport({ change: change.id });
+        await loadChanges(one);
+        return answer.ok ? { jobId: answer.building.job_id } : refusalWords(answer.outcome);
       }}
       onOpenJob={(_one, jobId) => askToOpenSessionInCockpit(jobId)}
       onNotDrift={async (one, stepId, driftId) => {
