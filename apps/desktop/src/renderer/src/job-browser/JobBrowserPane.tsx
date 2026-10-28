@@ -3,13 +3,13 @@
 // The store says what it holds.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { AppWindowMac, Bot, ChevronLeft, ChevronRight, Crosshair, PanelRight, RefreshCw, UserCheck } from "lucide-react";
+import { AppWindowMac, Bot, ChevronLeft, ChevronRight, Crosshair, PanelLeftClose, PanelLeftOpen, PanelRight, RefreshCw, UserCheck } from "lucide-react";
 import { ACTION, Button, Input, Kbd, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
 import { useSessionsDraft } from "../sessions-draft";
 import { closePanel, usePanel } from "../shared-panel/store";
-import { browserToWindow, goBack, goForward, navigate, openBrowser, pinNote, reload, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { browserToWindow, goBack, goForward, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import "./job-browser.css";
 
 /** Who drives, and what a press on the mark does: the mark is the toggle. */
@@ -156,12 +156,13 @@ function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowse
 }
 
 /**
- * The pane: who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
+ * The pane: in the side panel, the toggle for the Job's thread; who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
  * note control; and its move. In the side panel it moves to a window; in its window it moves back to the side panel.
  */
 export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" }) {
   const [capturing, setCapturing] = useState(false);
   const driver = DRIVER[browser.driver];
+  const threadShown = !browser.threadHidden;
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     // The letter from its key's place, since ⌥ changes the character a key types.
     const key = event.code.startsWith("Key") ? event.code.slice(3) : event.key.length === 1 ? event.key.toUpperCase() : event.key;
@@ -174,6 +175,13 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
   return (
     <section className="job-browser" role="group" aria-label="Job browser" data-placed={placed} onKeyDown={keys}>
       <header className="job-browser__head">
+        {placed === "panel" ? (
+          <Tooltip label={threadShown ? "Hide Job" : "Show Job"}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={threadShown ? "Hide Job" : "Show Job"} aria-pressed={threadShown} onClick={() => showThread(sessionId, !threadShown)}>
+              {threadShown ? <PanelLeftClose size={16} strokeWidth={2} aria-hidden /> : <PanelLeftOpen size={16} strokeWidth={2} aria-hidden />}
+            </Button>
+          </Tooltip>
+        ) : null}
         <Tooltip label={driver.said}>
           <Button variant="ghost" size="sm" iconOnly data-driver={browser.driver} aria-label={driver.said} onClick={() => toggleDriver(sessionId)}>
             {driver.glyph}

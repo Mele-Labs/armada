@@ -1,6 +1,6 @@
 // The Job browser: a page the Job's agent drives with Armada's tools. Flight control's Browser opens it in the side panel, with the
-// Job's thread and composer floating on the left over the app, which Hide Job folds away and Show Job brings back. The mark left of
-// the address says who is driving, and a press on it takes the page over or hands it back. Back, Forward and Reload are a browser's,
+// Job's thread and composer floating on the left over the app, which the first control on the browser's toolbar folds away and brings back. The mark after it
+// says who is driving, and a press on it takes the page over or hands it back. Back, Forward and Reload are a browser's,
 // and the address takes an address while the person drives. Capture, the walk window's note control, pins a note on a part of the
 // page, and Send puts it to the Job as a message. Open in a window moves it to a window of its own with the thread beside the page,
 // as the walk window draws it, and Move to the side panel brings it back. When the Job reaches for Playwright's browser instead, its
@@ -32,9 +32,10 @@ const steps: Step[] = [
   { look: pane, say: "The Job browser, in the side panel" },
   { look: inside(floating, role("textbox", "Message")), say: "The Job's thread and composer float on the left, over the app" },
   { look: inside(thread, text(/the total stays at \$84\.00/)), say: "Its thread, as the Cockpit draws it" },
-  { press: button("Hide Job"), say: "Hide Job folds it away" },
+  { hover: inside(pane, button("Hide Job")), say: "Hide Job, the first control on the toolbar, pressed while the thread shows" },
+  { press: inside(pane, button("Hide Job")), say: "Hide Job folds it away" },
   { look: inside(panel, page), say: "The page alone" },
-  { press: button("Show Job"), say: "Show Job brings it back" },
+  { press: inside(pane, button("Show Job")), say: "Show Job brings it back" },
   { look: inside(thread, text("browser_snapshot")), say: "Each act the agent took on the page is a call in the thread" },
   { hover: inside(pane, button(/^Agent driving/)), say: "The agent is driving. The mark is the toggle" },
   { press: inside(pane, button(/^Agent driving/)), say: "A press takes the page over" },

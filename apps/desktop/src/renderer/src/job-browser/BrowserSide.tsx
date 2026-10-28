@@ -1,9 +1,9 @@
 // The Job browser in the side panel, and the Job's own thread and composer floating on the left over the app, as a plate off the
-// sheet's leading edge (`Sheet`'s `aside`), so the page and the Job are read and answered together. Hide Job folds the thread to a
-// plate that brings it back, the walk window's own toggle. The thread is `SessionView`, the Cockpit's, as the walk window draws its Job.
+// sheet's leading edge (`Sheet`'s `aside`), so the page and the Job are read and answered together. The browser's toolbar folds the
+// thread and brings it back. The thread is `SessionView`, the Cockpit's, as the walk window draws its Job.
 
 import { Square } from "lucide-react";
-import { Button, Sheet } from "@armada/components";
+import { Sheet } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import { OPEN_SESSION_ATTRIBUTE, askToOpenSession } from "../open-session";
@@ -12,7 +12,7 @@ import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useBack } from "../shared-panel/panels";
 import { closePanel, type PanelItem } from "../shared-panel/store";
 import { JobBrowserPane } from "./JobBrowserPane";
-import { showThread, useJobBrowser } from "./store";
+import { useJobBrowser } from "./store";
 
 const HELD = { held: { state: "none" }, onWant: () => {} } as const;
 
@@ -43,9 +43,6 @@ export function BrowserSide({ item }: { item: Extract<PanelItem, { kind: "browse
   const shown = !browser.threadHidden;
   const aside = (
     <div className="job-browser-beside" data-shown={shown ? "" : undefined}>
-      <Button variant="ghost" size="sm" aria-expanded={shown} onClick={() => showThread(item.sessionId, !shown)}>
-        {`${shown ? "Hide" : "Show"} Job`}
-      </Button>
       {shown ? <JobBeside sessionId={item.sessionId} className="job-browser-beside__job" /> : null}
     </div>
   );

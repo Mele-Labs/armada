@@ -102,8 +102,10 @@
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
 }
-.job-browser-beside:not([data-shown]) { height: auto; }
+/* Folded, nothing is drawn, and the sheet keeps its width. */
+.job-browser-beside:not([data-shown]) { display: none; }
+.armada-sheet-scrim > .armada-sheet__aside:has(> .job-browser-beside:not([data-shown])) { margin: 0; }
 /* Wide enough that the composer's pickers keep their words. */
-.job-browser-beside[data-shown] { width: calc(var(--space-12) * 9); }
+.job-browser-beside { width: calc(var(--space-12) * 9); }
 .job-browser-beside__job { display: flex; flex: 1 1 0; flex-direction: column; align-self: stretch; min-height: 0; overflow: hidden; }
 .job-browser__document { display: contents; }
