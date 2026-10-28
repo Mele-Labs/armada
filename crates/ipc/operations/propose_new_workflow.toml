@@ -1,0 +1,16 @@
+[operations.propose_new_workflow]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Propose a workflow nothing holds yet, in the repository or in Kit, for the owner to approve; nothing is written until he does"
+notes = """
+`POST /workflows/changes/propose_new?manifest_id=`, since 28 Oct 2026. The body is `ProposeNewWorkflow`: `workflow_id` (the id the definition declares), `definition` (the whole definition as JSON text) and `scope` (`repository` or `kit`). The answer is the `WorkflowChange` kept: `origin` `new`, `before` empty, `after` the definition and `state` `ready` at once, since no model is asked to draft it.
+
+**Nothing is written.** The definition is checked as `save_workflow` checks one, with `overwrite` false: the parse and the resolve against the repository's Manifest and this machine's models. It is then a change `list_workflow_changes` shows under `workflow_id` and `source`, the scope's name, until `approve_workflow_change` saves it and `dismiss_workflow_change` drops it. A Kit-scope proposal is checked and saved through the repository this Job is served in.
+
+**Never replaces.** 422 `fleet.workflow_exists` where the scope already holds the id, at the proposal and again at Approve if one was written in between, in which case the change stays ready. 422 `fleet.workflow_change_empty` where the definition is blank, `fleet.workflow_unfit` and `fleet.workflow_id_not_a_name` as `save_workflow`'s. `send_back_workflow_change` refuses a new workflow's change with 422 `fleet.workflow_change_not_sendable`.
+
+**Fleet raises the call itself.** Where the connection places a Job, Fleet keeps a `draft` row on it that names the change, and the Job's Needs-you list shows a `draft:<row>` item `Workflow <id>` with an `answer` act and the options `Approve` (choice 0, saves it) and `Dismiss` (choice 1, drops it). The item leaves the list once the change is no longer ready, whoever settled it. The Job is told as for any draft. The Job's own `waiting_for` is not relied on.
+
+`agent_access` is `Yes`: it writes nothing, and the owner's Approve is what saves.
+"""

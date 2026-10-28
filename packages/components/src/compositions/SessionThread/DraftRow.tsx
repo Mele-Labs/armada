@@ -18,6 +18,8 @@ export type DraftThreadRow = Extract<SessionThreadRow, { kind: "draft" }>;
 /** His answer to a draft, in `answer_waiting`'s words: approved as written, approved with his whole text, or sent back with a note. */
 export type DraftAnswer = { choice: 0 } | { fixed: string } | { text: string };
 
+const SCOPE = { kit: "Every repository on this Mac", repository: "This repository" } as const;
+
 const SETTLED = {
   approved: { said: "Approved", Glyph: BadgeCheck },
   fixed: { said: "Approved with your fixes", Glyph: BadgeCheck },
@@ -94,12 +96,13 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
     setNote("");
     setMode("read");
   };
-  const state = settled === undefined ? undefined : SETTLED[settled.how];
+  const proposed = row.workflow;
+  const state = settled === undefined ? undefined : proposed !== undefined && settled.how === "withdrawn" ? { said: "Dismissed", Glyph: Ban } : SETTLED[settled.how];
   const withdraw =
     onWithdraw === undefined ? null : (
       <span className="armada-session-draft__withdraw">
         <Button size="sm" variant="secondary" onClick={() => onWithdraw(row.id, noting && note.trim() !== "" ? note.trim() : undefined)}>
-          Withdraw
+          {proposed === undefined ? "Withdraw" : "Dismiss"}
         </Button>
       </span>
     );
@@ -117,12 +120,20 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   };
   return (
     <li ref={home} className="armada-session-draft-row">
-      <Card flat className="armada-session-draft" role="article" aria-label={`Draft: ${row.title}`} data-settled={settled?.how}>
+      <Card flat className="armada-session-draft" role="article" aria-label={`${proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how}>
         <div className="armada-session-draft__head">
-          <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">Draft</span>
+          <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">{proposed === undefined ? "Draft" : "Workflow"}</span>
           <Stamp at={row.at} className="armada-session-draft__at" />
         </div>
         <p className="armada-session-draft__title">{row.title}</p>
+        {proposed === undefined ? null : (
+          <dl className="armada-session-draft__facts">
+            <dt>Name</dt>
+            <dd>{proposed.name}</dd>
+            <dt>Scope</dt>
+            <dd>{SCOPE[proposed.scope]}</dd>
+          </dl>
+        )}
         {editing ? (
           <Textarea aria-label="Draft text" rows={8} grow autoFocus keep={fixedKey} value={fixed} onChange={(event) => setFixed(event.currentTarget.value)} />
         ) : (
@@ -182,12 +193,16 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
                 <Button size="sm" variant="primary" onClick={() => onAnswer(row.id, { choice: 0 })}>
                   Approve
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
-                  Edit
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
-                  Note
-                </Button>
+                {proposed !== undefined ? null : (
+                  <>
+                    <Button size="sm" variant="secondary" onClick={() => setMode("edit")}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
+                      Note
+                    </Button>
+                  </>
+                )}
                 {withdraw}
               </>
             )}

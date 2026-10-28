@@ -15,7 +15,7 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProjectRowRef, RepositorySummary } from "@armada/protocol";
-import { forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
+import { Radio, RadioGroup, forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
 import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
@@ -33,6 +33,22 @@ import { chipsFor, optionsFor, useReading } from "./reading";
 
 /** What the request field asks for. */
 const REQUEST_PLACEHOLDER = "Describe the work, or paste a link to a ticket.";
+const WORKFLOW_PLACEHOLDER = "What should it do?";
+
+/** Where a new workflow is kept: Kit's for every repository on this Mac, or the repository's. */
+export type WorkflowScope = "kit" | "repository";
+export const WORKFLOW_SCOPE: Record<WorkflowScope, string> = { kit: "Every repository on this Mac", repository: "This repository" };
+
+/** The first message of a Job that makes a workflow: the request, the scope, and how to hand the result in. */
+export function workflowBrief(words: string, scope: WorkflowScope): string {
+  const where = scope === "kit" ? "kit, every repository on this Mac" : "repository, this repository only";
+  return [
+    `New workflow: ${words}`,
+    `Scope: ${where}`,
+    `Propose it with the propose_new_workflow tool, with scope "${scope}". Do not write the workflow file yourself.`,
+    "Write the definition in the workflow definition format. See .armada/workflows/feature.json for the shape.",
+  ].join("\n");
+}
 
 const REQUEST = "dispatch:request";
 const TUNING = "dispatch:session-tuning";
@@ -87,6 +103,8 @@ export type Dispatching = {
   openSheet: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[]) => void;
   /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
+  /** New workflow, from the Workflows page: the sheet for a Job that makes one, with the scope chosen on it. */
+  openWorkflow: () => void;
   /** ⌥A: the panel on a Session, with an `@` typed at the end of the request and its menu open. Absent where a Session cannot wait. */
   openAfter?: () => void;
   closeSheet: () => void;
@@ -123,6 +141,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
   const [picked, pick, clearPicked] = useKept<string | null>("dispatch:repository", null);
   const [sheet, setSheet] = useState(false);
+  // Set while the sheet is for a new workflow: the words are what it should do, and the scope is where it is kept.
+  const [workflow, setWorkflow] = useState<WorkflowScope | null>(null);
   const [autopilotAsked, setAutopilotAsked] = useState(false);
   // ⌥A pressed outside the sheet: the request is given its `@` and the menu once it is drawn.
   const [afterAsked, setAfterAsked] = useState(false);
@@ -167,6 +187,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     setWaiting(false);
     setSending(false);
     setSheet(false);
+    setWorkflow(null);
     setRead(undefined);
     setRefused(undefined);
     setAutopilot(false);
@@ -192,7 +213,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
   function startSession(at: string) {
     if (draft === undefined) return;
     const kept = snippetsNow.current;
-    const text = wordsNow().trim() === "" && kept.length > 0 ? SNIPPET_ONLY : wordsNow().trim();
+    const typedWords = wordsNow().trim() === "" && kept.length > 0 ? SNIPPET_ONLY : wordsNow().trim();
+    const text = workflow === null ? typedWords : workflowBrief(typedWords, workflow);
     recall(at);
     const hand = handNow();
     setSending(true);
@@ -287,7 +309,17 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     setSending(false);
   };
 
-  const body: ReactNode = kind === "autopilot" && (read !== undefined || refused !== undefined) ? <AutopilotBody read={read} onRead={setRead} refused={refused} /> : undefined;
+  const scopeChoice: ReactNode =
+    workflow === null ? undefined : (
+      <RadioGroup label="Scope">
+        {(Object.keys(WORKFLOW_SCOPE) as WorkflowScope[]).map((one) => (
+          <Radio key={one} name="workflow-scope" checked={workflow === one} onChange={() => setWorkflow(one)}>
+            {WORKFLOW_SCOPE[one]}
+          </Radio>
+        ))}
+      </RadioGroup>
+    );
+  const body: ReactNode = scopeChoice ?? (kind === "autopilot" && (read !== undefined || refused !== undefined) ? <AutopilotBody read={read} onRead={setRead} refused={refused} /> : undefined);
 
   const collapse = () => {
     setAsking(false);
@@ -366,9 +398,9 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       open: sheetGrown,
       words,
       onWords: typed,
-      placeholder: REQUEST_PLACEHOLDER,
+      placeholder: workflow === null ? REQUEST_PLACEHOLDER : WORKFLOW_PLACEHOLDER,
       kind,
-      kinds,
+      kinds: workflow === null ? kinds : [],
       onKind: choose,
       reading,
       chips: chipsFor(options, { scoped: by(state.repository)?.root, read: detected?.root, chosen: root, recent }),
@@ -437,7 +469,22 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     writeKept(REQUEST, "");
     rowed.current = [];
     setSnippets([]);
+    setWorkflow(null);
     if (at !== undefined) pick(at);
+    setLatest(undefined);
+    setAsking(false);
+    setRead(undefined);
+    setRefused(undefined);
+    setSheet(true);
+  };
+
+  const openWorkflow = () => {
+    stamp.current += 1;
+    writeKept(REQUEST, "");
+    rowed.current = [];
+    setSnippets([]);
+    choose("session");
+    setWorkflow("kit");
     setLatest(undefined);
     setAsking(false);
     setRead(undefined);
@@ -465,9 +512,11 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     choose,
     sheet,
     openNew,
+    openWorkflow,
     ...(draft?.readsWait === undefined || !kinds.includes("session") ? {} : { openAfter }),
     openSheet: (next, at, tags, rows) => {
       stamp.current += 1;
+      setWorkflow(null);
       writeKept(REQUEST, next);
       if (tags !== undefined) tagged.current = [...tags];
       rowed.current = rows === undefined ? [] : [...rows];

@@ -18,6 +18,9 @@ pub(crate) enum End {
     Checked,
     Committed,
     PrOpened,
+    /// A delivering step the Job has not delivered on yet: no pull request is open. Only `rail::stalled`
+    /// reads it, as `end_of` names a delivering step's end as its merge.
+    Undelivered,
 }
 
 impl End {
@@ -35,6 +38,7 @@ impl End {
             End::Checked => "a Check is run",
             End::Committed => "a commit is made",
             End::PrOpened => "a pull request is opened",
+            End::Undelivered => "it is delivered",
         }
     }
 
@@ -52,6 +56,7 @@ impl End {
             End::Checked => "you run a Check with armada check",
             End::Committed => "you commit",
             End::PrOpened => "you open a pull request",
+            End::Undelivered => "you deliver the way the person chose",
         }
     }
 

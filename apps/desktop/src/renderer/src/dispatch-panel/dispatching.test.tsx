@@ -306,3 +306,12 @@ test("Queue for later pressed while the reading is out is answered by the reposi
     readRequestRepository.mockImplementation(async () => ({ manifest_id: null, likely: [] }));
   }
 });
+test("workflowBrief names the scope and tells the Job to propose, not write", async () => {
+  const { workflowBrief } = await import("./dispatching");
+  const brief = workflowBrief("review docs", "kit");
+  expect(brief).toContain("New workflow: review docs");
+  expect(brief).toContain("Scope: kit, every repository on this Mac");
+  expect(brief).toContain("propose_new_workflow");
+  expect(brief).toContain("Do not write the workflow file yourself");
+  expect(workflowBrief("x", "repository")).toContain("Scope: repository, this repository only");
+});

@@ -63,7 +63,8 @@ export function agentOf(changes: readonly WorkflowChange[], known: readonly Mana
   if (one.state === "drafting") return { phase: "working", ...asked };
   if (one.state === "failed") return { phase: "failed", reason: one.reason ?? "", ...asked };
   if (one.state === "ready" && one.after !== undefined) {
-    return { phase: "proposed", before: stepsOfText(one.before, known), after: stepsOfText(one.after, known), ...asked };
+    const fresh = one.origin.kind === "new" ? { fresh: true as const } : {};
+    return { phase: "proposed", before: stepsOfText(one.before, known), after: stepsOfText(one.after, known), ...asked, ...fresh };
   }
   return { phase: "idle" };
 }

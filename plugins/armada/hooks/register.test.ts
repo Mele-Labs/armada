@@ -1347,20 +1347,27 @@ test('a commit and a push are told from what git printed, and one that printed n
   await clock.settle()
   const before = posts.length
 
-  printed = '[armada/topic 1a2b3c4] Pin the clock'
+  printed = '[fleet/session-ledger 1a2b3c4] Pin the clock'
   await $.tool.call({ tool: 'Bash', command: 'git commit -m "Pin the clock"' })
-  printed = 'To https://github.com/Mele-Labs/armada.git\n * [new branch]      armada/topic -> armada/topic'
-  await $.tool.call({ tool: 'Bash', command: 'git push -u origin armada/topic' })
+  printed = 'To https://github.com/Mele-Labs/armada.git\n * [new branch]      fleet/session-ledger -> fleet/session-ledger'
+  await $.tool.call({ tool: 'Bash', command: 'git push -u origin fleet/session-ledger' })
   printed = 'Everything up-to-date'
   await $.tool.call({ tool: 'Bash', command: 'git push' })
   printed = 'nothing to commit, working tree clean'
   await $.tool.call({ tool: 'Bash', command: 'git commit -m again' })
+  // A quiet push prints nothing, and is still the session's push (28 Oct 2026).
+  printed = ''
+  await $.tool.call({ tool: 'Bash', command: 'git push -q https://github.com/Mele-Labs/armada.git HEAD:fleet/session-ledger' })
+  // A push of another branch, such as into a scratch repository, is not the session's.
+  printed = 'To /tmp/scratch/remote.git\n   9555963..66d5415  HEAD -> topic'
+  await $.tool.call({ tool: 'Bash', command: 'git push /tmp/scratch/remote.git HEAD:topic' })
   await clock.settle()
 
   const road = facts(posts.slice(before)).filter(fact => fact.kind === 'committed' || fact.kind === 'pushed')
   expect(road).toEqual([
-    { kind: 'committed', branch: 'armada/topic', commit: '1a2b3c4', subject: 'Pin the clock' },
-    { kind: 'pushed', branch: 'armada/topic' },
+    { kind: 'committed', branch: 'fleet/session-ledger', commit: '1a2b3c4', subject: 'Pin the clock' },
+    { kind: 'pushed', branch: 'fleet/session-ledger' },
+    { kind: 'pushed', branch: 'fleet/session-ledger' },
   ])
 })
 
