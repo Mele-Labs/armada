@@ -11,8 +11,10 @@ A `follows_plan` step is current from approval, and stays until a later step is 
 A `delivers` step is current from the first push until its pull request merges.
 
 **Steps before the plan, and the walk** (27 Oct 2026, `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`).
-A step before the recording step is current until a plan is recorded, or, with `awaits_reply`, until the owner replies.
+A step before the recording step is current until a plan is recorded, or until any end its `ends_on` lists holds (28 Oct 2026).
+Each end is read off the thread: he replies, approves a walk, approves a sketch, approves a draft, or picks an option the agent's question gave a preview.
 The reply is a message of his after the agent's first turn: Fleet's own notices and other Jobs' words are not one.
+A walk he approves before the plan's approval ends such a step and never passes the later `walks` step.
 The recording step, when something precedes it, is entered when a plan is recorded and is current until he approves it.
 A `walks` step is current from the plan's approval until he approves a window the Job showed (`show_window`).
 A walk is expected as [Workflow](../workflow.md#walks-and-replies) says.

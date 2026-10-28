@@ -257,6 +257,19 @@ pub(crate) async fn record_plan<D: Sessions>(
     }
 }
 
+/// The person approves a sketch, or sends it back with a note. 200 with the row; 409 for a sketch drawn again since
+/// he read it; 422 for one not open to an answer, or a send-back with no note.
+pub(crate) async fn answer_sketch<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::AnswerSketch = match ipc::decode_body("an answer to a sketch", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_sketch(said).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person approves the plan at the version he read. 200 with the row; 409 for a plan that is not that version or
 /// none; 422 for a session Fleet does not know.
 pub(crate) async fn approve_plan<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {

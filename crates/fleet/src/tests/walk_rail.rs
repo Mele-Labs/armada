@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use api::Sessions;
+use core_model::StepEnd;
 use ipc::{Instant, SessionRow, SessionVoice, ShowWindow, SessionId};
 use testkit::FakeJudge;
 
@@ -22,7 +23,7 @@ use crate::test_paths::is_test_path;
 // ---- The rules ----
 
 fn propose() -> RailStep {
-    RailStep { awaits_reply: true, ..step("Propose") }
+    RailStep { ends_on: vec![StepEnd::Replied], ..step("Propose") }
 }
 
 fn walk() -> RailStep {
@@ -206,25 +207,25 @@ fn approve(n: u32, url: &str) -> SessionRow {
 fn the_person_has_replied_only_with_a_message_of_his_after_the_agents_first_turn() {
     let you = || SessionVoice::You;
     let fleet = || SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() };
-    assert!(!thread_facts(&[message(1, you())]).replied, "his request is not a reply");
-    assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent)]).replied, "the agent has spoken and he has not");
-    assert!(thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, you())]).replied);
-    assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, fleet())]).replied, "Fleet's notice is not his word");
+    assert!(!thread_facts(&[message(1, you())], None).replied, "his request is not a reply");
+    assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent)], None).replied, "the agent has spoken and he has not");
+    assert!(thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, you())], None).replied);
+    assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, fleet())], None).replied, "Fleet's notice is not his word");
     let tool = SessionRow::Tool { id: "t1".into(), at: at_second(2), text: "ask_the_person".into() };
-    assert!(thread_facts(&[message(1, you()), tool, message(3, you())]).replied, "an answer to a question the agent asked");
+    assert!(thread_facts(&[message(1, you()), tool, message(3, you())], None).replied, "an answer to a question the agent asked");
 }
 
 #[test]
 fn a_window_is_shown_by_its_row_and_approved_only_by_his_approve_at_or_after_it() {
     let url = "http://localhost:5391/?walk=a";
-    assert_eq!(thread_facts(&[]).walk_shown, false);
-    let shown = thread_facts(&[window(1, url)]);
-    assert!(shown.walk_shown && !shown.walk_approved);
-    assert!(thread_facts(&[window(1, url), approve(2, url)]).walk_approved);
-    assert!(!thread_facts(&[approve(1, url), window(2, url)]).walk_approved, "a page shown again must be approved again");
-    assert!(!thread_facts(&[window(1, url), approve(2, "http://localhost:5391/?walk=b")]).walk_approved, "another page's approve");
+    assert_eq!(thread_facts(&[], None).walk_shown, false);
+    let shown = thread_facts(&[window(1, url)], None);
+    assert!(shown.walk_shown && !shown.any_walk_approved);
+    assert!(thread_facts(&[window(1, url), approve(2, url)], None).any_walk_approved);
+    assert!(!thread_facts(&[approve(1, url), window(2, url)], None).any_walk_approved, "a page shown again must be approved again");
+    assert!(!thread_facts(&[window(1, url), approve(2, "http://localhost:5391/?walk=b")], None).any_walk_approved, "another page's approve");
     let fleet = said(2, SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() }, &format!("Approved: {url}"));
-    assert!(!thread_facts(&[window(1, url), fleet]).walk_approved, "only the person approves");
+    assert!(!thread_facts(&[window(1, url), fleet], None).any_walk_approved, "only the person approves");
 }
 
 #[test]

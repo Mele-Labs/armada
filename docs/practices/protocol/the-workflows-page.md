@@ -8,7 +8,7 @@ Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for fi
 
 | Operation | Route | Side | Carries |
 | --- | --- | --- | --- |
-| `get_workflow_steps` | `GET /workflows/steps?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowSteps`: the id, the place and `steps`, each a `StepReading`: `id`, `label`, `instructions?`, `ends_when?`, `passed_over_when?`, `nudges?` (`StepNudge`: `id`, `job_id`, `job_title?`, `fact`, `at`) |
+| `get_workflow_steps` | `GET /workflows/steps?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowSteps`: the id, the place and `steps`, each a `StepReading`: `id`, `label`, `instructions?`, `ends_when?`, `ends_any?`, `passed_over_when?`, `nudges?` (`StepNudge`: `id`, `job_id`, `job_title?`, `fact`, `at`) |
 | `delete_workflow_copy` | `POST /workflows/delete?manifest_id=` | Bridge sends `WorkflowCopy` (`workflow_id`, `source`, `file?`) | `WorkflowCopyDeleted`: the id, the place, the file and `runs_from?` |
 | `reset_workflow_copy` | `POST /workflows/reset?manifest_id=` | Bridge sends `WorkflowCopy` | `WorkflowSaved`, since a reset is a save |
 | `mark_not_a_drift` | `POST /workflows/not_a_drift` | Bridge sends `MarkNotADrift` (`nudge`) | `NotADriftMarked` |
@@ -17,6 +17,7 @@ Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for fi
 The steps are read from the parsed file and resolved against the repository's Checks as a Job would freeze them.
 One a more specific place replaced is resolved on the read, since the catalogue never does.
 `ends_when` and `passed_over_when` are `rail_ends`' reading of the rules the rail places a Job by, so the page does not restate them.
+`ends_any`, since 28 Oct 2026, is every end of a step, in order, as the page says them, where any one of several ends it; left out where empty.
 Nudges are those `workflow_nudges` keeps for that step in that place's definition, less those marked not a drift.
 
 **Refusals**, all 422 but the last:

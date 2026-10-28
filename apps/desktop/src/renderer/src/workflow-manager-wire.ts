@@ -21,6 +21,7 @@ export function stepOf(reading: StepReading | ChangeStep): ManagedStep {
     label: reading.label,
     ...(glyph === undefined ? {} : { glyph }),
     ends: reading.ends_when ?? "",
+    ...(reading.ends_any === undefined ? {} : { endsAny: reading.ends_any }),
     ...(reading.passed_over_when === undefined ? {} : { passedOver: reading.passed_over_when }),
     words: reading.instructions ?? "",
   };

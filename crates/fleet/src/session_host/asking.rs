@@ -14,8 +14,8 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, Refusal, Sessions};
 use ipc::{
-    AskingToRun, HelmCallAnswer, HelmCallInFlight, ManifestId, ReachesTo, RunOrNot, SessionAskState,
-    SessionMode, SessionRow, TerminalAsked,
+    AskedChoice, AskedQuestion, AskingToRun, HelmCallAnswer, HelmCallInFlight, ManifestId, QuestionAnswer, ReachesTo,
+    RunOrNot, SessionAskState, SessionMode, SessionRow, TerminalAsked,
 };
 
 use super::handoff_answers::HandoffAnswer;
@@ -44,6 +44,41 @@ const SAID: &str = ":said";
 /// Whether a message row is the person's answer to one of the Job's questions, put by `person_said`.
 pub(crate) fn answers_a_question(row_id: &str) -> bool {
     row_id.starts_with("ask-") && row_id.ends_with(SAID)
+}
+
+/// The id of the ask row a message put by `person_said` answers.
+pub(crate) fn ask_answered(row_id: &str) -> Option<&str> {
+    row_id.strip_suffix(SAID).filter(|_| row_id.starts_with("ask-"))
+}
+
+/// What the person chose on `questions`, read off the message [`answers_text`] wrote: each label one
+/// the question offered, so words of their own choose nothing.
+pub(crate) fn answers_said(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
+    questions
+        .iter()
+        .filter_map(|asked| {
+            let heading = format!("**{}**", asked.question);
+            let mut lines = text.lines();
+            lines.find(|line| *line == heading)?;
+            let line = lines.next()?;
+            Some(QuestionAnswer { question: asked.question.clone(), chosen: labels_in(line, &asked.options) })
+        })
+        .collect()
+}
+
+/// The labels of `options` a line of choices holds. Joined with ", ", which a label may hold itself.
+pub(crate) fn labels_in(line: &str, options: &[AskedChoice]) -> Vec<String> {
+    options
+        .iter()
+        .map(|option| option.label.as_str())
+        .filter(|label| {
+            line == *label
+                || line.starts_with(&format!("{label}, "))
+                || line.ends_with(&format!(", {label}"))
+                || line.contains(&format!(", {label}, "))
+        })
+        .map(String::from)
+        .collect()
 }
 
 /// A block a question, the question in bold and what was chosen under it, for an answer that
