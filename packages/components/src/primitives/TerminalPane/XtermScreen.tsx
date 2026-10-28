@@ -138,7 +138,7 @@ export function XtermScreen({ out, run, running, write, onSize, grows }: Termina
       terminal.options.theme = themeOf(element);
     });
     retheme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    if (latest.current.running) terminal.focus();
+    if (latest.current.running && !typingElsewhere(element)) terminal.focus();
 
     return () => {
       over = true;
