@@ -62,6 +62,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Completed, Now and Next.
   const stepped = work.railOff !== true && flow.length > 0 && at !== undefined;
   const openShown = useOpenGroupShown();
+  const [openOpen, setOpenOpen] = useState(true);
   const doneFold = useFold(session, "done", stepped);
   const nowFold = useFold(session, "now");
   const nextFold = useFold(session, "next");
@@ -413,7 +414,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const pinned =
     !stepped || !openShown || (openMade.length === 0 && kept.length === 0) ? null : (
       <OpenGroupMenu>
-        <SvPanel label="Open" area="step-next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
+        <SvPanel label="Open" area="step-next" place="side" fold={{ open: openOpen, toggle: () => setOpenOpen((was) => !was), current: false }} keycap={bandKeyFor("next")}>
           <div className="sv-nav" onKeyDown={arrowsIn}>
             <MadeList session={session} list={openMade} newest="last" />
             {keptBlock}
