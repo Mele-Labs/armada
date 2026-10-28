@@ -108,6 +108,8 @@ pub struct LogEntry {
     /// The repository's key for [`LogSection::Repo`], empty otherwise.
     pub repository: String,
     pub kind: LogKind,
+    /// A few words naming it. `None` until a Distil run names it.
+    pub title: Option<String>,
     pub text: String,
     pub paths: Vec<String>,
     pub evidence: Vec<LogEvidence>,
@@ -148,7 +150,7 @@ pub fn logbook_words(text: &str) -> String {
 }
 
 const COLUMNS: &str = "id, section, repository, kind, text, paths, first_seen, last_confirmed, last_served, \
-                       state, locked, edited_by_person, tripped";
+                       state, locked, edited_by_person, tripped, title";
 
 fn unreadable(column: usize, word: String) -> rusqlite::Error {
     rusqlite::Error::FromSqlConversionFailure(column, rusqlite::types::Type::Text, word.into())
@@ -172,6 +174,7 @@ fn entry_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<LogEntry> {
         locked: row.get::<_, i64>(10)? != 0,
         edited_by_person: row.get::<_, i64>(11)? != 0,
         tripped: row.get::<_, i64>(12)?.max(0) as u32,
+        title: row.get(13)?,
         history: Vec::new(),
     })
 }
@@ -269,7 +272,7 @@ impl Store {
         }
         let tx = self.conn.transaction().map_err(database(DOING))?;
         tx.execute(
-            &format!("INSERT OR REPLACE INTO logbook_entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)"),
+            &format!("INSERT OR REPLACE INTO logbook_entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"),
             params![
                 entry.id,
                 entry.section.as_text(),
@@ -284,6 +287,7 @@ impl Store {
                 i64::from(entry.locked),
                 i64::from(entry.edited_by_person),
                 i64::from(entry.tripped),
+                entry.title,
             ],
         )
         .map_err(database(DOING))?;
@@ -381,6 +385,7 @@ impl Store {
             locked: false,
             edited_by_person: true,
             tripped: 0,
+            title: None,
             history: Vec::new(),
         };
         self.save_logbook_entry(&entry)?.ok_or_else(|| WriteError::Database(fault("teaching a Logbook entry")(rusqlite::Error::QueryReturnedNoRows)))

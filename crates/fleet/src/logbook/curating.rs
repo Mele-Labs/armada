@@ -9,7 +9,7 @@ use std::collections::{BTreeSet, HashSet};
 
 use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogRewrite, LogSection, LogState};
 
-use super::answer::{Claim, Distilled, Learnt};
+use super::answer::{Claim, Distilled, Learnt, Titled};
 
 /// The distinct Sessions that stand an entry.
 pub(crate) const STANDS_AT: usize = 2;
@@ -92,10 +92,21 @@ pub(crate) fn curate(entries: &mut Vec<LogEntry>, answer: &Distilled, distil: &D
             Some(text) if !entry.locked => {
                 rewrite(entry, text, LogRewrite::Contradicted, distil.now);
                 entry.edited_by_person = false;
+                // The title follows the text it names; with none given, the old one stays.
+                if claim.title.is_some() {
+                    entry.title.clone_from(&claim.title);
+                }
             }
             _ => {}
         }
     });
+    // A title for an entry that has none. One it has is never replaced this way.
+    for Titled { id, title } in &answer.titled {
+        if let Some(at) = place(entries, *id).filter(|at| entries[*at].title.is_none()) {
+            entries[at].title = Some(title.clone());
+            changed.insert(at);
+        }
+    }
     for learnt in &answer.learnt {
         if let Some(at) = learnt_into(entries, learnt, distil, held) {
             changed.insert(at);
@@ -128,6 +139,9 @@ fn learnt_into(entries: &mut Vec<LogEntry>, learnt: &Learnt, distil: &Distil<'_>
         let entry = &mut entries[at];
         entry.evidence.push(evidence(distil, &learnt.cites, LogHow::Confirmed, learnt.hard));
         entry.last_confirmed = distil.now;
+        if entry.title.is_none() {
+            entry.title.clone_from(&learnt.title);
+        }
         // Learnt again after it faded: it stands again on the rules, as a new one would.
         if entry.state == LogState::Faded {
             entry.state = LogState::Candidate;
@@ -139,6 +153,7 @@ fn learnt_into(entries: &mut Vec<LogEntry>, learnt: &Learnt, distil: &Distil<'_>
         section: learnt.section,
         repository: repository.to_string(),
         kind: learnt.kind,
+        title: learnt.title.clone(),
         text: learnt.text.clone(),
         paths: learnt.paths.clone(),
         evidence: vec![evidence(distil, &learnt.cites, LogHow::First, learnt.hard)],

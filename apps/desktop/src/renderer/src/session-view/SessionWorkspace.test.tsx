@@ -46,7 +46,7 @@ function mount() {
   const side = document.createElement("div");
   side.className = "sv-side";
   document.body.append(thread, side);
-  const draft = { get: () => held, subscribe: () => () => undefined, work: { workflows: [] } } as unknown as SessionsDraft;
+  const draft = { get: () => held, subscribe: () => () => undefined, work: { workflows: [] }, commands: [] } as unknown as SessionsDraft;
   const root = createRoot(thread);
   act(() =>
     root.render(
@@ -139,4 +139,22 @@ test("the keys other than ⇧⌘A open nothing: ⌘A alone and ⇧A alone leave 
   press({ metaKey: true, code: "KeyA" });
   press({ shiftKey: true, code: "KeyA" });
   expect(layer(side)).toBeNull();
+});
+
+test("the four views are a strip above the story, and a press opens a view in the spine under it, and a view with nothing in it stays off", () => {
+  const { side, thread } = mount();
+  const strip = side.querySelector('[role="toolbar"][aria-label="Views"]');
+  expect(strip).not.toBeNull();
+  expect([...strip!.querySelectorAll("button[data-view]")].map((one) => one.getAttribute("data-view"))).toEqual(["artifacts", "checks", "subagents", "slot"]);
+  // This Job has run no Checks, so its button is in its place and off.
+  expect(strip!.querySelector<HTMLButtonElement>('button[data-view="checks"]')!.disabled).toBe(true);
+  act(() => strip!.querySelector<HTMLButtonElement>('button[data-view="artifacts"]')!.click());
+  const open = side.querySelector('section.sv-layer[aria-label="Artifacts"]');
+  expect(open).not.toBeNull();
+  // In the spine's body, beside the story, with the strip outside it; the thread's host holds no layer.
+  expect(open!.closest(".sv-story-body")).not.toBeNull();
+  expect(strip!.closest(".sv-story-body")).toBeNull();
+  expect(thread.querySelector("section.sv-layer")).toBeNull();
+  act(() => strip!.querySelector<HTMLButtonElement>('button[data-view="artifacts"]')!.click());
+  expect(side.querySelector("section.sv-layer")).toBeNull();
 });

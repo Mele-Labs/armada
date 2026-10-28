@@ -1049,7 +1049,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const selectedJob = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const centreView = useDeck((deck) => deck.view);
   const docked = selectedJob !== undefined || (sel !== undefined || centreView !== "map");
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost } : undefined), [unified, sideHost]);
+  const hosts = useMemo<Hosts | undefined>(() => (reading ? { side: sideHost } : undefined), [reading, sideHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const deckMarks = useMarking(DECK_MARKS);
@@ -1108,7 +1108,11 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
             {unified ? (
               <div className="sv-side" ref={setSideHost} />
             ) : reading ? (
-              <LedgerPanel host={setLedgerHost} />
+              <>
+                {/* A Job with no story has no spine, but its views stand in the column's head, and a view opens under them. */}
+                <div className="sv-side" ref={setSideHost} />
+                <LedgerPanel host={setLedgerHost} />
+              </>
             ) : panels.has("bays") ? <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} /> : null}
             {unified || !panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
           </div>

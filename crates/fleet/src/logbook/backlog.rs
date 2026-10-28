@@ -231,7 +231,7 @@ where
         let Some(lesson) = lessons.iter().find(|lesson| named(lesson) == fact.id) else { continue };
         let mut cites = lesson.line.evidence.clone();
         cites.push(format!("retro:{}.{}", lesson.retro_id, lesson.ordinal));
-        let learnt = Learnt { section: fact.section, kind: fact.kind, text: fact.text.clone(), paths: Vec::new(), cites, hard: false };
+        let learnt = Learnt { section: fact.section, kind: fact.kind, title: None, text: fact.text.clone(), paths: Vec::new(), cites, hard: false };
         let answer = Distilled { learnt: vec![learnt], ..Distilled::default() };
         let by = Distil { session: &lesson.session_id, repository: key, now };
         changed.extend(curate(&mut entries, &answer, &by, &Keeping { store: &store, repository: key }));

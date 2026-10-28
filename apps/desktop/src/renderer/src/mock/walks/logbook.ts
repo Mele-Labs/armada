@@ -3,11 +3,11 @@
 
 import { button, dialog, inside, place, region, role, walk } from "../walk";
 
-const ENTRIES = role("listbox", "Entries");
+const ENTRIES = role("grid", "Entries");
 const ENTRY = region("Entry");
 
 export const logbook = walk("logbook", [
-  { press: place("Logbook"), say: "Logbook: each repository, then Habits and This Mac, then Armada fixes" },
+  { press: place("Logbook"), say: "Logbook: each repository, then Habits and This Mac, then the Retros tab" },
   { key: "Enter", on: ENTRIES, say: "Enter opens the first entry. It was tripped on, so it leads" },
   { key: "e", on: ENTRY, say: "E opens its text in place" },
   {

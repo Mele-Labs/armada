@@ -210,9 +210,9 @@ export const SURFACES: readonly PaletteSurface[] = [
   },
   {
     id: SURFACE.lessons,
-    // Not a tab: the retro items are the part of the Logbook called Armada fixes, and this row, the palette's and every
-    // link that used to open Retros, brings that part into view. No key.
-    label: "Armada fixes",
+    // Not a place: the retro items are the Logbook's Retros tab, and this row, the palette's and every link that used to
+    // open the Retros page, opens the Logbook on it. No key.
+    label: "Retros",
     // What each item is, in `docs/concepts/retro.md`'s word.
     aliases: ["retro", "retros"],
     icon: Rewind,
@@ -220,7 +220,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.logbook,
     label: "Logbook",
-    // `⌘5`, the place Retros held: the retro items are the Logbook's Armada fixes now.
+    // `⌘5`, the place Retros held: the retro items are the Logbook's Retros tab now.
     get shortcut() {
       return digitOf(SURFACE.logbook);
     },

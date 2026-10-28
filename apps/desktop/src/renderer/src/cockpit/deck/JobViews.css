@@ -1,11 +1,9 @@
-/* The Job's views in its head (`JobViews.tsx`): ghost small buttons, the head's own shape, a fact on the corner, a rule after them. A layer starts at `--sv-layer-top`, which `LayerBounds` sets on the pane
-   to where the head ends, and stops at `--sv-layer-foot`, over the composer's dock, so the head, the composer and the views stay on show over it. */
+/* The Job's views, a strip pinned above the spine (`JobViews.tsx`): ghost small buttons, a fact on the corner. A layer opens in the spine under it. */
 
-.deck-pane .sv-layer { top: var(--sv-layer-top, 0); bottom: var(--sv-layer-foot, 0); }
-
-.sv-views__rule { height: var(--space-4); align-self: center; }
-.armada-session-frame__head .armada-button[data-view] { position: relative; }
-.armada-session-frame__head .armada-button[data-view][data-lit] { color: var(--slot-stranded); }
+.sv-views { display: flex; flex: none; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); }
+.sv-story-body { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+.sv-views .armada-button[data-view] { position: relative; }
+.sv-views .armada-button[data-view][data-lit] { color: var(--slot-stranded); }
 .sv-view__mark { position: absolute; inset-block-end: var(--border-width); inset-inline-end: var(--border-width); display: inline-flex; align-items: center; pointer-events: none; }
 /* A write clash is a lamp in the key's corner, in the needs hue and clear of the glyph, as a toggle's lamp (`Button.css`) sits in the opposite one. */
 .sv-view__clash { display: block; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--status-awaiting-review); }

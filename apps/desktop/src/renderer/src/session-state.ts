@@ -47,7 +47,8 @@ export function stateOf(session: Session): { state: SessionState; said: string }
     return { state: "working", said: subagent ? "Subagent working" : "Working" };
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
-  if (owesOf(session).length > 0) return { state: "waiting", said: "Waiting on you" };
+  // A question nobody answered in time, or kept for a walk, waits on him as an item does: Fleet keeps no item for it.
+  if (owesOf(session).length > 0 || session.lapsed !== undefined) return { state: "waiting", said: "Waiting on you" };
   // Fleet names the watch only while its turn has ended, nothing waits on him and a live watch is all that keeps it open.
   if (session.heldOpenBy !== undefined) return { state: "held", said: `Held open by ${session.heldOpenBy}` };
   if (standing === "replied" && !readSince(session)) return { state: "replied", said: "Unread reply" };
