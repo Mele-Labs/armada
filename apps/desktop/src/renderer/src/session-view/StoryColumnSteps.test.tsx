@@ -135,6 +135,12 @@ test("the last step holds the landing that Next held", () => {
   expect(host.querySelector('section[aria-label="Next"]')).toBeNull();
 });
 
+test("a Walk step not reached yet, with no walk shown, carries the mark for the walk to come", () => {
+  const host = mount({ at: 1, visits: VISITS.slice(0, 2) });
+  expect(zone(host, "Walk").querySelector('[aria-label="Walk, not shown yet"]')).not.toBeNull();
+  expect(zone(host, "Refine").querySelector('[aria-label="Walk, not shown yet"]')).toBeNull();
+});
+
 test("a finished group stands under the step whose visit covers its time, and a step visited twice is one zone in time order", () => {
   const host = mount({
     groups: [
@@ -246,7 +252,7 @@ test("pressing the Brief shows the whole text and the start settings", () => {
   act(() => press(host).click());
   expect(press(host).getAttribute("aria-expanded")).toBe("true");
   expect(brief(host).querySelector(".sv-brief__text")!.textContent).toBe("Add an Issues tab beside Reviews");
-  expect(rows(host)).toEqual({ Workflow: "Product", Delivery: "Open a pull request", Model: "opus", Effort: "high", Mode: "Auto" });
+  expect(rows(host)).toEqual({ Workflow: "Product", Delivery: "Open PR only", Model: "opus", Effort: "high", Mode: "Auto" });
   act(() => press(host).click());
   expect(press(host).getAttribute("aria-expanded")).toBe("false");
 });

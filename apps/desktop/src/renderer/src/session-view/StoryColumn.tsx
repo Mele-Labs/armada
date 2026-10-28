@@ -9,7 +9,7 @@
 // was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Next holds about landing. ⌥1, ⌥2 and ⌥3
 // then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Completed, Now and Next.
 //
-// The Brief is the first beat on the spine, above Completed, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
+// The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
@@ -386,7 +386,12 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         }
         return (
           <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
-            {last ? landing : undefined}
+            {!last && !(WALK_STEP.test(name) && walks.length === 0) ? undefined : (
+              <>
+                {WALK_STEP.test(name) && walks.length === 0 ? <WalkToCome /> : null}
+                {last ? landing : null}
+              </>
+            )}
           </SvPanel>
         );
       });

@@ -1,4 +1,4 @@
-// The Job's brief as the first beat of its spine, above Completed: one line while shut, and pressed it opens in place to the whole text and how the Job started (workflow,
+// The Job's brief as the first beat of its spine, above the zones: one line while shut, and pressed it opens in place to the whole text and how the Job started (workflow,
 // delivery, model, effort, mode, and the Job it was started from). A row the Job holds no value for is left out. `session.started` is what Fleet sends; without it the grid
 // reads what the Job holds now.
 
@@ -7,7 +7,7 @@ import { ChevronDown } from "lucide-react";
 import type { DeliveryChoice } from "@armada/protocol";
 import type { Session, SessionMode, SessionWork } from "@armada/screens/src/draft/sessions";
 
-const DELIVERY: Record<DeliveryChoice, string> = { auto_land: "Auto land", open_pr: "Open a pull request", keep_local: "Keep local" };
+const DELIVERY: Record<DeliveryChoice, string> = { auto_land: "Auto land", open_pr: "Open PR only", keep_local: "Keep local" };
 const MODE: Record<SessionMode, string> = { ask: "Ask", auto: "Auto", accept_edits: "Accept edits", plan: "Plan" };
 
 type Row = { label: string; value: string };
