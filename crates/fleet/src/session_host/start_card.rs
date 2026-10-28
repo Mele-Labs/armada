@@ -204,7 +204,7 @@ where
             .map(|choice| DeliveryPicked { choice, from: DeliveryPickedFrom::Named })
             .or(reads.usual.map(|choice| DeliveryPicked { choice, from: DeliveryPickedFrom::Usual }))
             .or(asks_delivery.then_some(DeliveryPicked { choice: DEFAULT_LANDING, from: DeliveryPickedFrom::Default }));
-        StartHeld { asks_delivery, picked, message: reads.first.map(|first| first.reads().to_string()) }
+        StartHeld { asks_delivery, picked, message: reads.first.map(|first| first.reads().to_string()), queued: false }
     }
 
     /// Keep `turn` as the held Job's first, where it is held and has none yet. `false` where it is not

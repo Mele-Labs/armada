@@ -63,6 +63,7 @@ const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
+const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
@@ -932,6 +933,7 @@ where
                 SESSION_WAITING_EMPTY,
                 "the first message is settled by Start, from the Job's message box",
             )),
+            WaitingSource::HeldChild => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY)),
             WaitingSource::Plan => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a plan is approved, or sent changes, from its own card",
@@ -1060,6 +1062,9 @@ where
                 SESSION_WAITING_EMPTY,
                 "whether the tasks are done is answered, not dismissed",
             ));
+        }
+        if item.source == WaitingSource::HeldChild {
+            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY));
         }
         if dismiss.misread && item.source != WaitingSource::Replied {
             return Err(self.hosted_refusal(

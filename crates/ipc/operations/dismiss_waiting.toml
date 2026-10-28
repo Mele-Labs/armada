@@ -7,4 +7,6 @@ notes = """
 `POST /sessions/waiting/dismiss`, body `DismissWaiting`: `session_id`, `item_id` and an optional `reason`. Answered with the `SessionRecord`, and `SessionChanged` is published.
 
 **The id never comes back.** A derived item (`ask:`, `perm:`, `walk:`) with that id is left off every later read, and an agent item with it is removed from the kept list and left off if the agent states it again. **An agent item (one it stated with `waiting_for`) tells the agent**: the job is sent `Owner removed "<item text>"`, with `: <reason>` after it where the reason is not blank. An item Fleet derived (`ask:`, `perm:`, `walk:`, `window_ask:`, `unsent:`, `done:`) is only dropped and the agent is told nothing. An item nothing holds is a 409, as for `answer_waiting`.
+
+A `held_child` item is not dismissed: it stands while the child is held, and a dismiss is a 422 `fleet.session_waiting_empty`.
 """

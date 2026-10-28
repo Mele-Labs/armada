@@ -71,4 +71,8 @@ pub struct StartHeld {
     /// after his words. Absent until one is kept for the Job.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    /// Start was pressed while the proposer was still reading: the Job starts once the reading
+    /// ends, with the landing the reading picks where the press named none. Left out when false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub queued: bool,
 }

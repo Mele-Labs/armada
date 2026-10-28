@@ -202,6 +202,8 @@ pub struct SetSessionWorkflow {
 pub struct BeginSession {
     pub session_id: SessionId,
     /// How the work lands. Required where `hosted.start.asks_delivery` holds; read nowhere else.
+    /// While the proposer is reading the start is queued (`start.queued`) and it may be absent: the
+    /// Job starts when the reading ends, with the reading's landing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery: Option<crate::session_delivery::DeliveryChoice>,
     /// The first message as he left it on the card. Present, it replaces the held first turn's
@@ -471,6 +473,8 @@ pub enum LinkedEvent {
     Done,
     /// A pull request it held merged.
     Merged,
+    /// A Job the parent's agent started left its start card.
+    Started,
 }
 
 /// One row of a hosted session's thread.
