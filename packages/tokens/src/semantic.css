@@ -25,7 +25,7 @@
      position, or focus is invisible on exactly the controls that need it.
      The accent already carries the keyboard focus edge, and row focus is
      already a 2px accent bar — so control focus now matches row focus. */
-  --focus-ring: 2px solid var(--accent);
+  --focus-ring: var(--focus-ring-width) solid var(--accent);
   --focus-ring-offset: 2px;
 
   /* Keyboard focus on a full-width row does something stronger than a ring */

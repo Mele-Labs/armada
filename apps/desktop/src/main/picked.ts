@@ -82,6 +82,15 @@ export class Picked {
   }
 
   /**
+   * Whether All repositories is the pick, as against a repository with no Manifest yet: both draw
+   * `null` from `manifest`, and only here is a route that answers across every repository right.
+   * Before Fleet lists any there is no All to be on.
+   */
+  get onAll(): boolean {
+    return this.listed.length > 0 && this.repository === null;
+  }
+
+  /**
    * A route acting on the picked repository's Manifest, naming it by `?manifest_id=`.
    * **`null` where the picked repository has none yet, and on All**: sending nothing would act
    * on another repository. Before anything is listed the route goes bare, as it always did.

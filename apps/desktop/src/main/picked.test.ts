@@ -174,7 +174,7 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await new ServerCommands({ port: at, picked }).startServer("web");
   const workflows = new WorkflowCommands(at, picked);
   await workflows.list();
-  await workflows.definition("bug", "repository");
+  await workflows.definition("bug", "repository", null);
   await workflows.save(null, { scope: "kit", definition: "{}" });
   const commands = new Commands(boardOn(port, picked));
   await commands.searchFiles("src");
@@ -304,6 +304,50 @@ describe("every per-repository call", () => {
       )
       .map(({ at }) => at);
     expect(unnamed).toEqual([]);
+  });
+});
+
+describe("the workflows list", () => {
+  const onAll = () => {
+    const picked = new Picked();
+    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
+    return picked;
+  };
+
+  it("on All repositories asks Fleet's bare list, with no Manifest and no left-out read, and answers ok", async () => {
+    const asked: string[] = [];
+    const port = await recording(asked);
+    const read = await new WorkflowCommands(() => port, onAll()).list();
+    expect(read.ok).toBe(true);
+    expect(asked).toEqual(["/workflows"]);
+  });
+
+  it("with a repository that has no Manifest picked still answers not_set_up and asks nothing", async () => {
+    const asked: string[] = [];
+    const port = await recording(asked);
+    const read = await new WorkflowCommands(() => port, pickedAt(NOT_SET_UP.root)).list();
+    expect(read).toEqual({ ok: false, outcome: { ok: false, why: "not_set_up" } });
+    expect(asked).toEqual([]);
+  });
+
+  it("with a repository picked asks both reads under its Manifest", async () => {
+    const asked: string[] = [];
+    const port = await recording(asked);
+    await new WorkflowCommands(() => port, pickedAt(SET_UP.root)).list();
+    expect(asked.sort()).toEqual(["/workflows/left_out?manifest_id=store-01", "/workflows?manifest_id=store-01"]);
+  });
+
+  it("reads one copy's steps, definition and changes under the Manifest named, whatever is picked", async () => {
+    for (const picked of [onAll(), pickedAt(SET_UP.root), pickedAt(NOT_SET_UP.root)]) {
+      const asked: string[] = [];
+      const port = await recording(asked);
+      const workflows = new WorkflowCommands(() => port, picked);
+      await workflows.steps("bug", "repository", "m-2");
+      await workflows.definition("bug", "repository", "m-2");
+      await workflows.changes("bug", "repository", "m-2");
+      expect(asked).toHaveLength(3);
+      for (const url of asked) expect(url, url).toMatch(/[?&]manifest_id=m-2(&|$)/);
+    }
   });
 });
 

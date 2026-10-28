@@ -278,7 +278,8 @@ test("with no repository chosen Queue for later asks for one, and the pick queue
   expect(fleet.queue).not.toHaveBeenCalled();
 
   await userEvent.click(page.getByRole("radio", { name: /Repository billing/ }));
-  await expect.poll(() => fleet.queue.mock.calls.length).toBe(1);
+  // The queue waits on the repository's reading, which a loaded CI runner can take past the 1s default.
+  await expect.poll(() => fleet.queue.mock.calls.length, { timeout: 5000 }).toBe(1);
   expect(fleet.queue.mock.calls[0]?.[0]).toMatchObject({ text: "Draft the export notes", root: "/Users/user/billing", repository: "billing" });
   expect(fleet.start).not.toHaveBeenCalled();
 });

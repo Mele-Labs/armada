@@ -1,10 +1,10 @@
 // What the Workflows page makes of Fleet's answers: a step's words changed in a definition's text and nothing else, the
 // list's rows with the definitions a more specific place replaced, and the box and cards read off the changes.
 
-import { forRequestsOf, stepsOfDefinition, withWords } from "@armada/components";
+import { forRequestsOf, keyOf, stepsOfDefinition, withWords } from "@armada/components";
 import type { ManagedStep } from "@armada/components";
 import type { WorkflowChange } from "@armada/protocol";
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { agentOf, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
 
@@ -80,13 +80,40 @@ test("the list has each workflow Fleet runs, the ones a more specific place repl
     [{ id: "hotfix", source: "kit", file: "~/hotfix.json", said: "Names a check this repository does not declare" }, { source: "repository", file: ".armada/workflows/odd.json", said: "Not a workflow" }],
   );
   expect(rows).toEqual([
-    { id: "feature", source: "yours" },
-    { id: "feature", source: "repository" },
-    { id: "feature", source: "armada" },
-    { id: "bug", source: "armada" },
+    { id: "feature", source: "yours", manifestId: "m" },
+    { id: "feature", source: "repository", manifestId: "m" },
+    { id: "feature", source: "armada", manifestId: "m" },
+    { id: "bug", source: "armada", manifestId: "m" },
     { id: "hotfix", source: "yours", leftOut: { said: "Names a check this repository does not declare", file: "~/hotfix.json" } },
     { id: "odd.json", source: "repository", leftOut: { said: "Not a workflow", file: ".armada/workflows/odd.json" } },
   ]);
+});
+
+describe("the list across repositories", () => {
+  const copy = (id: string, source: string, manifest: string) => ({ id, name: id, version: 1, steps: [], manifest_id: manifest, source, file: `${source}/${id}`, overrides: [] });
+  const fleet = [
+    copy("bug", "repository", "m-1"),
+    copy("bug", "armada", "m-1"),
+    copy("bug", "repository", "m-2"),
+    copy("bug", "armada", "m-2"),
+    copy("docs", "kit", "m-1"),
+    copy("docs", "kit", "m-2"),
+  ];
+
+  test("on All, Armada's and Yours appear once and each repository's copy of one id stays apart", () => {
+    const rows = listedOf(fleet, [], null);
+    expect(rows.filter((one) => one.source === "armada")).toHaveLength(1);
+    expect(rows.filter((one) => one.source === "yours")).toHaveLength(1);
+    const repositories = rows.filter((one) => one.source === "repository");
+    expect(repositories.map((one) => one.manifestId)).toEqual(["m-1", "m-2"]);
+    expect(new Set(rows.map(keyOf)).size).toBe(rows.length);
+    expect(keyOf(repositories[0]!)).not.toBe(keyOf(repositories[1]!));
+  });
+
+  test("with a repository picked, only its own copies are listed", () => {
+    const rows = listedOf(fleet, [], "m-1");
+    expect(rows.map((one) => `${one.source}:${one.id}:${one.manifestId}`)).toEqual(["repository:bug:m-1", "armada:bug:m-1", "yours:docs:m-1"]);
+  });
 });
 
 const before = JSON.stringify(FILE);

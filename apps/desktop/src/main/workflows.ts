@@ -57,29 +57,33 @@ export class WorkflowCommands {
     this.picked = picked;
   }
 
-  /** What Fleet runs for the picked repository, and what it left out. */
+  /**
+   * What Fleet runs for the picked repository, and what it left out. **On All it runs every repository's**
+   * and leaves out nothing here: a left-out file is one repository's, and shows once that one is picked.
+   */
   async list(): Promise<WorkflowsRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const runs = this.picked.manifest("/workflows");
-    const left = this.picked.manifest("/workflows/left_out");
+    const all = this.picked.onAll;
+    const runs = all ? "/workflows" : this.picked.manifest("/workflows");
+    const left = all ? undefined : this.picked.manifest("/workflows/left_out");
     if (runs === null || left === null) return { ok: false, outcome: NOT_SET_UP };
-    const [workflows, leftOut] = await Promise.all([ask(port, "GET", runs), ask(port, "GET", left)]);
+    const [workflows, leftOut] = await Promise.all([ask(port, "GET", runs), left === undefined ? undefined : ask(port, "GET", left)]);
     if (workflows.ok !== true) return { ok: false, outcome: workflows.outcome };
     // A Fleet that cannot say what it left out has left nothing out that Bridge could name.
     return {
       ok: true,
       workflows: workflows.body as WorkflowSummary[],
-      leftOut: leftOut.ok === true ? (leftOut.body as LeftOutWorkflow[]) : [],
+      leftOut: leftOut?.ok === true ? (leftOut.body as LeftOutWorkflow[]) : [],
     };
   }
 
-  /** One definition as its file holds it, from the place named. */
-  async definition(workflowId: string, source: string): Promise<WorkflowDefinitionRead> {
+  /** One definition as its file holds it, from the place named, under the copy's own Manifest. */
+  async definition(workflowId: string, source: string, manifestId: string | null): Promise<WorkflowDefinitionRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     const route = `/workflows/definition?workflow_id=${encodeURIComponent(workflowId)}&source=${encodeURIComponent(source)}`;
-    const path = this.picked.manifest(route);
+    const path = this.manifestPath(route, manifestId);
     if (path === null) return { ok: false, outcome: NOT_SET_UP };
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
@@ -90,7 +94,7 @@ export class WorkflowCommands {
   async save(manifestId: string | null, body: SaveWorkflow): Promise<WorkflowSaveAnswer> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const path = manifestId === null ? this.picked.manifest("/workflows/save") : this.picked.manifestNamed("/workflows/save", manifestId);
+    const path = this.manifestPath("/workflows/save", manifestId);
     if (path === null) return { ok: false, outcome: NOT_SET_UP };
     const answer = await ask(port, "POST", path, body);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
@@ -98,11 +102,11 @@ export class WorkflowCommands {
   }
 
   /** One definition step by step: the words, what ends each step and the nudges that still count. */
-  async steps(workflowId: string, source: string): Promise<WorkflowStepsRead> {
+  async steps(workflowId: string, source: string, manifestId: string | null): Promise<WorkflowStepsRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     const route = `/workflows/steps?workflow_id=${encodeURIComponent(workflowId)}&source=${encodeURIComponent(source)}`;
-    const path = this.picked.manifest(route);
+    const path = this.manifestPath(route, manifestId);
     if (path === null) return { ok: false, outcome: NOT_SET_UP };
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
@@ -151,11 +155,11 @@ export class WorkflowCommands {
   }
 
   /** The open changes to one workflow in one place: drafting, ready or failed. */
-  async changes(workflowId: string, source: string): Promise<WorkflowChangesRead> {
+  async changes(workflowId: string, source: string, manifestId: string | null): Promise<WorkflowChangesRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     const route = `/workflows/changes?workflow_id=${encodeURIComponent(workflowId)}&source=${encodeURIComponent(source)}`;
-    const path = this.picked.manifest(route);
+    const path = this.manifestPath(route, manifestId);
     if (path === null) return { ok: false, outcome: NOT_SET_UP };
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
@@ -208,7 +212,7 @@ export class WorkflowCommands {
     return { ok: true, change: answer.body as WorkflowChange };
   }
 
-  /** The Manifest an act is under: the one named, or the pick's where Kit's leaves it to the pick. */
+  /** The Manifest an act is under: the one named, or the pick's where none is named. */
   private manifestPath(route: string, manifestId: string | null): string | null {
     return manifestId === null ? this.picked.manifest(route) : this.picked.manifestNamed(route, manifestId);
   }
