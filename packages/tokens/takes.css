@@ -68,7 +68,7 @@
   --radius-bezel: calc(var(--radius-lg) - var(--border-width) * 2); /* content flush against the bezel: the panel's curve less its edge and hairline */
   --radius-inset: max(calc(var(--radius-bezel) - var(--space-1)), var(--radius-floor)); /* content a gutter (4px) inside: a row, a chip, a bay, a track */
   --select-edge: color-mix(in srgb, var(--fg-default) 70%, transparent);  /* a picked thing's frame: the text colour, so it reads in any theme */
-  --select-frame: inset 0 0 0 var(--border-width) var(--select-edge);
+  --select-frame: none;
   --select-ground: var(--bg-hover);
   --lamp: var(--dot);                                              /* a state lamp: 6px and round, the one round thing on a row */
   --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
