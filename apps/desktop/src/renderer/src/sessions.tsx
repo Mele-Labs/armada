@@ -1110,6 +1110,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
+        {...(draft.nameForMe === undefined ? {} : { onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve() })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}

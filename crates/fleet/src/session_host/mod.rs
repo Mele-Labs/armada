@@ -47,6 +47,7 @@ pub(crate) mod mcp_servers;
 pub(crate) mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
 /// drawn from.
+mod naming;
 mod noting;
 mod modding;
 mod auto_landing;

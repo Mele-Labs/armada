@@ -22,7 +22,7 @@ use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch,
 
 use crate::adrift::Adrift;
 use crate::build_facts::workers_of;
-use crate::build_keeping::{build_heard, build_read, BuildReads};
+use crate::build_keeping::{build_heard, build_read, BuildReads, Forecasts};
 use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::session_issues::ISSUE;
@@ -970,6 +970,10 @@ where
         Ok(record)
     }
 
+    async fn name_session(&self, name: ipc::NameSession) -> Result<SessionRecord, Refusal> {
+        self.named_by_armada(name).await
+    }
+
     async fn list_sessions(
         &self,
         manifest_id: Option<ManifestId>,
@@ -994,10 +998,15 @@ where
                 text: text.as_deref(),
             })
             .map_err(|why| self.ledger_fault(why))?;
-        let mut sessions = Vec::with_capacity(found.len());
+        // Every row's reads are taken under the lock and it is let go before any is drawn: drawing
+        // reads transcripts and the slot pool from disk, and every other Fleet command waits meanwhile.
+        let mut forecasts = Forecasts::default();
+        let mut taken = Vec::with_capacity(found.len());
         for session in &found {
-            sessions.push(self.ledger_row(&store, session)?);
+            taken.push(self.ledger_reads_with(&store, session, &mut forecasts)?);
         }
+        drop(store);
+        let sessions = found.iter().zip(taken).map(|(session, reads)| self.ledger_built(session, reads)).collect();
         Ok(SessionList { sessions })
     }
 

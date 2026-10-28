@@ -876,6 +876,8 @@ export type SessionsDraft = {
   resume?: (id: string) => Promise<boolean>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
+  /** Has Fleet name a Session from its first message and the names he gave others. Resolves when it answers; a refusal is said as `rename`'s is. Absent where nothing serves it. */
+  nameForMe?: (id: string) => Promise<void>;
   /**
    * Opens, or opens again, a page a Session showed, in a window of Bridge's own. **A note captured in
    * it goes to the Session** as a message that wakes it. Absent where nothing serves it.

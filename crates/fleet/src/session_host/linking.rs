@@ -146,6 +146,8 @@ where
                 project_rows: Vec::new(),
             })
             .await?;
+        // The group's title is the planning agent's, a hint the proposer names the Job over.
+        self.hosts().of(made.id.as_str()).state().proposal.hint = Some(title.clone());
         let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group)).await?;
         let _ = Arc::clone(&self)
             .send_session_message(SendSessionMessage {
