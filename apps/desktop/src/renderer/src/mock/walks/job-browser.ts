@@ -4,7 +4,7 @@
 // and the address takes an address while the person drives. Capture, the walk window's note control, pins a note on a part of the
 // page, and Send puts it to the Job as a message. Open in a window moves it to a window of its own with the thread beside the page,
 // as the walk window draws it, and Move to the side panel brings it back. When the Job reaches for Playwright's browser instead, its
-// thread says so, with Open Job browser. Mock only: nothing is wired. Over the `job-browser` scenario.
+// thread says so, with Open Job browser, which shows the Job browser and tells the Job to use it. Mock only: nothing is wired. Over the `job-browser` scenario.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
@@ -72,6 +72,8 @@ const steps: Step[] = [
   { look: inside(inside(job, region("Thread")), role("note", "Browser outside Bridge: Playwright")), say: "The thread says so, and that the Job has a browser of its own" },
   { press: inside(inside(job, region("Thread")), button("Open Job browser")), say: "Open Job browser" },
   { look: inside(pane, button(/^Agent driving/)), say: "The Job browser, in the side panel again" },
+  { look: inside(inside(job, region("Thread")), text("Use the Job browser for this. You were on http://localhost:5173/checkout.")), say: "Pressing it also told the Job, as a message from you, to use the Job browser" },
+  { look: inside(inside(job, region("Thread")), text("Sent to the job")), say: "The reminder is answered, and cannot be sent twice" },
 ];
 
 const jobBrowser = walk("job-browser", steps);

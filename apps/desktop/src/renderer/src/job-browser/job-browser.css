@@ -78,6 +78,7 @@
 }
 .job-browser-reminder__said { flex: 1 1 0; min-width: 0; }
 .job-browser-reminder > .armada-button { flex: none; }
+.job-browser-reminder__sent { flex: none; }
 
 /* The Job floating left of the Job browser's sheet, on the plate `Sheet` draws off its leading edge: held at the window's leading
    edge instead, the full height, and the sheet takes the rest of the width. */

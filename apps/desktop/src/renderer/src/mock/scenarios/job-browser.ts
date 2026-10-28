@@ -56,7 +56,7 @@ function build(): Scenario {
       queueMicrotask(() =>
         onTimePassing(() => {
           const at = new Date().toISOString();
-          void served.agentTurn(JOB, [{ kind: "tool", id: "t5", at, text: `mcp__playwright__browser_navigate ${CHECKOUT}` }]).then(() => remindOfBrowser(JOB, { id: "r1", at, tool: "Playwright" }));
+          void served.agentTurn(JOB, [{ kind: "tool", id: "t5", at, text: `mcp__playwright__browser_navigate ${CHECKOUT}` }]).then(() => remindOfBrowser(JOB, { id: "r1", at, tool: "Playwright", url: CHECKOUT }));
         }),
       );
       return own;

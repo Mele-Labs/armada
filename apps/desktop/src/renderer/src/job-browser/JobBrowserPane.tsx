@@ -9,7 +9,7 @@ import type { ThreadCard } from "@armada/components";
 
 import { useSessionsDraft } from "../sessions-draft";
 import { closePanel, usePanel } from "../shared-panel/store";
-import { browserToWindow, goBack, goForward, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { answerReminder, browserToWindow, goBack, goForward, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import "./job-browser.css";
 
 /** Who drives, and what a press on the mark does: the mark is the toggle. */
@@ -237,18 +237,31 @@ export function useJobBrowserTile(sessionId: string): JobBrowserTile | undefined
   return { shown: browser.windowed || (open?.kind === "browser" && open.sessionId === sessionId), press: () => openBrowser(sessionId) };
 }
 
-/** Each time the Job reached for a browser outside Bridge, a line in its thread where it did, with the press that shows its own. */
+/** Each time the Job reached for a browser outside Bridge, a line in its thread where it did, with the press that shows its own and tells the Job to use it. */
 export function useBrowserReminders(sessionId: string): readonly ThreadCard[] {
   const browser = useJobBrowser(sessionId);
+  const draft = useSessionsDraft();
   return (browser?.reminders ?? []).map((one) => ({
     key: `browser:${one.id}`,
     at: one.at,
     node: (
       <div className="job-browser-reminder" role="note" aria-label={`Browser outside Bridge: ${one.tool}`}>
         <span className="job-browser-reminder__said">{`Opened a browser outside Bridge with ${one.tool}. This job has a Job browser.`}</span>
-        <Button variant="secondary" size="sm" onClick={() => openBrowser(sessionId)}>
-          Open Job browser
-        </Button>
+        {one.answered === true ? (
+          <span className="job-browser-reminder__sent">Sent to the job</span>
+        ) : (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              openBrowser(sessionId);
+              answerReminder(sessionId, one.id);
+              void draft?.send(sessionId, { text: `Use the Job browser for this. You were on ${one.url}.`, files: [], sketches: [], tags: [] });
+            }}
+          >
+            Open Job browser
+          </Button>
+        )}
       </div>
     ),
   }));

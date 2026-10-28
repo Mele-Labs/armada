@@ -12,8 +12,8 @@ export type BrowserDriver = "agent" | "you";
 /** A note the person pinned on part of the page, at that part's box within the page. */
 export type BrowserPin = { id: string; url: string; on: string; note: string; box: { top: number; left: number; width: number; height: number } };
 
-/** The Job reached for a browser outside Bridge: which one, and when. */
-export type BrowserReminder = { id: string; at: string; tool: "cmux" | "Playwright" };
+/** The Job reached for a browser outside Bridge: which one, when, on which page, and whether the person has told it to use the Job browser. */
+export type BrowserReminder = { id: string; at: string; tool: "cmux" | "Playwright"; url: string; answered?: true };
 
 export type JobBrowser = {
   /** The addresses visited, oldest first, and which of them shows: Back and Forward move along it. */
@@ -80,6 +80,8 @@ export const browserToWindow = (sessionId: string) => edit(sessionId, (one) => (
 /** The window's own close: the page is put away, and the Job keeps it. */
 export const closeBrowserWindow = (sessionId: string) => edit(sessionId, (one) => ({ ...one, windowed: false }));
 export const pinNote = (sessionId: string, pin: BrowserPin) => edit(sessionId, (one) => ({ ...one, pins: [...one.pins, pin] }));
+export const answerReminder = (sessionId: string, id: string) =>
+  edit(sessionId, (one) => ({ ...one, reminders: one.reminders.map((each) => (each.id === id ? { ...each, answered: true as const } : each)) }));
 export const remindOfBrowser = (sessionId: string, reminder: BrowserReminder) => edit(sessionId, (one) => ({ ...one, reminders: [...one.reminders, reminder] }));
 
 /** The Jobs whose browser has a window of its own. */
