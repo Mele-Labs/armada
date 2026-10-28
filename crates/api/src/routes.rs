@@ -159,6 +159,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::send_back_workflow_change::<D>),
         )
         .route(
+            "/workflows/changes/build",
+            post(crate::repositories::build_workflow_support::<D>),
+        )
+        .route(
             "/workflows/propose",
             post(crate::repositories::propose_workflow_to_armada::<D>),
         )

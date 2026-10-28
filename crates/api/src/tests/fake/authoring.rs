@@ -127,6 +127,13 @@ impl Authoring for FakeDaemon {
         })
     }
 
+    async fn build_workflow_support(
+        self: Arc<Self>,
+        _change: ipc::WorkflowChangeRef,
+    ) -> Result<ipc::WorkflowSupportBuilding, Refusal> {
+        Ok(ipc::WorkflowSupportBuilding { job_id: ipc::SessionId::carried("session") })
+    }
+
 
 
 

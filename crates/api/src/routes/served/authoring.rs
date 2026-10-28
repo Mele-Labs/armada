@@ -78,6 +78,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workflows/changes/send_back",
     },
     Route {
+        operation: "build_workflow_support",
+        method: "POST",
+        path: "/workflows/changes/build",
+    },
+    Route {
         operation: "propose_workflow_to_armada",
         method: "POST",
         path: "/workflows/propose",

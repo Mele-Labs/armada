@@ -382,7 +382,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
     buildWorkflowSupport: async ({ change: id }) => {
       const kept = outcomeOfChange(id);
       if (kept === undefined) return { ok: false, outcome: noChange };
-      if (settled(kept).state !== "cannot") return { ok: false, outcome: refusal("fleet.workflow_change_not_cannot", "Armada can already do what that change asks") };
+      if (settled(kept).state !== "cannot") return { ok: false, outcome: refusal("fleet.workflow_change_not_buildable", "Armada can already do what that change asks") };
       changes = changes.filter((one) => one.change.id !== id);
       const now = new Date().toISOString();
       options.started?.({

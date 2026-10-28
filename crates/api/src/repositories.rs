@@ -331,6 +331,18 @@ pub(crate) async fn propose_workflow_to_armada<D: Authoring>(State(served): Stat
     }
 }
 
+/// Start a Job on Armada's own repository that builds what a change lacks.
+pub(crate) async fn build_workflow_support<D: Authoring>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::WorkflowChangeRef = match ipc::decode_body("a change to build support for", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().build_workflow_support(asked).await {
+        Ok(building) => answer(StatusCode::OK, &building, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What one repository's catalogue left out of its workflows, each with why — #425.
 pub(crate) async fn list_left_out_workflows<D: Queries>(
     State(served): State<Served<D>>,
