@@ -49,6 +49,7 @@ import { MapView } from "./MapPane";
 import { sessionIdOf } from "../waiting";
 import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
+import { BrowserPanel } from "../../job-browser/JobBrowserPane";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
@@ -1090,6 +1091,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-centre">
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
+            {onStage === undefined ? null : <BrowserPanel key={`browser:${onStage}`} sessionId={onStage} />}
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
           </div>
           {footed ? (

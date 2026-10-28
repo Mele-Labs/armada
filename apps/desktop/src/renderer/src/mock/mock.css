@@ -366,3 +366,21 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* `job-browser-page.tsx`: the invented checkout the mock's Job browser shows, drawn as a plain page. */
+.armada-mock-checkout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: calc(var(--space-12) * 8);
+  padding: var(--space-4);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.armada-mock-checkout h1 { margin: 0; font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); }
+.armada-mock-checkout ul, .armada-mock-checkout p { margin: 0; }
+.armada-mock-checkout ul { padding-left: var(--space-4); }
+.armada-mock-checkout__code { display: flex; align-items: flex-end; gap: var(--space-2); }
+.armada-mock-checkout__total { font-weight: var(--weight-medium); }
+.armada-mock-checkout > .armada-button { align-self: flex-start; }
