@@ -50,6 +50,10 @@ is the back-fill by hand that this section existed to prevent.
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌥M       message the Job: put the caret in the open Job's message box
+⌥↵       yes to a card waiting in the Job's thread: Approve, Allow once, Answer  (confirms)
+⌥E       change the thread's target card: Edit, Suggest, Other
+⌥R       send back the thread's target card with a note
+⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
 ⌘1–⌘8    go to a tab: Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them
 ⌘,       open Settings
 ⌘O       open a file in the side panel
@@ -68,6 +72,8 @@ single-key binding would be suppressed inside a field anyway by the rule below.
 idea for later where `⌘Enter` starts one.
 `⌥M` is the Job view's own family of `⌥` keys, with `⌥W`, `⌥1`–`⌥3`, `⌥F`, `⌥N` and `⌥L`.
 It puts the caret in the open Job's message box from anywhere in the view, a field included, and does nothing with no Job open.
+The family also holds four keys that answer a card in the Job's thread: `⌥↵` yes, `⌥E` change, `⌥R` send back with a note and `⌥X` no.
+*Keys on a Job's thread cards*, below, says what each means.
 
 **Helm's box and a Session's are one box**: `Enter` sends and `⇧Enter` breaks
 the line, and `⌘Enter` sends there too. In that box a `#` that starts a word
@@ -154,6 +160,8 @@ r              Adversarial review   (plan only)
 j / k / ↓ / ↑  move between findings   (plan only)
 Enter          send to agent   (plan only)
 d / Backspace  dismiss the finding   (plan only)
+r              Retry the failed hand off   (thread only)
+d              Dispatch job to fix the failed hand off   (thread only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -340,6 +348,33 @@ These are constraints on the map, not suggestions.
   open something.
 - **Pilot is exempt.** Once the terminal has focus, every keystroke
   belongs to the terminal. Only `Esc Esc` releases it.
+
+## Keys on a Job's thread cards
+
+**Four `⌥` chords carry one meaning on every card in a Job's thread.**
+Their scope is `thread`, and the registry ids are `thread_yes`, `thread_change`, `thread_send_back` and `thread_no`.
+
+| Chord | Means | Where it lands |
+|---|---|---|
+| `⌥↵` | Yes | Approve a plan or a draft, Allow once, Answer, Send to job, End job, Retry |
+| `⌥E` | Change | Suggest, Edit, Other |
+| `⌥R` | Send back with a note | Not yet, and Note then Send back |
+| `⌥X` | No | Deny, Skip, Dismiss, Keep going, Withdraw |
+
+They are `⌥` chords because the caret usually sits in the Job's message box, where a single key is suppressed.
+They join the Job view's `⌥` family under Two tiers.
+`1`–`9` still pick a question's option, and `⌘↵` commits an open edit or note box.
+
+**The target card is the waiting card that holds focus, and otherwise the newest card still waiting.**
+It wears a ring, and only it draws kbds, so a person sees which card a key hits.
+
+**`⌥↵` and `⌥X` always confirm, and the dialog never depends on a count.**
+Every press opens a dialog that lists each waiting card with that act, the newest (or the target) picked.
+`⌥↵` or Enter confirms, `1`–`9` picks a card and Esc cancels.
+The owner chose this on 28 Oct 2026 over confirming only when several cards wait, so that three alike drafts cannot be approved by mistake.
+
+**`⌥E` and `⌥R` open the card's own box and show no dialog.**
+The box is the confirmation, which is the reasoning of *A dialog that collects a field is the exception* under Safety rules.
 
 ## Focus model
 
@@ -630,3 +665,8 @@ makes the box read as a key rather than as a small chip.
   rule above, because the caps crowded the small deck. The cost: a held `⌘`
   then a letter is `⌘`+letter, so a person releases `⌘` before pressing the
   key. `docs/concepts/cockpit.md`, *Density*.
+- **A second exception: kbds at rest on the target card's buttons.**
+  The target card of a Job's thread draws the `⌥` chord of each button, held or not.
+  The owner chose this on 28 Oct 2026, over the rule above, because he wants to see which card a key hits and what it does without pressing anything.
+  Only the target card draws them, so one card at a time carries the cost.
+  *Keys on a Job's thread cards*, above.

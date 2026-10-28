@@ -32,7 +32,7 @@
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
-#                 logbook | issues | plan
+#                 logbook | issues | plan | thread
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -1046,3 +1046,77 @@ scope = "plan"
 destructive = false
 confirms = false
 notes = "Settles the finding in focus with the agent told nothing, and focus passes to the next. `POST /adversarial_review/dismiss`. Not destructive: the finding stays on the plan as one muted line."
+
+# ------------------------------------------------------------------ thread
+
+[actions.thread_yes]
+kind = "Action"
+tier = "Global"
+verb = "Yes"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↵"
+scope = "thread"
+destructive = false
+confirms = true
+notes = "The yes of the target card in a Job's thread: Approve a plan or a draft, Allow once, Answer a question, Send to job, End job, Retry a hand off. The target is the waiting card that holds focus, else the newest card still waiting. Every press opens a dialog listing each waiting card with a yes, the target picked, so three alike drafts are never approved by mistake. A modifier, so it works from the Job's message box, where the box gives ⌥↵ up rather than sending. Decided by the owner on 28 Oct 2026."
+
+[actions.thread_change]
+kind = "Action"
+tier = "Global"
+verb = "Change"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥E"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the target card's own box to change what it says: a draft's Edit, a question's Other, the plan in full for a plan. No dialog: the box is the confirmation. Read by the key's place on the keyboard, since Option changes the character E types. Decided by the owner on 28 Oct 2026."
+
+[actions.thread_send_back]
+kind = "Action"
+tier = "Global"
+verb = "Send back"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥R"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Sends the target card back: a draft's Note opens, whose ⌘Enter is Send back, and a plan is set aside with Not yet. No dialog: the box is the confirmation, and a plan set aside unfolds again on a press. Read by the key's place on the keyboard, since Option changes the character R types. Decided by the owner on 28 Oct 2026."
+
+[actions.thread_no]
+kind = "Action"
+tier = "Global"
+verb = "No"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥X"
+scope = "thread"
+destructive = false
+confirms = true
+notes = "The no of the target card in a Job's thread: Deny a permission, Skip a question, Dismiss a judge's concern, Keep going after done, Withdraw a draft. Every press opens a dialog listing each waiting card with a no, the target picked. Read by the key's place on the keyboard, since Option changes the character X types. Decided by the owner on 28 Oct 2026."
+
+[actions.handoff_retry]
+kind = "Action"
+tier = "Contextual"
+verb = "Retry"
+icon = ""
+icon_absent = "undecided"
+shortcut = "r"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Starts a failed hand off again, from the band on the composer, while focus is inside the band. The band's own key since it was drawn; moved into the registry so Settings can rebind it. ⌥↵ reaches the same Retry when the band is the target card."
+
+[actions.handoff_dispatch]
+kind = "Action"
+tier = "Contextual"
+verb = "Dispatch job to fix"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Dispatches a Job to fix a failed hand off, the failure toast's own act, from the band on the composer while focus is inside the band. The band's own key since it was drawn; moved into the registry so Settings can rebind it."

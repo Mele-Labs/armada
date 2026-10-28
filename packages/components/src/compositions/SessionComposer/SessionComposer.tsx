@@ -9,7 +9,9 @@ import { Button } from "../../primitives/Button/Button";
 import { ProseLinks } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { isPressed } from "../../keymap";
 import { modelSaid } from "../SessionFrame/model-said";
+import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
@@ -330,6 +332,7 @@ export function SessionComposer({
   const textOnly = textOnlyAsked || bare;
   const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
   const editor = useRef<HTMLDivElement>(null);
+  const yesWaits = useThreadYesWaits();
   const openLink = useContext(ProseLinks);
   const [head, setHead] = useState("");
   const [active, setActive] = useState(0);
@@ -569,6 +572,8 @@ export function SessionComposer({
       return;
     }
     if (!open) {
+      // `⌥↵` answers a card waiting in the Job's thread instead, when one is (`thread-keys.tsx`).
+      if (yesWaits && isPressed("thread_yes", event)) return;
       // Enter sends and Shift+Enter breaks the line; a key that confirms an IME candidate is neither.
       if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
         event.preventDefault();
