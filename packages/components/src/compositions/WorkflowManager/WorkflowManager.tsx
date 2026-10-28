@@ -849,7 +849,7 @@ function Agent({
           <Button variant="ghost" size="sm" onClick={() => void settle(onDismiss)}>
             Dismiss
           </Button>
-          {notes === null ? (
+          {agent.fresh === true ? null : notes === null ? (
             <Button variant="secondary" size="sm" onClick={() => setNotes("")}>
               Send back
             </Button>

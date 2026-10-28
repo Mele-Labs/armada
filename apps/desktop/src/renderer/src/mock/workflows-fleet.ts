@@ -73,6 +73,20 @@ export function approveProposedWorkflow(id: string, scope: "kit" | "repository",
   APPROVED.push({ source: scope, id, file: fileOf(scope, id), text, ...(scope === "repository" ? { manifest: FIRST } : {}) });
 }
 
+/** Changes a Job proposed as new workflows, ready at once: the reads list them beside the page's own. A mock's route. */
+const PROPOSED: WorkflowChange[] = [];
+
+/** A Job proposes a workflow nothing held: a ready `new` change the reads list until it settles. */
+export function proposeWorkflowChange(id: number, workflowId: string, scope: "kit" | "repository", text: string): void {
+  PROPOSED.push({ id, workflow_id: workflowId, source: scope, origin: { kind: "new" }, before: "", after: text, state: "ready", at: new Date().toISOString() });
+}
+
+/** The proposal settled, approved or dismissed: the reads stop listing it. */
+export function settleProposedChange(id: number): void {
+  const at = PROPOSED.findIndex((one) => one.id === id);
+  if (at >= 0) PROPOSED.splice(at, 1);
+}
+
 /** A change as the mock keeps it: the wire's, and the moment an agent finishes it. */
 type Kept = { change: WorkflowChange; readyAt: number; manifest: string };
 
@@ -327,7 +341,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
     },
     readWorkflowChanges: async (workflowId, source, manifestId) => ({
       ok: true,
-      changes: { changes: open(workflowId, source, under(manifestId)).map((kept) => settled(kept)) },
+      changes: { changes: [...open(workflowId, source, under(manifestId)).map((kept) => settled(kept)), ...PROPOSED.filter((one) => one.workflow_id === workflowId && one.source === source)] },
     }),
     approveWorkflowChange: async (id) => {
       const kept = outcomeOfChange(id);

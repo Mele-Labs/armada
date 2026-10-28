@@ -361,7 +361,7 @@ type SessionRowKinds =
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
   | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string; /** How many takes of the change the page shows. **A mock's field**: nothing in Fleet carries it yet. */ takes?: number }
   /** A draft the agent put to the person with `propose_draft`, whole as Fleet wrote it; `settled` once he answered it. */
-  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
