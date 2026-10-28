@@ -469,6 +469,8 @@ export type ChangeStep = {
   label: string;
   instructions?: string;
   ends_when?: string;
+  /** Every end of the step, as `StepReading.ends_any`. Absent where it has none. */
+  ends_any?: string[];
   passed_over_when?: string;
 };
 

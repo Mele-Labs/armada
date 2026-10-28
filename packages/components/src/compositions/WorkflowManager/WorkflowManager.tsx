@@ -1071,6 +1071,16 @@ function StepChangeCard({ change }: { change: StepChange }) {
  */
 function FieldValue({ value, words, whole, against, mark }: { value: string; words: boolean; whole: boolean; against: string | undefined; mark: "added" | "removed" }) {
   if (value === "") return <span className="armada-wm-diff__nothing">nothing</span>;
+  // Several ends, one a line as `STEP_FIELDS` reads them: the list the step's own facts draw.
+  if (!words && value.includes("\n")) {
+    return (
+      <ul className="armada-wm-step__ends">
+        {value.split("\n").map((one) => (
+          <li key={one}>{one}</li>
+        ))}
+      </ul>
+    );
+  }
   if (!words) return <>{value}</>;
   const other = against === undefined ? undefined : sentencesOf(against);
   const drawn = (

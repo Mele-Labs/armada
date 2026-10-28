@@ -30,6 +30,13 @@ test("a change to only what ends a step, or only when it is passed over, is a ch
   expect(kinds([step("a", { passedOver: "nothing is seen" })], [step("a")])).toEqual(["changed:1:a"]);
 });
 
+test("a step whose one end becomes several is a change, though its single phrase stays the same", () => {
+  const one = step("propose", { ends: "you reply" });
+  const four = step("propose", { ends: "you reply", endsAny: ["you approve a walk", "you approve a sketch", "you approve a draft", "you pick one of the ideas shown"] });
+  expect(kinds([one], [four])).toEqual(["changed:1:propose"]);
+  expect(stepChangesOf([four], [four]).changes).toEqual([]);
+});
+
 test("a step with no passed-over line is the same as one with an empty one, and its glyph does not make it differ", () => {
   expect(stepChangesOf([step("a")], [step("a", { passedOver: "" })])).toEqual({ changes: [], unchanged: ["A"] });
   expect(stepChangesOf([step("a")], [step("a", { glyph: "walk" })]).changes).toEqual([]);

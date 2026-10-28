@@ -6,7 +6,8 @@ import type { ManagedStep } from "./types";
 /** The four facts a step carries, in the order a card's rows draw them. */
 export const STEP_FIELDS = [
   { name: "Name", of: (one: ManagedStep) => one.label },
-  { name: "Ends when", of: (one: ManagedStep) => one.ends },
+  // A step with several ends is read as all of them, one a line, so a change to the list is a change.
+  { name: "Ends when", of: (one: ManagedStep) => (one.endsAny !== undefined && one.endsAny.length > 1 ? one.endsAny.join("\n") : one.ends) },
   { name: "Passed over when", of: (one: ManagedStep) => one.passedOver ?? "" },
   { name: "Words", of: (one: ManagedStep) => one.words },
 ] as const;
