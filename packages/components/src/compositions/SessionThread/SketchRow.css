@@ -79,13 +79,36 @@
   opacity: 0.5;
 }
 
-/* A sketch put to him: its answers under the card as a draft card has them, how it ended once settled. */
+/* A sketch put to him: one frame holding the drawing and, under a rule, its answers as a draft card has
+   them, then how it ended once settled. The frame moves from the press to the card. */
 .armada-session-sketch__asked {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.armada-session-sketch__asked:has(.armada-session-sketch__press:hover) {
+  border-color: var(--accent);
+}
+
+.armada-session-sketch__asked .armada-session-sketch__press {
+  border: none;
+  border-radius: 0;
+}
+
+.armada-session-sketch__answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
 }
 
 /* His note, quoted in his colour. */

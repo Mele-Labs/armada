@@ -81,40 +81,44 @@ export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sessio
     <li className="armada-session-sketch" data-replaced={row.replaced || undefined} data-asked>
       <div className="armada-session-sketch__asked" role="article" aria-label={`Sketch: ${row.title}`} data-settled={settled?.how}>
         {press}
-        {open && noting ? <Textarea aria-label="Note" rows={3} autoFocus keep={noteKey} value={note} onChange={(event) => setNote(event.currentTarget.value)} /> : null}
-        {settled?.how === "sent_back" && settled.words !== undefined ? <blockquote className="armada-session-sketch__note">{settled.words}</blockquote> : null}
-        {state === undefined ? null : (
-          <p className="armada-session-sketch__settled" data-how={settled!.how}>
-            <Tooltip label={state.said}>
-              <span className="armada-session-sketch__mark" role="img" aria-label={state.said}>
-                <state.Glyph size={16} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-            <span aria-hidden>{state.said}</span>
-          </p>
-        )}
-        {!open ? null : (
-          <CardFooter role="group" aria-label="Answers">
-            {noting ? (
-              <>
-                <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={() => onAnswer(row.sketch, { text: note.trim() })}>
-                  Send back
-                </Button>
-                <Button size="sm" variant="ghost" onClick={cancel}>
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="primary" onClick={() => onAnswer(row.sketch, { choice: 0 })}>
-                  Approve
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => setNoting(true)}>
-                  Send back
-                </Button>
-              </>
+        {!open && state === undefined ? null : (
+          <div className="armada-session-sketch__answers">
+            {open && noting ? <Textarea aria-label="Note" rows={3} autoFocus keep={noteKey} value={note} onChange={(event) => setNote(event.currentTarget.value)} /> : null}
+            {settled?.how === "sent_back" && settled.words !== undefined ? <blockquote className="armada-session-sketch__note">{settled.words}</blockquote> : null}
+            {state === undefined ? null : (
+              <p className="armada-session-sketch__settled" data-how={settled!.how}>
+                <Tooltip label={state.said}>
+                  <span className="armada-session-sketch__mark" role="img" aria-label={state.said}>
+                    <state.Glyph size={16} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+                <span aria-hidden>{state.said}</span>
+              </p>
             )}
-          </CardFooter>
+            {!open ? null : (
+              <CardFooter role="group" aria-label="Answers">
+                {noting ? (
+                  <>
+                    <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={() => onAnswer(row.sketch, { text: note.trim() })}>
+                      Send back
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={cancel}>
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button size="sm" variant="primary" onClick={() => onAnswer(row.sketch, { choice: 0 })}>
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setNoting(true)}>
+                      Send back
+                    </Button>
+                  </>
+                )}
+              </CardFooter>
+            )}
+          </div>
         )}
       </div>
     </li>
