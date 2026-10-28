@@ -1021,6 +1021,7 @@ function StepChangeCard({ change }: { change: StepChange }) {
                     <FieldValue
                       value={side === "Before" ? was : is}
                       words={field.name === "Words"}
+                      whole={differs}
                       against={change.kind === "changed" ? (side === "Before" ? is : was) : undefined}
                       mark={side === "Before" ? "removed" : "added"}
                     />
@@ -1035,20 +1036,22 @@ function StepChangeCard({ change }: { change: StepChange }) {
   );
 }
 
-/** One fact on one side: `nothing` where the step has none; words held to a few lines, a sentence marked where the sides part. */
-function FieldValue({ value, words, against, mark }: { value: string; words: boolean; against: string | undefined; mark: "added" | "removed" }) {
+/**
+ * One fact on one side: `nothing` where the step has none; words held to a few lines, a sentence marked where the
+ * sides part. Words that differ are drawn `whole`, so the marked sentence is never behind View more.
+ */
+function FieldValue({ value, words, whole, against, mark }: { value: string; words: boolean; whole: boolean; against: string | undefined; mark: "added" | "removed" }) {
   if (value === "") return <span className="armada-wm-diff__nothing">nothing</span>;
   if (!words) return <>{value}</>;
   const other = against === undefined ? undefined : sentencesOf(against);
-  return (
-    <Clamped lines={3}>
-      <p className="armada-wm-step__words">
-        {sentencesOf(value).map((one) => (
-          <span key={one} data-mark={other === undefined || other.includes(one) ? undefined : mark}>
-            {one}{" "}
-          </span>
-        ))}
-      </p>
-    </Clamped>
+  const drawn = (
+    <p className="armada-wm-step__words">
+      {sentencesOf(value).map((one) => (
+        <span key={one} data-mark={other === undefined || other.includes(one) ? undefined : mark}>
+          {one}{" "}
+        </span>
+      ))}
+    </p>
   );
+  return whole ? drawn : <Clamped lines={3}>{drawn}</Clamped>;
 }
