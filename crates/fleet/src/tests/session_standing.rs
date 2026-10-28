@@ -227,7 +227,7 @@ async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_
     assert!(asked(&gone).is_none());
     let again = record(&rig, &id).await;
     assert!(asked(&again).is_none(), "a dismissed id does not return on the next read");
-    assert_eq!(again.standing, Some(SessionStanding::Idle));
+    assert_eq!(again.standing, Some(SessionStanding::Working), "telling the agent wakes it, as removing an item it stated does");
     let told = rig.rows(&id).await.into_iter().any(|one| matches!(one, ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } if text == r#"Owner dismissed "Want me to land it?""#));
     assert!(told, "the agent was told it was dismissed");
 }
