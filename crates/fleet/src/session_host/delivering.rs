@@ -206,7 +206,10 @@ where
         let (manifest, workflow) = (record.manifest_id.as_ref().map_or("", |one| one.as_str()), record.workflow.as_deref().unwrap_or(""));
         let held = self
             .rail_steps(manifest, workflow)
-            .and_then(|steps: Vec<RailStep>| steps.iter().find(|step| step.asks_delivery).and_then(|step| rail::instructed(&self.workflow_name(manifest, workflow), step)));
+            .and_then(|steps: Vec<RailStep>| {
+                let at = steps.iter().position(|step| step.asks_delivery)?;
+                rail::instructed(&self.workflow_name(manifest, workflow), &steps, at)
+            });
         if let Some(held) = held {
             words.push_str("\n\n");
             words.push_str(&held);
