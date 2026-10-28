@@ -146,6 +146,7 @@ import { FILES_CHANNELS } from "./api/files";
 import { REQUESTS_CHANNELS } from "./api/requests";
 import { LOGBOOK_CHANNELS } from "./api/logbook";
 import { TEACHING_CHANNELS } from "./api/teaching";
+import { JOB_BROWSER_CHANNELS } from "./api/job-browser";
 
 /** The channels the preload is allowed to name. There is no general `invoke`. */
 export const CHANNELS = {
@@ -184,6 +185,7 @@ export const CHANNELS = {
   ...REQUESTS_CHANNELS,
   ...LOGBOOK_CHANNELS,
   ...TEACHING_CHANNELS,
+  ...JOB_BROWSER_CHANNELS,
   ...PULL_REQUEST_NOTES_CHANNELS,
   ...SHARING_CHANNELS,
 } as const;

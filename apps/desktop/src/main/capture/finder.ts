@@ -106,4 +106,10 @@ export class PageFinder {
   async release(): Promise<void> {
     await this.run("ArmadaFinder.finder.release()", 0);
   }
+
+  /** The page's accessibility tree as text, no longer than `most`. Empty where the page did not answer. */
+  async snapshot(most: number): Promise<string> {
+    const said = await this.run(`ArmadaFinder.finder.snapshot(${Math.round(most)})`, 5_000);
+    return typeof said === "string" ? said.slice(0, most) : "";
+  }
 }

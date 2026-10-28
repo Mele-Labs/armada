@@ -67,6 +67,8 @@ import { HeldNotes } from "./capture/held-notes";
 import { handleHeldNotes, tellHeld } from "./held-notes-channels";
 import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
 import { makeTerminalWindow, TerminalWindows } from "./terminal-windows";
+import { JobBrowsers, makeBrowserPage, makeBrowserWindow } from "./job-browsers";
+import { handleJobBrowsers } from "./job-browser-channels";
 
 // Bridge's window, and the one connection under it.
 //
@@ -541,6 +543,25 @@ void app.whenReady().then(() => {
     for (const panel of captureWindows.panels()) panel.send(channel, ...values);
   };
   terminalWindows.onChanged((sessionIds) => everyDocument(CHANNELS.terminalWindowsChanged, sessionIds));
+  // Each Job's browser, which its agent drives through Fleet's held calls and the owner may take over.
+  const jobBrowsers = new JobBrowsers(
+    {
+      page: (sessionId, told) => makeBrowserPage(connection?.sessions.recordOf(sessionId)?.manifest_id ?? null, bridgeWindow, told),
+      window: (sessionId, told) => makeBrowserWindow(sessionId, bridgeWindow()?.getBounds() ?? null, told),
+    },
+    {
+      changed: (state) => everyWindow(CHANNELS.jobBrowserChanged, state),
+      show: (sessionId) => bridgeWindow()?.webContents.send(CHANNELS.jobBrowserShown, sessionId),
+      capture: (sessionId, host) => (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId),
+      answer: async (body) => connection?.sessions.answerBrowser(body),
+      note: async (body) => {
+        const sent = await connection?.sessions.sendNote(body);
+        return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+      },
+    },
+  );
+  connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
+  handleJobBrowsers({ ipc: ipcMain, browsers: jobBrowsers });
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {
