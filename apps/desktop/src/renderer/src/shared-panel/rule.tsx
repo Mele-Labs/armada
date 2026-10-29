@@ -16,9 +16,8 @@ export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }>
   const draft = useSessionsDraft();
   const back = useBack();
   const lanes = session?.lanes;
-  const fired = lanes?.job.fired.find((one) => one.rule === item.rule && one.needs !== undefined);
   const rule = lanes?.job.copy.rules.find((one) => one.id === item.rule);
-  const row = session?.rows.find((one) => one.id === fired?.needs);
+  const row = session?.rows.find((one) => one.id === item.row);
   if (session === undefined || row === undefined || row.kind !== "draft") return null;
   return (
     <SidePanel title={`Rule: ${rule?.label ?? row.title}`} heading={rule?.label ?? row.title} crumb="Rule" back={back} onClose={closePanel}>

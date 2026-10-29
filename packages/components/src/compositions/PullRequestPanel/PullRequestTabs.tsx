@@ -139,7 +139,7 @@ function Triaged({ triage, who }: { triage: EntryTriage; who: string }) {
         <Mark Glyph={Check} said="Sent to the Job" tone="success" />
       ) : triage.onSend === undefined ? null : (
         <Tooltip label="Send to Job">
-          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`Send to Job: ${who}`} onClick={triage.onSend}>
+          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`Send to Job: ${who}${triage.where === undefined ? "" : ` on ${triage.where}`}`} onClick={triage.onSend}>
             <Send size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>

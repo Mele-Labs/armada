@@ -59,7 +59,8 @@ export function LanesPanel({ item }: { item: Extract<PanelItem, { kind: "lanes" 
   const pick = (next: LanePick | undefined) => {
     setPicked(next);
     // A rule waiting on the person opens what it needs.
-    if (next?.kind === "rule" && drawn.rules.some((one) => one.rule === next.id && one.needs !== undefined)) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id });
+    const needs = next?.kind === "rule" ? drawn.rules.find((one) => one.rule === next.id && one.needs !== undefined)?.needs : undefined;
+    if (next !== undefined && needs !== undefined) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id, row: needs });
   };
   return (
     <SidePanel title="Lanes" heading={session.title ?? "Lanes"} back={back} onClose={closePanel}>
