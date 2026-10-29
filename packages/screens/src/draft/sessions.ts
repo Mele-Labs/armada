@@ -468,6 +468,14 @@ export type WaitReading = {
   plain?: boolean;
 };
 
+/** What the agent's init line showed it lacks: `mod` did not load, `door` (Fleet's MCP door) did not connect, `task_tools` were not served. */
+export type ToolsMissing = { harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+
+const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
+
+/** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. */
+export const toolsMissingSaid = (tools: ToolsMissing): string => `Claude Code ${tools.harness_version}. ${tools.missing.map((one) => MISSING_SAID[one]).join(" ")}`;
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -500,6 +508,8 @@ export type Session = {
   terminal?: true;
   /** Its mod is older than the repository's, or reported no version. */
   modOutOfDate?: true;
+  /** The agent came up without some of its Armada tools. Absent when nothing is missing. */
+  toolsMissing?: ToolsMissing;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */

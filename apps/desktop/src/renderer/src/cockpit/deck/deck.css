@@ -316,6 +316,7 @@
 .deck-list__rows:not(:has(.deck-row__cell[data-field="workflow"]:not(:empty))) { --deck-w-workflow: calc(var(--space-1) * 0); }
 .deck-row__cell { display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); }
 .deck-row__cell[data-field="time"] { justify-content: flex-end; }
+.deck-row__cell[data-field="tools"] { justify-content: center; color: var(--fg-subtle); }
 .deck-row__cell[data-field="status"] { display: grid; grid-template-columns: repeat(2, var(--space-4)); column-gap: var(--space-1); justify-items: center; overflow: visible; }
 .deck-row__cell > .armada-tooltip { min-width: 0; max-width: 100%; }
 .deck-row__chip,

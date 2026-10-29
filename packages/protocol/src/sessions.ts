@@ -107,6 +107,11 @@ export type SessionRecord = {
   /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
   mod_out_of_date?: true;
   /**
+   * A hosted session whose agent came up without some of its Armada tools, as Fleet read the CLI's init line. `mod`: the mod did not load; `door`: Fleet's MCP door did not
+   * connect; `task_tools`: the CLI served no task list tools. Absent when nothing is missing. **Mock only**: Fleet does not publish it yet.
+   */
+  tools_missing?: { harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+  /**
    * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
    * agent's first. Absent is nothing, and always absent for an ended session.
    */

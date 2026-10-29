@@ -98,6 +98,17 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
   );
 }
 
+/** The agent came up without some of its Armada tools: the mark, and its tooltip is the label. */
+export function ToolsMark({ said, size = 16 }: { said: string; size?: 12 | 16 }) {
+  return (
+    <Tooltip label={said}>
+      <span className="armada-session-mark" role="img" aria-label={said}>
+        <Unplug size={size} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
 export { ContextFigure } from "./ContextFigure";
 export type { ContextCompact, ContextFill } from "./ContextFigure";
 
@@ -161,6 +172,8 @@ export type SessionFrameProps = {
   onNameForMe?: () => Promise<unknown>;
   /** The Session's mod is older than the repository's: marked beside the state. */
   modOutOfDate?: boolean;
+  /** What the agent came up without, said as the mark's tooltip: marked beside the state. Absent draws no mark. */
+  toolsMissing?: string;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
   /** Compact, offered at the foot of the context tank's card or popover. Absent offers none. */
@@ -284,7 +297,7 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -303,6 +316,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, onName
         {loadout === undefined ? null : <LoadoutMark {...loadout} />}
         <span className="armada-session-frame__marks">
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+          {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} />}
         </span>
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}
