@@ -540,3 +540,24 @@ fn hits(paths: &[&str]) -> Vec<String> {
     let changed: Vec<String> = paths.iter().map(|path| path.to_string()).collect();
     crate::declared::covering(&repository(), &changed).expect("this repository's Manifest reads")
 }
+
+#[test]
+fn a_nextest_check_on_a_machine_without_nextest_names_the_install_command() {
+    let cargo = "error: no such command: `nextest`\n\n\tView all installed commands with `cargo --list`\n";
+    let mut attempt = checks_runner::Attempt {
+        exit: verification::Exit::Code(101),
+        output: checks_runner::Output { stderr: cargo.into(), ..Default::default() },
+    };
+    crate::declared::say_nextest_missing("cargo nextest run --workspace", &mut attempt);
+    assert_eq!(
+        attempt.output.stderr,
+        "cargo-nextest is not installed. Install it with: cargo install cargo-nextest --locked\n"
+    );
+
+    let mut other = checks_runner::Attempt {
+        exit: verification::Exit::Code(101),
+        output: checks_runner::Output { stderr: cargo.into(), ..Default::default() },
+    };
+    crate::declared::say_nextest_missing("cargo build", &mut other);
+    assert_eq!(other.output.stderr, cargo);
+}
