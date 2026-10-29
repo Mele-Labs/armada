@@ -35,7 +35,7 @@ export const permissionOf = (label: string): SessionAnswer | undefined => PERMIS
  */
 function startFailedOf(session: Session): WaitingItem[] {
   if (session.startFailed === undefined) return [];
-  return [{ id: "start_failed", text: `Did not start: ${session.startFailed}`, since: session.lastTurnAt ?? new Date(0).toISOString(), source: "first_message", act: { kind: "message", target: session.id } }];
+  return [{ id: "start_failed", text: "Send a message to start it again", since: session.lastTurnAt ?? new Date(0).toISOString(), source: "first_message", act: { kind: "message", target: session.id } }];
 }
 
 /** The wire's items on the Session where it serves them; the pending ask, read as the same items, where it does not. */

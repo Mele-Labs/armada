@@ -6,10 +6,10 @@ import { deckRow, inside, role, text, walk } from "../walk";
 const failedRow = deckRow("Rename the slot pool");
 
 const jobFailedToStart = walk("job-failed-to-start", [
-  { look: failedRow, say: "The Job that did not start sits in the list with a cross mark, tinted and pulsing as any row that needs him does. The Jobs beside it started" },
-  { hover: inside(failedRow, role("img", /^Failed to start/)), say: "The reason is in the mark's tooltip" },
-  { press: failedRow, say: "Opening the Job" },
-  { look: text("Did not start: the job's keeper did not answer"), say: "The thread ends on Fleet's line with the reason. A message in the box is how it is tried again" },
+  { look: failedRow, say: "A Job that did not start: a cross mark, tinted and pulsing like any row that needs you" },
+  { hover: inside(failedRow, role("img", /^Failed to start/)), say: "The tooltip names the reason" },
+  { press: failedRow, say: "Open the Job" },
+  { look: text("Did not start: the job's keeper did not answer"), say: "Fleet's line on the thread gives the reason. Send a message to try again" },
 ]);
 
 export { jobFailedToStart as "job-failed-to-start" };
