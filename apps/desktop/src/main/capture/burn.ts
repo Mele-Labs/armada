@@ -23,7 +23,7 @@ function bgra(hex: string): [number, number, number, number] {
 }
 
 export const RING_COLOUR = bgra(token("--accent"));
-const DIGIT_COLOUR = bgra(token("--fg-inverse"));
+export const DIGIT_COLOUR = bgra(token("--fg-inverse"));
 const OUTSET = px("--space-1");
 const STROKE = 2;
 const RADIUS = px("--radius-sm");

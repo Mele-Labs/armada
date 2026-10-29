@@ -7,7 +7,6 @@ import type { BridgeApi } from "../../../shared/api";
 import { requestOf, type Annotation, type Box, type Sent } from "../../../shared/annotations";
 import { annotationNote } from "../../../shared/pinned-note";
 import { pngSize, ringOn, type Ring } from "../../../shared/ring";
-import { windowBox } from "./capture";
 import type { Sink } from "./sink";
 
 /** Refused partway, `sentIds` are the notes Fleet took before it refused, all to `sent`. */
@@ -24,21 +23,20 @@ export function refusal(outcome: Outcome): string {
 export type Picture = { png: ArrayBuffer; ring: Ring | null };
 
 /**
- * The note's picture: the one kept as it was saved, else the window taken now where its element is on
+ * The note's picture: the one kept as it was saved, else the window, `shown` in CSS pixels, taken now where its element is on
  * this screen, else none. Only a note saved before pictures were kept, or whose file is gone, falls back.
  */
-export async function pictureOf(note: Annotation, box: Box | null, sink: Sink): Promise<Picture | null> {
+export async function pictureOf(note: Annotation, box: Box | null, sink: Sink, shown: Box | null): Promise<Picture | null> {
   if (note.screenshot !== undefined) {
     const kept = await sink.shot(note.id).catch(() => null);
     if (kept !== null) return { png: kept, ring: note.scope === "window" ? null : (note.ring ?? null) };
   }
   // A null box is a note whose element is not on this screen: a shot of the screen would be of the wrong thing.
-  if (box === null) return null;
-  const window = windowBox();
-  const png = await sink.capture(window).catch(() => null);
+  if (box === null || shown === null) return null;
+  const png = await sink.capture(shown).catch(() => null);
   if (png === null) return null;
   const size = note.scope === "window" ? null : pngSize(new Uint8Array(png));
-  return { png, ring: size === null ? null : ringOn(box, window.width, size.width) };
+  return { png, ring: size === null ? null : ringOn(box, shown.width, size.width) };
 }
 
 /** Why Send is not offered here, or null where it is. */
@@ -68,8 +66,11 @@ const BACKGROUND_LEAD = "Background, not the task: the Job he had open when he p
 /** A new Session's name: the first note's first line, cut short. */
 export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
 
+/** The page the notes were sent from: its url, and its window's box in CSS pixels, which a picture taken now is of. */
+export type Page = { address: string; window: Box };
+
 /**
- * The notes to `target`, or to a Session started for them where `target` is null. `address` is the page's url. **The notes
+ * The notes to `target`, or to a Session started for them where `target` is null. **The notes
  * on an element go as one `send_session_notes` turn**, numbered in their order here, each picture (`pictureOf`) ringed in
  * main with its number, as a walk's are. **A whole-window note stays a message of its own** (`requestOf`), since what Bridge
  * held has no place in a pinned note; it goes where it stands in the list, and the turn where its first note does.
@@ -82,12 +83,12 @@ export async function sendToSession(
   target: SessionTarget | null,
   sink: Sink,
   fleet: SessionSender,
-  address: string,
+  page: Page,
   at: Date,
   open?: OpenJob,
 ): Promise<SendAnswer> {
   const pictures: (Picture | null)[] = [];
-  for (const { note, box } of notes) pictures.push(await pictureOf(note, box, sink));
+  for (const { note, box } of notes) pictures.push(await pictureOf(note, box, sink, page.window));
 
   let into = target;
   if (into === null) {
@@ -118,7 +119,7 @@ export async function sendToSession(
         ? await fleet.sendSessionNotes({
             session_id: into.id,
             notes: onElements.map(({ note, picture }, at) => ({
-              note: annotationNote(note, address, picture === null ? null : base64(picture.png), at === 0 ? facts : []),
+              note: annotationNote(note, page.address, picture === null ? null : base64(picture.png), at === 0 ? facts : []),
               ...(picture === null || picture.ring === null ? {} : { ring: picture.ring }),
             })),
           })

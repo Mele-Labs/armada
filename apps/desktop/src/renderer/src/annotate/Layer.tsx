@@ -419,7 +419,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       const openId = openSessionIn(document);
       const facts = openId === undefined ? undefined : jobFactsOf(openId);
       const open = openId === undefined || facts === undefined ? undefined : { id: openId, facts };
-      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, window.location.href, new Date(), open);
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, { address: window.location.href, window: windowBox() }, new Date(), open);
       // Those Fleet took before it refused are stamped too, so a send again does not repeat them.
       const sent = answer.sent;
       const took = answer.ok ? list : list.filter((note) => answer.sentIds?.includes(note.id) === true);
