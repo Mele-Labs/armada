@@ -674,6 +674,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* Drawn off: it is still there to be read, its tooltip says why, and a press does nothing. */
 .deck-tile[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 /* Pressed is lit: the accent's edge and tint. */
+/* Running, as the Job's views read it: the glyph in the running hue and pulsing; still under reduced motion. */
+.deck-tile[data-running] > svg { color: var(--status-running); animation: deck-lamp-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .deck-tile[data-running] > svg { animation: none; } }
 .deck-tile[aria-pressed="true"],
 .deck-tile[data-on] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
 

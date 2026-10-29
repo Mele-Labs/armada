@@ -114,3 +114,20 @@ describe("a shell moved back out of its window", () => {
     expect(api.openTerminal).toHaveBeenCalledWith("a", 80, 24);
   });
 });
+
+describe("a shell's activity", () => {
+  it("stamps each output and nothing else, so Flight control can tell a shell is running something", async () => {
+    const { api, opened, soFar, print } = fakeApi();
+    const shells = new JobShells(api);
+    shells.want("page", "a");
+    shells.sized("a", 80, 24);
+    opened.settle({ ok: true, value: { run_id: "r1" } });
+    await settled();
+    soFar.settle(null);
+    await settled();
+    expect(shells.shell("a")?.printedAt).toBeUndefined();
+    const before = Date.now();
+    print("ls\r\n");
+    expect(shells.shell("a")?.printedAt).toBeGreaterThanOrEqual(before);
+  });
+});
