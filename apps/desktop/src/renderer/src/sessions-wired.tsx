@@ -124,6 +124,11 @@ export class WiredStore {
 
   constructor(api: BridgeApi) {
     this.api = api;
+    // The draft is built before the api is held, so the command that needs it is added here.
+    this.draft.mendTools = async (id) => {
+      const done = await api.mendSessionTools(id);
+      return done.ok ? { ok: true } : { ok: false, said: refusalWords(done.outcome) };
+    };
   }
 
   /** Read the state and follow it. Returns the way to stop. */
@@ -863,6 +868,8 @@ export class WiredStore {
       const request = { session_id: id, item_id: itemId, ...given };
       return this.plain(this.api.answerWaiting(request), { act: "answer_waiting", request });
     },
+    // A refusal, such as an item whose subject has ended, is a toast in Fleet's words; the item returns to Needs you by Fleet's event.
+    reopenWaiting: (id: string, itemId: string) => this.plain(this.api.reopenWaiting({ session_id: id, item_id: itemId })),
     // A refusal, such as a sketch drawn again since, is a toast in Fleet's words; the card settles by Fleet's event.
     answerSketch: (answer: AnswerSketch) => this.plain(this.api.answerSketch(answer), { act: "answer_sketch", request: answer }),
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => {

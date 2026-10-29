@@ -27,6 +27,7 @@ fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
             paths: vec!["crates/store".into()],
             issue: None,
             gives: None,
+            lands_in: None,
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,

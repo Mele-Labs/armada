@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::scratch::Scratch;
-use crate::agent_mod::{can_populate_from, install, is_populated, populate, Asked, Installed, Step, PLUGIN};
+use crate::agent_mod::{can_populate_from, install, is_populated, populate, populated, Asked, Installed, Step, PLUGIN};
 
 const PLENTY: Duration = Duration::from_secs(30);
 const MOD_FOLDER: &str = "/support/mod";
@@ -132,4 +132,68 @@ fn a_script_that_fails_says_why() {
     let failed = populate(&scratch.path().join("tree"), scratch.path(), PLENTY);
 
     assert_eq!(failed, Err("disk full".to_string()));
+}
+
+/// A tree that holds the mod and a script that fills `$HOME/mod`, and leaves a mark each time it runs.
+fn tree_with_script(scratch: &Scratch, name: &str, body: &str) -> PathBuf {
+    scratch.file(&format!("{name}/plugins/.claude-plugin/marketplace.json"), "{}");
+    script(scratch, &format!("{name}/scripts/sync-mod"), body);
+    scratch.path().join(name)
+}
+
+const FILLS: &str = "echo ran >> \"$HOME/ran\"\nmkdir -p \"$HOME/mod/.claude-plugin\"\necho '{}' > \"$HOME/mod/.claude-plugin/marketplace.json\"";
+
+#[test]
+fn a_copy_already_filled_is_left_alone_and_no_script_runs() {
+    let scratch = Scratch::new();
+    let home = scratch.folder("home");
+    scratch.file("home/mod/.claude-plugin/marketplace.json", "{}");
+    let tree = tree_with_script(&scratch, "tree", FILLS);
+
+    assert_eq!(populated(&home, &home.join("mod"), &[tree], PLENTY), Ok(()));
+
+    assert!(!home.join("ran").exists(), "the script was not run");
+}
+
+#[test]
+fn a_copy_not_filled_is_filled_from_the_first_tree_that_holds_the_mod() {
+    let scratch = Scratch::new();
+    let home = scratch.folder("home");
+    scratch.folder("bare");
+    let bare = scratch.path().join("bare");
+    let first = tree_with_script(&scratch, "first", FILLS);
+    let second = tree_with_script(&scratch, "second", &format!("echo second >> \"$HOME/ran\"\n{FILLS}"));
+
+    assert_eq!(populated(&home, &home.join("mod"), &[bare, first, second], PLENTY), Ok(()));
+
+    assert!(is_populated(&home.join("mod")));
+    assert_eq!(std::fs::read_to_string(home.join("ran")).expect("ran"), "ran\n", "once, from the first tree that holds it");
+}
+
+#[test]
+fn no_tree_that_holds_the_mod_is_an_error_that_names_the_copy() {
+    let scratch = Scratch::new();
+    let home = scratch.folder("home");
+    scratch.folder("bare");
+
+    let Err(said) = populated(&home, &home.join("mod"), &[scratch.path().join("bare")], PLENTY) else {
+        panic!("nothing to copy from is not a copy made");
+    };
+
+    assert!(said.contains(&home.join("mod").display().to_string()), "{said}");
+    assert!(said.contains("holds no copy of the mod"), "{said}");
+    assert!(populated(&home, &home.join("mod"), &[], PLENTY).is_err(), "no trees at all");
+}
+
+#[test]
+fn a_script_that_leaves_the_copy_empty_is_an_error() {
+    let scratch = Scratch::new();
+    let home = scratch.folder("home");
+    let tree = tree_with_script(&scratch, "tree", "true");
+
+    let Err(said) = populated(&home, &home.join("mod"), &[tree], PLENTY) else {
+        panic!("a copy still empty is not filled");
+    };
+
+    assert!(said.contains("is still empty after copying"), "{said}");
 }

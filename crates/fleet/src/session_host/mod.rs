@@ -41,6 +41,7 @@ pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
+mod tools_missing;
 pub mod keeper;
 /// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
 /// `act_on_session_mcp`.
@@ -502,6 +503,12 @@ pub(crate) struct State {
     /// Its mod told of a list or a commit that may have moved Fleet's marks, which the agent hears at
     /// its next call. In memory.
     pub marks_owed: bool,
+    /// What the live process's `init` said the agent lacks of Armada's own. Replaced at each `init`, and
+    /// kept past the process, so the last one to come up is what the record says. In memory.
+    pub tools_missing: Option<ipc::ToolsMissing>,
+    /// The generation of the process Fleet restarted because its `init` lacked a piece it can mend. A
+    /// process with this generation that lacks it again is not restarted. In memory.
+    pub healed_into: Option<u64>,
 }
 
 impl State {
@@ -556,6 +563,8 @@ impl State {
             signed_out: false,
             calls: 0,
             marks_owed: false,
+            tools_missing: None,
+            healed_into: None,
         }
     }
 }

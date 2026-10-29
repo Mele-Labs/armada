@@ -134,6 +134,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
             agent: "rust",
             title: "Rename in the crate",
             paths: ["crates/pool"],
+            lands_in: { label: "PR 1" },
             tasks: [
               { id: "t1", text: "Rename Pool to Slots", state: "open" },
               { id: "t2", text: "Rename the tests", state: "open" },

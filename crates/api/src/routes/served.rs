@@ -544,6 +544,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/waiting/dismiss",
     },
     Route {
+        operation: "reopen_waiting",
+        method: "POST",
+        path: "/sessions/waiting/reopen",
+    },
+    Route {
+        operation: "list_closed_waiting",
+        method: "GET",
+        path: "/sessions/waiting/closed",
+    },
+    Route {
         operation: "confirm_waiting",
         method: "POST",
         path: "/sessions/waiting/confirm",

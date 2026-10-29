@@ -12,6 +12,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issue: None,
         gives: None,
+        lands_in: None,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: one.to_string() }).collect(),
     }
 }
@@ -147,4 +148,18 @@ fn a_group_gives_one_short_line_or_nothing() {
     assert_eq!(with(None).unwrap().groups[0].gives, None);
     let why = with(Some(&"x".repeat(161))).expect_err("refused");
     assert!(why.contains("groups[0] `gives` is longer than 160 characters"), "{why}");
+}
+
+#[test]
+fn a_group_lands_in_a_short_label_or_none() {
+    let with = |lands_in: Option<&str>| {
+        let mut one = group(None, "rust-engineer", &[], &["Add the tables"]);
+        one.lands_in = lands_in.map(String::from);
+        plan(vec![one]).checked()
+    };
+    assert_eq!(with(Some("  PR 2  ")).unwrap().groups[0].lands_in.as_deref(), Some("PR 2"));
+    assert_eq!(with(Some("   ")).unwrap().groups[0].lands_in, None, "a blank label is none");
+    assert_eq!(with(None).unwrap().groups[0].lands_in, None);
+    let why = with(Some(&"x".repeat(25))).expect_err("refused");
+    assert!(why.contains("groups[0] `lands_in` is longer than 24 characters"), "{why}");
 }

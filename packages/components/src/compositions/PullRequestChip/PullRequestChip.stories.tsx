@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { PullRequestChip } from "./PullRequestChip";
 
@@ -39,3 +39,24 @@ export const FramedFailed: Story = { args: { framed: true, checks: { state: "fai
 export const FramedMerged: Story = { args: { framed: true, state: "merged" } };
 
 export const FramedClosed: Story = { args: { framed: true, state: "closed", checks: undefined } };
+
+/** A pull request not opened yet is read, never pressed: Tab passes over it, and hovering its glyph says it is not opened. */
+export const PlaceholderIsNotATabStop: Story = {
+  render: () => (
+    <div>
+      <button type="button">Before</button>
+      <PullRequestChip framed placeholder="PR 1" />
+      <button type="button">After</button>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const chip = canvas.getByRole("group", { name: "PR 1, not opened yet" });
+    await expect(within(chip).queryByRole("button")).toBeNull();
+    canvas.getByRole("button", { name: "Before" }).focus();
+    await userEvent.tab();
+    await expect(canvas.getByRole("button", { name: "After" })).toHaveFocus();
+    await expect(screen.getByText("Not opened yet")).not.toBeVisible();
+    await userEvent.hover(within(chip).getByLabelText("Not opened yet"));
+    await waitFor(() => expect(screen.getByText("Not opened yet")).toBeVisible());
+  },
+};

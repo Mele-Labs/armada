@@ -94,6 +94,27 @@ impl Activity {
         }
     }
 
+    /// The task list the mod heard, whole, which is the agent's list where its CLI serves `TaskCreate`
+    /// and `TaskUpdate` and the gate sees no `TodoWrite`. Whether it changed. The caller publishes the
+    /// row, since the report that brought it already does.
+    pub(crate) fn tasks_told(&mut self, tasks: &[ReportedTask]) -> bool {
+        let todos: Vec<SessionTodo> = tasks
+            .iter()
+            .filter_map(|one| {
+                let text = one.text.trim();
+                let state = match one.status {
+                    ReportedTaskStatus::Completed => SessionTodoState::Done,
+                    ReportedTaskStatus::InProgress => SessionTodoState::Doing,
+                    ReportedTaskStatus::Pending => SessionTodoState::Todo,
+                };
+                (!text.is_empty()).then(|| SessionTodo { text: text.chars().take(TODO_AT_MOST).collect(), state })
+            })
+            .collect();
+        let changed = todos != self.todos;
+        self.todos = todos;
+        changed
+    }
+
     /// A call a subagent made: its own `now`, and not the Session's. Its `TodoWrite` is its own list,
     /// which the Session's is not. Whether anything changed.
     fn subagent_saw(&mut self, agent: &str, gate: &SessionGate) -> bool {

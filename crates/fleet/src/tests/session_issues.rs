@@ -384,6 +384,7 @@ fn plan_naming(id: &SessionId, issues: &[Option<&str>]) -> ipc::RecordPlan {
                 paths: Vec::new(),
                 issue: issue.map(str::to_string),
                 gives: None,
+                lands_in: None,
                 tasks: vec![ipc::PlanTaskInput { id: None, title: "Do it".into() }],
             })
             .collect(),

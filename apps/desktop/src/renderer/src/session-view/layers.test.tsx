@@ -8,6 +8,9 @@ import type { LedgerEntry } from "@armada/components";
 import type { WorktreeSlot, WriteClash } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 
+import { userEvent } from "vitest/browser";
+
+import { closedOf } from "../sessions";
 import { closeLayer, dropLayer, showLayer, toggleLayer, useLayer } from "./layers";
 import { Layer } from "./SessionLayers";
 import type { SessionBays } from "./slot-trouble";
@@ -53,16 +56,16 @@ const bays: SessionBays = {
   clashes: [clash],
 };
 
-function Open({ over, checked }: { over: "artifacts" | "subagents" | "checks" | "slot"; checked?: (run: number) => void }) {
+function Open({ over, checked, held = [] }: { over: "artifacts" | "subagents" | "checks" | "slot"; checked?: (run: number) => void; held?: LedgerEntry[] }) {
   const layer = useLayer(ID);
-  return layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={over === "slot" ? bays : undefined} onOpenCheck={checked ?? (() => undefined)} onOpenSession={() => undefined} />;
+  return layer === undefined ? null : <Layer id={layer} session={session} entries={[...entries, ...held]} bays={over === "slot" ? bays : undefined} onOpenCheck={checked ?? (() => undefined)} onOpenSession={() => undefined} />;
 }
 
-function mount(over: "artifacts" | "subagents" | "checks" | "slot", checked?: (run: number) => void): HTMLElement {
+function mount(over: "artifacts" | "subagents" | "checks" | "slot", checked?: (run: number) => void, held?: LedgerEntry[]): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<Open over={over} {...(checked === undefined ? {} : { checked })} />));
+  act(() => root.render(<Open over={over} {...(checked === undefined ? {} : { checked })} {...(held === undefined ? {} : { held })} />));
   roots.push({ root, host });
   return host;
 }
@@ -182,4 +185,63 @@ test("Bays lists the write clashes first, then every bay the Session holds drawn
   expect(clashRows).toEqual([[expect.stringContaining("Name the migrations"), "crates/ipc/src/lib.rs"]]);
   expect(host.querySelector('button[aria-label="Open Name the migrations"]')).not.toBeNull();
   expect([...host.querySelectorAll("[data-layer-row]")].map((one) => one.getAttribute("aria-label"))).toEqual(["Show slot-3 in Bays", "Show slot-5 in Bays"]);
+});
+
+// ---- What he closed from Needs you ----------------------------------------------------------------------------
+
+/** The Job's `closed`, drawn as the Cockpit draws it: a row for Reopen while the thing stands, and one whose call ended. */
+const closedOnes = (reopened: (itemId: string) => void) =>
+  closedOf(
+    {
+      id: ID,
+      title: "Retry the lease",
+      attachments: [],
+      rows: [],
+      turn: { state: "idle" },
+      closed: [
+        { item: { id: "a2", text: "Open the walk", since: "2026-10-12T09:00:00Z", source: "walk" }, at: "2026-10-12T09:40:00Z" },
+        { item: { id: "ask:c1", text: "Which clock?", since: "2026-10-12T09:00:00Z", source: "ask_card", act: { kind: "answer", target: "c1" } }, at: "2026-10-12T09:20:00Z", ended: true },
+      ],
+    } as unknown as Session,
+    reopened,
+  );
+const closedGroup = (host: HTMLElement) => host.querySelector<HTMLElement>('section.sv-layer__group[aria-label="Closed"]');
+
+test("Closed is drawn only when the Job closed something", () => {
+  const without = mount("artifacts");
+  act(() => showLayer(ID, "artifacts"));
+  expect(closedGroup(without)).toBeNull();
+  closeLayer();
+  const host = mount("artifacts", undefined, closedOnes(() => undefined));
+  act(() => showLayer(ID, "artifacts"));
+  expect(closedGroup(host)).not.toBeNull();
+});
+
+test("a closed item whose call ended has no Reopen, and an empty place keeps its column", () => {
+  const host = mount("artifacts", undefined, closedOnes(() => undefined));
+  act(() => showLayer(ID, "artifacts"));
+  const rows = [...closedGroup(host)!.querySelectorAll<HTMLElement>(".sv-ledger")];
+  expect(rows.map((one) => one.querySelector(".sv-ledger__title")?.textContent)).toEqual(["Open the walk", "Which clock?"]);
+  expect(rows.map((one) => one.querySelector("button[aria-label^='Reopen']") !== null)).toEqual([true, false]);
+  expect(rows.map((one) => one.querySelector(".armada-session-ledger__reopen") !== null)).toEqual([true, true]);
+});
+
+test("a press on Reopen names the item", () => {
+  const reopened: string[] = [];
+  const host = mount("artifacts", undefined, closedOnes((itemId) => reopened.push(itemId)));
+  act(() => showLayer(ID, "artifacts"));
+  act(() => host.querySelector<HTMLButtonElement>('button[aria-label="Reopen Open the walk"]')!.click());
+  expect(reopened).toEqual(["a2"]);
+});
+
+test("Reopen is reached with the arrows and pressed from the keyboard", async () => {
+  const reopened: string[] = [];
+  const host = mount("artifacts", undefined, closedOnes((itemId) => reopened.push(itemId)));
+  act(() => showLayer(ID, "artifacts"));
+  const reopen = host.querySelector<HTMLButtonElement>('button[aria-label="Reopen Open the walk"]')!;
+  expect(reopen.hasAttribute("data-layer-row")).toBe(true);
+  for (let step = 0; step < 20 && document.activeElement !== reopen; step++) key({ key: "ArrowDown" });
+  expect(document.activeElement).toBe(reopen);
+  await userEvent.keyboard("{Enter}");
+  expect(reopened).toEqual(["a2"]);
 });

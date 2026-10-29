@@ -426,6 +426,7 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
         paths: vec!["crates/store".into()],
         issue: None,
         gives: None,
+        lands_in: None,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: (*one).into() }).collect(),
     };
     RecordPlan {

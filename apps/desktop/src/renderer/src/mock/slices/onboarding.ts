@@ -8,6 +8,9 @@ import type { DropRunFact, ImportGit, ImportRuns, RunFact, RunMemory, RunMemoryP
 import type { OnboardingAnswer, OnboardingApi } from "../../../../shared/api/onboarding";
 import type { Slice } from "../fake-context";
 
+/** The agent CLI as Fleet's adapters name it on the wire, and the command that updates it. */
+export const AGENT = { name: "Claude Code", update: "claude update" } as const;
+
 /** How a repository runs unless the scenario says: the tests and the dev server, as the folder's past sessions ran them. */
 const FACTS: readonly RunFact[] = [
   { workspace: ".", kind: "tests", command: "pnpm test", succeeded: true, last_ran: "2026-10-18T16:20:00Z", source: "claude_code_sessions" },
@@ -66,7 +69,7 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
       listImportFolders: async () => ({
         ok: true,
         value: {
-          agent: "Claude Code",
+          agent: AGENT.name,
           folders: PAST.map((one) => ({
             path: one.path,
             exists: true,

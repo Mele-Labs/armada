@@ -188,6 +188,11 @@ where
                     .and_then(|plan| crate::session_host::after::plan_part_title(&crate::plan_record::wire(&plan), &one.part));
                 (one, title, part)
             });
+        let plan = store.session_plan(&session.id).map_err(fault)?;
+        let pulls = match &plan {
+            Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
+            None => Vec::new(),
+        };
         Ok(LedgerReads {
             wait,
             rail,
@@ -198,9 +203,10 @@ where
             limited: store.session_limit(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
-            plan: store.session_plan(&session.id).map_err(fault)?,
+            plan,
             adversarial: store.latest_adversarial_review(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
+            pulls,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.first_live_watch_name(&session.id).map_err(fault)?,
             start,
@@ -255,6 +261,7 @@ where
         record.r#mod = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_job);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
+            record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
         }
         if let Some(hosting) = &reads.hosting {
             record.workflow = hosting.workflow.clone();
@@ -277,6 +284,7 @@ where
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        record.closed = waited.closed;
         let settled = waited.settled;
         let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
@@ -285,7 +293,7 @@ where
         record.plan = reads
             .plan
             .as_ref()
-            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire_read(kept, &reads.touches) });
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire_read(kept, &reads.touches, &reads.pulls) });
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
         record.later = reads

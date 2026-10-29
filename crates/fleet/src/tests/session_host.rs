@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{CallDetail, DroneEvent, Speaker};
+use adapter_traits::{CallDetail, DroneEvent, HarnessReading, Speaker};
 use api::{HostedSessions, Sessions};
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, HelmCallAnswer, ManifestId, SendSessionMessage,
@@ -97,6 +97,7 @@ impl StandIn {
                 session: String::new(),
                 model: String::from("stand-in"),
                 mcp_servers: 1,
+                harness: whole(),
             }],
         );
     }
@@ -124,6 +125,11 @@ pub(super) struct Rig {
     pub(super) manifest: ManifestId,
     pub(super) root: String,
     _home: TempDir,
+}
+
+/// An `init` that lacks nothing, so a stand-in process is not restarted for what it never launched with.
+pub(super) fn whole() -> HarnessReading {
+    HarnessReading { name: String::from("stand-in"), update: String::from("stand-in"), version: String::from("stand-in"), mod_loaded: true, door_connected: true, task_tools: true }
 }
 
 fn rig() -> Rig {

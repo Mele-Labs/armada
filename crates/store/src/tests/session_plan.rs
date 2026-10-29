@@ -38,6 +38,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         groups: vec![KeptPlanGroup {
             id: "g1".to_string(),
             gives: Some("The page itself.".to_string()),
+            lands_in: Some("PR 2".to_string()),
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
             paths: vec!["crates/store".to_string(), "docs".to_string()],

@@ -42,6 +42,8 @@ pub struct KeptPlanGroup {
     pub id: String,
     /// One line of what the group gives the person, as the agent wrote it.
     pub gives: Option<String>,
+    /// The label of the pull request the group lands in, as the agent wrote it. Absent is `PR 1`.
+    pub lands_in: Option<String>,
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
@@ -141,7 +143,7 @@ impl Store {
         let mut groups = self
             .conn
             .prepare(
-                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives FROM session_plan_groups
+                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in FROM session_plan_groups
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -151,6 +153,7 @@ impl Store {
                 Ok(KeptPlanGroup {
                     id: row.get(0)?,
                     gives: row.get(7)?,
+                    lands_in: row.get(8)?,
                     agent: row.get(1)?,
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
@@ -250,8 +253,8 @@ impl Store {
         for (at, group) in plan.groups.iter().enumerate() {
             kept.execute(
                 "INSERT INTO session_plan_groups
-                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     session_id,
                     at as i64,
@@ -264,6 +267,7 @@ impl Store {
                     group.issue.as_deref().and_then(|issue| issue.parse::<i64>().ok()),
                     group.issue,
                     group.gives,
+                    group.lands_in,
                 ],
             )
             .map_err(keeping)?;

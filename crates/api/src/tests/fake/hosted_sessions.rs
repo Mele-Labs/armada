@@ -80,6 +80,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn reopen_waiting(
+        self: Arc<Self>,
+        _reopen: ipc::ReopenWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         _confirm: ipc::ConfirmWaiting,
@@ -177,6 +184,16 @@ impl HostedSessions for FakeDaemon {
 
     async fn pause_session(&self, _asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
+    }
+
+    /// Refused as Fleet refuses a job it does not host, so a route test reads a refusal; the job named
+    /// `closed` is refused as a closed one, any other restarts.
+    async fn mend_session_tools(self: std::sync::Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
+        match asked.session_id.as_str() {
+            "closed" => Err(Refusal::IllegalMove(ipc::WireError::raised("fleet.session_closed", "job closed was closed", run_id()))),
+            "terminal" => Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_tools_unmendable", "job terminal runs in a terminal", run_id()))),
+            _ => Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake")))),
+        }
     }
 
     async fn start_again(self: std::sync::Arc<Self>, _asked: ipc::StartAgain) -> Result<SessionRecord, Refusal> {

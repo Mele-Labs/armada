@@ -14,6 +14,13 @@
   notes = "Accepted 15 Oct 2026 by the owner's ruling, proposed for the walk `needs-you-steps`, tooltip `Bring back`. It takes back the person's own drop, as the canvas rail's undo takes back a line, and the reservation above now says so."
 
 [[icons.undo-2.usage]]
+  means = "Reopen a Needs you item the person closed, from the Closed rows of a Job's ledger and Artifacts"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the mock walk `plan-pull-requests-and-closed`, tooltip `Reopen`. It takes back the person's own close, as the steps panel's Bring back takes back his own drop."
+
+[[icons.undo-2.usage]]
   means = "Reset to Armada's, in the Workflows page's header toolbar"
   group = "Workflows"
   size = "16px"

@@ -81,10 +81,11 @@ export const viewEntries = (view: RowView): DropdownMenuEntry[] => [
 ];
 
 /** Each column's width in px and its place among the others, in the menu's order. Now and Active PRs are lines and have no column. The columns are the same for every row, so none shifts. */
-const COLUMNS: readonly { field: Exclude<ViewField, "now" | "pr">; width: number }[] = [
+const COLUMNS: readonly { field: Exclude<ViewField, "now" | "pr"> | "tools"; width: number }[] = [
   { field: "issue", width: 48 },
   { field: "time", width: 52 },
   { field: "conflicts", width: 16 },
+  { field: "tools", width: 16 },
   { field: "status", width: 36 },
   { field: "workflow", width: 64 },
 ];
@@ -95,16 +96,20 @@ const DEFAULT_TAKES = 16 + 36 + GAP * 2;
 /** How much of the title's room the fields may take before the list rests wider to give it back. */
 const TITLE_GIVES = 96;
 
-const columnsOn = (view: RowView, earlier: boolean) => COLUMNS.filter(({ field }) => (field === "conflicts" ? view.conflicts || earlier : view[field]));
+/** The tools column is not a View field: it is kept while a row in the list has the mark, as the conflicts column is for the earlier-Job mark. */
+const columnsOn = (view: RowView, earlier: boolean, tools: boolean) => COLUMNS.filter(({ field }) => (field === "conflicts" ? view.conflicts || earlier : field === "tools" ? tools : view[field]));
 
 /**
  * The row's columns: the title, then each field that is on. The conflicts column is kept while a row in the list carries the earlier-Job mark, which stands in the same place.
  * `clashRight` is where that column's own mark sits from the row's trailing edge, since the mark is drawn over the row and not in it.
  */
-export function columnsOf(view: RowView, earlier: boolean): { template: string; clashRight: string } {
-  const on = columnsOn(view, earlier);
+export function columnsOf(view: RowView, earlier: boolean, tools = false): { template: string; clashRight: string; toolsRight: string } {
+  const on = columnsOn(view, earlier, tools);
   const after = on.slice(on.findIndex(({ field }) => field === "conflicts") + 1);
+  // The tools mark is a button, so it too is drawn over the row, in its column's place.
+  const afterTools = on.slice(on.findIndex(({ field }) => field === "tools") + 1);
   return {
+    toolsRight: `calc(var(--space-3)${afterTools.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
     // A column's width is a variable of the list (`--deck-w-<field>`), so the stylesheet can take it to nothing where no row of the list has the field.
     template: ["minmax(0, 1fr)", ...on.map(({ field, width }) => `var(--deck-w-${field}, ${width}px)`)].join(" "),
     clashRight: `calc(var(--space-3)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
@@ -112,8 +117,8 @@ export function columnsOf(view: RowView, earlier: boolean): { template: string; 
 }
 
 /** How much wider than its resting width the list is drawn for the fields that are on, in px, so the title keeps most of what it had. A column the person dragged is theirs and is left as dragged. */
-export function restBonus(view: RowView, earlier: boolean): number {
-  const on = columnsOn(view, earlier);
+export function restBonus(view: RowView, earlier: boolean, tools = false): number {
+  const on = columnsOn(view, earlier, tools);
   const takes = on.reduce((sum, { width }) => sum + width + GAP, 0);
   return Math.max(0, takes - DEFAULT_TAKES - TITLE_GIVES);
 }
@@ -127,7 +132,7 @@ const workflowOf = (session: Session | undefined): { name: string; step: string 
   return { name: flow.name, step: (flow.at === undefined ? undefined : flow.steps[flow.at]) ?? flow.name };
 };
 
-const cell = (field: ViewField, content: ReactNode) => (
+const cell = (field: ViewField | "tools", content: ReactNode) => (
   <span className="deck-row__cell" data-field={field}>
     {content}
   </span>
@@ -137,7 +142,7 @@ const cell = (field: ViewField, content: ReactNode) => (
  * The cells of a row after its title, one for each field that is on, then Now's line and Active PRs' line. `status` and `hit` are the row's own: the state marks it drew before, and what a search
  * matched in place of its age.
  */
-export function RowFields({ view, earlier, one, session, hit, status }: { view: RowView; earlier: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }) {
+export function RowFields({ view, earlier, tools, one, session, hit, status }: { view: RowView; earlier: boolean; tools: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }) {
   const issue = issueOf(session);
   const issueText = issue === undefined ? undefined : /^\d+$/.test(issue.number) ? `#${issue.number}` : issue.number;
   const flow = workflowOf(session);
@@ -149,6 +154,7 @@ export function RowFields({ view, earlier, one, session, hit, status }: { view: 
         ? cell("time", hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><Readout className="deck-row__said" data-found="">{hit.short}</Readout></Tooltip> : one.at === undefined ? null : <Tooltip label="Last turn"><Readout className="deck-row__said"><Stamp still first="age" at={one.at} /></Readout></Tooltip>)
         : null}
       {view.conflicts || earlier ? cell("conflicts", null) : null}
+      {tools ? cell("tools", null) : null}
       {view.status ? cell("status", status) : null}
       {view.workflow ? cell("workflow", flow === undefined ? null : <Tooltip label={`${flow.name}: ${flow.step}`}><span className="deck-row__flow">{flow.step}</span></Tooltip>) : null}
       {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}

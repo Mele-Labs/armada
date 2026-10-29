@@ -1,7 +1,7 @@
 """Self-test for plan.py. Run: python3 -m unittest discover -s .github/ci"""
 import unittest
 
-from plan import plan
+from plan import plan, rerun_keys
 
 KEYS = [
     "build",
@@ -70,6 +70,25 @@ class Planning(unittest.TestCase):
 
     def test_a_quick_plan_still_reports_a_key_nothing_runs(self):
         self.assertEqual(plan(["packages/x:lint"], quick=True)["unrun"], ["packages/x:lint"])
+
+    def test_a_quick_plan_keeps_what_the_queue_last_failed(self):
+        failed = rerun_keys(["test 2/4", "desktop_unit", "packages/screens:screens_test", "desktop_test", "ci"])
+        answer = plan(KEYS + ["test", "acceptance"], quick=True, rerun=failed)
+        for key in ["test", "apps/desktop/unit:desktop_test", "packages/screens:screens_test"]:
+            self.assertIn(key, answer["checks"])
+            self.assertNotIn(key, answer["queued"])
+        self.assertEqual(answer["rerun"], ["apps/desktop/unit:desktop_test", "packages/screens:screens_test", "test"])
+        self.assertIn("packages/screens:screens_test", [row["key"] for row in answer["matrix"]["include"]])
+        self.assertIn("acceptance", answer["queued"])
+
+    def test_a_failed_check_the_change_does_not_cover_is_not_added(self):
+        answer = plan(["build"], quick=True, rerun=rerun_keys(["test 1/4"]))
+        self.assertEqual(answer["checks"], ["build"])
+        self.assertEqual(answer["rerun"], [])
+
+    def test_a_shard_and_the_unit_job_name_their_check(self):
+        self.assertEqual(rerun_keys(["test 4/4", "desktop_unit", "apps/desktop:xtask_test"]),
+                         {"test", "apps/desktop/unit:desktop_test", "apps/desktop:xtask_test"})
 
 
 if __name__ == "__main__":

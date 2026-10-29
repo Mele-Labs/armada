@@ -37,6 +37,10 @@ jobs:
     name: plan
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # `actions: read` lists the merge queue's runs, *What the queue failed*.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       checks: ${{ steps.covers.outputs.checks }}
       matrix: ${{ steps.covers.outputs.matrix }}
@@ -84,18 +88,44 @@ jobs:
           echo "CHANGED $EVENT whole=$whole"
           cat plan/changed.txt
 
+      # A pull request the merge queue dropped runs again what the queue failed,
+      # so a fix is tried here before it waits in the queue again. The newest
+      # queue run for it that passed or failed decides; a cancelled one says
+      # nothing. A read that fails warns and leaves the quick plan.
+      - name: What the queue failed
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          : > plan/queue-failed.txt
+          if ! run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow checks --event merge_group --limit 100 \
+              --json databaseId,headBranch,conclusion \
+              --jq "[.[] | select(.headBranch | startswith(\"gh-readonly-queue/main/pr-$PR-\")) | select(.conclusion == \"failure\" or .conclusion == \"success\")][0] | select(.conclusion == \"failure\") | .databaseId"); then
+            echo "::warning::could not read the merge queue's runs for #$PR, so only the quick Checks run"
+            exit 0
+          fi
+          if [ -n "$run" ] && ! gh run view "$run" --repo "$GITHUB_REPOSITORY" --json jobs \
+              --jq '.jobs[] | select(.conclusion == "failure") | .name' > plan/queue-failed.txt; then
+            echo "::warning::could not read the jobs of queue run $run, so only the quick Checks run"
+            : > plan/queue-failed.txt
+          fi
+          echo "QUEUE ${run:-none}"
+          cat plan/queue-failed.txt
+
       # A failure here fails the job, so a plan that cannot be made never
       # reads as a plan that runs nothing. `plan.py` sorts the keys `armada
       # covers` prints into the jobs below and fails on one that CI neither runs
       # nor excludes: docs/practices/ci.md, *How a Check is chosen*. A whole run
       # asks about every tracked path, so it names every Check there is.
-      # A pull request keeps only the Checks that compile (`--quick`); the merge
-      # queue runs the rest once, docs/practices/ci.md, *What runs when*.
+      # A pull request keeps only the Checks that compile (`--quick`), and those
+      # the queue last failed it on (`--rerun`); the merge queue runs the rest
+      # once, docs/practices/ci.md, *What runs when*.
       - name: Which Checks
         id: covers
         env:
           WHOLE: ${{ steps.paths.outputs.whole }}
-          QUICK: ${{ github.event_name == 'pull_request' && '--quick' || '' }}
+          QUICK: ${{ github.event_name == 'pull_request' && '--quick --rerun plan/queue-failed.txt' || '' }}
         run: |
           set -euo pipefail
           if [ "$WHOLE" = true ]; then
@@ -116,6 +146,7 @@ jobs:
           echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.excluded[] | "excluded: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
           jq -r '.queued[] | "in the merge queue: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.rerun[] | "the merge queue failed it last: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
 
       # The matrix job runs `armada check <key>` and needs a binary; the plan
       # has just built one, and the runners are the same image.

@@ -45,7 +45,18 @@ export type SessionPlanGroup = {
   gives?: string;
   /** When Fleet last saw an edit under one of the paths. Absent while it has seen none. */
   worked_at?: string;
+  /** The pull request the group lands in. Always present: the label is `PR 1` where the agent named none. */
+  lands_in: PlanLandsIn;
 };
+
+/** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */
+export type PlanLandsIn = {
+  label: string;
+  /** The pull request bound to the label, as the ledger's `pr` row last read it. Absent until one is. */
+  pull_request?: PlanLandsInPr;
+};
+
+export type PlanLandsInPr = { number: number; title: string; state: "open" | "draft" | "merged" | "closed" };
 
 /** What the agent changed when it recorded the plan again. */
 export type PlanChanges = {
@@ -129,6 +140,8 @@ export type RecordPlan = {
     issue?: string;
     /** One line, in the person's own words, of what this group gives him. */
     gives?: string;
+    /** A short label for the pull request the group lands in, such as `PR 1`, at most 24 characters. Groups that ship together share one. Absent is `PR 1`. */
+    lands_in?: string;
     tasks: { id?: string; title: string }[];
   }[];
   sketch?: { title: string; scene: unknown };

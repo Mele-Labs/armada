@@ -45,13 +45,14 @@ import { holderKeyOf, useBays, slotKey } from "./bays";
 import { useCollapse, useFlightExpanded } from "./collapse";
 import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
-import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
+import { toolsMissingSaid, type QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
 import { sessionIdOf } from "../waiting";
 import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
+import { ToolsMarkOf } from "../../tools-fixes";
 import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
@@ -240,13 +241,17 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const { dragging, grab, swallowed } = useReorder(onMove);
   // The fields a row draws are the person's (`row-view.tsx`): its columns, and where the clash mark sits among them.
   const earlier = subjects.some((one) => one.earlier !== undefined);
-  const columns = columnsOf(view, earlier);
+  // The mark of a Job whose agent came up without some tools has a column of its own, kept for every row while one has it.
+  const tooled = subjects.some((one) => one.kind === "session" && sessions.find((each) => each.id === one.id)?.toolsMissing !== undefined);
+  const columns = columnsOf(view, earlier, tooled);
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
     // What a search matched in the Session, in place of its age.
     const hit = found?.get(one.key);
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
     const call = calling?.get(one.key);
+    const sessionOf = one.kind === "session" ? sessions.find((each) => each.id === one.id) : undefined;
+    const toolsMissing = sessionOf?.toolsMissing;
     // Needs him: the row is the ask hue and pulses while it does. The open Session's own calls are in its thread, so its row is quiet.
     // The row stands for the earlier Job too: it is open when that one is.
     const here = selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
@@ -260,7 +265,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     );
     return (
       <li key={one.key} className="deck-list__item" style={one.linked?.depth === undefined ? undefined : ({ "--deck-depth": one.linked.depth } as CSSProperties)} data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
-        <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
+        <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} {...(toolsMissing === undefined ? {} : { tools: toolsMissingSaid(toolsMissing) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-lamp={lampOf(one)} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
           if (event.key === "h" && one.earlier !== undefined && !event.metaKey && !event.ctrlKey && !event.altKey) return (event.preventDefault(), onEarlier(one.earlier));
@@ -279,12 +284,17 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             )}
             {one.title}
           </span>
-          <RowFields view={view} earlier={earlier} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
+          <RowFields view={view} earlier={earlier} tools={tooled} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
         </button>
         </Inspect>
         {one.earlier === undefined ? null : (
           <span className="deck-row__earlier">
             <EarlierMark onOpen={() => onEarlier(one.earlier!)} />
+          </span>
+        )}
+        {toolsMissing === undefined || sessionOf === undefined ? null : (
+          <span className="deck-row__tools">
+            <ToolsMarkOf session={sessionOf} size={12} open={() => onPick(one)} />
           </span>
         )}
         {one.kind === "pr" || !view.conflicts ? null : (
@@ -305,7 +315,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight } as CSSProperties}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (

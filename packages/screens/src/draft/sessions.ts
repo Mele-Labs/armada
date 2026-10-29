@@ -13,6 +13,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
+import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
 import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
@@ -162,7 +163,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean; /** When the agent last changed this task's mark, RFC 3339. A mark the agent has not touched in a long while reads its age and dims. */ changedAt?: string; /** Fleet set the state itself, and this is its proof ("commit 1a2b3c4 names it"). */ marked?: string; /** In progress, and Fleet reads the work as elsewhere: why, and since when (RFC 3339). */ stale?: { why: string; since: string } };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */ landsIn?: PlanLandsIn; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
@@ -469,6 +470,21 @@ export type WaitReading = {
   plain?: boolean;
 };
 
+/** What the agent's init line showed it lacks: `mod` did not load, `door` (Fleet's MCP door) did not connect, `task_tools` were not served. */
+export type ToolsMissing = { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+
+const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
+
+/** One thing the agent came up without. */
+export type ToolsPiece = ToolsMissing["missing"][number];
+
+/** The sentence for one piece, as the mark's menu lists it. */
+export const toolsPieceSaid = (piece: ToolsPiece): string => MISSING_SAID[piece];
+
+/** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. An init line that names no version says only what is missing. */
+export const toolsMissingSaid = (tools: ToolsMissing): string =>
+  [...(tools.harness_version === "" ? [] : [`${tools.harness} ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -506,6 +522,8 @@ export type Session = {
   terminal?: true;
   /** Its mod is older than the repository's, or reported no version. */
   modOutOfDate?: true;
+  /** The agent came up without some of its Armada tools. Absent when nothing is missing. */
+  toolsMissing?: ToolsMissing;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
@@ -569,6 +587,8 @@ export type Session = {
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
+  /** What he closed from Needs you, kept to be found again. `ended` is an item whose thing is over (its call finished, its walk withdrawn), which no Reopen brings back. */
+  closed?: readonly { item: WaitingItem; at: string; ended?: true }[];
   /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
   later?: readonly { id: string; text: string; at: string; /** The person marked it Deferred: Fleet was right to keep it, and its thumbs are gone. */ confirmed?: boolean }[];
   /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
@@ -855,6 +875,8 @@ export type SessionsDraft = {
   mcp?: (id: string) => Promise<McpRead>;
   /** Acts on one MCP server of a hosted Session. A Reconnect or a Turn on answers once the CLI has tried to connect, up to 90s. Absent with `mcp`. */
   actOnMcp?: (id: string, server: string, act: McpServerAct) => Promise<McpActed>;
+  /** Restarts the Job's agent with its mod: `mend_session_tools`. Absent where nothing serves it, and the mark's menu then lists the piece with no act. */
+  mendTools?: (id: string) => Promise<{ ok: true } | { ok: false; said: string }>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.
@@ -981,6 +1003,8 @@ export type SessionsDraft = {
    * reasonable path). `fixed` approves a draft with his own text. Absent where nothing serves it.
    */
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick"; fixed?: string }) => void | Promise<unknown>;
+  /** Puts an item he closed back in Needs you. Absent where nothing serves it, and the Closed rows draw no Reopen. */
+  reopenWaiting?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */
   answerSketch?: (answer: AnswerSketch) => void | Promise<unknown>;
   /**
@@ -1074,6 +1098,10 @@ export function linkedOf(sessions: readonly Session[], parent: Session): { sessi
 
 /** An issue as a person reads it: a forge number with its `#` (`#7`), a tracker's key as it is (`ABC-12`). */
 export const issueLabel = (issue: string): string => (/^[0-9]+$/.test(issue) ? `#${issue}` : issue);
+
+/** Whether the Job lands its work in pull requests: its delivery opens or lands one, or it already has one. Keep local with none opened does not. */
+export const opensPullRequests = (session: Session): boolean =>
+  session.started?.delivery === "open_pr" || session.started?.delivery === "auto_land" || attachmentsOf(session, "pull_request").length > 0;
 
 export function attachmentsOf<K extends SessionAttachmentKind>(
   session: Session,
