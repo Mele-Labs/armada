@@ -265,7 +265,8 @@ pub(super) fn segment(said: &str, slot: Option<Slot>, own: Own, covered: &[&str]
     ];
     const SHARED: &[&str] = &["scp", "rsync", "ssh", "sftp"];
     const OFF_MACHINE: &[&str] = &["aws", "gcloud", "az", "kubectl", "terraform", "op"];
-    const REMOVES: &[&str] = &["rm", "rmdir", "unlink"];
+    // `mv` removes its sources, so it is held to the same rule: every operand in a slot or scratch.
+    const REMOVES: &[&str] = &["rm", "rmdir", "unlink", "mv"];
     if REMOVES.contains(&program) {
         let operands: Vec<&&str> = arguments
             .iter()

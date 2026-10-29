@@ -53,6 +53,7 @@ export type SliceName =
   | "issues"
   | "autopilot"
   | "sketchShare"
+  | "attachments"
   | "files"
   | "flightControls"
   | "onboarding"

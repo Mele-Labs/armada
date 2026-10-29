@@ -164,6 +164,7 @@ import type { HelmAim, HelmCarry } from "./api/helm";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
 import { FILES_CHANNELS, type FilesApi } from "./api/files";
+import { ATTACHMENTS_CHANNELS, type AttachmentsApi } from "./api/attachments";
 import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
 import { FLIGHT_CONTROLS_CHANNELS, type FlightControlsApi } from "./api/flight-controls";
 import { PULL_REQUEST_NOTES_CHANNELS, type PullRequestNotesApi } from "./api/pull-request-notes";
@@ -514,7 +515,7 @@ type OldBridgeApi = {
     readTerminalSoFar: (runId: string) => Promise<string | null>;
     moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
     onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & ProjectsApi & PullRequestNotesApi;
+} & AutopilotApi & SketchShareApi & FilesApi & AttachmentsApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & ProjectsApi & PullRequestNotesApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -846,6 +847,7 @@ const OLD_CHANNELS = {
     ...AUTOPILOT_CHANNELS,
     ...SKETCH_SHARE_CHANNELS,
     ...FILES_CHANNELS,
+    ...ATTACHMENTS_CHANNELS,
     ...REVIEWS_CHANNELS,
     ...FLIGHT_CONTROLS_CHANNELS,
     ...ONBOARDING_CHANNELS,

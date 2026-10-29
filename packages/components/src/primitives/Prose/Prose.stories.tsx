@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, waitFor, within } from "storybook/test";
 import { Clamped } from "../../compositions/Clamped/Clamped";
 import { Card } from "../Card/Card";
-import { CopyAct, Prose, ProseCommand, ProseLinks, ProseRefs, ProseRunner, isSlashCommand } from "./Prose";
+import { CopyAct, Prose, ProseAttachments, ProseCommand, ProseLinks, ProseRefs, ProseRunner, isSlashCommand } from "./Prose";
 import { readsAsShell } from "./RunnableBlock";
 import type { CodeRunner, ProseReference } from "./Prose";
 
@@ -794,5 +794,68 @@ export const NoLinesByDefault: Story = {
   args: { text: "a\n\n# b" },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelectorAll("[data-line]")).toHaveLength(0);
+  },
+};
+
+const CLIP = "https://github.com/user-attachments/assets/0b7c1f0e-2f1e-4d52-9a6e-000000000001";
+const SHOT = "https://github.com/user-attachments/assets/0b7c1f0e-2f1e-4d52-9a6e-000000000002";
+
+/** What main's fetch hands back; the bytes are never decoded, so they need not be a real file. */
+const fetched = fn(async (_address: string) => ({ bytes: new Uint8Array([1, 2, 3]), mime: "video/mp4" }));
+
+const withAttachments = (fetch: ((address: string) => Promise<{ bytes: Uint8Array; mime: string } | null>) | null) => (Story: () => React.ReactElement) => (
+  <ProseAttachments.Provider value={fetch}>
+    <Story />
+  </ProseAttachments.Provider>
+);
+
+/** **A line of only a forge attachment address is a video**, asked for on Play and not before; the same address inside a sentence stays a link. */
+export const AVideoOnALineOfItsOwn: Story = {
+  args: { text: `Demo:\n\n${CLIP}\n\nSee also ${SHOT} in a sentence.` },
+  decorators: [withAttachments(fetched)],
+  beforeEach: () => {
+    fetched.mockClear();
+  },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    await expect(canvas.getAllByRole("button", { name: "Play video" })).toHaveLength(1);
+    await expect(canvas.getByRole("link", { name: SHOT })).toBeVisible();
+    await expect(fetched).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Play video" }));
+    await waitFor(() => expect(canvasElement.querySelector("video")).not.toBeNull());
+    await expect(fetched).toHaveBeenCalledTimes(1);
+    await expect(fetched).toHaveBeenCalledWith(CLIP);
+  },
+};
+
+/** A video whose fetch comes to nothing says so and offers the press again. */
+export const AVideoThatCouldNotLoad: Story = {
+  args: { text: CLIP },
+  decorators: [withAttachments(async () => null)],
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Play video" }));
+    await expect(await canvas.findByText("Could not load. Press to retry")).toBeVisible();
+  },
+};
+
+/** **A forge image is drawn from its bytes** and opens larger; an image on another host stays a link, and so does one the fetch lost. */
+export const AForgeImage: Story = {
+  args: { text: `![the failing render](${SHOT})\n\n![elsewhere](https://example.com/render.png)\n\n![lost](https://github.com/user-attachments/assets/lost)` },
+  decorators: [withAttachments(async (address) => (address.endsWith("/lost") ? null : { bytes: new Uint8Array([1]), mime: "image/png" }))],
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("button", { name: "the failing render" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "elsewhere" })).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole("link", { name: "lost" })).toBeVisible());
+    await expect(canvas.getAllByRole("button")).toHaveLength(1);
+  },
+};
+
+/** **Without a fetcher Prose is as it was**: the attachment address is a link, the image is a link, and nothing is a button. */
+export const NoFetcherNoAttachments: Story = {
+  args: { text: `${CLIP}\n\n![the failing render](${SHOT})` },
+  decorators: [withAttachments(null)],
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button")).toBeNull();
+    await expect(canvas.getByRole("link", { name: CLIP })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "the failing render" })).toBeVisible();
   },
 };
