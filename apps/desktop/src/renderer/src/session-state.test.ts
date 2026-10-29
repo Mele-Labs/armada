@@ -122,6 +122,24 @@ describe("a Job held on its start card is a draft", () => {
   });
 });
 
+describe("a Job whose agent never started", () => {
+  const startFailed = { cause: "The agent exited at once", log: ["error: no such option"] };
+
+  test("reads as unstarted and says why", () => {
+    expect(stateOf(session({ startFailed }))).toEqual({ state: "unstarted", said: "Failed to start: The agent exited at once" });
+  });
+
+  test("paused, ended and not reachable still win over it", () => {
+    expect(stateOf(session({ startFailed, paused: true })).state).toBe("paused");
+    expect(stateOf(session({ startFailed, dead: "ended" })).state).toBe("ended");
+    expect(stateOf(session({ startFailed, dead: "quiet" })).state).toBe("quiet");
+  });
+
+  test("once it has started it reads as it did", () => {
+    expect(stateOf(session({})).state).not.toBe("unstarted");
+  });
+});
+
 describe("the done ask on his project tasks holds the Session on him", () => {
   test("a Session at work with a task_done item on it is waiting on him, whatever its turn says", () => {
     const ask = { id: "task_done:p1", text: "Mark Sign the build done?", since: TURN_ENDED, source: "task_done", options: [{ label: "Mark done" }, { label: "Keep open" }] };

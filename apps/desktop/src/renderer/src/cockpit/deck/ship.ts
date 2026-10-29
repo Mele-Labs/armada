@@ -146,7 +146,7 @@ function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
   // A paused Job is calm and reads Paused: nothing is asked of him.
   if (state === "paused") return { Glyph: sessionGlyphOf(state), said, tone: "calm" };
-  const tone: Tone = state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
+  const tone: Tone = state === "waiting" || state === "done" || state === "draft" || state === "unstarted" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
 
@@ -371,7 +371,7 @@ export function shipOf(input: Inputs): Ship {
     subjects
       .filter((one) => {
         const session = one.kind === "session" ? sessions.find((s) => s.id === one.id) : undefined;
-        return session !== undefined && session.paused !== true && (stateOf(session).state === "waiting" || session.start !== undefined);
+        return session !== undefined && session.paused !== true && (stateOf(session).state === "waiting" || stateOf(session).state === "unstarted" || session.start !== undefined);
       })
       .map((one) => one.key),
   );

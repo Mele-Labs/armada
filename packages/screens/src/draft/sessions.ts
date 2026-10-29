@@ -490,6 +490,11 @@ export type Session = {
   replaces?: string;
   /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
   paused?: true;
+  /**
+   * The Job's agent process never started, even on Fleet's second try (`hosted.start_failed`). `cause` is why, in plain words; `log` is the agent's own
+   * last error lines. The Job needs him: Start again or a message from him is the retry. Absent once it has started.
+   */
+  startFailed?: { cause: string; log: readonly string[] };
   /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request this Session holds, and merges it on a green `ci`. Hosted Sessions only. */
   autoLand?: true;
   /** What was pressed and Fleet has not answered: `paused`, `autoLand` and `plan` are drawn as pressed already, with a going mark on the control (`pressed.ts`). Never Fleet's. */
@@ -884,6 +889,8 @@ export type SessionsDraft = {
    * refusal is said as `stop`'s is, and the Session's `autoLand` follows from Fleet's record. False where nothing changed. Absent where nothing serves it.
    */
   autoLand?: (id: string, on: boolean) => Promise<boolean>;
+  /** Starts the agent of a Job that did not start, again. The failure is cleared and the Job goes to work. Absent where nothing serves it. */
+  startAgain?: (id: string) => void;
   /** Lifts a pause: the Session takes a slot again. A message to a paused Session does the same. Absent with `pause`. */
   resume?: (id: string) => Promise<boolean>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */

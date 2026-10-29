@@ -511,6 +511,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )
         .route(
+            "/sessions/start_again",
+            post(crate::hosted_sessions::start_again::<D>),
+        )
+        .route(
             "/sessions/resume",
             post(crate::hosted_sessions::resume_session::<D>),
         )
