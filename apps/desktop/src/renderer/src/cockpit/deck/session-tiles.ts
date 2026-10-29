@@ -44,7 +44,7 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "requests", label: "Requests", text: "Requests" },
   // The Job's shell, docked or in the side panel as `terminal.openJobTerminalIn` says (`job-shell-dock.tsx`). Moved here from the Job's header on the owner's ask of 23 Oct 2026.
   { id: "terminal", label: "Terminal", text: "Terminal" },
-  // The Job browser, in the side panel (`job-browser/`). **Proposed, not on the wire**: drawn only where the Job has one, which only the mock fills.
+  // The Job browser, in the side panel (`job-browser/`). Drawn for every Job, as every tile keeps its seat; a press where the Job has none makes one.
   { id: "browser", label: "Browser", text: "Browser" },
   // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is p, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },

@@ -34,8 +34,9 @@ pub(crate) enum NotACheckout {
     /// Not a worktree of this repository — a directory that is not there, one
     /// that is not a checkout at all, or one belonging to another repository.
     Elsewhere { path: String, root: String },
-    /// A Job's worktree. Reachable, but not this way: a Job's server is held
-    /// for the Job and stopped when it ends, which a path cannot say.
+    /// A Job's worktree. Reachable, but not this way: a Job's server is placed
+    /// from its lease by [`Checkout::of_a_job`] and stopped with the slot,
+    /// which a path from a caller cannot say.
     AJobs { path: String },
 }
 
@@ -49,8 +50,9 @@ impl std::fmt::Display for NotACheckout {
             ),
             NotACheckout::AJobs { path } => write!(
                 out,
-                "`{path}` is a Job's worktree, so name the Job instead — its server is held \
-                 for the Job and stopped when the Job ends"
+                "`{path}` is a Job's worktree, so it is never named by path — from that Job's \
+                 agent, leave `checkout` out and the server runs on the Job's slot, held for \
+                 the Job and stopped with the slot"
             ),
         }
     }

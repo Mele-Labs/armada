@@ -282,8 +282,9 @@ where
     }
 
     /// `Commands::start_server`: a person starting one in a checkout, or a Session's agent through the
-    /// door, which `caller` places and the server then names. **The `Arc` is handed on**, so the server is
-    /// a task of its own.
+    /// door, which `caller` places and the server then names. With no `checkout`, a Job's agent is served
+    /// on the slot its Job holds, and anyone else on the main checkout. **The `Arc` is handed on**, so the
+    /// server is a task of its own.
     ///
     /// **Not `budgeted`**: a server answers through its own refusal.
     pub(crate) async fn start_server_answered(
@@ -292,13 +293,14 @@ where
         asked: ipc::StartServer,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ServerState, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
         let session = caller.and_then(|caller| self.session_holding(&caller));
-        let checkout = match asked.checkout.as_deref() {
-            Some(path) => {
+        let checkout = match (asked.checkout.as_deref(), self.slot_of_caller(session.as_deref()).await?) {
+            (Some(path), _) => {
+                let served = self.served_named(manifest_id.as_ref())?;
                 Checkout::beside(served, path).map_err(|why| self.checkout_refusal(why))?
             }
-            None => Checkout::main(served),
+            (None, Some(slot)) => slot,
+            (None, None) => Checkout::main(self.served_named(manifest_id.as_ref())?),
         };
         let refusing = Arc::clone(&self);
         let state = Fleet::hold_server(Arc::clone(&self), checkout, &asked.name, ipc::StartedBy::Person, session)
@@ -310,6 +312,20 @@ where
             self.publish_step(session.as_str().to_string(), step);
         }
         Ok(state)
+    }
+
+    /// The slot the calling Job holds, as `run_checkout` finds a Job's: **from Fleet's record of its
+    /// lease, never from the body**, so the server is stopped with the slot. `None` where the call
+    /// is from no hosted Job, or from one that holds no slot yet.
+    async fn slot_of_caller(&self, session: Option<&str>) -> Result<Option<Checkout>, Refusal> {
+        let Some(id) = session else { return Ok(None) };
+        let Ok((_, hosting)) = self.session_and_hosting(id).await else { return Ok(None) };
+        if hosting.lease_slot.is_none() {
+            return Ok(None);
+        }
+        let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id)))?;
+        let path = Self::directory_of(&served, &hosting);
+        Checkout::of_a_job(served, &path).map(Some).map_err(|why| self.checkout_refusal(why))
     }
 
     /// A path that is not a checkout of the repository asked about. **A 422**,

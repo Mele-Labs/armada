@@ -74,7 +74,7 @@ Any other act on one is refused with *The Job browser is closed. Call browser_op
 
 ## Where it is in the Cockpit
 
-**The Browser tile in Flight control** opens the Job browser in the side panel, and is lit while it shows there or in its window ([Cockpit](../cockpit.md), *The Job's flight controls*).
+**The Browser tile in Flight control** opens the Job browser in the side panel, an empty one where the Job has none, and is lit while it shows there or in its window ([Cockpit](../cockpit.md), *The Job's flight controls*).
 It is drawn only where the Job has a browser.
 Pressed while the window is open, it moves the page back to the side panel.
 
