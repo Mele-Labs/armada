@@ -66,6 +66,12 @@ pub(crate) struct LedgerReads {
 /// A report that names nothing it can be kept against. A 422.
 const SESSION_UNNAMED: &str = "fleet.session_unnamed";
 
+/// A hosted agent's subagent, by its attachment's target: started by a call, with the attachment's detail, or settled.
+enum SubagentRow {
+    Started(String, String, std::collections::BTreeMap<String, String>),
+    Settled(String, ipc::ToolSubagentState),
+}
+
 mod ledger;
 mod shown;
 mod wire;
@@ -114,6 +120,8 @@ where
         let (mut signed_out, mut answered) = (false, false);
         // A browser reached for outside Bridge, written on the thread once the store is let go.
         let mut reminder: Option<(String, Option<String>)> = None;
+        // A hosted agent's subagent started or settled, drawn on its call's row once the store is let go.
+        let mut subagent_row: Option<SubagentRow> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -204,6 +212,10 @@ where
                 let backed = opened
                     || !matches!(attachment.kind.as_str(), "branch" | "pr")
                     || pool_backs(&store, &session, &roots);
+                if !terminal && attachment.kind == "subagent" {
+                    let call = attachment.detail.get("call").unwrap_or(&attachment.target).clone();
+                    subagent_row = Some(SubagentRow::Started(attachment.target.clone(), call, attachment.detail.clone()));
+                }
                 if backed {
                     changed |= store
                         .attach(
@@ -229,8 +241,14 @@ where
                     .subagent_stopped(&holder, &manifest_of(&session), &attachment.target, &now)
                     .map_err(fault)?;
                 changed |= self.activity_subagent_over(&id, &attachment.target);
+                if !terminal {
+                    subagent_row = Some(SubagentRow::Settled(attachment.target.clone(), ipc::ToolSubagentState::Finished));
+                }
             }
             SessionFact::Settled { attachment, state } => {
+                if !terminal && attachment.kind == "subagent" && state == ipc::AttachmentState::GivenBack {
+                    subagent_row = Some(SubagentRow::Settled(attachment.target.clone(), ipc::ToolSubagentState::CutOff));
+                }
                 changed |= store
                     .settle(
                         &holder,
@@ -468,6 +486,11 @@ where
         }
         if answered {
             self.signed_in_by(&session.id);
+        }
+        match subagent_row {
+            Some(SubagentRow::Started(target, call, detail)) => self.subagent_started(&session.id, &target, &call, &detail).await,
+            Some(SubagentRow::Settled(target, state)) => self.subagent_settled(&session.id, &target, state).await,
+            None => {}
         }
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };

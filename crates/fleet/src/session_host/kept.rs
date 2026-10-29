@@ -150,8 +150,7 @@ pub(crate) fn attached(
             }
             // A subagent's words are not the agent's, but its edits are the session's work. The line
             // also counts as activity, so a session whose subagent is working is not idle.
-            let spawned: Vec<(String, String)> =
-                adapters::subagent_calls(text).into_iter().map(|one| (one.call, one.kind)).collect();
+            let spawned = adapters::subagent_calls(text);
             if !spawned.is_empty() {
                 let _ = sink.send(Heard::Spawned(spawned));
             }

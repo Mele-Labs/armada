@@ -86,6 +86,7 @@ where
                     self.fleet_note(id, format!("The job's process ended{complaint}"))
                         .await;
                 }
+                self.calls_let_go(id).await;
                 if !lost.is_empty() {
                     self.send_again(id, &runtime, lost).await;
                 }
@@ -136,8 +137,9 @@ where
             }
             Heard::Spawned(calls) => {
                 let mut state = runtime.state();
-                for (call, kind) in calls {
-                    state.spawns.told(&call, &kind);
+                for one in calls {
+                    state.spawns.told(&one.call, &one.kind);
+                    state.call_rows.spawned(&one.call, one.background);
                 }
             }
             Heard::Subagent { events, call } => {
@@ -150,6 +152,16 @@ where
                 let call = call.unwrap_or_default();
                 for event in &events {
                     self.work_heard(id, event, Some(&call)).await;
+                }
+                let latest = events.iter().rev().find_map(|event| match event {
+                    DroneEvent::Called { tool, detail, .. } => Some(match detail.shown() {
+                        "" => tool.clone(),
+                        shown => format!("{tool} {shown}"),
+                    }),
+                    _ => None,
+                });
+                if let (Some(latest), false) = (latest, call.is_empty()) {
+                    self.subagent_called(id, &call, latest).await;
                 }
             }
         }
@@ -370,7 +382,7 @@ where
                     self.artifact_made(id, path, "file").await;
                 }
                 if let Some(path) = adapters::written_job_page(&tool, &shown, &home) {
-                    runtime.state().pages.insert(call, path);
+                    runtime.state().pages.insert(call.clone(), path);
                 }
                 if let Some(path) = adapters::viewed_image(&tool, &shown, &home) {
                     self.artifact_made(id, path, "image").await;
@@ -380,16 +392,11 @@ where
                 } else {
                     format!("{tool} {shown}")
                 };
-                self.row_put(
-                    id,
-                    SessionRow::Tool {
-                        id: self.row_id(id),
-                        at: self.instant(),
-                        text,
-                        subagent: None,
-                    },
-                )
-                .await;
+                let (row, at) = (self.row_id(id), self.instant());
+                // A subagent call's row is put again as the subagent works, so it is remembered by its call.
+                let drawn = runtime.state().call_rows.drawn(&call, &row, &at, &text);
+                let row = drawn.unwrap_or(SessionRow::Tool { id: row, at, text, subagent: None });
+                self.row_put(id, row).await;
             }
             // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.
             DroneEvent::Answered { call, failed } => {
@@ -397,8 +404,17 @@ where
                 if let (Some(path), false) = (page, failed) {
                     self.page_written(id, path).await;
                 }
+                // The CLI hands the person's held words over with the round of results that frees the turn.
+                let read = runtime.state().call_rows.answered(&call);
+                for row in read {
+                    self.row_put(id, row).await;
+                }
             }
             DroneEvent::Ended { cost_micros, .. } => {
+                let read = runtime.state().call_rows.read();
+                for row in read {
+                    self.row_put(id, row).await;
+                }
                 self.turn_ended(id, runtime, cost_micros).await;
             }
             // The harness's words for it were shown as a row; this signs the Fleet out.
