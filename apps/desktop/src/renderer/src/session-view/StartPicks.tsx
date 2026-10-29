@@ -1,6 +1,7 @@
 // What a held Job settles before any agent moves, in a strip pinned to the composer: its Workflow and its Delivery, beside the model and effort
 // the bar already has. The first message is the box, Send reads Start, and a press begins the agent. Nothing here once the Job has started.
-// Neither is ever blank once the proposer has read: each carries a default, and a mark only where the proposer or his usual chose it.
+// Neither is ever blank once the proposer has read: each carries a default, and a mark only where the proposer or his usual chose it. Workflow lists the repository's
+// workflows except those switched off for the machine or for the Job's repository (`workflows.off`, `../workflows-off.ts`), and None is always there.
 
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -30,7 +31,7 @@ const plural =(name: string): string => {
 /** The Kind and Lands picks for a held Job and the press that starts it; `undefined` for a Job that is not held. */
 export function useStartPicks(session: Session, repositories: readonly RepositorySummary[], compact: boolean): { lead: ReactNode; begin: (text: string) => Promise<boolean> } | undefined {
   const draft = useSessionsDraft();
-  // A workflow off on the machine, or in the Job's repository, is not offered: `workflows.off` in settings.json.
+  // A workflow off on the machine, or in the Job's repository, is not offered, and a Fleet that has not served the setting leaves every one on: `workflows.off` in settings.json.
   const off = workflowsOffOf(useSetting(WORKFLOWS_OFF_KEY));
   const [answered, setAnswered] = useState<{ id: string; choice: DeliveryChoice } | undefined>(undefined);
   // Fleet reads a custom Job's workflow as none, which is also how a Job it has not read looks, so his pick is kept here.
