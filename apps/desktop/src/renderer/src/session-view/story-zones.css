@@ -127,6 +127,14 @@
 .sv-brief__by { padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--accent); font: inherit; text-align: start; cursor: pointer; }
 .sv-brief__by:hover { text-decoration: underline; }
 .sv-brief__by:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+/* The tasks of his projects the Job holds, under the brief open or shut: a row as How it started draws one, a line each with its project. */
+.sv-brief__held { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); margin: 0; padding: 0 var(--space-2) 0 var(--lead); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-brief__tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.sv-brief__task { display: flex; align-items: baseline; gap: var(--space-2); max-width: 100%; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-default); font: inherit; text-align: start; cursor: pointer; }
+.sv-brief__task:hover .sv-brief__task-title { text-decoration: underline; }
+.sv-brief__task:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+.sv-brief__task-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-brief__task-project { flex: none; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
 
 /* A folded step has nothing passing under its band, so the band drops the ground that hides the line, and the line runs on through it to the next step. */
 .sv-spine .sv-panel.sv-panel:is([data-collapsed][data-area="step-done"], [data-area="step-next"]) { padding-block-end: var(--space-2); }
