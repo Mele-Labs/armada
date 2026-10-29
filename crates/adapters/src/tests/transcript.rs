@@ -106,6 +106,69 @@ fn an_init_line_says_which_of_armadas_pieces_the_session_came_up_with() {
     assert!(!strings.door_connected && !strings.task_tools, "a bare name says nothing of a connection");
 }
 
+/// An `init` line as CLI 2.1.310 writes the three lists: plugins as `{name, path}`, servers as
+/// `{name, status}`, tools as strings.
+fn init_listing(plugins: &str, servers: &str, tools: &str) -> HarnessReading {
+    started_by(&format!(
+        r#"{{"type":"system","subtype":"init","claude_code_version":"2.1.310","plugins":{plugins},"mcp_servers":{servers},"tools":{tools}}}"#
+    ))
+}
+
+#[test]
+fn the_mod_is_loaded_when_a_plugin_is_named_armada_whichever_marketplace_it_came_from() {
+    let loaded = |plugin: &str| init_listing(&format!(r#"[{{"name":"{plugin}","path":"/m"}}]"#), "[]", "[]").mod_loaded;
+    assert!(loaded("armada"));
+    assert!(loaded("armada@armada-local"), "a plugin loaded from a folder or a marketplace carries where from");
+    assert!(!loaded("armada-extras"), "another plugin whose name begins the same way");
+    assert!(!loaded("other@armada"), "the marketplace is not the plugin");
+    assert!(!init_listing("[]", "[]", "[]").mod_loaded, "no plugins");
+}
+
+#[test]
+fn the_door_is_connected_only_when_fleets_server_says_connected() {
+    let door = |servers: &str| init_listing("[]", servers, "[]").door_connected;
+    assert!(door(r#"[{"name":"armada-fleet","status":"connected"}]"#));
+    assert!(door(r#"[{"name":"github","status":"failed"},{"name":"armada-fleet","status":"connected"}]"#));
+    assert!(!door(r#"[{"name":"armada-fleet","status":"pending"}]"#), "still starting");
+    assert!(!door(r#"[{"name":"armada-fleet","status":"failed"}]"#));
+    assert!(!door(r#"[{"name":"armada-fleet"}]"#), "no status says nothing of a connection");
+    assert!(!door(r#"[{"name":"github","status":"connected"}]"#), "another server's connection is not the door's");
+    assert!(!door("[]"));
+}
+
+#[test]
+fn a_session_can_keep_a_task_list_with_the_task_tools_or_the_older_todo_write() {
+    let tasks = |tools: &str| init_listing("[]", "[]", tools).task_tools;
+    assert!(tasks(r#"["Read","TaskCreate","TaskUpdate"]"#));
+    assert!(tasks(r#"["Read","TodoWrite"]"#));
+    assert!(!tasks(r#"["Read","Task","TaskGet"]"#), "the subagent tool and a reader do not keep a list");
+    assert!(!tasks("[]"));
+}
+
+#[test]
+fn an_init_line_without_the_lists_reads_as_nothing_there() {
+    let bare = started_by(r#"{"type":"system","subtype":"init","session_id":"s","model":"m"}"#);
+    assert_eq!(bare, HarnessReading::default());
+}
+
+/// The captures the testkit keeps replace each operator's inventory with a count, as a string in the
+/// list. Those lines still read, and say nothing is there to show a piece is.
+#[test]
+fn a_redacted_init_line_still_parses_and_shows_no_piece_as_there() {
+    let fixture = include_str!("../../../testkit/fixtures/ndjson/silence.ndjson");
+    let line = fixture.lines().find(|line| line.contains(r#""subtype": "init""#)).expect("an init line");
+    assert!(line.contains("<redacted: "), "the fixture is redacted: {line}");
+
+    let events = read(line);
+    let [DroneEvent::Started { model, mcp_servers, harness, .. }] = &events[..] else {
+        panic!("a redacted init is still one Started event: {events:?}")
+    };
+    assert_eq!(model, "claude-sonnet-5");
+    assert_eq!(*mcp_servers, 1, "the redacted list is the one entry that stands for the rest");
+    assert_eq!(harness.version, "2.1.241");
+    assert!(!harness.mod_loaded && !harness.door_connected && !harness.task_tools, "{harness:?}");
+}
+
 #[test]
 fn a_denied_call_is_an_event_and_not_an_absence() {
     // Three independent places carry a denial, so nothing here has to infer one

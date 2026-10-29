@@ -111,6 +111,7 @@ mod session_gate_leases;
 mod session_account;
 mod session_servers;
 mod session_activity;
+mod session_tools_missing;
 mod session_annotation_done;
 mod session_note_artifacts;
 mod pull_request_notes;

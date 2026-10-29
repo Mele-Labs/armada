@@ -103,6 +103,30 @@ fn a_session_starts_its_first_turn_without_waiting_on_a_slow_server() {
     }
 }
 
+/// A Job gets the mod whether or not the person installed it into their CLI: the process is pointed at
+/// Fleet's copy, once, on a fresh launch and a resumed one alike.
+#[test]
+fn a_launch_that_loads_the_mod_passes_its_folder_to_the_cli_once() {
+    for resuming in [false, true] {
+        let launch = launching(resuming, SessionMode::Auto).loading_mod("/var/armada/mod/armada").expect("absolute");
+        let args = rendered(&launch);
+        assert_eq!(args.iter().filter(|arg| *arg == "--plugin-dir").count(), 1, "resuming: {resuming}: {args:?}");
+        assert_eq!(value_after(&args, "--plugin-dir").as_deref(), Some("/var/armada/mod/armada"));
+    }
+}
+
+#[test]
+fn a_launch_that_was_not_given_the_mod_passes_no_plugin_folder() {
+    let args = rendered(&launching(false, SessionMode::Auto));
+    assert!(!args.iter().any(|arg| arg == "--plugin-dir"), "{args:?}");
+}
+
+#[test]
+fn a_relative_mod_folder_is_refused_before_it_starts() {
+    let refused = launching(false, SessionMode::Auto).loading_mod("mod/armada").err();
+    assert_eq!(refused, Some(HostedRefused::PluginNotAbsolute { given: String::from("mod/armada") }));
+}
+
 #[test]
 fn the_next_process_resumes_by_the_same_id() {
     let args = rendered(&launching(true, SessionMode::Auto));
@@ -257,10 +281,25 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 7, "needs, drafts, progress, planning, subagents, watching, finishing");
+    assert_eq!(blocks.len(), 8, "tools, needs, drafts, progress, planning, subagents, watching, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }
+}
+
+/// A CLI lists the task and armada tools by name only until they are loaded, so the rules hand the
+/// agent the one `ToolSearch` line that loads them. Without it an agent calls `waiting_for` blind.
+#[test]
+fn the_rules_name_the_one_tool_search_line_that_loads_the_task_and_armada_tools() {
+    let tools = rules().split("\n\n").find(|block| block.starts_with("Tools.")).expect("a tools paragraph");
+    // The paragraph also names the bare `select:` prefix, for any other tool; only a line with tools after it loads some.
+    let loading = || tools.split('`').filter(|quoted| quoted.starts_with("select:") && quoted.len() > "select:".len());
+    let line = loading().next().expect("a select: line in backticks");
+    let door = format!("mcp__{}__waiting_for", ipc::door::SERVER);
+    for named in ["TaskCreate", "TaskUpdate", door.as_str()] {
+        assert!(line.split([':', ',']).any(|one| one == named), "{named} in {line}");
+    }
+    assert_eq!(loading().count(), 1, "one line, not several calls");
 }
 
 /// Helm's note is appended to every process of its Session after the rules, and a blank one is
