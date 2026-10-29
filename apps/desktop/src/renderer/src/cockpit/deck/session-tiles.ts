@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "requests" | "terminal" | "browser" | "pause";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "system" | "requests" | "terminal" | "browser" | "pause";
 
 const ARMADA = "armada";
 
@@ -40,6 +40,7 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "subagents", label: "Subagents", text: "Subagents" },
   { id: "checks", label: "Checks", text: "Checks" },
   { id: "slot", label: "Bays", text: "Bays" },
+  { id: "system", label: "System", text: "System" },
   // Opens Requests in the side panel for this Job. Past the tenth, so no key.
   { id: "requests", label: "Requests", text: "Requests" },
   // The Job's shell, docked or in the side panel as `terminal.openJobTerminalIn` says (`job-shell-dock.tsx`). Moved here from the Job's header on the owner's ask of 23 Oct 2026.

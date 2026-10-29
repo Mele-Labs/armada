@@ -298,6 +298,14 @@ button.sv-group__head:focus-visible { outline: var(--focus-ring); outline-offset
 .sv-process__port, .sv-process__pid { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .sv-process__state { justify-content: center; }
 .sv-process__act { display: flex; justify-content: flex-end; }
+/* Name, value and bar stand in fixed columns, so the three readings line up. */
+.sv-reading { display: grid; grid-template-columns: 8ch minmax(0, 1fr) 12ch; align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sv-reading__name { color: var(--fg-default); }
+.sv-reading__value { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sv-reading__bar { width: 100%; height: var(--space-2); accent-color: var(--accent); }
+.sv-log { display: grid; grid-template-columns: minmax(0, 1fr) 10ch; align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sv-log__name { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.sv-log__size { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: end; }
 .sv-layer__row {
   display: grid;
   grid-template-columns: var(--space-6) minmax(0, 1fr) minmax(0, auto) auto;
