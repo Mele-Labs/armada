@@ -306,14 +306,14 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
   );
 }
 
-/** Flight control's Browser tile: lit while the Job browser shows, and absent where the Job has none. */
+/** Flight control's Browser tile: lit while the Job browser shows. A press where the Job has none makes an empty one. */
 export type JobBrowserTile = { shown: boolean; press: () => void };
 
-export function useJobBrowserTile(sessionId: string): JobBrowserTile | undefined {
+export function useJobBrowserTile(sessionId: string): JobBrowserTile {
   const browser = useJobBrowser(sessionId);
   const open = usePanel().open;
-  if (browser === undefined) return undefined;
-  return { shown: browser.windowed || (open?.kind === "browser" && open.sessionId === sessionId), press: () => openBrowser(sessionId) };
+  const shown = browser !== undefined && (browser.windowed || (open?.kind === "browser" && open.sessionId === sessionId));
+  return { shown, press: () => openBrowser(sessionId) };
 }
 
 /** What the press on a reminder tells the Job, as the person's message. */
