@@ -78,6 +78,8 @@ pub struct HostedLaunch {
     environment: Environment,
     gate: String,
     readable: Vec<String>,
+    /// The folder holding the `armada` mod's plugin, loaded for this process alone.
+    plugin: Option<String>,
 }
 
 impl HostedLaunch {
@@ -139,6 +141,7 @@ impl HostedLaunch {
             environment,
             gate: gate.to_string(),
             readable,
+            plugin: None,
         })
     }
 }
@@ -172,6 +175,19 @@ impl HostedLaunch {
         let note = note.trim();
         self.note = (!note.is_empty()).then(|| note.to_string());
         self
+    }
+
+    /// Load the mod's plugin from `directory` for this process, whether or not the person installed
+    /// it themselves: a CLI that has it installed too loads it once, this copy winning. Absolute,
+    /// like every path in argv.
+    pub fn loading_mod(mut self, directory: &str) -> Result<HostedLaunch, HostedRefused> {
+        if !directory.starts_with('/') {
+            return Err(HostedRefused::PluginNotAbsolute {
+                given: directory.to_string(),
+            });
+        }
+        self.plugin = Some(directory.to_string());
+        Ok(self)
     }
 
     /// End the copy at the transcript line `uuid` of the session forked from,
@@ -294,6 +310,10 @@ impl HeadlessAgent {
         for directory in &hosted.readable {
             args.push("--add-dir".into());
             args.push(directory.clone());
+        }
+        if let Some(plugin) = &hosted.plugin {
+            args.push("--plugin-dir".into());
+            args.push(plugin.clone());
         }
         match (&hosted.fork_of, hosted.resuming) {
             (Some(old), false) => {
@@ -699,6 +719,7 @@ const READS: &[&str] = &[
 pub enum HostedRefused {
     DirectoryNotAbsolute { given: String },
     SessionNotPortable { given: String },
+    PluginNotAbsolute { given: String },
     EffortNotPortable { given: String },
     ForkNotTold,
     SettingsNotWritten(String),
@@ -718,6 +739,9 @@ impl fmt::Display for HostedRefused {
                     out,
                     "the job id `{given}` is not one the agent CLI takes"
                 )
+            }
+            HostedRefused::PluginNotAbsolute { given } => {
+                write!(out, "the mod's folder `{given}` is relative, so the CLI would look for it wherever it ran")
             }
             HostedRefused::EffortNotPortable { given } => {
                 write!(out, "the effort `{given}` is not one the agent CLI takes")

@@ -342,3 +342,45 @@ fn the_jobs_scratch_folder_is_chmodded_by_its_variable_its_home_or_its_quoted_pa
         assert_eq!(bash_holding_spaced_scratch(line), Some(Because::Destructive), "{line} should be refused");
     }
 }
+
+#[test]
+fn a_move_between_the_slot_and_tmp_runs_and_one_that_reaches_elsewhere_asks() {
+    ran(&[
+        "mv .rwx/downloads/report.pdf /tmp/",
+        "mv .rwx/downloads/report.pdf /tmp",
+        "mv /tmp/report.pdf .rwx/downloads/",
+        "mv /tmp/a /tmp/b",
+        "mv -f notes.txt /repo/.armada/slots/slot-3/old/notes.txt",
+    ]);
+    refused(
+        &["mv notes.txt ~/Documents/", "mv /repo/crates /tmp/", "mv /tmp/a /repo/crates/a"],
+        Because::Destructive,
+    );
+}
+
+#[test]
+fn a_sed_that_prints_is_a_read_and_one_that_edits_in_place_is_a_write() {
+    let reaching = |line: &str| {
+        let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: line } }).expect("an ask");
+        let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+        match guarded_in_a_session(&ask, &[SLOT], Own::default(), Folders::default()) {
+            Some(Guarded::Because { to, .. }) => to,
+            _ => None,
+        }
+    };
+    for line in [
+        r#"G=/Users/user/Documents/plan.md; n=$(grep -n "^## 4" $G | cut -d: -f1); sed -n "${n},$((n+45))p" $G"#,
+        "sed -n 1,5p /Users/user/Documents/plan.md",
+        "sed -e 's/a/b/' /Users/user/Documents/plan.md | head",
+    ] {
+        assert_eq!(reaching(line), Some(ipc::ReachesTo::Read), "{line} should ask to read");
+    }
+    for line in [
+        "sed -i 's/a/b/' /Users/user/Documents/plan.md",
+        "sed -ni 1,5p /Users/user/Documents/plan.md",
+        "sed -i.bak 's/a/b/' /Users/user/Documents/plan.md",
+        "sed --in-place 's/a/b/' /Users/user/Documents/plan.md",
+    ] {
+        assert_eq!(reaching(line), Some(ipc::ReachesTo::Write), "{line} should ask to write");
+    }
+}

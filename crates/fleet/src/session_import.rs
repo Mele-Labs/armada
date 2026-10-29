@@ -151,7 +151,7 @@ where
         let folder = crate::runtime::mod_dir(&self.host().home);
         let trees: Vec<PathBuf> = self.repositories().served().iter().map(|one| PathBuf::from(one.root())).collect();
         let done = tokio::task::spawn_blocking(move || {
-            if let Err(said) = populated(&home, &folder, &trees) {
+            if let Err(said) = agent_mod::populated(&home, &folder, &trees, STEP_WITHIN) {
                 return Installed::Failed { step: Step::Populate, said };
             }
             agent_mod::install(asked, agent_mod::PROGRAM.as_ref(), &path, &home, &folder, STEP_WITHIN)
@@ -164,25 +164,25 @@ where
         })
     }
 
+    /// Fleet's copy of the mod filled before a hosted process loads it with `--plugin-dir`. Nothing
+    /// to do once it is; otherwise the script runs on a blocking thread. **A failure only means the
+    /// process starts without the mod**, so it is logged and never fails the launch.
+    pub(crate) async fn mod_filled_for_launch(&self) {
+        let home = PathBuf::from(&self.host().home);
+        let folder = crate::runtime::mod_dir(&self.host().home);
+        if agent_mod::is_populated(&folder) {
+            return;
+        }
+        let trees: Vec<PathBuf> = self.repositories().served().iter().map(|one| PathBuf::from(one.root())).collect();
+        let filling = tokio::task::spawn_blocking(move || agent_mod::populated(&home, &folder, &trees, STEP_WITHIN)).await;
+        match filling {
+            Ok(Ok(())) => {}
+            Ok(Err(said)) => eprintln!("the mod's copy was not filled, so the job starts without it: {said}"),
+            Err(why) => eprintln!("the mod's copy was not filled, so the job starts without it: {why}"),
+        }
+    }
+
     fn import_fault(&self, why: String) -> Refusal {
         Refusal::Fault(WireError::raised("fleet.import_failed", why, self.run_id()))
-    }
-}
-
-/// Fleet's copy of the mod is there, filled from a served tree that holds the mod when it was not.
-fn populated(home: &Path, folder: &Path, trees: &[PathBuf]) -> Result<(), String> {
-    if agent_mod::is_populated(folder) {
-        return Ok(());
-    }
-    let Some(tree) = trees.iter().find(|tree| agent_mod::can_populate_from(tree)) else {
-        return Err(format!(
-            "{} holds no copy of the mod, and none of the repositories this Fleet serves has one to copy",
-            folder.display()
-        ));
-    };
-    agent_mod::populate(tree, home, STEP_WITHIN)?;
-    match agent_mod::is_populated(folder) {
-        true => Ok(()),
-        false => Err(format!("{} is still empty after copying from {}", folder.display(), tree.display())),
     }
 }

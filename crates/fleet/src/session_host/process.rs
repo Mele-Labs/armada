@@ -237,6 +237,15 @@ impl Processes for ProcessHost {
             Some(note) => hosted.noting(note),
             None => hosted,
         };
+        // The copy's plugin, when it holds one: a job gets the mod whether or not the person ever
+        // installed it into their CLI.
+        let plugin = crate::runtime::mod_dir(&self.home);
+        let hosted = match plugin.join(adapters::MOD_INSTALLED_MANIFEST).is_file() {
+            true => hosted
+                .loading_mod(&plugin.join("armada").to_string_lossy())
+                .map_err(|why| why.to_string())?,
+            false => hosted,
+        };
         let launch = self
             .agent
             .render_hosted_session(&hosted)

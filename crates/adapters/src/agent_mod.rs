@@ -7,7 +7,7 @@
 
 use std::ffi::OsStr;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -68,6 +68,25 @@ pub fn populate(tree: &Path, home: &Path, within: Duration) -> Result<(), String
     let mut script = Command::new(tree.join(SYNC_SCRIPT));
     script.arg(tree).env("HOME", home);
     run(script, within).map(|_| ())
+}
+
+/// Fleet's copy of the mod is there, filled from the first of `trees` that holds the mod when it
+/// was not. Blocking: it runs the script.
+pub fn populated(home: &Path, folder: &Path, trees: &[PathBuf], within: Duration) -> Result<(), String> {
+    if is_populated(folder) {
+        return Ok(());
+    }
+    let Some(tree) = trees.iter().find(|tree| can_populate_from(tree)) else {
+        return Err(format!(
+            "{} holds no copy of the mod, and none of the repositories this Fleet serves has one to copy",
+            folder.display()
+        ));
+    };
+    populate(tree, home, within)?;
+    match is_populated(folder) {
+        true => Ok(()),
+        false => Err(format!("{} is still empty after copying from {}", folder.display(), tree.display())),
+    }
 }
 
 /// Add the marketplace and install the plugin with `program`, the CLI. **Both commands are tried**:
