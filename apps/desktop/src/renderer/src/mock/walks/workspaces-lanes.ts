@@ -1,5 +1,5 @@
 // Workspaces, lifecycles and rules (29 Oct 2026): System › Workflows draws the Workspace my-store as lanes, a workflow over the lifecycles it moves, with rules as the edges
-// between them. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Workflow opens in the same panel and draws the same lanes
+// between them, on a Default tab first, then all of my-store and each repository. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Workflow opens in the same panel and draws the same lanes
 // as its tickets, pull request and deploy move, until the deploy is healthy and the tickets are closed. Ending a Job that still holds a deploy lists what is in flight first.
 // A third Job goes through app feedback and changes its own copy of the workflow, starts two Jobs that each get a lane, and offers `dispatch`; on a window wider than 1800px
 // the Workflow opens in the spine instead of the side panel, which the scenario switches on for a step because a walk cannot resize its window.
@@ -35,15 +35,16 @@ const inSpine = (name: string) => inside(SPINE_LANES, button(name, { exact: true
 export const workspacesLanes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
   { look: LANES, say: "my-store: the feature workflow on top, and a lane each for Ticket, PR and Deploy" },
-  { look: RUNS_IN, say: "Runs in: all of my-store, or one repository's tab. The canvas draws the workflow as it runs there" },
-  { look: inside(LANES, role("img", "Differs in store-api")), say: "A mark on In review: one repository reads it differently" },
+  { look: RUNS_IN, say: "Runs in opens on Default: the workflow as it runs anywhere no Workspace or repository changed it. Then all of my-store, and a tab for each repository" },
+  { look: inside(LANES, role("img", "Differs in my-store, store-api")), say: "A mark on In review: my-store and store-api read it differently" },
+  { press: tab("All of my-store"), say: "All of my-store carries the changed mark, since it differs from Default. Its line says what an edit there changes" },
   { press: tab("store-api"), say: "store-api's tab draws the lanes as the workflow runs in store-api" },
   { look: inside(LANES, role("img", "Differs in store-api")), say: "In review carries the mark here too: it is store-api's own" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "The Ticket lifecycle's In review state, in the side panel over the canvas" },
   { look: inside(PANEL, statuses()), say: "Jira statuses, a field saved as it is changed: Peer Review in store-api" },
   { look: inside(PANEL, text("Changed for store-api")), say: "Marked as changed for store-api, with a way back to my-store's" },
   { press: inside(PANEL, button("Close")), say: "Close the panel" },
-  { press: tab("All of my-store"), say: "Back to the base" },
+  { press: tab("All of my-store"), say: "Back to all of my-store" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review again, for all of my-store" },
   { look: inside(PANEL, statuses()), say: "Code Review and In Review count as In review for my-store" },
   { press: inside(LANES, button("Move to In review", { exact: true })), say: "Another node switches the panel: a rule, the edge from the PR lane to the Ticket lane" },
@@ -58,7 +59,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { press: inside(PANEL, button("Use my-store's", { exact: true })), say: "Use my-store's drops store-api's own value" },
   { look: inside(PANEL, statuses()), say: "store-api reads Code Review and In Review again, and the mark is gone" },
   { press: inside(PANEL, button("Close")), say: "Close the panel" },
-  { press: tab("All of my-store"), say: "Back to the base" },
+  { press: tab("All of my-store"), say: "Back to all of my-store" },
   { type: "close the ticket once merged and the deploy is healthy", into: ASK, say: "Tell an agent what to change" },
   { press: button("Send to agent"), say: "Send" },
   { look: inside(PROPOSED, group("Close the ticket")), say: "The rule it drew up: when Deploy is Healthy, move the ticket to Done" },

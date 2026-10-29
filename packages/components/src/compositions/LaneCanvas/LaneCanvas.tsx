@@ -64,7 +64,7 @@ export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string
 
 /** What the person may do by hand to the lanes. Every act takes what is picked; a connector takes the two nodes it joins. */
 export type LaneEditing = {
-  /** One repository's tab is drawn: only its values and autonomy are edited, as an override for it, so there is no Add after, no Delete and no connector. */
+  /** A tab below the default is drawn: its fields are edited as an override for that level, so there is no Add after, no Delete and no connector. Those are the workflow's own. */
   scoped?: boolean;
   /** Takes the person to the picked thing's fields, which the side panel draws live. */
   onEdit: (pick: LanePick) => void;
@@ -131,7 +131,7 @@ function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undef
   return undefined;
 }
 
-/** What a mark on a node or a rule says of the repositories it differs in: `Differs in store-api`. */
+/** What a mark on a node or a rule says of the levels it differs in: `Differs in my-store, store-api`. */
 const differsSaid = (names: readonly string[]): string => `Differs in ${names.join(", ")}`;
 
 /** The acts a toolbar offers after Edit, with their glyphs and the keys that do them. */

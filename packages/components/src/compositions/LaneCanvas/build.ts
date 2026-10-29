@@ -1,8 +1,8 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { END_ITEM, START_ITEM, lifecyclesFor, nodeId, ruleDiffers, stateDiffers } from "./model";
-import type { Autonomy, Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, Rule, RuleView, Workspace } from "./model";
+import { DEFAULT, END_ITEM, START_ITEM, layersAt, lifecyclesAt, lifecyclesFor, nodeId, overviews, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
+import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, Rule, RuleView, Workspace } from "./model";
 
 /** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
 const STATE_KIND: Readonly<Record<LifecycleKind, NodeKind>> = { tracker: "tracker", forge: "forge", watch: "watch", document: "document", job: "job" };
@@ -42,18 +42,42 @@ function endsOnSaid(step: LaneStep, lifecycles: readonly Lifecycle[]): string | 
   return `Ends on ${lifecycle?.label ?? step.endsOn.lane}: ${state?.label ?? step.endsOn.state}`;
 }
 
-/** The steps of a workflow, placed in columns where the Workspace says, and in order where it does not. */
-export function stepsOf(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[]): LaneStep[] {
+/** The steps of a workflow, placed in columns where the Workspace says, and in order where it does not. At a level below the default each takes what that level changes of it. */
+export function stepsOf(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string = DEFAULT): LaneStep[] {
   return steps.map((step, at) => {
     const given = workspace.workflows[workflow]?.steps[step.id];
-    return { id: step.id, label: step.label, col: given?.col ?? at, ...(given?.endsOn === undefined ? {} : { endsOn: given.endsOn }), ...(given?.ends === undefined ? {} : { ends: given.ends }), ...(given?.passedOver === undefined ? {} : { passedOver: given.passedOver }) };
+    let label = step.label;
+    let ends = given?.ends;
+    let endsOn = given?.endsOn;
+    let passedOver = given?.passedOver;
+    for (const layer of layersAt(workspace.workflows[workflow], step.id, scope)) {
+      if (layer.label !== undefined) label = layer.label;
+      if (layer.ends !== undefined) {
+        ends = layer.ends;
+        endsOn = layer.endsOn;
+      }
+      if (layer.passedOver !== undefined) passedOver = layer.passedOver;
+    }
+    return { id: step.id, label, col: given?.col ?? at, ...(endsOn === undefined ? {} : { endsOn }), ...(ends === undefined ? {} : { ends }), ...(passedOver === undefined ? {} : { passedOver }) };
   });
 }
 
-/** The rules a workflow draws: its own, and the Workspace's wherever both ends are on its lanes. */
-export function rulesFor(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[]): Rule[] {
+/** The rules a workflow draws as they read at a level: its own, and the Workspace's wherever both ends are on its lanes. */
+export function rulesFor(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string = DEFAULT): Rule[] {
   const drawn = new Set<string>([...steps.map((step) => nodeId("workflow", step.id)), ...lifecyclesFor(workspace, workflow).flatMap((lifecycle) => lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)))]);
-  return workspace.rules.filter((rule) => (rule.workflow === undefined || rule.workflow === workflow) && drawn.has(nodeId(rule.from.lane, rule.from.item)) && drawn.has(nodeId(rule.to.lane, rule.to.item)));
+  return workspace.rules
+    .map((rule) => ruleAt(rule, scope))
+    .filter((rule) => (rule.workflow === undefined || rule.workflow === workflow) && drawn.has(nodeId(rule.from.lane, rule.from.item)) && drawn.has(nodeId(rule.to.lane, rule.to.item)));
+}
+
+/** Whether a tab changes anything in this workflow of what it takes from the level above. The default has no level above. */
+export function changedAt(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string): boolean {
+  if (scope === DEFAULT) return false;
+  return (
+    lifecyclesFor(workspace, workflow).some((lifecycle) => lifecycle.states.some((state) => stateDiffers(state).includes(scope))) ||
+    rulesFor(workspace, workflow, steps).some((rule) => ruleDiffers(rule).includes(scope)) ||
+    steps.some((step) => stepDiffers(workspace.workflows[workflow], step.id).includes(scope))
+  );
 }
 
 /**
@@ -65,23 +89,24 @@ export function editorLanes(input: {
   workflow: string;
   steps: readonly { id: string; label: string }[];
   proposed?: readonly Rule[];
-  /** `workspace`, the base, or the id of one repository: the lanes as the workflow runs there, with the marks for that repository alone and the autonomy it has. */
+  /** `default`, `workspace`, or the id of one repository: the lanes as the workflow runs there, with that level's names, words and autonomy, and the marks for what differs from it down. */
   scope?: string;
 }): { lanes: LaneView[]; rules: RuleView[] } {
   const { workspace, workflow } = input;
-  const scope = input.scope ?? "workspace";
-  const named = (ids: readonly string[]): string[] => ids.map((id) => workspace.repositories.find((one) => one.id === id)?.name ?? id);
-  /** The repositories a mark names: every one that differs on the base, and on a repository's own tab only that one. */
-  const marked = (ids: readonly string[]): string[] => named(scope === "workspace" ? ids : ids.filter((id) => id === scope));
-  /** A rule is drawn where it applies: everywhere on the base, and on a repository's tab where it is the Workspace's or that repository's own. */
-  const appliesHere = (rule: Rule): boolean => scope === "workspace" || rule.scope === "workspace" || rule.scope === scope;
-  const autonomyHere = (rule: Rule): Autonomy => (scope === "workspace" ? rule.autonomy : (rule.overrides?.find((one) => one.scope === scope)?.autonomy ?? rule.autonomy));
-  const steps = stepsOf(workspace, workflow, input.steps);
-  const lifecycles = lifecyclesFor(workspace, workflow);
+  const scope = input.scope ?? DEFAULT;
+  const named = (ids: readonly string[]): string[] => ids.map((id) => (id === "workspace" ? workspace.name : (workspace.repositories.find((one) => one.id === id)?.name ?? id)));
+  /** The levels a mark names: on the default's tab and the Workspace's every one under it that differs, and on a repository's own tab only that one. */
+  const marked = (ids: readonly string[]): string[] => named(overviews(scope) ? ids : ids.filter((id) => id === scope));
+  /** A rule is drawn where it applies: everywhere on the default's tab and the Workspace's, and on a repository's tab where it is the Workspace's or that repository's own. */
+  const appliesHere = (rule: Rule): boolean => overviews(scope) || rule.scope === DEFAULT || rule.scope === "workspace" || rule.scope === scope;
+  const steps = stepsOf(workspace, workflow, input.steps, scope);
+  const lifecycles = lifecyclesAt(workspace, workflow, scope);
+  const placeOf = workspace.workflows[workflow];
   const drawnSteps = withEnds(
     steps.map((step): LaneNodeView => {
       const sub = endsOnSaid(step, lifecycles);
-      return { id: nodeId("workflow", step.id), label: step.label, ...(sub === undefined ? {} : { sub }), col: step.col, role: "step", kind: kindOfStep(step) };
+      const differs = marked(stepDiffers(placeOf, step.id));
+      return { id: nodeId("workflow", step.id), label: step.label, ...(sub === undefined ? {} : { sub }), col: step.col, role: "step", kind: kindOfStep(step), ...(differs.length === 0 ? {} : { differs }) };
     }),
     steps.slice(1).map((step, at) => [nodeId("workflow", steps[at]!.id), nodeId("workflow", step.id)] as const),
   );
@@ -106,14 +131,14 @@ export function editorLanes(input: {
       from: nodeId(rule.from.lane, rule.from.item),
       to: nodeId(rule.to.lane, rule.to.item),
       label: rule.label,
-      autonomy: autonomyHere(rule),
+      autonomy: rule.autonomy,
       ...(differs.length === 0 ? {} : { differs }),
       ...(proposed ? { proposed: true as const } : {}),
     };
   };
   return {
     lanes: [flow, ...lanes],
-    rules: [...rulesFor(workspace, workflow, input.steps).filter(appliesHere).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).filter(appliesHere).map((rule) => drawn(rule, true))],
+    rules: [...rulesFor(workspace, workflow, input.steps, scope).filter(appliesHere).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => ruleAt(rule, scope)).filter(appliesHere).map((rule) => drawn(rule, true))],
   };
 }
 

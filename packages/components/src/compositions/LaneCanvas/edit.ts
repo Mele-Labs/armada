@@ -1,8 +1,9 @@
 // Editing the lanes by hand: what a press on a node's toolbar, a field in its panel or a connector dragged between two nodes comes to. Each is a pure change to the
 // Workspace, so the editor can draw what it makes and the host holds it. **A mock's edits**: no Fleet serves a Workspace yet.
 
-import { nodeId } from "./model";
-import type { Autonomy, LaneStep, Ref, Rule, StateDef, StateReads, Waits, Workspace, WorkflowPlace } from "./model";
+import { DEFAULT, levelsOf, nodeId, ruleAt, stateLabelAt } from "./model";
+import type { LaneStep, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";
+import { momentOf } from "./waits";
 
 const slug = (label: string): string => label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "new";
 
@@ -23,6 +24,7 @@ const placed = ({ id: _id, label: _label, ...rest }: LaneStep): Omit<LaneStep, "
 function shiftedFrom(place: WorkflowPlace, col: number): WorkflowPlace {
   const move = (at: number) => (at >= col ? at + 1 : at);
   return {
+    ...place,
     steps: Object.fromEntries(Object.entries(place.steps).map(([id, one]) => [id, { ...one, col: move(one.col) }])),
     states: Object.fromEntries(Object.entries(place.states).map(([id, at]) => [id, move(at)])),
   };
@@ -31,6 +33,9 @@ function shiftedFrom(place: WorkflowPlace, col: number): WorkflowPlace {
 // ---- Rules ---------------------------------------------------------------------------------------------------------------
 
 export type RulePatch = Partial<Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "overrides">>;
+
+/** The fields of a rule that can differ at a level below the default. */
+export type RuleFields = Partial<Pick<Rule, "label" | "from" | "at" | "ifs" | "does" | "autonomy">>;
 
 export const withRule = (workspace: Workspace, id: string, patch: RulePatch): Workspace => ({
   ...workspace,
@@ -41,12 +46,31 @@ export const withoutRule = (workspace: Workspace, id: string): Workspace => ({ .
 
 export const withNewRule = (workspace: Workspace, rule: Rule): Workspace => (workspace.rules.some((one) => one.id === rule.id) ? workspace : { ...workspace, rules: [...workspace.rules, rule] });
 
-/** One repository's autonomy for a rule, where it differs from the Workspace's; the same as the Workspace's takes the override away. */
-export function withOverride(workspace: Workspace, id: string, scope: string, autonomy: Autonomy): Workspace {
+const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * A rule's fields set at a level. At the default they are the rule's own. At the Workspace or a repository each is an override of the level above, and one that says what that level
+ * already does is no override, so it is dropped. A moment left unnamed is the first its node has.
+ */
+export function withRuleAt(workspace: Workspace, id: string, scope: string, patch: RuleFields): Workspace {
+  if (scope === DEFAULT) return withRule(workspace, id, patch);
   const rule = workspace.rules.find((one) => one.id === id);
   if (rule === undefined) return workspace;
+  const above = ruleAt(rule, levelsOf(scope)[1]!);
+  const { scope: _level, ...own } = rule.overrides?.find((one) => one.scope === scope) ?? { scope };
+  const next: Record<string, unknown> = { ...own };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "at" ? value === momentOf(above) : same(value, (above as Record<string, unknown>)[key])) delete next[key];
+    else next[key] = value;
+  }
   const rest = (rule.overrides ?? []).filter((one) => one.scope !== scope);
-  return withRule(workspace, id, { overrides: autonomy === rule.autonomy ? rest : [...rest, { scope, autonomy }] });
+  return withRule(workspace, id, { overrides: Object.keys(next).length === 0 ? rest : [...rest, { scope, ...next } as RuleOverride] });
+}
+
+/** Everything a level changes of a rule taken away: the rule reads as the level above says. */
+export function withoutRuleOverride(workspace: Workspace, id: string, scope: string): Workspace {
+  const rule = workspace.rules.find((one) => one.id === id);
+  return rule === undefined ? workspace : withRule(workspace, id, { overrides: (rule.overrides ?? []).filter((one) => one.scope !== scope) });
 }
 
 /** The words a rule is drawn with for an edge between two nodes: its source, its target, and what moving there says. */
@@ -68,7 +92,7 @@ export function ruleBetween(
     does: [toStep ? { act: "agent" as const, text: `Hand over to ${names.to}` } : { act: "tracker" as const, text: `Move the ${/^[A-Z0-9]+$/.test(names.lane) ? names.lane : names.lane.toLowerCase()} to ${names.to}` }],
     autonomy: "asks",
     kept: "yours",
-    scope: "workspace",
+    scope: DEFAULT,
     workflow,
   };
 }
@@ -82,12 +106,27 @@ const mapState = (workspace: Workspace, lane: string, state: string, change: (on
 
 export const withStateLabel = (workspace: Workspace, lane: string, state: string, label: string): Workspace => mapState(workspace, lane, state, (one) => ({ ...one, label }));
 
-/** The values that count as being in a state, for one source and one scope: the Workspace's, or a repository's. Empty values take a repository's own away. */
+/** A state's name set at a level. At the default it is the state's own; below it, a name that is the level above's is no override. */
+export function withStateLabelAt(workspace: Workspace, lane: string, state: string, scope: string, label: string): Workspace {
+  if (scope === DEFAULT) return withStateLabel(workspace, lane, state, label);
+  return mapState(workspace, lane, state, (one) => {
+    const others = (one.names ?? []).filter((each) => each.scope !== scope);
+    const names = label === stateLabelAt({ ...one, names: others }, levelsOf(scope)[1]!) ? others : [...others, { scope, label }];
+    return { ...one, names };
+  });
+}
+
+/** The values that count as being in a state, for one source and one level: the default's, the Workspace's, or a repository's. Empty values take a level below the default's own away. */
 export function withReads(workspace: Workspace, lane: string, state: string, read: { source: string; scope: string; values: readonly string[] }): Workspace {
   return mapState(workspace, lane, state, (one) => {
     const others: readonly StateReads[] = one.reads.filter((each) => !(each.source === read.source && each.scope === read.scope));
-    return { ...one, reads: read.values.length === 0 ? others : [...others, { source: read.source, scope: read.scope, values: read.values }] };
+    return { ...one, reads: read.values.length === 0 && read.scope !== DEFAULT ? others : [...others, { source: read.source, scope: read.scope, values: read.values }] };
   });
+}
+
+/** Everything a level changes of a state taken away: its name and its words read as the level above says. */
+export function withoutStateOverride(workspace: Workspace, lane: string, state: string, scope: string): Workspace {
+  return mapState(workspace, lane, state, (one) => ({ ...one, names: (one.names ?? []).filter((each) => each.scope !== scope), reads: one.reads.filter((each) => each.scope !== scope) }));
 }
 
 /** A new state after `after` in a lifecycle, placed one column on from it, with the later columns moved over. */
@@ -98,7 +137,7 @@ export function withStateAfter(workspace: Workspace, workflow: string, lane: str
   const id = uniqueId(label, lifecycle.states.map((one) => one.id));
   const at = lifecycle.states.findIndex((one) => one.id === after);
   const source = lifecycle.states.find((one) => one.id === after)?.reads[0]?.source ?? lifecycle.from;
-  const state: StateDef = { id, label, reads: [{ source, values: [label], scope: "workspace" }] };
+  const state: StateDef = { id, label, reads: [{ source, values: [label], scope: DEFAULT }] };
   const states = [...lifecycle.states.slice(0, at + 1), state, ...lifecycle.states.slice(at + 1)];
   const leaves = lifecycle.next.filter(([from]) => from === after);
   const next = [...lifecycle.next.filter(([from]) => from !== after), [after, id] as const, ...leaves.map(([, to]) => [id, to] as const)];
@@ -144,7 +183,13 @@ export function withoutStep(workspace: Workspace, workflow: string, id: string):
   const gone = nodeId("workflow", id);
   const place = workspace.workflows[workflow];
   return {
-    ...(place === undefined ? workspace : replaceWorkflow(workspace, workflow, { ...place, steps: Object.fromEntries(Object.entries(place.steps).filter(([key]) => key !== id)) })),
+    ...(place === undefined
+      ? workspace
+      : replaceWorkflow(workspace, workflow, {
+          ...place,
+          steps: Object.fromEntries(Object.entries(place.steps).filter(([key]) => key !== id)),
+          ...(place.layers === undefined ? {} : { layers: place.layers.filter((one) => one.step !== id) }),
+        })),
     rules: workspace.rules.filter((rule) => !((rule.workflow === undefined || rule.workflow === workflow) && (nodeId(rule.from.lane, rule.from.item) === gone || nodeId(rule.to.lane, rule.to.item) === gone))),
   };
 }
@@ -181,4 +226,38 @@ export function withStepWhen(
   const { endsOn: _gone, ...rest } = was;
   steps[id] = { ...(which === "ends" ? rest : was), [which]: value, ...(which === "ends" && endsOn !== undefined ? { endsOn } : {}) };
   return replaceWorkflow(workspace, workflow, { ...place, steps });
+}
+
+/**
+ * A step's fields set at a level below the default: its name, its words, what ends it and what passes it over. Each is an override of the level above, and one that says what that level
+ * already does is no override. `above` is what the level above says. `endsOn` goes with `ends`.
+ */
+export type StepFields = Partial<Pick<StepLayer, "label" | "words" | "ends" | "endsOn" | "passedOver">>;
+
+export function withStepLayer(workspace: Workspace, workflow: string, step: string, scope: string, patch: StepFields, above: StepFields): Workspace {
+  const place = workspace.workflows[workflow] ?? { steps: {}, states: {} };
+  const layers = place.layers ?? [];
+  const { step: _step, scope: _level, ...own } = layers.find((one) => one.step === step && one.scope === scope) ?? { step, scope };
+  const next: Record<string, unknown> = { ...own };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "endsOn") continue;
+    if (same(value, (above as Record<string, unknown>)[key])) {
+      delete next[key];
+      if (key === "ends") delete next.endsOn;
+    } else {
+      next[key] = value;
+      if (key === "ends") {
+        if (patch.endsOn === undefined) delete next.endsOn;
+        else next.endsOn = patch.endsOn;
+      }
+    }
+  }
+  const rest = layers.filter((one) => !(one.step === step && one.scope === scope));
+  return replaceWorkflow(workspace, workflow, { ...place, layers: Object.keys(next).length === 0 ? rest : [...rest, { step, scope, ...next } as StepLayer] });
+}
+
+/** Everything a level changes of a step taken away: it reads as the level above says. */
+export function withoutStepLayer(workspace: Workspace, workflow: string, step: string, scope: string): Workspace {
+  const place = workspace.workflows[workflow];
+  return place === undefined ? workspace : replaceWorkflow(workspace, workflow, { ...place, layers: (place.layers ?? []).filter((one) => !(one.step === step && one.scope === scope)) });
 }

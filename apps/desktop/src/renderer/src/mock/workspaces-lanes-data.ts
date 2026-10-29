@@ -81,24 +81,27 @@ export const STORE_ENDS: Readonly<Record<string, { ends: string; endsAny?: reado
 
 // ---- The lifecycles -------------------------------------------------------------------------------------------------------
 
+// The words a state is read as are set at a level: `default`, the Workspace's (`workspace`) or one repository's, by its id. In review is In Review by default, Code Review and In Review for my-store
+// and Peer Review in store-api, so each tab reads it differently and the two below the default carry the changed mark.
 const TICKET: LifecycleDef = {
   id: "ticket",
   label: "Ticket",
   from: "Jira",
   kind: "tracker",
   states: [
-    { id: "todo", label: "To do", reads: [{ source: "Jira", values: ["To Do", "Backlog"], scope: "workspace" }] },
-    { id: "ready", label: "Ready", reads: [{ source: "Jira", values: ["Ready for Dev", "Selected for Development"], scope: "workspace" }] },
-    { id: "in_progress", label: "In progress", reads: [{ source: "Jira", values: ["In Progress"], scope: "workspace" }] },
+    { id: "todo", label: "To do", reads: [{ source: "Jira", values: ["To Do", "Backlog"], scope: "default" }] },
+    { id: "ready", label: "Ready", reads: [{ source: "Jira", values: ["Ready for Dev", "Selected for Development"], scope: "default" }] },
+    { id: "in_progress", label: "In progress", reads: [{ source: "Jira", values: ["In Progress"], scope: "default" }] },
     {
       id: "in_review",
       label: "In review",
       reads: [
+        { source: "Jira", values: ["In Review"], scope: "default" },
         { source: "Jira", values: ["Code Review", "In Review"], scope: "workspace" },
         { source: "Jira", values: ["Peer Review"], scope: API },
       ],
     },
-    { id: "done", label: "Done", end: true, reads: [{ source: "Jira", values: ["Done", "Closed"], scope: "workspace" }] },
+    { id: "done", label: "Done", end: true, reads: [{ source: "Jira", values: ["Done", "Closed"], scope: "default" }] },
   ],
   next: [
     ["todo", "ready"],
@@ -115,11 +118,11 @@ const PULL_REQUEST: LifecycleDef = {
   from: "GitHub",
   kind: "forge",
   states: [
-    { id: "draft", label: "Draft", reads: [{ source: "GitHub", values: ["Draft"], scope: "workspace" }] },
-    { id: "reviewers_on", label: "Reviewers on", reads: [{ source: "GitHub", values: ["Review requested"], scope: "workspace" }] },
-    { id: "in_review", label: "In review", reads: [{ source: "GitHub", values: ["Ready for review", "Review comments"], scope: "workspace" }] },
-    { id: "approved", label: "Approved", reads: [{ source: "GitHub", values: ["Approved by a reviewer"], scope: "workspace" }] },
-    { id: "merged", label: "Merged", end: true, reads: [{ source: "GitHub", values: ["Merged"], scope: "workspace" }] },
+    { id: "draft", label: "Draft", reads: [{ source: "GitHub", values: ["Draft"], scope: "default" }] },
+    { id: "reviewers_on", label: "Reviewers on", reads: [{ source: "GitHub", values: ["Review requested"], scope: "default" }] },
+    { id: "in_review", label: "In review", reads: [{ source: "GitHub", values: ["Ready for review", "Review comments"], scope: "default" }] },
+    { id: "approved", label: "Approved", reads: [{ source: "GitHub", values: ["Approved by a reviewer"], scope: "default" }] },
+    { id: "merged", label: "Merged", end: true, reads: [{ source: "GitHub", values: ["Merged"], scope: "default" }] },
   ],
   next: [
     ["draft", "reviewers_on"],
@@ -135,8 +138,8 @@ const DEPLOY: LifecycleDef = {
   from: "Rollout watch",
   kind: "watch",
   states: [
-    { id: "rolling_out", label: "Rolling out", reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "workspace" }] },
-    { id: "healthy", label: "Healthy", end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "workspace" }] },
+    { id: "rolling_out", label: "Rolling out", reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "default" }] },
+    { id: "healthy", label: "Healthy", end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "default" }] },
   ],
   next: [["rolling_out", "healthy"]],
 };
@@ -148,9 +151,9 @@ const DOCUMENT: LifecycleDef = {
   from: "Armada document",
   kind: "document",
   states: [
-    { id: "draft", label: "Draft", reads: [{ source: "Armada document", values: ["draft"], scope: "workspace" }] },
-    { id: "in_review", label: "In review", reads: [{ source: "Armada document", values: ["in review"], scope: "workspace" }] },
-    { id: "approved", label: "Approved", end: true, reads: [{ source: "Armada document", values: ["approved"], scope: "workspace" }] },
+    { id: "draft", label: "Draft", reads: [{ source: "Armada document", values: ["draft"], scope: "default" }] },
+    { id: "in_review", label: "In review", reads: [{ source: "Armada document", values: ["in review"], scope: "default" }] },
+    { id: "approved", label: "Approved", end: true, reads: [{ source: "Armada document", values: ["approved"], scope: "default" }] },
   ],
   next: [
     ["draft", "in_review"],
@@ -165,9 +168,9 @@ const JOB: LifecycleDef = {
   from: "Armada",
   kind: "job",
   states: [
-    { id: "started", label: "Started", reads: [{ source: "Armada", values: ["running"], scope: "workspace" }] },
-    { id: "pr_open", label: "PR open", reads: [{ source: "Armada", values: ["pull request open"], scope: "workspace" }] },
-    { id: "landed", label: "Landed", end: true, reads: [{ source: "Armada", values: ["merged into main"], scope: "workspace" }] },
+    { id: "started", label: "Started", reads: [{ source: "Armada", values: ["running"], scope: "default" }] },
+    { id: "pr_open", label: "PR open", reads: [{ source: "Armada", values: ["pull request open"], scope: "default" }] },
+    { id: "landed", label: "Landed", end: true, reads: [{ source: "Armada", values: ["merged into main"], scope: "default" }] },
   ],
   next: [
     ["started", "pr_open"],
@@ -245,7 +248,7 @@ const PROGRESS: Rule = {
   ],
   autonomy: "acts",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
 };
 
 const REVIEW: Rule = {
@@ -257,7 +260,7 @@ const REVIEW: Rule = {
   does: [{ act: "tracker", text: "Move the ticket to In review" }],
   autonomy: "acts",
   kept: "yours",
-  scope: "workspace",
+  scope: "default",
   overrides: [{ scope: API, autonomy: "asks" }],
 };
 
@@ -270,7 +273,7 @@ const ASK: Rule = {
   does: [{ act: "message", text: "Draft the review ask to the reviewers" }],
   autonomy: "asks",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
 };
 
 const TRIAGE: Rule = {
@@ -285,7 +288,7 @@ const TRIAGE: Rule = {
   ],
   autonomy: "acts",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
 };
 
 const DEPLOY_WATCH: Rule = {
@@ -297,7 +300,7 @@ const DEPLOY_WATCH: Rule = {
   does: [{ act: "watch", text: "Start the rollout watch" }],
   autonomy: "acts",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
 };
 
 const CLOSE_ON_MERGE: Rule = {
@@ -323,7 +326,7 @@ const DOCUMENT_REVIEW: Rule = {
   does: [{ act: "agent", text: "Mark the document In review" }],
   autonomy: "acts",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
   workflow: "planning",
 };
 
@@ -336,7 +339,7 @@ const READY: Rule = {
   does: [{ act: "tracker", text: "Move the ticket to Ready" }],
   autonomy: "acts",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
   workflow: "planning",
 };
 
@@ -351,7 +354,7 @@ export const START_JOB: Rule = {
   does: [{ act: "job", text: "Start a Job for each piece" }],
   autonomy: "acts",
   kept: "armada",
-  scope: "workspace",
+  scope: "default",
   workflow: "dispatch",
 };
 
@@ -365,7 +368,7 @@ export const CLOSE: Rule = {
   does: [{ act: "tracker", text: "Move the ticket to Done" }],
   autonomy: "acts",
   kept: "yours",
-  scope: "workspace",
+  scope: "default",
   workflow: "feature",
 };
 

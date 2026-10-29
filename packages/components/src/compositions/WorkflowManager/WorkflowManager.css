@@ -665,8 +665,9 @@
 /* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
 .armada-wm-scope {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
   min-width: 0;
 }
 .armada-wm-scope__label {
@@ -679,14 +680,11 @@
   text-transform: uppercase;
 }
 .armada-wm-scope__says {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 /* What is picked is drawn in the app's side panel. */
 .armada-wm-inspector {

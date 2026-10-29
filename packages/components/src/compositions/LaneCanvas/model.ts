@@ -13,13 +13,27 @@ export type Ref = { lane: string; item: string };
 /** The id a node is drawn under, and the one a selection names. */
 export const nodeId = (lane: string, item: string): string => `${lane}/${item}`;
 
-/** The tracker's, forge's or watch's own words that count as being in a state, for the Workspace or for one repository. */
+/**
+ * **Three levels**: the default's, which every Workspace and repository keeps until it changes something; the Workspace's (`workspace`); and one repository's, by its id. Each takes
+ * what the level above says until it says otherwise, so a tab reads its own value, else the Workspace's, else the default's.
+ */
+export const DEFAULT = "default";
+
+/** The levels a tab reads, nearest first: a repository's own, the Workspace's, then the default's. */
+export const levelsOf = (scope: string): string[] => (scope === DEFAULT ? [DEFAULT] : scope === "workspace" ? ["workspace", DEFAULT] : [scope, "workspace", DEFAULT]);
+
+/** The tabs that draw every level under them, so a mark on a node names each repository that differs: the default's and the Workspace's. */
+export const overviews = (scope: string): boolean => scope === DEFAULT || scope === "workspace";
+
+/** The tracker's, forge's or watch's own words that count as being in a state, at one level: the default's, the Workspace's or one repository's. */
 export type StateReads = { source: string; values: readonly string[]; scope: string };
 
 /** A state as the Workspace defines it: where Fleet reads it from is the lifecycle's, and the words that count as being in it are its own. */
 export type StateDef = {
   id: string;
   label: string;
+  /** Another name for it at a level below the default. */
+  names?: readonly { scope: string; label: string }[];
   reads: readonly StateReads[];
   /** Nothing follows it. */
   end?: true;
@@ -55,8 +69,8 @@ export type Autonomy = "acts" | "asks" | "off";
 /** Kinds of act a rule does. A write to the tracker or the forge and a message that speaks as the person default to Asks. */
 export type ActKind = "tracker" | "forge" | "message" | "job" | "watch" | "tell" | "command" | "agent";
 
-/** A repository that lets a rule do more or less than the Workspace does. */
-export type RuleOverride = { scope: string; autonomy: Autonomy };
+/** What a level below the default changes of a rule: any of its fields, and only those. */
+export type RuleOverride = { scope: string } & Partial<Pick<Rule, "label" | "from" | "at" | "ifs" | "does" | "autonomy">>;
 
 export type Rule = {
   id: string;
@@ -73,9 +87,9 @@ export type Rule = {
   does: readonly { act: ActKind; text: string }[];
   autonomy: Autonomy;
   kept: Kept;
-  /** `workspace`, or the id of the one repository it applies in. */
+  /** `default`, `workspace`, or the id of the one repository it applies in. */
   scope: string;
-  /** Where a repository's autonomy differs from the one above. */
+  /** Where a level below changes it from the one above. */
   overrides?: readonly RuleOverride[];
   /** The one workflow it belongs to. Absent, it applies in every workflow that has both ends. */
   workflow?: string;
@@ -97,6 +111,9 @@ export type LaneStep = {
   passedOver?: Waits;
 };
 
+/** What a level below the default changes of a step: its name, its words, what ends it and what passes it over. `endsOn` goes with `ends`. */
+export type StepLayer = { step: string; scope: string; label?: string; words?: string; ends?: Waits; endsOn?: { lane: string; state: string }; passedOver?: Waits };
+
 export type Repository = { id: string; name: string };
 
 /** What one workflow draws of the Workspace: where its steps sit, and which states of which lifecycles it has a lane for, and where. */
@@ -105,6 +122,8 @@ export type WorkflowPlace = {
   steps: Readonly<Record<string, Omit<LaneStep, "id" | "label">>>;
   /** The column of each state it draws, by `lifecycle/state`. **A lifecycle with no state placed has no lane here**, and a state with no column is not drawn. */
   states: Readonly<Record<string, number>>;
+  /** What the Workspace and its repositories change of the steps. */
+  layers?: readonly StepLayer[];
 };
 
 /**
@@ -145,11 +164,52 @@ export function lifecyclesFor(workspace: Workspace, workflow: string): Lifecycle
   });
 }
 
-/** The tracker values that differ in a repository, as repository ids: a state mapped to other words. */
-export const stateDiffers = (state: StateDef): string[] => [...new Set(state.reads.filter((one) => one.scope !== "workspace").map((one) => one.scope))];
+/** The lifecycles a workflow draws with each state named as it is at a level. */
+export function lifecyclesAt(workspace: Workspace, workflow: string, scope: string): Lifecycle[] {
+  return lifecyclesFor(workspace, workflow).map((lifecycle) => ({ ...lifecycle, states: lifecycle.states.map((state) => ({ ...state, label: stateLabelAt(state, scope) })) }));
+}
 
-/** The repositories a rule differs in: where it applies alone, or where its autonomy is another. */
-export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope === "workspace" ? [] : [rule.scope]), ...(rule.overrides ?? []).map((one) => one.scope)])];
+/** The levels below the default that name a state another way or read it as other words, as the ids of the Workspace and the repositories. */
+export const stateDiffers = (state: StateDef): string[] => [...new Set([...state.reads.map((one) => one.scope), ...(state.names ?? []).map((one) => one.scope)].filter((one) => one !== DEFAULT))];
+
+/** The levels a rule differs at: where it applies alone, and where a level below changes it. */
+export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope === DEFAULT ? [] : [rule.scope]), ...(rule.overrides ?? []).map((one) => one.scope)])];
+
+/** The levels that change a step. */
+export const stepDiffers = (place: WorkflowPlace | undefined, step: string): string[] => [...new Set((place?.layers ?? []).filter((one) => one.step === step).map((one) => one.scope))];
+
+/** A rule as it reads at a level: the default's own, then each level down changing what it changes. */
+export function ruleAt(rule: Rule, scope: string): Rule {
+  return levelsOf(scope)
+    .reverse()
+    .reduce((now, level) => {
+      const own = rule.overrides?.find((one) => one.scope === level);
+      if (own === undefined) return now;
+      const { scope: _level, ...fields } = own;
+      return { ...now, ...fields };
+    }, rule);
+}
+
+/** A state's name at a level: the nearest that names it, else its own. */
+export function stateLabelAt(state: StateDef, scope: string): string {
+  for (const level of levelsOf(scope)) {
+    const named = state.names?.find((one) => one.scope === level);
+    if (named !== undefined) return named.label;
+  }
+  return state.label;
+}
+
+/** The words that count as being in a state at a level, for one source: the nearest level that sets them. Absent where none does. */
+export function readsAt(state: StateDef, source: string, scope: string): readonly string[] | undefined {
+  for (const level of levelsOf(scope)) {
+    const found = state.reads.find((one) => one.source === source && one.scope === level);
+    if (found !== undefined) return found.values;
+  }
+  return undefined;
+}
+
+/** What the levels from the default down to `scope` change of a step, in the order they apply. */
+export const layersAt = (place: WorkflowPlace | undefined, step: string, scope: string): StepLayer[] => levelsOf(scope).reverse().flatMap((level) => (place?.layers ?? []).filter((one) => one.step === step && one.scope === level));
 
 // ---- What a canvas draws -------------------------------------------------------------------------------------------------
 

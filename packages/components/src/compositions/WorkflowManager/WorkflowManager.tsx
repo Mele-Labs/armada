@@ -321,7 +321,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
       n={at + 1}
       first={at === 0 && acts.workspace === undefined}
       step={step}
-      keep={`${key}/${step.id}`}
+      keep={rows?.keep ?? `${key}/${step.id}`}
       editable={editable || lanes}
       live={lanes}
       {...(rows === undefined ? {} : { rows })}
@@ -334,7 +334,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           return next;
         })
       }
-      onSave={(words) => run(() => inCopy((to) => acts.onSaveWords(to, step.id, words)))}
+      onSave={rows?.save ?? ((words) => run(() => inCopy((to) => acts.onSaveWords(to, step.id, words))))}
       drifted={drift[workflow.id]?.[step.id] ?? []}
       suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
       suggestible={editable}
@@ -679,6 +679,7 @@ function Step({
             <p className="armada-wm-step__words">{step.words}</p>
           )}
         </dd>
+        {rows?.after}
       </dl>
 
       {suggestion === undefined ? null : (
