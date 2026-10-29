@@ -117,6 +117,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `reopen_waiting`: the person lets an item he closed wait again. [`Refusal::IllegalMove`] where no
+    /// closed item has that id, [`Refusal::Unacceptable`] where it would not wait again.
+    fn reopen_waiting(
+        self: Arc<Self>,
+        reopen: ipc::ReopenWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `confirm_waiting`: thumbs up on an item read from a reply. [`Refusal::IllegalMove`] where
     /// nothing holds the item, and where it was not read from a reply.
     fn confirm_waiting(
@@ -240,6 +247,20 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         asked: ipc::ActOnSessionMcp,
     ) -> impl Future<Output = Result<ipc::SessionMcpActed, Refusal>> + Send;
+
+    /// `mend_session_tools`: fills Fleet's copy of the mod and restarts the Job's process, which
+    /// resumes the conversation with the lines it had not finished. Answers once the restart is
+    /// under way.
+    fn mend_session_tools(
+        self: std::sync::Arc<Self>,
+        asked: ipc::MendSessionTools,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `start_again`: sends again the turns a Job's process would not start for.
+    fn start_again(
+        self: std::sync::Arc<Self>,
+        asked: ipc::StartAgain,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `resume_session`: takes a slot again at the branch tip, or waits for one.
     fn resume_session(

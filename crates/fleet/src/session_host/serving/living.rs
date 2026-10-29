@@ -40,6 +40,10 @@ where
                 resuming: hosting.paused_resuming,
             }),
             start,
+            start_failed: state.start_failed.as_ref().map(|failed| ipc::StartFailed {
+                cause: failed.cause.clone(),
+                log: failed.log.clone(),
+            }),
         }
     }
 
@@ -156,6 +160,7 @@ where
                     }
                 };
                 let hosting = &resumed;
+                self.mod_filled_for_launch().await;
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),

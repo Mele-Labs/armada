@@ -522,3 +522,32 @@ path.armada-session-ledger__picture-later {
   padding: 0 var(--space-3) var(--space-2);
   color: var(--fg-muted);
 }
+
+/* A row he closed from Needs you: its kind's glyph and words, read and not pressed, then when it was closed and Reopen, each in a
+   column of its own. A row with no Reopen keeps the column empty, so the times line up down the list. */
+.armada-session-ledger__open[data-plain] {
+  cursor: default;
+}
+
+.armada-session-ledger__closed {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.armada-session-ledger__when {
+  flex: none;
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+}
+
+.armada-session-ledger__reopen {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  padding-inline: var(--space-1);
+}
+
+.armada-session-ledger__reopen[data-none] {
+  box-sizing: content-box;
+  width: var(--h-control-sm);
+}

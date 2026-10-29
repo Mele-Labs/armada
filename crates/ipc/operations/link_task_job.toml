@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Hold a task, and its subtasks, with a Job already running"
 notes = """
-`POST /projects/rows/:row/job`, body `LinkTaskJob`: `session_id`, a Job of the task's repository that has not ended. The task is held by that Job as if it had been started with it, so a Job that says it is done, or whose pull request merges, asks about it, and one that ends without either lets it go. A task named by a parent is held with its subtasks; one named by a subtask is held alone. A task holds one Job: a Job already holding it is replaced. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+`POST /projects/rows/:row/job`, body `LinkTaskJob`: `session_id`, a Job of any repository that has not ended. The task is held by that Job as if it had been started with it, so a Job that says it is done, or whose pull request merges, asks about it, and one that ends without either lets it go. A task named by a parent is held with its subtasks; one named by a subtask is held alone. A task holds one Job: a Job already holding it is replaced. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
-A 404 `fleet.no_such_session` for a Job Fleet has no record of. A 422 `fleet.project_job_other_repository` for a Job of another repository, a 422 `fleet.project_job_ended` for a Job that has ended, a 422 `fleet.project_row_not_a_task` for a `row` that is an issue row, and a 404 `fleet.no_such_project_row` for a `row` there is none of.
+A 404 `fleet.no_such_session` for a Job Fleet has no record of. A 422 `fleet.project_job_ended` for a Job that has ended, a 422 `fleet.project_row_not_a_task` for a `row` that is an issue row, and a 404 `fleet.no_such_project_row` for a `row` there is none of.
 """

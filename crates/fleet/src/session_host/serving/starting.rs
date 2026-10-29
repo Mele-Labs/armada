@@ -47,9 +47,7 @@ where
         };
         // Rows of a project the Job starts with: every one is checked before anything is made.
         let held_tasks = match &manifest {
-            Some(manifest) if !rooted && !start.project_rows.is_empty() => {
-                self.project_rows_checked(manifest, &start.project_rows).await?
-            }
+            Some(_) if !rooted && !start.project_rows.is_empty() => self.project_rows_checked(&start.project_rows).await?,
             _ => Vec::new(),
         };
         // A root that has a Manifest by now is a plain start on it, not Setup's.

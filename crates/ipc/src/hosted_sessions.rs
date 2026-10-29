@@ -80,8 +80,8 @@ pub struct StartSession {
     pub held: bool,
     /// Rows of his projects, or loose, this Job starts with. **Each written task is held by the
     /// Job** (`projects.changed`) and shows it; a linked issue row keeps no state and is only named,
-    /// so the brief can carry it. Refused 404 for a row that is not there and 422 for one
-    /// of another repository, before anything is made. Not read with `fork` or `root`.
+    /// so the brief can carry it. A row of any repository is held. Refused 404 for a row that is
+    /// not there, before anything is made. Not read with `fork` or `root`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub project_rows: Vec<crate::ProjectRowRef>,
 }
@@ -275,6 +275,18 @@ pub struct SetSessionAutoLand {
     pub on: bool,
 }
 
+/// `start_again`: send again the turns a Job's process would not start for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartAgain {
+    pub session_id: SessionId,
+}
+
+/// `mend_session_tools`: restart a hosted Job's process with Fleet's copy of the mod, filled first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MendSessionTools {
+    pub session_id: SessionId,
+}
+
 /// `resume_session`: take a slot again at the branch tip. Since 23.92.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResumeSession {
@@ -389,6 +401,19 @@ pub struct HostedFacts {
     /// that was never held.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start: Option<crate::session_delivery::StartHeld>,
+    /// Present while the Job's process would not start, tried twice, and nothing has sent its turns
+    /// since: `start_again`, or a message, tries again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_failed: Option<StartFailed>,
+}
+
+/// Why a Job's process would not start.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartFailed {
+    pub cause: String,
+    /// The last lines the agent wrote to its error output, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub log: Vec<String>,
 }
 
 /// The marker on a paused hosted session. Not a state: the session stays live and `hosted.turn`

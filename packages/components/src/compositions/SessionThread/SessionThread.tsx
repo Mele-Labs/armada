@@ -38,7 +38,10 @@ import { FindingNotes, GivesRow, GroupFindings, anchorsOf, useFindingKeys } from
 import { isPressed } from "../../keymap";
 import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
+import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
+import { landingsOf, type PlanLandsIn } from "./lands-in";
+import { LandsInChip } from "./LandsInChip";
 import { FleetTurn, noticeEntries } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
@@ -162,6 +165,8 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true; subagent?: ToolSubagent }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
   | { id: string; at: string; kind: "woke"; why: string }
+  /** Fleet could not start the agent, and why: one line in Fleet's voice, in the failed hue. A message from the person is the retry. */
+  | { id: string; at: string; kind: "not_started"; why: string; /** The agent's own last error lines, folded behind a chevron. */ log: readonly string[] }
   /** What the agent did on its own, mono, with the mark and the tooltip that name which act it was. */
   | { id: string; at: string; kind: "act"; icon: LucideIcon; said: string; text: string }
   /** A command the person ran in the terminal, as typed, mono. */
@@ -279,7 +284,11 @@ export type PlanApproval = {
   version?: number;
   /** The plan in his words, read first. Present, the groups fold under Details; absent, the card draws the groups as it always did. */
   summary?: string;
-  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; tasks: readonly { id: string; text: string }[] }[];
+  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; tasks: readonly { id: string; text: string }[] }[];
+  /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
+  opensPullRequests?: true;
+  /** Opens a pull request a chip names. */
+  onOpenPullRequest?: (number: number) => void;
   approved: boolean;
   /** He said Not yet: the card is a chip, `Plan set aside`, that unfolds on press, and nothing waits on him for it. */
   setAside?: true;
@@ -347,6 +356,10 @@ export type SessionThreadProps = {
   approval?: PlanApproval;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
   onRetry?: (rowId: string) => void;
+  /** Start again on a Job whose agent did not start: absent where the host serves none. */
+  onStartAgain?: () => void;
+  /** Report on that Job, told the element it was pressed on. */
+  onReport?: (from: Element) => void;
   /**
    * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
    * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
@@ -892,6 +905,8 @@ function Row({
   onOpenRetro,
   onOpenSent,
   onRetry,
+  onStartAgain,
+  onReport,
   forkable,
   disputed = false,
   onMuteNotice,
@@ -903,6 +918,10 @@ function Row({
   onAnswerSketch?: (sketch: string, answer: SketchAnswer) => void;
   sessionId?: string;
   onRetry?: (rowId: string) => void;
+  /** Start again on a Job whose agent did not start: absent where the host serves none. */
+  onStartAgain?: () => void;
+  /** Report on that Job, told the element it was pressed on. */
+  onReport?: (from: Element) => void;
   forkable: boolean;
   /** A later row disputes this one, so Fleet's card draws the Disputed mark. */
   disputed?: boolean;
@@ -933,6 +952,7 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "not_started") return <StartFailedRow row={row} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} />;
   if (row.kind === "act") {
     const Glyph = row.icon;
     return (
@@ -1356,9 +1376,24 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           },
         },
   );
-  const groups = (
+  // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
+  const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
+  const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
+    runs.length === 1 && runs[0]!.landsIn === undefined ? (
+      list(runs[0]!.groups)
+    ) : (
+      <div className="armada-session-thread__landings">
+        {runs.map((run) => (
+          <section key={run.key} className="armada-session-thread__landing" aria-label={`Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+            {run.landsIn === undefined ? null : <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />}
+            {list(run.groups)}
+          </section>
+        ))}
+      </div>
+    );
+  const groups = landed((some) => (
     <ul className="armada-session-thread__groups">
-      {approval.groups.map((group) => (
+      {some.map((group) => (
         <li key={group.id} className="armada-session-thread__group">
           <span className="armada-session-thread__group-title">{group.title}</span>
           {approved ? null : (
@@ -1385,7 +1420,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         </li>
       ))}
     </ul>
-  );
+  ));
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
     <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
@@ -1434,9 +1469,11 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           <div className="armada-session-thread__plain">
             <p className="armada-session-thread__plan-summary">{approval.summary}</p>
             {anchors === undefined ? null : <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />}
-            <ul className="armada-session-thread__gives" aria-label="What each group gives">
-              {approval.groups.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
-            </ul>
+            {landed((some) => (
+              <ul className="armada-session-thread__gives" aria-label="What each group gives">
+                {some.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
+              </ul>
+            ))}
             <Button size="sm" variant="ghost" aria-expanded={detailed} onClick={() => setDetailed(!detailed)}>
               {detailed ? "Show less" : "Details"}
             </Button>
@@ -1699,7 +1736,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1817,7 +1854,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined ? {} : { onAnswerSketch })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined ? {} : { onAnswerSketch })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
             ...cardsAfter(at).map((card) => (

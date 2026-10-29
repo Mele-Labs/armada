@@ -343,11 +343,11 @@ test("a chord given to a tile presses it from anywhere on the Cockpit while the 
 
 test("a tile's own key is Option and Shift with its number, so a bare number, which answers a question, presses nothing", async () => {
   const host = await drawn();
-  expect(tile(host, "Judge").dataset.key).toBe("⌥⇧6");
-  expect(tile(host, "Judge").querySelector(".deck-tile__key")?.textContent).toBe("6");
+  expect(tile(host, "Judge").dataset.key).toBe("⌥⇧7");
+  expect(tile(host, "Judge").querySelector(".deck-tile__key")?.textContent).toBe("7");
   expect(tile(host, "Hand off").dataset.key).toBeUndefined();
-  expect(reach(document.body, { key: "6", code: "Digit6" }, flightTileFor)).toBeNull();
-  expect(reach(document.body, { key: "‡", code: "Digit6", altKey: true, shiftKey: true })).toBe(tile(host, "Judge"));
+  expect(reach(document.body, { key: "7", code: "Digit7" }, flightTileFor)).toBeNull();
+  expect(reach(document.body, { key: "‡", code: "Digit7", altKey: true, shiftKey: true })).toBe(tile(host, "Judge"));
 });
 
 test("⌥ and ⇧ chords do not fire in a text box, and ⌘ and ⌃ chords do", async () => {

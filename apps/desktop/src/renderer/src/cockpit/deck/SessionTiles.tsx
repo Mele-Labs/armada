@@ -18,6 +18,7 @@ import { Circle, CircleCheck, CircleDot, LoaderCircle, Play } from "lucide-react
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
+import { useJobReportAsked } from "../../report";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
@@ -61,6 +62,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const [asking, setAsking] = useState<{ tile: Tile; ask: TileAsk; said?: string } | undefined>();
   const [pending, setPending] = useState<string | undefined>();
   const [reporting, setReporting] = useState(false);
+  useJobReportAsked(session.id, () => setReporting(true));
   /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
   const [pressedAt, setPressedAt] = useState<number | undefined>();
   const [clear, setClear] = useState(false);
@@ -144,6 +146,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     subagents: () => toggleLayer(session.id, "subagents"),
     checks: () => toggleLayer(session.id, "checks"),
     slot: () => toggleLayer(session.id, "slot"),
+    system: () => toggleLayer(session.id, "system"),
     requests: () => void openRequestsInPanel(session.id),
     terminal: () => terminal?.press(),
     browser: () => browser?.press(),
@@ -252,6 +255,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
     checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
+    system: "What the Job runs and costs the machine",
     requests: "Send a request with your cookie for its host",
     // A press while it is in its window brings the window forward and leaves the shell showing.
     terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",

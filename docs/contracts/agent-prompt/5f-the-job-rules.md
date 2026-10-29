@@ -21,6 +21,7 @@ stays empty. The rules ride the system prompt, which no style replaces.
 
 | Block | Action it names | Why it is in the rules |
 | --- | --- | --- |
+| **Tools** | Load the task tools and the armada tools the rules name with one ToolSearch `select:` line before the first call | Current CLIs list both by name only until loaded, and a job without the mod has no other note that names them |
 | **Needs** | Put anything the person must do, decide, run or approve in `waiting_for`; a restart is an item whose `act` is `{"kind": "run", "target": "<the command>"}`; ask a decision in the prompt or in `waiting_for`, never both; remove an item once settled | Bridge reads needs from `waiting_for` and not from a reply. Asked both ways, a decision is two cards. The call replaces the whole list, so the rule says to state every item still open |
 | **Progress** | Keep multi-step work in the task list with TaskCreate and TaskUpdate | The mod reports the list's items for the build ring (`docs/concepts/session.md`, *The build record*) |
 | **Planning** | For work of more than one sitting or agent, settle the plan with the person, call `record_plan` with a plain `summary` and a `gives` line per group, wait for approval, treat his marks as proposals and record again; record no plan while he says he is not ready | A plan the person never saw is a plan he cannot steer. Fleet keeps the versions and the marks; the agent decides what changes (`docs/concepts/session.md`, *The plan*) |

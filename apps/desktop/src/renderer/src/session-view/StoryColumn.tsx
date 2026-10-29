@@ -111,7 +111,8 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const lastCheck = checks[checks.length - 1];
   const checking = checks.filter((one) => one.kind === "check" && one.state === "running");
   const failedCheck = lastCheck !== undefined && lastCheck.kind === "check" && lastCheck.state === "failed" ? lastCheck : undefined;
-  const walks = session.rows.filter((one) => one.kind === "window" && one.ended === undefined);
+  // A page shown again adds a row for the same address; only the newest of each stands as the walk.
+  const walks = session.rows.filter((one, i, rows) => one.kind === "window" && one.ended === undefined && !rows.slice(i + 1).some((later) => later.kind === "window" && later.ended === undefined && later.url === one.url));
   // A walk shown to him is drawn from its page's row, which opens it, and not a second time from the item Fleet holds for it.
   const walkUrls = new Set(walks.flatMap((one) => (one.kind === "window" ? [one.url] : [])));
   const owed = owesOf(session).filter((one) => !(drafting && one.source === "plan") && !(one.source === "walk" && one.act?.kind === "walk" && walkUrls.has(one.act.target)));

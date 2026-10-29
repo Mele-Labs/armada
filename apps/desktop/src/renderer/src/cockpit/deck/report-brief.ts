@@ -117,9 +117,18 @@ export function noteFacts(session: Session, root: string): string[] {
   return lines;
 }
 
-/** The sections that are lists: its last messages, its last tool calls and the timeline's last entries for it. */
+/** The sections that are lists: why it did not start, where it did not, then its last messages, its last tool calls and the timeline's last entries for it. */
 export function reportLists(session: Session, from: ReportFrom): string[] {
   const out: string[] = [];
+  if (session.startFailed !== undefined) {
+    const { cause, log } = session.startFailed;
+    out.push("", `Did not start: ${cut(cause)}`);
+    if (log.length > 0) {
+      // A fence one longer than any backtick run in the log, so a line of the agent's own cannot close it.
+      const fence = "`".repeat(Math.max(3, ...log.map((line) => (line.match(/`+/g) ?? []).reduce((most, run) => Math.max(most, run.length), 0) + 1)));
+      out.push("", "The agent's last error lines, oldest first:", fence, ...log, fence);
+    }
+  }
   const section = (head: string, rows: readonly string[]) => void (rows.length === 0 || out.push("", `${head}:`, ...rows.map((one) => `- ${one}`)));
   const messages = session.rows.flatMap((row) => (row.kind === "message" ? [`${who(row)} at ${row.at}: ${cut(row.text)}`] : []));
   section("Last messages, oldest first", messages.slice(-MESSAGES));

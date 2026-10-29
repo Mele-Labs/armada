@@ -397,6 +397,7 @@ A new commit that fails is news; the same one read again is not.
 **A drop is news each time it happens (#2649, 20 Oct 2026).** A pull request queued again clears what was told of its last drop, so a second drop at the same commit is told.
 The queue tests a commit of its own, and a pull request's run can skip what the queue runs, so its own checks read green while the queue fails it.
 The drop names the queue run's failed checks and the end of a log, read from the newest queue run for that pull request.
+The next push to it runs those Checks on the pull request itself, so a fix is answered before it waits in the queue again (`docs/practices/ci.md`, *What runs when*).
 **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Job whose mod is not asking.
 
 **An owner is the Job whose `pr` row holds the pull request's number, else the Job holding its branch.** `docs/concepts/session.md`, *What Fleet tells a Job*, says what it receives.

@@ -358,7 +358,8 @@ pub(super) fn inside_the_directory(path: &str, directory: &str) -> bool {
 pub(super) fn in_scratch(path: &str) -> bool {
     path.starts_with('/')
         && resolved(path, "/").is_some_and(|real| {
-            let real = real.to_string_lossy();
+            // `/tmp/` resolves to `/private/tmp`, the folder itself, which no `/…/` prefix matches.
+            let real = format!("{}/", real.to_string_lossy().trim_end_matches('/'));
             SCRATCH.iter().any(|scratch| real.starts_with(scratch))
         })
 }

@@ -502,6 +502,29 @@ pub(crate) async fn waiting_for<D: Sessions>(
     }
 }
 
+/// `?session_id=`, read only where the connection places no session.
+#[derive(Deserialize)]
+pub(crate) struct ForClosedWaiting {
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+/// What the person closed from a session's list, newest first. 200; 422 for a call that places no session.
+/// **The session is placed by the connection**, as `waiting_for`'s is.
+pub(crate) async fn list_closed_waiting<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ForClosedWaiting>,
+) -> Response {
+    let named = asked
+        .session_id
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.trim()));
+    match served.daemon().list_closed_waiting(crate::acting::asking(), named).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
 pub(crate) async fn all_done<D: Sessions>(
@@ -696,6 +719,32 @@ pub(crate) async fn get_session_usage<D: Sessions>(
         .await
     {
         Ok(usage) => answer(StatusCode::OK, &usage, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=` on `get_session_system`.
+#[derive(Deserialize)]
+pub(crate) struct SystemAsk {
+    session_id: String,
+}
+
+pub(crate) async fn get_session_system<D: Sessions>(State(served): State<Served<D>>, Query(ask): Query<SystemAsk>) -> Response {
+    match served.shared().get_session_system(ipc::SessionId::carried(ask.session_id)).await {
+        Ok(system) => answer(StatusCode::OK, &system, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One process the job started is ended. 200 with the pid and command; 422 for neither or both of pid and port, a
+/// process the job did not start, or a call that places no session; 409 for a session that has ended.
+pub(crate) async fn stop_process<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let stop: ipc::StopProcess = match ipc::decode("a process to stop", &body) {
+        Ok(stop) => stop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().stop_process(crate::acting::asking(), stop).await {
+        Ok(stopped) => answer(StatusCode::OK, &stopped, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

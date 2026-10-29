@@ -948,6 +948,34 @@ pub struct ConfirmWaiting {
     pub item_id: String,
 }
 
+/// `reopen_waiting`: the person lets an item he closed wait again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReopenWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+}
+
+/// An item the person closed, as the Job's record lists it. Fleet kept the item whole when it was closed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClosedWaiting {
+    /// The item as Needs you drew it when it was closed. Its `id` is what `reopen_waiting` takes.
+    pub item: WaitingItem,
+    /// When it was closed.
+    pub at: Instant,
+    /// What it stood for has ended, so it cannot be reopened: a permission whose call ended, a walk that
+    /// was withdrawn, any item of a Job that has ended. The agent's own item is reopenable while the Job
+    /// lives. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub ended: bool,
+}
+
+/// `list_closed_waiting`: the items the person closed from a Job's list, newest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClosedWaitingList {
+    pub session_id: SessionId,
+    pub closed: Vec<ClosedWaiting>,
+}
+
 fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -996,6 +1024,30 @@ pub struct AttachmentHistory {
     pub versions: Vec<AttachmentVersion>,
 }
 
+/// A piece of Armada a hosted session's agent came up without.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolMissing {
+    /// The `armada` mod was not among the plugins the CLI loaded.
+    Mod,
+    /// Fleet's door was not among the MCP servers, or not connected.
+    Door,
+    /// The CLI served no task list tools.
+    TaskTools,
+}
+
+/// What a hosted session's agent lacks of Armada's own, and the CLI version that lacked it. **Never
+/// empty**: a session missing nothing carries none.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolsMissing {
+    /// The harness's own name, so a client names the CLI without spelling it.
+    pub harness: String,
+    /// The command that updates the CLI, which a client runs in the session's terminal.
+    pub update: String,
+    pub harness_version: String,
+    pub missing: Vec<ToolMissing>,
+}
+
 /// A session and everything it holds. Answered by `report_session`, listed by
 /// `list_sessions`, and published whole as `session.changed`, so a client
 /// replaces the row rather than patching it.
@@ -1032,6 +1084,11 @@ pub struct SessionRecord {
     /// repository's. Since 23.62.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mod_out_of_date: bool,
+    /// A hosted session whose agent came up without some of its Armada pieces, as Fleet read the CLI's
+    /// first line of the process. Absent when nothing is missing, on a session a terminal runs and once
+    /// the session ends. Held in memory: a Fleet that restarts has none until the next turn starts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools_missing: Option<ToolsMissing>,
     /// What the session waits on the person for: the agent's list with Fleet's own items merged in, the
     /// agent's first. Empty for an ended session.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1107,6 +1164,10 @@ pub struct SessionRecord {
     /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settled: Vec<WaitingItem>,
+    /// The items the person closed from `waiting_for`, newest first, each kept whole at the moment he did.
+    /// A bounded window. Since 29 Oct 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub closed: Vec<ClosedWaiting>,
     /// Dispatched to wait on another Session and not started: it holds its brief, no slot and no
     /// process until the condition is met. Absent once it has started, and on a Session that never
     /// waited. `docs/concepts/session.md`, *A Session that waits on another*.

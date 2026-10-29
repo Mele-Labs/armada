@@ -164,6 +164,22 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// The person lets an item he closed wait again. 200 with the row; 409 where no closed item has the id;
+/// 422 where it would not wait again.
+pub(crate) async fn reopen_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let reopen: ipc::ReopenWaiting = match ipc::decode_body("a reopening of what a job waited on", &body) {
+        Ok(reopen) => reopen,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().reopen_waiting(reopen).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person says a question Fleet read from a reply is one. 200 with the row; 409 where nothing holds
 /// the item, and where it was not read from a reply.
 pub(crate) async fn confirm_waiting<D: HostedSessions>(
@@ -437,6 +453,34 @@ pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     };
     match served.daemon().act_on_session_mcp(asked).await {
         Ok(acted) => answer(StatusCode::OK, &acted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn mend_session_tools<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::MendSessionTools = match ipc::decode_body("a job's tools to mend", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mend_session_tools(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn start_again<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::StartAgain = match ipc::decode_body("a job to start again", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().start_again(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

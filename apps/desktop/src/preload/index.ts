@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
 import { sketchSharePreload } from "./sketch-share";
+import { attachmentsPreload } from "./attachments";
 import { filesPreload } from "./files";
 import { requestsPreload } from "./requests";
 import { logbookPreload } from "./logbook";
@@ -44,7 +45,7 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { ModSessionStarted, StartModSession } from "@armada/protocol";
 import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, ReopenWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
@@ -56,6 +57,7 @@ import type { ProjectsActed } from "../shared/api/projects";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
+import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "../shared/api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
 import type { PullRequestNoteAnswer, PullRequestNotesAnswer } from "../shared/api/pull-request-notes";
 import type { SavePullRequestNote, SendPullRequestNotes } from "@armada/protocol";
@@ -386,6 +388,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.refreshPullRequest, manifestId, number),
   ...autopilotPreload,
   ...sketchSharePreload,
+  ...attachmentsPreload,
   ...filesPreload,
   ...requestsPreload,
   ...logbookPreload,
@@ -446,6 +449,8 @@ const api: BridgeApi = {
   },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
   getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
+  getSessionSystem: (sessionId: string): Promise<SessionSystemRead> => ipcRenderer.invoke(CHANNELS.getSessionSystem, sessionId),
+  stopProcess: (sessionId: string, target: ProcessTarget): Promise<ProcessStopRead> => ipcRenderer.invoke(CHANNELS.stopProcess, sessionId, target),
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> => ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
@@ -585,6 +590,7 @@ const api: BridgeApi = {
   readWatchLog: (read: ReadWatchLog): Promise<SessionActed<WatchLog>> => ipcRenderer.invoke(CHANNELS.readWatchLog, read),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   confirmLater: (confirm: ConfirmLater): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmLater, confirm),
+  reopenWaiting: (reopen: ReopenWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.reopenWaiting, reopen),
   confirmWaiting: (confirm: ConfirmWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmWaiting, confirm),
   answerSketch: (answer: AnswerSketch): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerSketch, answer),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),
@@ -605,6 +611,7 @@ const api: BridgeApi = {
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
   retryHandoff: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.retryHandoff, sessionId),
+  startAgain: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startAgain, sessionId),
   pauseSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
   resumeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
   setSessionAutoLand: (sessionId: string, on: boolean): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionAutoLand, sessionId, on),
@@ -628,6 +635,7 @@ const api: BridgeApi = {
   readSessionMcp: (sessionId: string): Promise<SessionActed<SessionMcp>> => ipcRenderer.invoke(CHANNELS.readSessionMcp, sessionId),
   actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> =>
     ipcRenderer.invoke(CHANNELS.actOnSessionMcp, sessionId, server, act),
+  mendSessionTools: (sessionId: string): Promise<SessionActed<void>> => ipcRenderer.invoke(CHANNELS.mendSessionTools, sessionId),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>

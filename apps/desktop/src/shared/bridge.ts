@@ -49,6 +49,7 @@ import { TERRITORY_CHANNELS } from "./api/territory";
 import { TIMELINE_CHANNELS } from "./api/timeline";
 import { ACT_FAILED_CHANNELS } from "./api/act-failed";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
+import { SESSION_SYSTEM_CHANNELS } from "./api/session-system";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
 import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
@@ -143,6 +144,7 @@ export const NOTHING_YET: BridgeState = {
 import { AUTOPILOT_CHANNELS } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS } from "./api/sketch-share";
 import { FILES_CHANNELS } from "./api/files";
+import { ATTACHMENTS_CHANNELS } from "./api/attachments";
 import { REQUESTS_CHANNELS } from "./api/requests";
 import { LOGBOOK_CHANNELS } from "./api/logbook";
 import { TEACHING_CHANNELS } from "./api/teaching";
@@ -175,11 +177,13 @@ export const CHANNELS = {
   ...TIMELINE_CHANNELS,
   ...ACT_FAILED_CHANNELS,
   ...BAY_HISTORY_CHANNELS,
+  ...SESSION_SYSTEM_CHANNELS,
   ...USAGE_SUMMARY_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,
   ...FILES_CHANNELS,
+  ...ATTACHMENTS_CHANNELS,
   ...FLIGHT_CONTROLS_CHANNELS,
   ...ONBOARDING_CHANNELS,
   ...REQUESTS_CHANNELS,

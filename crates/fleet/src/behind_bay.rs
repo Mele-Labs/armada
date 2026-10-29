@@ -6,6 +6,7 @@
 //! restarts may say it once more to a Session still behind, which costs one turn.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -18,7 +19,8 @@ use crate::daemon::Fleet;
 pub(crate) const BEHIND_FROM: u32 = 20;
 
 /// Whom each slot's notice went to, by Manifest and slot. A slot is absent once it is no longer
-/// behind or no Session holds it, so falling behind again is a new notice.
+/// behind or no Session holds it, so falling behind again is a new notice. A reading that cannot
+/// tell (`unread`) forgets nothing.
 #[derive(Default)]
 pub(crate) struct BehindTold(Mutex<BTreeMap<(String, u32), String>>);
 
@@ -48,15 +50,21 @@ fn holder_of(slot: &WorktreeSlot) -> Option<&str> {
     }
 }
 
+/// Whether this reading cannot say if the slot caught up: a lease or release is under way on it, or
+/// its holder's count could not be made. It leaves the told mark as it was.
+fn unread(slot: &WorktreeSlot) -> bool {
+    matches!(slot.held, SlotHolding::Busy) || (holder_of(slot).is_some() && slot.behind.is_none())
+}
+
 /// What the Session is told: each slot it holds that is behind, then what to do. One message
-/// covers every slot, so a pass over several slots reaches the Session once.
+/// covers every slot, so a pass over several slots reaches the Session once. A slot names the branch
+/// checked out in it, where `behind` was counted, before the one its lease was cut on.
 fn said_of(slots: &[(&WorktreeSlot, u32)]) -> String {
     let lines: Vec<String> = slots
         .iter()
         .map(|(slot, behind)| {
-            let on = slot
-                .branch
-                .as_ref()
+            let on = adapters::leasing::checked_out(Path::new(&slot.path))
+                .or_else(|| slot.branch.clone())
                 .map(|branch| format!(" (branch {branch})"))
                 .unwrap_or_default();
             format!("slot-{n}{on} is {behind} commits behind {base}.", n = slot.slot, base = slot.base)
@@ -89,7 +97,9 @@ where
             let key = (slot.manifest_id.as_str().to_string(), slot.slot);
             let behind = slot.behind.filter(|behind| *behind >= BEHIND_FROM);
             let (Some(session), Some(behind)) = (holder_of(slot), behind) else {
-                self.behind_told().forget(&key);
+                if !unread(slot) {
+                    self.behind_told().forget(&key);
+                }
                 continue;
             };
             if self.behind_told().told(&key, session) {

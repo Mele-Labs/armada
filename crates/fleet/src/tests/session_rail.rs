@@ -239,6 +239,7 @@ pub(super) fn plan(id: &SessionId) -> RecordPlan {
             paths: vec!["crates/reader".into()],
             issue: None,
             gives: None,
+            lands_in: None,
             tasks: vec![PlanTaskInput { id: None, title: "Stop at the end".into() }],
         }],
         sketch: None,

@@ -3,5 +3,13 @@
   group = "Step and Verdict"
   size = "12px"
   status = "Specified"
-  reserved = "Nothing else in Armada may use flag — no flag-for-review, no feature flag."
+  reserved = "Nothing else in Armada may use flag — no flag-for-review, no feature flag — except Report on the line in a Job's thread that says its agent did not start."
   notes = "Added 2026-08-21 with the sixth step-activity value. --fg-default on a --step-stopped-bg row: the surface carries the warning, so a hued glyph would say it twice. A flag marks a position rather than declaring a verdict, which is the correct claim — the verdict is on the criterion rows beneath it and the reason is on the badge above. octagon-x was rejected because the octagon belongs to stalled and a stopped step sits under an escalated badge; a bare attempt count was rejected for sharing a silhouette with a not-started row."
+
+
+  [[icons.flag.usage]]
+    means = "Report, on the line in a Job's thread that says its agent did not start"
+    group = "Session"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 29 Oct 2026 for the walk `job-failed-to-start`. The glyph the point menu's and the Jobs row menu's Report already wear, so the act reads the same on every surface; the reservation above predates both. Icon-only, tooltip and aria-label `Report`. Opens the same note on the element that the point menu opens."

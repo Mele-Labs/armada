@@ -35,11 +35,13 @@ import type { TerritoryApi } from "./api/territory";
 import type { TimelineApi } from "./api/timeline";
 import type { ActFailedApi } from "./api/act-failed";
 import type { BayHistoryApi } from "./api/bay-history";
+import type { SessionSystemApi } from "./api/session-system";
 import type { UsageSummaryApi } from "./api/usage-summary";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
 import type { FilesApi } from "./api/files";
+import type { AttachmentsApi } from "./api/attachments";
 import type { FlightControlsApi } from "./api/flight-controls";
 import type { PullRequestNotesApi } from "./api/pull-request-notes";
 import type { OnboardingApi } from "./api/onboarding";
@@ -76,11 +78,13 @@ export type BridgeApi = CoreApi<BridgeState> &
   TimelineApi &
   ActFailedApi &
   BayHistoryApi &
+  SessionSystemApi &
   UsageSummaryApi &
   IssuesApi &
   AutopilotApi &
   SketchShareApi &
   FilesApi &
+  AttachmentsApi &
   FlightControlsApi &
   OnboardingApi &
   RequestsApi &

@@ -47,6 +47,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        tools_missing: None,
         waiting_for: Vec::new(),
         done_since: None,
         standing: None,
@@ -66,6 +67,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        closed: Vec::new(),
         waits: None,
         later: Vec::new(),
         held_open_by: None,
@@ -117,6 +119,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         commands: Vec::new(),
         paused: None,
         start: None,
+        start_failed: None,
     };
     let mut record = session(Vec::new());
     record.origin = SessionOrigin::Bridge;

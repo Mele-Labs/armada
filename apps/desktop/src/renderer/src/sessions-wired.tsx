@@ -19,7 +19,14 @@ import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import { askToTell, NOT_REACHABLE, type RefusedAct } from "./tell";
+import { askToTell, NOT_REACHABLE, raiseOutcome, type RefusedAct } from "./tell";
+import { actFields } from "./raised";
+
+/** A start refused from the dispatch sheet, raised as the window's toast with Fleet's own code, and the request it sent as its fields. */
+function raiseStartRefused(outcome: Parameters<typeof raiseOutcome>[0], act: RefusedAct): void {
+  if (outcome.ok || outcome.why !== "refused") return raiseOutcome(outcome);
+  raiseOutcome({ ...outcome, error: { ...outcome.error, fields: { ...outcome.error.fields, ...actFields(act) } } });
+}
 import { taggedIn } from "./dispatch-panel/waits";
 import { hearQueuedIdeas, newIdeaId, readQueuedIdeas, writeQueuedIdeas } from "./queued-ideas";
 import { moveRefusalWords } from "./session-moved";
@@ -117,6 +124,11 @@ export class WiredStore {
 
   constructor(api: BridgeApi) {
     this.api = api;
+    // The draft is built before the api is held, so the command that needs it is added here.
+    this.draft.mendTools = async (id) => {
+      const done = await api.mendSessionTools(id);
+      return done.ok ? { ok: true } : { ok: false, said: refusalWords(done.outcome) };
+    };
   }
 
   /** Read the state and follow it. Returns the way to stop. */
@@ -384,8 +396,9 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome);
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<string | undefined> {
-    this.say(undefined);
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[], toasted?: boolean): Promise<string | undefined> {
+    // A start whose refusal is a toast leaves the window's own line, drawn on the open Job's thread, alone.
+    if (toasted !== true) this.say(undefined);
     // A start that waits on nothing is the call it always was; one held waits on its start card, and never on a wait. Rows of his
     // projects ride on any of them, and a start with none is the call it was.
     const rows = projectRows === undefined || projectRows.length === 0 ? undefined : projectRows;
@@ -397,7 +410,7 @@ export class WiredStore {
           : held === true
             ? await this.api.startSession(undefined, root, request, tuning, undefined, true)
             : await this.api.startSession(undefined, root, request, tuning);
-    if (!done.ok) return void this.say(done.outcome);
+    if (!done.ok) return void (toasted === true ? raiseStartRefused(done.outcome, { act: "start_session", request: { root, request, project_rows: rows } }) : this.say(done.outcome));
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
     await this.held(id);
@@ -671,7 +684,7 @@ export class WiredStore {
     everywhere: () => this.mappedEverywhere,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root, request, tuning, after, held, projectRows) => this.starting(tag, root, request, tuning, after, held, projectRows),
+    start: (tag, root, request, tuning, after, held, projectRows, toasted) => this.starting(tag, root, request, tuning, after, held, projectRows, toasted),
     begin: (id, delivery, message) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(message === undefined ? {} : { message }) })),
     readsWait: (words) => this.readingWait(words),
     settlesWait: (words) => this.settledWait(words),
@@ -732,6 +745,7 @@ export class WiredStore {
       return read.ok ? { ok: true, text: read.value.text } : { ok: false, said: refusalWords(read.outcome) };
     },
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
+    startAgain: (id) => void this.plain(this.api.startAgain(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),
     autoLand: (id, on) => this.landing(id, on),
@@ -854,6 +868,8 @@ export class WiredStore {
       const request = { session_id: id, item_id: itemId, ...given };
       return this.plain(this.api.answerWaiting(request), { act: "answer_waiting", request });
     },
+    // A refusal, such as an item whose subject has ended, is a toast in Fleet's words; the item returns to Needs you by Fleet's event.
+    reopenWaiting: (id: string, itemId: string) => this.plain(this.api.reopenWaiting({ session_id: id, item_id: itemId })),
     // A refusal, such as a sketch drawn again since, is a toast in Fleet's words; the card settles by Fleet's event.
     answerSketch: (answer: AnswerSketch) => this.plain(this.api.answerSketch(answer), { act: "answer_sketch", request: answer }),
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => {

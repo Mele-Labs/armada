@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { isBlank, ownerOf, sessionsMatching } from "./sessions";
+import { isBlank, opensPullRequests, ownerOf, sessionsMatching, toolsMissingSaid } from "./sessions";
 import type { Session } from "./sessions";
 
 const idle = { state: "idle" } as const;
@@ -70,5 +70,36 @@ describe("who owns a chip", () => {
     expect(ownerOf([ended], { kind: "pull_request", number: 1847 })).toBeUndefined();
     expect(ownerOf([ended, notes], { kind: "pull_request", number: 1847 })?.id).toBe("s3");
     expect(ended.attachments).toContainEqual(expect.objectContaining({ kind: "pull_request", number: 1847 }));
+  });
+});
+
+describe("what the tools mark says", () => {
+  test("heads with the CLI version, then a sentence for each thing missing, in the order given", () => {
+    expect(toolsMissingSaid({ harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: ["mod", "door", "task_tools"] })).toBe(
+      "Harness 2.1.310. No armada mod. No armada tools. No task tools.",
+    );
+    expect(toolsMissingSaid({ harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: ["task_tools"] })).toBe("Harness 2.1.310. No task tools.");
+  });
+
+  test("says only what is missing when the init line named no version", () => {
+    expect(toolsMissingSaid({ harness: "Harness", update: "harness update", harness_version: "", missing: ["door"] })).toBe("No armada tools.");
+  });
+});
+
+describe("whether a Job opens pull requests", () => {
+  const started = (delivery: "auto_land" | "open_pr" | "keep_local"): Session => ({ ...blank, started: { delivery } });
+
+  test("Keep local with no pull request opened does not", () => {
+    expect(opensPullRequests(started("keep_local"))).toBe(false);
+    expect(opensPullRequests(blank)).toBe(false);
+  });
+
+  test("Open a pull request and Auto land do", () => {
+    expect(opensPullRequests(started("open_pr"))).toBe(true);
+    expect(opensPullRequests(started("auto_land"))).toBe(true);
+  });
+
+  test("Keep local does once the Job has a pull request", () => {
+    expect(opensPullRequests({ ...flaky, started: { delivery: "keep_local" } })).toBe(true);
   });
 });

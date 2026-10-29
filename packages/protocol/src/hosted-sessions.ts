@@ -69,9 +69,8 @@ export type StartSession = {
    */
   held?: boolean;
   /**
-   * Rows of the repository's projects this Job starts with. Each written task is held by the Job; a linked issue row is
-   * only named, so the brief can carry it. Refused 404 for a project or row that is not there and 422
-   * `fleet.project_row_other_repository` for one of another repository. Left out when empty. Not read with `fork` or `root`.
+   * Rows of his projects this Job starts with, of any repository. Each written task is held by the Job; a linked issue row is
+   * only named, so the brief can carry it. Refused 404 for a project or row that is not there. Left out when empty. Not read with `fork` or `root`.
    */
   project_rows?: ProjectRowRef[];
 };
@@ -173,8 +172,18 @@ export type RetryHandoff = { session_id: string };
 /** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
 export type PauseSession = { session_id: string };
 
+/**
+ * `POST /sessions/tools/mend`: fills Fleet's copy of the mod and restarts the Job's agent so it loads it. Answers the record once the
+ * restart is under way; `tools_missing` stays until the new process's `init` replaces it. 422 `fleet.session_tools_unmendable` for a
+ * terminal Job, 422 `fleet.session_mod_not_filled` (the script's words), 409 `fleet.session_closed`, 422 `fleet.no_such_session`.
+ */
+export type MendSessionTools = { session_id: string };
+
 /** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). The kept turns go once it holds a slot again. Only a person resumes. Since 23.92. */
 export type ResumeSession = { session_id: string };
+
+/** `POST /sessions/start_again`: sends again the turns a Job's process would not start for. Answers the `SessionRecord`. */
+export type StartAgain = { session_id: string };
 
 /**
  * `POST /sessions/auto_land`: Auto land on or off for a hosted Job. Answers the `SessionRecord`, whose `auto_land` reads the flag.
@@ -251,7 +260,12 @@ export type HostedFacts = {
   paused?: SessionPaused;
   /** Present while the Job waits for `POST /sessions/begin`. Absent once it has begun, and for a Job never held. */
   start?: StartHeld;
+  /** Present while the Job's process would not start, tried twice, and nothing has sent its turns since: `POST /sessions/start_again`, or a message, tries again. */
+  start_failed?: StartFailed;
 };
+
+/** Why a Job's process would not start. `log` is the last lines the agent wrote to its error output, oldest first; empty is omitted. */
+export type StartFailed = { cause: string; log?: string[] };
 
 /** A Job that waits on its start card: the person settles it and presses Start. */
 export type StartHeld = {

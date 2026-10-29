@@ -98,6 +98,11 @@ impl HeadlessAgent {
         "Claude Code"
     }
 
+    /// The command that updates the CLI installed on the `PATH`, for a person to run in a terminal.
+    pub fn update_command() -> String {
+        format!("{ON_PATH} update")
+    }
+
     /// The model a proposal that names none is given.
     ///
     /// **This is what stops a Job dying at dispatch.** A proposal with no model

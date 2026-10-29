@@ -126,6 +126,7 @@ WebSocket event stream, read this first.
 | [A Job's own default model](protocol/a-jobs-own-default-model.md) |
 | [The Fleet's timeline: kept as it happens, read as a window](protocol/the-fleets-timeline-kept-as-it-happens-read-as-a-window.md) |
 | [When a Job's Drone was last told](protocol/when-a-jobs-drone-was-last-told.md) |
+| [A Job's missing tools](protocol/a-jobs-missing-tools.md) |
 | [A stranded slot's last holder, and whether Fleet told it](protocol/a-stranded-slots-last-holder-and-whether-fleet-told-it.md) |
 | [An agent lists Jobs in a line each](protocol/an-agent-lists-jobs-in-a-line-each.md) |
 | [What a Job is doing, from its tool calls](protocol/what-a-job-is-doing-from-its-tool-calls.md) |
@@ -182,6 +183,7 @@ WebSocket event stream, read this first.
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`, `mark_not_a_drift`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
+| [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |
 | [The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row](protocol/the-job-browser.md) |
 | [Open questions](#open-questions) |
 
@@ -915,6 +917,26 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 
 **Skew.** As above.
 **The event stream.** The Session is published as `session.changed`, so the open risk below is neither better nor worse.
+
+## A closed item is kept whole: `closed`, `reopen_waiting` and `list_closed_waiting`
+
+Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A closed item is kept whole*.
+**Two operations and one field**: a command Bridge sends, a query an agent reads, and a list on the Session's record; no event kind.
+Bridge's half is `ClosedWaiting`, `ClosedWaitingList`, `ReopenWaiting` and `closed` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRecord.closed` | Fleet writes, Bridge reads | `ClosedWaiting` `{ item, at, ended? }`, newest first, at most 50: `item` the `WaitingItem` as it stood, `at` when it was closed, `ended` sent only as `true`. Absent when none |
+| `reopen_waiting` (`POST /sessions/waiting/reopen`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ReopenWaiting` `{ session_id, item_id }`; answered with the `SessionRecord`. 409 `fleet.session_waiting_unheld` for an id nothing closed holds; 422 `fleet.session_waiting_unreopenable` for one with `ended` |
+| `list_closed_waiting` (`GET /sessions/waiting/closed?session_id=`, `agent_access = "Yes"`) | An agent reads | `ClosedWaitingList` `{ session_id, closed[] }`, the same entries. 422 `fleet.session_waiting_unnamed` for a call that places no Job |
+
+**Kept at the close.** `dismiss_waiting` writes the item's snapshot into new nullable columns of `session_waiting_dismissed` (additive, `20261029T0100Z-session_waiting.closed`).
+The id stays dismissed until `reopen_waiting` deletes the row.
+**`ended`** is read on every record by lifting every closed item's dismissal in a second pass over the same reads and asking which ids come back; the agent's own items are reopenable while the Job lives.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** The Session is published as `session.changed` on a close and a reopen, as on any dismiss.
+The record gains up to 50 small entries, so the open risk below is neither better nor much worse.
 
 ## The Job open when a note was pinned: `SessionNote.job`
 

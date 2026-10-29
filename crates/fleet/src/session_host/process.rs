@@ -13,7 +13,7 @@
 //! under `armada session-keep`, and Fleet holds a connection to it. A Fleet
 //! that restarts finds the keeper again with [`Processes::reattach`].
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -142,6 +142,66 @@ const KEEPER_WITHIN: Duration = Duration::from_secs(10);
 /// The longest a unix socket's path may be on macOS, less its terminator.
 const SOCKET_PATH_MOST: usize = 103;
 
+/// A Job's id as Fleet mints it, standing in for every one when a folder is measured.
+const LONGEST_SESSION: &str = "00000000-0000-0000-0000-000000000000";
+
+/// Where keepers go when the machine folder is too deep for a socket: `/tmp/armada-<user>/sessions`.
+const PRIVATE_ROOT: &str = "/tmp";
+
+/// Where each Job's keeper socket goes: `machine/sessions` while a socket there fits, so keepers
+/// already running are found after an upgrade. A long username puts it past the limit, and then a
+/// folder of this user's own under /tmp, which anyone may write to: Fleet refuses one it did not make
+/// private, since a keeper's socket drives an agent. One refused there gives way to the user's own
+/// temporary folder, which macOS makes for that user alone.
+pub fn keepers_dir(machine: &Path, home: &Path, user: &str) -> Result<PathBuf, String> {
+    keepers_dir_under(machine, home, user, Path::new(PRIVATE_ROOT), &std::env::temp_dir())
+}
+
+fn keepers_dir_under(machine: &Path, home: &Path, user: &str, root: &Path, own: &Path) -> Result<PathBuf, String> {
+    let usual = machine.join("sessions");
+    if fits(&usual) {
+        keepers_made(&usual, home, root)?;
+        return Ok(usual);
+    }
+    let private = root.join(format!("armada-{user}")).join("sessions");
+    let refused = match keepers_made(&private, home, root) {
+        Ok(()) => return Ok(private),
+        Err(refused) => refused,
+    };
+    let own = own.join("armada-sessions");
+    match fits(&own) && keepers_made(&own, home, root).is_ok() {
+        true => Ok(own),
+        false => Err(refused),
+    }
+}
+
+fn fits(keepers: &Path) -> bool {
+    keepers.join(format!("{LONGEST_SESSION}.sock")).as_os_str().len() <= SOCKET_PATH_MOST
+}
+
+/// Make the keepers' folder if it is gone, as /tmp's cleaning may leave it. One under `root` is made
+/// 0700 and refused unless it is a folder owned by whoever owns `home` that nobody else may open.
+fn keepers_made(keepers: &Path, home: &Path, root: &Path) -> Result<(), String> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+    let Some(private) = keepers.parent().filter(|_| keepers.starts_with(root)) else {
+        return std::fs::create_dir_all(keepers).map_err(|why| why.to_string());
+    };
+    let made = |dir: &Path| match std::fs::DirBuilder::new().mode(0o700).create(dir) {
+        Err(why) if why.kind() != std::io::ErrorKind::AlreadyExists => Err(format!("{}: {why}", dir.display())),
+        _ => Ok(()),
+    };
+    made(private)?;
+    let owner = std::fs::metadata(home).map_err(|why| format!("{}: {why}", home.display()))?.uid();
+    let found = std::fs::symlink_metadata(private).map_err(|why| format!("{}: {why}", private.display()))?;
+    if !found.is_dir() || found.uid() != owner || found.mode() & 0o777 != 0o700 {
+        return Err(format!(
+            "{} is not a folder only this user can open, so Fleet keeps no job sockets in it",
+            private.display()
+        ));
+    }
+    made(keepers)
+}
+
 impl ProcessHost {
     fn socket_of(&self, session: &str) -> Result<PathBuf, String> {
         let socket = self.keepers.join(format!("{session}.sock"));
@@ -237,11 +297,20 @@ impl Processes for ProcessHost {
             Some(note) => hosted.noting(note),
             None => hosted,
         };
+        // The copy's plugin, when it holds one: a job gets the mod whether or not the person ever
+        // installed it into their CLI.
+        let plugin = crate::runtime::mod_dir(&self.home);
+        let hosted = match plugin.join(adapters::MOD_INSTALLED_MANIFEST).is_file() {
+            true => hosted
+                .loading_mod(&plugin.join("armada").to_string_lossy())
+                .map_err(|why| why.to_string())?,
+            false => hosted,
+        };
         let launch = self
             .agent
             .render_hosted_session(&hosted)
             .map_err(|why| why.to_string())?;
-        std::fs::create_dir_all(&self.keepers).map_err(|why| why.to_string())?;
+        keepers_made(&self.keepers, Path::new(&self.home), Path::new(PRIVATE_ROOT))?;
         let socket = self.socket_of(&start.session)?;
         let spool = self.keepers.join(format!("{}.spool", start.session));
         let log = spool.with_extension("log");
@@ -249,7 +318,7 @@ impl Processes for ProcessHost {
         // agent's, which it writes later, land in one file.
         let logged = std::fs::write(&log, "")
             .and_then(|()| std::fs::OpenOptions::new().append(true).open(&log))
-            .map_err(|why| format!("the job's keeper has no log: {why}"))?;
+            .map_err(|why| format!("the agent's log could not be made: {why}"))?;
         let alone = super::keeper::ALONE_FOR.as_secs().to_string();
         let mut keeper = Detached::program(&self.exe)
             .arg("session-keep")
@@ -265,7 +334,7 @@ impl Processes for ProcessHost {
             .writing_output_to(&logged)
             .map_err(|why| why.to_string())?
             .spawn()
-            .map_err(|why| format!("the job's keeper would not start: {why}"))?;
+            .map_err(|why| format!("the agent would not start: {why}"))?;
         // A keeper binds within milliseconds. Polled, because the trait this
         // answers is not async, and bounded, so a keeper that died says so.
         let waited = std::time::Instant::now();
@@ -274,13 +343,10 @@ impl Processes for ProcessHost {
                 break stream;
             }
             if let Ok(Some(status)) = keeper.try_wait() {
-                return Err(format!(
-                    "the job's keeper exited ({status}) before it answered{}",
-                    super::kept::tail_of(&log)
-                ));
+                return Err(format!("the agent exited ({status}) before it came up"));
             }
             if waited.elapsed() > KEEPER_WITHIN {
-                return Err(String::from("the job's keeper did not answer"));
+                return Err(format!("the agent did not come up within {} seconds", KEEPER_WITHIN.as_secs()));
             }
             std::thread::sleep(Duration::from_millis(10));
         };
@@ -292,5 +358,118 @@ impl Processes for ProcessHost {
         let spool = self.keepers.join(format!("{session}.spool"));
         let stream = super::kept::connect(&socket)?;
         super::kept::attached(stream, self.agent.clone(), sink, &socket, &spool).ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::tmp::TempDir;
+    use std::os::unix::fs::{symlink, MetadataExt, PermissionsExt};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    /// A short folder straight under /tmp, since a machine folder only fits a socket where its path is
+    /// short, and the system temporary folder is not on macOS.
+    struct Short(PathBuf);
+
+    impl Short {
+        fn new() -> Short {
+            let path = PathBuf::from(format!("/tmp/ak-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+            std::fs::create_dir_all(&path).expect("a short folder");
+            Short(path)
+        }
+        /// A path under this folder whose socket path, `sessions/<id>.sock`, is `socket` bytes long.
+        fn machine_for(&self, socket: usize) -> PathBuf {
+            let own = "/sessions/".len() + LONGEST_SESSION.len() + ".sock".len();
+            let wanted = socket - own - self.0.as_os_str().len() - 1;
+            self.0.join("m".repeat(wanted))
+        }
+    }
+
+    impl Drop for Short {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn mode_of(path: &Path) -> u32 {
+        std::fs::metadata(path).expect("the folder is there").mode() & 0o777
+    }
+
+    #[test]
+    fn a_machine_folder_whose_sockets_fit_keeps_them_and_is_made() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST);
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        assert_eq!(made, Ok(machine.join("sessions")));
+        assert!(machine.join("sessions").is_dir());
+        assert!(!root.path().join("armada-nick").exists(), "nothing is made under the private root");
+    }
+
+    #[test]
+    fn a_machine_folder_one_byte_too_deep_moves_to_a_private_folder_made_0700() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        let private = root.path().join("armada-nick");
+        assert_eq!(made, Ok(private.join("sessions")));
+        assert_eq!(mode_of(&private), 0o700);
+        assert_eq!(mode_of(&private.join("sessions")), 0o700);
+        assert!(!machine.exists(), "the machine folder is not made");
+    }
+
+    #[test]
+    fn a_private_folder_others_can_open_is_refused_for_the_users_own_temporary_folder() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+        let open = root.path().join("armada-nick");
+        std::fs::create_dir(&open).unwrap();
+        std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        assert_eq!(made, Ok(short.0.join("armada-sessions")));
+        assert!(short.0.join("armada-sessions").is_dir());
+        assert!(!open.join("sessions").exists(), "nothing is put in the open folder");
+        assert_eq!(mode_of(&open), 0o755, "the open folder is left as it was");
+    }
+
+    #[test]
+    fn an_open_private_folder_with_no_temporary_folder_that_fits_is_an_error_naming_it() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+        let too_deep = short.0.join("t".repeat(80));
+        let open = root.path().join("armada-nick");
+        std::fs::create_dir(&open).unwrap();
+        std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &too_deep);
+
+        let why = made.expect_err("no folder is safe");
+        assert!(why.contains(&open.display().to_string()), "it names the open folder: {why}");
+        assert!(!open.join("sessions").exists());
+        assert!(!too_deep.exists());
+    }
+
+    #[test]
+    fn a_private_folder_that_is_a_link_to_a_0700_folder_is_refused() {
+        let (short, root, home, elsewhere) = (Short::new(), TempDir::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+        let target = elsewhere.path().join("theirs");
+        std::fs::create_dir(&target).unwrap();
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let link = root.path().join("armada-nick");
+        symlink(&target, &link).unwrap();
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        assert_eq!(made, Ok(short.0.join("armada-sessions")));
+        assert!(!target.join("sessions").exists(), "nothing is put where the link leads");
     }
 }

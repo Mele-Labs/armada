@@ -396,7 +396,7 @@ const PLAN = {
   summary: "",
   approved: true,
   scope: [],
-  groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], tasks: [{ id: "t1", text: "Add the column", state: "open" as const }] }],
+  groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Add the column", state: "open" as const }] }],
 };
 const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const };
 
@@ -538,6 +538,41 @@ it("sets a plan aside by dismissing the item Fleet holds for it, `plan:<version>
   expect(dismissWaiting).toHaveBeenCalledWith({ session_id: "a", item_id: "plan:3" });
 });
 
+// ---- Reopening what he closed from Needs you ------------------------------------------------------------------
+
+/** A store whose one Job holds a closed item, with Fleet's answer to a Reopen as `answer` says and the window's refusals caught in `told`. */
+function reopening(answer: "ok" | "refused") {
+  const refusal = { ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code: "fleet.session_waiting_unreopenable", message: "the call it asked about has ended" } } };
+  const reopenWaiting = vi.fn(async () => (answer === "ok" ? { ok: true as const, value: record("a") } : refusal));
+  const told = vi.fn();
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: told });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} get detail() { return this.init.detail; } });
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof send) => ((send = on), () => undefined), reopenWaiting } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const closed = [{ item: { id: "a2", text: "Open the walk", since: AT, source: "walk" as const }, at: AT }];
+  send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [{ ...record("a"), closed }] } }), seq: 0 });
+  return { store, reopenWaiting, said: () => told.mock.calls.map(([event]) => (event as { detail: { sentence: string } }).detail.sentence) };
+}
+
+it("reads what he closed off the record, so the Closed rows have something to draw", () => {
+  const { store } = reopening("ok");
+  expect(store.draft.get()[0]?.closed).toEqual([{ item: { id: "a2", text: "Open the walk", since: AT, source: "walk" }, at: AT }]);
+});
+
+it("sends Reopen to Fleet by the Job and the item", () => {
+  const { store, reopenWaiting } = reopening("ok");
+  store.draft.reopenWaiting!("a", "a2");
+  expect(reopenWaiting).toHaveBeenCalledExactlyOnceWith({ session_id: "a", item_id: "a2" });
+});
+
+it("tells Fleet's refusal of a Reopen as a toast in its own words", async () => {
+  const { store, said } = reopening("refused");
+  await store.draft.reopenWaiting!("a", "a2");
+  expect(said()).toEqual(["the call it asked about has ended"]);
+});
+
 // ---- A pull request press frees on the write's answer --------------------------------------------------------
 
 it("answers a pull request press on the write, while the read that refreshes the sheet is still out", async () => {
@@ -566,4 +601,43 @@ it("holds the picked repository's Sessions in the list and every repository's be
   expect(everywhere[0]).toBe(store.draft.get()[0]);
   publish({ repository: null as unknown as string, holds: { ...NOTHING_YET.holds, repositories }, sessions: { state: "read", sessions: [record("a"), { ...record("b"), manifest_id: "pocket" }] } });
   expect(store.draft.everywhere!()).toBe(store.draft.get());
+});
+
+// ---- A start refused from the dispatch sheet ----------------------------------------------------------------
+
+/** A store whose Fleet refuses every start with a project row it does not know, with the window's events caught in `heard`. */
+async function refusedStart() {
+  const heard: { type: string; detail: unknown }[] = [];
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: (event: { type: string; detail: unknown }) => heard.push(event) });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} get detail() { return this.init.detail; } });
+  const error = { code: "fleet.no_such_project_row", message: "No such row in your projects.", run_id: "r1", fields: { row: "gone" }, chain: [] };
+  const startSession = vi.fn(async () => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error } }));
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: () => () => undefined, startSession } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  await new Promise((done) => setTimeout(done, 0));
+  return { store, startSession, raised: () => heard.filter((event) => event.type === "armada:raise-outcome").map((event) => event.detail as { error: { code: string; fields: Record<string, string> } }) };
+}
+
+it("raises a start the dispatch sheet made and Fleet refused as the window's toast, with Fleet's code and the request as its fields, and leaves the Sessions line unset", async () => {
+  const { store, startSession, raised } = await refusedStart();
+
+  const id = await store.draft.start(undefined, "/code/armada", "fix it", undefined, undefined, undefined, [{ row: "gone" }], true);
+
+  expect(id).toBeUndefined();
+  expect(startSession).toHaveBeenCalledWith(undefined, "/code/armada", "fix it", undefined, undefined, undefined, [{ row: "gone" }]);
+  const [outcome] = raised();
+  expect(raised()).toHaveLength(1);
+  expect(outcome?.error.code).toBe("fleet.no_such_project_row");
+  expect(outcome?.error.fields).toEqual({ row: "gone", act: "start_session", root: "/code/armada", request: "fix it", project_rows: JSON.stringify([{ row: "gone" }]) });
+  expect(store.draft.said!()).toBeUndefined();
+});
+
+it("still says a start refused anywhere else on the Sessions line, and raises no toast for it", async () => {
+  const { store, raised } = await refusedStart();
+
+  await store.draft.start(undefined, "/code/armada", "fix it");
+
+  expect(store.draft.said!()).toBe("No such row in your projects.");
+  expect(raised()).toEqual([]);
 });

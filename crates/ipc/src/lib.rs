@@ -87,6 +87,8 @@ mod thought;
 mod timeline;
 /// Who held a slot and what was checked out in it, for the side panel's Bay.
 mod bay_history;
+/// A Job's processes, their load, its worktrees and logs, and ending one process.
+mod session_system;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
@@ -329,6 +331,9 @@ pub use thought::{
     HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent,
     ThoughtTarget,
 };
+pub use session_system::{
+    ProcessStopped, SessionSystem, StopProcess, SystemLog, SystemProcess, SystemProcessState, SystemWorktree,
+};
 pub use bay_history::{
     BayHistory, BayHistoryAsk, BayHistoryEntry, BayHolder, BayHolderKind, MOST_BAY_HISTORY,
 };
@@ -356,7 +361,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use session_mcp::{
@@ -583,11 +588,11 @@ pub use session_summary::{
 };
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
-    AttachmentVersion, ConfirmWaiting, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
@@ -624,9 +629,9 @@ pub use session_activity::{
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
-    PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
+    PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
-    TaskStale, TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
+    TaskStale, TouchAct, TouchBy, FIRST_PULL_REQUEST, MOST_LANDS_IN_CHARS, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };
 pub use session_rail::{
     ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading,

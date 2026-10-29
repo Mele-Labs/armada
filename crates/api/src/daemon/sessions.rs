@@ -409,6 +409,14 @@ pub trait Sessions: Send + Sync + 'static {
         set: ipc::SetWaitingFor,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `list_closed_waiting` — what the person closed from the Job's list, newest first. `caller` places a
+    /// hosted session as `waiting_for`'s does. [`Refusal::Unacceptable`] for a call that places no session.
+    fn list_closed_waiting(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> impl Future<Output = Result<ipc::ClosedWaitingList, Refusal>> + Send;
+
     /// `all_done` — the agent says it has nothing left to work on. `caller` places a hosted session as
     /// `waiting_for`'s does. Answers with the row. [`Refusal::Unacceptable`] for a call that places no session.
     fn all_done(
@@ -518,6 +526,23 @@ pub trait Sessions: Send + Sync + 'static {
         since: Option<String>,
         until: Option<String>,
     ) -> impl Future<Output = Result<ipc::SessionTurnUsage, Refusal>> + Send;
+
+    /// `get_session_system` — a job's processes, their load, its worktrees and logs.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not host.
+    fn get_session_system(
+        self: std::sync::Arc<Self>,
+        session_id: ipc::SessionId,
+    ) -> impl Future<Output = Result<ipc::SessionSystem, Refusal>> + Send;
+
+    /// `stop_process` — end one process the job started, by pid or port. `caller` places a hosted
+    /// session as `all_done`'s does. [`Refusal::Unacceptable`] for neither or both of pid and port, a
+    /// process the job did not start, or a call that places no session; [`Refusal::IllegalMove`] for a
+    /// session that has ended.
+    fn stop_process(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        stop: ipc::StopProcess,
+    ) -> impl Future<Output = Result<ipc::ProcessStopped, Refusal>> + Send;
 
     /// `get_usage_summary` — the turns in `[since, until)` summed in cost units. `until` is now and
     /// `since` a week before it where left out; `tz_offset_minutes` cuts the local days.

@@ -13,8 +13,8 @@
 //! (`stale_of`). `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`.
 
 use ipc::{
-    Instant, PlanChanges, PlanGroupInput, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, TaskStale,
+    Instant, PlanChanges, PlanGroupInput, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
+    FIRST_PULL_REQUEST, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, TaskStale,
 };
 use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 
@@ -173,6 +173,7 @@ pub(crate) fn recorded(
             agent: group.agent.clone(),
             title: group.title.clone(),
             gives: group.gives.clone(),
+            lands_in: group.lands_in.clone(),
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
@@ -222,7 +223,8 @@ enum Pass {
 /// completed now is `edited` if an edit was seen under its group's paths since the group's last
 /// completion (or the version was recorded): those completing together share the window. A task that
 /// goes back to not completed loses its instant. A task put in progress is stamped, for the store to
-/// say which of several began last. A task no item matches keeps what it had. Whether
+/// say which of several began last. A task no item matches keeps what it had. An item that says
+/// completed always takes down Fleet's in-progress mark, even where the list said so before. Whether
 /// the plan moved.
 pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> bool {
     let recorded = plan.recorded_at.clone();
@@ -248,7 +250,8 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
                 ReportedTaskStatus::InProgress => "in_progress",
                 ReportedTaskStatus::Completed => "completed",
             };
-            if task.listed.as_deref() == Some(status) {
+            let again = task.listed.as_deref() == Some(status);
+            if again && !(status == "completed" && task.marked.as_deref() == Some("in_progress")) {
                 continue;
             }
             moved = true;
@@ -256,6 +259,10 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
             task.marked = None;
             task.marked_why = None;
             touched(task, now, calls);
+            if again {
+                task.started_at = None;
+                continue;
+            }
             task.listed = Some(status.to_string());
             task.started_at = (status == "in_progress").then(|| now.to_string());
             if status == "completed" {
@@ -272,8 +279,9 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
 
 /// The plan as the record carries it, with each task in progress that looks left behind read as stale
 /// from `touches`, the Job's recent file touches.
-pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch]) -> SessionPlan {
+pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch], pulls: &[PlanPull]) -> SessionPlan {
     let mut wired = wire(plan);
+    bind_lands_in(&mut wired, plan, pulls);
     for (g, group) in wired.groups.iter_mut().enumerate() {
         for (t, task) in group.tasks.iter_mut().enumerate() {
             task.stale = stale_of(plan, (g, t), touches)
@@ -281,6 +289,57 @@ pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch]) -> SessionPlan {
         }
     }
     wired
+}
+
+/// A pull request the plan may land in, as the ledger holds it. Oldest first where several are given.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PlanPull {
+    pub number: u64,
+    pub title: String,
+    pub state: PlanLandsInState,
+    /// The plan task in progress when the Session's ledger first kept it.
+    pub from_task: Option<String>,
+    /// The group whose Job opened it, where it is the pull request of a Job the group was handed to.
+    pub handed: Option<String>,
+}
+
+/// Bind each pull request to the label it lands in, so every group sharing that label reads it.
+///
+/// In three passes, each binding only labels the pass before left bare, a later pull request replacing an
+/// earlier one within its pass: a group's own Job's, then those that followed a task of the plan, then
+/// those that followed none, each taking the first label in plan order nothing has bound.
+pub(crate) fn bind_lands_in(wired: &mut SessionPlan, plan: &KeptPlan, pulls: &[PlanPull]) {
+    let labels: Vec<String> = wired.groups.iter().map(|group| group.lands_in.label.clone()).collect();
+    let label_of_group = |id: &str| wired.groups.iter().find(|group| group.id == id).map(|group| group.lands_in.label.clone());
+    let label_of_task = |task: &str| {
+        let at = plan.groups.iter().position(|group| group.tasks.iter().any(|one| one.id == task))?;
+        labels.get(at).cloned()
+    };
+    let pr = |one: &PlanPull| PlanLandsInPr { number: one.number, title: one.title.clone(), state: one.state };
+    let mut bound: Vec<(String, PlanLandsInPr)> = Vec::new();
+    let pass = |found: Vec<(String, &PlanPull)>, bound: &mut Vec<(String, PlanLandsInPr)>| {
+        let before = bound.len();
+        for (label, one) in found {
+            match bound.iter().position(|(held, _)| *held == label) {
+                Some(at) if at >= before => bound[at].1 = pr(one),
+                Some(_) => {}
+                None => bound.push((label, pr(one))),
+            }
+        }
+    };
+    pass(pulls.iter().filter_map(|one| Some((label_of_group(one.handed.as_deref()?)?, one))).collect(), &mut bound);
+    pass(
+        pulls.iter().filter(|one| one.handed.is_none()).filter_map(|one| Some((label_of_task(one.from_task.as_deref()?)?, one))).collect(),
+        &mut bound,
+    );
+    for one in pulls.iter().filter(|one| one.handed.is_none() && one.from_task.as_deref().and_then(label_of_task).is_none()) {
+        if let Some(label) = labels.iter().find(|label| !bound.iter().any(|(held, _)| held == *label)) {
+            bound.push((label.clone(), pr(one)));
+        }
+    }
+    for group in &mut wired.groups {
+        group.lands_in.pull_request = bound.iter().find(|(label, _)| *label == group.lands_in.label).map(|(_, one)| one.clone());
+    }
 }
 
 /// Words too common to say which task a line is.
@@ -349,15 +408,47 @@ pub(crate) struct Seen {
     pub shown: bool,
 }
 
+/// Letters and digits only, lowercase, so `PropertyDataAsyncEvents` and `property_data_async_events`
+/// are one word.
+fn squashed(text: &str) -> String {
+    text.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+/// A stem shorter than this, `mod` or `index`, is in too many titles to say a task.
+const STEM_AT_LEAST: usize = 5;
+
+/// Whether `title` names the file at `path`: its whole name, or its stem with case and separators
+/// ignored.
+fn names_file(title: &str, path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let stem = squashed(name.rsplit_once('.').map_or(name, |(stem, _)| stem));
+    title.to_lowercase().contains(&name.to_lowercase())
+        || (stem.chars().count() >= STEM_AT_LEAST && squashed(title).contains(&stem))
+}
+
+/// Not yet begun, as Fleet or the agent's list says.
+fn open(task: &KeptPlanTask) -> bool {
+    status(task).is_none_or(|said| said == "pending")
+}
+
 /// An edit of `path` (from the repository's root), seen now. Every group whose paths hold it is
 /// worked, and a task of it that is in progress has an edit seen and is touched, where the group names
-/// paths of its own. With nothing in progress anywhere, the first open task of the first such group is
-/// marked working. Changes `plan` as the store will.
+/// paths of its own. With nothing in progress anywhere, one open task of those groups is marked
+/// working: the first whose title names the file, else the first of the first group. Changes `plan`
+/// as the store will.
 pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
     let mut seen = Seen::default();
     let calls = plan.calls;
     let mut idle = !plan.groups.iter().flat_map(|group| &group.tasks).any(|task| status(task) == Some("in_progress"));
-    for group in plan.groups.iter_mut().filter(|group| under(&group.paths, path)) {
+    let named = plan
+        .groups
+        .iter()
+        .enumerate()
+        .filter(|(_, group)| !group.paths.is_empty() && under(&group.paths, path))
+        .flat_map(|(g, group)| group.tasks.iter().enumerate().map(move |(t, task)| (g, t, task)))
+        .find(|(_, _, task)| open(task) && names_file(&task.text, path))
+        .map(|(g, t, _)| (g, t));
+    for (g, group) in plan.groups.iter_mut().enumerate().filter(|(_, group)| under(&group.paths, path)) {
         seen.moved = true;
         seen.shown |= group.worked_at.is_none();
         group.worked_at = Some(now.to_string());
@@ -372,7 +463,11 @@ pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
         if !(idle && owned) {
             continue;
         }
-        if let Some(task) = group.tasks.iter_mut().find(|task| status(task).is_none_or(|said| said == "pending")) {
+        let at = match named {
+            Some((from, t)) => (from == g).then_some(t),
+            None => group.tasks.iter().position(open),
+        };
+        if let Some(task) = at.map(|t| &mut group.tasks[t]) {
             task.marked = Some("in_progress".into());
             task.marked_why = Some(format!("edits in {path}"));
             task.started_at = Some(now.to_string());
@@ -572,6 +667,10 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                 gives: group.gives.clone(),
                 paths: group.paths.clone(),
                 issue: group.issue.clone(),
+                lands_in: PlanLandsIn {
+                    label: group.lands_in.clone().unwrap_or_else(|| FIRST_PULL_REQUEST.to_string()),
+                    pull_request: None,
+                },
                 tasks: group
                     .tasks
                     .iter()

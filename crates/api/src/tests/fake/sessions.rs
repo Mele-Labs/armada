@@ -36,6 +36,7 @@ impl Sessions for FakeDaemon {
             hosted: None,
             terminal: None,
             mod_out_of_date: false,
+            tools_missing: None,
             waiting_for: Vec::new(),
             done_since: None,
             standing: None,
@@ -55,6 +56,7 @@ impl Sessions for FakeDaemon {
             judging: false,
             judge: None,
             settled: Vec::new(),
+            closed: Vec::new(),
             waits: None,
             later: Vec::new(),
             held_open_by: None,
@@ -558,6 +560,17 @@ impl Sessions for FakeDaemon {
         Ok(ipc::LaterSettled { id: settle.id, sentence: String::new(), open: Vec::new() })
     }
 
+    async fn list_closed_waiting(
+        &self,
+        _caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::ClosedWaitingList, Refusal> {
+        Ok(ipc::ClosedWaitingList {
+            session_id: session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            closed: Vec::new(),
+        })
+    }
+
     async fn all_done(
         &self,
         _caller: Option<crate::Caller>,
@@ -610,6 +623,28 @@ impl Sessions for FakeDaemon {
         Ok(Owners {
             holders: Vec::new(),
         })
+    }
+
+    async fn get_session_system(self: std::sync::Arc<Self>, session_id: ipc::SessionId) -> Result<ipc::SessionSystem, Refusal> {
+        Ok(ipc::SessionSystem {
+            session_id,
+            processes: Vec::new(),
+            cpu_percent: None,
+            memory_bytes: None,
+            memory_of_bytes: None,
+            disk_bytes: None,
+            disk_of_bytes: None,
+            worktrees: Vec::new(),
+            logs: Vec::new(),
+        })
+    }
+
+    async fn stop_process(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        stop: ipc::StopProcess,
+    ) -> Result<ipc::ProcessStopped, Refusal> {
+        Ok(ipc::ProcessStopped { pid: stop.pid.unwrap_or(0), command: String::new() })
     }
 
     async fn get_session_usage(

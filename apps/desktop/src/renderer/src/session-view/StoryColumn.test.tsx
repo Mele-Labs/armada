@@ -93,3 +93,12 @@ test("Whole plan opens every group where it stands, and keeps a finished one out
   expect(zone("Now")).toContain("Retry once");
   expect(zone("Open")).toContain("Say when it retries");
 });
+
+test("a walk shown again at one address is one beat in Now, the newest showing", () => {
+  const url = "http://localhost:5511/?walk=processes";
+  const again = session("idle");
+  const shown = { ...again, rows: [...again.rows, { id: "w1", at: "2026-10-27T10:02:00Z", kind: "window", title: "Processes", url }, { id: "w2", at: "2026-10-27T10:03:00Z", kind: "window", title: "Processes, take 2", url }] } as unknown as Session;
+  const host = mount(shown);
+  const walks = [...host.querySelectorAll('ul[aria-label="Now"] > li[data-walk]')].map((one) => one.querySelector(".sv-beat__label")?.textContent);
+  expect(walks).toEqual(["Processes, take 2"]);
+});

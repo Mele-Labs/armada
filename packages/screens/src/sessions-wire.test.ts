@@ -551,6 +551,15 @@ describe("a session", () => {
     expect(of({}).paused).toBeUndefined();
   });
 
+  it("carries hosted.start_failed to startFailed with its log, an empty log where none came, and none where it is absent", () => {
+    const hosted = (change: object) => ({ turn: { state: "idle" as const }, mode: "auto" as const, running: false, ...change });
+    const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ05", { hosted: hosted(change) }), undefined, beside());
+
+    expect(of({ start_failed: { cause: "The agent exited at once", log: ["error: no such option", "usage: agent [flags]"] } }).startFailed).toEqual({ cause: "The agent exited at once", log: ["error: no such option", "usage: agent [flags]"] });
+    expect(of({ start_failed: { cause: "The agent exited at once" } }).startFailed).toEqual({ cause: "The agent exited at once", log: [] });
+    expect(of({}).startFailed).toBeUndefined();
+  });
+
   it("marks a session Auto land from auto_land, and none where it is absent or the session ended", () => {
     const hosted = { turn: { state: "idle" as const }, mode: "auto" as const, running: false };
     const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ04", { hosted, ...change }), undefined, beside());
@@ -738,6 +747,31 @@ describe("when the agent said it was done", () => {
   });
 });
 
+describe("what he closed from Needs you", () => {
+  // Fleet sends them newest first and marks `ended` only as true.
+  const closed: NonNullable<SessionRecord["closed"]> = [
+    { item: { id: "a2", text: "Open the walk", since: AT, source: "walk", act: { kind: "message", target: "a" } }, at: "2026-10-12T09:40:00.000Z" },
+    { item: { id: "ask:c1", text: "Which clock?", since: AT, source: "ask_card", act: { kind: "answer", target: "c1" } }, at: "2026-10-12T09:20:00.000Z", ended: true },
+  ];
+
+  it("carries Fleet's list onto the session as it came, newest first, with `ended` on the one that cannot be reopened", () => {
+    const session = sessionOfRecord(record("a", { closed }), undefined, beside());
+    expect(session.closed).toEqual(closed);
+    expect(session.closed?.map((one) => one.item.id)).toEqual(["a2", "ask:c1"]);
+    expect(session.closed?.map((one) => one.ended)).toEqual([undefined, true]);
+  });
+
+  it("keeps them on a Job that ended, which is when Fleet marks every one ended", () => {
+    const ended = closed.map((one) => ({ ...one, ended: true as const }));
+    expect(sessionOfRecord(record("a", { state: "ended", closed: ended }), undefined, beside()).closed).toEqual(ended);
+  });
+
+  it("carries none for a record with none", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).closed).toBeUndefined();
+    expect(sessionOfRecord(record("a", { closed: [] }), undefined, beside()).closed).toBeUndefined();
+  });
+});
+
 describe("what a session waits on", () => {
   const items: NonNullable<SessionRecord["waiting_for"]> = [
     { id: "a1", text: "Run the tests", since: AT, source: "agent", act: { kind: "run", target: "cargo test" } },
@@ -806,6 +840,14 @@ describe("the plan's limit and the context window", () => {
     max_tokens: 1_000_000,
     autocompact_threshold: 967_000,
   };
+
+  it("carries what the agent came up without, and nothing for a Job that is whole, an empty list or an ended Job", () => {
+    const lacking: NonNullable<SessionRecord["tools_missing"]> = { harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: ["door", "task_tools"] };
+    expect(sessionOfRecord(record("a", { tools_missing: lacking }), undefined, beside()).toolsMissing).toEqual(lacking);
+    expect(sessionOfRecord(record("a"), undefined, beside())).not.toHaveProperty("toolsMissing");
+    expect(sessionOfRecord(record("a", { tools_missing: { harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: [] } }), undefined, beside())).not.toHaveProperty("toolsMissing");
+    expect(sessionOfRecord(record("a", { state: "ended", tools_missing: lacking }), undefined, beside())).not.toHaveProperty("toolsMissing");
+  });
 
   it("reads held_until as the reset a held session resumes at, and nothing for one that ended", () => {
     expect(sessionOfRecord(record("a", { held_until: "2026-10-12T22:40:00Z" }), undefined, beside()).limitedUntil).toBe("2026-10-12T22:40:00Z");

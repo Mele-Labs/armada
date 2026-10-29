@@ -429,6 +429,15 @@ it("pauses and resumes a session on their own routes with the session named", as
   expect(sent.map((one) => one.body)).toEqual([{ session_id: "a" }, { session_id: "a" }]);
 });
 
+it("starts a Job that did not start again on its own route with the session named", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  await sessions.startAgain("a");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/start_again"]);
+  expect(sent[0]!.body).toEqual({ session_id: "a" });
+});
+
 it("turns Auto land on and off on its own route, naming the session as id", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")]);
@@ -452,6 +461,18 @@ it("reads a Job's MCP servers on the query string and acts on one on its own rou
   expect(published).toEqual([]);
   expect(await host(null).sessions.mcp("a")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
   expect(await host(null).sessions.actOnMcp("a", "linear", "reconnect")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
+it("restarts a Job's agent on its own route, naming the session", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a b")]);
+  const { sessions, published } = host(port);
+  const mended = await sessions.mendTools("a b");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/tools/mend"]);
+  expect(sent[0]!.body).toEqual({ session_id: "a b" });
+  expect(mended).toEqual({ ok: true, value: undefined });
+  expect(published).toEqual([]);
+  expect(await host(null).sessions.mendTools("a")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
 it("retries a failed hand off on its own route with the old Job named", async () => {

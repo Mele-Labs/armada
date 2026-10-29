@@ -222,6 +222,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/usage",
     },
     Route {
+        operation: "get_session_system",
+        method: "GET",
+        path: "/sessions/system",
+    },
+    Route {
+        operation: "stop_process",
+        method: "POST",
+        path: "/sessions/stop_process",
+    },
+    Route {
         operation: "get_usage_summary",
         method: "GET",
         path: "/usage/summary",
@@ -532,6 +542,16 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
+    },
+    Route {
+        operation: "reopen_waiting",
+        method: "POST",
+        path: "/sessions/waiting/reopen",
+    },
+    Route {
+        operation: "list_closed_waiting",
+        method: "GET",
+        path: "/sessions/waiting/closed",
     },
     Route {
         operation: "confirm_waiting",

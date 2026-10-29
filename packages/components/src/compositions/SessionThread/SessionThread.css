@@ -228,6 +228,11 @@
 .armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
 .armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
 .armada-session-thread__groups { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+/* Each pull request's chip, and under it, hung off a hairline, the groups that land in it. */
+.armada-session-thread__landings { display: flex; flex-direction: column; gap: var(--space-3); align-self: stretch; min-width: 0; }
+.armada-session-thread__landing { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.armada-session-thread__landing > ul { margin-inline-start: var(--space-3); padding-inline-start: var(--space-3); border-inline-start: var(--border-width) solid var(--border-subtle); }
+.armada-session-thread__landing > .armada-session-thread__gives { padding-inline-start: var(--space-4); }
 .armada-session-thread__group { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); row-gap: var(--space-1); min-width: 0; }
 .armada-session-thread__group-title { min-width: 0; font-weight: var(--weight-heading); overflow-wrap: anywhere; }
 .armada-session-thread__group > .armada-session-thread__agent { grid-column: 1; }

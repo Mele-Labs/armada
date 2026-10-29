@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, ReopenWaiting, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
 import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, ReadWatchLog } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -162,6 +162,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
   });
+  ipc.handle(CHANNELS.reopenWaiting, (_event, reopen: ReopenWaiting) => {
+    if (!text(reopen?.session_id) || !text(reopen.item_id)) return unread;
+    return connection()?.sessions.reopenWaiting(reopen) ?? unsent;
+  });
   ipc.handle(CHANNELS.confirmLater, (_event, confirm: ConfirmLater) => {
     if (!text(confirm?.id) || (confirm.session_id !== undefined && !text(confirm.session_id))) return unread;
     return connection()?.sessions.confirmLater({ id: confirm.id, ...(confirm.session_id === undefined ? {} : { session_id: confirm.session_id }) }) ?? unsent;
@@ -245,6 +249,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.retryHandoff, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.retryHandoff(sessionId) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.startAgain, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.startAgain(sessionId) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.pauseSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.pause(sessionId) ?? unsent) : unread,
   );
@@ -309,6 +316,7 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.actOnSessionMcp, (_event, sessionId: string, server: string, act: McpServerAct) =>
     text(sessionId) && text(server) && MCP_ACTS.includes(act) ? (connection()?.sessions.actOnMcp(sessionId, server, act) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.mendSessionTools, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.mendTools(sessionId) ?? unsent) : unread));
   ipc.handle(CHANNELS.readSessionArtifact, (_event, sessionId: string, path: string) =>
     text(sessionId) && text(path) ? (connection()?.sessions.readArtifact(sessionId, path) ?? { ok: false, why: "not_addressable" }) : { ok: false, why: "not_addressable" },
   );

@@ -41,6 +41,7 @@ pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
+mod tools_missing;
 pub mod keeper;
 /// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
 /// `act_on_session_mcp`.
@@ -61,6 +62,8 @@ pub(crate) mod preview_offers;
 pub(crate) mod planning;
 mod places;
 mod process;
+pub(crate) mod processes;
+mod system;
 pub(crate) mod proposing;
 pub mod queueing;
 pub(crate) mod slot_asking;
@@ -105,7 +108,7 @@ use ipc::{HelmCallInFlight, SessionTurn};
 
 use crate::helm::{Asks, HelmAskHold};
 
-pub use process::{Heard, Process, ProcessHost, Processes, Sink, Start};
+pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
 pub use terminal::Terminals;
 pub(crate) use terminal::PromptOpen;
 
@@ -397,6 +400,14 @@ pub(crate) struct Runtime {
     state: Mutex<State>,
 }
 
+/// Why a Job's process would not start, and what it was to be told.
+pub(crate) struct StartFailed {
+    pub cause: String,
+    /// The last lines the agent wrote to its log.
+    pub log: Vec<String>,
+    pub held: Vec<proposing::Held>,
+}
+
 pub(crate) struct State {
     pub process: Option<Arc<dyn Process>>,
     pub turn: SessionTurn,
@@ -439,6 +450,9 @@ pub(crate) struct State {
     pub unstarted: Vec<String>,
     /// Those lines have been sent to a replacement once already.
     pub retried: bool,
+    /// The process would not start, tried twice, with the turns that waited on it. Start again,
+    /// or a message from him, sends them.
+    pub(crate) start_failed: Option<StartFailed>,
     /// The subagents the last restart cut off, told to the agent with its next turn.
     pub cut_off: Vec<String>,
     /// The keeper said busy on reattach and nothing has been heard since, so
@@ -489,6 +503,12 @@ pub(crate) struct State {
     /// Its mod told of a list or a commit that may have moved Fleet's marks, which the agent hears at
     /// its next call. In memory.
     pub marks_owed: bool,
+    /// What the live process's `init` said the agent lacks of Armada's own. Replaced at each `init`, and
+    /// kept past the process, so the last one to come up is what the record says. In memory.
+    pub tools_missing: Option<ipc::ToolsMissing>,
+    /// The generation of the process Fleet restarted because its `init` lacked a piece it can mend. A
+    /// process with this generation that lacks it again is not restarted. In memory.
+    pub healed_into: Option<u64>,
 }
 
 impl State {
@@ -522,6 +542,7 @@ impl State {
             resolved_model: None,
             unstarted: Vec::new(),
             retried: false,
+            start_failed: None,
             cut_off: Vec::new(),
             reattached_busy: false,
             turn_began: None,
@@ -542,6 +563,8 @@ impl State {
             signed_out: false,
             calls: 0,
             marks_owed: false,
+            tools_missing: None,
+            healed_into: None,
         }
     }
 }

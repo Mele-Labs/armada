@@ -108,7 +108,7 @@ async fn asks(rig: &Rig, job: &SessionId) -> Vec<WaitingItem> {
 }
 
 #[tokio::test]
-async fn a_job_nobody_knows_one_of_another_repository_or_one_that_ended_is_refused_and_so_is_an_issue_row() {
+async fn a_job_nobody_knows_or_one_that_ended_is_refused_and_so_is_an_issue_row_while_one_of_another_repository_holds_it() {
     let rig = a_rig();
     let (project, parent, _, _, issue) = a_parent_with_a_subtask(&rig).await;
     let job = a_job(&rig, "Launch").await;
@@ -140,10 +140,14 @@ async fn a_job_nobody_knows_one_of_another_repository_or_one_that_ended_is_refus
             })
             .unwrap();
     }
-    assert_eq!(refuse(SessionId::carried("elsewhere"), parent.clone()).await, (422, "fleet.project_job_other_repository".to_string()));
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: job.clone() }).await.expect("ended");
-    assert_eq!(refuse(job, parent).await, (422, "fleet.project_job_ended".to_string()));
+    assert_eq!(refuse(job, parent.clone()).await, (422, "fleet.project_job_ended".to_string()));
     assert_eq!(held(&rows_of(&read(&rig).await, 0)[0]), (ProjectTaskState::Open, None), "and nothing was held");
+
+    // A Job of another repository holds it: the task keeps its own repository.
+    rig.fleet.link_task_job(parent, job_link(&SessionId::carried("elsewhere"))).await.expect("linked across repositories");
+    let (state, by) = held(&rows_of(&read(&rig).await, 0)[0]);
+    assert_eq!((state, by.map(|one| one.session_id)), (ProjectTaskState::Held, Some("elsewhere".to_string())));
 }
 
 fn facts(standing: PullRequestStanding, title: &str) -> PullRequestFacts {
