@@ -176,6 +176,9 @@
 
 /* ---- A rule's chip, on its edge ------------------------------------------------------------------------------------ */
 
+/* The chips are drawn in React Flow's label layer, which sits before the nodes in the document: lifted above them, a chip over a node is still pressable. */
+.armada-lane-surface .react-flow__edgelabel-renderer { z-index: 5; }
+
 .armada-lane-chip {
   --hue: var(--fg-muted);
   position: absolute;
