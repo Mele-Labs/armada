@@ -9,6 +9,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import type { SendSessionNote } from "@armada/protocol";
+import type { RingedNotes } from "../../../shared/api/sessions";
 
 import type { Annotation, AnnotationStatus } from "../../../shared/annotations";
 import "../styles/index.css";
@@ -320,9 +321,20 @@ async function writeOn(target: string, text: string): Promise<void> {
   await expect.element(card).not.toBeInTheDocument();
 }
 
-test("a note's first save captures its element and keeps the picture beside it, named on the note", async () => {
+/** A PNG's signature and header, `width` by `height`, which is all the layer reads of a picture. */
+function headerOf(width: number, height: number): ArrayBuffer {
+  const bytes = new Uint8Array(24);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  new DataView(bytes.buffer).setUint32(16, width);
+  new DataView(bytes.buffer).setUint32(20, height);
+  return bytes.buffer;
+}
+
+test("a note's first save captures the whole window and keeps it beside the note, with the element's box on it in the picture's pixels", async () => {
   const shots = new Map<string, ArrayBuffer>();
-  const capture = vi.fn(async () => PNG);
+  // A Retina window's picture: twice as wide as the window in CSS pixels.
+  const picture = headerOf(window.innerWidth * 2, window.innerHeight * 2);
+  const capture = vi.fn(async () => picture);
   const held = capturing(shots, capture);
   await annotating(held);
   const target = noted("target", 20);
@@ -330,10 +342,11 @@ test("a note's first save captures its element and keeps the picture beside it, 
 
   const [saved] = await held.list();
   expect(saved?.screenshot).toBe(`${saved?.id}.png`);
-  expect(shots.get(saved!.id)).toBe(PNG);
+  expect(shots.get(saved!.id)).toBe(picture);
   expect(capture).toHaveBeenCalledTimes(1);
+  expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
   const rect = document.querySelector(target)!.getBoundingClientRect();
-  expect(capture).toHaveBeenCalledWith({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+  expect(saved?.ring).toEqual({ x: Math.round(rect.x * 2), y: Math.round(rect.y * 2), width: Math.round(rect.width * 2), height: Math.round(rect.height * 2), scale: 2 });
 
   // Marking it done rewrites the file and keeps the picture it named, taking no other.
   await countOf().click();
@@ -415,15 +428,19 @@ const sendable = (notes: Annotation[], shots?: Map<string, ArrayBuffer>): Sink =
 const record = (id: string, title: string | undefined, change: object = {}) =>
   ({ id, title, state: "live", origin: "bridge", ...change }) as never;
 
-/** A Fleet serving three Sessions, one from a terminal and one ended, and answering every send. */
+/** A Fleet serving three Sessions, one from a terminal and one ended, and answering every send. `sent` is every note, each with its turn's Session; `rings` each note's ring. */
 function served(refuse = false) {
   const sent: SendSessionNote[] = [];
+  const rings: (RingedNotes["notes"][number]["ring"])[] = [];
   const fleet = {
     startSession: vi.fn(async (title?: string) => ({ ok: true, value: record("01NEWSESSION0000", title) }) as never),
     sendSessionMessage: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
-    sendSessionNote: vi.fn(async (send: SendSessionNote) => {
-      sent.push(send);
-      return refuse ? ({ ok: false, outcome: { ok: false, why: "not_connected" } } as never) : ({ ok: true, value: { session: record(send.session_id, "x"), candidates: [] } } as never);
+    sendSessionNotes: vi.fn(async (send: RingedNotes) => {
+      for (const one of send.notes) {
+        sent.push({ session_id: send.session_id, ...one.note });
+        rings.push(one.ring);
+      }
+      return refuse ? ({ ok: false, outcome: { ok: false, why: "not_connected" } } as never) : ({ ok: true, value: { session: record(send.session_id, "x"), candidates: send.notes.map(() => []) } } as never);
     }),
     state: vi.fn(async () => ({
       sessions: {
@@ -433,7 +450,7 @@ function served(refuse = false) {
     }) as never),
     subscribe: () => () => undefined,
   } satisfies LayerFleet;
-  return { fleet, sent };
+  return { fleet, sent, rings };
 }
 
 test("the bar offers Start job in place of Send to Fleet", async () => {
@@ -443,7 +460,7 @@ test("the bar offers Start job in place of Send to Fleet", async () => {
   expect(bar.element().textContent).not.toContain("Send");
 });
 
-test("Start job starts a Job, sends each note to it on its own, marks them sent and opens it", async () => {
+test("Start job starts a Job, sends its notes to it as one turn, marks them sent and opens it", async () => {
   const { fleet, sent } = served();
   const held = sendable(batch());
   const opened = vi.fn();
@@ -451,6 +468,7 @@ test("Start job starts a Job, sends each note to it on its own, marks them sent 
   await page.getByRole("status").getByRole("button", { name: "Start job" }).click();
   await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
   expect(fleet.startSession).toHaveBeenCalledTimes(1);
+  expect(fleet.sendSessionNotes).toHaveBeenCalledTimes(1);
   expect(sent.map((one) => [one.session_id, one.said])).toEqual([
     ["01NEWSESSION0000", "first: what the owner said"],
     ["01NEWSESSION0000", "third: what the owner said"],
@@ -504,18 +522,6 @@ test("a Session Fleet refuses leaves the notes unsent and tells why in a toast, 
   expect(page.getByRole("status").element().textContent).not.toContain("Not sent");
   expect(opened).not.toHaveBeenCalled();
   expect((await held.list()).some((one) => one.sent !== undefined)).toBe(false);
-});
-
-test("a refusal after the first note marks only that one sent, so a send again does not repeat it", async () => {
-  const { fleet } = served();
-  fleet.sendSessionNote.mockImplementationOnce(async (send) => ({ ok: true, value: { session: record(send.session_id, "x"), candidates: [] } }) as never);
-  fleet.sendSessionNote.mockImplementationOnce(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never);
-  const held = sendable(batch());
-  const told = vi.fn();
-  await annotating(held, fleet, undefined, told);
-  await page.getByRole("status").getByRole("button", { name: "Start job" }).click();
-  await vi.waitFor(() => expect(told).toHaveBeenCalled());
-  expect((await held.list()).filter((one) => one.sent !== undefined).map((one) => one.text)).toEqual(["first: what the owner said"]);
 });
 
 test("a refusal with no copy of its own still tells what failed", async () => {
