@@ -552,6 +552,9 @@
   gap: var(--space-2);
 }
 
+/* The ⌥ keys still answer the deck as its target; it takes no ring. */
+.armada-question-deck[data-thread-target] { outline: none; }
+
 .armada-question-deck__done { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 
 /* The stepper beside the Answers row's buttons, at its far side: a node per question joined by a short line. Answered nodes are filled, the one in front is ringed. */
@@ -604,7 +607,7 @@
 .armada-question-deck__card {
   position: relative;
   z-index: 20;
-  border: var(--border-width) solid var(--hue);
+  border: 0;
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);

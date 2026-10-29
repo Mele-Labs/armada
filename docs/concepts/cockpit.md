@@ -154,10 +154,12 @@ Fleet already serves each start: `create_project`, `list_import_folders`, `get_i
 ## The Job's flight controls
 
 While a Job is open on the stage the Flight control panel is that Job's, in the same place.
-It is one row of tiles: Auto land, Pause, Judge, Report, Release, Terminal, Browser and Requests, then any tile the owner added.
+It is a row of tiles, wrapped to rows while expanded: Auto land, Pause, Judge, Report, Release, Terminal, Browser and Requests, then any tile the owner added.
 When the Job closes the deck's tiles return.
 
-The tiles are the deck's own, the same as Checks, Calls, Map, Timeline and Dispatch with no Job open, drawn as physical keys.
+The tiles are the deck's own, the same as Checks, Calls, Map, Timeline and Dispatch with no Job open, drawn as physical keys at the deck's own size.
+Past six, the row scrolls sideways, by a trackpad or a vertical wheel over the row, and an edge with tiles beyond it fades.
+A tile's key scrolls its tile into view before it presses it.
 
 | State | The key is |
 |---|---|
@@ -170,6 +172,12 @@ A key's tooltip floats above the panel.
 Edit is a `square-pen` glyph.
 The merge queue stands under Flight control.
 
+**Expand** is a chevron in the band, before Edit, shown while the tiles do not all fit.
+Expanded, the tiles wrap six to a row at full size, the panel grows to hold the rows, and the stage above gives up the height.
+The merge queue keeps its own.
+Collapse, in the same place, puts them back on one row.
+One choice holds for every Job on this Mac, kept in the window's storage as a folded panel is (`useFlightExpanded` in `deck/collapse.ts`, key `armada.flight-expanded`).
+
 A tile's key belongs to its place and not to whether the tile is on, so a tile going off moves no other's; `tileKey` in `deck/session-tiles.ts` holds them.
 Pause answers `p` unless it is given another key.
 
@@ -178,7 +186,7 @@ Update is gone.
 Compact is in the context figure, whose popover holds it.
 Map is the stage's own switch.
 The Job's views, Artifacts, Checks, Subagents and Bays, are icons in the Job's head (*The title bar*).
-There are no pages: every tile is on the one row.
+There are no pages: the tiles are one row that scrolls, or rows when expanded.
 
 | Tile | Does | Through |
 |---|---|---|

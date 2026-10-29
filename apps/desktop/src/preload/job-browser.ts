@@ -28,6 +28,7 @@ export const jobBrowserPreload: Required<JobBrowserApi> = {
     freeze: (sessionId) => ipcRenderer.invoke(CHANNELS.jobBrowserFreeze, sessionId),
     thaw: (sessionId) => ipcRenderer.invoke(CHANNELS.jobBrowserThaw, sessionId),
     hold: (sessionId, x, y) => ipcRenderer.invoke(CHANNELS.jobBrowserHold, sessionId, x, y),
+    aim: (sessionId, x, y) => ipcRenderer.invoke(CHANNELS.jobBrowserAim, sessionId, x, y),
     note: (sessionId, said) => ipcRenderer.invoke(CHANNELS.jobBrowserNote, sessionId, said),
   },
 };

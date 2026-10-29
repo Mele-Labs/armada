@@ -21,6 +21,9 @@ The bar's walk row (Back, Next, Autoplay, Replay and the keys) drives them as it
 Fleet refuses steps of the wrong shape with the first one that is wrong.
 They are kept on the `window` artifact and row beside the takes, and a window shown with other steps is another window.
 A page that plays its own walk (Armada's mock) is passed none and plays as it did.
+**Where a job passes steps to one anyway, the page's own walk wins**: Bridge stops the steps, the bar drives the page's walk, the page's card leaves to the bar, and Fleet tells the job once (`window_failed`).
+The steps hold their first act until the page has been looked at for a walk of its own.
+Since 28 Oct 2026, when a mock shown with steps drew its own card beside the bar's steps; playing every mock walk from the window is `armada-iam`.
 `docs/practices/capture-window.md`, *A walk in the page*.
 **The bar says whether the page is ready to walk**, a Job mark at its start (*Ready to walk*, or *Still changing*) and the bar's hue, and Approve reads *Not ready* while it changes.
 **It is detected, not declared:** `show_window` says ready, the mod's report of a file the job itself wrote (`wrote`; a subagent's does not count) or a note from the window marks every window the job showed as working (`detail.working` on its artifact), and showing the page again or the end of the turn (`turn_completed`) marks it ready.
