@@ -2,12 +2,14 @@
 // and sends the agent its words, and Release is one of them. Activity gives its place to the Job's own panels and returns when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+// Whether the row is expanded is kept in the window's storage, so one test would hand it to the next.
+beforeEach(() => localStorage.clear());
 
 const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
@@ -26,7 +28,7 @@ async function open() {
 
 test("with a Job open the flight controls are that Session's, and the four return when it closes", async () => {
   await open();
-  await expect.poll(tiles).toEqual(["Auto land", "Pause", "Judge", "Report issue with job", "Release everything the Job holds", "Terminal", "Requests"]);
+  await expect.poll(tiles).toEqual(["Auto land", "Pause", "Judge", "Report issue with job", "Release everything the Job holds", "Terminal", "Browser", "Requests"]);
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(tiles).toEqual(["Checks", "Needs me", "Map", "Timeline"]);
 });
@@ -66,4 +68,33 @@ test("with a Job open Activity gives its place to the Job's own panels, and retu
 
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(() => feed().includes(other)).toBe(true);
+});
+
+// The row is drawn at the deck's own size, so a Job with seven tiles holds more than it shows; Expand is there to wrap them, and Collapse to put them back.
+const row = () => document.querySelector<HTMLElement>(".deck-flight")!;
+
+test("Expand appears with a Job open whose tiles overflow, wraps them, and Collapse puts them back in one row", async () => {
+  await open();
+  await expect.poll(() => row().scrollWidth > row().clientWidth).toBe(true);
+  expect(row().hasAttribute("data-expanded")).toBe(false);
+  const tops = () => new Set([...row().querySelectorAll(".deck-tile")].map((one) => Math.round(one.getBoundingClientRect().top)));
+  expect(tops().size).toBe(1);
+
+  await controls().getByRole("button", { name: "Expand", exact: true }).click();
+  await expect.element(controls().getByRole("button", { name: "Collapse", exact: true })).toHaveAttribute("aria-expanded", "true");
+  expect(row().hasAttribute("data-expanded")).toBe(true);
+  await expect.poll(() => tops().size).toBeGreaterThan(1);
+
+  await controls().getByRole("button", { name: "Collapse", exact: true }).click();
+  await expect.element(controls().getByRole("button", { name: "Expand", exact: true })).toHaveAttribute("aria-expanded", "false");
+  expect(row().hasAttribute("data-expanded")).toBe(false);
+  await expect.poll(() => tops().size).toBe(1);
+});
+
+test("closing the Job takes Collapse away, with the Job's tiles", async () => {
+  await open();
+  await controls().getByRole("button", { name: "Expand", exact: true }).click();
+  await pane().getByRole("button", { name: "Back" }).click();
+  await expect.poll(tiles).toEqual(["Checks", "Needs me", "Map", "Timeline"]);
+  expect(controls().element().querySelector('[aria-label="Expand"], [aria-label="Collapse"]')).toBeNull();
 });

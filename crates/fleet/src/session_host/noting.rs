@@ -47,9 +47,9 @@ where
         let SendSessionNote { session_id, note } = sent;
         let id = session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?;
-        let (found, checkout) = self.note_found(&id, &note).await;
+        let found = self.note_found(&id, &note).await;
         let text = note.said.trim().to_string();
-        let mut lines = told(&note, &found, checkout.as_deref(), note.crop.is_some().then_some((1, 1)));
+        let mut lines = told(&note, &found, note.crop.is_some().then_some((1, 1)));
         lines.extend(background(&note));
         let ahead = brief.map(|brief| format!("{brief}\n\n")).unwrap_or_default();
         // A blank line after his words, so the lines Fleet adds read as about the note, not as more of it.
@@ -90,10 +90,10 @@ where
                 pictures += 1;
                 (at + 1, pictures)
             });
-            let (found, checkout) = self.note_found(&id, note).await;
+            let found = self.note_found(&id, note).await;
             let words = format!("{}. {}", at + 1, note.said.trim());
             let mut block = words.clone();
-            for line in told(note, &found, checkout.as_deref(), shot).into_iter().chain(background(note)) {
+            for line in told(note, &found, shot).into_iter().chain(background(note)) {
                 block.push_str("\n   ");
                 block.push_str(&line);
             }
@@ -119,10 +119,10 @@ where
         Ok(NotesSent { session, candidates })
     }
 
-    /// The lines `note`'s screen was drawn from, and the checkout searched for them.
-    async fn note_found(&self, session: &str, note: &SessionNote) -> (Located, Option<PathBuf>) {
+    /// The lines `note`'s screen was drawn from.
+    async fn note_found(&self, session: &str, note: &SessionNote) -> Located {
         let checkout = self.note_checkout(session, &note.address).await;
-        let found = match &checkout {
+        match &checkout {
             Some(checkout) => {
                 let (checkout, place) = (checkout.clone(), note.place.clone());
                 tokio::task::spawn_blocking(move || searched(&checkout, &place))
@@ -130,8 +130,7 @@ where
                     .unwrap_or_else(|_| Located { candidates: Vec::new(), stamp: StampRead::Absent })
             }
             None => Located { candidates: Vec::new(), stamp: StampRead::Absent },
-        };
-        (found, checkout)
+        }
     }
 
     /// The checkout that served `address`: the one a server Fleet holds answers on its port, else
@@ -211,6 +210,13 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
 /// How to deliver is the owner's answer to the delivery question, never something to assume here.
 const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
 
+/// Heads what Fleet adds to a note, so the agent reads his words as the request and these as where to look.
+const WHERE_LEAD: &str = "Where he pointed, to find the code; not the request:";
+/// The code matches told: the best few, so they do not outweigh his words.
+const CANDIDATES_TOLD: usize = 3;
+/// The components named around the spot, nearest first.
+const CHAIN_TOLD: usize = 3;
+
 /// The Job open when he pinned the note, said to be background so the turn starts from his words.
 fn background(note: &SessionNote) -> Vec<String> {
     if note.job.is_empty() {
@@ -223,27 +229,28 @@ fn background(note: &SessionNote) -> Vec<String> {
 
 /// What the agent reads after the person's words, short of the handoff. `shot` is the note's number and
 /// the place of its picture among the attachments, when it has one: the agent never sees the file names.
-fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>, shot: Option<(usize, usize)>) -> Vec<String> {
+fn told(note: &SessionNote, found: &Located, shot: Option<(usize, usize)>) -> Vec<String> {
     let place = &note.place;
     let element = &place.element;
     let named = element.label.as_deref().filter(|label| !label.trim().is_empty()).unwrap_or(&element.text);
-    let mut lines = vec![format!(
-        "Pointed at: {} \"{}\"{}",
-        element.tag,
-        named.trim(),
-        note.note_id.as_deref().map(|id| format!(" (note {id})")).unwrap_or_default()
-    )];
+    let mut lines = vec![
+        WHERE_LEAD.to_string(),
+        format!(
+            "Pointed at: {} \"{}\"{}",
+            element.tag,
+            named.trim(),
+            note.note_id.as_deref().map(|id| format!(" (note {id})")).unwrap_or_default()
+        ),
+    ];
     if let Some((number, image)) = shot {
         lines.push(format!(
             "Screenshot: image {image} of this message, the whole window, ring {number} marks what he pointed at"
         ));
     }
-    if found.candidates.is_empty() {
-        let searched = checkout.map_or_else(|| "no checkout".to_string(), |at| at.display().to_string());
-        lines.push(format!("No line on screen matched the code in {searched}"));
-    } else {
+    // No match says nothing the agent can use, so it is no line.
+    if !found.candidates.is_empty() {
         lines.push("Candidates:".to_string());
-        for (at, one) in found.candidates.iter().enumerate() {
+        for (at, one) in found.candidates.iter().take(CANDIDATES_TOLD).enumerate() {
             lines.push(format!("{}. {}:{} — {}", at + 1, one.file, one.line, one.why));
             lines.push(format!("   {}", one.text));
         }
@@ -255,7 +262,7 @@ fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>, shot: Opti
         lines.push(format!("State: {state}"));
     }
     lines.push(format!("Page: {}", note.address));
-    let chain: Vec<&str> = place.component.iter().chain(place.owners.iter()).map(String::as_str).collect();
+    let chain: Vec<&str> = place.component.iter().chain(place.owners.iter()).take(CHAIN_TOLD).map(String::as_str).collect();
     let mut inside = Vec::new();
     if !place.nearby.is_empty() {
         inside.push(place.nearby.join(" ← "));
@@ -271,8 +278,10 @@ fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>, shot: Opti
 
 fn state_line(state: &NoteState) -> Option<String> {
     let mut parts = Vec::new();
-    if !state.selected.is_empty() {
-        parts.push(format!("{} selected", state.selected.join(", ")));
+    // A tab says which page he was on; a pressed button's label is its words run together, and reads as noise.
+    let tabs: Vec<&str> = state.selected.iter().map(String::as_str).filter(|one| one.starts_with("tab ")).collect();
+    if !tabs.is_empty() {
+        parts.push(format!("{} selected", tabs.join(", ")));
     }
     if let Some(walk) = &state.walk {
         parts.push(format!("walk {} step {} of {}", walk.name, walk.step, walk.of));

@@ -54,7 +54,7 @@ pub(super) fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSess
         note_id: Some("n-1".to_string()),
         place: NotePlace {
             component: Some("ShareRows".to_string()),
-            owners: vec!["UsagePage".to_string(), "Boundary".to_string()],
+            owners: vec!["UsagePage".to_string(), "Boundary".to_string(), "TheShell".to_string()],
             selector: "li".to_string(),
             element: NoteElement { tag: "li".to_string(), text: label.to_string(), label: Some(label.to_string()) },
             nearby: vec!["Burn by Bash command".to_string()],
@@ -64,7 +64,7 @@ pub(super) fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSess
             layer: None,
         },
         state: NoteState {
-            selected: vec![r#"tab "Bash""#.to_string()],
+            selected: vec![r#"tab "Bash""#.to_string(), r#"button "JobsFilterlGo to Jobsl""#.to_string()],
             walk: Some(NoteWalk { name: "burnBySessionModelTool".to_string(), step: 6, of: 9 }),
             take: Some(NoteTake { letter: "B".to_string(), name: "Needs you first".to_string() }),
             scenario: Some("usage".to_string()),
@@ -96,7 +96,7 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
 
     let turn = turn_of(&rig).await;
     for wanted in [
-        "this row should say which commands\\n\\nPointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-1)\\nScreenshot: image 1 of this message, the whole window, ring 1 marks what he pointed at",
+        "this row should say which commands\\n\\nWhere he pointed, to find the code; not the request:\\nPointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-1)\\nScreenshot: image 1 of this message, the whole window, ring 1 marks what he pointed at",
         &format!("Candidates:\\n1. {PATH}:171 — "),
         r#"State: tab \"Bash\" selected; walk burnBySessionModelTool step 6 of 9; take B, Needs you first; scenario usage"#,
         "Page: http://127.0.0.1:1/?walk=burnBySessionModelTool",
@@ -105,6 +105,9 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
         r#""data":"aGVsbG8=""#,
     ] {
         assert!(turn.contains(wanted), "the turn carries {wanted}: {turn}");
+    }
+    for unwanted in ["JobsFilterl", "TheShell"] {
+        assert!(!turn.contains(unwanted), "a pressed button and a far component are left out, {unwanted}: {turn}");
     }
 
     let rows = rig.rows(&id).await;
@@ -135,7 +138,7 @@ async fn a_notes_job_lines_come_after_his_words_as_background_and_before_the_han
 }
 
 #[tokio::test]
-async fn a_note_nothing_in_the_code_says_is_sent_whole_and_says_so() {
+async fn a_note_nothing_in_the_code_says_is_sent_whole_without_a_line_for_it() {
     let rig = rig_fitted(|_| {});
     a_repository(&rig);
     let id = rig.start().await;
@@ -147,7 +150,7 @@ async fn a_note_nothing_in_the_code_says_is_sent_whole_and_says_so() {
 
     assert!(sent.candidates.is_empty(), "{:#?}", sent.candidates);
     let turn = turn_of(&rig).await;
-    assert!(turn.contains(&format!("No line on screen matched the code in {}", rig.root)), "{turn}");
+    assert!(!turn.contains("Candidates:") && !turn.contains("No line on screen matched"), "no match is no line: {turn}");
     assert!(turn.contains(&format!("Stamp: the page's stamp {PATH}:205 was dropped")), "{turn}");
     assert!(turn.contains("Page: http://127.0.0.1:1/"), "the rest is still sent: {turn}");
 }
@@ -190,9 +193,9 @@ async fn three_notes_reach_the_session_as_one_turn_numbered_with_one_handoff_and
     assert_eq!(turns.len(), 1, "one turn: {turns:#?}");
     let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("the turn carries {wanted}: {turn}"));
     let order = [
-        at("1. too wide\\n   Pointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-b25l)\\n   Screenshot: image 1 of this message, the whole window, ring 1 marks what he pointed at"),
+        at("1. too wide\\n   Where he pointed, to find the code; not the request:\\n   Pointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-b25l)\\n   Screenshot: image 1 of this message, the whole window, ring 1 marks what he pointed at"),
         at("   Page: http://127.0.0.1:1/?take=A"),
-        at("2. wrong colour\\n   Pointed at: li \\\"Zebra crossings, 4\\\" (note n-dHdv)\\n   Screenshot: image 2 of this message, the whole window, ring 2 marks what he pointed at"),
+        at("2. wrong colour\\n   Where he pointed, to find the code; not the request:\\n   Pointed at: li \\\"Zebra crossings, 4\\\" (note n-dHdv)\\n   Screenshot: image 2 of this message, the whole window, ring 2 marks what he pointed at"),
         at("   Page: http://127.0.0.1:2/?take=B"),
         at("3. say which\\n"),
         at("   Screenshot: image 3 of this message, the whole window, ring 3 marks what he pointed at"),
