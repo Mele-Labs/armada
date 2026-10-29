@@ -42,6 +42,8 @@ import { FIELD_SOURCE, queueKeyOf } from "./queue";
 import { beginsOn, StepWalk } from "./stepwalk";
 import { StoppedSteps, actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
+import { burnRing } from "./burn";
+import { pngSize, ringOn, type Ring } from "../../shared/ring";
 
 export type { LandsOn } from "./layout";
 
@@ -52,7 +54,7 @@ export type CaptureBoard = {
    * A note taken on a page a Job showed, or in a review's walk the Job holds the pull request of: **held on that Job**,
    * not sent, until the owner sends its notes as one turn (`held-notes.ts`).
    */
-  holdNote: (note: SendSessionNote) => void;
+  holdNote: (note: SendSessionNote, ring: Ring | null) => void;
   /** How many notes that Job holds that have not been sent. */
   heldOn: (sessionId: string) => number;
   /** A note taken in a review's walk no Session holds the pull request of: kept in Armada. */
@@ -653,7 +655,7 @@ export class CaptureWindow {
 
   /**
    * Put the held Note on the Studio this window opened on. **The frame is
-   * main's**, taken of the page's own contents cropped to the element's box.
+   * main's**, taken of the page's own contents with the element's box ringed.
    */
   async save(said: string): Promise<Outcome> {
     const capture = this.holding;
@@ -678,9 +680,12 @@ export class CaptureWindow {
     return outcome;
   }
 
-  /** A Job's note, with the crop, the walk's step and the take on screen it is about, held on the Job until the owner sends it. */
+  /**
+   * A Job's note, with the window, the box it is on, the walk's step and the take on screen it is about, held on the Job until
+   * the owner sends it. The ring is burned in at the send, when the note's number in the turn is known.
+   */
   private async holdNote(sessionId: string, address: string, said: string, capture: StudioCapture): Promise<Outcome> {
-    const cropped = await this.crop(capture);
+    const shot = await this.shot(capture);
     const take = this.taken();
     const note = sessionNoteBody({
       sessionId,
@@ -690,9 +695,9 @@ export class CaptureWindow {
       address,
       ...(take === undefined ? {} : { take }),
       walk: this.walk,
-      crop: cropped === null ? null : cropped.png.toString("base64"),
+      crop: shot === null ? null : shot.png.toString("base64"),
     });
-    this.board.holdNote(note);
+    this.board.holdNote(note, shot?.ring ?? null);
     return { ok: true };
   }
 
@@ -828,27 +833,29 @@ export class CaptureWindow {
     }
   }
 
-  /** A PNG of the page cropped to what the Note points at, or null where none could be taken. */
-  private async crop(capture: StudioCapture): Promise<{ png: Buffer; width: number; height: number } | null> {
+  /** A PNG of the whole page and where on it the Note points, or null where none could be taken. */
+  private async shot(capture: StudioCapture): Promise<{ png: Buffer; width: number; height: number; ring: Ring } | null> {
     try {
-      const box = rectOf(capture.bounds, this.viewport());
+      const viewport = this.viewport();
+      const box = rectOf(capture.bounds, viewport);
       if (box.width === 0 || box.height === 0) return null;
-      const image = await this.page.webContents.capturePage(box);
+      const image = await this.page.webContents.capturePage();
       const png = image.toPNG();
       if (png.byteLength === 0) return null;
-      const size = image.getSize();
-      return { png, width: size.width, height: size.height };
+      // Device pixels, not CSS ones: the box is scaled by how much wider the picture is than the page.
+      const size = pngSize(png) ?? image.getSize();
+      return { png, width: size.width, height: size.height, ring: ringOn(box, viewport.width, size.width) };
     } catch {
       return null;
     }
   }
 
-  /** The crop, staged for Fleet to keep beside a Studio's Note. */
+  /** The window, its box ringed as the only note there is, staged for Fleet to keep beside a Studio's Note. */
   private async frame(capture: StudioCapture): Promise<StagedFrame | null> {
-    const cropped = await this.crop(capture);
-    if (cropped === null) return null;
+    const shot = await this.shot(capture);
+    if (shot === null) return null;
     try {
-      return await this.board.stage(cropped.png, cropped.width, cropped.height);
+      return await this.board.stage(burnRing(shot.png, shot.ring, 1), shot.width, shot.height);
     } catch {
       return null;
     }

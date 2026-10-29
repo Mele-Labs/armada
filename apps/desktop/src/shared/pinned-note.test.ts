@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Annotation } from "./annotations";
-import { annotationNoteBody } from "./pinned-note";
+import { annotationNote } from "./pinned-note";
 
 const note: Annotation = {
   id: "20261017-222105-k3f9",
@@ -29,8 +29,7 @@ const note: Annotation = {
 
 describe("a ⌥⌘A note, whole", () => {
   it("names its file, its stamp from the build, and what the page showed", () => {
-    expect(annotationNoteBody(note, "s-1", "http://localhost:5174/index.html?scenario=every-state", "iVBORw0KGgo=")).toEqual({
-      session_id: "s-1",
+    expect(annotationNote(note, "http://localhost:5174/index.html?scenario=every-state", "iVBORw0KGgo=")).toEqual({
       said: "Too quiet",
       address: "http://localhost:5174/index.html?scenario=every-state",
       note_id: "20261017-222105-k3f9",
@@ -51,7 +50,7 @@ describe("a ⌥⌘A note, whole", () => {
 
   it("reads a note written before nearby and selected were, with empty lists and no crop", () => {
     const { nearby: _nearby, selected: _selected, source: _source, ...older } = note;
-    const body = annotationNoteBody({ ...older, component: null, scenario: null, screen: null }, "s-1", "app://bridge", null);
+    const body = annotationNote({ ...older, component: null, scenario: null, screen: null }, "app://bridge", null);
     expect(body.place.nearby).toEqual([]);
     expect(body.state).toEqual({ selected: [] });
     expect(body.place).not.toHaveProperty("stamp");

@@ -3,16 +3,19 @@
 // second Job is there to open on the Cockpit, which stays put while notes are taken, and has a walk of its own whose page is
 // still loading. Sent, the notes leave the walk on screen and changing until time passes and the Job shows the page again.
 // Draft data, nothing here reaches Fleet.
-// The walk `walkHeldNotes` plays it. `docs/practices/capture-window.md`, *Pending notes*.
+// `ringed-note-shots` starts with three notes held, each with its picture of the whole window and its own box ringed on it.
+// The walk `walkHeldNotes` plays the first, `ringedNoteShots` the second. `docs/practices/capture-window.md`, *Pending notes*.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
-import { closeWalkWindow, forgetHeldNotes, mockPage, queueWalk } from "@armada/screens/src/fixtures/walk-window";
+import { closeWalkWindow, forgetHeldNotes, holdNotes, mockPage, queueWalk } from "@armada/screens/src/fixtures/walk-window";
+import type { HeldMockNote } from "@armada/screens/src/fixtures/walk-window";
 
 import { askToOpenSession } from "../../open-session";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
+import { WINDOW_BOXES, windowPicture } from "../window-picture";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -56,7 +59,18 @@ const clock: Session = {
   attachments: [{ kind: "branch", name: "fix/pin-store-clock", slot: 4 }],
 };
 
-function sessions() {
+/** Three notes taken on the backoff table, each ringed on its own picture of the window. */
+function ringed(): HeldMockNote[] {
+  const crop = windowPicture();
+  const note = (id: string, minutes: number, said: string, on: string, ring: HeldMockNote["ring"]): HeldMockNote => ({ id, at: ago(minutes), said, on, crop, ...(ring === undefined ? {} : { ring }) });
+  return [
+    note("held-r1", 3, "The cap reads 30 s, write 30 seconds in full", "cell “30 s”", WINDOW_BOXES.capCell),
+    note("held-r2", 2, "The last row has no unit", "row “6 30 30”", WINDOW_BOXES.lastRow),
+    note("held-r3", 1, "The header wraps at this width", "heading “Backoff table”", WINDOW_BOXES.heading),
+  ];
+}
+
+function sessions(held: readonly HeldMockNote[] = []) {
   const store = sessionsStore([backoff, clock], [], new Map([[ROOT, OWNER]]));
   const told = (id: string, text: string) => store.send(id, { text, files: [], sketches: [], tags: [] });
   /** The backoff table's walk, shown at `since`. Queued again with a newer one, it is the Job showing the page again. */
@@ -85,6 +99,7 @@ function sessions() {
     closeWalkWindow();
     forgetHeldNotes();
     backoffWalk(ago(10));
+    if (held.length > 0) holdNotes(backoff.id, held);
     // A second walk, so a jump off the first would show; its server has not answered, so its page is still loading.
     queueWalk(`${clock.id}:1`, "Clock report", page("sessions"), {
       title: "Clock report",
@@ -116,5 +131,10 @@ function sessions() {
 
 export const s298WalkHeldNotes: Scenario = {
   ...holding("walk-held-notes", "Notes taken on a Job's walk are held in its panel, edited or removed there, and sent to the Job as one turn"),
-  draft: { sessions },
+  draft: { sessions: () => sessions() },
+};
+
+export const s338RingedNoteShots: Scenario = {
+  ...holding("ringed-note-shots", "Each held note shows the whole window with its own box ringed and numbered as in the turn sent"),
+  draft: { sessions: () => sessions(ringed()) },
 };

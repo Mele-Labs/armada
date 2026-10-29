@@ -144,9 +144,9 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
-import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
+import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
 import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, SharedHomeRead } from "@armada/protocol";
@@ -377,7 +377,7 @@ type OldBridgeApi = {
     startSession: (title?: string) => Promise<SessionActed>;
     beginSession: (begin: BeginSession) => Promise<SessionActed>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
-    sendSessionNote: (send: SendSessionNote) => Promise<SessionActed<NoteSent>>;
+    sendSessionNotes: (send: RingedNotes) => Promise<SessionActed<NotesSent>>;
     startModSession: (start: StartModSession) => Promise<SessionActed<ModSessionStarted>>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
@@ -707,7 +707,7 @@ const OLD_CHANNELS = {
     forkSession: "bridge:fork-session",
     forkSessionAt: "bridge:fork-session-at",
     sendSessionMessage: "bridge:send-session-message",
-    sendSessionNote: "bridge:send-session-note",
+    sendSessionNotes: "bridge:send-session-notes",
     startModSession: "bridge:start-mod-session",
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",

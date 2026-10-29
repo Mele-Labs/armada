@@ -41,6 +41,8 @@ export type JobBrowserApi = {
     freeze: (sessionId: string) => Promise<Uint8Array | null>;
     thaw: (sessionId: string) => Promise<void>;
     hold: (sessionId: string, x: number, y: number) => Promise<CaptureHeld | null>;
+    /** The box of the part at a point of the held picture, for the ring that follows the pointer; null where nothing is held or found. */
+    aim: (sessionId: string, x: number, y: number) => Promise<{ x: number; y: number; width: number; height: number } | null>;
     /** The held part's note, sent to the Job as the owner's. */
     note: (sessionId: string, said: string) => Promise<Outcome>;
   };
@@ -59,6 +61,7 @@ export const JOB_BROWSER_CHANNELS = {
   jobBrowserNavigate: "bridge:job-browser-navigate",
   jobBrowserToWindow: "bridge:job-browser-to-window",
   jobBrowserFreeze: "bridge:job-browser-freeze",
+  jobBrowserAim: "bridge:job-browser-aim",
   jobBrowserThaw: "bridge:job-browser-thaw",
   jobBrowserHold: "bridge:job-browser-hold",
   jobBrowserNote: "bridge:job-browser-note",

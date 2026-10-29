@@ -6,9 +6,11 @@
 
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 
-import type { NoteElement, Outcome, SendSessionNotes } from "@armada/protocol";
+import type { NoteElement, Outcome, SendSessionNotes, SessionNote } from "@armada/protocol";
 import type { PanelHeldNote } from "@armada/studios/api";
 import { CHANNELS } from "../shared/bridge";
+import type { Ring } from "../shared/ring";
+import { burnRing, type Burn } from "./capture/burn";
 import type { HeldNote, HeldNotes } from "./capture/held-notes";
 import type { CaptureWindows } from "./capture/windows";
 
@@ -23,17 +25,36 @@ function onOf(element: NoteElement): string {
 }
 
 export function shownOf(held: readonly HeldNote[]): PanelHeldNote[] {
-  return held.map(({ id, at, note }) => ({ id, at, said: note.said, on: onOf(note.place.element), ...(note.crop === undefined ? {} : { crop: note.crop }) }));
+  return held.map(({ id, at, note, ring }) => ({
+    id,
+    at,
+    said: note.said,
+    on: onOf(note.place.element),
+    ...(note.crop === undefined ? {} : { crop: note.crop }),
+    ...(note.crop === undefined || ring === undefined ? {} : { ring: { x: ring.x, y: ring.y, width: ring.width, height: ring.height } }),
+  }));
 }
 
 /**
- * **The one place a Job's held notes are sent**: every one as one turn, then dropped, those alone. Failure leaves them all
- * held and says why. A Job holding none sends nothing, since Fleet refuses an empty turn.
+ * Notes as one turn: each one's picture with its ring burned in, **tagged with its place in the turn**, 1 first, which is the
+ * number Fleet's line for it names. A note with no ring goes as it was.
  */
-export async function sendHeld(store: HeldNotes, sessionId: string, send: (body: SendSessionNotes) => Promise<Outcome>): Promise<Outcome> {
+export function ringed(notes: readonly { note: SessionNote; ring?: Ring | undefined }[], burn: Burn = burnRing): SessionNote[] {
+  return notes.map(({ note, ring }, at) => {
+    if (note.crop === undefined || ring === undefined) return note;
+    const png = burn(Buffer.from(note.crop.data, "base64"), ring, at + 1);
+    return { ...note, crop: { ...note.crop, data: Buffer.from(png).toString("base64") } };
+  });
+}
+
+/**
+ * **The one place a Job's held notes are sent**: every one as one turn, its picture ringed with its number in it, then dropped,
+ * those alone. Failure leaves them all held and says why. A Job holding none sends nothing, since Fleet refuses an empty turn.
+ */
+export async function sendHeld(store: HeldNotes, sessionId: string, send: (body: SendSessionNotes) => Promise<Outcome>, burn: Burn = burnRing): Promise<Outcome> {
   const notes = store.of(sessionId);
   if (notes.length === 0) return { ok: true };
-  const outcome = await send({ session_id: sessionId, notes: notes.map((one) => one.note) });
+  const outcome = await send({ session_id: sessionId, notes: ringed(notes, burn) });
   if (outcome.ok) store.drop(sessionId, notes.map((one) => one.id));
   return outcome;
 }

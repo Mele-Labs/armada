@@ -58,8 +58,52 @@
 
 .armada-held-notes__note {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-2);
+}
+
+/* The whole window as it is sent, across the note's width, with the fields and Remove on the line below. */
+.armada-held-notes__shot {
+  position: relative;
+  flex: 1 0 100%;
+  line-height: 0;
+}
+
+.armada-held-notes__window {
+  width: 100%;
+  height: auto;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+/* The picked box, a little outside it so the stroke does not cover its edge. */
+.armada-held-notes__ring {
+  position: absolute;
+  top: calc(var(--ring-y) - var(--space-1));
+  left: calc(var(--ring-x) - var(--space-1));
+  width: calc(var(--ring-width) + 2 * var(--space-1));
+  height: calc(var(--ring-height) + 2 * var(--space-1));
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+/* The note's number, held in the ring's top-left corner, so it never leaves the picture the ring is on. */
+.armada-held-notes__tag {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm) 0 var(--radius-sm) 0;
+  background: var(--accent);
+  color: var(--fg-inverse);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  pointer-events: auto;
 }
 
 .armada-held-notes__crop {

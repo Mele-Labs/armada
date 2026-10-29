@@ -114,6 +114,7 @@ function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]):
       ...(row.tags === undefined ? {} : { tags: row.tags }),
       ...(row.delivery === undefined ? {} : { delivery: row.delivery }),
       ...(row.stableKey === undefined ? {} : { stableKey: row.stableKey }),
+      ...(row.queued === true ? { queued: true as const } : {}),
     };
   });
 }

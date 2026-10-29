@@ -112,8 +112,18 @@ export type QueuedWalkOptions = WalkWindowOptions & {
   onSendNotes?: (notes: readonly HeldMockNote[]) => Promise<{ ok: true } | { ok: false; said: string }>;
 };
 
-/** A note held on a Job, as main holds one and the panel lists it: its words and what it is on. The mock takes no crop. */
-export type HeldMockNote = { id: string; at: string; said: string; on: string };
+/**
+ * A note held on a Job, as main holds one and the panel lists it: its words and what it is on. A capture in the mock takes
+ * no crop; a scenario holding notes from the start may give each a picture of the whole window and the box ringed on it.
+ */
+export type HeldMockNote = {
+  id: string;
+  at: string;
+  said: string;
+  on: string;
+  crop?: { media_type: string; data: string };
+  ring?: { x: number; y: number; width: number; height: number };
+};
 
 let heldNotes = new Map<string, readonly HeldMockNote[]>();
 let heldMinted = 0;
@@ -138,6 +148,11 @@ export function useHeldNotes(jobId: string | undefined): readonly HeldMockNote[]
     },
     () => (jobId === undefined ? NONE_HELD : (heldNotes.get(jobId) ?? NONE_HELD)),
   );
+}
+
+/** These notes held on the Job, as a scenario starts with them taken. */
+export function holdNotes(jobId: string, notes: readonly HeldMockNote[]): void {
+  setHeld(jobId, notes);
 }
 
 /** Nothing held on any Job, as a scenario starts. */

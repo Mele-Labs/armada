@@ -49,7 +49,7 @@ where
         let terminal = self.terminal_session(&id).await?;
         let found = self.note_found(&id, &note).await;
         let text = note.said.trim().to_string();
-        let mut lines = told(&note, &found);
+        let mut lines = told(&note, &found, note.crop.is_some().then_some((1, 1)));
         lines.extend(background(&note));
         let ahead = brief.map(|brief| format!("{brief}\n\n")).unwrap_or_default();
         // A blank line after his words, so the lines Fleet adds read as about the note, not as more of it.
@@ -83,11 +83,17 @@ where
         let id = session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?;
         let (mut said, mut blocks, mut candidates) = (Vec::new(), Vec::new(), Vec::new());
+        // Only a note with a crop adds an attachment, so its picture is the next one after those before it.
+        let mut pictures = 0;
         for (at, note) in notes.iter().enumerate() {
+            let shot = note.crop.is_some().then(|| {
+                pictures += 1;
+                (at + 1, pictures)
+            });
             let found = self.note_found(&id, note).await;
             let words = format!("{}. {}", at + 1, note.said.trim());
             let mut block = words.clone();
-            for line in told(note, &found).into_iter().chain(background(note)) {
+            for line in told(note, &found, shot).into_iter().chain(background(note)) {
                 block.push_str("\n   ");
                 block.push_str(&line);
             }
@@ -221,8 +227,9 @@ fn background(note: &SessionNote) -> Vec<String> {
     lines
 }
 
-/// What the agent reads after the person's words, short of the handoff.
-fn told(note: &SessionNote, found: &Located) -> Vec<String> {
+/// What the agent reads after the person's words, short of the handoff. `shot` is the note's number and
+/// the place of its picture among the attachments, when it has one: the agent never sees the file names.
+fn told(note: &SessionNote, found: &Located, shot: Option<(usize, usize)>) -> Vec<String> {
     let place = &note.place;
     let element = &place.element;
     let named = element.label.as_deref().filter(|label| !label.trim().is_empty()).unwrap_or(&element.text);
@@ -235,6 +242,11 @@ fn told(note: &SessionNote, found: &Located) -> Vec<String> {
             note.note_id.as_deref().map(|id| format!(" (note {id})")).unwrap_or_default()
         ),
     ];
+    if let Some((number, image)) = shot {
+        lines.push(format!(
+            "Screenshot: image {image} of this message, the whole window, ring {number} marks what he pointed at"
+        ));
+    }
     // No match says nothing the agent can use, so it is no line.
     if !found.candidates.is_empty() {
         lines.push("Candidates:".to_string());
