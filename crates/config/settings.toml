@@ -385,7 +385,7 @@ DECIDED 16 Oct 2026 (owner): a person can switch the workflow system off and alw
 
 **Off means three things and no more.** The proposer is shown no workflows and so never picks one, and still proposes the title, model and effort; `set_session_workflow` refuses to set one with `fleet.session_workflows_off`, and clearing one still works; and a Job that already has a workflow has no `workflow_step`, hears no nudge for a step skipped, and has no judge run at a step's boundary, nor is told its workflow's steps on its first turn. Nothing is deleted: the Job keeps the workflow it has, so switching back on picks the rail up where the facts put it. The Judge tile reads the work against the plan either way.
 
-Live: read when the row is drawn and when a call is made, so a change shows on the next published row. Bridge reads it from the settings it already serves and hides the workflow picker and the steps when it is off.
+Live: read when the row is drawn and when a call is made, so a change shows on the next published row. Bridge reads it from the settings it already serves and hides the workflow picker and the steps when it is off. Bridge draws the switch twice, in Features and at the head of Kit › Workflows, and both save this one value. A single workflow is switched off with `workflows-switched-off`.
 
 **The value lives in settings.json under `features.workflows`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
