@@ -164,7 +164,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         if (fired === undefined && reached) continue;
         const status = fired === undefined ? ("waiting" as const) : fired.outcome;
         const name = source === undefined ? copy.steps.find((one) => one.id === rule.from.item)?.label ?? rule.from.item : label(rule.from.lane, rule.from.item);
-        const waits = source === undefined ? `${name} starts` : `${source.label}: ${name}`;
+        const waits = source === undefined ? `${name} ${rule.at === "ends" ? "ends" : "starts"}` : `${source.label}: ${name}`;
         rules.push({
           id: `${rule.id}:${(source ?? target)?.id ?? "workflow"}${source !== undefined && target !== undefined ? `>${target.id}` : ""}`,
           rule: rule.id,

@@ -10,7 +10,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { Ban, Check, CircleDot, Clock, GitCompare, MessageCircleQuestion, Plus, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleDot, Clock, GitCompare, ListPlus, MessageCircleQuestion, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -164,7 +164,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
 
 /** The mark on a rule's chip: how it ended on a Job, or how much it may do alone in the editor. Acts alone carries none. */
 function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefined {
-  if (rule.proposed === true) return { Glyph: Plus, said: "Proposed" };
+  if (rule.proposed === true) return { Glyph: ListPlus, said: "Proposed" };
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };
   if (rule.status === "asked") return { Glyph: MessageCircleQuestion, said: "Asked" };
   if (rule.status === "waiting") return { Glyph: Clock, said: "Waiting" };

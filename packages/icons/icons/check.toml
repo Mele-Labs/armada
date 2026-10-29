@@ -54,3 +54,17 @@
     size = "12px"
     status = "Specified"
     notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Bare check in `--step-advanced`, drawn at 14px, stroke 2. Check means yes, and the line says which act it was."
+
+[[icons.check.usage]]
+  means = "A state an instance went through, and a rule that fired and acted, on a lane"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. Bare check in --step-advanced, tooltips `Went through` and `Acted`. The same yes the Workflows page uses for an act that went through."
+
+  [[icons.check.usage]]
+    means = "A triaged comment on a Job's pull request lane that was sent to the Job's agent"
+    group = "Job lanes"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 with the comments under a Job's Lanes view. Bare check in `--step-advanced`, tooltip `Sent`, in a column of its own beside the row's two acts. The row keeps its place."
