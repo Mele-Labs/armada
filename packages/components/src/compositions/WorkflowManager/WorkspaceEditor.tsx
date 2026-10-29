@@ -17,7 +17,7 @@ import type { ManagedStep, ManagedWorkflow } from "./types";
  * for whatever is picked. **A mock's editor**: no Fleet serves a Workspace yet. A scope picks the Workspace or one repository, and the
  * lanes show the rules and the tracker values that apply there. The words a step is told stay the step card, drawn as the inspector.
  *
- * Keys are the canvas's own (`LaneCanvas`): arrows step between nodes, `R` and `Shift R` go round the rules, `Esc` lets go of the pick.
+ * Keys are the canvas's own (`LaneCanvas`): arrows step between nodes, `]` and `[` go to the next and the previous rule and the inspector follows it, `Esc` lets go of the pick.
  */
 export type WorkspaceEditing = {
   value: Workspace;

@@ -636,7 +636,8 @@
 }
 .armada-wm-lanes > .armada-lane-canvas {
   flex: none;
-  height: calc(var(--space-12) * 10);
+  /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
+  height: calc(var(--space-12) * 11);
 }
 .armada-wm-lanes__scope {
   display: flex;

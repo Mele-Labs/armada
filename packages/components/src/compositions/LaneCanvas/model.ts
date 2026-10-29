@@ -62,8 +62,6 @@ export type Rule = {
   kept: Kept;
   /** `workspace`, or the id of the one repository it applies in. */
   scope: string;
-  /** Where along its edge the label sits, 0 to 1. */
-  labelAt?: number;
 };
 
 /** One step of the workflow in a lane, as the page lists it. */
@@ -99,6 +97,12 @@ export type LaneNodeView = {
   waiting?: string;
   end?: boolean;
   skipped?: boolean;
+  /** Who the instance in this state is assigned to, drawn on the node. */
+  who?: string;
+  /** What is known of the instance at this state, one line each in the node's tooltip: the reviewers on a pull request. */
+  facts?: readonly string[];
+  /** The Job's own copy changed here, and how. */
+  changed?: string;
 };
 
 export type LaneView = {
@@ -112,8 +116,6 @@ export type LaneView = {
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
   moves: readonly (readonly [string, string])[];
-  /** This lane was changed on this Job, and how. */
-  changed?: string;
 };
 
 export type RuleView = {
@@ -132,7 +134,8 @@ export type RuleView = {
   proposed?: true;
   /** The same rule's second edge: drawn with its mark and no words. */
   quiet?: true;
-  labelAt?: number;
+  /** What the rule did, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
+  did?: string;
 };
 
 // ---- A Job's lanes -------------------------------------------------------------------------------------------------------
@@ -149,13 +152,15 @@ export type Instance = {
   /** The states it went through, in order, the current one last. */
   visited: readonly string[];
   assignee?: string;
+  /** What is known of it at a state, by state id: `Maya, Jun` at Reviewers on. */
+  says?: Readonly<Record<string, string>>;
 };
 
 /** A rule that fired for an instance, and how it ended. */
-export type Fired = { rule: string; instance: string; outcome: "acted" | "asked"; at: string };
+export type Fired = { rule: string; instance: string; outcome: "acted" | "asked"; at: string; /** What it did, for the chip's tooltip. */ did?: string };
 
-/** A change made to this Job's own copy, marked on its lane. */
-export type JobChange = { id: string; lane: string; text: string; at: string };
+/** A change made to this Job's own copy, marked on the state of the lane it changes: `lane` is the instance and `item` its state. */
+export type JobChange = { id: string; lane: string; item: string; text: string; at: string };
 
 /** What the agent made of a human comment on the pull request. */
 export type CommentRead = "change" | "answer" | "skip";

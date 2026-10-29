@@ -74,7 +74,6 @@ export function editorLanes(input: {
     label: rule.label,
     autonomy: rule.autonomy,
     ...(proposed ? { proposed: true as const } : {}),
-    ...(rule.labelAt === undefined ? {} : { labelAt: rule.labelAt }),
   });
   return {
     lanes: [flow, ...lifecycles],
@@ -127,23 +126,29 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
     ...job.instances.flatMap((instance): LaneView[] => {
       const lifecycle = copy.lifecycles.find((one) => one.id === instance.lifecycle);
       if (lifecycle === undefined) return [];
-      const changed = job.changes.find((one) => one.lane === instance.id)?.text;
       const lane = laneOfLifecycle(
         lifecycle,
         instance.id,
         instance.label,
         instance.title,
-        lifecycle.states.map((state) => ({
-          id: nodeId(instance.id, state.id),
-          label: state.label,
-          col: state.col,
-          role: "state" as const,
-          ...(state.id === instance.state ? { lit: true as const } : {}),
-          ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
-          ...(state.end === true ? { end: true as const } : {}),
-        })),
+        lifecycle.states.map((state) => {
+          const says = instance.says?.[state.id];
+          const changed = job.changes.find((one) => one.lane === instance.id && one.item === state.id)?.text;
+          return {
+            id: nodeId(instance.id, state.id),
+            label: state.label,
+            col: state.col,
+            role: "state" as const,
+            ...(state.id === instance.state ? { lit: true as const } : {}),
+            ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
+            ...(state.end === true ? { end: true as const } : {}),
+            ...(state.id === instance.state && instance.assignee !== undefined ? { who: instance.assignee } : {}),
+            ...(says === undefined ? {} : { facts: [says] }),
+            ...(changed === undefined ? {} : { changed }),
+          };
+        }),
       );
-      return [{ ...lane, ...(changed === undefined ? {} : { changed }) }];
+      return [lane];
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);
@@ -174,8 +179,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
           meta: fired === undefined ? waits : fired.at,
           autonomy: rule.autonomy,
           status,
+          ...(fired?.did === undefined ? {} : { did: fired.did }),
           ...(first ? {} : { quiet: true as const }),
-          ...(rule.labelAt === undefined ? {} : { labelAt: rule.labelAt }),
         });
         first = false;
       }

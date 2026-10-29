@@ -64,24 +64,16 @@
 .armada-lane[data-kind="workflow"] { border-bottom-color: var(--border-strong); }
 .armada-lane[data-kind="workflow"] .armada-lane__head { background: var(--bg-base); border-right-color: var(--border-strong); }
 
-.armada-lane__changed {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  display: grid;
-  place-items: center;
-  color: var(--status-awaiting-review);
-  cursor: default;
-}
-
 /* ---- A step or a state ------------------------------------------------------------------------------------------- */
 
 .armada-lane-item {
+  position: relative;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
 }
 
+/* A node is read at the kit's body size and wraps to a second line before it clips: its name, and under it what ends a step, who a ticket is assigned to, or what a step waits on. */
 .armada-lane-item__main {
   --hue: var(--fg-subtle);
   display: grid;
@@ -92,14 +84,14 @@
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: 0 var(--space-2) 0 var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
   border: var(--border-width) solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--fg-default);
   font: inherit;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
   text-align: left;
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
@@ -115,23 +107,30 @@
 }
 .armada-lane-item__label {
   grid-column: 2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .armada-lane-item__sub {
   grid-column: 2;
-  overflow: hidden;
+  min-width: 0;
   color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}
+.armada-lane-item__who {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
-/* Where an instance stands is framed in the running hue; where a step waits, in the waiting one; what it went through is a tick. */
-.armada-lane-item[data-passed] .armada-lane-item__main { --hue: var(--step-advanced); color: var(--fg-muted); }
+/* Where an instance stands is framed in the running hue; where a step waits, in the waiting one; what it went through is a tick in the advanced one, and its frame follows. */
+.armada-lane-item[data-passed] .armada-lane-item__main { --hue: var(--step-advanced); border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-strong)); color: var(--fg-muted); }
 .armada-lane-item[data-lit] .armada-lane-item__main {
   --hue: var(--step-running);
   border-color: var(--step-running);
@@ -147,6 +146,24 @@
 .armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
 .armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
 .armada-lane-item[data-end] .armada-lane-item__main { border-radius: var(--radius-lg); }
+
+/* A state this Job's own copy changed: a dashed frame in the waiting hue and the comparison's glyph on its corner. */
+.armada-lane-item[data-changed] .armada-lane-item__main { border-style: dashed; border-color: var(--status-awaiting-review); }
+.armada-lane-item__changed {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: calc(var(--space-2) * -1);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--status-awaiting-review);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--status-awaiting-review);
+  cursor: default;
+}
 
 /* What is picked is a shape: the text colour's frame on the picked ground, and the heading weight. */
 .armada-lane-item__main[data-picked] {
@@ -184,10 +201,10 @@
   position: absolute;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   box-sizing: border-box;
-  max-inline-size: calc(var(--space-12) * 4);
-  padding: var(--space-1) var(--space-2);
+  height: calc(var(--space-6) + var(--space-1));
+  padding: 0 var(--space-2);
   border: var(--border-width) solid color-mix(in srgb, var(--hue) 55%, var(--border-default));
   border-radius: var(--radius-md);
   background: var(--bg-overlay);
@@ -196,6 +213,7 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
   pointer-events: all;
   transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
@@ -207,18 +225,13 @@
 .armada-lane-chip[data-tone="proposed"] { --hue: var(--step-advanced); border-style: dashed; }
 .armada-lane-chip[data-tone="waiting"] { border-style: dashed; }
 .armada-lane-chip[data-autonomy="off"] { color: var(--fg-subtle); }
-.armada-lane-chip[data-quiet] { padding: var(--space-1); }
+.armada-lane-chip[data-quiet] { width: calc(var(--space-6) + var(--space-1)); justify-content: center; padding: 0; }
 .armada-lane-chip__mark { flex: none; color: var(--hue); }
-.armada-lane-chip__words { display: flex; min-width: 0; flex-direction: column; }
-.armada-lane-chip__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .armada-lane-chip__meta {
-  overflow: hidden;
   color: var(--fg-subtle);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 .armada-lane-chip[data-picked] {
   background: var(--select-ground);

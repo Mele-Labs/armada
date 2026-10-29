@@ -10,7 +10,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { Ban, Check, CircleDot, Clock, GitCompare, ListPlus, MessageCircleQuestion, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleDot, Clock, GitCompare, ListPlus, MessageCircleQuestion, UserCheck, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -26,7 +26,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
-import { GEO, isArrow, nearest, place, type Rect } from "./layout";
+import { GEO, HOME, isArrow, nearest, place, placeChips, type Rect } from "./layout";
 import type { LaneNodeView, LaneView, RuleView } from "./model";
 
 /**
@@ -37,8 +37,12 @@ import type { LaneNodeView, LaneView, RuleView } from "./model";
  * **What a node says is a glyph and its tooltip, never a phrase.** The state an instance stands in, the ones it went through, a step
  * that waits and a rule that fired are marks; the words are in the tooltip.
  *
- * **Keys**: arrows step to the nearest node, `R` and `Shift R` go round the rules, `Enter` picks what has focus, `Esc` lets go of the
- * pick. Tooltips are drawn outside the canvas: a bubble inside React Flow's viewport is scaled with the zoom.
+ * **Drawn at the scale it is read**, one canvas unit a pixel, so a node's name is the kit's body size and never fitted down to a frame: the lanes
+ * fill its height and the person pans across. A rule's chip sits in the gutter between lanes, where no node is (`layout.ts`).
+ *
+ * **Keys**: arrows step to the nearest node, `]` and `[` go to the next and the previous rule and pick it, `Enter` picks what has focus, `Esc` lets
+ * go of the pick. (`R` and `Shift R` are the walk player's own, and the letter keys the Cockpit takes.) A tooltip is drawn outside the canvas, since a bubble
+ * inside React Flow's viewport is scaled with the zoom, and is shown only while its node or chip is hovered or reached by key, held to it as the canvas moves.
  */
 
 export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string };
@@ -52,7 +56,8 @@ export type LaneCanvasProps = {
   onPick?: (pick: LanePick | undefined) => void;
 };
 
-type Tip = { lines: readonly string[]; at: { left: number; top: number; bottom: number } };
+/** A tooltip is held to the element it describes, and goes with it. */
+type Tip = { lines: readonly string[]; on: Element };
 
 type Held = {
   picked: LanePick | undefined;
@@ -61,24 +66,21 @@ type Held = {
   setCurrent: (id: string) => void;
   node: (id: string, element: HTMLButtonElement | null) => void;
   chip: (key: string, element: HTMLButtonElement | null) => void;
-  tip: (lines: readonly string[] | undefined, at?: Tip["at"], soon?: boolean) => void;
+  tip: (lines: readonly string[] | undefined, on?: Element, soon?: boolean) => void;
+  /** A key was pressed in the canvas a moment ago, so focus that arrives now was moved by it and is read. */
+  keyed: () => boolean;
 };
 
 const Hold = createContext<Held | undefined>(undefined);
 
 type LaneData = { lane: LaneView };
 type ItemData = { node: LaneNodeView; lane: LaneView };
-type RuleData = { rule: RuleView; target: string };
+type RuleData = { rule: RuleView; target: string; chip: { x: number; y: number } };
 type MoveData = { back: boolean };
 type CanvasNode = Node<LaneData, "lane"> | Node<ItemData, "item">;
 type CanvasEdge = Edge<RuleData, "rule"> | Edge<MoveData, "move">;
 
 const TIP_DELAY = 400;
-
-const rectOf = (element: Element): Tip["at"] => {
-  const { left, top, bottom } = element.getBoundingClientRect();
-  return { left, top, bottom };
-};
 
 /** What a node's mark is, in the words its tooltip reads. */
 function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undefined {
@@ -96,22 +98,11 @@ function LaneBand({ data }: NodeProps<Node<LaneData, "lane">>) {
     <div className="armada-lane" data-kind={lane.kind} style={{ "--lane-head": `${GEO.head}px` } as CSSProperties}>
       <div
         className="armada-lane__head"
-        onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], rectOf(event.currentTarget))}
+        onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], event.currentTarget)}
         onMouseLeave={() => hold.tip(undefined)}
       >
         <span className="armada-lane__title">{lane.title}</span>
         <span className="armada-lane__source">{lane.source}</span>
-        {lane.changed === undefined ? null : (
-          <span
-            className="armada-lane__changed"
-            role="img"
-            aria-label={`Changed on this Job: ${lane.changed}`}
-            onMouseEnter={(event) => hold.tip(["Changed on this Job", lane.changed!], rectOf(event.currentTarget), true)}
-            onMouseLeave={() => hold.tip(undefined)}
-          >
-            <GitCompare size={14} strokeWidth={2} aria-hidden="true" />
-          </span>
-        )}
       </div>
     </div>
   );
@@ -123,10 +114,19 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const mine = hold.current === node.id;
   const picked = hold.picked?.kind === "node" && hold.picked.id === node.id;
   const mark = markOf(node);
-  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}`;
-  const lines = [node.label, ...(mark === undefined ? [] : [mark.said]), ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub])];
+  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}`;
+  const lines = [node.label, ...(mark === undefined ? [] : [mark.said]), ...(node.facts ?? []), ...(node.who === undefined ? [] : [`Assigned to ${node.who}`]), ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub])];
   return (
-    <div className="armada-lane-item" data-role={node.role} data-lit={node.lit || undefined} data-passed={node.passed || undefined} data-waiting={node.waiting !== undefined || undefined} data-end={node.end || undefined} data-skipped={node.skipped || undefined}>
+    <div
+      className="armada-lane-item"
+      data-role={node.role}
+      data-lit={node.lit || undefined}
+      data-passed={node.passed || undefined}
+      data-waiting={node.waiting !== undefined || undefined}
+      data-end={node.end || undefined}
+      data-skipped={node.skipped || undefined}
+      data-changed={node.changed !== undefined || undefined}
+    >
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
       ))}
@@ -142,19 +142,36 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
         aria-current={node.lit === true ? "step" : undefined}
         onFocus={(event) => {
           hold.setCurrent(node.id);
-          if (event.currentTarget.matches(":focus-visible")) hold.tip(lines, rectOf(event.currentTarget), true);
+          if (event.currentTarget.matches(":focus-visible") && hold.keyed()) hold.tip(lines, event.currentTarget, true);
         }}
         onBlur={() => hold.tip(undefined)}
-        onMouseEnter={(event) => hold.tip(lines, rectOf(event.currentTarget))}
+        onMouseEnter={(event) => hold.tip(lines, event.currentTarget)}
         onMouseLeave={() => hold.tip(undefined)}
         onClick={() => hold.pick(picked ? undefined : { kind: "node", id: node.id })}
       >
         <span className="armada-lane-item__mark" aria-hidden="true">
-          {mark === undefined ? null : <mark.Glyph size={14} strokeWidth={2} />}
+          {mark === undefined ? null : <mark.Glyph size={16} strokeWidth={2} />}
         </span>
         <span className="armada-lane-item__label">{node.label}</span>
-        {node.sub === undefined && node.waiting === undefined ? null : <code className="armada-lane-item__sub">{node.waiting ?? node.sub}</code>}
+        {node.sub === undefined && node.waiting === undefined ? null : <span className="armada-lane-item__sub">{node.waiting ?? node.sub}</span>}
+        {node.who === undefined ? null : (
+          <span className="armada-lane-item__who" aria-hidden="true">
+            <UserCheck size={14} strokeWidth={2} />
+            <span>{node.who}</span>
+          </span>
+        )}
       </button>
+      {node.changed === undefined ? null : (
+        <span
+          className="armada-lane-item__changed"
+          role="img"
+          aria-label={`Changed on this Job: ${node.changed}`}
+          onMouseEnter={(event) => hold.tip(["Changed on this Job", node.changed!], event.currentTarget, true)}
+          onMouseLeave={() => hold.tip(undefined)}
+        >
+          <GitCompare size={14} strokeWidth={2} aria-hidden="true" />
+        </span>
+      )}
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
       ))}
@@ -175,20 +192,12 @@ function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefin
 
 function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
   const hold = useContext(Hold)!;
-  const { rule, target } = props.data!;
-  const [path, midX, midY] = getBezierPath(props);
-  const line = useRef<SVGPathElement>(null);
-  const [at, setAt] = useState({ x: midX, y: midY });
-  useLayoutEffect(() => {
-    const drawn = line.current;
-    if (drawn === null || rule.labelAt === undefined) return setAt({ x: midX, y: midY });
-    const point = drawn.getPointAtLength(drawn.getTotalLength() * rule.labelAt);
-    setAt({ x: point.x, y: point.y });
-  }, [path, midX, midY, rule.labelAt]);
+  const { rule, target, chip } = props.data!;
+  const [path] = getBezierPath(props);
   const picked = hold.picked?.kind === "rule" && hold.picked.id === rule.rule;
   const mark = chipMark(rule);
   const tone = rule.proposed === true ? "proposed" : rule.status ?? "defined";
-  const lines = [rule.label, ...(mark === undefined ? [] : [mark.said]), ...(rule.meta === undefined ? [] : [rule.meta])];
+  const lines = [rule.label, ...(rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : [rule.did]), ...(rule.meta === undefined ? [] : [rule.meta])];
   const name = `${rule.proposed === true ? "Proposed: " : ""}${rule.label}${rule.quiet === true ? `, ${target}` : ""}`;
   return (
     <>
@@ -198,7 +207,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
             <path className="armada-lane-edge__head" d="M0 0L10 5L0 10z" />
           </marker>
         </defs>
-        <path ref={line} id={props.id} d={path} fill="none" className="react-flow__edge-path armada-lane-edge__line" markerEnd={`url(#head-${props.id})`} />
+        <path id={props.id} d={path} fill="none" className="react-flow__edge-path armada-lane-edge__line" markerEnd={`url(#head-${props.id})`} />
       </g>
       <EdgeLabelRenderer>
         <button
@@ -213,21 +222,21 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
           tabIndex={-1}
           aria-label={name}
           aria-pressed={picked}
-          style={{ transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` }}
+          style={{ transform: `translate(-50%, -50%) translate(${chip.x}px, ${chip.y}px)` }}
           onFocus={(event) => {
-            if (event.currentTarget.matches(":focus-visible")) hold.tip(lines, rectOf(event.currentTarget), true);
+            if (event.currentTarget.matches(":focus-visible") && hold.keyed()) hold.tip(lines, event.currentTarget, true);
           }}
           onBlur={() => hold.tip(undefined)}
-          onMouseEnter={(event) => hold.tip(lines, rectOf(event.currentTarget))}
+          onMouseEnter={(event) => hold.tip(lines, event.currentTarget)}
           onMouseLeave={() => hold.tip(undefined)}
           onClick={() => hold.pick(picked ? undefined : { kind: "rule", id: rule.rule })}
         >
-          {mark === undefined ? null : <mark.Glyph className="armada-lane-chip__mark" size={12} strokeWidth={2} aria-hidden="true" />}
+          {mark === undefined ? null : <mark.Glyph className="armada-lane-chip__mark" size={14} strokeWidth={2} aria-hidden="true" />}
           {rule.quiet === true ? null : (
-            <span className="armada-lane-chip__words">
+            <>
               <span className="armada-lane-chip__label">{rule.label}</span>
               {rule.meta === undefined ? null : <code className="armada-lane-chip__meta">{rule.meta}</code>}
-            </span>
+            </>
           )}
         </button>
       </EdgeLabelRenderer>
@@ -252,7 +261,6 @@ function MoveEdge(props: EdgeProps<Edge<MoveData, "move">>) {
 
 const NODE_TYPES = { lane: LaneBand, item: ItemNode };
 const EDGE_TYPES = { rule: RuleEdge, move: MoveEdge };
-const FIT = { padding: 0.04, minZoom: 0.55, maxZoom: 1 };
 
 /** Across when the target lies in the same lane; a way down or up the lanes leaves and enters at the top and the bottom. */
 function sidesOf(from: Rect, to: Rect): { sourceHandle: string; targetHandle: string } {
@@ -262,21 +270,34 @@ function sidesOf(from: Rect, to: Rect): { sourceHandle: string; targetHandle: st
   return to.y > from.y ? { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Top}` } : { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${Position.Bottom}` };
 }
 
-/** The tooltip, in the document's body and measured there. */
-function TipView({ tip }: { tip: Tip }) {
+/**
+ * The tooltip, in the document's body and measured there. **Held to the element it describes**: it is placed again every frame it is up, so a canvas that pans, a lane
+ * that grows with its frame or a node that is gone takes the bubble with it, and one that has left the canvas is not drawn.
+ */
+function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
   const bubble = useRef<HTMLSpanElement>(null);
   const [placed, setPlaced] = useState<{ left: number; top: number } | undefined>();
   useLayoutEffect(() => {
-    const held = bubble.current;
-    if (held === null) return;
-    const { width, height } = held.getBoundingClientRect();
-    const gap = 6;
-    const room = 8;
-    const left = Math.max(room, Math.min(tip.at.left, window.innerWidth - width - room));
-    const below = tip.at.bottom + gap;
-    const top = below + height + room <= window.innerHeight ? below : Math.max(room, tip.at.top - height - gap);
-    setPlaced({ left, top });
-  }, [tip]);
+    let frame = 0;
+    const settle = () => {
+      const held = bubble.current;
+      const at = tip.on.getBoundingClientRect();
+      const frameAt = within?.getBoundingClientRect();
+      const seen = tip.on.isConnected && (frameAt === undefined || (at.right > frameAt.left && at.left < frameAt.right && at.bottom > frameAt.top && at.top < frameAt.bottom));
+      if (held !== null && seen) {
+        const { width, height } = held.getBoundingClientRect();
+        const gap = 6;
+        const room = 8;
+        const left = Math.round(Math.max(room, Math.min(at.left, window.innerWidth - width - room)));
+        const below = at.bottom + gap;
+        const top = Math.round(below + height + room <= window.innerHeight ? below : Math.max(room, at.top - height - gap));
+        setPlaced((was) => (was !== undefined && was.left === left && was.top === top ? was : { left, top }));
+      } else setPlaced((was) => (was === undefined ? was : undefined));
+      frame = window.requestAnimationFrame(settle);
+    };
+    settle();
+    return () => window.cancelAnimationFrame(frame);
+  }, [tip, within]);
   return createPortal(
     <span ref={bubble} className="armada-lane-tip" aria-hidden="true" style={{ left: placed?.left ?? 0, top: placed?.top ?? 0, visibility: placed === undefined ? "hidden" : "visible" }}>
       {tip.lines.map((line, index) => (
@@ -315,11 +336,26 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
   const [current, setCurrent] = useState<string | undefined>();
   const [tip, setTip] = useState<Tip | undefined>();
   const timer = useRef<number | undefined>(undefined);
+  const keyedAt = useRef(0);
+  const frame = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
   const nodeButtons = useRef(new Map<string, HTMLButtonElement>());
   const chipButtons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const placement = useMemo(() => place(lanes), [lanes]);
+  // The lanes fill the frame's height, so the frame is measured and the lanes placed in it.
+  useLayoutEffect(() => {
+    const held = frame.current;
+    if (held === null) return;
+    const read = () => setHeight(held.clientHeight);
+    read();
+    const watch = new ResizeObserver(read);
+    watch.observe(held);
+    return () => watch.disconnect();
+  }, []);
+
+  const placement = useMemo(() => place(lanes, height), [lanes, height]);
+  const chips = useMemo(() => placeChips(rules, placement), [rules, placement]);
   const first = lanes[0]?.nodes[0]?.id;
   const here = current !== undefined && placement.items.has(current) ? current : first;
 
@@ -331,12 +367,13 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
       setCurrent,
       node: (id, element) => void (element === null ? nodeButtons.current.delete(id) : nodeButtons.current.set(id, element)),
       chip: (key, element) => void (element === null ? chipButtons.current.delete(key) : chipButtons.current.set(key, element)),
-      tip: (lines, at, soon = false) => {
+      tip: (lines, on, soon = false) => {
         window.clearTimeout(timer.current);
-        if (lines === undefined || at === undefined) return setTip(undefined);
-        if (soon) return setTip({ lines, at });
-        timer.current = window.setTimeout(() => setTip({ lines, at }), TIP_DELAY);
+        if (lines === undefined || on === undefined) return setTip(undefined);
+        if (soon) return setTip({ lines, on });
+        timer.current = window.setTimeout(() => setTip({ lines, on }), TIP_DELAY);
       },
+      keyed: () => performance.now() - keyedAt.current < 300,
     }),
     [here, picked, onPick],
   );
@@ -389,7 +426,8 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
     const drawn = rules.flatMap((rule): CanvasEdge[] => {
       const from = placement.items.get(rule.from);
       const to = placement.items.get(rule.to);
-      if (from === undefined || to === undefined) return [];
+      const chip = chips.get(rule.id);
+      if (from === undefined || to === undefined || chip === undefined) return [];
       return [
         {
           id: rule.id,
@@ -399,16 +437,17 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
           ...sidesOf(from, to),
           focusable: false,
           selectable: false,
-          data: { rule, target: titleOf.get(rule.to.split("/")[0]!) ?? rule.to },
+          data: { rule, target: titleOf.get(rule.to.split("/")[0]!) ?? rule.to, chip },
         },
       ];
     });
     return [...moves, ...drawn];
-  }, [lanes, rules, placement]);
+  }, [lanes, rules, placement, chips]);
 
   const focusNode = useCallback((id: string) => nodeButtons.current.get(id)?.focus({ preventScroll: true }), []);
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
+    keyedAt.current = performance.now();
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const target = event.target as HTMLElement;
     if (target.closest("input, textarea, select") !== null) return;
@@ -418,15 +457,19 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
       onPick?.(undefined);
       return;
     }
-    // R goes round the rules in the order they are drawn; each edge of a rule counts once.
-    if (event.key === "r" || event.key === "R") {
+    // `]` and `[` go round the rules in the order they are drawn, from the one focused or picked; each edge of a rule counts once. The rule reached is picked, so what
+    // an inspector beside the canvas shows follows it, and its chip has focus.
+    if (event.key === "]" || event.key === "[") {
       const ids = [...new Set(rules.filter((rule) => rule.quiet !== true).map((rule) => rule.rule))];
       if (ids.length === 0) return;
       event.preventDefault();
-      const now = ids.indexOf(target.closest<HTMLElement>("[data-rule]")?.dataset.rule ?? "");
-      const next = ids[now === -1 ? (event.shiftKey ? ids.length - 1 : 0) : (now + (event.shiftKey ? ids.length - 1 : 1)) % ids.length]!;
+      const at = target.closest<HTMLElement>("[data-rule]")?.dataset.rule ?? (picked?.kind === "rule" ? picked.id : "");
+      const now = ids.indexOf(at);
+      const back = event.key === "[";
+      const next = ids[now === -1 ? (back ? ids.length - 1 : 0) : (now + (back ? ids.length - 1 : 1)) % ids.length]!;
       const edge = rules.find((rule) => rule.rule === next && rule.quiet !== true)!;
       chipButtons.current.get(edge.id)?.focus({ preventScroll: true });
+      onPick?.({ kind: "rule", id: next });
       return;
     }
     const node = target.closest<HTMLElement>("[data-node]")?.dataset.node;
@@ -441,7 +484,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
 
   return (
     <Hold.Provider value={hold}>
-      <div className="armada-lane-canvas" data-own-arrows="" role="group" aria-label={label} onKeyDown={keys}>
+      <div ref={frame} className="armada-lane-canvas" data-own-arrows="" role="group" aria-label={label} onKeyDown={keys}>
         <GraphCanvas<CanvasNode, CanvasEdge>
           surface="armada-lane-surface"
           label={label}
@@ -450,12 +493,13 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           minZoom={0.3}
-          fitViewOptions={FIT}
+          home={HOME}
+          panOnScroll
         >
           <Follows node={current} items={placement.items} />
         </GraphCanvas>
       </div>
-      {tip === undefined ? null : <TipView tip={tip} />}
+      {tip === undefined ? null : <TipView tip={tip} within={frame.current} />}
     </Hold.Provider>
   );
 }
