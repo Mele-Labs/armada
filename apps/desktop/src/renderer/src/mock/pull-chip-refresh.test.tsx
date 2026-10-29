@@ -26,13 +26,15 @@ function rightPress(target: Element): void {
 
 const toast = (headline: string) => page.getByText(headline, { exact: true }).first();
 
-test("a right press on the merge line chip offers Refresh under the pull request's number, and nothing else", async () => {
+test("a right press on the merge line chip offers Refresh, Open in browser and Copy link under the pull request's number, and nothing else", async () => {
   await open();
   await expect.element(chip()).toBeVisible();
   rightPress(chip().element());
   await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
-  await expect.element(page.getByRole("menuitem")).toHaveLength(1);
+  await expect.element(page.getByRole("menuitem")).toHaveLength(3);
   await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Open in browser" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
 });
 
 test("Refresh on the merge line chip asks Fleet once, by the repository's Manifest, and the chip reads failed from Fleet's events", async () => {
