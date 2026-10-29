@@ -293,7 +293,7 @@ button.sv-group__head:focus-visible { outline: var(--focus-ring); outline-offset
 .sv-layer__note { margin: 0; padding: 0 var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .sv-layer__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 /* Command, port, pid, state and action stand in fixed columns, so a row with no port leaves its column empty. */
-.sv-process { display: grid; grid-template-columns: minmax(0, 1fr) 5ch 7ch var(--space-5) var(--space-6); align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sv-process { display: grid; grid-template-columns: minmax(0, 1fr) 5ch 7ch var(--space-6) var(--space-8); align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
 .sv-process__command { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: inherit; text-overflow: ellipsis; white-space: nowrap; }
 .sv-process__port, .sv-process__pid { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .sv-process__state { justify-content: center; }
