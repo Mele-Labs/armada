@@ -17,7 +17,7 @@ vi.mock("../use-setting", () => ({ useSetting: () => settings.off }));
 const roots: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
   settings.off = undefined;
-  draft.work!.workflows = workflows;
+  offer(workflows);
   for (const { root, host } of roots.splice(0)) {
     root.unmount();
     host.remove();
@@ -25,6 +25,8 @@ afterEach(() => {
 });
 
 const NONE: Session[] = [];
+// The workflows the draft offers, as the picker reads them; a test lists only the ids and names it checks.
+const offer = (list: readonly { id: string; name: string }[]) => void ((draft.work as { workflows: unknown }).workflows = list);
 const workflows = [{ id: "feature", name: "Feature" }];
 const begin = vi.fn(async (..._args: unknown[]) => true);
 const choose = vi.fn();
@@ -123,21 +125,21 @@ const heldIn = (manifestId: string): Session => ({ ...held({ asksDelivery: true 
 const offered = () => [...document.querySelectorAll<HTMLOptionElement>('select[aria-label="Workflow"] option')].map((one) => one.textContent);
 
 test("the Workflow picker leaves out a workflow that is off for the machine, and keeps None", async () => {
-  draft.work!.workflows = MANY;
+  offer(MANY);
   settings.off = { machine: ["prototype"], repositories: {} };
   mount(heldIn("armada"));
   await expect.poll(offered).toEqual(["None", "Feature", "Bug"]);
 });
 
 test("the Workflow picker leaves out a workflow that is off for the Job's repository, and not one that is off for another", async () => {
-  draft.work!.workflows = MANY;
+  offer(MANY);
   settings.off = { machine: [], repositories: { armada: ["bug"], other: ["feature"] } };
   mount(heldIn("armada"));
   await expect.poll(offered).toEqual(["None", "Feature", "Prototype"]);
 });
 
 test("with nothing off the picker lists every workflow, and a value that does not read leaves all of them on", async () => {
-  draft.work!.workflows = MANY;
+  offer(MANY);
   settings.off = "bug";
   mount(heldIn("armada"));
   await expect.poll(offered).toEqual(["None", "Feature", "Bug", "Prototype"]);
