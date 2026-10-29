@@ -472,6 +472,31 @@ export const PermissionTakesAllowOnceAndRefuse: Story = {
   },
 };
 
+/** The question deck is the target and takes no ring of its own: the card has no border and its outline is off, and the keys still answer it. */
+export const QuestionDeckIsTargetWithoutARing: Story = {
+  args: {
+    rows: [],
+    asked: {
+      command: "Which size?",
+      offers: [
+        { id: "allow_once", label: "Allow once", means: "" },
+        { id: "refuse", label: "Refuse", means: "" },
+      ],
+      questions: [{ question: "Which size?", header: "Size", multi_select: false, options: [{ label: "S", description: "Small" }, { label: "L", description: "Large" }] }],
+    },
+  },
+  decorators: framed,
+  play: async ({ canvasElement }) => {
+    const deck = await waitFor(() => {
+      const found = canvasElement.querySelector<HTMLElement>(".armada-question-deck[data-thread-target]");
+      if (found === null) throw new Error("the question deck is not the target");
+      return found;
+    });
+    await expect(getComputedStyle(deck).outlineStyle).toBe("none");
+    await expect(getComputedStyle(deck.querySelector(".armada-question-deck__card")!).borderTopWidth).toBe("0px");
+  },
+};
+
 /** A question: `⌥E` takes Other with the caret in it, `⌥↵` answers only once the question has an answer, and `⌥X` skips. */
 export const QuestionTakesOtherAnswerAndSkip: Story = {
   args: {
