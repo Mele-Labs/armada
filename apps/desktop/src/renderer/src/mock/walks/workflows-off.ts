@@ -1,6 +1,6 @@
 // Workflows switched off (29 Oct 2026): Kit, Workflows holds the switch for Jobs, the same setting as Settings, Features, and a switch on each row. On All a row's
 // switch is the machine's, with one picked it is that repository's, and a workflow off on the machine says so in its place in every repository. A held Job's
-// Workflow picker leaves off workflows out, and a Job with no workflow reads Brief, Done, Now and Open. A mock: Fleet serves `workflows.off` in the settings list later.
+// Workflow picker leaves off workflows out, and a Job with no workflow reads Brief, Done, Now and Open. Fleet serves `workflows.off` in the settings list; here the mock's settings slice does.
 // Over `workflows-off`.
 
 import { button, deckRow, inside, place, region, role, text, toSystemPage, walk } from "../walk";

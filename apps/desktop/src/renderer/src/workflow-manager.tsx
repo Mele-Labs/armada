@@ -85,7 +85,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const [notice, setNotice] = useState<string | undefined>(undefined);
   // The Jobs the window holds, so a Job a press started is drawn as the shared Job card once Fleet lists it.
   const sessions = useSessions();
-  // `features.workflows` and `workflows.off` in settings.json, the same ones Settings, Features draws. A mock's reading for now.
+  // `features.workflows` and `workflows.off` in settings.json, Fleet's settings list; saved back with the settings save. Settings draws no row for `workflows.off`; this page is where it is edited.
   const forJobs = useSetting("features.workflows") !== false;
   const off = workflowsOffOf(useSetting(WORKFLOWS_OFF_KEY));
   // The copy the changes below belong to, so an answer that comes back after another was picked is let go.

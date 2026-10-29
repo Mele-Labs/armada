@@ -1,5 +1,5 @@
 // The workflows switched off, as settings.json holds them under `workflows.off`: the ids off on the machine, and the ids off for each repository by its
-// Manifest id. `{ "machine": ["prototype"], "repositories": { "<manifest id>": ["bug"] } }`. A mock's value for now; Fleet serves it in the settings list.
+// Manifest id. `{ "machine": ["prototype"], "repositories": { "<manifest id>": ["bug"] } }`. Fleet serves it in the settings list as a Json setting (`crates/ipc/src/workflows_off.rs`), and the settings save writes it back.
 
 import type { SettingValue } from "@armada/protocol";
 

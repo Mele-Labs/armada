@@ -1,6 +1,6 @@
 // Workflows switched off, for the walk `workflows-off`: Kit, Workflows with All repositories picked, a switch on each row, one workflow off for the machine
 // (`prototype`) and one off for armada only (`bug`), under `workflows.off` in settings.json. Two Jobs in armada: one held on its start card, whose Workflow picker lists
-// neither, and one with no workflow, whose right column reads Brief, Done, Now and Open. A mock: Fleet serves `workflows.off` in the settings list later.
+// neither, and one with no workflow, whose right column reads Brief, Done, Now and Open. Fleet serves `workflows.off` in the settings list; here the mock's settings slice does.
 
 import type { WaitingItem, WorkflowSummary } from "@armada/protocol";
 import { MANIFEST_ID } from "@armada/screens/src/fixtures/repository";
