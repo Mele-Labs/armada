@@ -1,0 +1,12 @@
+[operations.start_again]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Sends again the turns a Job's process would not start for"
+notes = """
+`POST /sessions/start_again`, body `StartAgain`: `session_id`. Answers the `SessionRecord`, without `hosted.start_failed` where the process started.
+
+**Only a Job whose process would not start has turns to send.** They go again in the order they were kept; one that fails again keeps itself and those after it, and `hosted.start_failed` stands with the new cause and log. A Job with nothing kept answers its row unchanged. A message to the Job sends the same turns.
+
+Publishes `session.changed`. `agent_access` is `No`: the person decides whether a Job that would not start is tried again, and Bridge's press on the failed-to-start line is the door.
+"""

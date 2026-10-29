@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
 import { sketchSharePreload } from "./sketch-share";
+import { attachmentsPreload } from "./attachments";
 import { filesPreload } from "./files";
 import { requestsPreload } from "./requests";
 import { logbookPreload } from "./logbook";
@@ -386,6 +387,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.refreshPullRequest, manifestId, number),
   ...autopilotPreload,
   ...sketchSharePreload,
+  ...attachmentsPreload,
   ...filesPreload,
   ...requestsPreload,
   ...logbookPreload,
@@ -605,6 +607,7 @@ const api: BridgeApi = {
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
   retryHandoff: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.retryHandoff, sessionId),
+  startAgain: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startAgain, sessionId),
   pauseSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
   resumeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
   setSessionAutoLand: (sessionId: string, on: boolean): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionAutoLand, sessionId, on),

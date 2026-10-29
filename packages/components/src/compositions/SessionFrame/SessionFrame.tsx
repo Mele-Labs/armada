@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { BatteryLow, LoaderCircle, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles } from "lucide-react";
+import { BatteryLow, LoaderCircle, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -23,10 +23,10 @@ import { stampOf, timeFormat } from "../../time-format";
  * pull request's Checks red, and ended is nothing listening, whether it was ended
  * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
  * (`link`, the Queued reason's upstream that has not finished), draft is a Job holding a first message nobody has sent (`message-square-dashed`), and
- * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch all that keeps it open (`radar`, the watch's own glyph). `[conventions.session_state_borrowing]` and
+ * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after" | "draft" | "held" | "paused";
+export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after" | "draft" | "held" | "paused" | "unstarted";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -50,6 +50,7 @@ const MARK: Record<SessionState, LucideIcon> = {
   draft: MessageSquareDashed,
   held: Radar,
   paused: CirclePause,
+  unstarted: X,
 };
 
 /** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */

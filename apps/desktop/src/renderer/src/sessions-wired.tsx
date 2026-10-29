@@ -739,6 +739,7 @@ export class WiredStore {
       return read.ok ? { ok: true, text: read.value.text } : { ok: false, said: refusalWords(read.outcome) };
     },
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
+    startAgain: (id) => void this.plain(this.api.startAgain(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),
     autoLand: (id, on) => this.landing(id, on),

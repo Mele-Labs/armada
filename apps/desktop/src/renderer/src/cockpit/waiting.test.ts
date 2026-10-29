@@ -210,6 +210,25 @@ describe("a draft put to the person", () => {
   });
 });
 
+describe("a Job whose agent never started", () => {
+  const startFailed = { cause: "The agent exited at once", log: [] };
+
+  test("waits on him for one item that opens the Job", () => {
+    expect(waitingOf(session("f", { startFailed }))).toEqual([
+      { id: "start_failed", text: "Start it again or report it", since: "2026-10-09T10:00:00.000Z", source: "first_message", act: { kind: "message", target: "f" } },
+    ]);
+  });
+
+  test("comes ahead of the items the wire serves", () => {
+    const owed = [{ id: "ask:1", text: "Which grid?", since: "2026-10-09T10:00:00.000Z", source: "ask_card" }];
+    expect(waitingOf(session("f", { startFailed, waitingFor: owed })).map((one) => one.id)).toEqual(["start_failed", "ask:1"]);
+  });
+
+  test("waits on nothing once it has started", () => {
+    expect(waitingOf(session("f", {}))).toEqual([]);
+  });
+});
+
 describe("a Job he parked", () => {
   test("raises no call, and raises it again once it resumes", () => {
     const owed = [{ id: "ask:1", text: "Which grid?", since: "2026-10-09T10:00:00.000Z", source: "ask_card" }];

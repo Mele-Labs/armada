@@ -35,6 +35,7 @@ import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
 import { handleSketchShare } from "./sketch-share";
+import { handleAttachments } from "./attachments";
 import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
@@ -771,6 +772,7 @@ void app.whenReady().then(() => {
   });
   handleSleep({ ipc: ipcMain, connection: () => connection });
   handleSketchShare({ ipc: ipcMain });
+  handleAttachments({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   // The Cockpit's calls, counted by the window that holds them. Anything but a count is ignored.

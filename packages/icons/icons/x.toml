@@ -64,3 +64,10 @@
     status = "Proposed"
     reserved = "Inside the Alias and Hotkey cells, at a fixed trailing slot, shown only while the cell holds something. Chrome, like the dialog close: it empties the cell and nothing else."
     notes = "Added 27 Oct 2026 for the walk `palette-alias-hotkey`. Tooltip `Clear alias` or `Clear hotkey`."
+
+  [[icons.x.usage]]
+    means = "A Job whose agent process never started, as its state mark on the Sessions list, the Cockpit's rows and tiles, and the Job's head"
+    group = "Session"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 29 Oct 2026 for the walk `job-failed-to-start`. The system failed and nobody decided, which is this glyph's claim as a badge. Tooltip `Failed to start`, with Fleet's reason in the thread's line under it. The row is amber and pulses as any row that needs him does: nothing else moves a Job that never started, and a message from him is the retry. Refused: `power-off`, which End job wears in the same menu; `unplug`, a Job that ended or went quiet; `shield-x`, a Check's; `circle-x`, a Judge's verdict."

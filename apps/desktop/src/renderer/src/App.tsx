@@ -75,6 +75,7 @@ import { sessionCheckId } from "@armada/screens/src/manifest-checks";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
 import { DispatchFailure, useDispatchFailure } from "./failure-session";
+import { AttachmentsProvided } from "./attachments-provided";
 import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { usePasteAndDrop } from "./paste-and-drop";
 import { useLinkRoutes } from "./link-routes";
@@ -478,6 +479,7 @@ export function App() {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
+      <AttachmentsProvided>
       <RefsHost.Provider value={refsHost}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
@@ -800,6 +802,7 @@ export function App() {
         </SessionsOwnership>
       </GuidanceProvider>
       </RefsHost.Provider>
+      </AttachmentsProvided>
     </ProseLinks.Provider>
   );
 }

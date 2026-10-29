@@ -429,6 +429,15 @@ it("pauses and resumes a session on their own routes with the session named", as
   expect(sent.map((one) => one.body)).toEqual([{ session_id: "a" }, { session_id: "a" }]);
 });
 
+it("starts a Job that did not start again on its own route with the session named", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  await sessions.startAgain("a");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/start_again"]);
+  expect(sent[0]!.body).toEqual({ session_id: "a" });
+});
+
 it("turns Auto land on and off on its own route, naming the session as id", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")]);

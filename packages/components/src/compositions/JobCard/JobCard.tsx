@@ -10,7 +10,7 @@ import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 export type JobTone = "ask" | "bad" | "live" | "calm";
 
 export const jobToneOf = (state: SessionState): JobTone =>
-  state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : state === "working" ? "live" : "calm";
+  state === "waiting" || state === "done" || state === "draft" || state === "unstarted" ? "ask" : state === "stuck" || state === "failing" ? "bad" : state === "working" ? "live" : "calm";
 
 export type JobCardProps = {
   title: string;

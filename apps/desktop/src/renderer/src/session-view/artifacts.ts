@@ -57,7 +57,7 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
 };
 
 /** A Session's state as the ledger's marks say it. */
-const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending", after: "pending", draft: "pending", held: "pending", paused: "pending" };
+const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending", after: "pending", draft: "pending", held: "pending", paused: "pending", unstarted: "failed" };
 
 /** A web address as its row titles it: the host and the path, with no scheme, query or trailing slash. Nothing is fetched. */
 export const linkTitle = (url: string): string => {

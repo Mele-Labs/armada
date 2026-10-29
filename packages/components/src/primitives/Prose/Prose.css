@@ -378,3 +378,53 @@
     animation: none;
   }
 }
+
+/* Attachments: a video as a poster until pressed, an image as a thumbnail. */
+.armada-prose__attachment {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.armada-prose__poster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-prose__poster:hover:not(:disabled),
+.armada-prose__poster:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--fg-default);
+}
+
+.armada-prose__video {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-prose__thumb,
+.armada-prose__thumb-wait {
+  display: block;
+  max-width: 320px;
+  max-height: 200px;
+  border-radius: var(--radius-sm);
+}
+
+.armada-prose__thumb-wait {
+  width: 320px;
+  height: 120px;
+  background: var(--bg-sunken);
+}
