@@ -24,7 +24,7 @@
 //! on [`DroneEvent::Ended`] to put them in, and a gate cannot read one by
 //! mistake.
 
-use adapter_traits::{CallDetail, DroneEvent, Speaker};
+use adapter_traits::{CallDetail, DroneEvent, HarnessReading, Speaker};
 use serde::Deserialize;
 
 use crate::acted::{self, Arguments, Body, Said};
@@ -144,11 +144,15 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
 /// never for what: the reasoning text is a separate block, not carried.
 fn system_event(system: SystemLine) -> DroneEvent {
     match system.subtype.as_str() {
-        "init" => DroneEvent::Started {
-            session: system.session_id.unwrap_or_default(),
-            model: system.model.unwrap_or_default(),
-            mcp_servers: system.mcp_servers.len(),
-        },
+        "init" => {
+            let harness = harness_read(&system);
+            DroneEvent::Started {
+                session: system.session_id.unwrap_or_default(),
+                model: system.model.unwrap_or_default(),
+                mcp_servers: system.mcp_servers.len(),
+                harness,
+            }
+        }
         "permission_denied" => DroneEvent::Refused {
             tool: system.tool_name.unwrap_or_default(),
             call: system.tool_use_id.unwrap_or_default(),
@@ -172,6 +176,27 @@ fn system_event(system: SystemLine) -> DroneEvent {
         other => DroneEvent::Unrecognised {
             kind: format!("system/{other}"),
         },
+    }
+}
+
+/// The name of the mod's plugin in the `plugins` list. A plugin loaded by `--plugin-dir` may be
+/// listed as `armada@<where from>`.
+const MOD_PLUGIN: &str = "armada";
+
+/// The tools a session keeps a task list with: the harness's task tools, or the one an older harness
+/// served instead.
+const TASK_TOOLS: [&str; 2] = ["TaskCreate", "TodoWrite"];
+
+/// What `init` says the session came up holding, as [`HarnessReading`]. A list entry that is not a
+/// name, or has no status, is read as absent: it cannot show a piece is there.
+fn harness_read(system: &SystemLine) -> HarnessReading {
+    HarnessReading {
+        version: system.claude_code_version.clone().unwrap_or_default(),
+        mod_loaded: system.plugins.iter().filter_map(Entry::name).any(|name| name.split('@').next() == Some(MOD_PLUGIN)),
+        door_connected: system.mcp_servers.iter().any(|one| {
+            one.name() == Some(ipc::door::SERVER) && one.status() == Some("connected")
+        }),
+        task_tools: system.tools.iter().filter_map(Entry::name).any(|name| TASK_TOOLS.contains(&name)),
     }
 }
 
@@ -450,7 +475,14 @@ struct SystemLine {
     session_id: Option<String>,
     model: Option<String>,
     #[serde(default)]
-    mcp_servers: Vec<Counted>,
+    mcp_servers: Vec<Entry>,
+    /// Present on `init`: the plugins the session loaded, and the tools it was served. Read for the
+    /// names only.
+    #[serde(default)]
+    plugins: Vec<Entry>,
+    #[serde(default)]
+    tools: Vec<Entry>,
+    claude_code_version: Option<String>,
     tool_name: Option<String>,
     tool_use_id: Option<String>,
     decision_reason: Option<String>,
@@ -480,6 +512,33 @@ struct SystemLine {
 #[derive(Deserialize)]
 struct TaskPatch {
     status: Option<String>,
+}
+
+/// An entry of an `init` list: a bare name, or an object with a name and perhaps a status. Anything
+/// else is kept as present and nameless, so the list still counts. **Only the name and the
+/// status are read**, for [`Counted`]'s reason: the rest is the operator's own inventory.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Entry {
+    Bare(String),
+    Described { name: String, status: Option<String> },
+    Other(Counted),
+}
+
+impl Entry {
+    fn name(&self) -> Option<&str> {
+        match self {
+            Entry::Bare(name) | Entry::Described { name, .. } => Some(name),
+            Entry::Other(_) => None,
+        }
+    }
+
+    fn status(&self) -> Option<&str> {
+        match self {
+            Entry::Described { status, .. } => status.as_deref(),
+            _ => None,
+        }
+    }
 }
 
 /// An entry that is counted and never read, whatever shape it arrives in.

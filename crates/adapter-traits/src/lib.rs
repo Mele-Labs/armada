@@ -84,7 +84,7 @@ pub use test_map::{
 };
 pub use text_model::{NotEmbedded, TextModel, TextReading};
 pub use forge::{Compared, Forge, LandingOnTheForge};
-pub use event::{CallDetail, DroneEvent, FileAct, Reach, Speaker, TaskStatus, ToolUse};
+pub use event::{CallDetail, DroneEvent, FileAct, HarnessReading, Reach, Speaker, TaskStatus, ToolUse};
 pub use harness::{
     DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,
     Model, Prompt, SpawnConfigRefused,
