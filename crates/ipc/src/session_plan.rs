@@ -30,6 +30,10 @@ pub const MOST_ID_CHARS: usize = 40;
 /// Characters in the plan's `summary` and in a group's `gives`: what the person reads first.
 pub const MOST_SUMMARY_CHARS: usize = 600;
 pub const MOST_GIVES_CHARS: usize = 160;
+/// Characters in a group's `lands_in` label, such as `PR 1`.
+pub const MOST_LANDS_IN_CHARS: usize = 24;
+/// The pull request a group lands in where it names none.
+pub const FIRST_PULL_REQUEST: &str = "PR 1";
 /// What the agent is told, wherever it is given a plan, so its own task list is the plan's tasks and
 /// Fleet can read how far each got. The Planning prompt, the `record_plan` receipt and the message
 /// for an approved plan all say these words.
@@ -77,6 +81,10 @@ pub struct PlanGroupInput {
     /// One line, in the person's own words, of what this group gives him.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gives: Option<String>,
+    /// A short label for the pull request the group lands in, such as `PR 1`. Groups that ship in one
+    /// pull request share a label. Absent is `PR 1`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lands_in: Option<String>,
     pub tasks: Vec<PlanTaskInput>,
 }
 
@@ -223,7 +231,11 @@ impl RecordPlan {
             if gives.as_deref().is_some_and(|one| one.chars().count() > MOST_GIVES_CHARS) {
                 problems.push(format!("{place} `gives` is longer than {MOST_GIVES_CHARS} characters"));
             }
-            groups.push(PlanGroupInput { id, title, agent, paths, issue, gives, tasks });
+            let lands_in = group.lands_in.as_deref().map(str::trim).filter(|one| !one.is_empty()).map(str::to_string);
+            if lands_in.as_deref().is_some_and(|one| one.chars().count() > MOST_LANDS_IN_CHARS) {
+                problems.push(format!("{place} `lands_in` is longer than {MOST_LANDS_IN_CHARS} characters"));
+            }
+            groups.push(PlanGroupInput { id, title, agent, paths, issue, gives, lands_in, tasks });
         }
         if total > MOST_TASKS {
             problems.push(format!("{total} tasks, and a plan holds at most {MOST_TASKS}"));
@@ -329,6 +341,43 @@ pub struct SessionPlanGroup {
     /// When Fleet last saw an edit under one of the group's paths. Absent while it has seen none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worked_at: Option<Instant>,
+    /// The pull request the group lands in: its label, and the pull request itself once one is bound
+    /// to that label. Always present; the label is `PR 1` where the agent named none.
+    #[serde(default)]
+    pub lands_in: PlanLandsIn,
+}
+
+/// Where a group lands. Every group that shares a label reads the same `pull_request`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanLandsIn {
+    pub label: String,
+    /// The pull request bound to the label. Absent until one is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<PlanLandsInPr>,
+}
+
+impl Default for PlanLandsIn {
+    fn default() -> Self {
+        Self { label: FIRST_PULL_REQUEST.to_string(), pull_request: None }
+    }
+}
+
+/// A pull request a plan lands in, as the ledger's `pr` row last read it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanLandsInPr {
+    pub number: u64,
+    pub title: String,
+    pub state: PlanLandsInState,
+}
+
+/// A pull request's standing, as the forge last said it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanLandsInState {
+    Open,
+    Draft,
+    Merged,
+    Closed,
 }
 
 /// A group or task the agent renamed when it recorded the plan again, and what it was called.
