@@ -168,18 +168,22 @@ where
     /// to do once it is; otherwise the script runs on a blocking thread. **A failure only means the
     /// process starts without the mod**, so it is logged and never fails the launch.
     pub(crate) async fn mod_filled_for_launch(&self) {
+        if let Err(said) = self.mod_filled().await {
+            eprintln!("the mod's copy was not filled, so the job starts without it: {said}");
+        }
+    }
+
+    /// [`Self::mod_filled_for_launch`] saying why it could not, for a caller that refuses on it.
+    pub(crate) async fn mod_filled(&self) -> Result<(), String> {
         let home = PathBuf::from(&self.host().home);
         let folder = crate::runtime::mod_dir(&self.host().home);
         if agent_mod::is_populated(&folder) {
-            return;
+            return Ok(());
         }
         let trees: Vec<PathBuf> = self.repositories().served().iter().map(|one| PathBuf::from(one.root())).collect();
-        let filling = tokio::task::spawn_blocking(move || agent_mod::populated(&home, &folder, &trees, STEP_WITHIN)).await;
-        match filling {
-            Ok(Ok(())) => {}
-            Ok(Err(said)) => eprintln!("the mod's copy was not filled, so the job starts without it: {said}"),
-            Err(why) => eprintln!("the mod's copy was not filled, so the job starts without it: {why}"),
-        }
+        tokio::task::spawn_blocking(move || agent_mod::populated(&home, &folder, &trees, STEP_WITHIN))
+            .await
+            .map_err(|why| why.to_string())?
     }
 
     fn import_fault(&self, why: String) -> Refusal {

@@ -67,6 +67,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     readLoadoutItem: async () => ({ ok: false, outcome: unanswered("/sessions/loadout/item") }),
     readSessionMcp: async () => ({ ok: false, outcome: unanswered("/sessions/mcp") }),
     actOnSessionMcp: async () => ({ ok: false, outcome: unanswered("/sessions/mcp/act") }),
+    mendSessionTools: async () => ({ ok: false, outcome: unanswered("/sessions/tools/mend") }),
     openSessionFile: async () => ({ ok: true }),
     openSessionWindow: async () => ({ ok: true }),
     getSessionWindows: async () => [],

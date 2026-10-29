@@ -868,7 +868,7 @@ export type SessionsDraft = {
   mcp?: (id: string) => Promise<McpRead>;
   /** Acts on one MCP server of a hosted Session. A Reconnect or a Turn on answers once the CLI has tried to connect, up to 90s. Absent with `mcp`. */
   actOnMcp?: (id: string, server: string, act: McpServerAct) => Promise<McpActed>;
-  /** Restarts the Job's agent with its mod: `mend_session_tools`. Absent where Fleet offers no such command (mock only for now), and the mark's menu then lists the piece with no act. */
+  /** Restarts the Job's agent with its mod: `mend_session_tools`. Absent where nothing serves it, and the mark's menu then lists the piece with no act. */
   mendTools?: (id: string) => Promise<{ ok: true } | { ok: false; said: string }>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where

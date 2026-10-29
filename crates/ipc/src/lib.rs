@@ -354,7 +354,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use session_mcp::{

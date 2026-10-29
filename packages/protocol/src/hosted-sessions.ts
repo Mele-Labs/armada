@@ -173,6 +173,13 @@ export type RetryHandoff = { session_id: string };
 /** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
 export type PauseSession = { session_id: string };
 
+/**
+ * `POST /sessions/tools/mend`: fills Fleet's copy of the mod and restarts the Job's agent so it loads it. Answers the record once the
+ * restart is under way; `tools_missing` stays until the new process's `init` replaces it. 422 `fleet.session_tools_unmendable` for a
+ * terminal Job, 422 `fleet.session_mod_not_filled` (the script's words), 409 `fleet.session_closed`, 422 `fleet.no_such_session`.
+ */
+export type MendSessionTools = { session_id: string };
+
 /** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). The kept turns go once it holds a slot again. Only a person resumes. Since 23.92. */
 export type ResumeSession = { session_id: string };
 

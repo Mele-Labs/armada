@@ -463,6 +463,10 @@ where
         })
     }
 
+    async fn mend_session_tools(self: Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
+        self.tools_mended(asked).await
+    }
+
     async fn start_again(self: Arc<Self>, asked: ipc::StartAgain) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str().to_string();
         self.session_and_hosting(&id).await?;

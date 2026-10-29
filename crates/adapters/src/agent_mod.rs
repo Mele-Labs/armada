@@ -19,8 +19,8 @@ pub const PLUGIN: &str = "armada@armada-local";
 
 /// Where Fleet's script that fills the copy sits in a tree, and what a tree must hold for it.
 pub const SYNC_SCRIPT: &str = "scripts/sync-mod";
-const SOURCE_MARKETPLACE: &str = "plugins/.claude-plugin/marketplace.json";
-const COPY_MARKETPLACE: &str = ".claude-plugin/marketplace.json";
+pub const SOURCE_MARKETPLACE: &str = "plugins/.claude-plugin/marketplace.json";
+pub const COPY_MARKETPLACE: &str = ".claude-plugin/marketplace.json";
 
 /// How often a running command is asked whether it has finished.
 const POLL: Duration = Duration::from_millis(50);
