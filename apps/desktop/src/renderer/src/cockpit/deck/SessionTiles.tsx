@@ -18,6 +18,7 @@ import { Circle, CircleCheck, CircleDot, LoaderCircle, Play } from "lucide-react
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
+import { useJobReportAsked } from "../../report";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
@@ -61,6 +62,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const [asking, setAsking] = useState<{ tile: Tile; ask: TileAsk; said?: string } | undefined>();
   const [pending, setPending] = useState<string | undefined>();
   const [reporting, setReporting] = useState(false);
+  useJobReportAsked(session.id, () => setReporting(true));
   /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
   const [pressedAt, setPressedAt] = useState<number | undefined>();
   const [clear, setClear] = useState(false);

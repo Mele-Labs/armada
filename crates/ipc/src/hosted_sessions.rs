@@ -275,6 +275,12 @@ pub struct SetSessionAutoLand {
     pub on: bool,
 }
 
+/// `start_again`: send again the turns a Job's process would not start for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartAgain {
+    pub session_id: SessionId,
+}
+
 /// `resume_session`: take a slot again at the branch tip. Since 23.92.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResumeSession {
@@ -389,6 +395,19 @@ pub struct HostedFacts {
     /// that was never held.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start: Option<crate::session_delivery::StartHeld>,
+    /// Present while the Job's process would not start, tried twice, and nothing has sent its turns
+    /// since: `start_again`, or a message, tries again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_failed: Option<StartFailed>,
+}
+
+/// Why a Job's process would not start.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartFailed {
+    pub cause: String,
+    /// The last lines the agent wrote to its error output, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub log: Vec<String>,
 }
 
 /// The marker on a paused hosted session. Not a state: the session stays live and `hosted.turn`

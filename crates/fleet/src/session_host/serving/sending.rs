@@ -4,6 +4,9 @@ use super::*;
 use super::super::start_card::FirstTurn;
 use crate::session_links::LinkedBy;
 
+/// How long a start that failed waits before it is tried the second time.
+const START_AGAIN_AFTER: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// The line after the person's words when a done stood as they wrote. The message clears the done
 /// and the agent is not otherwise told, so it answered in prose and never called `all_done` again.
 /// Only the agent reads it: the person's row keeps their words.
@@ -256,8 +259,53 @@ where
         self.published_hosted(&id).await
     }
 
-    /// Start the process if it has none, and write the turn to it.
+    /// Start the process if it has none, and write the turn to it. A Job whose process would not
+    /// start keeps the turn behind the ones that waited already, and tries them all again.
     pub(crate) async fn deliver_turn(
+        self: &Arc<Self>,
+        id: &str,
+        held: super::super::proposing::Held,
+    ) -> Result<(), Refusal> {
+        let held = {
+            let runtime = self.hosts().of(id);
+            let mut state = runtime.state();
+            match state.start_failed.as_mut() {
+                Some(failed) => {
+                    failed.held.push(held);
+                    None
+                }
+                None => Some(held),
+            }
+        };
+        match held {
+            Some(held) => self.delivered_one(id, held).await,
+            None => self.started_again(id).await.map(|_| ()),
+        }
+    }
+
+    /// `start_again`: the turns a Job's process would not start for, sent again in order. One that
+    /// fails again keeps itself and those after it.
+    pub(crate) async fn started_again(self: &Arc<Self>, id: &str) -> Result<SessionRecord, Refusal> {
+        let held = self.hosts().of(id).state().start_failed.take().map(|failed| failed.held);
+        let mut held = held.unwrap_or_default().into_iter();
+        while let Some(one) = held.next() {
+            self.delivered_one(id, one).await?;
+            let runtime = self.hosts().of(id);
+            let mut state = runtime.state();
+            if let Some(failed) = state.start_failed.as_mut() {
+                failed.held.extend(held);
+                break;
+            }
+        }
+        self.published_hosted(id).await
+    }
+
+    /// Where the keeper of `id` writes the agent's error output: `ProcessHost::start`'s log.
+    fn keeper_log(&self, id: &str) -> std::path::PathBuf {
+        std::path::Path::new(&self.host().keepers_dir).join(format!("{id}.log"))
+    }
+
+    async fn delivered_one(
         self: &Arc<Self>,
         id: &str,
         held: super::super::proposing::Held,
@@ -271,6 +319,25 @@ where
         if self.turn_kept_while_paused(id, &held).await? {
             return Ok(());
         }
+        // Read after the keep above, which found the Job resumed if a Resume came in meanwhile.
+        let (_, hosting) = self.session_and_hosting(id).await?;
+        let runtime = self.hosts().of(id);
+        // Before the process starts, so the rail sees a Job that has run only with its step already kept.
+        let stepped = self.first_step_kept(id, &hosting, &held.text).await;
+        // Tried once more after a moment, since a start that fails once often comes up the second time.
+        let started = match self.ensure_process(id, &hosting).await {
+            Err(_) => {
+                tokio::time::sleep(START_AGAIN_AFTER).await;
+                self.ensure_process(id, &hosting).await
+            }
+            started => started,
+        };
+        if let Err(cause) = started {
+            let log = super::super::kept::tail_of(&self.keeper_log(id)).lines().filter(|line| !line.is_empty()).map(String::from).collect();
+            runtime.state().start_failed = Some(super::super::StartFailed { cause, log, held: vec![held] });
+            let _ = self.published_hosted(id).await;
+            return Ok(());
+        }
         let super::super::proposing::Held {
             text,
             kept,
@@ -278,14 +345,6 @@ where
             ahead,
             instead,
         } = held;
-        // Read after the keep above, which found the Job resumed if a Resume came in meanwhile.
-        let (_, hosting) = self.session_and_hosting(id).await?;
-        let runtime = self.hosts().of(id);
-        // Before the process starts, so the rail sees a Job that has run only with its step already kept.
-        let stepped = self.first_step_kept(id, &hosting, &text).await;
-        self.ensure_process(id, &hosting)
-            .await
-            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         let mut turn = String::new();
         if let Some(line) = &ahead {
             turn.push_str(line);

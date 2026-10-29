@@ -10,7 +10,10 @@ import { sceneOfSketch } from "./session-sketch";
 type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
 
 export function threadRowsOf(session: Session): SessionThreadRow[] {
-  return threadRowsFrom(session.rows, session.attachments);
+  const rows = threadRowsFrom(session.rows, session.attachments);
+  // Fleet's line for a Job whose agent never started, after the message it was sent for.
+  if (session.startFailed === undefined) return rows;
+  return [...rows, { id: "not-started", at: rows[rows.length - 1]?.at ?? session.lastTurnAt ?? new Date(0).toISOString(), kind: "not_started", why: `Did not start: ${session.startFailed.cause}`, log: session.startFailed.log }];
 }
 
 /**

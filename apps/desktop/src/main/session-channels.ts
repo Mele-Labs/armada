@@ -245,6 +245,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.retryHandoff, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.retryHandoff(sessionId) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.startAgain, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.startAgain(sessionId) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.pauseSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.pause(sessionId) ?? unsent) : unread,
   );

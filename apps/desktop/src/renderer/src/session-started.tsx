@@ -3,7 +3,7 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { readKept, seedDraft, StartedBy } from "@armada/components";
+import { forgetKept, readKept, seedDraft, StartedBy, writeKept } from "@armada/components";
 import type { LedgerEntry } from "@armada/components";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
@@ -16,13 +16,28 @@ export function linkEntry(one: Extract<SessionAttachment, { kind: "forked_to" | 
   return { key: `${one.kind}${one.id}`, kind: one.kind.startsWith("fork") ? "fork" : "start", name, text: name, onOpen: () => open(one.id) };
 }
 
-/** The row above the thread naming the Session whose agent started this one, if one did. Also seeds the box with its first message. */
+/**
+ * The row above the thread naming the Session whose agent started this one, if one did. Also seeds the box with its first
+ * message, and takes the seed back out once the Job has begun some other way than this box, as its first turn then went
+ * without it.
+ */
 export function useStartedBy(session: Session, sessions: readonly Session[], open: (id: string) => void): ReactNode {
   const { id } = session;
   // The first message a held Job will begin with.
   const first = session.start?.message;
   useEffect(() => {
-    if (first !== undefined && readKept(`session:${id}`) === undefined) seedDraft(id, first);
+    const box = `session:${id}`;
+    const seeded = `seeded:${id}`;
+    if (first !== undefined) {
+      if (readKept(box) !== undefined) return;
+      seedDraft(id, first);
+      writeKept(seeded, readKept<{ text: string }>(box)?.text ?? first);
+      return;
+    }
+    const was = readKept<string>(seeded);
+    if (was === undefined) return;
+    if (readKept<{ text: string }>(box)?.text === was) forgetKept(box);
+    forgetKept(seeded);
   }, [id, first]);
   const by = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "started_by" }> => one.kind === "started_by");
   const from = by === undefined ? undefined : sessions.find((other) => other.id === by.id);

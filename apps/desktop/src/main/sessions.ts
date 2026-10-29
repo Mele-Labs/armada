@@ -924,6 +924,11 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/handoff/retry", { session_id: sessionId });
   }
 
+  /** Sends again the turns a Job's process would not start for. Answers the record, `hosted.start_failed` cleared; a second failure sets it again by `session.changed`. */
+  async startAgain(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/start_again", { session_id: sessionId });
+  }
+
   /** Stops the turn, commits the work to the branch and gives the slot back. Answers the record with `hosted.paused` set. */
   async pause(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/pause", { session_id: sessionId });

@@ -175,6 +175,9 @@ export type PauseSession = { session_id: string };
 /** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). The kept turns go once it holds a slot again. Only a person resumes. Since 23.92. */
 export type ResumeSession = { session_id: string };
 
+/** `POST /sessions/start_again`: sends again the turns a Job's process would not start for. Answers the `SessionRecord`. */
+export type StartAgain = { session_id: string };
+
 /**
  * `POST /sessions/auto_land`: Auto land on or off for a hosted Job. Answers the `SessionRecord`, whose `auto_land` reads the flag.
  * The flag changes first, so a 409 `fleet.auto_merge_refused` (the forge's words) leaves it set; 422 `fleet.session_command_refused` for a terminal or ended Job leaves it as it was.
@@ -250,7 +253,12 @@ export type HostedFacts = {
   paused?: SessionPaused;
   /** Present while the Job waits for `POST /sessions/begin`. Absent once it has begun, and for a Job never held. */
   start?: StartHeld;
+  /** Present while the Job's process would not start, tried twice, and nothing has sent its turns since: `POST /sessions/start_again`, or a message, tries again. */
+  start_failed?: StartFailed;
 };
+
+/** Why a Job's process would not start. `log` is the last lines the agent wrote to its error output, oldest first; empty is omitted. */
+export type StartFailed = { cause: string; log?: string[] };
 
 /** A Job that waits on its start card: the person settles it and presses Start. */
 export type StartHeld = {

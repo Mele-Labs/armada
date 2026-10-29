@@ -24,3 +24,22 @@ export function useReportAsked(report: (element: Element) => void): void {
     return () => window.removeEventListener(REPORT, asked);
   }, []);
 }
+
+const REPORT_JOB = "armada:report-job";
+
+/** Open the Job's own Report box, the one its flight controls' Report opens, from somewhere outside them. */
+export function askToReportJob(session: string): void {
+  window.dispatchEvent(new CustomEvent<string>(REPORT_JOB, { detail: session }));
+}
+
+export function useJobReportAsked(session: string, open: () => void): void {
+  const latest = useRef(open);
+  latest.current = open;
+  useEffect(() => {
+    const asked = (event: Event): void => {
+      if (event instanceof CustomEvent && event.detail === session) latest.current();
+    };
+    window.addEventListener(REPORT_JOB, asked);
+    return () => window.removeEventListener(REPORT_JOB, asked);
+  }, [session]);
+}
