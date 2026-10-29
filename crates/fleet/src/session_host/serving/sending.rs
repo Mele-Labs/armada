@@ -96,6 +96,7 @@ where
                 files: files.to_vec(),
                 tags: tags.to_vec(),
                 notice: None,
+                queued: false,
             },
             Written::Noticed(notice) => SessionRow::Message {
                 id: self.row_id(session),
@@ -108,6 +109,7 @@ where
                 files: files.to_vec(),
                 tags: tags.to_vec(),
                 notice: Some(notice.word().to_string()),
+                queued: false,
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {
@@ -195,10 +197,19 @@ where
                 return self.published_hosted(&id).await;
             }
         }
-        let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
+        let mut row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
         let row_id = row.id().to_string();
         if matches!(written, Written::Message(SessionVoice::You)) {
-            self.hosts().of(&id).state().activity.writing.person_said(row.id(), &text);
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            state.activity.writing.person_said(row.id(), &text);
+            // The CLI holds what is written while a foreground subagent call has the turn.
+            if !handing_on && state.call_rows.holds_the_turn() {
+                if let SessionRow::Message { queued, .. } = &mut row {
+                    *queued = true;
+                }
+                state.call_rows.queued(row.clone());
+            }
         }
         self.row_put(&id, row).await;
         // Before the early returns below: a handoff's answer is still the person's latest message. A waiting
@@ -404,6 +415,11 @@ where
         let id = sent.session_id.as_str().to_string();
         let approved = super::super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::super::readiness::note_address(&sent.text).map(str::to_string);
+        // A pinned note keeps its own; a plain message may carry window-scope notes by name.
+        let window_notes = match instead {
+            None => super::super::annotating::window_notes_named(&sent),
+            Some(_) => Vec::new(),
+        };
         // Read before the send: the clear below runs after it, and the agent has to be told.
         let standing = self.store().lock().await.done_since(&id).ok().flatten().is_some();
         let instead = if standing {
@@ -430,6 +446,7 @@ where
         if noted.is_some() {
             self.window_noted(&id).await;
         }
+        self.window_notes_kept(&id, window_notes).await;
         // The person spoke, so the agent's word that nothing was left no longer stands.
         let done = self.done_cleared(&id).await;
         // And so does the reply the last turn left: he has answered it.

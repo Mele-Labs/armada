@@ -437,6 +437,7 @@ where
             state.reattached_busy = false;
             state.woken_by.clear();
         }
+        self.calls_let_go(&id).await;
         self.published_hosted(&id).await
     }
 

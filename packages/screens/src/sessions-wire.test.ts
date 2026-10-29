@@ -998,6 +998,38 @@ describe("a sketch on the ledger", () => {
   });
 });
 
+/** A note Fleet kept on the ledger as an artifact of form `note`: every detail a string. */
+const noteRow = (note: string, detail: Record<string, string> = {}, state: Attachment["state"] = "standing") =>
+  held("artifact", `note:${note}`, { form: "note", note, text: "The title is cut off", tag: "section", status: "open", sent: AT, ...detail }, state);
+
+describe("a note sent to the Job, on the ledger", () => {
+  const read = (...attachments: Attachment[]) => attachmentsOfRecord(record("a", { attachments }), beside());
+
+  it("is read with its text, component, screen, picture and state", () => {
+    expect(read(noteRow("n1", { title: "Title cut", component: "Deck", screen: "Cockpit", picture: "/notes/n1.png", status: "done" }))).toEqual([
+      { kind: "note", id: "n1", title: "Title cut", text: "The title is cut off", tag: "section", component: "Deck", screen: "Cockpit", picture: "/notes/n1.png", status: "done", sent: AT },
+    ]);
+  });
+
+  it("takes its text as the title where none was kept, and leaves off what it was not pinned to", () => {
+    const [one] = read(noteRow("n1"));
+    expect(one).toEqual({ kind: "note", id: "n1", title: "The title is cut off", text: "The title is cut off", tag: "section", status: "open", sent: AT });
+    for (const key of ["component", "screen", "picture"]) expect(one).not.toHaveProperty(key);
+  });
+
+  it("reads each state, including a note returned when its Job closed unfinished", () => {
+    expect(read(noteRow("a", { status: "open" }), noteRow("b", { status: "done" }), noteRow("c", { status: "returned" })).map((one) => (one.kind === "note" ? one.status : null))).toEqual(["open", "done", "returned"]);
+  });
+
+  it("is left out where a field it needs is missing or its state is one this build does not know", () => {
+    for (const key of ["note", "text", "tag", "sent", "status"]) {
+      const { [key]: _gone, ...detail } = { form: "note", note: "n1", text: "x", tag: "div", status: "open", sent: AT } as Record<string, string>;
+      expect(read(held("artifact", "note:n1", detail)), `without ${key}`).toEqual([]);
+    }
+    expect(read(noteRow("n1", { status: "archived" }))).toEqual([]);
+  });
+});
+
 describe("a show_sketch call in the thread", () => {
   const call = (args: unknown, tool = "mcp__armada-fleet__show_sketch") => `${tool} ${JSON.stringify(args)}`;
 
@@ -1188,5 +1220,35 @@ describe("a Job's attachment history", () => {
       ]),
     );
     expect(read).toEqual([{ at: "2026-10-22T10:00:00Z", attachment: { kind: "link", url: "https://example.com/rfc", by: "agent" } }]);
+  });
+});
+
+describe("a subagent and a queued message on the wire", () => {
+  const subagent = { id: "agent:a1", agent_type: "implementer", task: "Make the thread resizable", latest: "Edit Pane.tsx", state: "running" as const, since: AT };
+
+  it("keeps the subagent a tool row carries, and a message's queued mark", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "tool", id: "t1", at: AT, text: "Agent Make the thread resizable", subagent },
+        { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "and the tests", queued: true },
+      ],
+      () => undefined,
+    );
+    expect(drawn[0]).toMatchObject({ kind: "tool", subagent });
+    expect(drawn[1]).toMatchObject({ kind: "message", from: { kind: "you" }, queued: true });
+  });
+
+  it("adds neither to a thread kept before them", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "tool", id: "t1", at: AT, text: "Read lib.rs" },
+        { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "and the tests" },
+      ],
+      () => undefined,
+    );
+    expect(drawn[0]).not.toHaveProperty("subagent");
+    expect(drawn[1]).not.toHaveProperty("queued");
   });
 });

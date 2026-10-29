@@ -101,7 +101,8 @@ where
 
     /// What a session that ended leaves in Fleet's hands: the Check runs it
     /// still had out, and the walk it had open, and what it was doing, which
-    /// is dropped, the sign-in held for its window, its live watches, its shell and its scratch folder. Its slot's processes and
+    /// is dropped, the sign-in held for its window, its live watches, its shell, its scratch folder
+    /// and the notes sent to it, done or let go. Its slot's processes and
     /// servers are ended by the park (`Vcs::park_hosted_slot`), and a run's
     /// process is among them, since Fleet holds no pid for a run its CLI makes.
     pub(crate) async fn session_wound_up(&self, session: &str) {
@@ -114,6 +115,7 @@ where
         self.scratch_removed(session);
         self.watch_logs_removed(session);
         self.project_tasks_freed(session).await;
+        self.notes_settled(session).await;
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;
         }
@@ -147,6 +149,7 @@ where
             state.allowed_folders.clear();
             state.allowed_kinds.clear();
         }
+        self.calls_let_go(&id).await;
         // Out of the line if it was in it: an ended session is granted nothing.
         self.hosts().slot_queue().leave(&id);
         let now = self.now().as_str().to_string();

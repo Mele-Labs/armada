@@ -12,7 +12,8 @@ import "../styles/index.css";
 import { Layer, type LayerFleet } from "./Layer";
 import type { Sink } from "./sink";
 
-const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]).buffer;
+/** A PNG's signature and a header saying 1024 by 768, so a ring could be measured on it were one kept. */
+const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 4, 0, 0, 0, 3, 0]).buffer;
 
 /** A sink in Bridge, which captures, holding notes and pictures in memory. */
 function capturing(capture: Sink["capture"] = async () => PNG) {
@@ -46,7 +47,7 @@ function fleetWith(): LayerFleet {
   return {
     startSession: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
     sendSessionMessage: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
-    sendSessionNote: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
+    sendSessionNotes: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
     state: vi.fn(async () => state as never),
     subscribe: () => () => undefined,
   } satisfies LayerFleet;
@@ -116,6 +117,8 @@ test("Screenshot window on the bar takes the whole window and opens a note on it
   expect(capture).toHaveBeenCalledTimes(1);
   expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
   expect(shots.get(saved!.id)).toBe(PNG);
+  // The whole window is what it is on: nothing on it is ringed.
+  expect(saved).not.toHaveProperty("ring");
 });
 
 test("⌥⌘S does the same while annotating, taking the picture as it is pressed rather than at save", async () => {

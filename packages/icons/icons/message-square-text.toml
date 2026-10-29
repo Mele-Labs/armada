@@ -11,3 +11,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Tell an agent`. The box answers with the diff the page draws."
+
+  [[icons.message-square-text.usage]]
+    means = "A note the person sent to a Job from the annotation layer, on its row in the Job's Artifacts layer"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 29 Oct 2026 for the Notes group of the Artifacts layer, tooltip `Note`. A bubble with words in it is a thing said, and the note is his words to the Job. Refused: `sticky-note`, reserved to a Studio's Note node and never an annotation; `message-square-plus`, reserved to pinning a note on a plan row; `message-square`, Helm's. The note's state rides the layer's own marks: open is pending, done is done, returned is stopped."

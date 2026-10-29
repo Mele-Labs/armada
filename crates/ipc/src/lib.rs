@@ -353,7 +353,7 @@ pub use hosted_sessions::{
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
+    SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };

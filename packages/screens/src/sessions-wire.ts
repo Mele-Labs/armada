@@ -321,6 +321,15 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           out.push(sketchOf(one));
           break;
         }
+        if (form === "note") {
+          // The same reading as `noteArtifactOf`, which this package cannot import.
+          const { note, title, text, tag, status, sent } = detail;
+          if (note === undefined || text === undefined || tag === undefined || sent === undefined) break;
+          if (status !== "open" && status !== "done" && status !== "returned") break;
+          const optional = (key: "component" | "screen" | "picture") => (detail[key] === undefined ? {} : { [key]: detail[key] });
+          out.push({ kind: "note", id: note, title: title ?? text, text, tag, ...optional("component"), ...optional("screen"), ...optional("picture"), status, sent });
+          break;
+        }
         if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "document" && form !== "window") break;
         const revisions = form === "document" ? revisionsOfDetail(detail["revisions"]) : [];
         out.push({
@@ -455,6 +464,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
           ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
           ...(isNotice(row.notice) ? { notice: row.notice } : {}),
+          ...(row.queued === true ? { queued: true as const } : {}),
         });
         break;
       case "sent":
@@ -470,7 +480,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         });
         break;
       case "tool":
-        out.push({ id: row.id, at, kind: "tool", text: row.text });
+        out.push({ id: row.id, at, kind: "tool", text: row.text, ...(row.subagent === undefined ? {} : { subagent: row.subagent }) });
         break;
       case "command":
         out.push({ id: row.id, at, kind: "command", text: row.text });

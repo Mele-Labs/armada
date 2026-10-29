@@ -11,7 +11,8 @@ import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 import type { HelmContext, LandCheckAt, ThoughtTarget } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { HelmCallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
-import { ANNOTATE_FLAG } from "../shared/annotations";
+import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
+import { NotesWatch } from "../shared/note-artifacts";
 import { handleAnnotations } from "./annotations";
 import { approvedText, reviewNoteOf } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
@@ -155,7 +156,7 @@ const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json")
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  holdNote: (note) => void heldNotes.hold(note),
+  holdNote: (note, ring) => void heldNotes.hold(note, ring),
   heldOn: (sessionId) => heldNotes.of(sessionId).length,
   // A pull request's walk no Session holds: the note stays in Armada. No Approve.
   reviewNote: async (review, said, capture) => {
@@ -496,7 +497,7 @@ const sessionAttention = new SessionAttention({
 void app.whenReady().then(() => {
   wearTheMark();
   if (!app.isPackaged) {
-    // A sent note's screenshot: the part of the window the note points at, #1250.
+    // A note's screenshot, #1250: the layer asks for the whole window, and its note's box is ringed on it as it is sent.
     handleAnnotations(ipcMain, app.getAppPath(), async (event, box) => {
       const image = await (event as Electron.IpcMainInvokeEvent).sender.capturePage({
         x: Math.max(0, Math.round(box.x)),
@@ -532,7 +533,12 @@ void app.whenReady().then(() => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
   };
   // Every Session list after it changes: a Job that started waiting is told when no window is looking.
-  connection.sessions.onRead((sessions, readAt) => sessionAttention.read(sessions, readAt));
+  // A note file Fleet rewrote, read off the Session list: the annotation layer reads its notes again. Dev only, as the layer is.
+  const notesWatch = app.isPackaged ? null : new NotesWatch();
+  connection.sessions.onRead((sessions, readAt) => {
+    sessionAttention.read(sessions, readAt);
+    if (notesWatch?.read(sessions) === true) everyWindow(ANNOTATION_CHANNELS.changed);
+  });
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   // A Job's shell opened or ended in Fleet: every window, which follows it by run id.

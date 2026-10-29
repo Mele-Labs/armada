@@ -550,6 +550,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     files: Vec::new(),
                     tags: Vec::new(),
                     notice: None,
+                    queued: false,
                 });
             }
             DroneEvent::Called { tool, detail, .. } if !person => {
@@ -563,6 +564,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     id,
                     at: at.clone(),
                     text,
+                    subagent: None,
                 });
             }
             _ => {}

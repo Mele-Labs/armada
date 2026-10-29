@@ -27,6 +27,9 @@ export const shownOnly = (one: { form: string; by?: "agent"; written?: true }): 
 
 export const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", document: "Document", window: "Shown in a window" } as const;
 
+/** A sent note's state in words. Returned is a note whose Job closed unfinished, and which went back to no Job. */
+export const NOTE_SAID = { open: "Open", done: "Done", returned: "Returned" } as const;
+
 /** What else the window already holds that a row's card can say: the slots Cleanup read. Nothing is read for a card. */
 export type Known = { slots: readonly WorktreeSlot[] };
 
@@ -88,6 +91,8 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return { title: one.url, facts: [{ label: "Written by", value: one.by === "agent" ? "The agent" : "You" }] };
     case "sketch":
       return { title: one.title, facts: [{ label: "Kind", value: "Sketch" }, { label: "Drawn by", value: one.by === "agent" ? "The agent" : "You" }] };
+    case "note":
+      return { title: one.title, facts: [{ label: "Kind", value: "Note" }, { label: "State", value: NOTE_SAID[one.status] }, ...(one.screen === undefined ? [] : [{ label: "Screen", value: one.screen }]), ...(one.component === undefined ? [] : [{ label: "Component", value: one.component, mono: true }])] };
     case "started_to":
     case "started_by": {
       const other = sessions.find((s) => s.id === one.id);

@@ -3,7 +3,7 @@
 // holds the note as the agent will read it. Over a Fleet that holds the start as Fleet would (`../sessions-fleet.ts`). The walk
 // `job-start-card-everywhere` plays it. Mock only: the layer's note turn is composed here in the shape of `crates/fleet/src/session_host/noting.rs`.
 
-import type { RepositorySummary, SendSessionNote, SessionRow, WorkflowSummary } from "@armada/protocol";
+import type { RepositorySummary, SessionNote, SessionRow, WorkflowSummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -50,7 +50,7 @@ const START = "Read crates/settings/src/loader.rs and find out whether a cap set
 const HANDOFF = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
 
 /** What the agent reads of a pinned note: his words, then the lines about the spot, then the handoff, as `noting.rs` composes them. */
-function turnOf(note: SendSessionNote): string {
+function turnOf(note: SessionNote): string {
   const { element, stamp, component, owners } = note.place;
   const named = (element.label ?? "").trim() || element.text.trim();
   const lines = ["Where he pointed, to find the code; not the request:", `Pointed at: ${element.tag}${named === "" ? "" : ` "${named}"`}${note.note_id === undefined ? "" : ` (note ${note.note_id})`}`];
@@ -123,13 +123,15 @@ function build(): Scenario {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);
         },
-        // A pinned note: on a held Job its turn joins the first message; on a live one the thread keeps his words alone.
-        sendSessionNote: async (send) => {
+        // Pinned notes, one turn: on a held Job each note's part joins the first message; on a live one the thread keeps his words alone.
+        sendSessionNotes: async (send) => {
           await own.watchSession!(send.session_id);
+          const notes = send.notes.map(({ note }) => note);
           const turns = noted.get(send.session_id);
-          if (turns !== undefined) turns.push(turnOf(send));
-          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text: turns === undefined ? send.said : turns.join("\n\n") });
-          return sent.ok ? { ok: true, value: { session: sent.value, candidates: [] } } : sent;
+          if (turns !== undefined) turns.push(...notes.map(turnOf));
+          const said = notes.length === 1 ? notes[0]!.said : notes.map((one, at) => `${at + 1}. ${one.said}`).join("\n");
+          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text: turns === undefined ? said : turns.join("\n\n") });
+          return sent.ok ? { ok: true, value: { session: sent.value, candidates: notes.map(() => []) } } : sent;
         },
       };
     },

@@ -347,6 +347,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
           data-act={id === "pause" ? "pause" : undefined}
           aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true) || (id === "browser" && browser?.shown === true)}
           data-on={paused || undefined}
+          data-running={(id === "terminal" && terminal?.running === true) || undefined}
           aria-busy={pending === tile.id || undefined}
           aria-disabled={why !== undefined || undefined}
           onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}

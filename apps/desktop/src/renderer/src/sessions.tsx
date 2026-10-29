@@ -635,8 +635,8 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  // An issue is drawn in Progress, with its pull requests under it, and has no row here. A link is read in the Artifacts layer only.
-  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" | "link" }> => one.kind !== "issue" && one.kind !== "link" && (one.kind !== "slot" || !carried.has(one.slot)));
+  // An issue is drawn in Progress, with its pull requests under it, and has no row here. A link or a sent note is read in the Artifacts layer only.
+  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" | "link" | "note" }> => one.kind !== "issue" && one.kind !== "link" && one.kind !== "note" && (one.kind !== "slot" || !carried.has(one.slot)));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {
@@ -1238,6 +1238,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) })}
             noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
+            onOpenSubagent={(subagent) => read({ kind: "subagent", id: subagent })}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}

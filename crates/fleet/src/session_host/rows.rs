@@ -66,6 +66,7 @@ where
                 files: Vec::new(),
                 tags: Vec::new(),
                 notice: None,
+                queued: false,
             },
         )
         .await;
