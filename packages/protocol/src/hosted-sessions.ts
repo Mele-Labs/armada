@@ -335,13 +335,13 @@ export type RetroRow = Extract<SessionRow, { kind: "retro" }>;
 export type CheckBlame = { path: string; line?: number };
 
 /**
- * The subagent an `Agent` call started and the agent waits on. `id` is its ledger attachment's; `latest` is its own last
- * call as one line; `since` when it started and `ended` when it settled. `cut_off` is one a stop ended before it reported.
- * **Proposed, not yet sent by Fleet** (armada-d3h.1).
+ * The subagent an `Agent` call started, foreground or background. `id` is its ledger attachment's, which
+ * `get_session_subagent` takes; `latest` is its own last call as one line; `since` when it started and `ended` when it
+ * settled. `cut_off` is one a stop or a replaced process ended before it reported. Fleet's `ipc::ToolSubagent`.
  */
 export type ToolSubagent = {
   id: string;
-  agentType?: string;
+  agent_type?: string;
   task: string;
   latest?: string;
   state: "running" | "finished" | "cut_off";
@@ -361,7 +361,7 @@ export type SessionRow =
       tags?: SessionTag[];
       /** The Fleet notice this row was sent for (`behind_base`, `write_clash`, …: `Notice`), absent on every other row. Mute it by `set_notice_mute`. */
       notice?: string;
-      /** The person's words, held by the agent's CLI until the call its turn waits on returns. Absent once the agent has read them. Proposed (armada-d3h.1). */
+      /** The person's words, held by the agent's CLI until the call its turn waits on returns. Absent once the agent has read them. */
       queued?: true;
     }
   /**
@@ -377,7 +377,7 @@ export type SessionRow =
       files?: SentFile[];
       tags?: SessionTag[];
     }
-  /** A tool call, one line. `subagent` where the call is an `Agent` call the turn waits on. */
+  /** A tool call, one line. `subagent` where the call is an `Agent` call whose subagent started. */
   | { kind: "tool"; id: string; at: string; text: string; subagent?: ToolSubagent }
   /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
   | { kind: "command"; id: string; at: string; text: string }

@@ -33,7 +33,7 @@ export function SubagentRow({ subagent, onOpen }: { subagent: ToolSubagent; onOp
       <span className="armada-session-subagent__head">
         <StepActivityMark activity={mark.activity} label={mark.said} says={mark.said} />
         <span className="armada-session-subagent__eyebrow">Subagent</span>
-        {subagent.agentType === undefined ? null : <code className="armada-session-subagent__type">{subagent.agentType}</code>}
+        {subagent.agent_type === undefined ? null : <code className="armada-session-subagent__type">{subagent.agent_type}</code>}
         <span className="armada-session-subagent__task">{subagent.task}</span>
         {ran === undefined ? null : <span className="armada-session-subagent__ran">{ran}</span>}
         {onOpen === undefined ? null : <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-subagent__go" />}

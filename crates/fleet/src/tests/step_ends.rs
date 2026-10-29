@@ -108,6 +108,7 @@ fn said(n: u32, id: &str, text: &str) -> SessionRow {
         files: Vec::new(),
         tags: Vec::new(),
         notice: None,
+        queued: false,
     }
 }
 

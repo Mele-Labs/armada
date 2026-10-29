@@ -352,6 +352,7 @@ where
                         files: Vec::new(),
                         tags: Vec::new(),
                         notice: None,
+                        queued: false,
                     },
                 )
                 .await;
@@ -385,6 +386,7 @@ where
                         id: self.row_id(id),
                         at: self.instant(),
                         text,
+                        subagent: None,
                     },
                 )
                 .await;
@@ -625,6 +627,7 @@ where
                 files: Vec::new(),
                 tags: Vec::new(),
                 notice: None,
+                queued: false,
             },
         )
         .await;

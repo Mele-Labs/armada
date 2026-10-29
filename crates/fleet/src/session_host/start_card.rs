@@ -397,6 +397,7 @@ where
             files: files.clone(),
             tags: tags.clone(),
             notice: None,
+            queued: false,
         };
         let row_id = row.id().to_string();
         if his {

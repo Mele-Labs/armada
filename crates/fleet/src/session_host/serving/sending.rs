@@ -96,6 +96,7 @@ where
                 files: files.to_vec(),
                 tags: tags.to_vec(),
                 notice: None,
+                queued: false,
             },
             Written::Noticed(notice) => SessionRow::Message {
                 id: self.row_id(session),
@@ -108,6 +109,7 @@ where
                 files: files.to_vec(),
                 tags: tags.to_vec(),
                 notice: Some(notice.word().to_string()),
+                queued: false,
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {

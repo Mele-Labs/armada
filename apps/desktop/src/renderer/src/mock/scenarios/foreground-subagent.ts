@@ -28,7 +28,7 @@ const waiting: Session = {
       at: ago(14),
       kind: "tool",
       text: `Agent ${TASK}`,
-      subagent: { id: SUBAGENT, agentType: "bridge-engineer", task: TASK, latest: "Bash pnpm exec vitest run src/renderer/src/job-browser", state: "running", since: ago(14) },
+      subagent: { id: SUBAGENT, agent_type: "bridge-engineer", task: TASK, latest: "Bash pnpm exec vitest run src/renderer/src/job-browser", state: "running", since: ago(14) },
     },
     { id: "fg4", at: ago(6), kind: "message", from: { kind: "you" }, text: "Hello?", queued: true },
     { id: "fg5", at: ago(3), kind: "message", from: { kind: "you" }, text: "What are you doing?", queued: true },

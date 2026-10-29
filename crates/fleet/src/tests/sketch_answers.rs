@@ -180,6 +180,7 @@ fn said(at: &str, from: SessionVoice, text: &str) -> SessionRow {
         files: Vec::new(),
         tags: Vec::new(),
         notice: None,
+        queued: false,
     }
 }
 
