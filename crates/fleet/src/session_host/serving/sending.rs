@@ -96,6 +96,7 @@ where
                 files: files.to_vec(),
                 tags: tags.to_vec(),
                 notice: None,
+                queued: false,
             },
             Written::Noticed(notice) => SessionRow::Message {
                 id: self.row_id(session),
@@ -108,6 +109,7 @@ where
                 files: files.to_vec(),
                 tags: tags.to_vec(),
                 notice: Some(notice.word().to_string()),
+                queued: false,
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {
@@ -195,10 +197,19 @@ where
                 return self.published_hosted(&id).await;
             }
         }
-        let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
+        let mut row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
         let row_id = row.id().to_string();
         if matches!(written, Written::Message(SessionVoice::You)) {
-            self.hosts().of(&id).state().activity.writing.person_said(row.id(), &text);
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            state.activity.writing.person_said(row.id(), &text);
+            // The CLI holds what is written while a foreground subagent call has the turn.
+            if !handing_on && state.call_rows.holds_the_turn() {
+                if let SessionRow::Message { queued, .. } = &mut row {
+                    *queued = true;
+                }
+                state.call_rows.queued(row.clone());
+            }
         }
         self.row_put(&id, row).await;
         // Before the early returns below: a handoff's answer is still the person's latest message. A waiting

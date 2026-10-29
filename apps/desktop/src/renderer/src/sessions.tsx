@@ -1230,6 +1230,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) })}
             noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
+            onOpenSubagent={(subagent) => read({ kind: "subagent", id: subagent })}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}

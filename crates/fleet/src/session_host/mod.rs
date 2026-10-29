@@ -16,6 +16,7 @@ mod annotating;
 mod note_resolving;
 pub(crate) mod asking;
 mod backgrounding;
+mod call_rows;
 mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod document_page;
@@ -469,6 +470,8 @@ pub(crate) struct State {
     pub proposal: proposing::ProposalState,
     /// The type each subagent call of the stream asked for, to name who made an edit. In memory.
     pub spawns: crate::file_touching::Spawns,
+    /// The agent's own subagent calls, whose rows carry their subagent, and the person's rows held behind one. In memory.
+    pub call_rows: call_rows::CallRows,
     /// How many judges are reading the Session's work now. In memory: a Fleet that restarts reads none.
     pub judging: u32,
     /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
@@ -531,6 +534,7 @@ impl State {
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
+            call_rows: call_rows::CallRows::default(),
             judging: 0,
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),

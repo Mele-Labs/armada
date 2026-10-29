@@ -464,6 +464,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
           ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
           ...(isNotice(row.notice) ? { notice: row.notice } : {}),
+          ...(row.queued === true ? { queued: true as const } : {}),
         });
         break;
       case "sent":
@@ -479,7 +480,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         });
         break;
       case "tool":
-        out.push({ id: row.id, at, kind: "tool", text: row.text });
+        out.push({ id: row.id, at, kind: "tool", text: row.text, ...(row.subagent === undefined ? {} : { subagent: row.subagent }) });
         break;
       case "command":
         out.push({ id: row.id, at, kind: "command", text: row.text });
