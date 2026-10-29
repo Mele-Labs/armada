@@ -100,7 +100,9 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
     setMode("read");
   };
   const proposed = row.workflow;
-  const state = settled === undefined ? undefined : proposed !== undefined && settled.how === "withdrawn" ? { said: "Dismissed", Glyph: Ban } : SETTLED[settled.how];
+  const rule = row.rule;
+  // A rule's card is the rule's own act: approving it sends what it says, so the card says Send.
+  const state = settled === undefined ? undefined : proposed !== undefined && settled.how === "withdrawn" ? { said: "Dismissed", Glyph: Ban } : rule !== undefined && settled.how === "approved" ? { said: "Sent", Glyph: BadgeCheck } : SETTLED[settled.how];
   // A box opened by its key takes the caret, as one opened by a press does; one already open takes it back.
   const openBox = (to: "edit" | "note") => {
     setMode(to);
@@ -116,12 +118,12 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
       ? undefined
       : {
           id: `draft:${row.id}`,
-          kind: proposed === undefined ? "Draft" : "Workflow",
+          kind: rule !== undefined ? "Rule" : proposed === undefined ? "Draft" : "Workflow",
           title: row.title,
           acts: {
-            ...(editing ? (fixed.trim() === "" ? {} : { yes: { verb: "Approve with fixes", run: approveFixed } }) : noting ? {} : { yes: { verb: "Approve", run: approve } }),
+            ...(editing ? (fixed.trim() === "" ? {} : { yes: { verb: rule === undefined ? "Approve with fixes" : "Send with fixes", run: approveFixed } }) : noting ? {} : { yes: { verb: rule === undefined ? "Approve" : "Send", run: approve } }),
             ...(noting || proposed !== undefined ? {} : { change: { verb: "Edit", run: () => openBox("edit") } }),
-            ...(editing || proposed !== undefined ? {} : { sendBack: { verb: "Note", run: () => openBox("note") } }),
+            ...(editing || proposed !== undefined || rule !== undefined ? {} : { sendBack: { verb: "Note", run: () => openBox("note") } }),
             ...(onWithdraw === undefined || editing ? {} : { no: { verb: proposed === undefined ? "Withdraw" : "Dismiss", run: withdrawNow } }),
           },
         },
@@ -155,9 +157,9 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   };
   return (
     <li ref={home} className="armada-session-draft-row">
-      <Card flat className="armada-session-draft" role="article" aria-label={`${proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how} {...bind}>
+      <Card flat className="armada-session-draft" role="article" aria-label={`${rule !== undefined ? "Rule" : proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how} {...bind}>
         <div className="armada-session-draft__head">
-          <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">{proposed === undefined ? "Draft" : "Workflow"}</span>
+          <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">{rule !== undefined ? "Rule" : proposed === undefined ? "Draft" : "Workflow"}</span>
           <Stamp at={row.at} className="armada-session-draft__at" />
         </div>
         <p className="armada-session-draft__title">{row.title}</p>
@@ -167,6 +169,14 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
             <dd>{proposed.name}</dd>
             <dt>Scope</dt>
             <dd>{SCOPE[proposed.scope]}</dd>
+          </dl>
+        )}
+        {rule === undefined ? null : (
+          <dl className="armada-session-draft__facts">
+            <dt>Where</dt>
+            <dd>{rule.where}</dd>
+            <dt>To</dt>
+            <dd>{rule.to}</dd>
           </dl>
         )}
         {editing ? (
@@ -207,7 +217,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
             {editing ? (
               <>
                 <Button size="sm" variant="primary" disabled={fixed.trim() === ""} onClick={approveFixed}>
-                  Approve with fixes
+                  {rule === undefined ? "Approve with fixes" : "Send with fixes"}
                   <ThreadKbd act="yes" on={target} />
                 </Button>
                 <Button size="sm" variant="ghost" onClick={cancel}>
@@ -227,7 +237,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
             ) : (
               <>
                 <Button size="sm" variant="primary" onClick={approve}>
-                  Approve
+                  {rule === undefined ? "Approve" : "Send"}
                   <ThreadKbd act="yes" on={target} />
                 </Button>
                 {proposed !== undefined ? null : (
@@ -236,10 +246,12 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
                       Edit
                       <ThreadKbd act="change" on={target} />
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
-                      Note
-                      <ThreadKbd act="sendBack" on={target} />
-                    </Button>
+                    {rule !== undefined ? null : (
+                      <Button size="sm" variant="secondary" onClick={() => setMode("note")}>
+                        Note
+                        <ThreadKbd act="sendBack" on={target} />
+                      </Button>
+                    )}
                   </>
                 )}
                 {withdraw}

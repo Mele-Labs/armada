@@ -8,10 +8,14 @@ import { repository, workflow } from "@armada/screens/src/fixtures/repository";
 
 import { connected } from "../moment";
 import type { Scenario } from "../moment";
+import type { PullRequestPage } from "@armada/protocol";
+
 import { manifesting } from "../manifest-fake";
 import { sessionsStore } from "../sessions/script";
+import { sharedPanelReads } from "../shared-panel-reads";
+import type { PanelReads, PullRequestRead } from "../../shared-panel/reads";
 import { workflowsServed } from "../workflows-fleet";
-import { API, MY_STORE, PROPOSALS, STORE_DEFINITIONS, STORE_ENDS, WEB, jobAt, jobB } from "../workspaces-lanes-data";
+import { API, ASK_DRAFT, COMMENTS, MY_STORE, PROPOSALS, STORE_DEFINITIONS, STORE_ENDS, WEB, WORKING, jobAt, jobB } from "../workspaces-lanes-data";
 
 const JOB = "gift-cards";
 const OTHER = "cart-totals";
@@ -49,7 +53,7 @@ const VISITS = [
 ] as const;
 
 /** The pull request a Job opened, as the thread's ledger and the rail's route read it. */
-const pull = (number: number, state: "draft" | "open" | "merged"): SessionAttachment => ({
+const pull = (number: number, state: "draft" | "open" | "merged"): Extract<SessionAttachment, { kind: "pull_request" }> => ({
   kind: "pull_request",
   number,
   title: number === 812 ? "Add gift cards to the cart" : "Fix cart rounding",
@@ -96,8 +100,10 @@ const jobOther: Session = {
   lanes: jobB(),
 };
 
-const ASK_ID = "draft:ra-1";
-const ASK_TITLE = "Review ask for PR #812";
+const ASK_ID = `draft:${ASK_DRAFT}`;
+/** The card is the rule's own: it is named for the rule, and says where it goes and to whom. */
+const ASK_TITLE = "Ask for review";
+const ASK_RULE = { where: "Comment on PR #812", to: "Maya and Jun" } as const;
 const ASK_TEXT = "Maya, Jun: PR #812 adds gift cards to the cart and the balance endpoint. Could you review it today?";
 
 const reply = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
@@ -116,11 +122,16 @@ function sessions() {
   const at = (n: number) => (one: Session): Session => {
     const lanes = jobAt(n, sent);
     const step = Math.max(0, Math.min(lanes.at, STEPS.length));
-    const { done, standing, ...rest } = one;
+    const { done, standing, account, ...rest } = one;
     void done;
     void standing;
+    void account;
+    // The agent's own account of what it is on, while it works: the Now beat reads it.
+    const doing = WORKING[n];
     return {
       ...rest,
+      turn: doing === undefined ? { state: "idle" } : { state: "working" },
+      ...(doing === undefined ? {} : { account: { for: brief.id, done: doing.done, now: doing.now, at: new Date().toISOString() } }),
       lanes,
       attachments: [...one.attachments.filter((it) => it.kind !== "pull_request"), ...(n >= 2 ? [pull(812, prAt(n))] : [])],
       work: { ...one.work, workflow: { name: "feature", steps: STEPS, at: step, visits: VISITS.slice(0, Math.min(step, STEPS.length - 1) + 1) } },
@@ -133,7 +144,7 @@ function sessions() {
   const settled = (one: Session): Session => ({
     ...one,
     // The card is stamped with the time it was approved, as the chip's is.
-    rows: one.rows.map((row) => (row.id === "ra-1" && row.kind === "draft" && row.settled === undefined ? { ...row, at: "12:44:00", settled: { how: "approved" as const, at: "12:44:00" } } : row)),
+    rows: one.rows.map((row) => (row.id === ASK_DRAFT && row.kind === "draft" && row.settled === undefined ? { ...row, at: "12:44:00", settled: { how: "approved" as const, at: "12:44:00" } } : row)),
     waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ASK_ID),
   });
   return {
@@ -152,8 +163,8 @@ function sessions() {
         const next = at(moment)(one);
         // The review ask is drafted for his press: a card in the thread and an item the rail carries.
         if (moment === 3) {
-          const item: WaitingItem = { id: ASK_ID, text: ASK_TITLE, since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ASK_ID }, options: [{ label: "Approve" }] };
-          return { ...next, rows: [...next.rows, { id: "ra-1", at: "12:40:00", kind: "draft", title: ASK_TITLE, text: ASK_TEXT }], waitingFor: [item] };
+          const item: WaitingItem = { id: ASK_ID, text: ASK_TITLE, since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ASK_ID }, options: [{ label: "Send" }] };
+          return { ...next, rows: [...next.rows, { id: ASK_DRAFT, at: "12:40:00", kind: "draft", title: ASK_TITLE, text: ASK_TEXT, rule: ASK_RULE }], waitingFor: [item] };
         }
         // Merged: the ask a person never sent has nothing left to wait for.
         if (moment >= 6 && !sent.includes("ask")) {
@@ -204,7 +215,50 @@ function build(): Scenario {
       ...workflowsServed(() => fleet.state().holds.repositories?.find((one) => one.root === fleet.state().repository)?.manifest?.id ?? null, { definitions: STORE_DEFINITIONS, ends: STORE_ENDS, nudges: [] }),
       readManifestFile: manifesting().behaves?.(fleet).readManifestFile!,
     }),
-    draft: { sessions, workspace: { workspace: MY_STORE, proposals: PROPOSALS } },
+    draft: { sessions, workspace: { workspace: MY_STORE, proposals: PROPOSALS }, sharedPanel: panelReads },
+  };
+}
+
+/**
+ * The pull request panel reads PR #812 as the forge holds it: the three human comments, each as a conversation entry. The triage of each (what the agent made of it) is the Job's,
+ * and the panel draws it beside the comment.
+ */
+const page = (): PullRequestPage => ({
+  manifest_id: WEB_ID,
+  number: 812,
+  base: "main",
+  author: "you",
+  created_at: local("12:31"),
+  additions: 142,
+  deletions: 18,
+  mergeable: "mergeable",
+  review: "none",
+  approvals: 0,
+  body: "Adds gift cards to the cart and the balance endpoint.\n\nARM-41, ARM-42.",
+  conversation: COMMENTS.map((one) => ({ kind: "comment" as const, author: one.author, at: local("13:02"), body: one.text })),
+  checks: [{ name: "ci", state: "passed", seconds: 231, address: "https://git.example/store-web/pull/812/checks?check_run_id=1" }],
+  files: [
+    { path: "src/cart/totals.ts", status: "modified", additions: 40, deletions: 6 },
+    { path: "api/orders.ts", status: "modified", additions: 96, deletions: 12 },
+    { path: "README.md", status: "modified", additions: 6, deletions: 0 },
+  ],
+  commits: [{ sha: "b7e21f0", headline: "Add gift cards to the cart", author: "you", at: local("12:28") }],
+});
+
+const PATCHES: Record<string, string> = {
+  "src/cart/totals.ts": "@@ -38,6 +38,9 @@\n   const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);\n-  return Math.round(subtotal) - discount;\n+  const credit = giftCards.reduce((sum, card) => sum + card.balance, 0);\n+  return Math.round(subtotal) - discount - credit;",
+  "api/orders.ts": "@@ -115,4 +115,6 @@\n   const order = await create(cart);\n+  order.giftCardId = cart.giftCardId;\n+  await redeem(order.giftCardId, order.total);\n   return order;",
+  "README.md": "@@ -7,3 +7,4 @@\n Gift cards are redeemed at checkout. \n+Balance is read from the card service.",
+};
+
+function panelReads(): PanelReads {
+  const base = sharedPanelReads({ lines: [] });
+  const read = (): PullRequestRead => ({ repository: "acme/store-web", root: STORE_WEB.root, facts: pull(812, "open"), page: page() });
+  return {
+    ...base,
+    pullRequest: async (item) => (item.number === 812 ? read() : base.pullRequest?.(item)),
+    pullRequestPatches: async (item) =>
+      item.number === 812 ? { ok: true, files: Object.entries(PATCHES).map(([path, patch]) => ({ manifest_id: WEB_ID, number: 812, path, patch })) } : base.pullRequestPatches?.(item) ?? { ok: false as const, said: "The forge could not find this pull request." },
   };
 }
 

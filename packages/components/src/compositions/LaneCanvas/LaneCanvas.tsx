@@ -308,9 +308,10 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
 /** The mark on a rule's chip: how it ended on a Job, or how much it may do alone in the editor. Acts alone carries none. */
 function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefined {
   if (rule.proposed === true) return { Glyph: ListPlus, said: "Proposed" };
+  if (rule.needs !== undefined) return { Glyph: MessageCircleQuestion, said: "Waiting on you" };
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };
   if (rule.status === "asked") return { Glyph: MessageCircleQuestion, said: "Asked" };
-  if (rule.status === "waiting") return { Glyph: Clock, said: rule.needs === undefined ? "Waiting" : "Waiting on you" };
+  if (rule.status === "waiting") return { Glyph: Clock, said: "Waiting" };
   if (rule.autonomy === "asks") return { Glyph: MessageCircleQuestion, said: "Asks" };
   if (rule.autonomy === "off") return { Glyph: Ban, said: "Off" };
   return undefined;
@@ -325,7 +326,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
   const tone = rule.proposed === true ? "proposed" : rule.status ?? "defined";
   const lines = [
     rule.label,
-    ...(rule.needs !== undefined ? ["Waiting on you"] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : [rule.did]),
+    ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did === undefined ? [] : [rule.did])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : [rule.did]),
     ...(rule.meta === undefined ? [] : [rule.meta]),
     ...(rule.differs === undefined ? [] : [differsSaid(rule.differs)]),
   ];

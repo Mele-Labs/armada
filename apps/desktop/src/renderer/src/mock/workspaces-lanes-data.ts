@@ -333,7 +333,7 @@ const PR_SEEN: Record<string, readonly string[]> = {
 
 const instance = (id: string, lifecycle: Instance["lifecycle"], label: string, state: string, visited: readonly string[], rest: Partial<Instance> = {}): Instance => ({ id, lifecycle, label, state, visited, ...rest });
 
-const COMMENTS: readonly { id: string; author: string; where: string; text: string; read: CommentRead }[] = [
+export const COMMENTS: readonly { id: string; author: string; where: string; text: string; read: CommentRead }[] = [
   { id: "cm-1", author: "Maya", where: "src/cart/totals.ts:42", text: "This rounds before the discount is applied, so a total can be a cent off.", read: "change" },
   { id: "cm-2", author: "Jun", where: "api/orders.ts:118", text: "Rename giftCardId to cardId to match the rest of the file.", read: "change" },
   { id: "cm-3", author: "Maya", where: "README.md:9", text: "Nit: trailing space.", read: "skip" },
@@ -341,6 +341,17 @@ const COMMENTS: readonly { id: string; author: string; where: string; text: stri
 
 /** The marker a comment carries once it has been sent to the Job. */
 export const triaged = (sent: readonly string[]): TriagedComment[] => COMMENTS.map((one) => ({ ...one, ...(sent.includes(one.id) ? { sent: true as const } : {}) }));
+
+/** The id of the draft the review ask is, which the rule waits on: the card in the thread and the item the rail carries are the same one. */
+export const ASK_DRAFT = "ra-1";
+
+/** What the agent is doing at the moments it works, in its own account: the line the Now beat reads, and what it has done. The moments it waits on the person it does nothing. */
+export const WORKING: Readonly<Record<number, { now: string; done: readonly string[] }>> = {
+  1: { now: "Planning the change in store-web and store-api", done: [] },
+  2: { now: "Opening the pull request for ARM-41 and ARM-42", done: ["Planned the change in store-web and store-api", "Built the change in both repositories"] },
+  4: { now: "Reading the review comments", done: ["Opened the pull request", "Put Maya and Jun on it as reviewers"] },
+  6: { now: "Watching the rollout of PR #812", done: ["Merged the pull request", "Started the rollout watch"] },
+};
 
 /**
  * Job A, `ARM-41` and `ARM-42`, at a moment of the walk: 0 dispatched, 1 Plan starts, 2 the PR opens, 3 reviewers are on and the review ask waits, 4 comments are triaged,
@@ -366,7 +377,9 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
   const fired: Fired[] = [
     ...(moment >= 1 ? ["arm-41", "arm-42"].map((one) => ({ rule: "progress", instance: one, outcome: "acted" as const, at: "12:04", did: "Assigned to you, moved to In progress" })) : []),
     ...(moment >= 2 ? ["arm-41", "arm-42"].map((one) => ({ rule: "review", instance: one, outcome: "acted" as const, at: "12:31", did: "Moved to In review" })) : []),
-    ...(moment >= 3 ? [{ rule: "ask", instance: "pr-812", outcome: asked ? ("acted" as const) : ("asked" as const), at: asked ? "12:44" : "12:40", did: asked ? "Review ask sent" : "Review ask drafted" }] : []),
+    ...(moment >= 3
+      ? [{ rule: "ask", instance: "pr-812", outcome: asked ? ("acted" as const) : ("asked" as const), at: asked ? "12:44" : "12:40", did: asked ? "Review ask sent" : "Review ask drafted", ...(asked ? {} : { needs: ASK_DRAFT }) }]
+      : []),
     ...(moment >= 4 ? [{ rule: "triage", instance: "pr-812", outcome: "acted" as const, at: "13:02", did: "Comments read" }] : []),
     ...(moment >= 6 ? [{ rule: "deploy", instance: "deploy", outcome: "acted" as const, at: "13:40", did: "Started the rollout watch" }] : []),
     ...(moment >= 7 ? ["arm-41", "arm-42"].map((one) => ({ rule: "close", instance: one, outcome: "acted" as const, at: "13:52", did: "Moved to Done" })) : []),
@@ -380,7 +393,7 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
     ...(moment === 5 ? { waitingOn: { step: "land", instance: "pr-812", state: "approved" } } : {}),
     ...(moment >= 4 && moment <= 5 ? { triage: { instance: "pr-812", comments: triaged(sent) } } : {}),
   };
-  return { workflow: "feature", at, job };
+  return { workflow: "feature", at, working: WORKING[moment] !== undefined, job };
 }
 
 /** Job B, ended while its deploy rolls out: its pull request is merged, one ticket is still in review. */
@@ -400,5 +413,5 @@ export function jobB(): SessionLanes {
     ],
     changes: [],
   };
-  return { workflow: "feature", at: 6, job };
+  return { workflow: "feature", at: 6, working: false, job };
 }
