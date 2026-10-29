@@ -64,6 +64,11 @@ button.sv-ledger__main:focus-visible { outline: var(--focus-ring); outline-offse
 
 /* The act is centred on the row and its column stays where a row carries none. */
 .sv-ledger__act { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); }
+/* A quiet word on the second line, such as the screen a note was written on. */
+.sv-ledger__said { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A note's picture stands where an act would, wider than one. */
+.sv-ledger[data-kind="note"] .sv-ledger__act { width: auto; }
+.sv-ledger__thumb { display: block; width: calc(var(--space-8) + var(--space-4)); height: var(--space-8); object-fit: cover; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); }
 
 /* A stacked pull request: what is stacked sits in one 28px lane beside its card whatever the depth. The stack's root stands flush left, and the line starts
    under it, at its glyph; a 14px tick enters each stacked card at glyph height, and the last one ends the line there. */

@@ -42,6 +42,18 @@ const more: Session[] = [
       { kind: "artifact", form: "file", id: "/Users/user/armada/docs/spikes/store-clock.md", title: "store-clock.md" },
       { kind: "artifact", form: "image", id: "/tmp/ledger-screenshot.png", title: "ledger-screenshot.png" },
       { kind: "artifact", form: "doc", id: "https://example.com/artifact/clock-writeup", title: "Store clock write-up" },
+      {
+        kind: "note",
+        id: "20261029-101500-k3f9",
+        title: "The clock legend reads too small beside the chart",
+        text: "The clock legend reads too small beside the chart",
+        tag: "figure",
+        component: "ClockLegend",
+        screen: "Store clock",
+        picture: "/Users/user/armada/.armada/annotations/20261029-101500-k3f9.png",
+        status: "open",
+        sent: "2026-10-29T10:15:00Z",
+      },
     ],
   },
 ];

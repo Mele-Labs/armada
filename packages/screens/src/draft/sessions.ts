@@ -125,7 +125,12 @@ export type SessionAttachment =
   | { kind: "started_to"; id: string; group?: string }
   | { kind: "started_by"; id: string; group?: string }
   /** A web address the person or the agent wrote in the thread. Loopback addresses and the repository's own issue and pull request links are not kept. */
-  | { kind: "link"; url: string; by: "you" | "agent" };
+  | { kind: "link"; url: string; by: "you" | "agent" }
+  /**
+   * A note the person sent to the Job from the annotation layer: an `artifact` of form `note` on the wire, `noteArtifactOf` in
+   * `apps/desktop/src/shared/note-artifacts.ts`. `id` is the note's own. `picture` is an absolute PNG path, read as an artifact file is.
+   */
+  | { kind: "note"; id: string; title: string; text: string; tag: string; component?: string; screen?: string; picture?: string; status: "open" | "done" | "returned"; sent: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
