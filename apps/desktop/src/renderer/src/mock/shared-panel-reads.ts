@@ -49,6 +49,7 @@ function pageOf(number: number, author: string, opened: number, body: string): P
     files: [
       { path: "crates/store/migrations/0044.sql", status: "added", additions: 3, deletions: 0 },
       { path: "crates/store/src/pause.rs", status: "modified", additions: 2, deletions: 1 },
+      { path: "crates/store/src/backfill.rs", status: "added", additions: 4000, deletions: 0 },
       { path: "docs/pause-marker.png", status: "added", additions: 0, deletions: 0 },
     ],
     commits: [{ sha: "a41c9d2", headline: "Add the pause marker column", author, at: minutesAgo(opened - 4) }],
@@ -62,6 +63,8 @@ const NO_PATCH = "The forge sent no patch for this file. It is binary, or the ch
 const HUB_PATCHES: Record<string, string> = {
   "crates/store/migrations/0044.sql": "@@ -0,0 +1,3 @@\n+ALTER TABLE sessions\n+  ADD COLUMN paused_at TEXT;\n+CREATE INDEX sessions_paused ON sessions (paused_at);",
   "crates/store/src/pause.rs": "@@ -10,4 +10,5 @@\n pub struct Pause {\n-    at: Instant,\n+    at: SystemTime,\n+    marker: Option<String>,\n }",
+  // A diff the size of a real one, where a keystroke in a note box once restyled every line.
+  "crates/store/src/backfill.rs": `@@ -0,0 +1,4000 @@\n${Array.from({ length: 4000 }, (_, i) => `+    let value_${i} = compute(${i});`).join("\n")}`,
 };
 
 const HUB: Record<number, { title: string; branch: string; author: string; opened: number; body: string; queued: boolean; checks: Held["checks"]; merged?: true }> = {
