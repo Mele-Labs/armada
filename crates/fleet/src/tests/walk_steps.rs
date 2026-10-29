@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{Next, Sessions};
+use api::{HostedSessions, Next, Sessions};
 use ipc::{Event, SessionId, SessionRow, SessionVoice, ShowWindow, WalkStep, WindowFailed};
 
 use super::session_host::{rig_placing, Rig};
@@ -241,4 +241,33 @@ async fn a_step_bridge_cannot_play_is_told_to_the_session_as_a_step_and_not_as_a
     assert!(said.contains("held at step 3") && said.contains(PAGE), "{said}");
     assert!(said.contains("Fix the steps") && said.contains("show_window"), "{said}");
     assert!(!said.contains("could not show"), "it is not a page that failed to load: {said}");
+}
+
+#[tokio::test]
+async fn steps_set_aside_for_the_pages_own_walk_are_told_to_the_session_as_that_and_not_as_a_failure() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_window(None, show_with(&id, depot())).await.expect("shown");
+
+    let set_aside =
+        WindowFailed { session_id: id.clone(), url: PAGE.into(), why: "steps set aside: this page plays its own walk".into() };
+    let told = Arc::clone(&rig.fleet).window_failed(set_aside).await.expect("told");
+    assert!(told.told);
+    let said = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .find_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::Session { title, .. }, text, .. } if title == "Fleet" => Some(text),
+            _ => None,
+        })
+        .expect("Fleet said it");
+    assert!(said.contains("set aside") && said.contains(PAGE), "{said}");
+    assert!(said.contains("Show it again without steps"), "{said}");
+    assert!(!said.contains("could not show"), "it is not a page that failed to load: {said}");
+    assert!(!said.contains("held at"), "it is not a step that cannot be played: {said}");
+
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session;
+    let window = record.attachments.iter().find(|one| one.detail.get("form").map(String::as_str) == Some("window")).expect("window");
+    assert_ne!(window.state, ipc::AttachmentState::Spent, "the page loaded, so the walk is still to be walked");
 }
