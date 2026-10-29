@@ -2,7 +2,7 @@
 // side panel with the Job's thread floating beside it (`BrowserSide.tsx`), or in a window of its own with the thread beside the page.
 // The store says what it holds.
 
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { AppWindowMac, Bot, ChevronLeft, ChevronRight, Crosshair, PanelLeftClose, PanelLeftOpen, PanelRight, RefreshCw, UserCheck } from "lucide-react";
 import { ACTION, Button, Input, Kbd, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
@@ -10,6 +10,7 @@ import type { ThreadCard } from "@armada/components";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { closePanel, usePanel } from "../shared-panel/store";
 import { browserToWindow, goBack, goForward, jobBrowserApi, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
 /** Who drives, and what a press on the mark does: the mark is the toggle. */
@@ -144,10 +145,16 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
   const frame = useRef<HTMLDivElement>(null);
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
+  const [ring, setRing] = useState<Box | null>(null);
+  // The app annotation layer lies over the page's native view, so while it is on the page is hidden and its picture shown, as under Capture.
+  const [layerOn, setLayerOn] = useState(false);
+  const held = capturing || layerOn;
+  const aiming = useRef({ at: null as { x: number; y: number } | null, busy: false });
   useEffect(() => {
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
+      setLayerOn(document.querySelector("[data-armada-annotate]") !== null);
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = { x: box.x, y: box.y, width: box.width, height: box.height };
@@ -163,7 +170,7 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
     };
   }, [api, sessionId]);
   useEffect(() => {
-    if (!capturing) return;
+    if (!held) return;
     let shown: string | undefined;
     let live = true;
     void api.freeze(sessionId).then((png) => {
@@ -175,20 +182,43 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
       live = false;
       setPicture(undefined);
       setPicked(undefined);
+      setRing(null);
       if (shown !== undefined) URL.revokeObjectURL(shown);
       void api.thaw(sessionId);
     };
-  }, [api, sessionId, capturing]);
+  }, [api, sessionId, held]);
   const pick = (event: MouseEvent<HTMLDivElement>) => {
     const at = frame.current?.getBoundingClientRect();
-    if (picture === undefined || picked !== undefined || at === undefined) return;
+    if (!capturing || picture === undefined || picked !== undefined || at === undefined) return;
     void api.hold(sessionId, event.clientX - at.left, event.clientY - at.top).then((held) => {
       if (held !== null) setPicked({ on: held.chain, box: { top: held.box.y, left: held.box.x, width: held.box.width, height: held.box.height } });
     });
   };
+  // The ring follows the part under the pointer in the live page, one ask in flight and at most one per frame.
+  const hover = (event: PointerEvent<HTMLDivElement>) => {
+    const at = frame.current?.getBoundingClientRect();
+    if (!capturing || picture === undefined || picked !== undefined || at === undefined) return;
+    aiming.current.at = { x: event.clientX - at.left, y: event.clientY - at.top };
+    if (aiming.current.busy) return;
+    aiming.current.busy = true;
+    requestAnimationFrame(() => {
+      const to = aiming.current.at;
+      if (to === null) {
+        aiming.current.busy = false;
+        return;
+      }
+      void api
+        .aim(sessionId, to.x, to.y)
+        .then(setRing)
+        .finally(() => {
+          aiming.current.busy = false;
+        });
+    });
+  };
   return (
-    <div ref={frame} className="job-browser__page" role="region" aria-label="Page" data-annotating={capturing ? "" : undefined} onClick={pick}>
+    <div ref={frame} className="job-browser__page" role="region" aria-label="Page" data-annotating={capturing ? "" : undefined} onClick={pick} onPointerMove={hover}>
       {picture === undefined ? null : <img className="job-browser__picture" src={picture} alt="" />}
+      {ring === null || picked !== undefined || !capturing ? null : <span className="job-browser__ring" aria-hidden style={{ top: ring.y, left: ring.x, width: ring.width, height: ring.height }} />}
       {picked === undefined ? null : (
         <>
           <span className="job-browser__pin" data-writing="" aria-hidden style={{ top: picked.box.top, left: picked.box.left, width: picked.box.width, height: picked.box.height }} />
@@ -236,6 +266,7 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
   const api = jobBrowserApi();
   // ⌥⌘C pressed in the page, which holds the keyboard where this pane cannot hear it.
   useEffect(() => api?.onCapture((id) => id === sessionId && setCapturing((was) => !was)), [api, sessionId]);
+  useEffect(() => takesAnnotateChord(() => setCapturing((was) => !was)), []);
   const driver = DRIVER[browser.driver];
   const threadShown = !browser.threadHidden;
   const keys = (event: KeyboardEvent<HTMLElement>) => {

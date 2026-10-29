@@ -42,6 +42,14 @@
 /* Under Capture, the page's picture in its place: main hides the page's view, and a press picks the part under the pointer. */
 .job-browser__picture { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
 
+/* Under Capture, the ring on the part under the pointer, drawn as the app annotation layer draws its own. */
+.job-browser__ring {
+  position: absolute;
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  outline-offset: calc(var(--border-width) * 2);
+  pointer-events: none;
+}
+
 /* A note pinned on a part of the page: a ring round the part, its note in the tooltip, over the tooltip's own `position: relative`. */
 .job-browser__page > .job-browser__pin {
   position: absolute;
