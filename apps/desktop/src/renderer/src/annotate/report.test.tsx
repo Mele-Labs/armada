@@ -29,7 +29,7 @@ const fleetOf = () =>
   ({
     startSession: vi.fn(),
     sendSessionMessage: vi.fn(),
-    sendSessionNote: vi.fn(),
+    sendSessionNotes: vi.fn(),
     state: vi.fn(async () => ({ sessions: { state: "read", sessions: [] } }) as never),
     subscribe: () => () => undefined,
   }) satisfies LayerFleet;

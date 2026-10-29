@@ -102,3 +102,18 @@ it("holds a note saved on a Job's walk, and on a review's walk its Job holds, at
   expect(heldOn({ review }, "http://localhost:41311/")).toBeNull();
   expect(heldOn({ studio: { id: "s1", name: "Ledger" } }, "http://localhost:5173/")).toBeNull();
 });
+
+it("keeps the box a note's picture is ringed at beside it, across a restart, and none on a note with no picture", () => {
+  const at = file();
+  const ring = { x: 508, y: 368, width: 1114, height: 400, scale: 2 };
+  const before = store(at);
+  const ringed = before.hold(note("a", "Too tight"), ring);
+  const { crop: _none, ...bare } = note("a", "No picture");
+  before.hold(bare, ring);
+  expect(ringed.ring).toEqual(ring);
+  expect(ringed.note).not.toHaveProperty("ring");
+  expect(store(at).of("a").map((one) => one.ring)).toEqual([ring, undefined]);
+  // A ring that is not one is not read as a note.
+  writeFileSync(at, JSON.stringify({ jobs: { a: [{ id: "x", at: "t", note: note("a", "Bad"), ring: { x: "1" } }] } }));
+  expect(store(at).of("a")).toEqual([]);
+});

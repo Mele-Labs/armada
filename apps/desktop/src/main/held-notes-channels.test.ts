@@ -123,3 +123,48 @@ it("keeps a note held while the send was out, and drops only those sent", async 
   await out;
   expect(store.of("a").map((one) => one.note.said)).toEqual(["Taken while sending"]);
 });
+
+// Each note's picture is the whole window, its box ringed and tagged with the note's place in the turn as it goes.
+
+const RING = { x: 10, y: 20, width: 30, height: 40, scale: 2 };
+/** Stands in for `burnRing`: the PNG it was given, the ring and the number, as the bytes it answers. */
+const burned: [string, unknown, number][] = [];
+const burn = (png: Uint8Array, ring: unknown, number: number): Uint8Array => {
+  burned.push([Buffer.from(png).toString(), ring, number]);
+  return Buffer.from(`${Buffer.from(png).toString()} ringed ${number}`);
+};
+const shot = (sessionId: string, said: string): SendSessionNote => ({ ...note(sessionId, said), crop: { media_type: "image/png", data: Buffer.from(said).toString("base64") } });
+
+it("shows the panel each note's ring in its picture's pixels, without the scale it is burned at", () => {
+  store.hold(shot("a", "Too tight"), RING);
+  store.hold(note("a", "No ring"));
+  expect((call(CHANNELS.walkPanelHeld, PANEL) as { ring?: unknown }[]).map((one) => one.ring)).toEqual([{ x: 10, y: 20, width: 30, height: 40 }, undefined]);
+});
+
+it("burns each note's ring into its picture as it is sent, numbered by its place in the turn", async () => {
+  burned.length = 0;
+  store.hold(shot("a", "first"), RING);
+  store.hold(note("a", "No ring"));
+  store.hold(shot("a", "third"), { ...RING, x: 99 });
+  expect(await sendHeld(store, "a", async (body) => (sent.push(body), { ok: true }), burn)).toEqual({ ok: true });
+  expect(burned).toEqual([
+    ["first", RING, 1],
+    ["third", { ...RING, x: 99 }, 3],
+  ]);
+  expect(sent[0]!.notes.map((one) => one.crop!.data)).toEqual([Buffer.from("first ringed 1").toString("base64"), "iVBORw0KGgo=", Buffer.from("third ringed 3").toString("base64")]);
+  // The ring stays off the wire.
+  expect(sent[0]!.notes[0]).not.toHaveProperty("ring");
+});
+
+it("numbers the notes again when one is removed before the send, so the picture tagged 2 is the second note sent", async () => {
+  burned.length = 0;
+  store.hold(shot("a", "first"), RING);
+  const second = store.hold(shot("a", "second"), RING);
+  store.hold(shot("a", "third"), RING);
+  expect(call(CHANNELS.walkPanelRemoveNote, PANEL, second.id)).toEqual({ ok: true });
+  await sendHeld(store, "a", async () => ({ ok: true }), burn);
+  expect(burned.map(([png, , number]) => [png, number])).toEqual([
+    ["first", 1],
+    ["third", 2],
+  ]);
+});
