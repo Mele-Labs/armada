@@ -56,6 +56,7 @@ impl Sessions for FakeDaemon {
             judging: false,
             judge: None,
             settled: Vec::new(),
+            closed: Vec::new(),
             waits: None,
             later: Vec::new(),
             held_open_by: None,
@@ -557,6 +558,17 @@ impl Sessions for FakeDaemon {
         settle: ipc::SettleLater,
     ) -> Result<ipc::LaterSettled, Refusal> {
         Ok(ipc::LaterSettled { id: settle.id, sentence: String::new(), open: Vec::new() })
+    }
+
+    async fn list_closed_waiting(
+        &self,
+        _caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::ClosedWaitingList, Refusal> {
+        Ok(ipc::ClosedWaitingList {
+            session_id: session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            closed: Vec::new(),
+        })
     }
 
     async fn all_done(

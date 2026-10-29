@@ -27,7 +27,7 @@ const record = (change: Partial<SessionRecord> = {}): SessionRecord => ({
   hosted: { turn: { state: "idle" }, mode: "auto", running: false },
   workflow: "feature",
   proposal: { picked: ["workflow", "model", "effort"] },
-  plan: { version: 3, recorded_at: AT, summary: "", approved: false, scope: [], groups: [{ id: "g1", agent: "rust-engineer", title: "Retry", paths: [], tasks: [{ id: "t1", text: "Back off", state: "open" }] }] },
+  plan: { version: 3, recorded_at: AT, summary: "", approved: false, scope: [], groups: [{ id: "g1", agent: "rust-engineer", title: "Retry", paths: [], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Back off", state: "open" }] }] },
   ...change,
 });
 

@@ -747,6 +747,31 @@ describe("when the agent said it was done", () => {
   });
 });
 
+describe("what he closed from Needs you", () => {
+  // Fleet sends them newest first and marks `ended` only as true.
+  const closed: NonNullable<SessionRecord["closed"]> = [
+    { item: { id: "a2", text: "Open the walk", since: AT, source: "walk", act: { kind: "message", target: "a" } }, at: "2026-10-12T09:40:00.000Z" },
+    { item: { id: "ask:c1", text: "Which clock?", since: AT, source: "ask_card", act: { kind: "answer", target: "c1" } }, at: "2026-10-12T09:20:00.000Z", ended: true },
+  ];
+
+  it("carries Fleet's list onto the session as it came, newest first, with `ended` on the one that cannot be reopened", () => {
+    const session = sessionOfRecord(record("a", { closed }), undefined, beside());
+    expect(session.closed).toEqual(closed);
+    expect(session.closed?.map((one) => one.item.id)).toEqual(["a2", "ask:c1"]);
+    expect(session.closed?.map((one) => one.ended)).toEqual([undefined, true]);
+  });
+
+  it("keeps them on a Job that ended, which is when Fleet marks every one ended", () => {
+    const ended = closed.map((one) => ({ ...one, ended: true as const }));
+    expect(sessionOfRecord(record("a", { state: "ended", closed: ended }), undefined, beside()).closed).toEqual(ended);
+  });
+
+  it("carries none for a record with none", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).closed).toBeUndefined();
+    expect(sessionOfRecord(record("a", { closed: [] }), undefined, beside()).closed).toBeUndefined();
+  });
+});
+
 describe("what a session waits on", () => {
   const items: NonNullable<SessionRecord["waiting_for"]> = [
     { id: "a1", text: "Run the tests", since: AT, source: "agent", act: { kind: "run", target: "cargo test" } },

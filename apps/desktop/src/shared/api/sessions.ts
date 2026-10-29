@@ -19,6 +19,7 @@ import type {
   DismissConcern,
   ConfirmWaiting,
   DismissWaiting,
+  ReopenWaiting,
   Followed,
   FrameRead,
   Outcome,
@@ -139,6 +140,8 @@ export type SessionsApi = {
   readWatchLog: (read: ReadWatchLog) => Promise<SessionActed<WatchLog>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+  /** Lets an item he closed wait again, by its id in `SessionRecord.closed`. Fleet refuses one nothing closed holds, and one whose subject has ended. */
+  reopenWaiting: (reopen: ReopenWaiting) => Promise<SessionActed>;
   /** Thumbs up on a follow-up Fleet read from a reply: the row stays open and reads `confirmed`. Fleet refuses an id that names no open follow-up. */
   confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
   /** Thumbs up on a question Fleet read from a reply: the item stays and reads `confirmed`. Fleet refuses an item of any other source. */
@@ -376,6 +379,7 @@ export const SESSIONS_CHANNELS = {
   changeWaiting: "bridge:change-waiting",
   startWaitingNow: "bridge:start-waiting-now",
   dismissWaiting: "bridge:dismiss-waiting",
+  reopenWaiting: "bridge:reopen-waiting",
   confirmWaiting: "bridge:confirm-waiting",
   confirmLater: "bridge:confirm-later",
   answerSketch: "bridge:answer-sketch",

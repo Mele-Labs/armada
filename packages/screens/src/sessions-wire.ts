@@ -684,6 +684,8 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.activity?.live === undefined ? {} : { live: record.activity.live }),
     ...(ended || record.build === undefined ? {} : { build: record.build }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
+    // Kept after the Job ends: Fleet marks each `ended` there, and the owner still finds what he closed.
+    ...((record.closed?.length ?? 0) === 0 ? {} : { closed: record.closed }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
     ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }), ...(hosted.start.queued === true ? { queued: true } : {}) } }),

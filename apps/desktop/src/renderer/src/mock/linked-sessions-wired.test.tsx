@@ -27,8 +27,8 @@ const plan = {
   approved: true,
   scope: ["crates/store"],
   groups: [
-    { id: "g1", agent: "rust-engineer", title: "Name the migrations", paths: ["crates/store"], tasks: [task("t1", "Give each migration a name")] },
-    { id: "g2", agent: "rust-engineer", title: "Apply them in order", paths: ["crates/store"], tasks: [task("t2", "Sort by name before applying")] },
+    { id: "g1", agent: "rust-engineer", title: "Name the migrations", paths: ["crates/store"], lands_in: { label: "PR 1" }, tasks: [task("t1", "Give each migration a name")] },
+    { id: "g2", agent: "rust-engineer", title: "Apply them in order", paths: ["crates/store"], lands_in: { label: "PR 1" }, tasks: [task("t2", "Sort by name before applying")] },
   ],
 };
 

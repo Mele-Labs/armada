@@ -122,6 +122,7 @@ fn long_lived() -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        closed: Vec::new(),
         waits: None,
         later: Vec::new(),
         held_open_by: None,
@@ -251,6 +252,7 @@ fn pending_plan() -> ipc::SessionPlan {
             gives: None,
             paths: vec!["crates/store".to_string()],
             issue: None,
+            lands_in: ipc::PlanLandsIn::default(),
             tasks: vec![ipc::SessionPlanTask {
                 id: "t1".to_string(),
                 text: "Rotate at midnight".to_string(),

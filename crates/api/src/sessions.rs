@@ -502,6 +502,29 @@ pub(crate) async fn waiting_for<D: Sessions>(
     }
 }
 
+/// `?session_id=`, read only where the connection places no session.
+#[derive(Deserialize)]
+pub(crate) struct ForClosedWaiting {
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+/// What the person closed from a session's list, newest first. 200; 422 for a call that places no session.
+/// **The session is placed by the connection**, as `waiting_for`'s is.
+pub(crate) async fn list_closed_waiting<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ForClosedWaiting>,
+) -> Response {
+    let named = asked
+        .session_id
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.trim()));
+    match served.daemon().list_closed_waiting(crate::acting::asking(), named).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
 pub(crate) async fn all_done<D: Sessions>(
