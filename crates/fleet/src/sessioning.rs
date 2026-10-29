@@ -49,6 +49,8 @@ pub(crate) struct LedgerReads {
     /// The latest adversarial review of the plan, whatever version it read.
     adversarial: Option<store::KeptAdversarialReview>,
     touches: Vec<store::KeptTouch>,
+    /// The pull requests the plan may land in: the Session's own and those of the Jobs its groups were handed to.
+    pulls: Vec<crate::plan_record::PlanPull>,
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,
     /// How the Job was started, and the Job that started it.

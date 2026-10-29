@@ -31,6 +31,7 @@ const PLAN: SessionPlan = {
       title: "Warm a bay before it is leased",
       gives: "A bay is warm by the time a Job asks for it",
       paths: ["crates/fleet/src/pool.rs"],
+      lands_in: { label: "PR 1" },
       tasks: [
         { id: "W1", text: "Find the next free bay", state: "open" },
         { id: "W2", text: "Warm it in the background", state: "open" },

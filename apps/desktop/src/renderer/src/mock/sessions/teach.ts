@@ -52,6 +52,7 @@ const PLAN: SessionPlan = {
       agent: "bridge-engineer",
       title: "Show the clock",
       paths: ["apps/desktop"],
+      lands_in: { label: "PR 1" },
       tasks: [
         { id: "t1", text: "Pin the clock in the store tests", state: "working" },
         { id: "t2", text: TASK, state: "open" },
