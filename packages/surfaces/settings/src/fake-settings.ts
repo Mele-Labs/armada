@@ -81,6 +81,8 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Plan", "plan.contextHandoff", "Large context", "", { kind: "choice", options: ["ask", "carry on automatically", "never"] }, "ask", { tip: "Context limit" }),
     row("Prompts", "prompts.droneBaseline", "Drone baseline", "What every drone is told before its step's own brief.", PROMPT, BASELINE),
     row("Prompts", "prompts.proposer", "Job proposer", "What the job proposer is told before the request.", PROMPT, PROPOSER),
+    row("Features", "features.workflows", "Workflows for Jobs", "A Job follows a workflow's steps. Off, every Job is a plain Job.", BOOLEAN, true),
+    row("Features", "workflows.off", "Workflows turned off", "The workflows left out of the picker, on this machine and in each repository.", { kind: "json" }, { machine: [], repositories: {} }),
     row("Features", "features.helmCanAct", "Helm can act", "Helm may redirect a job itself. Off, Helm reads one and suggests it.", BOOLEAN, true, { applies: "at_restart" }),
     row("Features", "features.disputeReviews", "Dispute reviews", "A job that disputes a Fleet notice starts a review job in Armada, and Fleet reads replies for pushback. Off, the dispute is kept and nothing starts.", BOOLEAN, false),
     row("Features", "features.draftPullRequests", "Draft pull requests", "A pull request is opened as a draft unless the repository, the workflow or the job says otherwise.", BOOLEAN, false),

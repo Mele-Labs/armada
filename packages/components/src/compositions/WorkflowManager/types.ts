@@ -130,3 +130,15 @@ export type WorkflowActAnswer = string | undefined;
 
 /** The suggested changes waiting on the owner, by workflow id and then step id. */
 export type Suggestions = Readonly<Record<string, Readonly<Record<string, Suggestion>>>>;
+
+/**
+ * Which workflows Jobs may take. `forJobs` is the setting that turns the workflow system on or off. `machine` is the ids off on this
+ * machine. `repository` is the repository picked and the ids off in it, and is null on All, where a switch is the machine's.
+ */
+export type WorkflowSwitches = {
+  forJobs: boolean;
+  onForJobs: (on: boolean) => void;
+  machine: readonly string[];
+  repository: { name: string; off: readonly string[] } | null;
+  onSwitch: (workflowId: string, on: boolean) => void;
+};
