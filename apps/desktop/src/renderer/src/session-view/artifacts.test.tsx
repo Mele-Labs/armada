@@ -69,6 +69,26 @@ test("the Sessions it handed a plan group to are a group, each naming its group 
   expect(artifactsOf(session, []).find((one) => one.id === "session")).toBeUndefined();
 });
 
+test("a sent note is listed under Notes with its text, component, screen and state, newest first", () => {
+  const note = (id: string, text: string, status: "open" | "done" | "returned", change: object = {}): SessionAttachment => ({ kind: "note", id, title: text, text, tag: "section", status, sent: "2026-10-22T10:00:00Z", ...change });
+  const session = parent(
+    [note("n1", "The title is cut off", "open", { component: "Deck", screen: "Cockpit", picture: "/notes/n1.png" }), note("n2", "The ledger wraps", "done"), note("n3", "The path is cut", "returned")],
+    [],
+    false,
+  );
+  const notes = artifactsOf(session, []).find((one) => one.id === "note")!;
+  expect(notes.label).toBe("Notes");
+  expect(notes.rows.map((one) => one.title)).toEqual(["The path is cut", "The ledger wraps", "The title is cut off"]);
+  const first = notes.rows.find((one) => one.title === "The title is cut off")!;
+  expect(first).toMatchObject({ sub: "Deck", words: ["Cockpit"], picture: "/notes/n1.png", mark: { glyph: "pending", said: "Open", word: "Open" } });
+  expect(notes.rows.find((one) => one.title === "The ledger wraps")).toMatchObject({ mark: { glyph: "done", word: "Done" } });
+  expect(notes.rows.find((one) => one.title === "The path is cut")).toMatchObject({ mark: { glyph: "stopped", word: "Returned" } });
+  const bare = notes.rows.find((one) => one.title === "The ledger wraps")!;
+  for (const key of ["sub", "words", "picture"]) expect(bare).not.toHaveProperty(key);
+  // Typing finds a note by the screen it was written on, which the row says beside its title.
+  expect(matching(artifactsOf(session, []), "cockpit").flatMap((one) => one.rows.map((row) => row.title))).toEqual(["The title is cut off"]);
+});
+
 test("a row opens through the ledger entry that knows where its press goes", () => {
   let pressed = 0;
   const session = parent([{ kind: "artifact", form: "page", id: "https://notes/x", title: "Notes" }]);

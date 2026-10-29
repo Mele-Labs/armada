@@ -102,8 +102,14 @@
   background: var(--bg-base);
 }
 
+/* A line off screen is not styled. Each line carries a tooltip, so a big diff is
+   thousands of elements, and every `:has()` rule in the window re-checks all of
+   them whenever a key lands in a note box under one line (about 300ms a key at
+   2,000 lines). The size is the line's height until it has been drawn once. */
 .armada-diff__line {
   min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--leading-2xs);
 }
 
 /* Nothing wraps. A diff that reflowed would move the +/- marker off the column

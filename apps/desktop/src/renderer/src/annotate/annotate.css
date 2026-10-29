@@ -22,6 +22,16 @@
   --annotate-pin-inset: var(--space-3);
 }
 
+/* What a person presses on the layer opts out of the title bar's drag region. Electron
+ * hands a press inside that region to the window before any element sees it, whatever is
+ * drawn over it, which is why Select all, drawn inside the bar's 44px, took no press. */
+.armada-annotate__pin,
+.armada-annotate__card,
+.armada-annotate__bar,
+.armada-annotate__panel {
+  -webkit-app-region: no-drag;
+}
+
 /* Out of the picture while main captures the window under it (`shoot.ts`). */
 .armada-annotate[data-shooting] {
   opacity: 0;
@@ -225,19 +235,54 @@
   font-weight: var(--weight-medium);
 }
 
-.armada-annotate__rows {
-  display: flex;
-  flex-direction: column;
+/* The screen's name, pressed to fold its notes away or bring them back. */
+.armada-annotate__fold {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-annotate__fold:hover {
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.armada-annotate__fold:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-annotate__count {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+/* One grid down the list, which each row's acts take as a subgrid: a column per act,
+ * kept by a row that lacks Start job, so Mark done and Delete line up down the list. */
+.armada-annotate__rows {
+  display: grid;
+  grid-template-columns: repeat(4, max-content) minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
+  /* A checkbox's input is raised inside its label; held in here, it never rises over the head as the rows scroll under it. */
+  isolation: isolate;
 }
 
 .armada-annotate__row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: var(--space-1);
   padding: var(--space-2);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
@@ -253,17 +298,17 @@
   background: var(--accent-muted);
 }
 
-/* The panel's head: Select all, and what is ticked with the acts on it. It
- * stays put over the rows as they scroll, edge to edge across the panel's
- * padding, so the acts are in reach of a row ticked at the bottom. */
-.armada-annotate__selection {
+/* The panel's head: the search, the tabs, Select all, and what is ticked with
+ * the acts on it. It stays put over the rows as they scroll, edge to edge
+ * across the panel's padding, so the acts are in reach of a row ticked at the
+ * bottom. */
+.armada-annotate__head {
   position: sticky;
   top: calc(var(--space-3) * -1);
   z-index: 1;
   display: flex;
   flex: none;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
   margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) 0;
   padding: var(--space-3);
@@ -271,7 +316,16 @@
   background: var(--bg-overlay);
 }
 
+.armada-annotate__selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .armada-annotate__selection-said {
+  flex-basis: 100%;
   color: var(--fg-muted);
   font-size: var(--text-xs);
 }
@@ -283,6 +337,7 @@
 }
 
 .armada-annotate__row-main {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -322,16 +377,14 @@
   font-size: var(--text-2xs);
 }
 
-.armada-annotate__sent {
-  padding: 0 var(--space-1);
-  border: var(--border-width) solid var(--accent);
-  border-radius: var(--radius-sm);
-  color: var(--accent);
+.armada-annotate__row-job {
+  grid-column: 1 / -1;
 }
 
 .armada-annotate__row .armada-annotate__actions {
-  flex-wrap: wrap;
-  justify-content: flex-start;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
 }
 

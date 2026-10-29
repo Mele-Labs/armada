@@ -9,10 +9,12 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import type { SendSessionNote } from "@armada/protocol";
+import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import type { RingedNotes } from "../../../shared/api/sessions";
 
 import type { Annotation, AnnotationStatus } from "../../../shared/annotations";
 import "../styles/index.css";
+import { SessionsFrom } from "../sessions-draft";
 import { Layer, type LayerFleet } from "./Layer";
 import type { Sink } from "./sink";
 
@@ -54,21 +56,21 @@ afterEach(async () => {
   mounted = [];
   document.querySelectorAll("[data-tall], [data-noted]").forEach((one) => one.remove());
   sessionStorage.removeItem("armada.annotate.on");
+  delete window.armadaDev;
   await page.viewport(1440, 900);
 });
 
 /** The layer already on, as it comes up after ⌥⌘A and a reload. */
-async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void): Promise<void> {
+async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void, held?: readonly Session[]): Promise<void> {
   sessionStorage.setItem("armada.annotate.on", "1");
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
   document.body.append(host);
   const root = createRoot(host);
-  root.render(
-    <StrictMode>
-      <Layer sink={sink} {...(fleet === undefined ? {} : { fleet })} {...(openSession === undefined ? {} : { openSession })} {...(tell === undefined ? {} : { tell })} />
-    </StrictMode>,
-  );
+  const layer = <Layer sink={sink} {...(fleet === undefined ? {} : { fleet })} {...(openSession === undefined ? {} : { openSession })} {...(tell === undefined ? {} : { tell })} />;
+  // The Sessions the window holds, as the layer's own root is given them: a sent note's Job card reads them.
+  const draft = held === undefined ? undefined : ({ get: () => held, subscribe: () => () => undefined } as unknown as SessionsDraft);
+  root.render(<StrictMode>{draft === undefined ? layer : <SessionsFrom held={draft}>{layer}</SessionsFrom>}</StrictMode>);
   mounted.push({ root, host });
   await expect.element(page.getByRole("status")).toBeVisible();
 }
@@ -225,11 +227,12 @@ test("a note marked done draws no pin, and the open ones are numbered 1 to n wit
   await expect.element(page.getByRole("status")).toHaveTextContent("2 open, 1 done");
 });
 
-test("the bar shows the done notes again, unnumbered, and their cards still work", async () => {
+test("the Done tab shows the done notes again, unnumbered, and their cards still work", async () => {
   await annotating(sinkOf(batch()));
   const bar = page.getByRole("status");
 
-  await bar.getByRole("button", { name: "Show done notes" }).click();
+  await countOf().click();
+  await tabOf("Done").click();
   const back = page.getByRole("button", { name: /^Done note/ });
   await expect.element(back).toBeVisible();
   expect(pinned()).toEqual([
@@ -254,10 +257,15 @@ test("putting the layer away puts the done notes away with it, and looking wrote
   await annotating(held);
   const bar = page.getByRole("status");
 
-  await bar.getByRole("button", { name: "Show done notes" }).click();
+  await countOf().click();
+  await tabOf("Done").click();
   await expect.element(page.getByRole("button", { name: /^Done note/ })).toBeVisible();
-  await bar.getByRole("button", { name: "Hide done notes" }).click();
+  await tabOf("Open").click();
   expect(page.getByRole("button", { name: /^Done note/ }).elements()).toHaveLength(0);
+
+  // Left on the Done tab, then put away: the look is over with the layer.
+  await tabOf("Done").click();
+  await expect.element(page.getByRole("button", { name: /^Done note/ })).toBeVisible();
 
   // ⌥⌘A off and on again, which is how the notes are read from the files a
   // second time: the layer comes up on the open notes, as it did the first time.
@@ -265,7 +273,9 @@ test("putting the layer away puts the done notes away with it, and looking wrote
   await expect.element(bar).not.toBeInTheDocument();
   await pressToggle();
   await expect.element(page.getByRole("status")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Show done notes" })).toBeVisible();
+  expect(page.getByRole("button", { name: /^Done note/ }).elements()).toHaveLength(0);
+  await countOf().click();
+  await expect.element(tabOf("Open")).toHaveAttribute("aria-selected", "true");
   expect(page.getByRole("button", { name: /^Done note/ }).elements()).toHaveLength(0);
 
   // Nothing about a note was written by looking: the files say what they said.
@@ -580,7 +590,9 @@ function away(name: string, at: string, change: Partial<Annotation> = {}): Annot
 const panel = () => page.getByRole("complementary", { name: "All notes" });
 const countOf = () => page.getByRole("status").getByRole("button", { name: /open, \d+ done/ });
 const rowOf = (text: string) => panel().getByRole("listitem").filter({ hasText: text });
-const headings = () => panel().getByRole("heading").elements().map((one) => one.textContent);
+// A heading is the fold button: the screen's name, then how many notes it holds.
+const headings = () => panel().getByRole("heading").elements().map((one) => one.querySelector("span")?.textContent);
+const tabOf = (name: string) => panel().getByRole("tab", { name: new RegExp(`^${name}\\b`) });
 const screened = (one: Annotation, screen: string | null): Annotation => ({ ...one, screen });
 
 test("the status text opens the panel and closes it again", async () => {
@@ -620,27 +632,29 @@ test("the panel groups notes by screen, in name order, with No screen last", asy
   await expect.element(panel().getByRole("region", { name: "No screen" })).toHaveTextContent("first: what the owner said");
 });
 
-test("a done note is listed only once the done notes are shown, and then after the open ones", async () => {
+test("a done note is listed on the Done tab and not on the Open one", async () => {
   await annotating(sinkOf(batch()));
   await countOf().click();
   await expect.element(rowOf("first:")).toBeVisible();
   expect(rowOf("second:").elements()).toHaveLength(0);
 
-  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await tabOf("Done").click();
   await expect.element(rowOf("second:")).toBeVisible();
-  expect(panel().getByRole("listitem").elements().map((one) => one.getAttribute("data-status"))).toEqual(["open", "open", "done"]);
+  expect(panel().getByRole("listitem").elements().map((one) => one.getAttribute("data-status"))).toEqual(["done"]);
 
-  await page.getByRole("status").getByRole("button", { name: "Hide done notes" }).click();
+  await tabOf("Open").click();
+  await expect.element(rowOf("first:")).toBeVisible();
   expect(rowOf("second:").elements()).toHaveLength(0);
 });
 
-test("a screen holding only done notes has no heading until they are shown", async () => {
+test("a screen holding only done notes has no heading until the Done tab is chosen", async () => {
   await annotating(sinkOf([screened(note("first", "open", "5", 15), "Overview"), screened(note("second", "done", "6", 30), "Job Board")]));
   await countOf().click();
   await expect.element(panel()).toBeVisible();
   expect(headings()).toEqual(["Overview"]);
-  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
-  await expect.element(panel().getByRole("heading", { name: "Job Board" })).toBeVisible();
+  await tabOf("Done").click();
+  await expect.element(panel().getByRole("heading", { name: /Job Board/ })).toBeVisible();
+  expect(headings()).toEqual(["Job Board"]);
 });
 
 test("a row's Start job sends that note alone to a new Session, and marks only it sent", async () => {
@@ -666,14 +680,16 @@ test("a sent note and a done note offer no send, and an open unsent one does", a
     served().fleet,
   );
   await countOf().click();
-  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
-  await expect.element(rowOf("third:")).toBeVisible();
+  await expect.element(rowOf("second:")).toBeVisible();
 
   await expect.element(rowOf("first:").getByRole("button", { name: "Start job" })).toBeVisible();
   expect(rowOf("second:").getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
-  expect(rowOf("third:").getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
   // What stays on every row is what a person does to a note, sent or not.
   await expect.element(rowOf("second:").getByRole("button", { name: "Mark done" })).toBeVisible();
+
+  await tabOf("Done").click();
+  await expect.element(rowOf("third:")).toBeVisible();
+  expect(rowOf("third:").getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
   await expect.element(rowOf("third:").getByRole("button", { name: "Reopen" })).toBeVisible();
 });
 
@@ -775,17 +791,18 @@ const ticked = () =>
     .map((one) => (one.getAttribute("aria-label") ?? "").replace(/^Select /, "").replace(/: what the owner said$/, ""));
 const textsOf = async (sink: Sink, which: (one: Annotation) => boolean) => (await sink.list()).filter(which).map((one) => one.text.replace(/: what the owner said$/, ""));
 
-async function panelOn(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void): Promise<void> {
-  await annotating(sink, fleet, openSession, tell);
+async function panelOn(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void, held?: readonly Session[]): Promise<void> {
+  await annotating(sink, fleet, openSession, tell, held);
   await countOf().click();
   await expect.element(panel()).toBeVisible();
 }
 
 test("ticking rows selects them, and the head says how many with the acts on them", async () => {
   await panelOn(sendable(four()), served().fleet);
-  // Nothing is ticked, so the head offers Select all and no act.
+  // Nothing is ticked, so the head offers Select all and a Start job with nothing to send, and no other act.
   await expect.element(selection().getByRole("checkbox", { name: "Select all" })).not.toBeChecked();
-  expect(selection().getByRole("button").elements()).toHaveLength(0);
+  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
+  for (const name of ["Mark done", "Reopen", "Delete"]) expect(selection().getByRole("button", { name, exact: true }).elements()).toHaveLength(0);
 
   await tickOf("first:").click();
   await tickOf("third:").click();
@@ -810,14 +827,25 @@ test("Select all ticks every listed note, and pressed again clears them", async 
   await expect.element(all).toBeChecked();
   await all.click();
   expect(ticked()).toEqual([]);
-  expect(selection().getByRole("button").elements()).toHaveLength(0);
+  for (const name of ["Mark done", "Delete"]) expect(selection().getByRole("button", { name, exact: true }).elements()).toHaveLength(0);
+  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
 });
 
-test("Select all takes only what is listed: a done note stays out until the done notes are shown", async () => {
+test("Select all takes only what the tab lists: the Open tab leaves the done note out, and the Done tab takes it alone", async () => {
   await panelOn(sendable(batch()), served().fleet);
   await selection().getByRole("checkbox", { name: "Select all" }).click();
   expect(ticked()).toEqual(["first", "third"]);
   await expect.element(selection()).toHaveTextContent("2 selected");
+
+  // The two ticked stay ticked behind the tab, and are neither counted nor acted on from it.
+  await tabOf("Done").click();
+  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).not.toBeChecked();
+  expect(selection().element().textContent).not.toContain("selected");
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  expect(ticked()).toEqual(["second"]);
+  await expect.element(selection()).toHaveTextContent("1 selected");
+  expect(selection().getByRole("button", { name: "Mark done", exact: true }).elements()).toHaveLength(0);
+  await expect.element(selection().getByRole("button", { name: "Reopen", exact: true })).toBeVisible();
 });
 
 test("a shift-press ticks every row between it and the last one ticked", async () => {
@@ -868,10 +896,10 @@ test("Mark done and Reopen on the selection change the ticked notes alone", asyn
   await expect.element(page.getByRole("status")).toHaveTextContent("2 open, 2 done");
   expect(ticked()).toEqual([]);
 
-  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
-  await tickOf("first:").click();
+  await tabOf("Done").click();
   await tickOf("third:").click();
-  // One open and one done: both acts are offered, each for the ticked notes it applies to.
+  // A done note: Reopen is offered, and Mark done is not.
+  expect(selection().getByRole("button", { name: "Mark done", exact: true }).elements()).toHaveLength(0);
   await selection().getByRole("button", { name: "Reopen" }).click();
   await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second"]));
   expect(ticked()).toEqual([]);
@@ -915,14 +943,13 @@ test("a ticked note deleted from its own row leaves the selection", async () => 
   await expect.element(selection()).toHaveTextContent("1 selected");
 });
 
-test("a selection holding sent and done notes sends only the open unsent ones, and says how many it leaves out", async () => {
+test("a selection holding a sent note sends only the open unsent ones, and says how many it leaves out", async () => {
   const { fleet, sent } = served();
   const forwarded = note("second", "open", "6", 30);
   const held = sendable([note("first", "open", "5", 15), { ...forwarded, sent: { sessionId: "01OLD", title: "Old one", at: forwarded.createdAt } }, note("third", "done", "7", 45)]);
   await panelOn(held, fleet);
-  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
   await selection().getByRole("checkbox", { name: "Select all" }).click();
-  await expect.element(selection()).toHaveTextContent("3 selected. Sends leave out 2: 1 already sent, 1 done");
+  await expect.element(selection()).toHaveTextContent("2 selected. Sends leave out 1: 1 already sent");
 
   await selection().getByRole("button", { name: "Start job" }).click();
   await vi.waitFor(() => expect(sent).toHaveLength(1));
@@ -931,15 +958,20 @@ test("a selection holding sent and done notes sends only the open unsent ones, a
   await vi.waitFor(() => expect(ticked()).toEqual([]));
 });
 
-test("a selection of only sent and done notes offers no send, and still offers the rest", async () => {
+test("a selection of only sent or only done notes has nothing to send, and still offers the rest", async () => {
   const forwarded = note("second", "open", "6", 30);
   await panelOn(sendable([{ ...forwarded, sent: { sessionId: "01OLD", title: "Old one", at: forwarded.createdAt } }, note("third", "done", "7", 45)]), served().fleet);
-  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
   await selection().getByRole("checkbox", { name: "Select all" }).click();
-  await expect.element(selection()).toHaveTextContent("2 selected");
+  await expect.element(selection()).toHaveTextContent("1 selected");
   expect(selection().element().textContent).not.toContain("Sends leave out");
-  expect(selection().getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
-  for (const name of ["Mark done", "Reopen", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
+  for (const name of ["Mark done", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+
+  await tabOf("Done").click();
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("1 selected");
+  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
+  for (const name of ["Reopen", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
 });
 
 test("where sending is not possible, the selection offers no Start job", async () => {
@@ -980,4 +1012,239 @@ test("turning the layer off and on again comes back with nothing selected", asyn
   await countOf().click();
   await expect.element(panel()).toBeVisible();
   expect(ticked()).toEqual([]);
+});
+
+// The panel's head: search, the four tabs and their counts, folding a screen, and what Select all and Start job take.
+
+/** A note with its own words, screen and component, so a search finds it by one and not the others. */
+const writtenAs = (name: string, text: string, screen: string | null, component: string, status: AnnotationStatus = "open"): Annotation => ({
+  ...note(name, status, String(name.charCodeAt(0) - 92), 10 + (name.charCodeAt(0) - 97) * 12),
+  text,
+  screen,
+  component,
+});
+const sentTo = (one: Annotation, sessionId: string, title: string): Annotation => ({ ...one, sent: { sessionId, title, at: one.createdAt } });
+
+const searching = () => panel().getByRole("searchbox", { name: "Search notes" });
+const listedTexts = () => panel().getByRole("listitem").elements().map((one) => one.querySelector(".armada-annotate__row-text")?.textContent);
+const tabsSaid = () => panel().getByRole("tab").elements().map((one) => one.textContent);
+
+/** Three notes, each findable by what only it says. */
+const searchable = (): Annotation[] => [
+  writtenAs("a", "Title is cut off", "Overview", "Deck"),
+  writtenAs("b", "Badge overlaps", "Sessions", "RowBadge"),
+  writtenAs("c", "Ring is missing", "Settings", "ThemePicker"),
+];
+
+test("searching finds a note by its text, whatever the case", async () => {
+  await panelOn(sinkOf(searchable()));
+  await expect.poll(listedTexts).toEqual(["Title is cut off", "Badge overlaps", "Ring is missing"]);
+
+  await searching().fill("BADGE over");
+  await expect.poll(listedTexts).toEqual(["Badge overlaps"]);
+
+  await searching().fill("");
+  await expect.poll(listedTexts).toHaveLength(3);
+});
+
+test("searching finds a note by the screen it was written on", async () => {
+  await panelOn(sinkOf(searchable()));
+  await searching().fill("settings");
+  await expect.poll(listedTexts).toEqual(["Ring is missing"]);
+  expect(headings()).toEqual(["Settings"]);
+});
+
+test("searching finds a note by the component it is pinned on", async () => {
+  await panelOn(sinkOf(searchable()));
+  await searching().fill("themepicker");
+  await expect.poll(listedTexts).toEqual(["Ring is missing"]);
+});
+
+test("a search that finds nothing says so, and drops the select head with the rows", async () => {
+  await panelOn(sinkOf(searchable()));
+  await searching().fill("nothing says this");
+  await expect.element(panel().getByText("No notes")).toBeVisible();
+  expect(listedTexts()).toEqual([]);
+  expect(selection().elements()).toHaveLength(0);
+});
+
+test("the tabs say how many notes each holds, and a tab holding none says no figure", async () => {
+  await panelOn(sinkOf(batch()));
+  expect(tabsSaid()).toEqual(["Open 2", "No job 2", "Has job", "Done 1"]);
+  await expect.element(tabOf("Open")).toHaveAttribute("aria-selected", "true");
+});
+
+test("the Open, No job, Has job and Done tabs each list what they hold", async () => {
+  const sent = (one: Annotation, to: string) => sentTo(one, to, `Job ${to}`);
+  await panelOn(
+    sinkOf([
+      writtenAs("a", "Unsent one", "Overview", "Deck"),
+      writtenAs("b", "Unsent two", "Overview", "Deck"),
+      sent(writtenAs("c", "Sent open", "Overview", "Deck"), "01S1"),
+      writtenAs("d", "Done unsent", "Overview", "Deck", "done"),
+      sent(writtenAs("e", "Done sent", "Overview", "Deck", "done"), "01S2"),
+    ]),
+  );
+  expect(tabsSaid()).toEqual(["Open 3", "No job 2", "Has job 1", "Done 2"]);
+  const held = async (tab: string, texts: string[]) => {
+    await tabOf(tab).click();
+    await expect.element(tabOf(tab)).toHaveAttribute("aria-selected", "true");
+    await expect.poll(listedTexts).toEqual(texts);
+  };
+  await held("Open", ["Unsent one", "Unsent two", "Sent open"]);
+  await held("No job", ["Unsent one", "Unsent two"]);
+  await held("Has job", ["Sent open"]);
+  await held("Done", ["Done unsent", "Done sent"]);
+});
+
+test("a search narrows whichever tab is chosen, and the counts stay what the tab holds", async () => {
+  await panelOn(sinkOf([...searchable(), writtenAs("d", "Badge is done", "Sessions", "RowBadge", "done")]));
+  await searching().fill("badge");
+  await expect.poll(listedTexts).toEqual(["Badge overlaps"]);
+  await tabOf("Done").click();
+  await expect.poll(listedTexts).toEqual(["Badge is done"]);
+  expect(tabsSaid()).toEqual(["Open 3", "No job 3", "Has job", "Done 1"]);
+});
+
+test("a screen's group folds on its heading and opens again, and its count stays", async () => {
+  await panelOn(sinkOf([writtenAs("a", "Overview one", "Overview", "Deck"), writtenAs("b", "Overview two", "Overview", "Deck"), writtenAs("c", "Sessions one", "Sessions", "Deck")]));
+  const fold = panel().getByRole("heading").getByRole("button", { name: /Overview/ });
+  await expect.element(fold).toHaveAttribute("aria-expanded", "true");
+  await expect.element(fold).toHaveTextContent("2");
+
+  await fold.click();
+  await expect.element(fold).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(listedTexts).toEqual(["Sessions one"]);
+  await expect.element(fold).toHaveTextContent("2");
+
+  await fold.click();
+  await expect.poll(listedTexts).toEqual(["Overview one", "Overview two", "Sessions one"]);
+});
+
+test("a folded screen is put back, open, when the layer comes on again", async () => {
+  await panelOn(sinkOf([writtenAs("a", "Overview one", "Overview", "Deck")]));
+  await panel().getByRole("heading").getByRole("button", { name: /Overview/ }).click();
+  expect(listedTexts()).toEqual([]);
+  await pressToggle();
+  await pressToggle();
+  await countOf().click();
+  await expect.poll(listedTexts).toEqual(["Overview one"]);
+});
+
+test("Select all ticks every listed note, those in a folded screen too, and Start job sends them all", async () => {
+  const { fleet, sent } = served();
+  await panelOn(sendable([writtenAs("a", "Overview one", "Overview", "Deck"), writtenAs("b", "Overview two", "Overview", "Deck"), writtenAs("c", "Sessions one", "Sessions", "Deck")]), fleet, vi.fn());
+  await panel().getByRole("heading").getByRole("button", { name: /Overview/ }).click();
+  expect(listedTexts()).toEqual(["Sessions one"]);
+
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("3 selected");
+  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).toBeChecked();
+  // Opened again, the notes that were folded away are ticked.
+  await panel().getByRole("heading").getByRole("button", { name: /Overview/ }).click();
+  await expect.poll(() => ticked().length).toBe(3);
+
+  await selection().getByRole("button", { name: "Start job" }).click();
+  await vi.waitFor(() => expect(sent).toHaveLength(3));
+  expect(sent.map((one) => one.said)).toEqual(["Overview one", "Overview two", "Sessions one"]);
+});
+
+test("Select all takes only what the search leaves, and a note it hides is neither counted nor sent", async () => {
+  const { fleet, sent } = served();
+  await panelOn(sendable([writtenAs("a", "Alpha first", "Overview", "Deck"), writtenAs("b", "Beta second", "Overview", "Deck"), writtenAs("c", "Beta third", "Overview", "Deck")]), fleet, vi.fn());
+  await tickOf("Alpha first").click();
+  await searching().fill("beta");
+  await expect.poll(listedTexts).toEqual(["Beta second", "Beta third"]);
+  // The note ticked before the search is out of view: it is not in the count.
+  expect(selection().element().textContent).not.toContain("selected");
+
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("2 selected");
+  await selection().getByRole("button", { name: "Start job" }).click();
+  await vi.waitFor(() => expect(sent).toHaveLength(2));
+  expect(sent.map((one) => one.said)).toEqual(["Beta second", "Beta third"]);
+});
+
+test("Select all on a search ticks nothing the search hides, which are there when the search is cleared", async () => {
+  await panelOn(sinkOf(searchable()));
+  await searching().fill("deck");
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await searching().fill("");
+  await expect.poll(ticked).toEqual(["Title is cut off"]);
+});
+
+test("Start job in the head is held until a note it can send is ticked, and sends the ticked ones", async () => {
+  const { fleet, sent } = served();
+  const forwarded = sentTo(writtenAs("b", "Already sent", "Overview", "Deck"), "01OLD", "Old one");
+  await panelOn(sendable([writtenAs("a", "Not sent", "Overview", "Deck"), forwarded]), fleet, vi.fn());
+  const start = selection().getByRole("button", { name: "Start job" });
+  await expect.element(start).toBeDisabled();
+
+  // A note that already went to a Job gives it nothing to send.
+  await tickOf("Already sent").click();
+  await expect.element(start).toBeDisabled();
+  await tickOf("Already sent").click();
+
+  await tickOf("Not sent").click();
+  await expect.element(start).toBeEnabled();
+  await start.click();
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  expect(sent.map((one) => one.said)).toEqual(["Not sent"]);
+});
+
+// A sent note's row draws the Job it went to as the shared Job card.
+
+const held = (id: string, title: string): Session => ({ id, title, attachments: [], rows: [], turn: { state: "working" } }) as unknown as Session;
+const cardOf = (text: string, title: string) => rowOf(text).getByRole("button", { name: `Job ${title}`, exact: true });
+
+test("a note sent to a Job this window holds draws that Job as its card, and a press opens it", async () => {
+  const opened = vi.fn();
+  const forwarded = sentTo(writtenAs("a", "Sent note", "Overview", "Deck"), "01HELD", "Title the note kept");
+  await panelOn(sendable([forwarded, writtenAs("b", "Unsent note", "Overview", "Deck")]), undefined, opened, undefined, [held("01HELD", "Row badge spacing")]);
+
+  const card = cardOf("Sent note", "Row badge spacing");
+  await expect.element(card).toBeVisible();
+  // The Job's live state, and the title the Job has now, not the one the note kept.
+  await expect.element(card.getByRole("img", { name: "Working" })).toBeVisible();
+  expect(rowOf("Sent note").getByRole("button", { name: "Job Title the note kept" }).elements()).toHaveLength(0);
+  expect(rowOf("Unsent note").getByRole("button", { name: /^Job / }).elements()).toHaveLength(0);
+
+  await card.click();
+  expect(opened).toHaveBeenCalledWith("01HELD");
+});
+
+test("a note sent to a Job this window does not hold draws the card with the title the note kept, in no state", async () => {
+  const opened = vi.fn();
+  const forwarded = sentTo(writtenAs("a", "Sent note", "Overview", "Deck"), "01GONE", "Title the note kept");
+  await panelOn(sendable([forwarded]), undefined, opened, undefined, [held("01OTHER", "Some other Job")]);
+
+  const card = cardOf("Sent note", "Title the note kept");
+  await expect.element(card).toBeVisible();
+  await expect.element(card.getByRole("img", { name: "Not held by this window" })).toBeVisible();
+
+  await card.click();
+  expect(opened).toHaveBeenCalledWith("01GONE");
+});
+
+// Fleet rewrites a note file when an agent marks it done or its Job closes. Main tells the layer, which reads the files again.
+
+test("the layer reads its notes again each time Fleet says a note file changed, and stops listening when it is put away", async () => {
+  const listeners = new Set<() => void>();
+  window.armadaDev = { onChanged: (listener: () => void) => (listeners.add(listener), () => void listeners.delete(listener)) } as unknown as typeof window.armadaDev;
+  const files = sinkOf(batch());
+  await panelOn(files);
+  await expect.element(countOf()).toHaveTextContent("2 open, 1 done");
+
+  // Fleet marks the first note done, in its file. The layer holds what it read until told.
+  const [first] = await files.list();
+  await files.save({ ...first!, status: "done" });
+  await new Promise((settled) => setTimeout(settled, 50));
+  await expect.element(countOf()).toHaveTextContent("2 open, 1 done");
+
+  listeners.forEach((one) => one());
+  await expect.element(countOf()).toHaveTextContent("1 open, 2 done");
+  await expect.element(tabOf("Done")).toHaveTextContent("Done 2");
+
+  await pressToggle();
+  expect(listeners.size).toBe(0);
 });

@@ -112,6 +112,7 @@ mod session_account;
 mod session_servers;
 mod session_activity;
 mod session_annotation_done;
+mod session_note_artifacts;
 mod pull_request_notes;
 mod session_dispute;
 mod claim_disputes;
