@@ -2,7 +2,7 @@
 // call on all done since the list was read, so a start that names it is refused with Fleet's words, raised as the window's toast
 // as the wired store raises it. Mock only. The walk `projects-other-repository` plays it.
 
-import { askToTell } from "../../tell";
+import { raiseOutcome } from "../../tell";
 import type { Scenario } from "../moment";
 import { s331Projects as projects } from "./projects";
 
@@ -21,7 +21,8 @@ export const projectsOtherRepository: Scenario = {
         ...store,
         start: (tag, root, request, tuning, after, held, projectRows, toasted) => {
           if (projectRows?.some((one) => one.row === GONE) !== true) return store.start(tag, root, request, tuning, after, held, projectRows, toasted);
-          if (toasted === true) askToTell(REFUSED);
+          if (toasted === true)
+            raiseOutcome({ ok: false, why: "refused", error: { code: "fleet.no_such_project_row", message: REFUSED, run_id: "mock", fields: { act: "start_session", root: root ?? "", project_rows: JSON.stringify(projectRows) }, chain: [] } });
           return Promise.resolve(undefined);
         },
       };

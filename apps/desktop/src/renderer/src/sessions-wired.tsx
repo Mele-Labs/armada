@@ -19,7 +19,14 @@ import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import { askToTell, NOT_REACHABLE, type RefusedAct } from "./tell";
+import { askToTell, NOT_REACHABLE, raiseOutcome, type RefusedAct } from "./tell";
+import { actFields } from "./raised";
+
+/** A start refused from the dispatch sheet, raised as the window's toast with Fleet's own code, and the request it sent as its fields. */
+function raiseStartRefused(outcome: Parameters<typeof raiseOutcome>[0], act: RefusedAct): void {
+  if (outcome.ok || outcome.why !== "refused") return raiseOutcome(outcome);
+  raiseOutcome({ ...outcome, error: { ...outcome.error, fields: { ...outcome.error.fields, ...actFields(act) } } });
+}
 import { taggedIn } from "./dispatch-panel/waits";
 import { hearQueuedIdeas, newIdeaId, readQueuedIdeas, writeQueuedIdeas } from "./queued-ideas";
 import { moveRefusalWords } from "./session-moved";
@@ -398,7 +405,7 @@ export class WiredStore {
           : held === true
             ? await this.api.startSession(undefined, root, request, tuning, undefined, true)
             : await this.api.startSession(undefined, root, request, tuning);
-    if (!done.ok) return void (toasted === true ? this.tell(done.outcome, { act: "start_session", request: { root, request, project_rows: rows } }) : this.say(done.outcome));
+    if (!done.ok) return void (toasted === true ? raiseStartRefused(done.outcome, { act: "start_session", request: { root, request, project_rows: rows } }) : this.say(done.outcome));
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
     await this.held(id);
