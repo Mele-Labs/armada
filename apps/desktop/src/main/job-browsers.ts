@@ -15,7 +15,7 @@ import type { JobBrowserState } from "../shared/api/job-browser";
 import { pngSize, ringOn, type Ring } from "../shared/ring";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
 import { webOrigin } from "./capture/address";
-import { bounded, chainOf, readOf, rectOf, type PageRead } from "./capture/bounds";
+import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./capture/bounds";
 import { burnRing, type Burn } from "./capture/burn";
 import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
@@ -47,8 +47,8 @@ export type BrowserPage = JobPage & {
   viewport(): { width: number; height: number };
   /** The page as it is drawn now. */
   picture(): Promise<Picture | null>;
-  /** The injected layer's ask at a point of the page (`capture/layer.ts`). */
-  ask(x: number, y: number): Promise<unknown>;
+  /** The injected layer's ask at a point of the page (`capture/layer.ts`); `take` false answers only the box and its name. */
+  ask(x: number, y: number, take?: boolean): Promise<unknown>;
 };
 
 /** The page as drawn, and where a box in its CSS pixels is on that picture. */
@@ -227,6 +227,13 @@ export class JobBrowsers {
     return { box: rectOf(capture.bounds, viewport), chain: chainOf(capture) };
   }
 
+  /** The box of the part at a point of the picture, in the picture's own pixels (the page's CSS pixels): the pane's hover ring. */
+  async aim(sessionId: string, x: number, y: number): Promise<CaptureRect | null> {
+    const one = this.held.get(sessionId);
+    if (one === undefined || one.frozen === null) return null;
+    return aimed(await one.page.ask(x, y, false), one.page.viewport())?.box ?? null;
+  }
+
   /**
    * The held part's note, sent to the Job as the owner's: `send_session_note`. Its picture is the whole frozen page with the
    * part ringed, tagged 1, since it goes as a turn of its own.
@@ -253,7 +260,8 @@ const EVALUATE_WORLD = 2001;
 const MOST_SNAPSHOT = 64 * 1024;
 const MOST_RESULT = 64 * 1024;
 const SETTLE_MS = 300;
-const CHORDS: Record<string, Chord> = { "alt+meta+KeyC": "capture", "meta+BracketLeft": "back", "meta+BracketRight": "forward", "meta+KeyR": "reload" };
+// ⌥⌘A starts Capture as ⌥⌘C does; the app's annotation layer keeps it while no Job browser is on screen (`chord.ts` in the pane).
+const CHORDS: Record<string, Chord> = { "alt+meta+KeyC": "capture", "alt+meta+KeyA": "capture", "meta+BracketLeft": "back", "meta+BracketRight": "forward", "meta+KeyR": "reload" };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -379,6 +387,8 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
     hide: (on) => {
       hidden = on;
       view.setVisible(shown && !on);
+      // A hidden page keeps the keyboard, and ⌥⌘A that closes the annotation layer would go to it.
+      if (on && parent !== null && !parent.isDestroyed()) parent.webContents.focus();
     },
     go: (to) => {
       if (contents.isDestroyed()) return;
@@ -397,10 +407,10 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
       const width = pngSize(png)?.width ?? image.getSize().width;
       return { png, ring: (box) => (box.width === 0 || box.height === 0 ? null : ringOn(box, viewportOf().width, width)) };
     },
-    ask: async (x, y) => {
+    ask: async (x, y, take = true) => {
       if (contents.isDestroyed()) return null;
       try {
-        return await contents.executeJavaScript(askSource(x, y, true), false);
+        return await contents.executeJavaScript(askSource(x, y, take), false);
       } catch {
         return null;
       }
