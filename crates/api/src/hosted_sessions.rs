@@ -457,6 +457,20 @@ pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn mend_session_tools<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::MendSessionTools = match ipc::decode_body("a job's tools to mend", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mend_session_tools(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn start_again<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

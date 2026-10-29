@@ -1024,6 +1024,30 @@ pub struct AttachmentHistory {
     pub versions: Vec<AttachmentVersion>,
 }
 
+/// A piece of Armada a hosted session's agent came up without.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolMissing {
+    /// The `armada` mod was not among the plugins the CLI loaded.
+    Mod,
+    /// Fleet's door was not among the MCP servers, or not connected.
+    Door,
+    /// The CLI served no task list tools.
+    TaskTools,
+}
+
+/// What a hosted session's agent lacks of Armada's own, and the CLI version that lacked it. **Never
+/// empty**: a session missing nothing carries none.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolsMissing {
+    /// The harness's own name, so a client names the CLI without spelling it.
+    pub harness: String,
+    /// The command that updates the CLI, which a client runs in the session's terminal.
+    pub update: String,
+    pub harness_version: String,
+    pub missing: Vec<ToolMissing>,
+}
+
 /// A session and everything it holds. Answered by `report_session`, listed by
 /// `list_sessions`, and published whole as `session.changed`, so a client
 /// replaces the row rather than patching it.
@@ -1060,6 +1084,11 @@ pub struct SessionRecord {
     /// repository's. Since 23.62.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mod_out_of_date: bool,
+    /// A hosted session whose agent came up without some of its Armada pieces, as Fleet read the CLI's
+    /// first line of the process. Absent when nothing is missing, on a session a terminal runs and once
+    /// the session ends. Held in memory: a Fleet that restarts has none until the next turn starts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools_missing: Option<ToolsMissing>,
     /// What the session waits on the person for: the agent's list with Fleet's own items merged in, the
     /// agent's first. Empty for an ended session.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

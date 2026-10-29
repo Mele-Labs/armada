@@ -19,6 +19,7 @@ import {
   askLabel,
   askText,
   HandoffBand,
+  ToolsBand,
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
@@ -94,7 +95,8 @@ import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
-import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked } from "@armada/screens/src/draft/sessions";
+import { useToolsBand, useToolsFixes } from "./tools-fixes";
+import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
 import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
@@ -1133,6 +1135,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)];
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
+  const toolsFixing = useToolsFixes(session, terminal?.dock);
+  const toolsAway = useToolsBand(session);
+  const toolsBand = toolsFixing !== undefined && toolsAway.shown;
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1147,6 +1152,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(draft.nameForMe === undefined ? {} : { onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve() })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        {...(session.toolsMissing === undefined ? {} : { toolsMissing: toolsMissingSaid(session.toolsMissing) })}
+        {...(toolsFixing === undefined ? {} : { toolsFixes: toolsFixing })}
+        {...(toolsBand ? {} : { toolsApparent: true })}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
@@ -1265,7 +1273,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           </RequestOpen.Provider>
           {docked.pane}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown || toolsBand ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
+          <div className="sv-bands">
+          {toolsBand && session.toolsMissing !== undefined && toolsFixing !== undefined ? <ToolsBand said={toolsMissingSaid(session.toolsMissing)} {...toolsFixing} onDismiss={toolsAway.dismiss} /> : null}
           <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} cards={notOurs} />
           {failedShown ? (
             <HandoffBand
@@ -1276,6 +1286,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
+          </div>
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {session.dead !== undefined ? null : (
             <SessionComposer

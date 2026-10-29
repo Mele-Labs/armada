@@ -382,6 +382,24 @@ async fn a_jobs_mcp_servers_are_read_and_acted_on() {
     assert!(String::from_utf8_lossy(&body).contains("fleet.session_closed"));
 }
 
+/// A restart of a Job's agent is a POST on its own route, refused as Fleet refuses it: a terminal Job
+/// 422, a closed one 409, and a body that is not a Job's id the transport's 400.
+#[tokio::test]
+async fn a_restart_of_a_jobs_agent_is_refused_in_words_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "POST", "/sessions/tools/mend", r#"{"session_id":"terminal"}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.session_tools_unmendable"));
+    let (status, body) = call(&app, "POST", "/sessions/tools/mend", r#"{"session_id":"closed"}"#).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.session_closed"));
+    let (status, _) = call(&app, "POST", "/sessions/tools/mend", r#"{"id":"s1"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = call(&app, "GET", "/sessions/tools/mend", "").await;
+    assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED, "a command is answered on POST only");
+}
+
 #[tokio::test]
 async fn a_shown_file_is_read_as_text_over_the_router() {
     let events = Broadcaster::new();

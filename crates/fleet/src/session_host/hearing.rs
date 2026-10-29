@@ -295,7 +295,11 @@ where
             self.signed_in_heard(id).await;
         }
         match event {
-            DroneEvent::Started { model, .. } => {
+            DroneEvent::Started { model, harness, .. } => {
+                // A process mended on this line has not started the turn: it is sent again to the next.
+                if self.tools_healed(id, runtime, &harness).await {
+                    return;
+                }
                 self.limit_cleared(id).await;
                 let began = self.now().as_str().to_string();
                 let noticed = {

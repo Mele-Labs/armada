@@ -421,6 +421,11 @@ where
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
             fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
+                // A hosted session's working band reads its activity, which only `TodoWrite` fills
+                // at the gate. Current CLIs serve the task tools instead, which only the mod hears.
+                if let (false, SessionFact::Tasks { tasks }) = (terminal, &fact) {
+                    changed |= self.hosts().of(&id).state().activity.tasks_told(tasks);
+                }
                 changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
             }
             // A hosted session's own calls are counted from its process, so its mod's count is not read.

@@ -101,6 +101,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/mcp/act",
     },
     Route {
+        operation: "mend_session_tools",
+        method: "POST",
+        path: "/sessions/tools/mend",
+    },
+    Route {
         operation: "start_again",
         method: "POST",
         path: "/sessions/start_again",

@@ -20,6 +20,13 @@ job's reported mod version with the installed one reads
 Nothing else starts it.
 Onboarding's *Import* uses it, beside `list_import_folders` and `get_import_runs`, which read a person's past sessions (`crates/ipc/operations/`).
 
+**A hosted Job loads Fleet's copy whether or not the person installed it.**
+Fleet starts every process of a Job it hosts with `--plugin-dir` on `Armada/mod/armada`, so a Mac where nobody ran the two commands still gets the mod's task list, job id note, subagents and skills in its Jobs.
+Beside an installed copy the CLI loads the mod once, this copy winning, so a hosted Job runs the mod as new as the Fleet (measured on 2.1.292, 2.1.308, 2.1.310 and 2.1.312, 29 Oct 2026).
+Where the copy is empty, Fleet fills it with `scripts/sync-mod` from a served repository that holds one before the launch, and a launch it cannot fill starts without the mod.
+A Job that still came up without it is marked and mended once ([A Job that came up without its tools](a-job-that-came-up-without-its-tools.md)).
+A terminal job still loads only an installed copy.
+
 **The mod ships an output style, `Armada`** (`plugins/armada/output-styles/armada.md`), found from the folder with no entry in `plugin.json`, and picked with `/output-style` as `armada:Armada`.
 It keeps the coding instructions (`keep-coding-instructions: true`), states the job rules and sets plain, concise replies.
 A hosted job needs it no more than it needs the rules in its prompt; it is for a terminal job of a person who has no style of their own.

@@ -383,6 +383,9 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 /* The box the composer sits in. The Needs you trigger sits on its top edge, so with anything waiting it keeps the trigger's height and a gap clear of the thread's foot.
    The band and the box meet square, folded or open, and opened the box takes the panel's hue, so the two read as one outline. */
 .sv-dock { position: relative; flex: none; }
+/* The bands on the box's top edge, stacked in one flow with the tools band uppermost, so two shown together do not overlap. */
+.sv-bands { position: absolute; inset-block-end: 100%; inset-inline: 0; z-index: 2; display: flex; flex-direction: column; pointer-events: none; }
+.sv-bands > .armada-needs-panel { position: static; }
 .sv-dock[data-needs] { margin-block-start: calc(var(--h-badge) + var(--space-3)); }
 .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 /* A held Job's Workflow and Delivery: a strip on the composer's top edge, the width of the composer, the two drawn as one block. The composer's own top edge is the line between them, and the accent tint is what sets the strip apart. */

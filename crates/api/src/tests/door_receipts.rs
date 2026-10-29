@@ -77,6 +77,7 @@ fn long_lived() -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        tools_missing: None,
         waiting_for: vec![
             WaitingItem {
                 act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into() }),

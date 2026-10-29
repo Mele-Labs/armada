@@ -469,6 +469,21 @@ export type WaitReading = {
   plain?: boolean;
 };
 
+/** What the agent's init line showed it lacks: `mod` did not load, `door` (Fleet's MCP door) did not connect, `task_tools` were not served. */
+export type ToolsMissing = { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+
+const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
+
+/** One thing the agent came up without. */
+export type ToolsPiece = ToolsMissing["missing"][number];
+
+/** The sentence for one piece, as the mark's menu lists it. */
+export const toolsPieceSaid = (piece: ToolsPiece): string => MISSING_SAID[piece];
+
+/** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. An init line that names no version says only what is missing. */
+export const toolsMissingSaid = (tools: ToolsMissing): string =>
+  [...(tools.harness_version === "" ? [] : [`${tools.harness} ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -506,6 +521,8 @@ export type Session = {
   terminal?: true;
   /** Its mod is older than the repository's, or reported no version. */
   modOutOfDate?: true;
+  /** The agent came up without some of its Armada tools. Absent when nothing is missing. */
+  toolsMissing?: ToolsMissing;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
@@ -855,6 +872,8 @@ export type SessionsDraft = {
   mcp?: (id: string) => Promise<McpRead>;
   /** Acts on one MCP server of a hosted Session. A Reconnect or a Turn on answers once the CLI has tried to connect, up to 90s. Absent with `mcp`. */
   actOnMcp?: (id: string, server: string, act: McpServerAct) => Promise<McpActed>;
+  /** Restarts the Job's agent with its mod: `mend_session_tools`. Absent where nothing serves it, and the mark's menu then lists the piece with no act. */
+  mendTools?: (id: string) => Promise<{ ok: true } | { ok: false; said: string }>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.

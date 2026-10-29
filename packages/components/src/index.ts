@@ -107,6 +107,7 @@ export * from "./compositions/FactChip/FactChip";
 export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/HandoffMark/HandoffMark";
 export * from "./compositions/NeedsYouPanel/HandoffBand";
+export * from "./compositions/NeedsYouPanel/ToolsBand";
 export * from "./compositions/PathChip/PathChip";
 
 // One row of the run — the step, its mark, its elapsed figure, and the short

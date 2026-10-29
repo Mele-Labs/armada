@@ -635,6 +635,7 @@ const api: BridgeApi = {
   readSessionMcp: (sessionId: string): Promise<SessionActed<SessionMcp>> => ipcRenderer.invoke(CHANNELS.readSessionMcp, sessionId),
   actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> =>
     ipcRenderer.invoke(CHANNELS.actOnSessionMcp, sessionId, server, act),
+  mendSessionTools: (sessionId: string): Promise<SessionActed<void>> => ipcRenderer.invoke(CHANNELS.mendSessionTools, sessionId),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>

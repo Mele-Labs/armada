@@ -261,6 +261,7 @@ where
         record.r#mod = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_job);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
+            record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
         }
         if let Some(hosting) = &reads.hosting {
             record.workflow = hosting.workflow.clone();

@@ -1,0 +1,18 @@
+[operations.mend_session_tools]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Restarts a hosted job's agent so it loads the armada mod it came up without, with Fleet's copy of the mod filled first"
+notes = """
+`POST /sessions/tools/mend`, body `MendSessionTools`: `session_id`. Answers the `SessionRecord`, once the restart is under way. `docs/concepts/session/a-job-that-came-up-without-its-tools.md`.
+
+**Fleet fills its copy of the mod, then lets the process go and starts a replacement that resumes the conversation.** The lines the old process had not finished are sent to the replacement, as the one automatic restart sends them, without that restart's once-only guard since a person asked. A job with none has no turn to carry the restart, so the replacement is started by a word of Fleet's (`Fleet restarted your process with the armada mod. Nothing is asked of you.`), news that asks nothing, kept from no mute or rule. **`tools_missing` is not cleared here**: the replacement's own `init` line sets it again. A job waiting to be moved into a slot, or paused, is answered with its record and left as it is, since the move or the resume starts the process that loads the copy.
+
+Refused, each with its words, nothing restarted:
+- 422 `fleet.session_tools_unmendable`: the job runs in a terminal. "Fleet restarts the agent of a job it hosts only."
+- 422 `fleet.session_mod_not_filled`: the copy could not be filled, and the script's own words follow.
+- 409 `fleet.session_closed`: the job was closed, and takes nothing more.
+- 422 `fleet.no_such_session`: no job Fleet hosts has that id.
+
+Publishes `session.changed`.
+"""

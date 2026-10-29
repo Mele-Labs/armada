@@ -672,6 +672,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
+    ...(record.tools_missing === undefined || record.tools_missing.missing.length === 0 || ended ? {} : { toolsMissing: record.tools_missing }),
     ...(record.held_until === undefined || ended ? {} : { limitedUntil: record.held_until }),
     ...(record.context_breakdown === undefined ? {} : { contextBreakdown: contextBreakdownOf(record.context_breakdown) }),
     ...(record.loadout_summary === undefined ? {} : { loadout: record.loadout_summary }),

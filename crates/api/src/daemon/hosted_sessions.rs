@@ -248,6 +248,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::ActOnSessionMcp,
     ) -> impl Future<Output = Result<ipc::SessionMcpActed, Refusal>> + Send;
 
+    /// `mend_session_tools`: fills Fleet's copy of the mod and restarts the Job's process, which
+    /// resumes the conversation with the lines it had not finished. Answers once the restart is
+    /// under way.
+    fn mend_session_tools(
+        self: std::sync::Arc<Self>,
+        asked: ipc::MendSessionTools,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `start_again`: sends again the turns a Job's process would not start for.
     fn start_again(
         self: std::sync::Arc<Self>,

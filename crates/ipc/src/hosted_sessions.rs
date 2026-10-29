@@ -281,6 +281,12 @@ pub struct StartAgain {
     pub session_id: SessionId,
 }
 
+/// `mend_session_tools`: restart a hosted Job's process with Fleet's copy of the mod, filled first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MendSessionTools {
+    pub session_id: SessionId,
+}
+
 /// `resume_session`: take a slot again at the branch tip. Since 23.92.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResumeSession {
