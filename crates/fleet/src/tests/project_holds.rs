@@ -1,6 +1,6 @@
 //! A Job started with project rows holds the written tasks among them: each task reads as held by
-//! that Job, an issue row keeps no state, and a start naming a row that is not there or is another
-//! repository's is refused before a Job is made.
+//! that Job, an issue row keeps no state, and a start naming a row that is not there is refused
+//! before a Job is made. A row of another repository is held all the same.
 
 use std::sync::Arc;
 
@@ -94,7 +94,7 @@ async fn a_job_started_with_rows_holds_its_tasks_and_an_issue_row_keeps_no_state
 }
 
 #[tokio::test]
-async fn a_start_naming_a_row_of_another_repository_or_one_that_is_missing_is_refused_and_makes_no_job() {
+async fn a_start_naming_a_row_that_is_missing_is_refused_and_makes_no_job_while_one_of_another_repository_is_held() {
     let rig = a_rig();
     let (_project, rows) = a_project(&rig, &["Sign the build"]).await;
     {
@@ -116,8 +116,6 @@ async fn a_start_naming_a_row_of_another_repository_or_one_that_is_missing_is_re
     let jobs = || async { rig.fleet.store().lock().await.find_sessions(&Default::default()).unwrap().len() };
     let before = jobs().await;
 
-    let elsewhere = rig.fleet.start_session(start(&rig, "x", vec![row_ref("foreign")])).await.expect_err("refused");
-    assert_eq!((elsewhere.status(), elsewhere.error().code.as_str()), (422, "fleet.project_row_other_repository"));
     let no_row = rig.fleet.start_session(start(&rig, "x", vec![row_ref("nope")])).await.expect_err("refused");
     assert_eq!((no_row.status(), no_row.error().code.as_str()), (404, "fleet.no_such_project_row"));
     let half = rig
@@ -130,6 +128,12 @@ async fn a_start_naming_a_row_of_another_repository_or_one_that_is_missing_is_re
     assert_eq!(jobs().await, before, "no Job was made");
     let read = rig.fleet.list_projects().await.expect("listed");
     assert_eq!(held(&rows_of(&read, 0)[0]), (ProjectTaskState::Open, None), "and the valid row was not held");
+
+    // A row of another repository is held by a Job of this one: the task keeps its own repository.
+    rig.fleet.start_session(start(&rig, "x", vec![row_ref("foreign")])).await.expect("started across repositories");
+    let read = rig.fleet.list_projects().await.expect("listed");
+    let foreign = read.loose.iter().find(|row| id_of(row) == "foreign").expect("the row");
+    assert_eq!(held(foreign).0, ProjectTaskState::Held);
 }
 
 /// The first project's task rows as `(title, state)`.

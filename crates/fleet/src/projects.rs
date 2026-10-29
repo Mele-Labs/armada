@@ -495,7 +495,7 @@ where
         let session = link.session_id.as_str().to_string();
         self.projects_written(|store, kept| {
             self.task_in(kept, &row)?;
-            self.job_may_hold(store, &self.row_in(kept, &row)?.1.manifest_id, &session)?;
+            self.job_may_hold(store, &session)?;
             let mut tasks = vec![row.clone()];
             tasks.extend(subtasks_of(kept, &row));
             store.hold_project_tasks(&session, &tasks).map_err(|why| self.ledger_fault(why))
