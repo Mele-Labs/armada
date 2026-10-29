@@ -27,7 +27,7 @@
       "id": "find_the_cause",
       "label": "Find the cause",
       "about": "Reads the report and the code, reproduces the bug and names the cause, then writes down the fix as tasks. Nothing is changed yet.",
-      "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nSay `seen: true` in record_plan when the person would see any piece of the change.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
+      "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nSay `seen: true` in record_plan when the person would see any piece of the change.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet. The walk is the Short walk step's own work, so list no walk as a task.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
       "evidence": {
         "submitted": {
           "type": "plan"
@@ -118,7 +118,7 @@
       "id": "short_walk",
       "label": "Short walk",
       "about": "Shows you the fix as a short walk straight to the place. No tests until you approve it. Passed over when nothing would be seen.",
-      "instructions": "Show the fix as a short walk straight to the place. Notes come back as another take.\nShow it with show_window and wait for the person's approval. A bug nobody would see in Bridge needs no walk.",
+      "instructions": "Show the fix as a short walk straight to the place. Notes come back as another take.\nShow it with show_window and wait for the person's approval. A bug nobody would see in Bridge needs no walk.\nShow it once. If you already showed this walk and the person approved it, do not show it again.",
       "walks": true,
       "delivers": false,
       "advance_gate": "auto"

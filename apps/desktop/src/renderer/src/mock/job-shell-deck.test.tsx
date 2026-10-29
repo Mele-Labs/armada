@@ -51,6 +51,16 @@ test("In the Cockpit, the agent opening the Job's shell shows it in the deck's p
   await placedBetween(view, /hmr update/);
 });
 
+test("In the Cockpit, the Terminal tile pulses while the agent's shell prints, and is still before it does", async () => {
+  mount(s322SessionShell);
+  await onScreen();
+  await toSession(/Deploy the store/);
+  expect(terminal().element().hasAttribute("data-running")).toBe(false);
+  timePasses();
+  await expect.element(pane().getByText(/hmr update/)).toBeVisible();
+  expect(terminal().element().hasAttribute("data-running")).toBe(true);
+});
+
 test("In the Cockpit, the deck's panel opens the shell in a window, leaving the panel, and a move back from the window docks it in the panel again", async () => {
   const app = mount(s322SessionShell);
   await onScreen();
