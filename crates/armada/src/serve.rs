@@ -589,8 +589,7 @@ fn assemble(
     // copies from here into the worktree a Drone can see.
     let attachments_dir = machine.join("attachments");
     std::fs::create_dir_all(&attachments_dir)?;
-    let keepers_dir = machine.join("sessions");
-    std::fs::create_dir_all(&keepers_dir)?;
+    let keepers_dir = fleet::session_host::keepers_dir(&machine, std::path::Path::new(&home), &user)?;
 
     // A Studio's frames, beside the Studio's records rather than inside the
     // database — a screenshot in a row is read on every graph read. `#1290`.

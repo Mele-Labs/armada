@@ -105,7 +105,7 @@ use ipc::{HelmCallInFlight, SessionTurn};
 
 use crate::helm::{Asks, HelmAskHold};
 
-pub use process::{Heard, Process, ProcessHost, Processes, Sink, Start};
+pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
 pub use terminal::Terminals;
 pub(crate) use terminal::PromptOpen;
 

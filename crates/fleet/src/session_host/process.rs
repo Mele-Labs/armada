@@ -13,7 +13,7 @@
 //! under `armada session-keep`, and Fleet holds a connection to it. A Fleet
 //! that restarts finds the keeper again with [`Processes::reattach`].
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -142,6 +142,57 @@ const KEEPER_WITHIN: Duration = Duration::from_secs(10);
 /// The longest a unix socket's path may be on macOS, less its terminator.
 const SOCKET_PATH_MOST: usize = 103;
 
+/// A Job's id as Fleet mints it, standing in for every one when a folder is measured.
+const LONGEST_SESSION: &str = "00000000-0000-0000-0000-000000000000";
+
+/// Where keepers go when the machine folder is too deep for a socket: `/tmp/armada-<user>/sessions`.
+const PRIVATE_ROOT: &str = "/tmp";
+
+/// Where each Job's keeper socket goes: `machine/sessions` while a socket there fits, so keepers
+/// already running are found after an upgrade. A long username puts it past the limit, and then a
+/// folder of this user's own under /tmp, which anyone may write to: Fleet refuses one it did not make
+/// private, since a keeper's socket drives an agent.
+pub fn keepers_dir(machine: &Path, home: &Path, user: &str) -> Result<PathBuf, String> {
+    keepers_dir_under(machine, home, user, Path::new(PRIVATE_ROOT))
+}
+
+fn keepers_dir_under(machine: &Path, home: &Path, user: &str, root: &Path) -> Result<PathBuf, String> {
+    let usual = machine.join("sessions");
+    let keepers = match fits(&usual) {
+        true => usual,
+        false => root.join(format!("armada-{user}")).join("sessions"),
+    };
+    keepers_made(&keepers, home, root)?;
+    Ok(keepers)
+}
+
+fn fits(keepers: &Path) -> bool {
+    keepers.join(format!("{LONGEST_SESSION}.sock")).as_os_str().len() <= SOCKET_PATH_MOST
+}
+
+/// Make the keepers' folder if it is gone, as /tmp's cleaning may leave it. One under `root` is made
+/// 0700 and refused unless it is a folder owned by whoever owns `home` that nobody else may open.
+fn keepers_made(keepers: &Path, home: &Path, root: &Path) -> Result<(), String> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+    let Some(private) = keepers.parent().filter(|_| keepers.starts_with(root)) else {
+        return std::fs::create_dir_all(keepers).map_err(|why| why.to_string());
+    };
+    let made = |dir: &Path| match std::fs::DirBuilder::new().mode(0o700).create(dir) {
+        Err(why) if why.kind() != std::io::ErrorKind::AlreadyExists => Err(format!("{}: {why}", dir.display())),
+        _ => Ok(()),
+    };
+    made(private)?;
+    let owner = std::fs::metadata(home).map_err(|why| format!("{}: {why}", home.display()))?.uid();
+    let found = std::fs::symlink_metadata(private).map_err(|why| format!("{}: {why}", private.display()))?;
+    if !found.is_dir() || found.uid() != owner || found.mode() & 0o777 != 0o700 {
+        return Err(format!(
+            "{} is not a folder only this user can open, so Fleet keeps no job sockets in it",
+            private.display()
+        ));
+    }
+    made(keepers)
+}
+
 impl ProcessHost {
     fn socket_of(&self, session: &str) -> Result<PathBuf, String> {
         let socket = self.keepers.join(format!("{session}.sock"));
@@ -241,7 +292,7 @@ impl Processes for ProcessHost {
             .agent
             .render_hosted_session(&hosted)
             .map_err(|why| why.to_string())?;
-        std::fs::create_dir_all(&self.keepers).map_err(|why| why.to_string())?;
+        keepers_made(&self.keepers, Path::new(&self.home), Path::new(PRIVATE_ROOT))?;
         let socket = self.socket_of(&start.session)?;
         let spool = self.keepers.join(format!("{}.spool", start.session));
         let log = spool.with_extension("log");
