@@ -12,17 +12,20 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Button, Checkbox, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Button, Checkbox, JobCard, KbdChord, SearchField, SplitButton, Tabs, Textarea, Tooltip } from "@armada/components";
 
 
 import type { BridgeApi } from "../../../shared/api";
-import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
+import { byCreation, sentAs, shotName, type Annotation, type Box, type Sent } from "../../../shared/annotations";
 import { pngSize, ringOn } from "../../../shared/ring";
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
 import { jobFactsOf } from "../job-facts";
 import { askToOpenSessionInCockpit, openSessionIn } from "../open-session";
+import { IssueJobCard } from "../issues-tab/marks";
 import { useReportAsked } from "../report";
+import { useSessions } from "../sessions-draft";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
 import { contextOf, type ContextState } from "./context";
@@ -84,6 +87,13 @@ const place = (box: Box): CSSProperties =>
 /** What the layer asks of Fleet's seam: the Session send, and the Sessions that are live. */
 export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNotes"> & StateSource;
 
+/** The Job a note went to, as the shared card. A Job this window does not hold is the card with the title the note kept, in no state. */
+function SentJob({ sent, onOpen }: { sent: Sent; onOpen: (id: string) => void }) {
+  const session = useSessions().find((one) => one.id === sent.sessionId);
+  if (session !== undefined) return <IssueJobCard session={session} onOpen={onOpen} />;
+  return <JobCard title={sent.title} state="quiet" said="Not held by this window" onOpen={() => onOpen(sent.sessionId)} />;
+}
+
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
 
@@ -95,6 +105,22 @@ const NO_SHOT = "No screenshot: on another screen";
 
 /** The same fact for a send of several, where only some of them go without one. */
 const noShot = (away: number, of: number): string => (away === of ? NO_SHOT : `No screenshot for ${away} of ${of}: on another screen`);
+
+/** The panel's tabs, each a view over the notes: what it holds, and what it is called. */
+const TABS = [
+  { id: "open", label: "Open", holds: (n: Annotation) => n.status === "open" },
+  { id: "unsent", label: "No job", holds: (n: Annotation) => n.status === "open" && n.sent === undefined },
+  { id: "sent", label: "Has job", holds: (n: Annotation) => n.status === "open" && n.sent !== undefined },
+  { id: "done", label: "Done", holds: (n: Annotation) => n.status === "done" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
+
+/** Whether the search's words are in the note's text, its screen, or the component or tag it is pinned on. */
+function matches(note: Annotation, search: string): boolean {
+  const words = search.trim().toLowerCase();
+  if (words === "") return true;
+  return [note.text, note.screen ?? "", note.component ?? "", note.element.tag].some((field) => field.toLowerCase().includes(words));
+}
 
 export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCockpit, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
   const fleet: LayerFleet | undefined = given ?? (window.armada === undefined ? undefined : withState(window.armada));
@@ -108,17 +134,20 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const [listing, setListing] = useState(false);
   // The row whose Delete is armed, apart from the card's own.
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
-  // A view over the notes, never written to a file. It starts off every time the
+  // Views over the notes, never written to a file. They start over every time the
   // layer comes on: the moment this exists for is turning the layer on after a
-  // batch has been fixed and reading only what is still open. Showing the done
-  // ones is a look back, so it lasts as long as the look.
-  const [showingDone, setShowingDone] = useState(false);
+  // batch has been fixed and reading only what is still open. Any other tab is a
+  // look aside, so it lasts as long as the look.
+  const [tab, setTab] = useState<Tab>("open");
+  const [search, setSearch] = useState("");
+  // Screens whose group is folded in the panel, by name; "" is no screen.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   const [frames, setFrames] = useState<Record<string, Box | null>>({});
   // Which send is out: one note's id, or every open note on this screen.
   const [sending, setSending] = useState<string | null>(null);
   // Notes ticked in the panel, by id, for one act on all of them. Read through
-  // what the panel lists, so a note hidden with the done ones, or deleted, is
-  // never acted on or counted.
+  // what the panel lists, so a note another tab or the search hides, or one
+  // deleted, is never acted on or counted.
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [deletingSelection, setDeletingSelection] = useState(false);
   // A status change or delete over the selection is out; a send is `sending`.
@@ -178,14 +207,19 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       setHovered(null);
       setDraft(null);
       setOpened(null);
-      setShowingDone(false);
+      setTab("open");
+      setSearch("");
+      setFolded(new Set());
       setListing(false);
       setSelected(new Set());
       setDeletingSelection(false);
       anchorRef.current = null;
       return;
     }
-    sink.list().then((read) => setNotes([...read].sort(byCreation)), (cause) => fail("Reading notes", cause));
+    const read = (): void => void sink.list().then((all) => setNotes([...all].sort(byCreation)), (cause) => fail("Reading notes", cause));
+    read();
+    // Fleet rewrites a note when its Job closes, marked done or no longer sent; absent in a browser.
+    return window.armadaDev?.onChanged?.(read);
   }, [on, sink, fail]);
 
   // Bridge's state, held with the layer off too, since Debug Bridge records it from anywhere.
@@ -522,7 +556,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   // renumbers nothing above it and a new note takes the next open number rather
   // than counting everything ever written.
   const numbers = new Map(notes.filter((n) => n.status === "open").map((n, i) => [n.id, i + 1]));
-  const drawn = showingDone ? notes : notes.filter((n) => n.status === "open");
+  // Pins are the open notes', and the done ones' too while the Done tab is chosen.
+  const drawn = tab === "done" ? notes : notes.filter((n) => n.status === "open");
   const openNote = drawn.find((n) => n.id === opened) ?? null;
   const openBox = openNote === null ? null : frames[openNote.id] ?? null;
   const hoveredBox = draft === null ? frames["hovered"] ?? null : null;
@@ -532,7 +567,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const done = notes.length - open;
   const panelBottom = frames["bar"] == null ? 0 : size.height - frames["bar"].y;
   const sendableHere = notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null).length;
-  const groups = groupsOf(notes, showingDone);
+  const holds = TABS.find((one) => one.id === tab)!.holds;
+  const groups = groupsOf(notes.filter((n) => holds(n) && matches(n, search)));
+  // Folded groups' notes too: Select all takes what the tab and the search hold.
   const listed = groups.flatMap(({ list }) => list);
   const listedIds = new Set(listed.map((n) => n.id));
   // In the order they were written, as the bar's sends go.
@@ -655,113 +692,148 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           aria-label="All notes"
           style={{ "--annotate-panel-bottom": `${panelBottom}px` } as CSSProperties}
         >
-          {listed.length > 0 && (
-            <div className="armada-annotate__selection" role="group" aria-label="Selected notes">
-              <Checkbox checked={allChosen} onChange={(event) => (event.target.checked ? select(listed.map((n) => n.id), true) : clearSelection())}>
-                Select all
-              </Checkbox>
-              {chosen.length > 0 && (
-                <>
-                  <span className="armada-annotate__selection-said">
-                    {chosen.length} selected
-                    {chosenSendable.length > 0 && leftOut.length > 0 ? `. Sends leave out ${chosen.length - chosenSendable.length}: ${leftOut.join(", ")}` : ""}
-                  </span>
-                  <div className="armada-annotate__actions">
-                    {chosenSendable.length > 0 && (
-                      <>
-                        {cannotSend === null && (
-                          <SplitButton
-                            size="sm"
-                            menuLabel="Send to a Job"
-                            disabled={busy}
-                            {...(chosenShotless > 0 ? { note: noShot(chosenShotless, chosenSendable.length) } : {})}
-                            onAction={() => void sessionSelection(chosenSendable, null)}
-                            items={live.map((one) => ({ label: one.title, onSelect: () => void sessionSelection(chosenSendable, one) }))}
-                          >
-                            Start job
-                          </SplitButton>
-                        )}
-                      </>
-                    )}
-                    {chosen.some((n) => n.status === "open") && (
-                      <Button variant="ghost" size="sm" disabled={busy} onClick={() => void eachSelected(chosen.filter((n) => n.status === "open"), (n) => setStatus(n, "done"))}>
-                        Mark done
+          {/* The panel's head stays put over the rows as they scroll, so its acts are in reach of a row ticked at the bottom. */}
+          <div className="armada-annotate__head">
+            <SearchField label="Search notes" value={search} onValue={setSearch} />
+            <Tabs
+              items={TABS.map((one) => {
+                const count = notes.filter(one.holds).length;
+                return { id: one.id, label: count === 0 ? one.label : `${one.label} ${count}` };
+              })}
+              value={tab}
+              onChange={(id) => setTab(id as Tab)}
+            />
+            {listed.length > 0 && (
+              <div className="armada-annotate__selection" role="group" aria-label="Selected notes">
+                <Checkbox checked={allChosen} onChange={(event) => (event.target.checked ? select(listed.map((n) => n.id), true) : clearSelection())}>
+                  Select all <span className="armada-annotate__count">{listed.length}</span>
+                </Checkbox>
+                {cannotSend === null && (
+                  <SplitButton
+                    size="sm"
+                    variant="primary"
+                    menuLabel="Send to a Job"
+                    disabled={busy || chosenSendable.length === 0}
+                    {...(chosenShotless > 0 ? { note: noShot(chosenShotless, chosenSendable.length) } : {})}
+                    onAction={() => void sessionSelection(chosenSendable, null)}
+                    items={live.map((one) => ({ label: one.title, onSelect: () => void sessionSelection(chosenSendable, one) }))}
+                  >
+                    Start job
+                  </SplitButton>
+                )}
+                {chosen.length > 0 && (
+                  <>
+                    <span className="armada-annotate__selection-said">
+                      {chosen.length} selected
+                      {chosenSendable.length > 0 && leftOut.length > 0 ? `. Sends leave out ${chosen.length - chosenSendable.length}: ${leftOut.join(", ")}` : ""}
+                    </span>
+                    <div className="armada-annotate__actions">
+                      {chosen.some((n) => n.status === "open") && (
+                        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void eachSelected(chosen.filter((n) => n.status === "open"), (n) => setStatus(n, "done"))}>
+                          Mark done
+                        </Button>
+                      )}
+                      {chosen.some((n) => n.status === "done") && (
+                        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void eachSelected(chosen.filter((n) => n.status === "done"), (n) => setStatus(n, "open"))}>
+                          Reopen
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => (deletingSelection ? void eachSelected(chosen, remove) : setDeletingSelection(true))}
+                      >
+                        {deletingSelection ? "Press again to delete" : "Delete"}
                       </Button>
-                    )}
-                    {chosen.some((n) => n.status === "done") && (
-                      <Button variant="ghost" size="sm" disabled={busy} onClick={() => void eachSelected(chosen.filter((n) => n.status === "done"), (n) => setStatus(n, "open"))}>
-                        Reopen
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => (deletingSelection ? void eachSelected(chosen, remove) : setDeletingSelection(true))}
-                    >
-                      {deletingSelection ? "Press again to delete" : "Delete"}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-          {groups.map(({ screen, list }) => (
-            <section key={screen ?? ""} className="armada-annotate__group" aria-label={screen ?? "No screen"}>
-              <h2 className="armada-annotate__screen">{screen ?? "No screen"}</h2>
-              <ul className="armada-annotate__rows">
-                {list.map((note) => {
-                  const here = frames[note.id] != null;
-                  const shotless = !here && note.screenshot === undefined;
-                  const dispatchable = note.status === "open" && note.sent === undefined;
-                  return (
-                    <li
-                      key={note.id}
-                      className="armada-annotate__row"
-                      data-status={note.status}
-                      data-here={here ? "" : undefined}
-                      data-selected={selected.has(note.id) ? "" : undefined}
-                    >
-                      <Tooltip label={here ? "Show on this screen" : "On another screen"} asChild>
-                        <button
-                          type="button"
-                          className="armada-annotate__row-main"
-                          aria-disabled={!here}
-                          onClick={() => {
-                            if (!here) return;
-                            setDraft(null);
-                            setDeleting(false);
-                            setOpened(note.id);
-                          }}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {listed.length === 0 && <p className="armada-annotate__meta">No notes</p>}
+          {groups.map(({ screen, list }) => {
+            const key = screen ?? "";
+            const shut = folded.has(key);
+            return (
+              <section key={key} className="armada-annotate__group" aria-label={screen ?? "No screen"}>
+                <h2 className="armada-annotate__screen">
+                  <button
+                    type="button"
+                    className="armada-annotate__fold"
+                    aria-expanded={!shut}
+                    onClick={() =>
+                      setFolded((was) => {
+                        const next = new Set(was);
+                        if (shut) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      })
+                    }
+                  >
+                    {shut ? <ChevronRight size={12} strokeWidth={2} aria-hidden /> : <ChevronDown size={12} strokeWidth={2} aria-hidden />}
+                    <span>{screen ?? "No screen"}</span>
+                    <span className="armada-annotate__count">{list.length}</span>
+                  </button>
+                </h2>
+                {!shut && (
+                  <ul className="armada-annotate__rows">
+                    {list.map((note) => {
+                      const here = frames[note.id] != null;
+                      const shotless = !here && note.screenshot === undefined;
+                      const dispatchable = note.status === "open" && note.sent === undefined;
+                      return (
+                        <li
+                          key={note.id}
+                          className="armada-annotate__row"
+                          data-status={note.status}
+                          data-here={here ? "" : undefined}
+                          data-selected={selected.has(note.id) ? "" : undefined}
                         >
-                          <span className="armada-annotate__row-text">{note.text}</span>
-                          <span className="armada-annotate__row-meta">
-                            <span>{note.component ?? note.element.tag}</span>
-                            {note.sent !== undefined && <span className="armada-annotate__sent">{sentAs(note.sent)}</span>}
-                          </span>
-                        </button>
-                      </Tooltip>
-                      <div className="armada-annotate__actions">
-                        <Checkbox
-                          aria-label={`Select ${note.text}`}
-                          checked={selected.has(note.id)}
-                          onClick={(event) => {
-                            shiftRef.current = event.shiftKey;
-                          }}
-                          onChange={(event) => {
-                            const from = anchorRef.current === null ? -1 : listed.findIndex((n) => n.id === anchorRef.current);
-                            const to = listed.findIndex((n) => n.id === note.id);
-                            const range = shiftRef.current && from !== -1 ? listed.slice(Math.min(from, to), Math.max(from, to) + 1) : [note];
-                            shiftRef.current = false;
-                            anchorRef.current = note.id;
-                            select(range.map((n) => n.id), event.target.checked);
-                          }}
-                        >
-                          Select
-                        </Checkbox>
-                        {dispatchable && (
-                          <>
-                            {cannotSend === null && (
+                          <Tooltip label={here ? "Show on this screen" : "On another screen"} asChild>
+                            <button
+                              type="button"
+                              className="armada-annotate__row-main"
+                              aria-disabled={!here}
+                              onClick={() => {
+                                if (!here) return;
+                                setDraft(null);
+                                setDeleting(false);
+                                setOpened(note.id);
+                              }}
+                            >
+                              <span className="armada-annotate__row-text">{note.text}</span>
+                              <span className="armada-annotate__row-meta">
+                                <span>{note.component ?? note.element.tag}</span>
+                              </span>
+                            </button>
+                          </Tooltip>
+                          {note.sent !== undefined && (
+                            <div className="armada-annotate__row-job">
+                              <SentJob sent={note.sent} onOpen={openSession} />
+                            </div>
+                          )}
+                          <div className="armada-annotate__actions">
+                            <Checkbox
+                              aria-label={`Select ${note.text}`}
+                              checked={selected.has(note.id)}
+                              onClick={(event) => {
+                                shiftRef.current = event.shiftKey;
+                              }}
+                              onChange={(event) => {
+                                const from = anchorRef.current === null ? -1 : listed.findIndex((n) => n.id === anchorRef.current);
+                                const to = listed.findIndex((n) => n.id === note.id);
+                                const range = shiftRef.current && from !== -1 ? listed.slice(Math.min(from, to), Math.max(from, to) + 1) : [note];
+                                shiftRef.current = false;
+                                anchorRef.current = note.id;
+                                select(range.map((n) => n.id), event.target.checked);
+                              }}
+                            >
+                              Select
+                            </Checkbox>
+                            {/* A row without Start job keeps its column, so the acts after it line up down the list. */}
+                            {dispatchable && cannotSend === null ? (
                               <SplitButton
                                 size="sm"
                                 menuLabel="Send to a Job"
@@ -772,26 +844,28 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                               >
                                 Start job
                               </SplitButton>
+                            ) : (
+                              <span aria-hidden />
                             )}
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => void setStatus(note, note.status === "open" ? "done" : "open")}>
-                          {note.status === "open" ? "Mark done" : "Reopen"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => (deletingRow === note.id ? void remove(note) : setDeletingRow(note.id))}
-                        >
-                          {deletingRow === note.id ? "Press again to delete" : "Delete"}
-                        </Button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
+                            <Button variant="ghost" size="sm" onClick={() => void setStatus(note, note.status === "open" ? "done" : "open")}>
+                              {note.status === "open" ? "Mark done" : "Reopen"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => (deletingRow === note.id ? void remove(note) : setDeletingRow(note.id))}
+                            >
+                              {deletingRow === note.id ? "Press again to delete" : "Delete"}
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
         </aside>
       )}
 
@@ -806,11 +880,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           {open} open, {done} done
           {offScreen > 0 ? `, ${offScreen} not on this screen` : ""}
         </button>
-        {done > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setShowingDone(!showingDone)}>
-            {showingDone ? "Hide done notes" : "Show done notes"}
-          </Button>
-        )}
         {cannotSend === null && sendableHere > 0 && (
           <>
             <SplitButton
@@ -889,9 +958,8 @@ function Card({
   );
 }
 
-/** Every screen's notes, open first, a screen named by its notes and "no screen" last; done ones only where asked for. */
-function groupsOf(notes: readonly Annotation[], showingDone: boolean): { screen: string | null; list: Annotation[] }[] {
-  const shown = notes.filter((n) => showingDone || n.status === "open");
+/** The shown notes by screen, open first, a screen named by its notes and "no screen" last. */
+function groupsOf(shown: readonly Annotation[]): { screen: string | null; list: Annotation[] }[] {
   const screens = [...new Set(shown.map((n) => n.screen))].sort((a, b) => (a === null ? 1 : b === null ? -1 : a.localeCompare(b)));
   return screens.map((screen) => ({
     screen,

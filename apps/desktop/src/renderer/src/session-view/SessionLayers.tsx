@@ -5,11 +5,12 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { useArtifact } from "../session-artifact";
 import { setHover } from "../cockpit/deck/store";
 import { bayViewOf, ledgerOf, slotKey } from "../cockpit/deck/bays";
 import { Berth } from "../cockpit/deck/BayRows";
@@ -95,8 +96,22 @@ const MARK_HUE: Record<SessionLedgerTone, string> = { pending: "waiting", passed
 
 const TONE_WORD: Partial<Record<SessionLedgerTone, string>> = { passed: "Passed", failed: "Failed", running: "Running", done: "Done", pending: "Waiting", escalated: "Waiting", piloted: "Piloted", stopped: "Stopped" };
 
+/** A picture the row names, small, opening large on a press. Nothing is drawn until it is read, or where it cannot be. */
+function Thumb({ sessionId, path, name }: { sessionId: string; path: string; name: string }) {
+  const held = useArtifact(useSessionsDraft(), sessionId, path);
+  const read = held.state === "read" && held.read.ok && held.read.type.startsWith("image/") ? held.read : undefined;
+  const [src, setSrc] = useState<string | undefined>();
+  useEffect(() => {
+    if (read === undefined) return setSrc(undefined);
+    const url = URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type }));
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [read]);
+  return src === undefined ? null : <Enlargeable className="sv-ledger__thumb" src={src} name={name} />;
+}
+
 /** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
-function Row({ row, kind }: { row: ArtifactRow; kind: string }) {
+function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; sessionId: string }) {
   const { Glyph } = row;
   const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
@@ -106,9 +121,15 @@ function Row({ row, kind }: { row: ArtifactRow; kind: string }) {
       title={row.title}
       label={row.title}
       onOpen={row.open}
+      {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
       meta={
         <>
           {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
+          {row.words?.map((word) => (
+            <span key={word} className="sv-ledger__said">
+              {word}
+            </span>
+          ))}
           <span className="sv-ledger__word">{row.said}</span>
           {row.pr === undefined ? null : (
             <>
@@ -119,7 +140,7 @@ function Row({ row, kind }: { row: ArtifactRow; kind: string }) {
               </span>
             </>
           )}
-          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={TONE_WORD[row.mark.glyph] ?? row.mark.said} state={MARK_HUE[row.mark.glyph]} />}
+          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={row.mark.word ?? TONE_WORD[row.mark.glyph] ?? row.mark.said} state={MARK_HUE[row.mark.glyph]} />}
         </>
       }
     />
@@ -139,7 +160,7 @@ function Group({ group, session }: { group: { id: string; label: string; rows: r
       <ul className="sv-layer__rows">
         {rows.map((row) => {
           const pr = row.prNumber === undefined ? undefined : attachmentsOf(session, "pull_request").find((one) => one.number === row.prNumber);
-          return pr === undefined ? <Row key={row.key} row={row} kind={group.id} /> : <PullRow key={row.key} session={session} pr={pr} />;
+          return pr === undefined ? <Row key={row.key} row={row} kind={group.id} sessionId={session.id} /> : <PullRow key={row.key} session={session} pr={pr} />;
         })}
       </ul>
       {capped ? (
@@ -242,7 +263,7 @@ export function SubagentsLayer({ session, entries }: { session: Session; entries
     <Shell label="Subagents">
       <ul className="sv-layer__rows">
         {(groups[0]?.rows ?? []).map((row) => (
-          <Row key={row.key} row={row} kind="subagent" />
+          <Row key={row.key} row={row} kind="subagent" sessionId={session.id} />
         ))}
       </ul>
     </Shell>

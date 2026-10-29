@@ -1,7 +1,7 @@
-//! `mark_annotation_done`: a session marks a note Bridge sent it as done. The note is one JSON
-//! file Bridge's annotation layer writes (`Annotation` in `apps/desktop/src/shared/annotations.ts`);
-//! Fleet does the file I/O, and the bytes are read and rewritten here because this is where
-//! bytes may be parsed.
+//! `mark_annotation_done`: a session marks a note Bridge sent it as done, and a Job's close marks
+//! its notes done or lets them go. The note is one JSON file Bridge's annotation layer writes
+//! (`Annotation` in `apps/desktop/src/shared/annotations.ts`); Fleet does the file I/O, and the
+//! bytes are read and rewritten here because this is where bytes may be parsed.
 
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeMap, SerializeSeq, Serializer};
@@ -44,22 +44,84 @@ pub enum NotMarked {
 /// The note in `bytes` with `status` `"done"` and `updatedAt` `at`, every other field as it was.
 /// **Keys keep their order**, because Bridge writes them so the note comes first for whoever reads it.
 pub fn marked_done(bytes: &[u8], session_id: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = sent_here(bytes, session_id)?;
+    set(&mut fields, "status", "done");
+    set(&mut fields, "updatedAt", at);
+    written(fields)
+}
+
+/// The note in `bytes` with no `sent`, `status` `"open"` and `updatedAt` `at`: a Job that closed
+/// unfinished lets it go, and Bridge lists it under no Job again.
+pub fn unsent(bytes: &[u8], session_id: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = sent_here(bytes, session_id)?;
+    fields.retain(|(key, _)| key != "sent");
+    set(&mut fields, "status", "open");
+    set(&mut fields, "updatedAt", at);
+    written(fields)
+}
+
+/// What Fleet reads of a note file to keep it on the Job it was sent to. Bridge's `Annotation`
+/// holds more; whatever is not named here is ignored.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteRead {
+    pub id: String,
+    /// `open` or `done`.
+    pub status: String,
+    /// `window` for a note on the whole window.
+    #[serde(default)]
+    pub scope: Option<String>,
+    #[serde(default)]
+    pub sent: Option<NoteSentTo>,
+    pub text: String,
+    #[serde(default)]
+    pub component: Option<String>,
+    pub element: NoteReadElement,
+    #[serde(default)]
+    pub screen: Option<String>,
+    /// The picture's file name, beside the note's.
+    #[serde(default)]
+    pub screenshot: Option<String>,
+}
+
+/// Where a note went: `Sent` in Bridge's file, of which Fleet reads the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSentTo {
+    pub session_id: String,
+}
+
+/// The element a note points at, of which Fleet reads the tag.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct NoteReadElement {
+    pub tag: String,
+}
+
+/// The note in `bytes`, as [`NoteRead`].
+pub fn note_read(bytes: &[u8]) -> Result<NoteRead, String> {
+    serde_json::from_slice(bytes).map_err(|why| why.to_string())
+}
+
+/// The fields of the note in `bytes`, in order, where its `sent.sessionId` is `session_id`.
+fn sent_here(bytes: &[u8], session_id: &str) -> Result<Vec<(String, Ordered)>, NotMarked> {
     let note: Ordered =
         serde_json::from_slice(bytes).map_err(|why| NotMarked::Unreadable(why.to_string()))?;
-    let Ordered::Object(mut fields) = note else {
+    let Ordered::Object(fields) = note else {
         return Err(NotMarked::Unreadable(String::from("not a JSON object")));
     };
-    let sent_here = fields.iter().any(|(key, value)| {
+    let here = fields.iter().any(|(key, value)| {
         key == "sent"
             && matches!(value, Ordered::Object(sent) if sent.iter().any(|(key, value)| {
                 key == "sessionId" && matches!(value, Ordered::Leaf(Value::String(id)) if id == session_id)
             }))
     });
-    if !sent_here {
+    if !here {
         return Err(NotMarked::NotSentHere);
     }
-    set(&mut fields, "status", "done");
-    set(&mut fields, "updatedAt", at);
+    Ok(fields)
+}
+
+fn written(fields: Vec<(String, Ordered)>) -> Result<Vec<u8>, NotMarked> {
     let mut out = serde_json::to_vec_pretty(&Ordered::Object(fields))
         .map_err(|why| NotMarked::Unreadable(why.to_string()))?;
     out.push(b'\n');
@@ -165,5 +227,109 @@ impl<'de> Visitor<'de> for OrderedVisitor {
             fields.push((key, value));
         }
         Ok(Ordered::Object(fields))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ME: &str = "0a0a0a0a-0000-0000-0000-000000000000";
+    const OTHER: &str = "0b0b0b0b-0000-0000-0000-000000000000";
+    const WRITTEN: &str = "2026-10-15T09:00:00.000Z";
+    const LATER: &str = "2026-10-16T10:00:00.000Z";
+
+    fn note_sent_to(session: &str) -> String {
+        format!(
+            "{{\n  \"id\": \"mfz1-abc\",\n  \"status\": \"open\",\n  \"scope\": \"window\",\n  \"sent\": {{\n    \"at\": \"{WRITTEN}\",\n    \
+             \"sessionId\": \"{session}\"\n  }},\n  \"text\": \"Too tight\",\n  \"component\": \"Rail\",\n  \
+             \"element\": {{\n    \"tag\": \"li\",\n    \"extra\": 1\n  }},\n  \"screen\": \"usage\",\n  \
+             \"screenshot\": \"mfz1-abc.png\",\n  \"updatedAt\": \"{WRITTEN}\"\n}}\n"
+        )
+    }
+
+    fn keys(bytes: &[u8]) -> Vec<String> {
+        let Ordered::Object(fields) = serde_json::from_slice(bytes).unwrap() else { panic!("an object") };
+        fields.into_iter().map(|(key, _)| key).collect()
+    }
+
+    #[test]
+    fn unsent_removes_sent_and_keeps_the_note_open_and_the_rest_as_it_was() {
+        let note = note_sent_to(ME);
+        let done = marked_done(note.as_bytes(), ME, WRITTEN).unwrap();
+
+        let back = unsent(&done, ME, LATER);
+
+        // A done note (as `marked_done` leaves it) that is let go goes back open.
+        let back = String::from_utf8(back.unwrap()).unwrap();
+        let expected = note
+            .replace(&format!("  \"sent\": {{\n    \"at\": \"{WRITTEN}\",\n    \"sessionId\": \"{ME}\"\n  }},\n"), "")
+            .replace(&format!("\"updatedAt\": \"{WRITTEN}\""), &format!("\"updatedAt\": \"{LATER}\""));
+        assert_eq!(back, expected);
+        assert!(!keys(back.as_bytes()).contains(&"sent".to_string()), "{back}");
+    }
+
+    #[test]
+    fn unsent_refuses_a_note_sent_to_another_session_and_one_sent_to_none() {
+        let theirs = note_sent_to(OTHER);
+        assert_eq!(unsent(theirs.as_bytes(), ME, LATER), Err(NotMarked::NotSentHere));
+
+        let unsent_already = unsent(note_sent_to(ME).as_bytes(), ME, LATER).unwrap();
+        assert_eq!(unsent(&unsent_already, ME, LATER), Err(NotMarked::NotSentHere));
+    }
+
+    #[test]
+    fn unsent_refuses_bytes_that_are_not_a_note_object() {
+        assert!(matches!(unsent(b"[1]", ME, LATER), Err(NotMarked::Unreadable(_))));
+        assert!(matches!(unsent(b"{", ME, LATER), Err(NotMarked::Unreadable(_))));
+    }
+
+    #[test]
+    fn note_read_reads_the_fields_and_ignores_the_rest() {
+        let read = note_read(note_sent_to(ME).as_bytes()).unwrap();
+
+        assert_eq!(
+            read,
+            NoteRead {
+                id: "mfz1-abc".to_string(),
+                status: "open".to_string(),
+                scope: Some("window".to_string()),
+                sent: Some(NoteSentTo { session_id: ME.to_string() }),
+                text: "Too tight".to_string(),
+                component: Some("Rail".to_string()),
+                element: NoteReadElement { tag: "li".to_string() },
+                screen: Some("usage".to_string()),
+                screenshot: Some("mfz1-abc.png".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn note_read_leaves_what_a_note_may_lack_empty_and_refuses_one_missing_its_text() {
+        let bare = br#"{"id": "n-1", "status": "done", "text": "x", "element": {"tag": "p"}, "component": null}"#;
+        let read = note_read(bare).unwrap();
+        assert_eq!((read.scope, read.sent, read.component, read.screen, read.screenshot), (None, None, None, None, None));
+
+        assert!(note_read(br#"{"id": "n-1", "status": "open", "element": {"tag": "p"}}"#).is_err());
+    }
+
+    #[test]
+    fn marked_done_sets_status_and_stamp_keeping_every_key_in_its_place() {
+        let note = note_sent_to(ME);
+
+        let done = marked_done(note.as_bytes(), ME, LATER).unwrap();
+
+        let done = String::from_utf8(done).unwrap();
+        assert_eq!(
+            done,
+            note.replace("\"status\": \"open\"", "\"status\": \"done\"")
+                .replace(&format!("\"updatedAt\": \"{WRITTEN}\""), &format!("\"updatedAt\": \"{LATER}\""))
+        );
+        assert_eq!(keys(done.as_bytes()), keys(note.as_bytes()));
+    }
+
+    #[test]
+    fn marked_done_refuses_a_note_sent_to_another_session() {
+        assert_eq!(marked_done(note_sent_to(OTHER).as_bytes(), ME, LATER), Err(NotMarked::NotSentHere));
     }
 }

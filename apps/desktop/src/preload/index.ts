@@ -951,6 +951,14 @@ if (process.argv.includes(ANNOTATE_FLAG)) {
     capture: (box: Box): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.capture, box),
     saveShot: (id: string, png: ArrayBuffer): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.saveShot, id, png),
     shot: (id: string): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.shot, id),
+    // `onSummoned`'s shape: a listener and its remover. Nothing arrives but the word to read again.
+    onChanged: (listener: () => void): (() => void) => {
+      const handler = (): void => listener();
+      ipcRenderer.on(ANNOTATION_CHANNELS.changed, handler);
+      return () => {
+        ipcRenderer.removeListener(ANNOTATION_CHANNELS.changed, handler);
+      };
+    },
   };
   contextBridge.exposeInMainWorld("armadaDev", annotations);
 }

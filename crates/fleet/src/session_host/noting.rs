@@ -15,6 +15,7 @@ use ipc::{
     SessionUpload,
 };
 
+use super::annotating::NoteShown;
 use crate::daemon::Fleet;
 use crate::note_locating::{located, runs_of, Located, StampRead};
 
@@ -65,6 +66,7 @@ where
         if in_a_window(&note) {
             self.window_noted(&id).await;
         }
+        self.notes_kept(&id, NoteShown::pinned(&note).into_iter().collect()).await;
         Ok(NoteSent { session, candidates: found.candidates })
     }
 
@@ -116,6 +118,7 @@ where
         if notes.iter().any(in_a_window) {
             self.window_noted(&id).await;
         }
+        self.notes_kept(&id, notes.iter().filter_map(NoteShown::pinned).collect()).await;
         Ok(NotesSent { session, candidates })
     }
 

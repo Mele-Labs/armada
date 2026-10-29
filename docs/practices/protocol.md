@@ -1015,6 +1015,21 @@ The build notice does not take an offer for a restart wait it answers, so a new 
 **The event stream.** No new event: a new offer publishes `session.changed` on its Job, and so does a build change that drops one.
 The open risk below is neither better nor worse.
 
+## A note sent to a Job is kept on it: the `note` artifact
+
+Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`.
+**One new value of an open field**: no operation, route, event kind, error or type on the wire.
+`Attachment.detail` is already a map of strings, so the form needs no new type; the protocol ID moves with `crates/ipc/src`, where the note file's reading and rewriting live, and there is no number to take.
+Bridge's half is `apps/desktop/src/shared/note-artifacts.ts`, which reads the detail into `NoteArtifact`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `Attachment` of kind `artifact`, `detail.form` `note`, target `note:<id>` | Fleet writes, Bridge reads | `note`, `title`, `text`, `tag`, `status` (`open`, `done`, `returned`) and `sent`; `component`, `screen`, `address`, `file` and `picture` where known, the last two absolute paths |
+
+**The event stream.** No new event: keeping a note, marking it done and a close settling it each publish `session.changed` on its Job.
+Bridge's main reads a note file rewritten off that list (`NotesWatch`) and tells the dev-only annotation layer on `annotations:changed`, which is not Fleet's seam.
+The open risk below is neither better nor worse: a close settling notes publishes one more `session.changed` on its Job, once.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -14,6 +14,7 @@ const record = {
     { kind: "artifact", target: "/repo/docs/spike.md", state: "standing", detail: { form: "file" } },
     { kind: "artifact", target: "/tmp/shot.png", state: "standing", detail: { form: "image" } },
     { kind: "artifact", target: "https://example.com/artifact/p1", state: "standing", detail: { form: "page" } },
+    { kind: "artifact", target: "note:n1", state: "standing", detail: { form: "note", note: "n1", file: "/notes/n1.json", picture: "/notes/n1.png" } },
   ],
 } as unknown as SessionRecord;
 
@@ -27,6 +28,17 @@ describe("opening a file a Session wrote", () => {
   it("opens a picture the ledger names as looked at", async () => {
     const open = vi.fn(async (_path: string) => "");
     expect(await openSessionFile(record, "/tmp/shot.png", open)).toEqual({ ok: true });
+  });
+
+  it("opens the picture a sent note recorded, and refuses the note's other paths and a note that kept none", async () => {
+    const open = vi.fn(async (_path: string) => "");
+    expect(await openSessionFile(record, "/notes/n1.png", open)).toEqual({ ok: true });
+    expect(await openSessionFile(record, "/notes/n1.json", open)).toMatchObject({ ok: false, why: "not_addressable" });
+    expect(await openSessionFile(record, "/notes/n2.png", open)).toMatchObject({ ok: false, why: "not_addressable" });
+    // A file form does not stand in for a picture: only a note's own `picture` is named.
+    const bare = { id: "S2", attachments: [{ kind: "artifact", target: "note:n3", state: "standing", detail: { form: "note", note: "n3", file: "/notes/n3.json" } }] } as unknown as SessionRecord;
+    expect(await openSessionFile(bare, "/notes/n3.png", open)).toMatchObject({ ok: false });
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("refuses a path the ledger does not name, a page's address, and a session Bridge does not hold", async () => {
@@ -54,6 +66,12 @@ describe("reading a file for the panel", () => {
     const on = reads(2);
     expect(await readSessionArtifact(record, "/repo/docs/spike.md", on)).toEqual({ ok: true, bytes: new Uint8Array([104, 105]), type: "text/markdown" });
     expect(await readSessionArtifact(record, "/tmp/shot.png", on)).toMatchObject({ ok: true, type: "image/png" });
+  });
+
+  it("reads the picture a sent note recorded, as an image, and not the note's file", async () => {
+    const on = reads(2, [137, 80]);
+    expect(await readSessionArtifact(record, "/notes/n1.png", on)).toMatchObject({ ok: true, type: "image/png" });
+    expect(await readSessionArtifact(record, "/notes/n1.json", on)).toEqual({ ok: false, why: "not_addressable" });
   });
 
   it("refuses a path the ledger does not name, and reads nothing", async () => {
