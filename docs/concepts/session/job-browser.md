@@ -50,7 +50,7 @@ Handing it back lets the agent's next act through.
 **Capture sends the Job a note on a part of the page**, as the walk window's note control does, and is the same control: its glyph, its words and `⌥⌘C`, which the page hears while it holds the keyboard.
 Pressed, it freezes the page to a picture of it, because nothing in Bridge's document can take a press over a native view.
 A press on the picture picks the part under it, by the walk window's own layer, which reads that part in the page, and a card under the part takes the note.
-**Send (`⌘↵`) sends the note to the Job as the person's** (`send_session_note`), with the part named, the address, and the part cropped from the picture, and wakes the Job; Cancel (`esc`) puts the picture away and nothing is sent.
+**Send (`⌘↵`) sends the note to the Job as the person's** (`send_session_note`), with the part named, the address, and the whole picture with the part ringed and tagged 1, and wakes the Job; Cancel (`esc`) puts the picture away and nothing is sent.
 Sent or cancelled, the page is live again.
 
 ## What the agent does with it

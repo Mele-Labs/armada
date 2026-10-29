@@ -12,9 +12,11 @@ import { isAbsolute, join } from "node:path";
 import type { AnswerBrowserRequest, BrowserRequest, Outcome, SendSessionNote, StudioCapture } from "@armada/protocol";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
+import { pngSize, ringOn, type Ring } from "../shared/ring";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
 import { webOrigin } from "./capture/address";
-import { bounded, chainOf, readOf, rectOf, type PageRead } from "./capture/bounds";
+import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./capture/bounds";
+import { burnRing, type Burn } from "./capture/burn";
 import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
 import { sessionNoteBody } from "./capture/pinned-note";
@@ -45,11 +47,12 @@ export type BrowserPage = JobPage & {
   viewport(): { width: number; height: number };
   /** The page as it is drawn now. */
   picture(): Promise<Picture | null>;
-  /** The injected layer's ask at a point of the page (`capture/layer.ts`). */
-  ask(x: number, y: number): Promise<unknown>;
+  /** The injected layer's ask at a point of the page (`capture/layer.ts`); `take` false answers only the box and its name. */
+  ask(x: number, y: number, take?: boolean): Promise<unknown>;
 };
 
-export type Picture = { png: Uint8Array; crop(box: CaptureRect): Buffer | null };
+/** The page as drawn, and where a box in its CSS pixels is on that picture. */
+export type Picture = { png: Uint8Array; ring(box: CaptureRect): Ring | null };
 
 /** One Job's window, beside its thread. */
 export type BrowserWindowHeld = { host: Host; focus(): void; close(): void };
@@ -85,6 +88,7 @@ export class JobBrowsers {
   constructor(
     private readonly make: JobBrowserMake,
     private readonly tell: JobBrowserTell,
+    private readonly burn: Burn = burnRing,
   ) {}
 
   list(): JobBrowserState[] {
@@ -223,13 +227,25 @@ export class JobBrowsers {
     return { box: rectOf(capture.bounds, viewport), chain: chainOf(capture) };
   }
 
-  /** The held part's note, cropped from the picture, sent to the Job as the owner's: `send_session_note`. */
+  /** The box of the part at a point of the picture, in the picture's own pixels (the page's CSS pixels): the pane's hover ring. */
+  async aim(sessionId: string, x: number, y: number): Promise<CaptureRect | null> {
+    const one = this.held.get(sessionId);
+    if (one === undefined || one.frozen === null) return null;
+    return aimed(await one.page.ask(x, y, false), one.page.viewport())?.box ?? null;
+  }
+
+  /**
+   * The held part's note, sent to the Job as the owner's: `send_session_note`. Its picture is the whole frozen page with the
+   * part ringed, tagged 1, since it goes as a turn of its own.
+   */
   async note(sessionId: string, said: string): Promise<Outcome> {
     const one = this.held.get(sessionId);
     const holding = one?.holding;
     if (one === undefined || holding === null || holding === undefined) return { ok: false, why: "nothing_held" };
-    const crop = one.frozen?.crop(rectOf(holding.capture.bounds, one.page.viewport())) ?? null;
-    const body = sessionNoteBody({ sessionId, said, capture: holding.capture, read: holding.read, address: one.page.url(), walk: null, crop: crop === null ? null : crop.toString("base64") });
+    const frozen = one.frozen;
+    const ring = frozen === null ? null : frozen.ring(rectOf(holding.capture.bounds, one.page.viewport()));
+    const crop = frozen === null || ring === null ? null : Buffer.from(this.burn(frozen.png, ring, 1)).toString("base64");
+    const body = sessionNoteBody({ sessionId, said, capture: holding.capture, read: holding.read, address: one.page.url(), walk: null, crop });
     const outcome = await this.tell.note(body);
     if (outcome.ok) this.thaw(sessionId);
     return outcome;
@@ -244,7 +260,8 @@ const EVALUATE_WORLD = 2001;
 const MOST_SNAPSHOT = 64 * 1024;
 const MOST_RESULT = 64 * 1024;
 const SETTLE_MS = 300;
-const CHORDS: Record<string, Chord> = { "alt+meta+KeyC": "capture", "meta+BracketLeft": "back", "meta+BracketRight": "forward", "meta+KeyR": "reload" };
+// ⌥⌘A starts Capture as ⌥⌘C does; the app's annotation layer keeps it while no Job browser is on screen (`chord.ts` in the pane).
+const CHORDS: Record<string, Chord> = { "alt+meta+KeyC": "capture", "alt+meta+KeyA": "capture", "meta+BracketLeft": "back", "meta+BracketRight": "forward", "meta+KeyR": "reload" };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -370,6 +387,8 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
     hide: (on) => {
       hidden = on;
       view.setVisible(shown && !on);
+      // A hidden page keeps the keyboard, and ⌥⌘A that closes the annotation layer would go to it.
+      if (on && parent !== null && !parent.isDestroyed()) parent.webContents.focus();
     },
     go: (to) => {
       if (contents.isDestroyed()) return;
@@ -384,20 +403,14 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
       if (contents.isDestroyed()) return null;
       const image = await contents.capturePage();
       if (image.isEmpty()) return null;
-      const scale = image.getSize().width / viewportOf().width;
-      return {
-        png: image.toPNG(),
-        crop: (box) => {
-          if (box.width === 0 || box.height === 0) return null;
-          const png = image.crop({ x: Math.round(box.x * scale), y: Math.round(box.y * scale), width: Math.round(box.width * scale), height: Math.round(box.height * scale) }).toPNG();
-          return png.byteLength === 0 ? null : png;
-        },
-      };
+      const png = image.toPNG();
+      const width = pngSize(png)?.width ?? image.getSize().width;
+      return { png, ring: (box) => (box.width === 0 || box.height === 0 ? null : ringOn(box, viewportOf().width, width)) };
     },
-    ask: async (x, y) => {
+    ask: async (x, y, take = true) => {
       if (contents.isDestroyed()) return null;
       try {
-        return await contents.executeJavaScript(askSource(x, y, true), false);
+        return await contents.executeJavaScript(askSource(x, y, take), false);
       } catch {
         return null;
       }

@@ -245,8 +245,8 @@ this window, and that is another security review. `#1294`.
 > **Rule.** The Studio's id, Fleet's port and every filesystem path stay in
 > main. Nothing naming Armada's own records crosses into the page.
 
-> **Rule.** The frame is taken by main, of this window's own contents, cropped
-> to bounds clamped to the viewport.
+> **Rule.** The frame is taken by main, of this window's own contents: the whole
+> page, with the box, clamped to the viewport, ringed on it and tagged 1.
 > Why: main takes a Bridge Note's frame for the same reason — the capability is
 > a Note with a picture, never a screenshot the page can ask for.
 
@@ -813,10 +813,10 @@ He approved holding them, listing them, and sending them once.
 
 | Step | Where | What happens |
 |---|---|---|
-| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says the note is pending, as the status rule below has it |
+| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, its picture the whole page, is held on the Job instead (`heldOn`), with the box on that picture as `ring`, in its own pixels and off the wire. The bar says the note is pending, as the status rule below has it |
 | Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
-| List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | The last entry of the Job's thread, a turn of the owner's that is not sent and grows as notes are taken: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove. Send notes sits at its foot |
-| Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`). The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
+| List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | The last entry of the Job's thread, a turn of the owner's that is not sent and grows as notes are taken: each note's picture with its box ringed over it and tagged with its place in the list, what it is on and its words. Removing a note renumbers the rest. The words are edited in place and saved as the field is left; each note has a Remove. Send notes sits at its foot |
+| Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`), each picture with its ring burned in (`apps/desktop/src/main/capture/burn.ts`) and tagged with its place in the turn, the number Fleet's line for it names. The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
 | Approve | The bar | While the Job holds notes, Approve and ⌘↵ ask first: send them and approve, approve without them, or go back |
 
 > **Rule.** A held note belongs to the Job, not to the walk it was taken on.
@@ -844,7 +844,7 @@ He approved holding them, listing them, and sending them once.
 ## What a Job's note carries
 
 A note pinned on a Job's page goes to the Job whole, and not as one line of words.
-Bridge's own layer sends it through `send_session_note`; the walk window holds it and sends it with the Job's other held notes through `send_session_notes` (*Pending notes*).
+Bridge's own layer sends the notes on an element of one send as one turn through `send_session_notes`, and a whole-window note as a message of its own; the walk window holds it and sends it with the Job's other held notes through `send_session_notes` (*Pending notes*).
 The page is a Job's mock walk, another repository's app, staging, or
 Bridge's own layer (⌥⌘A). The operation's fields are in `crates/ipc/operations/send_session_note.toml`.
 
@@ -856,7 +856,7 @@ Bridge's own layer (⌥⌘A). The operation's fields are in `crates/ipc/operatio
 | Nearby | Names of the enclosing landmarks, lists, sections and dialogs, and the nearest heading above, innermost first, at most 8 | A figure built from data has no words of its own; its list and heading do |
 | Selected | Elements marked selected, current, pressed, checked, expanded or open, each as `role "name"`, at most 12 | The tab or option the page was on |
 | Walk step and take | The walk's name, step and length; the take's letter and name | The state to reproduce |
-| The crop | A PNG of the element, taken by main | What he saw, to confirm a candidate by |
+| The crop | A PNG of the whole window, taken by main, the element ringed on it and tagged with the note's number in the turn, burned in by main as it is sent | What he saw and what was around it, to confirm a candidate by |
 | Component chain, selector, location, scenario | The capture, as every Note keeps it | Where else to look |
 
 The stamp, nearby and selected are read in the same ask as the capture
