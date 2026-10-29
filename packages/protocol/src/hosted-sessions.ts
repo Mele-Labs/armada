@@ -334,6 +334,21 @@ export type RetroRow = Extract<SessionRow, { kind: "retro" }>;
 /** Where a failed check's log says it failed: a path relative to the slot, and its 1-based line where the log names one. */
 export type CheckBlame = { path: string; line?: number };
 
+/**
+ * The subagent an `Agent` call started, foreground or background. `id` is its ledger attachment's, which
+ * `get_session_subagent` takes; `latest` is its own last call as one line; `since` when it started and `ended` when it
+ * settled. `cut_off` is one a stop or a replaced process ended before it reported. Fleet's `ipc::ToolSubagent`.
+ */
+export type ToolSubagent = {
+  id: string;
+  agent_type?: string;
+  task: string;
+  latest?: string;
+  state: "running" | "finished" | "cut_off";
+  since: string;
+  ended?: string;
+};
+
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
 export type SessionRow =
   | {
@@ -346,6 +361,8 @@ export type SessionRow =
       tags?: SessionTag[];
       /** The Fleet notice this row was sent for (`behind_base`, `write_clash`, …: `Notice`), absent on every other row. Mute it by `set_notice_mute`. */
       notice?: string;
+      /** The person's words, held by the agent's CLI until the call its turn waits on returns. Absent once the agent has read them. */
+      queued?: true;
     }
   /**
    * Words Helm's dock sent to a Session or a Job instead of asking Helm, from `tell_session` and
@@ -360,8 +377,8 @@ export type SessionRow =
       files?: SentFile[];
       tags?: SessionTag[];
     }
-  /** A tool call, one line. */
-  | { kind: "tool"; id: string; at: string; text: string }
+  /** A tool call, one line. `subagent` where the call is an `Agent` call whose subagent started. */
+  | { kind: "tool"; id: string; at: string; text: string; subagent?: ToolSubagent }
   /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
   | { kind: "command"; id: string; at: string; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words. Since 23.56. */

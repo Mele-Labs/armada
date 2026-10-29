@@ -2,7 +2,7 @@
 // one of Bridge's own ⌥⌘A pins makes. Shared because both ends build one: the capture window in main
 // (`capture/pinned-note.ts`) and Bridge's own layer in the renderer.
 
-import type { NoteCrop, SendSessionNote, SessionNote } from "@armada/protocol";
+import type { NoteCrop, SessionNote } from "@armada/protocol";
 
 import type { Annotation } from "./annotations";
 
@@ -19,7 +19,7 @@ export const cropOf = (base64: string | null): NoteCrop | undefined =>
 /**
  * The note one of Bridge's own ⌥⌘A pins makes, carrying its file's id so `mark_annotation_done` still finds it.
  * `job` is what Bridge held about the Job open when it was pinned: background Fleet puts after his words.
- * A Mod Job takes this same note, with no Session yet, so `annotationNote` is the part that needs none.
+ * A Mod Job takes this same note, with no Session yet.
  */
 export function annotationNote(note: Annotation, address: string, crop: string | null, job: readonly string[] = []): SessionNote {
   const cropped = cropOf(crop);
@@ -50,8 +50,3 @@ export function annotationNote(note: Annotation, address: string, crop: string |
     ...(job.length === 0 ? {} : { job: [...job] }),
   };
 }
-
-export const annotationNoteBody = (note: Annotation, sessionId: string, address: string, crop: string | null, job: readonly string[] = []): SendSessionNote => ({
-  session_id: sessionId,
-  ...annotationNote(note, address, crop, job),
-});

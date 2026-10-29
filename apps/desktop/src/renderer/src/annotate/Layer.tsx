@@ -17,6 +17,7 @@ import { Button, Checkbox, KbdChord, SplitButton, Textarea, Tooltip } from "@arm
 
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
+import { pngSize, ringOn } from "../../../shared/ring";
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
 import { jobFactsOf } from "../job-facts";
@@ -81,7 +82,7 @@ const place = (box: Box): CSSProperties =>
   }) as CSSProperties;
 
 /** What the layer asks of Fleet's seam: the Session send, and the Sessions that are live. */
-export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNote"> & StateSource;
+export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNotes"> & StateSource;
 
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
@@ -283,21 +284,24 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   }, [on, notes, hovered, draft]);
 
   /**
-   * A picture of `box`, kept as note `id`'s, or null where none was taken or kept. A picture
-   * that fails to keep is told, and the note is saved without one rather than lost to it.
+   * A picture of the window, kept as note `id`'s, and where `on`, the element's box, is on it; null where none was taken or
+   * kept. A whole-window note's `on` is null: nothing on it is ringed. A picture that fails to keep is told, and the note is
+   * saved without one rather than lost to it.
    */
-  async function keepShot(id: string, box: Box, taken?: ArrayBuffer | null): Promise<string | null> {
+  async function keepShot(id: string, on: Box | null, taken?: ArrayBuffer | null): Promise<Pick<Annotation, "screenshot" | "ring"> | null> {
     // In a browser nothing captures, so the layer is not blinked out for a picture that never comes.
     if (sink.via !== "main") return null;
-    const png = taken !== undefined ? taken : await shooter.capture(box).catch(() => null);
+    const window = windowBox();
+    const png = taken !== undefined ? taken : await shooter.capture(window).catch(() => null);
     if (png === null) return null;
     try {
       await sink.saveShot(id, png);
-      return shotName(id);
     } catch (cause) {
       fail("Saving the screenshot", cause);
       return null;
     }
+    const size = on === null ? null : pngSize(new Uint8Array(png));
+    return { screenshot: shotName(id), ...(on === null || size === null ? {} : { ring: ringOn(on, window.width, size.width) }) };
   }
 
   /**
@@ -343,12 +347,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       } catch {
         context = undefined;
       }
-      const screenshot = await keepShot(begun.id, box);
+      const shot = await keepShot(begun.id, null);
       const note: Annotation = {
         ...begun,
         text: debugText(begun.screen),
         ...(context === undefined ? {} : { context }),
-        ...(screenshot === null ? {} : { screenshot }),
+        ...shot,
       };
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
@@ -369,14 +373,15 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   async function save(): Promise<void> {
     if (draft === null || draft.text.trim() === "" || savingRef.current) return;
     savingRef.current = true;
-    const { screenshot: _none, ...begun } = draft.note;
+    const { screenshot: _none, ring: _unringed, ...begun } = draft.note;
     try {
       // Taken here, once: a draft is always a new note, and nothing rewrites a saved note's text.
-      const screenshot = await keepShot(begun.id, draft.element.isConnected ? boxOf(draft.element) : draft.note.box, draft.png);
+      const on = begun.scope === "window" ? null : draft.element.isConnected ? boxOf(draft.element) : draft.note.box;
+      const shot = await keepShot(begun.id, on, draft.png);
       const note: Annotation = {
         ...begun,
         text: draft.text.trim(),
-        ...(screenshot === null ? {} : { screenshot }),
+        ...shot,
         updatedAt: new Date().toISOString(),
       };
       await sink.save(note);
@@ -414,7 +419,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       const openId = openSessionIn(document);
       const facts = openId === undefined ? undefined : jobFactsOf(openId);
       const open = openId === undefined || facts === undefined ? undefined : { id: openId, facts };
-      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, window.location.href, new Date(), open);
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, { address: window.location.href, window: windowBox() }, new Date(), open);
       // Those Fleet took before it refused are stamped too, so a send again does not repeat them.
       const sent = answer.sent;
       const took = answer.ok ? list : list.filter((note) => answer.sentIds?.includes(note.id) === true);

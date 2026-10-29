@@ -5,11 +5,13 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
 import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, ReadWatchLog } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
+import type { PullRequestPress, PullRequestWrite, RingedNotes, TerminalMovedBack } from "../shared/api/sessions";
+import { isRing } from "../shared/ring";
+import { ringed } from "./held-notes-channels";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
 import type { TerminalWindows } from "./terminal-windows";
@@ -95,10 +97,15 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (!text(send?.session_id) || typeof send.text !== "string") return unread;
     return connection()?.sessions.send(send) ?? unsent;
   });
-  ipc.handle(CHANNELS.sendSessionNote, (_event, send: SendSessionNote) => {
-    if (!text(send?.session_id) || typeof send.said !== "string" || typeof send.address !== "string") return unread;
-    if (typeof send.place?.selector !== "string" || typeof send.place.location !== "string" || typeof send.state !== "object" || send.state === null) return unread;
-    return connection()?.sessions.sendNote(send) ?? unsent;
+  // Bridge's own notes sent together: each picture is ringed here, tagged with its place in the turn, as a walk's are.
+  ipc.handle(CHANNELS.sendSessionNotes, (_event, send: RingedNotes) => {
+    if (!text(send?.session_id) || !Array.isArray(send.notes) || send.notes.length === 0) return unread;
+    for (const one of send.notes) {
+      const note = one?.note;
+      if (typeof note?.said !== "string" || typeof note.address !== "string" || typeof note.place?.selector !== "string" || typeof note.place.location !== "string") return unread;
+      if (typeof note.state !== "object" || note.state === null || (one.ring !== undefined && !isRing(one.ring))) return unread;
+    }
+    return connection()?.sessions.sendNotes({ session_id: send.session_id, notes: ringed(send.notes) }) ?? unsent;
   });
   ipc.handle(CHANNELS.startModSession, (_event, start: StartModSession) => {
     if (typeof start !== "object" || start === null) return unread;

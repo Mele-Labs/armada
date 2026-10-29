@@ -14,7 +14,7 @@ import type { SketchSettled } from "@armada/components/src/compositions/SessionT
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -301,6 +301,8 @@ type SessionRowKinds =
       delivery?: "sending" | "failed";
       /** What the row is drawn under while it changes from the message Bridge held to the row Fleet sent back, so it does not draw again. */
       stableKey?: string;
+      /** The person's words, held until the call the agent's turn waits on returns. */
+      queued?: true;
     }
   /**
    * Words typed in Helm's box that went to a Session and never to Helm. Only Helm's own Session
@@ -319,8 +321,8 @@ type SessionRowKinds =
       /** What the row is drawn under in place of the words Bridge held while they went, so it does not draw again. */
       stableKey?: string;
     }
-  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone. */
-  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
+  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone; `subagent` the one an `Agent` call the turn waits on started. */
+  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true; subagent?: ToolSubagent }
   /** A command the person ran in the terminal, as typed. */
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation: not the person's words. */

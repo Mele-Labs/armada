@@ -1,8 +1,8 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, Clock, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { CallKind, DraftSettled } from "@armada/protocol";
+import type { CallKind, DraftSettled, ToolSubagent } from "@armada/protocol";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -44,6 +44,7 @@ import type { TurnReply } from "./FleetTurn";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
+import { SubagentRow } from "./SubagentRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import type { SketchAnswer, SketchSettled } from "./sketch-answer";
@@ -128,6 +129,8 @@ type SessionThreadKinds =
       tags?: readonly ComposerTag[];
       /** The person's message while Fleet has not taken it (`sending`) or did not (`failed`, with a Retry). */
       delivery?: "sending" | "failed";
+      /** The person's message, held until the call the agent's turn waits on returns: a quiet mark in its band. */
+      queued?: true;
       /** The key the row keeps while Fleet's own row takes its place, so the message does not draw again. */
       stableKey?: string;
     }
@@ -155,8 +158,8 @@ type SessionThreadKinds =
       tags?: readonly ComposerTag[];
       stableKey?: string;
     }
-  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
-  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
+  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. A call with `subagent` is a row of its own (`SubagentRow`). */
+  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true; subagent?: ToolSubagent }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
   | { id: string; at: string; kind: "woke"; why: string }
   /** What the agent did on its own, mono, with the mark and the tooltip that name which act it was. */
@@ -321,7 +324,7 @@ export type ThreadCard = { key: string; at?: string; node: ReactNode };
 
 /** When an item's last row happened, in milliseconds, or `NaN` where it is words. */
 const timeOf = (item: Item): number => {
-  const at = item.kind === "row" ? item.row.at : item.kind === "calls" || item.kind === "checks" ? item.rows[item.rows.length - 1]?.at : (item.reply[item.reply.length - 1] ?? item.notice).at;
+  const at = item.kind === "row" ? item.row.at : item.kind === "subagent" ? item.at : item.kind === "calls" || item.kind === "checks" ? item.rows[item.rows.length - 1]?.at : (item.reply[item.reply.length - 1] ?? item.notice).at;
   return at === undefined ? Number.NaN : Date.parse(at);
 };
 
@@ -391,6 +394,8 @@ export type SessionThreadProps = {
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
   onOpenCheck?: (run: number) => void;
+  /** Opens a subagent's own thread, by its ledger id. Absent, its row is not a press. */
+  onOpenSubagent?: (id: string) => void;
   /** Opens a retro this Session wrote, by its number, on the Retros page. Absent, the card has no link. Keep it stable: the card is memoised. */
   onOpenRetro?: (retro: number) => void;
   /** Which Session this is. A change of it opens the thread at its newest row again. */
@@ -511,7 +516,8 @@ type Item =
   | { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" | "check" }> }
   | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] }
   | { kind: "fleetTurn"; id: string; notice: Extract<SessionThreadRow, { kind: "message"; from: "session" }>; reply: readonly TurnReply[]; handled: boolean }
-  | { kind: "checks"; id: string; rows: readonly CheckRow[] };
+  | { kind: "checks"; id: string; rows: readonly CheckRow[] }
+  | { kind: "subagent"; id: string; at: string; subagent: ToolSubagent };
 
 /**
  * A turn Fleet started folds into one item: its notice, then the agent's replies and tool runs until the next row of any other
@@ -541,6 +547,7 @@ function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = 
       if (last?.kind === "checks" && last.rows[0]?.name === row.name) last.rows = [...last.rows, row];
       else items.push({ kind: "checks", id: row.id, rows: [row] });
     } else if (row.kind !== "tool") items.push({ kind: "row", row });
+    else if (row.subagent !== undefined) items.push({ kind: "subagent", id: row.id, at: row.at, subagent: row.subagent });
     else if (last?.kind === "calls") last.rows = [...last.rows, row];
     else items.push({ kind: "calls", id: row.id, rows: [row] });
   }
@@ -726,8 +733,21 @@ function Delivery({ row }: { row: { delivery?: "sending" | "failed" } }) {
   );
 }
 
+/** Held by the agent's CLI until the call its turn waits on returns. Gone once the agent has read it. */
+function Queued() {
+  const said = "Queued until the subagent returns";
+  return (
+    <Tooltip label={said}>
+      <span className="armada-session-you__queued" role="img" aria-label={said}>
+        <Clock size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-session-you__queued-word">Queued</span>
+      </span>
+    </Tooltip>
+  );
+}
+
 /** What a message of the person's draws from. */
-type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery">;
+type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery" | "queued">;
 
 /**
  * The person's own message: the band with its Delivery mark, the words, and a Retry where it did not go.
@@ -747,6 +767,7 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
       <div className="armada-session-you__band">
         <span className="armada-session-you__who">You</span>
         <Delivery row={row} />
+        {row.queued === true ? <Queued /> : null}
         <RowStamp row={row} className="armada-session-you__at" />
       </div>
       <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
@@ -1678,7 +1699,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1791,6 +1812,8 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
               <Calls key={item.id} rows={item.rows} working={working === true && !asking && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : item.kind === "fleetTurn" ? (
               <FleetTurn key={item.id} notice={item.notice} reply={item.reply} handled={item.handled}{...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
+            ) : item.kind === "subagent" ? (
+              <SubagentRow key={item.id} subagent={item.subagent} {...(onOpenSubagent === undefined ? {} : { onOpen: onOpenSubagent })} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (

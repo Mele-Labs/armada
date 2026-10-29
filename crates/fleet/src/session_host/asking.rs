@@ -431,6 +431,7 @@ where
             files: Vec::new(),
             tags: Vec::new(),
             notice: None,
+            queued: false,
         };
         self.row_put(id, row).await;
     }
