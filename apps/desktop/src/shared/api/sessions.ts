@@ -33,8 +33,8 @@ import type {
   SendConcern,
   SendPlanChanges,
   SendSessionMessage,
-  SendSessionNote,
-  NoteSent,
+  NotesSent,
+  SessionNote,
   SessionWait,
   StartAfter,
   WaitReading,
@@ -57,10 +57,14 @@ import type {
   BeginSession,
   WritePullRequest,
 } from "@armada/protocol";
+import type { Ring } from "../ring";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+
+/** `send_session_notes`' body, each note with where its box is on its picture, the whole window, where it has one. */
+export type RingedNotes = { session_id: string; notes: { note: SessionNote; ring?: Ring }[] };
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
 /** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
@@ -110,8 +114,11 @@ export type SessionsApi = {
   forkSessionAt: (sessionId: string, at: string) => Promise<SessionActed>;
   /** A message, with the pictures and files sent beside it and what it names with `@`. */
   sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
-  /** A note pinned on a page, sent whole. Fleet answers with the turn taken and the lines of code the spot was drawn from. */
-  sendSessionNote: (send: SendSessionNote) => Promise<SessionActed<NoteSent>>;
+  /**
+   * Notes pinned on a page, sent whole as one turn, numbered in order. Main burns each picture's ring in, tagged with that
+   * number, before Fleet has them. Fleet answers with the turn taken and the lines of code each spot was drawn from.
+   */
+  sendSessionNotes: (send: RingedNotes) => Promise<SessionActed<NotesSent>>;
   /** A Mod Job on what was pointed at. Fleet sends it the Mod brief and the note itself, and answers with the Job's id, not its record: the record arrives on Fleet's events. */
   startModSession: (start: StartModSession) => Promise<SessionActed<ModSessionStarted>>;
   /** One of the offers on the ask the agent is held on. */
@@ -348,7 +355,7 @@ export const SESSIONS_CHANNELS = {
   forkSession: "bridge:fork-session",
   forkSessionAt: "bridge:fork-session-at",
   sendSessionMessage: "bridge:send-session-message",
-  sendSessionNote: "bridge:send-session-note",
+  sendSessionNotes: "bridge:send-session-notes",
   startModSession: "bridge:start-mod-session",
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",

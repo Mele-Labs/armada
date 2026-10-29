@@ -36,6 +36,6 @@ export async function startWithDraft(
   // Held on its start card, with the note's words as the request so Fleet's proposer reads them at the start.
   const started = await fleet.startSession(undefined, root, words, undefined, undefined, true);
   if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
-  leaveDraft(started.value.id, words, picture, `annotation-${note.id}.png`);
+  leaveDraft(started.value.id, words, picture?.png ?? null, `annotation-${note.id}.png`);
   return { ok: true, sessionId: started.value.id };
 }
