@@ -1074,6 +1074,10 @@ export function linkedOf(sessions: readonly Session[], parent: Session): { sessi
 /** An issue as a person reads it: a forge number with its `#` (`#7`), a tracker's key as it is (`ABC-12`). */
 export const issueLabel = (issue: string): string => (/^[0-9]+$/.test(issue) ? `#${issue}` : issue);
 
+/** Whether the Job lands its work in pull requests: its delivery opens or lands one, or it already has one. Keep local with none opened does not. */
+export const opensPullRequests = (session: Session): boolean =>
+  session.started?.delivery === "open_pr" || session.started?.delivery === "auto_land" || attachmentsOf(session, "pull_request").length > 0;
+
 export function attachmentsOf<K extends SessionAttachmentKind>(
   session: Session,
   kind: K,

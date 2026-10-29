@@ -56,8 +56,8 @@ export function PullRequestChip(props: PullRequestChipProps) {
     const { placeholder, framed = false } = props;
     return (
       <span className="armada-pull-chip" data-placeholder="" data-framed={framed || undefined} role="group" aria-label={`${placeholder}, ${NOT_OPENED.toLowerCase()}`}>
-        <Tooltip label={NOT_OPENED}>
-          <span className="armada-pull-chip__mark" role="img" aria-label={NOT_OPENED}>
+        <Tooltip label={NOT_OPENED} decorative>
+          <span className="armada-pull-chip__mark" role="img" aria-label={NOT_OPENED} aria-hidden>
             <GitPullRequest size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
