@@ -243,7 +243,7 @@ export type StudiosApi = {
   };
 };
 
-/** A note held on a Job, as the panel lists it: its words, what it is on, and its crop where one was taken. */
+/** A note held on a Job, as the panel lists it: its words, what it is on, and its crop where one was taken, with the box ringed on it. */
 export type PanelHeldNote = {
   id: string;
   /** When it was taken. */
@@ -252,7 +252,12 @@ export type PanelHeldNote = {
   /** The element it is on, as a person names it. */
   on: string;
   crop?: NoteCrop;
+  /** The box picked, in the crop's own pixels, where the crop is the whole window: the panel rings it. */
+  ring?: NoteRing;
 };
+
+/** A box on a note's picture, in that picture's pixels. */
+export type NoteRing = { x: number; y: number; width: number; height: number };
 
 /** Where a press in the panel's Job view lands on Bridge's window: a surface, a link, one of the Job's Checks or its Loadout, or another Job. */
 export type PanelGo =
