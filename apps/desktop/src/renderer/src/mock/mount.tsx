@@ -36,6 +36,7 @@ import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider, TaughtSourceProvider } from "@armada/settings";
 import { mockPhone, type PhoneMoment } from "./phone";
 import { TerminalWindows } from "./TerminalWindows";
+import { JobBrowserWindows } from "./JobBrowserWindows";
 import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep, overnight } from "./sleep";
@@ -233,6 +234,7 @@ export function mountApp(
                                                 <App />
                                                 <WalkJobPanel />
                                                 <TerminalWindows api={api} />
+                                                <JobBrowserWindows />
                                                 <TweaksApplied />
                                               </SharedPanelOver>
                                             ) : (
@@ -240,6 +242,7 @@ export function mountApp(
                                                 <App />
                                                 <WalkJobPanel />
                                                 <TerminalWindows api={api} />
+                                                <JobBrowserWindows />
                                                 <TweaksApplied />
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>

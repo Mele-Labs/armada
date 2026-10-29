@@ -211,6 +211,14 @@ pub enum SessionFact {
     },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
+    /// The agent reached for a browser outside Bridge: `tool` as the person reads it, such as
+    /// `cmux` or `Playwright`, and the address it opened where the call named one. Fleet writes a
+    /// `browser_reminder` row; the mod sends it once a session.
+    BrowserOutside {
+        tool: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        address: Option<String>,
+    },
     /// The agent's task list, whole, as its last `TodoWrite`, `TaskCreate` or `TaskUpdate` left it.
     /// An empty list clears it. Fleet keeps it and records when each item was first seen completed
     /// (`docs/concepts/session.md`, *The build record*).
@@ -696,6 +704,12 @@ pub enum WaitingSource {
     /// whose `target` is the child's id. `begin_session` on the child settles it, and so does the
     /// child ending; answering or dismissing it is refused.
     HeldChild,
+    /// Fleet: a branch the preview left out, held by this Job, has moved past the tip it was left out
+    /// at, so Fleet offers a refresh instead of starting one. Kept once a (branch, tip) for the build:
+    /// id `preview:<branch>@<tip>`, text `<branch> moved since the preview left it out: <why>`, a
+    /// `run` act whose `target` is `scripts/preview --restart`. Dismissing it is Skip and tells the
+    /// agent nothing; answering it is refused. Gone once the build changes.
+    PreviewOffer,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

@@ -26,3 +26,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."
+
+  [[icons.bot.usage]]
+    means = "The Job's agent driving the Job browser, on the pane's head"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. The agent is the one pressing and typing on the page, and this is the drawing of the agent a Session's retro already takes. A press takes the page over. --fg-muted; tooltip and aria-label: Agent driving. Take over."

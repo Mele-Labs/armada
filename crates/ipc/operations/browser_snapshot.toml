@@ -1,0 +1,12 @@
+[operations.browser_snapshot]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Read the page in this Job's browser as it stands: its url, title and snapshot, the accessibility tree as text, naming the role and name of everything browser_click and browser_type can reach. Body: empty, or session_id only where you run in a terminal"
+notes = """
+`POST /sessions/browser/snapshot`, body `BrowserLook`: an optional `session_id`. Answered 200 with `BrowserAnswer` `page`. The act is `{ kind: "snapshot" }`.
+
+**A command, not a query**, though it changes nothing: Fleet holds it for Bridge as it holds every act, and the door gives a command a body.
+
+Held and refused as `browser_open` is: `docs/practices/protocol/the-job-browser.md`.
+"""

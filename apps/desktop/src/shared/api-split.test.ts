@@ -172,6 +172,7 @@ import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
+import { JOB_BROWSER_CHANNELS, type JobBrowserApi } from "./api/job-browser";
 import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
@@ -512,7 +513,7 @@ type OldBridgeApi = {
     readTerminalSoFar: (runId: string) => Promise<string | null>;
     moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
     onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & ProjectsApi & PullRequestNotesApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & ProjectsApi & PullRequestNotesApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -850,6 +851,7 @@ const OLD_CHANNELS = {
     ...SHARING_CHANNELS,
     ...LOGBOOK_CHANNELS,
     ...TEACHING_CHANNELS,
+    ...JOB_BROWSER_CHANNELS,
     ...PROJECTS_CHANNELS,
     ...PULL_REQUEST_NOTES_CHANNELS,
 } as const;

@@ -1,0 +1,16 @@
+/* A Job browser in a window of its own: the app's own stylesheet, and the page and the Job beside it fill the document. */
+@import "./index.css";
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  background: var(--bg-base);
+}

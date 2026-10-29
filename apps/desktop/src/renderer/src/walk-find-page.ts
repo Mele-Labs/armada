@@ -8,6 +8,7 @@
 
 import { arriveAt } from "./walk-find";
 import type { Seeking } from "./walk-find";
+import { snapshotOf } from "./job-browser/snapshot";
 
 /** A box in the page's viewport, in CSS pixels. */
 export type Seen = { x: number; y: number; width: number; height: number };
@@ -73,5 +74,10 @@ export const finder = {
   /** Let go of the element. */
   release(): void {
     held = null;
+  },
+
+  /** The page's accessibility tree as text, for a Job browser's agent, cut at `most` characters. */
+  snapshot(most: number): string {
+    return document.body === null ? "" : snapshotOf(document.body, most);
   },
 };

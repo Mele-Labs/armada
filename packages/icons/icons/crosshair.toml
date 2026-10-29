@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "The battlefield's locate button only: the camera returns to the drone or call the pane is following. Never a target, a goal, a search or a Check. A drone's selection reticle is drawn on the plane and is not this glyph."
   notes = "Added 14 Oct 2026 for the flight deck's map. Named Locate on hover."
+
+  [[icons.crosshair.usage]]
+    means = "Capture on the Job browser's head: a press on part of the page pins a note there"
+    group = "Chrome"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, on the owner's word to use the walk window's note control. The walk window's bar draws this glyph for Capture with no entry here, and the reservation above refuses a target; both are for the owner to rule on. Tooltip `Capture`, `Capturing` while on, with the `capture_note` key."

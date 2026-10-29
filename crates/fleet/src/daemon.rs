@@ -94,6 +94,8 @@ pub struct Fleet<H, V, W> {
     session_check_live: crate::session_check_live::SessionCheckLive,
     /// The addresses a session signs in with, until Bridge opens its window. A secret, never written down — `crate::window_sign_in`.
     window_sign_ins: crate::window_sign_in::SignIns,
+    /// The Job browser's calls held for Bridge. Never written down — `crate::job_browser`.
+    job_browser: crate::job_browser::Browsers,
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,

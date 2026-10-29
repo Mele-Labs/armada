@@ -364,6 +364,7 @@ where
             session_runs: Default::default(),
             session_check_live: Default::default(),
             window_sign_ins: Default::default(),
+            job_browser: Default::default(),
             scouts,
             timeline,
             machine: fittings.machine,
@@ -431,6 +432,10 @@ where
 
     pub(crate) fn window_sign_ins(&self) -> &crate::window_sign_in::SignIns {
         &self.window_sign_ins
+    }
+
+    pub(crate) fn job_browser(&self) -> &crate::job_browser::Browsers {
+        &self.job_browser
     }
 
     pub(crate) fn scouts(&self) -> &crate::scout::Scouts {

@@ -59,7 +59,7 @@ function turnOf(note: SendSessionNote): string {
   lines.push(`Page: ${note.address}`);
   const chain = [...(component === undefined ? [] : [component]), ...(owners ?? [])];
   if (chain.length > 0) lines.push(`Inside: component chain ${chain.join(" ← ")}`);
-  return [note.said.trim(), ...lines, HANDOFF].join("\n");
+  return [note.said.trim(), "", ...lines, HANDOFF].join("\n");
 }
 
 function build(): Scenario {

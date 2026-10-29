@@ -21,6 +21,21 @@ pub(super) fn shows_a_page(url: &str) -> bool {
     !name.is_empty() && !url.contains(char::is_whitespace)
 }
 
+/// An address a Job opened outside Bridge, as its reminder row shows it: **no query, fragment or
+/// sign-in**, which is where a token rides, and at most 300 characters. `None` where it is blank.
+pub(crate) fn address_shown(address: &str) -> Option<String> {
+    let address = address.trim().split(['?', '#']).next().unwrap_or_default();
+    let address = match address.split_once("://") {
+        Some((scheme, rest)) => {
+            let (authority, path) = rest.split_at(rest.find('/').unwrap_or(rest.len()));
+            format!("{scheme}://{}{path}", authority.rsplit('@').next().unwrap_or_default())
+        }
+        None => address.to_string(),
+    };
+    let shown: String = address.chars().take(300).collect();
+    (!shown.is_empty()).then_some(shown)
+}
+
 /// The takes a call named, trimmed, or why they cannot be shown. **Each address is held to the one
 /// `url` is**, and a call that names takes shows the first: `url` must be that same page.
 pub(super) fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<ipc::WindowTake>, &'static str> {

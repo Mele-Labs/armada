@@ -58,7 +58,7 @@ function fakeHost(
     questions,
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
-    sessions: { again: async () => {}, changed: () => {}, row: () => {}, terminal: () => {}, watchesChanged: () => {} },
+    sessions: { again: async () => {}, changed: () => {}, row: () => {}, terminal: () => {}, watchesChanged: () => {}, browser: () => {} },
     held: { warm: async () => {}, again: async () => {} },
     fleetBuild: { watch: () => {} },
     mods,
@@ -101,6 +101,16 @@ describe("a Job's watches, carried whole by their event", () => {
     const change = { session_id: "s1", watches: [{ id: "w1", session_id: "s1", name: "Staging deploy", state: "running", live: true }] };
     applyArrival({ ...host, sessions: { ...host.sessions, watchesChanged } }, JSON.stringify({ message: "event", cursor: 4, event: { kind: "watches.changed", ...change } }), FLEET);
     expect(watchesChanged).toHaveBeenCalledWith(change);
+  });
+});
+
+describe("an agent's act on its Job browser", () => {
+  it("is handed to the Job browser as the request, without its kind", () => {
+    const { host } = fakeHost();
+    const browser = vi.fn();
+    const request = { session_id: "s1", request_id: "browser-01", act: { kind: "click", target: { role: "button", name: "Save" } } };
+    applyArrival({ ...host, sessions: { ...host.sessions, browser } }, JSON.stringify({ message: "event", cursor: 5, event: { kind: "browser.request", ...request } }), FLEET);
+    expect(browser).toHaveBeenCalledWith(request);
   });
 });
 

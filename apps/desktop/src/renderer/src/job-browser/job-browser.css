@@ -1,0 +1,126 @@
+/* The Job browser: a head with who is driving, the address and the acts, over the page. It fills the side panel or its window. */
+.job-browser {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--bg-sunken);
+}
+
+.job-browser__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--h-control-sm);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* The mark of who drives is the toggle. The person driving is the state worth seeing from across the room. */
+.job-browser__head .armada-button[data-driver="you"] { color: var(--accent); }
+
+.job-browser__head > .armada-input-field { flex: 1 1 0; min-width: 0; }
+
+.job-browser__acts { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); }
+
+.job-browser__page {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-base);
+}
+/* The agent's page takes no press from the person until he takes it over or annotates. */
+.job-browser__page[data-driver="agent"]:not([data-annotating]) > :not(.job-browser__pin, .job-browser__note) { pointer-events: none; }
+.job-browser__page[data-annotating] { cursor: crosshair; }
+.job-browser__page[data-annotating] > :not(.job-browser__pin, .job-browser__note) :hover { outline: var(--border-width) dashed var(--accent); }
+
+/* Under Capture, the page's picture in its place: main hides the page's view, and a press picks the part under the pointer. */
+.job-browser__picture { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+
+/* A note pinned on a part of the page: a ring round the part, its note in the tooltip, over the tooltip's own `position: relative`. */
+.job-browser__page > .job-browser__pin {
+  position: absolute;
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-faint);
+}
+.job-browser__pin[data-writing] { border-style: dashed; pointer-events: none; }
+
+.job-browser__note {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: calc(var(--space-12) * 6);
+  margin-top: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-overlay);
+}
+.job-browser__note-acts { display: flex; justify-content: flex-end; gap: var(--space-1); }
+
+/* The reminder in the thread: what the Job reached for, and the press that shows its own browser. */
+.job-browser-reminder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.job-browser-reminder__said { flex: 1 1 0; min-width: 0; }
+.job-browser-reminder > .armada-button { flex: none; }
+.job-browser-reminder__sent { flex: none; }
+
+/* The Job floating left of the Job browser's sheet, on the plate `Sheet` draws off its leading edge: held at the window's leading
+   edge instead, the full height, and the sheet takes the rest of the width. */
+.armada-sheet-scrim > .armada-sheet__aside:has(> .job-browser-beside) {
+  align-self: stretch;
+  margin: var(--space-4) 0 var(--space-4) var(--space-4);
+  overflow: visible;
+}
+.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-sheet[data-kind="job-browser"] {
+  flex: 1 1 0;
+  max-width: none;
+}
+.job-browser-beside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+/* Folded, nothing is drawn, and the sheet keeps its width. */
+.job-browser-beside:not([data-shown]) { display: none; }
+.armada-sheet-scrim > .armada-sheet__aside:has(> .job-browser-beside:not([data-shown])) { margin: 0; }
+/* Wide enough that the composer's pickers keep their words. */
+.job-browser-beside { width: calc(var(--space-12) * 9); }
+.job-browser-beside__job { display: flex; flex: 1 1 0; flex-direction: column; align-self: stretch; min-height: 0; overflow: hidden; }
+.job-browser__document { display: contents; }
+
+/* In a window of its own: the page, and the Job beside it on the right, as the walk window draws its Job. */
+.job-browser-window {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-2);
+  min-height: 0;
+}
+.job-browser-window__page { display: flex; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
+.job-browser-window__job { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }

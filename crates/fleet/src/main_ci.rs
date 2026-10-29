@@ -297,7 +297,7 @@ where
         self.red_given_to_sessions(&changed).await;
         self.pulls_told_when_due().await;
         self.builds_told_when_due().await;
-        self.preview_refreshed_when_left_out_moved().await;
+        self.preview_offered_when_left_out_moved().await;
         Ok(())
     }
 

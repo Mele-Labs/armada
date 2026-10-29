@@ -1,0 +1,12 @@
+[operations.answer_browser_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Answer one browser.request Fleet published, by its request_id, with what the act did or why it could not be done"
+notes = """
+`POST /sessions/browser/answer`, body `AnswerBrowserRequest`: `request_id` and exactly one of `answer` (a `BrowserAnswer`) and `error` (a `BrowserError`: `owner_driving`, `not_found`, `timed_out`, or `failed` with `why`). Answered 200 with `BrowserRequestAnswered`, `request_id` and `session_id`, and the agent's held call answers.
+
+**Refused, and the call still held**, with 422 `fleet.browser_answer_refused` for neither or both, an answer of another kind than the act (`screenshot` to a screenshot, `evaluated` to an evaluate, `page` to every other), and a `screenshot` while no file is at the act's `path`. **Refused with its reason** where nothing is held: 404 `fleet.no_such_browser_request` for an id Fleet never minted, 409 `fleet.browser_request_withdrawn` for one whose wait ran out, and 409 `fleet.browser_request_answered` for one answered already.
+
+`agent_access` is `No`: Bridge is the one that drives the page.
+"""

@@ -1,0 +1,10 @@
+[operations.browser_evaluate]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Run a JavaScript expression in the page in this Job's browser and read its value. Body: expression; optional session_id, only where you run in a terminal. Answers the page's url and title, and result, the value as JSON text, cut at 32 KiB with truncated true; absent where the value has no JSON. A promise is awaited. Refused with the error where the expression throws"
+notes = """
+`POST /sessions/browser/evaluate`, body `BrowserEvaluate`: `expression` and an optional `session_id`. Answered 200 with `BrowserAnswer` `evaluated`: `url`, `title`, `result` (the `JSON.stringify` text of the value, absent where it has none, cut to 32 KiB by Fleet) and `truncated`. The act is `{ kind: "evaluate", expression }`. A blank expression is refused with 422 `fleet.browser_refused`; one that throws is Bridge's `failed`, refused with 422 `fleet.browser_failed` and its words.
+
+Held and refused as `browser_open` is: `docs/practices/protocol/the-job-browser.md`.
+"""

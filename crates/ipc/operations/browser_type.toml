@@ -1,0 +1,10 @@
+[operations.browser_type]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Type into something on the page in this Job's browser. Body: target, as browser_click takes it; text; optional submit (false unless true, presses Enter after text); optional session_id, only where you run in a terminal. Answers the page's url, title and snapshot after the typing"
+notes = """
+`POST /sessions/browser/type`, body `BrowserType`: `target`, `text`, `submit` (absent is `false`) and an optional `session_id`. Answered 200 with `BrowserAnswer` `page`. The act is `{ kind: "type", target, text, submit? }`, `submit` sent only as `true`. Empty `text` without `submit` is refused with 422 `fleet.browser_refused`: there is nothing to type.
+
+Held and refused as `browser_open` is: `docs/practices/protocol/the-job-browser.md`.
+"""

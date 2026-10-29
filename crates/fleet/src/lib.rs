@@ -295,6 +295,8 @@ mod session_shell;
 mod sharing;
 mod sessioning;
 mod window_sign_in;
+/// The Job browser's calls, held until Bridge answers them.
+mod job_browser;
 mod slot_holders;
 mod slot_reclaiming;
 /// A red main claimed in the central store, and the claim read back for the hub.

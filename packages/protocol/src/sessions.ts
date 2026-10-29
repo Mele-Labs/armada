@@ -292,8 +292,11 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `held_child` (id `start:<child id>`, text `Press Start on "<child title>"`, act `message` whose `target` is the child's id) is a Job
  * this one's agent started (`started_to`) that is still held on its start card: its press opens the child, and `begin_session` on the
  * child starts it from the row. Fleet derives it from the child and drops it when the child starts or ends.
+ * `preview_offer` (text `<branch> moved since the preview left it out: <why>`, act `run` whose `target` is `scripts/preview --restart`)
+ * is Fleet offering a refresh on the Job holding a branch the preview left out, once that branch moves past the tip it was left out at.
+ * Dismissing it is Skip, and tells the agent nothing.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -640,6 +643,66 @@ export type TerminalScreen = { run_id: string; screen: string; matched?: boolean
 /** `terminal.opened` and `terminal.exited` on `/events`: a Job's shell opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
 export type JobTerminal = { session_id: string; run_id: string };
 
+// The Job browser: `crates/ipc/src/job_browser.rs`, and `docs/practices/protocol/the-job-browser.md` for the contract.
+
+/** `browser_open`: the agent loads an `http` or `https` page. `POST /sessions/browser/open`. Answered 200 with `BrowserAnswer` `page`. `session_id` is read only where the connection places no hosted Job. */
+export type BrowserOpen = { url: string; session_id?: string };
+
+/** `browser_click`: the agent presses `target`. `POST /sessions/browser/click`. Answered 200 with `BrowserAnswer` `page`. */
+export type BrowserClick = { target: WalkTarget; session_id?: string };
+
+/** `browser_type`: the agent types `text` into `target`, and Enter after it with `submit` (absent is false). `POST /sessions/browser/type`. Answered 200 with `BrowserAnswer` `page`. */
+export type BrowserType = { target: WalkTarget; text: string; submit?: boolean; session_id?: string };
+
+/** `browser_snapshot` and `browser_screenshot`: nothing but the Job. `POST /sessions/browser/snapshot` answers `page`; `POST /sessions/browser/screenshot` answers `screenshot`. */
+export type BrowserLook = { session_id?: string };
+
+/** `browser_wait_for`: exactly one of `text` and `target`. `timeout_ms` absent or 0 is 5000, at most 30000. `POST /sessions/browser/wait_for`. Answered 200 with `BrowserAnswer` `page`. */
+export type BrowserWaitFor = { text?: string; target?: WalkTarget; timeout_ms?: number; session_id?: string };
+
+/** `browser_evaluate`: an expression run in the page. `POST /sessions/browser/evaluate`. Answered 200 with `BrowserAnswer` `evaluated`. */
+export type BrowserEvaluate = { expression: string; session_id?: string };
+
+/**
+ * One act Bridge is asked to do. `screenshot`'s `path` is the PNG to write, in the Job's scratch folder, which
+ * Fleet made. `wait_for` carries one of `text` and `target`, and `timeout_ms` as Fleet held it.
+ */
+export type BrowserAct =
+  | { kind: "open"; url: string }
+  | { kind: "click"; target: WalkTarget }
+  | { kind: "type"; target: WalkTarget; text: string; submit?: boolean }
+  | { kind: "snapshot" }
+  | { kind: "screenshot"; path: string }
+  | { kind: "wait_for"; text?: string; target?: WalkTarget; timeout_ms: number }
+  | { kind: "evaluate"; expression: string };
+
+/** `browser.request` on `/events`: an agent's act, held by Fleet until `answer_browser_request` names `request_id`. Not replayed. */
+export type BrowserRequest = { session_id: string; request_id: string; act: BrowserAct };
+
+/**
+ * What a done act answers. `page` after `open`, `click`, `type`, `snapshot` and `wait_for`, `snapshot` being the
+ * page's accessibility tree as text; `screenshot` after `screenshot`, once the PNG is at the act's `path`; `evaluated`
+ * after `evaluate`, `result` being `JSON.stringify`'s text of the value, absent where it has none. Bridge sends no
+ * `path` and no `truncated`: Fleet sets them on the agent's answer.
+ */
+export type BrowserAnswer =
+  | { kind: "page"; url: string; title: string; snapshot: string; truncated?: boolean }
+  | { kind: "screenshot"; url: string; title: string; path?: string }
+  | { kind: "evaluated"; url: string; title: string; result?: string; truncated?: boolean };
+
+/** Why Bridge could not do an act. Fleet words each for the agent; `failed`'s `why` reaches it after "The Job browser could not do that:". */
+export type BrowserError =
+  | { kind: "owner_driving" }
+  | { kind: "not_found" }
+  | { kind: "timed_out" }
+  | { kind: "failed"; why: string };
+
+/** `answer_browser_request`: Bridge answers one `browser.request` with exactly one of `answer` and `error`. `POST /sessions/browser/answer`. */
+export type AnswerBrowserRequest = { request_id: string; answer?: BrowserAnswer; error?: BrowserError };
+
+/** `answer_browser_request`'s answer: the held call it answered. */
+export type BrowserRequestAnswered = { request_id: string; session_id: string };
+
 /** One holder of what `who_owns` was asked about, with its row. */
 export type Ownership = {
   holder: Holder;
@@ -675,6 +738,8 @@ export type SessionFact =
   /** Files written, relative to the session's `cwd`. Since 23.81. */
   | { kind: "touched"; paths: string[] }
   | { kind: "wrote" }
+  /** The agent reached for a browser outside Bridge: `tool` as the person reads it, and the address it opened. Fleet writes a `browser_reminder` row. */
+  | { kind: "browser_outside"; tool: string; address?: string }
   /** The agent's task list, whole, as its last task tool left it. An empty list clears it. */
   | { kind: "tasks"; tasks: ReportedTask[] }
   /** The agent left plan mode. */

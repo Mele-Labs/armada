@@ -1,0 +1,14 @@
+[operations.browser_open]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Load a page in this Job's browser, the one the owner sees in Bridge's side panel and may take over. Use it instead of cmux, Playwright or a browser of your own, so the owner sees what you see. Body: url (http or https); optional session_id, only where you run in a terminal. Answers once the page has loaded: its url, title and snapshot, the page's accessibility tree as text, which names the role and name of what browser_click and browser_type can reach. Refused while the owner is driving, and where Bridge is not open"
+notes = """
+`POST /sessions/browser/open`, body `BrowserOpen`: `url` and an optional `session_id`. Answered 200 with `BrowserAnswer` `page`: `url`, `title`, `snapshot` and `truncated` where Fleet cut the snapshot to 48 KiB. A `url` that is not `http` or `https` is refused with 422 `fleet.browser_refused`.
+
+**Fleet holds the call and Bridge does it.** Fleet mints a request id, publishes `browser.request` with the act `{ kind: "open", url }`, and holds the call until Bridge posts `answer_browser_request` with that id, or for 20 seconds. Every Job browser operation is held this way, and refused in the same words: `docs/practices/protocol/the-job-browser.md`.
+
+**The Job is the one the connection places when Fleet hosts it**, else `session_id`, as `read_terminal`'s is.
+
+`agent_access` is `Yes`: the agent drives a page the owner watches, in Bridge's own browser, and the owner may take it over at any moment.
+"""

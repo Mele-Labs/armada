@@ -1,0 +1,8 @@
+[operations."browser.request"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "An agent's act on its Job browser, held by Fleet until Bridge answers it: session_id, request_id and act"
+notes = """
+`BrowserRequest`: `session_id`, `request_id` and `act`, a `BrowserAct` tagged by `kind`: `open` (`url`), `click` (`target`), `type` (`target`, `text`, `submit?`), `snapshot`, `screenshot` (`path`, the file to write), `wait_for` (`text?` or `target?`, and `timeout_ms`) or `evaluate` (`expression`). Published once for each call; Bridge answers it with `answer_browser_request`. **Not replayed**: a Bridge that connects after it was published never sees it, and the agent is told Bridge did not answer.
+"""

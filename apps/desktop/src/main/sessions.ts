@@ -33,6 +33,8 @@ import type {
   CheckoutSentAsPullRequest,
   CheckoutToPullRequest,
   JobTerminal,
+  AnswerBrowserRequest,
+  BrowserRequest,
   OpenTerminal,
   StartTerminalRun,
   AnswerSketch,
@@ -207,6 +209,7 @@ export class SessionsHost {
   private readAt: number | null = null;
   /** Where a Job's shell opening or ending goes: main's, set once. */
   private terminalChanged: (change: "opened" | "exited", terminal: JobTerminal) => void = () => {};
+  private browserAsked: (request: BrowserRequest) => void = () => {};
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
   /** What each run printed, by run id: a running one's, and each Job's last shell's after it ends. */
@@ -332,6 +335,24 @@ export class SessionsHost {
   /** Say where a Job's shell opening or ending goes: main's, as `onRun` is. */
   onTerminal(told: (change: "opened" | "exited", terminal: JobTerminal) => void): void {
     this.terminalChanged = told;
+  }
+
+  /** Say who does an agent's act on its Job browser: main's, as `onTerminal` is. */
+  onBrowser(act: (request: BrowserRequest) => void): void {
+    this.browserAsked = act;
+  }
+
+  /** `browser.request`: an agent's act, which Fleet holds until `answerBrowser` names it. */
+  browser(request: BrowserRequest): void {
+    this.browserAsked(request);
+  }
+
+  /** `answer_browser_request`. A refusal is Fleet's to word for the agent, and its call stays held; nothing is retried here. */
+  async answerBrowser(body: AnswerBrowserRequest): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return NOT_CONNECTED;
+    const answer = await ask(port, "POST", "/sessions/browser/answer", body);
+    return answer.ok === true ? { ok: true } : answer.outcome;
   }
 
   /**
