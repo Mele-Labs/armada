@@ -1,11 +1,14 @@
 // The Job's brief as the first beat of its spine, above the zones: one line while shut, and pressed it opens in place to the whole text and how the Job started (workflow,
 // delivery, model, effort, mode, and the Job it was started from). A row the Job holds no value for is left out. `session.started` is what Fleet sends; without it the grid
-// reads what the Job holds now.
+// reads what the Job holds now. Under it, open or shut, the tasks of his projects the Job holds, each a task chip; a press opens one on Projects.
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { TaskChip } from "@armada/components";
 import type { DeliveryChoice } from "@armada/protocol";
 import type { Session, SessionMode, SessionWork } from "@armada/screens/src/draft/sessions";
+
+import { askToShowTask, useTasksHeld, type HeldTask } from "../projects-tab/held";
 
 const DELIVERY: Record<DeliveryChoice, string> = { auto_land: "Auto land", open_pr: "Open PR only", keep_local: "Keep local" };
 const MODE: Record<SessionMode, string> = { ask: "Ask", auto: "Auto", accept_edits: "Accept edits", plan: "Plan" };
@@ -26,11 +29,33 @@ export function startedRows(session: Session, work: SessionWork): Row[] {
   return rows.filter((one): one is Row => one !== undefined && one.value !== "");
 }
 
+/** The tasks the Job holds, as a row of How it started is drawn: the label, then a task chip each. */
+function HeldTasks({ tasks }: { tasks: readonly HeldTask[] }) {
+  const label = tasks.length === 1 ? "Task" : "Tasks";
+  return (
+    <dl className="sv-brief__held">
+      <div className="sv-brief__row">
+        <dt>{label}</dt>
+        <dd>
+          <ul className="sv-brief__tasks" aria-label={label}>
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <TaskChip title={task.title} project={task.project} state={task.state} onOpen={() => askToShowTask(task.id)} />
+              </li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 export function BriefZone({ session, work, text, onOpenSession }: { session: Session; work: SessionWork; text: string; onOpenSession: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const rows = startedRows(session, work);
   const by = session.started?.by;
   const body = `brief-${session.id}`;
+  const held = useTasksHeld(session.id);
   return (
     <section className="sv-panel" data-area="brief" data-place="side" aria-label="Brief">
       <header className="sv-panel__band">
@@ -67,6 +92,7 @@ export function BriefZone({ session, work, text, onOpenSession }: { session: Ses
           </>
         )}
       </div>
+      {held.length === 0 ? null : <HeldTasks tasks={held} />}
     </section>
   );
 }

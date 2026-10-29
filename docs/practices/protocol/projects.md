@@ -104,10 +104,12 @@ settles one row of it from the Projects tab: done, or open again. The item leave
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
 422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, or an issue row moved under a task.
 422 `fleet.project_subtask_too_deep` is a subtask of a subtask, of a task that has subtasks, or of itself.
-404 `fleet.no_such_session` is a Job to link that Fleet has no record of. 422 `fleet.project_job_other_repository` is a Job of
-another repository, and 422 `fleet.project_job_ended` one that has ended. 422 `fleet.project_pull_unreadable` is a pull request number of 0.
-`start_session` names rows: 404 `fleet.no_such_project_row` as above, and 422
-`fleet.project_row_other_repository` is a row of another repository than the Job's. Nothing is made on a refusal.
+404 `fleet.no_such_session` is a Job to link that Fleet has no record of, and 422 `fleet.project_job_ended` one that has ended.
+422 `fleet.project_pull_unreadable` is a pull request number of 0.
+`start_session` names rows: 404 `fleet.no_such_project_row` as above. Nothing is made on a refusal.
+
+**A Job holds a task of any repository.** The owner chose it on 29 Oct 2026, after a task filed in the wrong repository refused every start from the dispatch sheet.
+The task keeps the repository it was filed in, and the Job its own: holding is a link between the two, and the store never compared them.
 422 for a repository Fleet does not serve, as every repository route answers it, on a task or an issue row written into one.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

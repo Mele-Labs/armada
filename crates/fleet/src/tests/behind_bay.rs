@@ -203,6 +203,40 @@ async fn behind_with_a_holder() -> (TempDir, Arc<Rescued>, String, WorktreesHeld
     (home, fleet, session, pool, slot)
 }
 
+/// **The notice names the branch checked out in the slot**, where `behind` was counted, not the one
+/// its lease was cut on.
+#[tokio::test]
+async fn the_notice_names_the_branch_checked_out_in_the_slot() {
+    let (_home, fleet, session, _, mut slot) = behind_with_a_holder().await;
+    let checkout = TempDir::new();
+    std::fs::create_dir_all(checkout.path().join(".git")).unwrap();
+    std::fs::write(checkout.path().join(".git/HEAD"), "ref: refs/heads/fix/moved\n").unwrap();
+    slot.path = checkout.path().to_string_lossy().into_owned();
+
+    fleet.behind_bays_told(&WorktreesHeld { slots: vec![slot.clone()] }).await;
+
+    let said = thread_of(&fleet, &session).await;
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert!(said[0].starts_with(&format!("slot-{} (branch fix/moved) is 20", slot.slot)), "{said:?}");
+}
+
+/// **A reading that cannot say whether the slot caught up forgets nothing**: a lease under way, or
+/// a count git could not make, between two readings still behind is no new notice.
+#[tokio::test]
+async fn a_busy_or_uncounted_reading_is_not_a_new_notice() {
+    let (_home, fleet, session, pool, slot) = behind_with_a_holder().await;
+    fleet.behind_bays_told(&pool).await;
+
+    let busy = WorktreeSlot { held: SlotHolding::Busy, ..slot.clone() };
+    let uncounted = WorktreeSlot { behind: None, ..slot.clone() };
+    let further = WorktreeSlot { behind: Some(40), ..slot.clone() };
+    for reading in [busy, further.clone(), uncounted, further] {
+        fleet.behind_bays_told(&WorktreesHeld { slots: vec![reading] }).await;
+    }
+    let said = thread_of(&fleet, &session).await;
+    assert_eq!(said.len(), 1, "told once: {said:?}");
+}
+
 async fn notices_of(fleet: &Arc<Rescued>, id: &str) -> Vec<Option<String>> {
     Arc::clone(fleet)
         .get_session(SessionId::carried(id))
