@@ -106,9 +106,12 @@ A step the person skipped is the person's call and never draws it.
 
 ### Where a definition comes from
 
-**Three places, merged by `workflow_id`, a person's own winning**: the set Armada carries, then the repository's own `.armada/workflows/`, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`.
+**A workflow is a piece, and takes the places every piece takes**: Armada's, carried in the binary; yours, in [Kit](kit.md); and the repository's, committed under `.armada/workflows/`.
+[Who sees each piece of configuration](../design/who-sees-each-piece-of-configuration.md) owns the model, and this section does not restate it.
+**A new workflow is yours.** Nothing of it reaches the repository or anyone else until you press Commit to repository or Share ([Kit](kit.md#commit-to-repository)).
+The three are merged by `workflow_id`, and **yours wins over the repository's**, so a teammate's commit never replaces what a person set up for themselves.
 A repository with no workflows of its own uses the carried set, and one file in either later place replaces a carried definition by id.
-**Kit's wins over the repository's**, so a teammate's commit never replaces what a person set up for themselves.
+Yours are read from `~/.armada/workflows/` on this Mac, whatever place the repository's other pieces are kept at.
 Where Kit's hides a repository definition of the same id that says something else, `list_workflows` carries `hides: "repository"` on it, and Bridge marks its row with the eclipse glyph; two copies that are the same carry nothing.
 `config::Catalogue` holds the rule. #425.
 
@@ -129,7 +132,7 @@ The repository's own is held to the same rule as Kit's and Armada's: a file some
 **Saving one is `save_workflow`.** The caller names the place, the repository's own or Kit's, and sends the definition whole.
 Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written.
 A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called.
-**Commit to repository copies one of Kit's onto a Job's branch** under `.armada/workflows/`, and Kit's stays ([Kit](kit.md#commit-to-repository)).
+**Commit to repository copies one of yours into the repository** under `.armada/workflows/`, by a Job of its own whose pull request carries it alone, and yours stays ([Kit](kit.md#commit-to-repository)).
 
 **A workflow says which place it came from.** It carries `source` — `armada`, `kit` or `repository` — beside its steps.
 Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file, each definition of the same id a more specific place replaced, and the repository definition it hides, so a surface can mark the source and draw the replaced ones apart.
