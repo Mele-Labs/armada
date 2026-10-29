@@ -299,6 +299,10 @@ fn the_rules_name_the_one_tool_search_line_that_loads_the_task_and_armada_tools(
     for named in ["TaskCreate", "TaskUpdate", door.as_str()] {
         assert!(line.split([':', ',']).any(|one| one == named), "{named} in {line}");
     }
+    let prefix = format!("mcp__{}__", ipc::door::SERVER);
+    for tool in line.trim_start_matches("select:").split(',').filter_map(|tool| tool.strip_prefix(prefix.as_str())) {
+        assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == tool), "{tool} is a door tool");
+    }
     assert_eq!(loading().count(), 1, "one line, not several calls");
 }
 
@@ -712,7 +716,9 @@ fn the_watching_rule_names_the_watch_tools_and_selects_only_real_ones() {
     for named in ["start_watch", "try_watch", "list_watch_recipes", "save_watch_recipe", "weigh_watch", "$ARMADA_SCRATCH"] {
         assert!(rules().contains(named), "{named}");
     }
-    let selected = rules().split("`select:").nth(1).and_then(|rest| rest.split('`').next()).expect("a select line");
+    // The Tools paragraph has a select line of its own, which also loads the harness's task tools.
+    let watching = rules().split("\n\n").find(|block| block.starts_with("Watching.")).expect("a watching paragraph");
+    let selected = watching.split("`select:").nth(1).and_then(|rest| rest.split('`').next()).expect("a select line");
     for tool in selected.split(',') {
         let operation = tool.trim_start_matches(&format!("mcp__{}__", ipc::door::SERVER));
         assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == operation), "{tool}");
