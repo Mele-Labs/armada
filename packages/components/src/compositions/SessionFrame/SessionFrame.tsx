@@ -116,14 +116,15 @@ function arrowAmong(event: ReactKeyboardEvent<HTMLElement>): void {
   acts[next]?.focus();
 }
 
-/** The menu's body: the mark's sentence, then a row for each piece, its act at the row's end. */
+/** The menu's body: what the mark's sentence says beyond its pieces (the CLI and its version), then a row for each piece, its act at the row's end. */
 function ToolsMenu({ said, fixes, onFix }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void }) {
   const body = useRef<HTMLDivElement>(null);
+  const head = fixes.reduce((left, one) => left.replace(one.said, ""), said).trim();
   // Opened, it takes focus on the first act, so the arrow keys have somewhere to start.
   useEffect(() => body.current?.querySelector<HTMLElement>("button")?.focus(), []);
   return (
     <div ref={body} className="armada-tools-menu" onKeyDown={arrowAmong}>
-      <p className="armada-tools-menu__head">{said}</p>
+      {head === "" ? null : <p className="armada-tools-menu__head">{head}</p>}
       <ul className="armada-tools-menu__rows">
         {fixes.map((one) => (
           <li key={one.piece} className="armada-tools-menu__row">
