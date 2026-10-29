@@ -13,7 +13,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use crate::daemon::Fleet;
 
 /// How long a process is given after `TERM` before it is `KILL`ed.
-const GRACE: Duration = Duration::from_secs(2);
+pub(crate) const GRACE: Duration = Duration::from_secs(2);
 
 /// One process a Job started.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -61,6 +61,17 @@ pub(crate) fn loads(listing: &str) -> Vec<(u32, f32, u64)> {
 /// The bytes in `du -sk`'s first line.
 pub(crate) fn disk(listing: &str) -> Option<u64> {
     let kib: u64 = listing.split_whitespace().next()?.parse().ok()?;
+    Some(kib * 1024)
+}
+
+/// The bytes `sysctl -n hw.memsize` printed.
+pub(crate) fn memory_of(listing: &str) -> Option<u64> {
+    listing.trim().parse().ok()
+}
+
+/// The size of the volume in `df -k`'s second line: its second field, in KiB.
+pub(crate) fn volume_of(listing: &str) -> Option<u64> {
+    let kib: u64 = listing.lines().nth(1)?.split_whitespace().nth(1)?.parse().ok()?;
     Some(kib * 1024)
 }
 
@@ -115,6 +126,14 @@ where
             memory_bytes: reading.as_ref().map(|all| all.iter().map(|(_, _, bytes)| bytes).sum()),
             disk_bytes: printed("du", &["-sk", slot]).and_then(|said| disk(&said)),
         }
+    }
+
+    /// The machine's memory and the size of the volume `slot` is on, to set a [`Load`] against. Blocking.
+    pub(crate) fn machine_of(slot: &str) -> (Option<u64>, Option<u64>) {
+        (
+            printed("sysctl", &["-n", "hw.memsize"]).and_then(|said| memory_of(&said)),
+            printed("df", &["-k", slot]).and_then(|said| volume_of(&said)),
+        )
     }
 
     /// End what the session started and left running: `TERM`, then `KILL` after a short wait.

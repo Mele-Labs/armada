@@ -612,6 +612,28 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn get_session_system(self: std::sync::Arc<Self>, session_id: ipc::SessionId) -> Result<ipc::SessionSystem, Refusal> {
+        Ok(ipc::SessionSystem {
+            session_id,
+            processes: Vec::new(),
+            cpu_percent: None,
+            memory_bytes: None,
+            memory_of_bytes: None,
+            disk_bytes: None,
+            disk_of_bytes: None,
+            worktrees: Vec::new(),
+            logs: Vec::new(),
+        })
+    }
+
+    async fn stop_process(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        stop: ipc::StopProcess,
+    ) -> Result<ipc::ProcessStopped, Refusal> {
+        Ok(ipc::ProcessStopped { pid: stop.pid.unwrap_or(0), command: String::new() })
+    }
+
     async fn get_session_usage(
         &self,
         _session_id: ipc::SessionId,

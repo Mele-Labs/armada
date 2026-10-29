@@ -258,6 +258,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/loadout", get(crate::sessions::get_session_loadout::<D>))
         .route("/sessions/attachment_history", get(crate::sessions::get_attachment_history::<D>))
         .route("/sessions/usage", get(crate::sessions::get_session_usage::<D>))
+        .route("/sessions/system", get(crate::sessions::get_session_system::<D>))
+        .route("/sessions/stop_process", post(crate::sessions::stop_process::<D>))
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
         .route("/usage/rules", get(crate::sessions::get_usage_rules::<D>))
         .route("/sessions/loadout/item", get(crate::sessions::read_loadout_item::<D>))

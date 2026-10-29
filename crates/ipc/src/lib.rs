@@ -87,6 +87,8 @@ mod thought;
 mod timeline;
 /// Who held a slot and what was checked out in it, for the side panel's Bay.
 mod bay_history;
+/// A Job's processes, their load, its worktrees and logs, and ending one process.
+mod session_system;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
@@ -326,6 +328,9 @@ pub use helm::{
 pub use thought::{
     HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent,
     ThoughtTarget,
+};
+pub use session_system::{
+    ProcessStopped, SessionSystem, StopProcess, SystemLog, SystemProcess, SystemProcessState, SystemWorktree,
 };
 pub use bay_history::{
     BayHistory, BayHistoryAsk, BayHistoryEntry, BayHolder, BayHolderKind, MOST_BAY_HISTORY,
