@@ -12,9 +12,11 @@ import { isAbsolute, join } from "node:path";
 import type { AnswerBrowserRequest, BrowserRequest, Outcome, SendSessionNote, StudioCapture } from "@armada/protocol";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
+import { pngSize, ringOn, type Ring } from "../shared/ring";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
 import { webOrigin } from "./capture/address";
 import { bounded, chainOf, readOf, rectOf, type PageRead } from "./capture/bounds";
+import { burnRing, type Burn } from "./capture/burn";
 import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
 import { sessionNoteBody } from "./capture/pinned-note";
@@ -49,7 +51,8 @@ export type BrowserPage = JobPage & {
   ask(x: number, y: number): Promise<unknown>;
 };
 
-export type Picture = { png: Uint8Array; crop(box: CaptureRect): Buffer | null };
+/** The page as drawn, and where a box in its CSS pixels is on that picture. */
+export type Picture = { png: Uint8Array; ring(box: CaptureRect): Ring | null };
 
 /** One Job's window, beside its thread. */
 export type BrowserWindowHeld = { host: Host; focus(): void; close(): void };
@@ -85,6 +88,7 @@ export class JobBrowsers {
   constructor(
     private readonly make: JobBrowserMake,
     private readonly tell: JobBrowserTell,
+    private readonly burn: Burn = burnRing,
   ) {}
 
   list(): JobBrowserState[] {
@@ -223,13 +227,18 @@ export class JobBrowsers {
     return { box: rectOf(capture.bounds, viewport), chain: chainOf(capture) };
   }
 
-  /** The held part's note, cropped from the picture, sent to the Job as the owner's: `send_session_note`. */
+  /**
+   * The held part's note, sent to the Job as the owner's: `send_session_note`. Its picture is the whole frozen page with the
+   * part ringed, tagged 1, since it goes as a turn of its own.
+   */
   async note(sessionId: string, said: string): Promise<Outcome> {
     const one = this.held.get(sessionId);
     const holding = one?.holding;
     if (one === undefined || holding === null || holding === undefined) return { ok: false, why: "nothing_held" };
-    const crop = one.frozen?.crop(rectOf(holding.capture.bounds, one.page.viewport())) ?? null;
-    const body = sessionNoteBody({ sessionId, said, capture: holding.capture, read: holding.read, address: one.page.url(), walk: null, crop: crop === null ? null : crop.toString("base64") });
+    const frozen = one.frozen;
+    const ring = frozen === null ? null : frozen.ring(rectOf(holding.capture.bounds, one.page.viewport()));
+    const crop = frozen === null || ring === null ? null : Buffer.from(this.burn(frozen.png, ring, 1)).toString("base64");
+    const body = sessionNoteBody({ sessionId, said, capture: holding.capture, read: holding.read, address: one.page.url(), walk: null, crop });
     const outcome = await this.tell.note(body);
     if (outcome.ok) this.thaw(sessionId);
     return outcome;
@@ -384,15 +393,9 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
       if (contents.isDestroyed()) return null;
       const image = await contents.capturePage();
       if (image.isEmpty()) return null;
-      const scale = image.getSize().width / viewportOf().width;
-      return {
-        png: image.toPNG(),
-        crop: (box) => {
-          if (box.width === 0 || box.height === 0) return null;
-          const png = image.crop({ x: Math.round(box.x * scale), y: Math.round(box.y * scale), width: Math.round(box.width * scale), height: Math.round(box.height * scale) }).toPNG();
-          return png.byteLength === 0 ? null : png;
-        },
-      };
+      const png = image.toPNG();
+      const width = pngSize(png)?.width ?? image.getSize().width;
+      return { png, ring: (box) => (box.width === 0 || box.height === 0 ? null : ringOn(box, viewportOf().width, width)) };
     },
     ask: async (x, y) => {
       if (contents.isDestroyed()) return null;
