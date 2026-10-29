@@ -333,7 +333,7 @@ export class FakeSessionsFleet {
     });
   }
 
-  /** Mock only until `mend_session_tools` exists: the agent is restarted with its mod, after a pause that shows the working state. */
+  /** `mend_session_tools`: the agent is restarted with its mod, after a pause that shows the working state. */
   private async mending(sessionId: string): Promise<SessionActed<void>> {
     await new Promise((done) => setTimeout(done, 1200));
     this.mend(sessionId, "mod");

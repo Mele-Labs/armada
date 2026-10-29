@@ -117,13 +117,11 @@ export class WiredStore {
 
   constructor(api: BridgeApi) {
     this.api = api;
-    // The draft is built before the api is held, so the one command only some builds carry (mock only for now) is added here.
-    if (api.mendSessionTools !== undefined) {
-      this.draft.mendTools = async (id) => {
-        const done = await api.mendSessionTools!(id);
-        return done.ok ? { ok: true } : { ok: false, said: refusalWords(done.outcome) };
-      };
-    }
+    // The draft is built before the api is held, so the command that needs it is added here.
+    this.draft.mendTools = async (id) => {
+      const done = await api.mendSessionTools(id);
+      return done.ok ? { ok: true } : { ok: false, said: refusalWords(done.outcome) };
+    };
   }
 
   /** Read the state and follow it. Returns the way to stop. */

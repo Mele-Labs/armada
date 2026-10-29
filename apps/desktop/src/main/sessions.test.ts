@@ -463,6 +463,18 @@ it("reads a Job's MCP servers on the query string and acts on one on its own rou
   expect(await host(null).sessions.actOnMcp("a", "linear", "reconnect")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
+it("restarts a Job's agent on its own route, naming the session", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a b")]);
+  const { sessions, published } = host(port);
+  const mended = await sessions.mendTools("a b");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/tools/mend"]);
+  expect(sent[0]!.body).toEqual({ session_id: "a b" });
+  expect(mended).toEqual({ ok: true, value: undefined });
+  expect(published).toEqual([]);
+  expect(await host(null).sessions.mendTools("a")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
 it("retries a failed hand off on its own route with the old Job named", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")]);

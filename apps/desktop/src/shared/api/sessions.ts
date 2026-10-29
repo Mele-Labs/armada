@@ -237,9 +237,9 @@ export type SessionsApi = {
   actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
   /**
    * Restarts a hosted Job's agent so it loads the mod it came up without: `mend_session_tools`, body `{ session_id }`.
-   * **Mock only**: the command is not in the protocol yet, and no preload or main carries it, so it is absent from a real build.
+   * Fleet fills its copy of the mod first and answers once the restart is under way; the mark clears when the new process's `init` says so.
    */
-  mendSessionTools?: (sessionId: string) => Promise<SessionActed<void>>;
+  mendSessionTools: (sessionId: string) => Promise<SessionActed<void>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
@@ -413,6 +413,7 @@ export const SESSIONS_CHANNELS = {
   readLoadoutItem: "bridge:read-loadout-item",
   readSessionMcp: "bridge:read-session-mcp",
   actOnSessionMcp: "bridge:act-on-session-mcp",
+  mendSessionTools: "bridge:mend-session-tools",
   openSessionFile: "bridge:open-session-file",
   openSessionWindow: "bridge:open-session-window",
   getSessionWindows: "bridge:get-session-windows",
