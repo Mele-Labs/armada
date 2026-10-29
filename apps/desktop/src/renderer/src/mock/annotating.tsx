@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 
 import type { Annotation } from "../../../shared/annotations";
 import { Layer, ON_KEY } from "../annotate/Layer";
+import { WiredSessions } from "../sessions-wired";
 import type { Sink } from "../annotate/sink";
 
 const AT = "2026-10-07T13:48:02.000Z";
@@ -118,7 +119,9 @@ export function mountAnnotating(scenario: string): () => void {
   const root = createRoot(host);
   root.render(
     <StrictMode>
-      <Layer sink={sinkOf(notes())} />
+      <WiredSessions>
+        <Layer sink={sinkOf(notes())} />
+      </WiredSessions>
     </StrictMode>,
   );
   return () => {

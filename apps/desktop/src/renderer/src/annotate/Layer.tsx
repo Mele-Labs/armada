@@ -13,16 +13,18 @@ import {
   type ReactNode,
 } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Button, Checkbox, KbdChord, SearchField, SplitButton, Tabs, Textarea, Tooltip } from "@armada/components";
+import { Button, Checkbox, JobCard, KbdChord, SearchField, SplitButton, Tabs, Textarea, Tooltip } from "@armada/components";
 
 
 import type { BridgeApi } from "../../../shared/api";
-import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
+import { byCreation, sentAs, shotName, type Annotation, type Box, type Sent } from "../../../shared/annotations";
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
 import { jobFactsOf } from "../job-facts";
 import { askToOpenSessionInCockpit, openSessionIn } from "../open-session";
+import { IssueJobCard } from "../issues-tab/marks";
 import { useReportAsked } from "../report";
+import { useSessions } from "../sessions-draft";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
 import { contextOf, type ContextState } from "./context";
@@ -83,6 +85,13 @@ const place = (box: Box): CSSProperties =>
 
 /** What the layer asks of Fleet's seam: the Session send, and the Sessions that are live. */
 export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNote"> & StateSource;
+
+/** The Job a note went to, as the shared card. A Job this window does not hold is the card with the title the note kept, in no state. */
+function SentJob({ sent, onOpen }: { sent: Sent; onOpen: (id: string) => void }) {
+  const session = useSessions().find((one) => one.id === sent.sessionId);
+  if (session !== undefined) return <IssueJobCard session={session} onOpen={onOpen} />;
+  return <JobCard title={sent.title} state="quiet" said="Not held by this window" onOpen={() => onOpen(sent.sessionId)} />;
+}
 
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
@@ -792,10 +801,14 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                               <span className="armada-annotate__row-text">{note.text}</span>
                               <span className="armada-annotate__row-meta">
                                 <span>{note.component ?? note.element.tag}</span>
-                                {note.sent !== undefined && <span className="armada-annotate__sent">{sentAs(note.sent)}</span>}
                               </span>
                             </button>
                           </Tooltip>
+                          {note.sent !== undefined && (
+                            <div className="armada-annotate__row-job">
+                              <SentJob sent={note.sent} onOpen={openSession} />
+                            </div>
+                          )}
                           <div className="armada-annotate__actions">
                             <Checkbox
                               aria-label={`Select ${note.text}`}

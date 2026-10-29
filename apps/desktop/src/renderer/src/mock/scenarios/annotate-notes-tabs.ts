@@ -7,11 +7,16 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
-import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
+import { FakeSessionsFleet, asking, held, hosted } from "../sessions-fleet";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
-const sessions = () => [hosted("01SESSIONNOTESTABSAAAAAAAA", { title: "Tidy the invoice table", attachments: [held("slot", "2"), held("branch", "fix/invoice-table")] })];
+// The Jobs the sent notes went to: one working, one waiting on a call. The fixtures' notes name them by id.
+const sessions = () => [
+  hosted("01SESSIONNOTESTABSAAAAAAAA", { title: "Tidy the invoice table", attachments: [held("slot", "2"), held("branch", "fix/invoice-table")] }),
+  hosted("01SESSIONSENTROWBADGEAAAAA", { title: "Row badge spacing", hosted: { turn: { state: "working" }, mode: "auto", running: true } }),
+  hosted("01SESSIONSENTCOMPOSERAAAAA", { title: "Composer draft", hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: asking("pnpm test --filter composer") } }),
+];
 
 function build(): Scenario {
   const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
