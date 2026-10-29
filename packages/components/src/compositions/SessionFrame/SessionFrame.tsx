@@ -118,11 +118,13 @@ function arrowAmong(event: ReactKeyboardEvent<HTMLElement>): void {
 }
 
 /** The menu's body: what the mark's sentence says beyond its pieces (the CLI and its version), then a row for each piece, its act at the row's end. */
-function ToolsMenu({ said, fixes, onFix, close }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void; close: () => void }) {
+export function ToolsMenu({ said, fixes, onFix, close, focusFirst = true }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void; close: () => void; focusFirst?: boolean }) {
   const body = useRef<HTMLDivElement>(null);
   const head = fixes.reduce((left, one) => left.replace(one.said, ""), said).trim();
   // Opened, it takes focus on the first act, so the arrow keys have somewhere to start.
-  useEffect(() => body.current?.querySelector<HTMLElement>("button")?.focus(), []);
+  useEffect(() => {
+    if (focusFirst) body.current?.querySelector<HTMLElement>("button")?.focus();
+  }, [focusFirst]);
   return (
     <div ref={body} className="armada-tools-menu" onKeyDown={arrowAmong}>
       {head === "" ? null : <p className="armada-tools-menu__head">{head}</p>}
@@ -155,11 +157,11 @@ function ToolsMenu({ said, fixes, onFix, close }: { said: string; fixes: readonl
  * The agent came up without some of its Armada tools: the mark, and its tooltip is the label. Given `fixes` it is a button, and a press opens
  * a menu of the pieces, each with the act that puts it right (the owner, 29 Oct 2026: "I hate leaving users in a state of error with no way out").
  */
-export function ToolsMark({ said, size = 16, fixes, onFix }: { said: string; size?: 12 | 16; fixes?: readonly ToolsFix[]; onFix?: (piece: string) => void }) {
+export function ToolsMark({ said, size = 16, fixes, onFix, apparent }: { said: string; size?: 12 | 16; fixes?: readonly ToolsFix[]; onFix?: (piece: string) => void; apparent?: boolean }) {
   if (fixes === undefined || fixes.length === 0 || onFix === undefined) {
     return (
       <Tooltip label={said}>
-        <span className="armada-session-mark" role="img" aria-label={said}>
+        <span className="armada-session-mark" role="img" aria-label={said} data-apparent={apparent === true ? "" : undefined}>
           <Unplug size={size} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
@@ -171,7 +173,7 @@ export function ToolsMark({ said, size = 16, fixes, onFix }: { said: string; siz
       label={said}
       trigger={
         <Tooltip label={said}>
-          <button type="button" className="armada-session-mark armada-tools-mark" aria-label={said} aria-haspopup="dialog">
+          <button type="button" className="armada-session-mark armada-tools-mark" aria-label={said} aria-haspopup="dialog" data-apparent={apparent === true ? "" : undefined}>
             <Unplug size={size} strokeWidth={2} aria-hidden />
           </button>
         </Tooltip>
@@ -249,6 +251,8 @@ export type SessionFrameProps = {
   toolsMissing?: string;
   /** What the mark's menu lists, one row for each piece, and the press on a row's act. Absent draws the mark with no menu. */
   toolsFixes?: { fixes: readonly ToolsFix[]; onFix: (piece: string) => void };
+  /** The tools mark pulses in the needs-you hue, as a lamp of a Job that needs the person does. */
+  toolsApparent?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
   /** Compact, offered at the foot of the context tank's card or popover. Absent offers none. */
@@ -372,7 +376,7 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -391,7 +395,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, onName
         {loadout === undefined ? null : <LoadoutMark {...loadout} />}
         <span className="armada-session-frame__marks">
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
-          {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} />}
+          {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} {...(toolsApparent === true ? { apparent: true } : {})} />}
         </span>
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}

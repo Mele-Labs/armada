@@ -219,6 +219,22 @@ button.armada-session-frame__context:focus-visible {
   outline-offset: var(--space-1);
 }
 
+/* The take that makes the mark apparent: the needs-you lamp's hue and pulse, on opacity alone. Reduced motion holds it lit. */
+.armada-session-mark[data-apparent] {
+  color: var(--status-awaiting-review);
+  animation: armada-tools-mark-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes armada-tools-mark-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-mark[data-apparent] {
+    animation: none;
+  }
+}
+
 /* The menu in the popover: the mark's sentence as its heading, then a row for each piece. */
 .armada-tools-menu {
   display: flex;

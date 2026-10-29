@@ -87,9 +87,20 @@ export function useToolsFixes(session: Session, terminal?: Terminal, open?: () =
   return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, terminal, open) };
 }
 
+/**
+ * Two takes on making the missing-tools mark more apparent, picked by `?take=` on the mock's page: `pulse` pulses the mark where it is, in the row
+ * and the header; `band` keeps a band over the Job's message box until nothing is missing. No take is the mark as it was. The owner picks one and the other goes.
+ */
+export const toolsTake = (): "pulse" | "band" | undefined => {
+  const query = new URLSearchParams(window.location.search);
+  // The band's walk plays with no `take` in its address, so its name stands for one.
+  const take = query.get("take") ?? (query.get("walk") === "job-tools-missing-band" ? "band" : null);
+  return take === "pulse" || take === "band" ? take : undefined;
+};
+
 /** The tools mark of a Job, with its menu where the build can act on it. Nothing where the Job came up whole. */
 export function ToolsMarkOf({ session, size, open }: { session: Session; size?: 12 | 16; open?: () => void }) {
   const fixing = useToolsFixes(session, undefined, open);
   if (session.toolsMissing === undefined) return null;
-  return <ToolsMark said={toolsMissingSaid(session.toolsMissing)} {...(size === undefined ? {} : { size })} {...(fixing ?? {})} />;
+  return <ToolsMark said={toolsMissingSaid(session.toolsMissing)} {...(size === undefined ? {} : { size })} {...(fixing ?? {})} {...(toolsTake() === "pulse" ? { apparent: true } : {})} />;
 }

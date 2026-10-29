@@ -22,6 +22,11 @@
   --hue: var(--status-completed-failed);
 }
 
+/* The tools band has nothing to press on its band: it stays up until nothing is missing. */
+.armada-needs-panel[data-kind="tools"] .armada-needs-panel__trigger {
+  cursor: default;
+}
+
 /* The reason a hand off failed: one line of the body's text, in the secondary ink. */
 .armada-handoff-band__reason {
   margin: 0;
