@@ -35,6 +35,9 @@ A copy that cannot be filled refuses the press with the script's words and resta
 **Bridge draws the mark as the `unplug` glyph**, on the Job's row in the Jobs list and in its header, with a tooltip that is the label: the CLI's version, then a sentence for each piece missing, such as `Claude Code 2.1.312. No armada mod. No task tools.`
 The row's inspect card carries the same sentence as its Tools line.
 The row's column is kept for every row while one in the list has the mark, and an ended Job draws none.
+**The open Job shows a band over its message box**, `Tools missing`, in the Needs you band's look, with the CLI's version, a line for each piece missing and its act: Restart the agent, Reconnect for the door (`act_on_session_mcp`), and Update Claude Code, which runs `claude update` in the Job's docked terminal.
+It stacks above the Needs you, handoff and end bands, and its dismiss is kept per Job in memory until a piece it did not cover goes missing.
+Wherever the band is not showing, dismissed or on the Job's row, the mark pulses as a needs-you row does, and pressing it opens the same acts.
 
 **The task list reaches the working band through the mod.**
 Current CLIs serve `TaskCreate` and `TaskUpdate`, which Fleet's gate sees without their results, so the band reads the whole list the mod reports as `tasks`; a `TodoWrite` the gate sees still sets it on an older CLI.
