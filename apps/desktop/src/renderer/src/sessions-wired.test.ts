@@ -567,3 +567,42 @@ it("holds the picked repository's Sessions in the list and every repository's be
   publish({ repository: null as unknown as string, holds: { ...NOTHING_YET.holds, repositories }, sessions: { state: "read", sessions: [record("a"), { ...record("b"), manifest_id: "pocket" }] } });
   expect(store.draft.everywhere!()).toBe(store.draft.get());
 });
+
+// ---- A start refused from the dispatch sheet ----------------------------------------------------------------
+
+/** A store whose Fleet refuses every start with a project row it does not know, with the window's events caught in `heard`. */
+async function refusedStart() {
+  const heard: { type: string; detail: unknown }[] = [];
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: (event: { type: string; detail: unknown }) => heard.push(event) });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} get detail() { return this.init.detail; } });
+  const error = { code: "fleet.no_such_project_row", message: "No such row in your projects.", run_id: "r1", fields: { row: "gone" }, chain: [] };
+  const startSession = vi.fn(async () => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error } }));
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: () => () => undefined, startSession } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  await new Promise((done) => setTimeout(done, 0));
+  return { store, startSession, raised: () => heard.filter((event) => event.type === "armada:raise-outcome").map((event) => event.detail as { error: { code: string; fields: Record<string, string> } }) };
+}
+
+it("raises a start the dispatch sheet made and Fleet refused as the window's toast, with Fleet's code and the request as its fields, and leaves the Sessions line unset", async () => {
+  const { store, startSession, raised } = await refusedStart();
+
+  const id = await store.draft.start(undefined, "/code/armada", "fix it", undefined, undefined, undefined, [{ row: "gone" }], true);
+
+  expect(id).toBeUndefined();
+  expect(startSession).toHaveBeenCalledWith(undefined, "/code/armada", "fix it", undefined, undefined, undefined, [{ row: "gone" }]);
+  const [outcome] = raised();
+  expect(raised()).toHaveLength(1);
+  expect(outcome?.error.code).toBe("fleet.no_such_project_row");
+  expect(outcome?.error.fields).toEqual({ row: "gone", act: "start_session", root: "/code/armada", request: "fix it", project_rows: JSON.stringify([{ row: "gone" }]) });
+  expect(store.draft.said!()).toBeUndefined();
+});
+
+it("still says a start refused anywhere else on the Sessions line, and raises no toast for it", async () => {
+  const { store, raised } = await refusedStart();
+
+  await store.draft.start(undefined, "/code/armada", "fix it");
+
+  expect(store.draft.said!()).toBe("No such row in your projects.");
+  expect(raised()).toEqual([]);
+});

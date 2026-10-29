@@ -211,6 +211,45 @@ test("plain ↵ still starts a Session, and queues nothing", async () => {
   expect(fleet.queue).not.toHaveBeenCalled();
 });
 
+/** The sheet opened on the armada repository with `rows` of his projects, then the billing repository picked instead. */
+async function rowedSheetOnBilling(fleet: ReturnType<typeof served>, words: string) {
+  const elsewhere = { ...ARMADA, root: "/Users/user/billing", manifest: { ...ARMADA.manifest!, id: "billing", repository: "billing" } };
+  await remount({ draft: fleet.draft, repositories: [ARMADA, elsewhere] });
+  held?.choose("session");
+  held?.openSheet(words, ROOT, undefined, [{ row: "task-1" }, { row: "task-2" }]);
+  const request = page.getByRole("textbox", { name: "Request" });
+  await expect.element(request).toHaveValue(words);
+  await userEvent.click(page.getByRole("radio", { name: /Repository billing/ }));
+  return { request, billing: elsewhere.root };
+}
+
+test("a sheet opened with rows sends them with the start whichever repository is picked, and asks for the refusal to be a toast", async () => {
+  const fleet = served();
+  const { billing } = await rowedSheetOnBilling(fleet, "Write up the billing tasks");
+
+  await userEvent.click(page.getByRole("button", { name: "Start", exact: true }));
+
+  await expect.poll(() => fleet.start.mock.calls.length).toBe(1);
+  expect(fleet.start).toHaveBeenCalledWith(undefined, billing, "Write up the billing tasks", {}, undefined, true, [{ row: "task-1" }, { row: "task-2" }], true);
+});
+
+test("a start Fleet refuses leaves the sheet open with its words, and opens no Job", async () => {
+  const fleet = served();
+  fleet.start.mockResolvedValue(undefined as never);
+  const { request } = await rowedSheetOnBilling(fleet, "Write up the billing tasks");
+
+  await userEvent.click(page.getByRole("button", { name: "Start", exact: true }));
+
+  await expect.poll(() => fleet.start.mock.calls.length).toBe(1);
+  expect(fleet.start.mock.calls[0]?.[7]).toBe(true);
+  // Let the refusal settle before reading what the sheet does with it.
+  await new Promise((done) => setTimeout(done, 100));
+  await expect.element(request).toBeVisible();
+  await expect.element(request).toHaveValue("Write up the billing tasks");
+  expect(scene.opened).toEqual([]);
+  expect(fleet.send).not.toHaveBeenCalled();
+});
+
 test("a start leaves the model and the effort out when the selects were not touched, and sends them when they were", async () => {
   const fleet = served();
   await remount({ draft: fleet.draft, repositories: [ARMADA] });
