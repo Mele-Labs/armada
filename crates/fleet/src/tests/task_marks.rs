@@ -8,11 +8,11 @@ use api::Sessions;
 use ipc::{PlanTaskState, ReportedTaskStatus, SessionFact, SessionId, SessionPlanTask, SessionRecord, SessionReport};
 
 use super::session_host::{eventually, rig_placing, Rig};
-use super::session_plan::{edit, first, read, recorded, running, task, tasks, told};
+use super::session_plan::{edit, first, group, plan, read, recorded, running, task, tasks, told};
 use crate::session_host::Heard;
 
 use PlanTaskState::{Done, Open, Working};
-use ReportedTaskStatus::{InProgress, Pending};
+use ReportedTaskStatus::{Completed, InProgress, Pending};
 
 /// The plan task whose text is `text`, as the record carries it.
 fn task_of(record: &SessionRecord, text: &str) -> SessionPlanTask {
@@ -148,6 +148,43 @@ async fn an_edit_with_nothing_in_progress_marks_the_groups_first_open_task_worki
     assert_eq!(task_of(&record, "Add the tables").marked.as_deref(), Some("edits in crates/store/src/plan.rs"));
     assert_eq!(task_of(&record, "Add the migration").state, Open, "only the first open task");
     eventually(|| async { told(&rig, "is in progress: edits in crates/store/src/plan.rs") == 1 }).await;
+}
+
+#[tokio::test]
+async fn an_edit_with_nothing_in_progress_marks_the_open_task_whose_title_names_the_file() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let named = plan(
+        &id,
+        vec![group(None, "Store", "rust-engineer", &["crates/store"], &[(None, "Check the guide's inventory"), (None, "PlanTables: keep the rows")])],
+    );
+    recorded(&rig, named).await;
+
+    rig.stand_in.says(0, vec![edit("crates/store/src/plan_tables.rs")]);
+    eventually(|| async { task_of(&read(&rig, &id).await, "PlanTables: keep the rows").state == Working }).await;
+    assert_eq!(task_of(&read(&rig, &id).await, "Check the guide's inventory").state, Open, "not the first open task");
+}
+
+#[tokio::test]
+async fn a_list_that_says_completed_again_takes_down_fleets_in_progress_mark() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, first(&id)).await;
+    tasks(&rig, &id, vec![task("Add the tables", Completed)]).await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let mut plan = store.session_plan(id.as_str()).expect("read").expect("a plan");
+        let marked = &mut plan.groups[0].tasks[0];
+        marked.marked = Some("in_progress".into());
+        marked.marked_why = Some("edits in crates/store/src/plan.rs".into());
+        marked.edited = true;
+        store.keep_session_plan_progress(id.as_str(), &plan).expect("kept");
+    }
+    assert_eq!(task_of(&read(&rig, &id).await, "Add the tables").state, Working);
+
+    let record = tasks(&rig, &id, vec![task("Add the tables", Completed)]).await;
+    let back = task_of(&record, "Add the tables");
+    assert_eq!((back.state, back.marked), (Done, None));
 }
 
 #[tokio::test]
