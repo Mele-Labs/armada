@@ -13,8 +13,8 @@ fn an_agent_or_task_call_names_its_type_and_one_that_names_none_is_general_purpo
     assert_eq!(
         calls,
         [
-            SubagentCall { call: "toolu_1".into(), kind: "rust-engineer".into() },
-            SubagentCall { call: "toolu_2".into(), kind: "general-purpose".into() },
+            SubagentCall { call: "toolu_1".into(), kind: "rust-engineer".into(), background: false },
+            SubagentCall { call: "toolu_2".into(), kind: "general-purpose".into(), background: false },
         ],
         "an Edit starts nothing"
     );

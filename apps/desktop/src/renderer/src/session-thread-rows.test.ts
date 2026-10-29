@@ -134,3 +134,17 @@ describe("a draft in a Session's thread", () => {
     expect(threadRowsFrom([row])).toEqual([row]);
   });
 });
+
+describe("a subagent and a queued message in a Session's thread", () => {
+  it("keeps the subagent a tool row carries", () => {
+    const subagent = { id: "agent:a1", agent_type: "implementer", task: "Make the thread resizable", state: "running" as const, since: "2026-10-29T10:00:00Z" };
+    const row: Session["rows"][number] = { id: "t1", at: "14:00:00", kind: "tool", text: "Agent Make the thread resizable", subagent };
+    expect(threadRowsFrom([row])).toEqual([row]);
+  });
+
+  it("keeps the queued mark on the person's message, and adds none where it is absent", () => {
+    const said = (queued: boolean): Session["rows"][number] => ({ id: "m1", at: "14:00:00", kind: "message", from: { kind: "you" }, text: "and the tests", ...(queued ? { queued: true as const } : {}) });
+    expect(threadRowsFrom([said(true)])).toMatchObject([{ kind: "message", from: "you", queued: true }]);
+    expect(threadRowsFrom([said(false)])[0]).not.toHaveProperty("queued");
+  });
+});
