@@ -15,7 +15,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
-import { chordTileFor, flightTileFor, pauseForP } from "./flight-keys";
+import { chordTileFor, flightTileFor, pauseForP, showTile } from "./flight-keys";
 import { holdFor } from "./props";
 import { walkOrder } from "./queued";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -192,6 +192,7 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       const tile = state.here ? chordTileFor(event) : null;
       if (tile === null) return;
       event.preventDefault();
+      showTile(tile);
       tile.click();
       return;
     }
@@ -240,6 +241,7 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       const act = pauseForP(row);
       if (act !== null) {
         event.preventDefault();
+        if (act !== row) showTile(act);
         act.click();
         return;
       }
@@ -248,6 +250,7 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     const lettered = /^[a-z]$/i.test(event.key) ? flightTileFor(event) : null;
     if (lettered !== null) {
       event.preventDefault();
+      showTile(lettered);
       lettered.click();
       return;
     }

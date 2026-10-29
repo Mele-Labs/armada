@@ -5,15 +5,15 @@
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026. **Release** opens a confirmation naming what the Session
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 //
-// **Which tiles are drawn, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by `FlightEdit.tsx`), in the order `flight-order.ts` gives: one row of keys, each
-// a seat that stays whether it is on or off. This file draws what that says and does what each tile does. Facts live on the tiles: Auto land and Pause are lit while on and paused, Terminal while
-// the Job's shell shows. Artifacts, Checks, Subagents and Bays are the Job head's views (`JobViews.tsx`) and Compact the context figure's, so none is a tile here.
+// **Which tiles are drawn, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by `FlightEdit.tsx`), in the order `flight-order.ts` gives: one row of keys at the
+// deck's own size, scrolled sideways when they do not fit, or six to a row while expanded, each a seat that stays whether it is on or off. This file draws what that says and does what
+// each tile does. Facts live on the tiles: Auto land and Pause are lit while on and paused, Terminal while the Job's shell shows. Artifacts, Checks, Subagents and Bays are the Job head's views (`JobViews.tsx`) and Compact the context figure's, so none is a tile here.
 // A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 //
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 //
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, CircleDot, LoaderCircle, Play } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
@@ -48,8 +48,11 @@ const CLEAR_MS = 2400;
 /** The repository the report is about: its root and its name where it has one. */
 export type ReportRepository = { root: string; name?: string };
 
-/** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
-export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
+/**
+ * `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. `onOverflow` is told whether the
+ * row holds more than it shows, and nothing while something else stands in its place.
+ */
+export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
   const browser = useJobBrowserTile(session.id);
   const flight = useRepositoryFlight(repository?.root, session.id);
@@ -262,6 +265,37 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
   const shown = tiles.filter((one) => !one.hidden);
+  const drawn = flightTilesOf(shown);
+  /** The row the tiles stand in, while they stand there. */
+  const [row, setRow] = useState<HTMLDivElement | null>(null);
+  const laid = drawn.map((one) => one.id).join(" ");
+  useLayoutEffect(() => {
+    if (row === null) return;
+    // Which edges have tiles scrolled past them is set on the row itself, for its fade, so a scroll redraws nothing.
+    const measure = () => {
+      onOverflow?.(row.scrollWidth > row.clientWidth);
+      row.toggleAttribute("data-before", row.scrollLeft > 0);
+      row.toggleAttribute("data-after", row.scrollLeft + row.clientWidth < row.scrollWidth - 1);
+    };
+    // A wheel turned up or down over the row scrolls it across, as a trackpad's sideways swipe does.
+    const wheel = (event: WheelEvent) => {
+      if (expanded || row.scrollWidth <= row.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      row.scrollLeft += event.deltaY;
+    };
+    const watch = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
+    watch?.observe(row);
+    for (const tile of row.children) watch?.observe(tile);
+    row.addEventListener("scroll", measure, { passive: true });
+    row.addEventListener("wheel", wheel, { passive: false });
+    measure();
+    return () => {
+      watch?.disconnect();
+      row.removeEventListener("scroll", measure);
+      row.removeEventListener("wheel", wheel);
+      onOverflow?.(undefined);
+    };
+  }, [row, laid, expanded, onOverflow]);
   const idOf = (tile: Tile): SessionTileId | undefined => (tile.builtIn === undefined ? undefined : (tile.id as SessionTileId));
   const whyOf = (tile: Tile): string | undefined => {
     const id = idOf(tile);
@@ -354,11 +388,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       </Tooltip>
     );
   };
-  const drawn = flightTilesOf(shown);
   return (
     <>
       {dialog}
-      <div className="deck-controls__block deck-flight" data-subject="session">
+      <div ref={setRow} className="deck-controls__block deck-flight" data-subject="session" data-expanded={expanded || undefined}>
         {drawn.map(drawTile)}
       </div>
     </>

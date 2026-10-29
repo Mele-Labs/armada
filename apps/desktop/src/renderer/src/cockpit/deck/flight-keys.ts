@@ -23,6 +23,12 @@ export function chordTileFor(event: KeyboardEvent): HTMLElement | null {
   return flightTileFor(event);
 }
 
+/**
+ * Scrolls a tile its key reached into its row's view, so the press is seen. Only the row scrolls (`container`, which the DOM types do not
+ * name yet): a folded panel hides its tiles by clipping, and would otherwise be scrolled open.
+ */
+export const showTile = (tile: HTMLElement) => tile.scrollIntoView({ block: "nearest", inline: "nearest", container: "nearest" } as ScrollIntoViewOptions);
+
 /** What P presses: the list row's Pause, else the open Job's Pause tile while it wears P. With another key on it, P is left to whichever tile was given P. */
 export function pauseForP(row: HTMLElement | null): HTMLElement | null {
   if (row !== null) return row;

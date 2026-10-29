@@ -3,15 +3,16 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { useCollapse } from "./collapse";
+import { useCollapse, useFlightExpanded } from "./collapse";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const roots: { root: Root; host: HTMLElement }[] = [];
 beforeEach(() => localStorage.clear());
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
     host.remove();
@@ -82,4 +83,62 @@ test("which panels are folded is kept for each, by name, and comes back when the
   act(() => band(one).click());
   expect(localStorage.getItem("armada.panel-collapsed.plan")).toBe("0");
   expect(folded(mount("plan"))).toBe(false);
+});
+
+function Expander() {
+  const { expanded, toggle } = useFlightExpanded();
+  return (
+    <button type="button" aria-expanded={expanded} onClick={toggle}>
+      Expand
+    </button>
+  );
+}
+
+function mountExpander(): HTMLButtonElement {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  act(() => root.render(<Expander />));
+  roots.push({ root, host });
+  return host.querySelector("button")!;
+}
+
+const expanded = (button: HTMLElement) => button.getAttribute("aria-expanded") === "true";
+
+test("the flight control starts compact, and a press expands it and a second puts it back", () => {
+  const button = mountExpander();
+  expect(expanded(button)).toBe(false);
+  act(() => button.click());
+  expect(expanded(button)).toBe(true);
+  act(() => button.click());
+  expect(expanded(button)).toBe(false);
+});
+
+test("the flight control stays expanded when the view is entered again, and one choice serves every mount", () => {
+  const button = mountExpander();
+  act(() => button.click());
+  expect(localStorage.getItem("armada.flight-expanded")).toBe("1");
+  expect(expanded(mountExpander())).toBe(true);
+  act(() => button.click());
+  expect(localStorage.getItem("armada.flight-expanded")).toBe("0");
+  expect(expanded(mountExpander())).toBe(false);
+});
+
+test("expanding the flight control folds no panel", () => {
+  const button = mountExpander();
+  act(() => button.click());
+  expect(folded(mount("controls"))).toBe(false);
+});
+
+test("a blocked store only forgets whether the flight control is expanded", () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("blocked");
+  });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("blocked");
+  });
+  const button = mountExpander();
+  expect(expanded(button)).toBe(false);
+  act(() => button.click());
+  expect(expanded(button)).toBe(true);
 });

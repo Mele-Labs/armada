@@ -204,6 +204,10 @@ Bridge's half is `packages/protocol/src/session-notes.ts`, written by hand, fiel
 It folds `NoteSent.session` into the held Sessions as a message's answer is, and hands the candidates back to the caller.
 An empty array on the wire is the same as an omitted one, so the mirror marks each as optional.
 
+**What the agent reads** is his words, a blank line, then a block headed as where he pointed and not the request.
+The block tells the best three candidates, the tabs of `selected` and no button, and the nearest three of the component chain.
+No candidate is no line, so a note nothing matched does not say so; the answer still carries all five, which Bridge shows.
+
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge words as a send that failed.
 
