@@ -313,3 +313,52 @@ where
         rows.into_iter().filter_map(|row| settled_row(row, &pick, state, ended)).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn running(since: &Instant) -> ToolSubagent {
+        ToolSubagent {
+            id: "a7".into(),
+            agent_type: Some("bridge-engineer".into()),
+            task: "Make the thread resizable".into(),
+            latest: None,
+            state: ToolSubagentState::Running,
+            since: since.clone(),
+            ended: None,
+        }
+    }
+
+    fn state_of(row: &SessionRow) -> Option<ToolSubagentState> {
+        match row {
+            SessionRow::Tool { subagent: Some(subagent), .. } => Some(subagent.state),
+            _ => None,
+        }
+    }
+
+    /// The order the thread cannot be made to keep: [`Fleet::subagent_called`] takes the running row under
+    /// the lock and puts it after letting go, and a settle comes between.
+    #[test]
+    fn a_latest_call_put_after_its_subagent_settled_is_followed_by_the_settled_row() {
+        let at = Instant::carried("2026-10-29T13:48:29Z");
+        let mut rows = CallRows::default();
+        rows.spawned("toolu_50", false);
+        rows.drawn("toolu_50", "r1", &at, "Agent Make the thread resizable");
+        rows.started("toolu_50", running(&at));
+
+        let later = std::time::Instant::now() + LATEST_EVERY * 2;
+        let Latest::Put(taken) = rows.latest("toolu_50", "Bash pnpm vitest run".into(), later) else {
+            panic!("a latest call a second after the last put is put at once")
+        };
+        assert_eq!(state_of(&taken), Some(ToolSubagentState::Running));
+
+        let ended = Instant::carried("2026-10-29T14:02:46Z");
+        rows.settled("a7", ToolSubagentState::CutOff, &ended).expect("the row this Fleet drew");
+
+        let after = rows.settled_since("toolu_50").expect("the running row put late is put again settled");
+        assert_eq!(after.id(), taken.id(), "the same row");
+        let SessionRow::Tool { subagent: Some(subagent), .. } = after else { panic!("a subagent's row: {after:?}") };
+        assert_eq!((subagent.state, subagent.ended), (ToolSubagentState::CutOff, Some(ended)));
+    }
+}
