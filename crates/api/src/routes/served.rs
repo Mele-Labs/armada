@@ -222,6 +222,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/usage",
     },
     Route {
+        operation: "get_session_system",
+        method: "GET",
+        path: "/sessions/system",
+    },
+    Route {
+        operation: "stop_process",
+        method: "POST",
+        path: "/sessions/stop_process",
+    },
+    Route {
         operation: "get_usage_summary",
         method: "GET",
         path: "/usage/summary",

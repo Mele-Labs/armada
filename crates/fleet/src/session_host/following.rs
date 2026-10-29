@@ -82,7 +82,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The pids this session's agent and everything it started are among.
-    fn tree_roots(&self, id: &str) -> Vec<u32> {
+    pub(super) fn tree_roots(&self, id: &str) -> Vec<u32> {
         let process = self.hosts().of(id).state().process.clone();
         match process.and_then(|process| process.pid()) {
             Some(agent) => vec![agent],

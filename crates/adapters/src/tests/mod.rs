@@ -69,6 +69,7 @@ mod leasing_rescue;
 mod leasing_sessions;
 mod leasing_settled;
 mod leasing_shape;
+mod leasing_strays;
 mod leasing_trim;
 mod manifest_edit;
 mod outside;
