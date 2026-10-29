@@ -1,7 +1,7 @@
-//! `mark_annotation_done`: a session marks a note Bridge sent it as done. The note is one JSON
-//! file Bridge's annotation layer writes (`Annotation` in `apps/desktop/src/shared/annotations.ts`);
-//! Fleet does the file I/O, and the bytes are read and rewritten here because this is where
-//! bytes may be parsed.
+//! `mark_annotation_done`: a session marks a note Bridge sent it as done, and a Job's close marks
+//! its notes done or lets them go. The note is one JSON file Bridge's annotation layer writes
+//! (`Annotation` in `apps/desktop/src/shared/annotations.ts`); Fleet does the file I/O, and the
+//! bytes are read and rewritten here because this is where bytes may be parsed.
 
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeMap, SerializeSeq, Serializer};
@@ -44,22 +44,84 @@ pub enum NotMarked {
 /// The note in `bytes` with `status` `"done"` and `updatedAt` `at`, every other field as it was.
 /// **Keys keep their order**, because Bridge writes them so the note comes first for whoever reads it.
 pub fn marked_done(bytes: &[u8], session_id: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = sent_here(bytes, session_id)?;
+    set(&mut fields, "status", "done");
+    set(&mut fields, "updatedAt", at);
+    written(fields)
+}
+
+/// The note in `bytes` with no `sent`, `status` `"open"` and `updatedAt` `at`: a Job that closed
+/// unfinished lets it go, and Bridge lists it under no Job again.
+pub fn unsent(bytes: &[u8], session_id: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = sent_here(bytes, session_id)?;
+    fields.retain(|(key, _)| key != "sent");
+    set(&mut fields, "status", "open");
+    set(&mut fields, "updatedAt", at);
+    written(fields)
+}
+
+/// What Fleet reads of a note file to keep it on the Job it was sent to. Bridge's `Annotation`
+/// holds more; whatever is not named here is ignored.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteRead {
+    pub id: String,
+    /// `open` or `done`.
+    pub status: String,
+    /// `window` for a note on the whole window.
+    #[serde(default)]
+    pub scope: Option<String>,
+    #[serde(default)]
+    pub sent: Option<NoteSentTo>,
+    pub text: String,
+    #[serde(default)]
+    pub component: Option<String>,
+    pub element: NoteReadElement,
+    #[serde(default)]
+    pub screen: Option<String>,
+    /// The picture's file name, beside the note's.
+    #[serde(default)]
+    pub screenshot: Option<String>,
+}
+
+/// Where a note went: `Sent` in Bridge's file, of which Fleet reads the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSentTo {
+    pub session_id: String,
+}
+
+/// The element a note points at, of which Fleet reads the tag.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct NoteReadElement {
+    pub tag: String,
+}
+
+/// The note in `bytes`, as [`NoteRead`].
+pub fn note_read(bytes: &[u8]) -> Result<NoteRead, String> {
+    serde_json::from_slice(bytes).map_err(|why| why.to_string())
+}
+
+/// The fields of the note in `bytes`, in order, where its `sent.sessionId` is `session_id`.
+fn sent_here(bytes: &[u8], session_id: &str) -> Result<Vec<(String, Ordered)>, NotMarked> {
     let note: Ordered =
         serde_json::from_slice(bytes).map_err(|why| NotMarked::Unreadable(why.to_string()))?;
-    let Ordered::Object(mut fields) = note else {
+    let Ordered::Object(fields) = note else {
         return Err(NotMarked::Unreadable(String::from("not a JSON object")));
     };
-    let sent_here = fields.iter().any(|(key, value)| {
+    let here = fields.iter().any(|(key, value)| {
         key == "sent"
             && matches!(value, Ordered::Object(sent) if sent.iter().any(|(key, value)| {
                 key == "sessionId" && matches!(value, Ordered::Leaf(Value::String(id)) if id == session_id)
             }))
     });
-    if !sent_here {
+    if !here {
         return Err(NotMarked::NotSentHere);
     }
-    set(&mut fields, "status", "done");
-    set(&mut fields, "updatedAt", at);
+    Ok(fields)
+}
+
+fn written(fields: Vec<(String, Ordered)>) -> Result<Vec<u8>, NotMarked> {
     let mut out = serde_json::to_vec_pretty(&Ordered::Object(fields))
         .map_err(|why| NotMarked::Unreadable(why.to_string()))?;
     out.push(b'\n');

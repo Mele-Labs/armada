@@ -39,6 +39,8 @@ export const ANNOTATION_CHANNELS = {
   capture: "annotations:capture",
   saveShot: "annotations:save-shot",
   shot: "annotations:shot",
+  /** Main to the window: Fleet rewrote a note file, so the layer reads them again. */
+  changed: "annotations:changed",
 } as const;
 
 /** A note's picture is `<id>.png`, beside its `<id>.json`. */
@@ -153,6 +155,11 @@ export type AnnotationsDevApi = {
   saveShot: (id: string, png: ArrayBuffer) => Promise<void>;
   /** The note's picture, or null where it has none. */
   shot: (id: string) => Promise<ArrayBuffer | null>;
+  /**
+   * Calls `listener` each time Fleet rewrites a note file: an agent marked one done, or a Job's close
+   * marked its notes done or let them go. Returns its remover. Absent in a browser, where nothing tells.
+   */
+  onChanged?: (listener: () => void) => () => void;
 };
 
 /** An id is a file name, so it is held to what cannot leave the directory. */
