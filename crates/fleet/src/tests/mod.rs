@@ -143,6 +143,7 @@ mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
 mod session_pause_work;
+mod system_processes;
 mod session_start_failed;
 mod session_queue;
 mod session_slot_asking;

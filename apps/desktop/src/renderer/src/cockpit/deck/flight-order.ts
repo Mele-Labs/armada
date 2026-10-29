@@ -8,7 +8,7 @@ import { tileKey, type SessionTileId } from "./session-tiles";
 const TILES: readonly SessionTileId[] = ["land", "pause", "judge", "report", "release", "terminal", "browser", "requests"];
 
 /** The layers the Job head draws as views, in order. */
-export const VIEW_LAYERS = ["artifacts", "checks", "subagents", "slot"] as const;
+export const VIEW_LAYERS = ["artifacts", "system", "checks", "subagents", "slot"] as const;
 
 /** Each built-in tile in the order given, whatever order the owner's file lists them in. */
 const built = (shown: readonly Tile[], ids: readonly string[]): Tile[] => ids.flatMap((id) => shown.filter((one) => one.builtIn !== undefined && one.id === id));

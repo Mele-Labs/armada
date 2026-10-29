@@ -155,6 +155,7 @@ import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { AgentSignInRead } from "./api/agent-sign-in";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
+import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "./api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
@@ -414,6 +415,8 @@ type OldBridgeApi = {
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onActFailed: (onFailed: (failed: ActFailed) => void) => () => void;
     getSlotHistory: (manifestId: string, slot: number) => Promise<BayHistoryRead>;
+    getSessionSystem: (sessionId: string) => Promise<SessionSystemRead>;
+    stopProcess: (sessionId: string, target: ProcessTarget) => Promise<ProcessStopRead>;
     getUsageSummary: (tzOffsetMinutes: number) => Promise<UsageSummaryRead>;
     getUsageRules: () => Promise<UsageRulesRead>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
@@ -746,6 +749,8 @@ const OLD_CHANNELS = {
     timelineAppended: "bridge:timeline-appended",
     actFailed: "bridge:act-failed",
     getSlotHistory: "bridge:get-slot-history",
+    getSessionSystem: "bridge:get-session-system",
+    stopProcess: "bridge:stop-process",
     getUsageSummary: "bridge:get-usage-summary",
     getUsageRules: "bridge:get-usage-rules",
     planUsageChanged: "bridge:plan-usage-changed",

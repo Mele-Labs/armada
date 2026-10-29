@@ -1131,6 +1131,18 @@ where
         Ok(Owners { holders })
     }
 
+    async fn get_session_system(self: Arc<Self>, session_id: ipc::SessionId) -> Result<ipc::SessionSystem, Refusal> {
+        self.system_of(session_id).await
+    }
+
+    async fn stop_process(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        stop: ipc::StopProcess,
+    ) -> Result<ipc::ProcessStopped, Refusal> {
+        self.process_stopped(caller, stop).await
+    }
+
     async fn get_session_usage(
         &self,
         session_id: ipc::SessionId,

@@ -146,6 +146,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     subagents: () => toggleLayer(session.id, "subagents"),
     checks: () => toggleLayer(session.id, "checks"),
     slot: () => toggleLayer(session.id, "slot"),
+    system: () => toggleLayer(session.id, "system"),
     requests: () => void openRequestsInPanel(session.id),
     terminal: () => terminal?.press(),
     browser: () => browser?.press(),
@@ -254,6 +255,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
     checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
+    system: "What the Job runs and costs the machine",
     requests: "Send a request with your cookie for its host",
     // A press while it is in its window brings the window forward and leaves the shell showing.
     terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",

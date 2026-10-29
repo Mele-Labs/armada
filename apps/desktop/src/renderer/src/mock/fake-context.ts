@@ -49,6 +49,7 @@ export type SliceName =
   | "timeline"
   | "actFailed"
   | "bayHistory"
+  | "sessionSystem"
   | "usageSummary"
   | "issues"
   | "autopilot"
