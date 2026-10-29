@@ -534,10 +534,12 @@ export function sessionsStore(
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {
-        const { pendingTags, done, lapsed, standing, ...rest } = one;
+        const { pendingTags, done, lapsed, standing, startFailed, ...rest } = one;
         void pendingTags;
         void done;
         void lapsed;
+        // A message is the retry of a Job that never started.
+        void startFailed;
         // A message from the person ends the reply and the done Fleet read off the turn before it.
         void standing;
         return {

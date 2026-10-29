@@ -490,6 +490,8 @@ export type Session = {
   replaces?: string;
   /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
   paused?: true;
+  /** **A mock's field**: why the Job's agent process never started, as Fleet will say it. The Job needs him: a message from him is the retry. Absent once it has started. */
+  startFailed?: string;
   /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request this Session holds, and merges it on a green `ci`. Hosted Sessions only. */
   autoLand?: true;
   /** What was pressed and Fleet has not answered: `paused`, `autoLand` and `plan` are drawn as pressed already, with a going mark on the control (`pressed.ts`). Never Fleet's. */

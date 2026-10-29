@@ -162,6 +162,8 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true; subagent?: ToolSubagent }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
   | { id: string; at: string; kind: "woke"; why: string }
+  /** Fleet could not start the agent, and why: one line in Fleet's voice, in the failed hue. A message from the person is the retry. */
+  | { id: string; at: string; kind: "not_started"; why: string }
   /** What the agent did on its own, mono, with the mark and the tooltip that name which act it was. */
   | { id: string; at: string; kind: "act"; icon: LucideIcon; said: string; text: string }
   /** A command the person ran in the terminal, as typed, mono. */
@@ -926,6 +928,19 @@ function Row({
         <Tooltip label="Fleet woke it">
           <span className="armada-session-woke__mark" role="img" aria-label="Fleet woke it">
             <Server size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <span className="armada-session-woke__why">{row.why}</span>
+        <RowStamp row={row} className="armada-session-woke__at" />
+      </li>
+    );
+  }
+  if (row.kind === "not_started") {
+    return (
+      <li className="armada-session-woke" data-failed>
+        <Tooltip label="Failed to start">
+          <span className="armada-session-woke__mark" role="img" aria-label="Failed to start">
+            <X size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
         <span className="armada-session-woke__why">{row.why}</span>

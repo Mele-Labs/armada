@@ -29,8 +29,19 @@ const PERMISSION_OF: Record<string, SessionAnswer> = { "Allow once": "allow_once
 /** The answer a permission option's label stands for, or none where it is not one of the three. */
 export const permissionOf = (label: string): SessionAnswer | undefined => PERMISSION_OF[label];
 
+/**
+ * A Job whose agent never started is waiting on him: nothing else moves it, and a message from him is the retry. Read as the
+ * item a `first_message` is: no reply, no dismiss, and a press opens the Job.
+ */
+function startFailedOf(session: Session): WaitingItem[] {
+  if (session.startFailed === undefined) return [];
+  return [{ id: "start_failed", text: `Did not start: ${session.startFailed}`, since: session.lastTurnAt ?? new Date(0).toISOString(), source: "first_message", act: { kind: "message", target: session.id } }];
+}
+
 /** The wire's items on the Session where it serves them; the pending ask, read as the same items, where it does not. */
-export function waitingOf(session: Session): WaitingItem[] {
+export const waitingOf = (session: Session): WaitingItem[] => [...startFailedOf(session), ...waitingRead(session)];
+
+function waitingRead(session: Session): WaitingItem[] {
   if (session.waitingFor !== undefined) return [...session.waitingFor];
   const asked = session.asked;
   if (asked === undefined) return [];
