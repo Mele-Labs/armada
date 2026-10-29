@@ -184,6 +184,10 @@ where
             return Ok(());
         }
         let trees: Vec<PathBuf> = self.repositories().served().iter().map(|one| PathBuf::from(one.root())).collect();
+        // Only running the script waits on a blocking thread; a launch with nothing to copy from starts at once.
+        if !trees.iter().any(|tree| agent_mod::can_populate_from(tree)) {
+            return agent_mod::populated(&home, &folder, &[], STEP_WITHIN);
+        }
         tokio::task::spawn_blocking(move || agent_mod::populated(&home, &folder, &trees, STEP_WITHIN))
             .await
             .map_err(|why| why.to_string())?

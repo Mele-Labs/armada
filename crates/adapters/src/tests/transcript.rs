@@ -148,7 +148,7 @@ fn a_session_can_keep_a_task_list_with_the_task_tools_or_the_older_todo_write() 
 #[test]
 fn an_init_line_without_the_lists_reads_as_nothing_there() {
     let bare = started_by(r#"{"type":"system","subtype":"init","session_id":"s","model":"m"}"#);
-    assert_eq!(bare, HarnessReading::default());
+    assert_eq!(bare, HarnessReading { name: "Claude Code".into(), update: "claude update".into(), ..HarnessReading::default() });
 }
 
 /// The captures the testkit keeps replace each operator's inventory with a count, as a string in the
