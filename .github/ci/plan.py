@@ -3,6 +3,8 @@
 
     armada covers < paths | plan.py      JSON on stdout, exit 1 on a key nothing runs
     armada covers < paths | plan.py --quick    the same, keeping only QUICK to run
+    ... | plan.py --quick --rerun failed.txt   and the Checks of the job names
+                                               the merge queue last failed
 
 A root Check is a bare name and has a static job in checks.yml. A workspace
 Check is `<dir>:<name>`: the desktop tests that read no surface run in one Linux
@@ -13,6 +15,7 @@ is never skipped for want of a line here. docs/practices/ci.md, *How a Check is
 chosen*.
 """
 import json
+import re
 import sys
 
 # Bare names with a static job in checks.yml.
@@ -39,8 +42,23 @@ EXCLUDED = {}
 # warning and the queue is where the suite runs once. Owner, 17 Oct 2026.
 QUICK = {"build", "typecheck", "bridge_build"}
 
+# Job names in checks.yml that are not their Check's key. A shard's name is its
+# Check's with ` <n>/<m>` after it.
+JOB_KEYS = {"desktop_unit": "apps/desktop/unit:desktop_test"}
 
-def plan(keys, quick=False):
+
+def rerun_keys(job_names):
+    """The Check keys of the jobs a merge queue run failed. A pull request the
+    queue dropped keeps these with `--quick`, so a fix is tried on its own run
+    before it waits in the queue again."""
+    keys = set()
+    for name in job_names:
+        name = re.sub(r" \d+/\d+$", "", name.strip())
+        keys.add(JOB_KEYS.get(name, name))
+    return keys
+
+
+def plan(keys, quick=False, rerun=frozenset()):
     run, matrix, excluded, unrun = [], [], [], []
     for key in dict.fromkeys(keys):
         name = key.rsplit(":", 1)[-1]
@@ -57,15 +75,21 @@ def plan(keys, quick=False):
             unrun.append(key)
     queued = []
     if quick:
-        queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK]
+        queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK and key not in rerun]
         run = [key for key in run if key not in queued]
         matrix = [row for row in matrix if row["key"] in run]
-    return {"checks": run, "matrix": {"include": matrix}, "excluded": excluded, "unrun": unrun, "queued": queued}
+    rerun = [key for key in run if key in rerun] if quick else []
+    return {"checks": run, "matrix": {"include": matrix}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun}
 
 
 def main():
     keys = [line.strip() for line in sys.stdin if line.strip()]
-    answer = plan(keys, quick="--quick" in sys.argv[1:])
+    args = sys.argv[1:]
+    rerun = set()
+    if "--rerun" in args:
+        with open(args[args.index("--rerun") + 1]) as failed:
+            rerun = rerun_keys(line for line in failed if line.strip())
+    answer = plan(keys, quick="--quick" in args, rerun=rerun)
     if answer["unrun"]:
         for key in answer["unrun"]:
             print(f"::error::`armada covers` names {key}, which CI neither runs nor excludes: add it to .github/ci/plan.py", file=sys.stderr)
