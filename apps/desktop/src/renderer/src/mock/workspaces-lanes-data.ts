@@ -523,7 +523,7 @@ const JOB_SEEN: Record<string, readonly string[]> = { started: ["started"], pr_o
 export const FEEDBACK_WORKING: Readonly<Record<number, { now: string; done: readonly string[] }>> = {
   0: { now: "Going through the feedback", done: [] },
   1: { now: "Splitting the feedback into fixes", done: ["Read the feedback", "Changed this Job's workflow"] },
-  4: { now: "Writing up what landed", done: ["Started two Jobs", "Both Jobs landed"] },
+  4: { now: "Proposing dispatch as a workflow", done: ["Started two Jobs", "Both Jobs landed"] },
 };
 
 const CHANGES: readonly JobChange[] = [
@@ -552,6 +552,6 @@ export function feedbackAt(moment: number): SessionLanes {
     ...(moment === 2 ? { waitingOn: { step: "oversee", instance: CART, state: "landed", and: [PANEL] } } : {}),
     ...(moment === 3 ? { waitingOn: { step: "oversee", instance: PANEL, state: "landed" } } : {}),
   };
-  const at = [1, 3, 4, 4, 7][moment]!;
+  const at = [1, 3, 4, 4, 4][moment]!;
   return { workflow: "feature", at, working: FEEDBACK_WORKING[moment] !== undefined, ...(changed ? { skipped: FEEDBACK_SKIPPED } : {}), job };
 }

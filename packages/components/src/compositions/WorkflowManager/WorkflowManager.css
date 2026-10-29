@@ -61,6 +61,18 @@
   background: var(--head-rule, var(--border-subtle));
 }
 
+/* One caption over the list says what its groups are: where each workflow is kept. */
+.armada-wm__kept {
+  margin: 0;
+  padding: 0 var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
 .armada-wm__rows {
   display: flex;
   flex-direction: column;
@@ -649,6 +661,32 @@
   /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
   height: calc(var(--space-12) * 11);
 }
+/* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
+.armada-wm-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.armada-wm-scope__label {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-scope__says {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* What is picked is drawn in the app's side panel. */
 .armada-wm-inspector {
   display: flex;
@@ -660,7 +698,15 @@
   padding: var(--space-3) var(--space-4) 0;
 }
 
-/* Each repository's value beside the Workspace's: the ones the same are quiet, and the one that differs carries the split's glyph. */
+/* A value a repository overrides: the split's glyph and the words, and the way back to the Workspace's beside them. */
+.armada-wm-step__facts > .armada-wm-inspector__changed {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
 .armada-wm-inspector__differs {
   display: inline-flex;
   align-items: center;
@@ -670,28 +716,6 @@
 .armada-wm-inspector__differs > [role="img"] {
   display: inline-flex;
   color: var(--fg-muted);
-}
-.armada-wm-inspector__values[data-same],
-.armada-wm-inspector__same {
-  color: var(--fg-subtle);
-}
-.armada-wm-inspector__repositories {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.armada-wm-inspector__repositories > li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  align-items: center;
-  gap: var(--space-3);
-}
-.armada-wm-inspector__repository {
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
 }
 .armada-wm-tell {
   min-width: 0;

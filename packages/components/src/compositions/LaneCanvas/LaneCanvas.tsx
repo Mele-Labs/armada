@@ -64,6 +64,8 @@ export type LaneEditing = {
   armada: boolean;
   /** The pick is being edited in its panel. */
   editing: boolean;
+  /** One repository's tab is drawn: only its values and autonomy are edited, as an override for it, so there is no Add after, no Delete and no connector. */
+  scoped?: boolean;
   onEdit: (pick: LanePick) => void;
   onTell: (pick: LanePick) => void;
   onAddAfter: (pick: LanePick) => void;
@@ -161,7 +163,7 @@ function Toolbar({ pick, name, rule }: { pick: LanePick; name: string; rule: boo
   const run = { edit: editing.onEdit, tell: editing.onTell, add: editing.onAddAfter, delete: editing.onDelete };
   return (
     <div className="armada-lane-toolbar nodrag nopan" role="toolbar" aria-label={`Edit ${name}`}>
-      {ACTS.filter((one) => !(rule && one.id === "add")).map((one) => (
+      {ACTS.filter((one) => !(rule && one.id === "add") && !(editing.scoped === true && (one.id === "add" || one.id === "delete"))).map((one) => (
         <Tooltip key={one.id} label={one.said} shortcut={one.key}>
           <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`${one.said} ${name}`} aria-pressed={one.id === "edit" ? editing.editing : undefined} onClick={() => run[one.id](pick)}>
             <one.Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -211,7 +213,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const mine = hold.current === node.id;
   const picked = hold.picked?.kind === "node" && hold.picked.id === node.id;
   const mark = markOf(node);
-  const connectable = hold.editing !== undefined && !hold.editing.armada;
+  const connectable = hold.editing !== undefined && !hold.editing.armada && hold.editing.scoped !== true;
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
   const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}`;
   const lines = [
@@ -630,7 +632,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   // A connector dragged from one node's handle to another's.
   const connect = useCallback((joined: Connection) => editing?.onConnect(joined.source, joined.target), [editing]);
-  const connectable = editing !== undefined && !editing.armada;
+  const connectable = editing !== undefined && !editing.armada && editing.scoped !== true;
 
   const nodes = useMemo<CanvasNode[]>(() => {
     const out: CanvasNode[] = [];
@@ -720,13 +722,14 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     // What is picked is edited by key too: `E` edits it, `T` tells an agent, `A` adds after it, `Backspace` deletes it, and `C` starts a connector from a node, which the next node
     // pressed ends.
     if (editing !== undefined && picked !== undefined && !editing.armada) {
-      const act = { e: editing.onEdit, t: editing.onTell, a: picked.kind === "node" ? editing.onAddAfter : undefined, Backspace: editing.onDelete, Delete: editing.onDelete }[event.key] as ((pick: LanePick) => void) | undefined;
+      const structure = editing.scoped !== true;
+      const act = { e: editing.onEdit, t: editing.onTell, a: picked.kind === "node" && structure ? editing.onAddAfter : undefined, Backspace: structure ? editing.onDelete : undefined, Delete: structure ? editing.onDelete : undefined }[event.key] as ((pick: LanePick) => void) | undefined;
       if (act !== undefined) {
         event.preventDefault();
         act(picked);
         return;
       }
-      if (event.key === "c" && picked.kind === "node") {
+      if (event.key === "c" && picked.kind === "node" && structure) {
         event.preventDefault();
         setConnecting(picked.id);
         return;

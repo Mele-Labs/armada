@@ -188,6 +188,9 @@ export function WorkflowManager(props: WorkflowManagerProps) {
             {props.notice}
           </p>
         )}
+        <h3 className="armada-wm__kept" aria-hidden="true">
+          Kept in
+        </h3>
         <div className="armada-wm__groups">
           {groups.map((group) => (
             <div key={group.key} role="group" aria-label={group.label} className="armada-wm__group">

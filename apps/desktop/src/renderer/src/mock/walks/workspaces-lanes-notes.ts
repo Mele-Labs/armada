@@ -9,6 +9,8 @@ import { toSessions } from "../sessions/walk-kit";
 const group = (name: string) => role("group", name, { exact: true });
 const LANES = region("Lanes", { exact: true });
 const PANEL = role("dialog");
+const RUNS_IN = group("Runs in");
+const tab = (name: string) => inside(RUNS_IN, role("tab", name, { exact: true }));
 
 const views = role("toolbar", "Views", { exact: true });
 const LANES_PANEL = role("dialog", "Lanes", { exact: true });
@@ -22,10 +24,19 @@ const inSpine = (name: string) => inside(SPINE_LANES, button(name, { exact: true
 
 const notes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
+  { look: RUNS_IN, say: "Runs in: all of my-store or one repository. A repository's tab draws the lanes as the workflow runs there" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "A node opens the side panel. Armada's copy is read only, so its toolbar says Make my copy" },
-  { look: inside(PANEL, text("Peer Review")), say: "Where a repository differs the node carries a mark, and the panel lists each repository's value beside the Workspace's" },
+  { look: inside(PANEL, text("Code Review, In Review")), say: "The panel reads one scope at a time: Jira statuses for all of my-store" },
+  { press: tab("store-api"), say: "store-api's tab. The node that differs there carries a mark" },
+  { look: inside(PANEL, text("Changed for store-api")), say: "Peer Review is store-api's own, marked as changed for store-api" },
+  { press: tab("All of my-store"), say: "Back to the base" },
   { press: inside(role("toolbar", "Edit Ticket In review"), button("Make my copy")), say: "The first edit makes your copy" },
   { look: inside(role("toolbar", "Acts"), group("Where it is kept")), say: "The header is icons with tooltips, in three groups: compare and reset, keep, and delete apart" },
+  { press: tab("store-api"), say: "On your copy, store-api's tab" },
+  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review, marked" },
+  { press: inside(PANEL, button("Use my-store's", { exact: true })), say: "Use my-store's drops store-api's own value. Edits on a repository's tab change that repository only" },
+  { look: inside(PANEL, text("Code Review, In Review")), say: "store-api reads my-store's again" },
+  { press: tab("All of my-store"), say: "Back to the base" },
   { drag: role("button", "Connect from step Build"), by: { x: 112, y: 263 }, say: "A connector dragged from one node to another draws a rule. A step to a state is a rule that asks" },
   { look: inside(PANEL, role("radio", "Asks")), say: "Its fields open in the panel" },
   { press: inside(LANES, button("Step: Open PR", { exact: true })), say: "A pick opens the panel and a toolbar over the node" },
@@ -62,7 +73,7 @@ const notes = walk("workspaces-lanes", [
   { press: inside(views, button("Lanes", { exact: true })), say: "Wider than 1800px, Lanes opens in the spine column" },
   { look: inside(SPINE_LANES, text("Waiting on Tidy the PR panel landing: Landed")), say: "It is a view like Artifacts and Checks: pressed again, or Esc, shuts it" },
   { later: inSpine("Tidy the PR panel landing: PR open"), say: "One Job has landed and one is in review" },
-  { look: inSpine("Tidy the PR panel landing: Landed"), say: "Both landed. Oversee is done" },
+  { look: inSpine("Tidy the PR panel landing: Landed"), say: "Both landed. Oversee is done, and the two Jobs' Landed nodes are in view" },
 ]);
 
 export { notes as "workspaces-lanes-notes" };

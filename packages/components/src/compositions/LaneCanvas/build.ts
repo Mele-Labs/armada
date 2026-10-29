@@ -2,7 +2,7 @@
 // and rule edges, which `LaneCanvas` places.
 
 import { lifecyclesFor, nodeId, ruleDiffers, stateDiffers } from "./model";
-import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, Rule, RuleView, Workspace } from "./model";
+import type { Autonomy, Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, Rule, RuleView, Workspace } from "./model";
 
 const laneOfLifecycle = (lifecycle: Lifecycle, id: string, title: string, note: string | undefined, nodes: readonly LaneNodeView[]): LaneView => ({
   id,
@@ -45,11 +45,19 @@ export function editorLanes(input: {
   workflow: string;
   steps: readonly { id: string; label: string }[];
   proposed?: readonly Rule[];
+  /** `workspace`, the base, or the id of one repository: the lanes as the workflow runs there, with the marks for that repository alone and the autonomy it has. */
+  scope?: string;
 }): { lanes: LaneView[]; rules: RuleView[] } {
   const { workspace, workflow } = input;
+  const scope = input.scope ?? "workspace";
+  const named = (ids: readonly string[]): string[] => ids.map((id) => workspace.repositories.find((one) => one.id === id)?.name ?? id);
+  /** The repositories a mark names: every one that differs on the base, and on a repository's own tab only that one. */
+  const marked = (ids: readonly string[]): string[] => named(scope === "workspace" ? ids : ids.filter((id) => id === scope));
+  /** A rule is drawn where it applies: everywhere on the base, and on a repository's tab where it is the Workspace's or that repository's own. */
+  const appliesHere = (rule: Rule): boolean => scope === "workspace" || rule.scope === "workspace" || rule.scope === scope;
+  const autonomyHere = (rule: Rule): Autonomy => (scope === "workspace" ? rule.autonomy : (rule.overrides?.find((one) => one.scope === scope)?.autonomy ?? rule.autonomy));
   const steps = stepsOf(workspace, workflow, input.steps);
   const lifecycles = lifecyclesFor(workspace, workflow);
-  const named = (ids: readonly string[]): string[] => ids.map((id) => workspace.repositories.find((one) => one.id === id)?.name ?? id);
   const flow: LaneView = {
     id: "workflow",
     kind: "workflow",
@@ -68,27 +76,27 @@ export function editorLanes(input: {
       lifecycle.label,
       undefined,
       lifecycle.states.map((state) => {
-        const differs = named(stateDiffers(state));
+        const differs = marked(stateDiffers(state));
         return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
       }),
     ),
   );
   const drawn = (rule: Rule, proposed: boolean): RuleView => {
-    const differs = named(ruleDiffers(rule));
+    const differs = marked(ruleDiffers(rule));
     return {
       id: rule.id,
       rule: rule.id,
       from: nodeId(rule.from.lane, rule.from.item),
       to: nodeId(rule.to.lane, rule.to.item),
       label: rule.label,
-      autonomy: rule.autonomy,
+      autonomy: autonomyHere(rule),
       ...(differs.length === 0 ? {} : { differs }),
       ...(proposed ? { proposed: true as const } : {}),
     };
   };
   return {
     lanes: [flow, ...lanes],
-    rules: [...rulesFor(workspace, workflow, input.steps).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => drawn(rule, true))],
+    rules: [...rulesFor(workspace, workflow, input.steps).filter(appliesHere).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).filter(appliesHere).map((rule) => drawn(rule, true))],
   };
 }
 
