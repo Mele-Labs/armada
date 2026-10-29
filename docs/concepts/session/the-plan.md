@@ -8,10 +8,16 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Job plans with him first, and what 
 **`record_plan`** is a tool on the agent's door.
 It carries a `summary` and `groups` in order.
 The `summary` is a few plain lines in the person's own words saying what he gets, with no file names or types; it is trimmed, needed, and at most 600 characters, and a plan without one is refused like any other that breaks a rule.
-Each group has a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked), an optional `gives` (one line, at most 160 characters, of what the group gives him), an optional `issue` (the number of the issue the group works, which Fleet holds as an `issue` row on the Session once the plan is recorded, so a plan of tickets shows them before any pull request exists; see [what a Session keeps](what-is-kept.md)) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
+Each group has a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked), an optional `gives` (one line, at most 160 characters, of what the group gives him), an optional `lands_in` (a short label, at most 24 characters, for the pull request the group lands in: groups that ship together share one, a group handed to its own Job lands in that Job's pull request, and absent is `PR 1`; see below), an optional `issue` (the number of the issue the group works, which Fleet holds as an `issue` row on the Session once the plan is recorded, so a plan of tickets shows them before any pull request exists; see [what a Session keeps](what-is-kept.md)) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
 A group or task may send back the `id` Fleet gave it.
 Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan.
 The agent gets back the version and each id Fleet gave.
+
+**A group says which pull request it lands in, so the person can see whether approving means one or two.** Fleet binds a pull request to a `lands_in` label from the Job's ledger and every group that shares the label reads that pull request's number, title and state.
+A group handed to its own Job takes that Job's pull request.
+A pull request opened while a task was in progress takes that task's group's label.
+A pull request that followed no task takes the first label, in plan order, that nothing has bound.
+Until one is bound a group reads only its label.
 
 **Recording again replaces the plan as a new version.** Fleet keeps the current version and the diff from the one before: a group or task is matched to the old one by its id, then by its text with case and spacing ignored, and what differs is `added`, `renamed`, `moved` (to another group) or `removed`.
 An id the old version never held is not an id.
