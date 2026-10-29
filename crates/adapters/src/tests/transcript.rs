@@ -20,7 +20,7 @@
 
 use std::path::PathBuf;
 
-use adapter_traits::{CallDetail, DroneEvent, Speaker};
+use adapter_traits::{CallDetail, DroneEvent, HarnessReading, Speaker};
 
 use crate::transcript::read;
 
@@ -66,6 +66,7 @@ fn the_session_opening_says_how_many_servers_the_drone_actually_came_up_with() {
         session,
         model,
         mcp_servers,
+        ..
     } = started
     else {
         unreachable!()
@@ -73,6 +74,36 @@ fn the_session_opening_says_how_many_servers_the_drone_actually_came_up_with() {
     assert!(!session.is_empty());
     assert!(!model.is_empty());
     assert_eq!(mcp_servers, 1, "the capture carries the count as one entry");
+}
+
+fn started_by(line: &str) -> HarnessReading {
+    let [DroneEvent::Started { harness, .. }] = &read(line)[..] else {
+        panic!("an init line is one Started event")
+    };
+    harness.clone()
+}
+
+#[test]
+fn an_init_line_says_which_of_armadas_pieces_the_session_came_up_with() {
+    let whole = started_by(
+        r#"{"type":"system","subtype":"init","claude_code_version":"2.1.310","plugins":[{"name":"armada","path":"/m"}],"mcp_servers":[{"name":"armada-fleet","status":"connected"}],"tools":["Task","TaskCreate","mcp__armada-fleet__waiting_for"]}"#,
+    );
+    assert_eq!(
+        whole,
+        HarnessReading { version: "2.1.310".into(), mod_loaded: true, door_connected: true, task_tools: true }
+    );
+
+    let bare = started_by(
+        r#"{"type":"system","subtype":"init","claude_code_version":"2.0.1","plugins":[{"name":"other"}],"mcp_servers":[{"name":"armada-fleet","status":"pending"}],"tools":["TodoWrite"]}"#,
+    );
+    assert_eq!(
+        bare,
+        HarnessReading { version: "2.0.1".into(), mod_loaded: false, door_connected: false, task_tools: true },
+        "a door still pending is not connected, and an older CLI's TodoWrite is task tools"
+    );
+
+    let strings = started_by(r#"{"type":"system","subtype":"init","mcp_servers":["armada-fleet"],"tools":[]}"#);
+    assert!(!strings.door_connected && !strings.task_tools, "a bare name says nothing of a connection");
 }
 
 #[test]

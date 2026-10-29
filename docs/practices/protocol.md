@@ -126,6 +126,7 @@ WebSocket event stream, read this first.
 | [A Job's own default model](protocol/a-jobs-own-default-model.md) |
 | [The Fleet's timeline: kept as it happens, read as a window](protocol/the-fleets-timeline-kept-as-it-happens-read-as-a-window.md) |
 | [When a Job's Drone was last told](protocol/when-a-jobs-drone-was-last-told.md) |
+| [A Job's missing tools](protocol/a-jobs-missing-tools.md) |
 | [A stranded slot's last holder, and whether Fleet told it](protocol/a-stranded-slots-last-holder-and-whether-fleet-told-it.md) |
 | [An agent lists Jobs in a line each](protocol/an-agent-lists-jobs-in-a-line-each.md) |
 | [What a Job is doing, from its tool calls](protocol/what-a-job-is-doing-from-its-tool-calls.md) |
