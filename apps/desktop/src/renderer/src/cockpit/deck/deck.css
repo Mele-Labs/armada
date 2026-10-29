@@ -968,22 +968,29 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__block[data-subject="edit"] { display: block; position: relative; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
 .deck-controls__block[data-subject="session"] { overflow-y: auto; }
 /* The Job's flight control is a grid of the deck's own tiles. The columns are the deck's: a sixth of the block's width less the five gaps, so a tile here is the size of Checks, Calls, Map or
-   Timeline in the block with no Job open. Seven or more tiles do not fit at that size in one row, so they share the one row in equal widths, a little narrower than the deck's. */
+   Timeline in the block with no Job open. Seven or more stay that size in the one row, which scrolls across; expanded, they wrap six to a row and the panel grows to hold the rows. */
 .deck-controls__block.deck-flight[data-subject="session"] {
   container: none;
   flex: 1 1 auto;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-columns: calc((100% - var(--space-2) * 5) / 6);
   grid-template-columns: none;
   grid-auto-rows: var(--tile);
   align-content: center;
   align-items: stretch;
   gap: var(--space-2);
   min-height: 0;
-  overflow: visible;
+  overflow: auto hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   padding: var(--space-2) var(--space-3);
 }
+/* The edge with tiles scrolled past it fades, so the row reads as going on. `SessionTiles` marks the edges. */
+.deck-flight[data-subject="session"][data-before] { mask-image: linear-gradient(to left, var(--fg-default) calc(100% - var(--space-6)), transparent); }
+.deck-flight[data-subject="session"][data-after] { mask-image: linear-gradient(to right, var(--fg-default) calc(100% - var(--space-6)), transparent); }
+.deck-flight[data-subject="session"][data-before][data-after] { mask-image: linear-gradient(to right, transparent, var(--fg-default) var(--space-6) calc(100% - var(--space-6)), transparent); }
+.deck-controls__block.deck-flight[data-subject="session"][data-expanded] { grid-auto-flow: row; grid-template-columns: repeat(6, minmax(0, 1fr)); overflow: visible; mask-image: none; }
 .deck-controls__tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: var(--tile); gap: var(--space-2); }
 /* Each tile sizes its glyph and its word from its own box. */
 .deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-block: var(--space-1); }
@@ -1002,9 +1009,10 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 
 /* ---- Flight controls the owner shaped ------------------------------------------------------------------------ */
 
-/* The panel's key stays beside the title; Edit is a glyph at the band's right end, then Done and Cancel in its place while editing. */
+/* The panel's key stays beside the title; Edit is a glyph at the band's right end, then Done and Cancel in its place while editing. Expand or Collapse, where drawn, stands just before Edit. */
 .deck-controls > .deck-band .deck-band__acts { font-family: var(--font-sans); letter-spacing: normal; text-transform: none; }
 .deck-controls > .deck-band > .armada-tooltip { margin-left: auto; }
+.deck-controls > .deck-band > .armada-tooltip:has(> .deck-band__expand) + .armada-tooltip { margin-left: 0; }
 .deck-band__acts { display: inline-flex; align-items: center; gap: var(--space-2); }
 .deck-band__acts:not(:empty) { margin-left: auto; }
 .deck-controls > .deck-band > .armada-tooltip + .deck-band__acts { margin-left: 0; }
