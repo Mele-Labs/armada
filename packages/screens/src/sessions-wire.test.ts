@@ -816,6 +816,14 @@ describe("the plan's limit and the context window", () => {
     autocompact_threshold: 967_000,
   };
 
+  it("carries what the agent came up without, and nothing for a Job that is whole, an empty list or an ended Job", () => {
+    const lacking: NonNullable<SessionRecord["tools_missing"]> = { harness_version: "2.1.310", missing: ["door", "task_tools"] };
+    expect(sessionOfRecord(record("a", { tools_missing: lacking }), undefined, beside()).toolsMissing).toEqual(lacking);
+    expect(sessionOfRecord(record("a"), undefined, beside())).not.toHaveProperty("toolsMissing");
+    expect(sessionOfRecord(record("a", { tools_missing: { harness_version: "2.1.310", missing: [] } }), undefined, beside())).not.toHaveProperty("toolsMissing");
+    expect(sessionOfRecord(record("a", { state: "ended", tools_missing: lacking }), undefined, beside())).not.toHaveProperty("toolsMissing");
+  });
+
   it("reads held_until as the reset a held session resumes at, and nothing for one that ended", () => {
     expect(sessionOfRecord(record("a", { held_until: "2026-10-12T22:40:00Z" }), undefined, beside()).limitedUntil).toBe("2026-10-12T22:40:00Z");
     expect(sessionOfRecord(record("a"), undefined, beside()).limitedUntil).toBeUndefined();

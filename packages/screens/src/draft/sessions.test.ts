@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { isBlank, ownerOf, sessionsMatching } from "./sessions";
+import { isBlank, ownerOf, sessionsMatching, toolsMissingSaid } from "./sessions";
 import type { Session } from "./sessions";
 
 const idle = { state: "idle" } as const;
@@ -70,5 +70,18 @@ describe("who owns a chip", () => {
     expect(ownerOf([ended], { kind: "pull_request", number: 1847 })).toBeUndefined();
     expect(ownerOf([ended, notes], { kind: "pull_request", number: 1847 })?.id).toBe("s3");
     expect(ended.attachments).toContainEqual(expect.objectContaining({ kind: "pull_request", number: 1847 }));
+  });
+});
+
+describe("what the tools mark says", () => {
+  test("heads with the CLI version, then a sentence for each thing missing, in the order given", () => {
+    expect(toolsMissingSaid({ harness_version: "2.1.310", missing: ["mod", "door", "task_tools"] })).toBe(
+      "Claude Code 2.1.310. No armada mod. No armada tools. No task tools.",
+    );
+    expect(toolsMissingSaid({ harness_version: "2.1.310", missing: ["task_tools"] })).toBe("Claude Code 2.1.310. No task tools.");
+  });
+
+  test("says only what is missing when the init line named no version", () => {
+    expect(toolsMissingSaid({ harness_version: "", missing: ["door"] })).toBe("No armada tools.");
   });
 });
