@@ -473,8 +473,9 @@ export type ToolsMissing = { harness_version: string; missing: Array<"mod" | "do
 
 const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
 
-/** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. */
-export const toolsMissingSaid = (tools: ToolsMissing): string => `Claude Code ${tools.harness_version}. ${tools.missing.map((one) => MISSING_SAID[one]).join(" ")}`;
+/** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. An init line that names no version says only what is missing. */
+export const toolsMissingSaid = (tools: ToolsMissing): string =>
+  [...(tools.harness_version === "" ? [] : [`Claude Code ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
 
 export type Session = {
   id: string;
