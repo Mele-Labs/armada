@@ -202,12 +202,26 @@ function build(name: string): Scenario {
       sessions: (_control, more = []) => {
         const store = sessionsStore([...SESSIONS(), ...more], [], new Map(), []);
         projectsLink.jobs = store;
+        // The mock's first start is a fixture Session with a script of its own, which retitles it Flaky store test; it is spent here and kept off the list.
+        const spent = store.start();
+        let from: readonly Session[] | undefined;
+        let only: readonly Session[] = [];
         return {
           ...store,
-          // Fleet holds the written tasks a Job starts with, so the rows show it from the moment the sheet starts one.
+          get: () => {
+            const all = store.get();
+            if (all !== from) {
+              from = all;
+              only = all.filter((one) => one.id !== spent);
+            }
+            return only;
+          },
+          // A Job is titled after its words, as Fleet reads them, and Fleet holds the written tasks it starts with, so the rows show it from the moment the sheet starts one.
           start: (tag, root, request, tuning, after, held, projectRows) => {
             const id = store.start(tag, root, request, tuning, after, held);
-            if (typeof id === "string" && projectRows !== undefined) projectsLink.hold?.(id, (request ?? "").trim().split(/\s+/).slice(0, 5).join(" "), projectRows);
+            const title = (request ?? "").trim().split(/\s+/).slice(0, 5).join(" ");
+            if (typeof id === "string" && title !== "") store.edit(id, (one) => ({ ...one, title }));
+            if (typeof id === "string" && projectRows !== undefined) projectsLink.hold?.(id, title, projectRows);
             return id;
           },
           answerWaiting: (id, itemId, given) => {

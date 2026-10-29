@@ -301,7 +301,8 @@ pub async fn execute_told(
         });
     }
 
-    let attempt = run_at(&command, root, budget, env, priority, told).await;
+    let mut attempt = run_at(&command, root, budget, env, priority, told).await;
+    say_nextest_missing(&command, &mut attempt);
     Ok(Ran {
         name: key.to_string(),
         command,
@@ -313,6 +314,18 @@ pub async fn execute_told(
         target,
         mapped,
     })
+}
+
+/// What cargo prints when `cargo nextest` is not installed.
+const NO_NEXTEST: &str = "no such command: `nextest`";
+
+/// **A Check that runs `cargo nextest` on a machine without it says so**, with the install
+/// command, in place of cargo's own line, which names no fix.
+pub(crate) fn say_nextest_missing(command: &str, attempt: &mut Attempt) {
+    let runs_nextest = command.split_whitespace().take(2).eq(["cargo", "nextest"]);
+    if runs_nextest && attempt.output.stderr.contains(NO_NEXTEST) {
+        attempt.output.stderr = String::from("cargo-nextest is not installed. Install it with: cargo install cargo-nextest --locked\n");
+    }
 }
 
 /// The machine's Check slots, as many as `fleet::ChecksAtOnce`'s machine

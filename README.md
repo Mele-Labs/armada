@@ -110,7 +110,7 @@ crate graph, and the rules that hold everywhere, with diagrams.
 
 ## Building it
 
-You need macOS and four toolchains that do not come with it.
+You need macOS and five tools that do not come with it.
 
 | Tool | Version | Where it comes from |
 |---|---|---|
@@ -118,6 +118,7 @@ You need macOS and four toolchains that do not come with it.
 | Rust | 1.90 or later | [`rustup`](https://rustup.rs) |
 | Node | 24 — the version in `.nvmrc` | [`nvm`](https://github.com/nvm-sh/nvm), then `nvm use` |
 | pnpm | the version in `package.json` | `corepack enable`, bundled with Node |
+| cargo-nextest | any | `cargo install cargo-nextest --locked`; `armada check test` runs on it |
 
 **Command Line Tools behind your macOS fail at the link, not the compile.**
 `clang` picks the newest SDK on the machine and hands it to whichever linker is

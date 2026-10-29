@@ -80,8 +80,8 @@ pub struct StartSession {
     pub held: bool,
     /// Rows of his projects, or loose, this Job starts with. **Each written task is held by the
     /// Job** (`projects.changed`) and shows it; a linked issue row keeps no state and is only named,
-    /// so the brief can carry it. Refused 404 for a row that is not there and 422 for one
-    /// of another repository, before anything is made. Not read with `fork` or `root`.
+    /// so the brief can carry it. A row of any repository is held. Refused 404 for a row that is
+    /// not there, before anything is made. Not read with `fork` or `root`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub project_rows: Vec<crate::ProjectRowRef>,
 }
