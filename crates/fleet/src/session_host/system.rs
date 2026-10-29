@@ -78,13 +78,13 @@ where
     /// transcript. A subagent's transcript is left out, and so is a file that is not there.
     fn logs_of(&self, id: &str) -> Vec<SystemLog> {
         let keeper = std::path::Path::new(&self.host().keepers_dir).join(format!("{id}.log"));
-        let kept = std::fs::metadata(&keeper).ok().map(|file| SystemLog { name: String::from("session.log"), bytes: file.len() });
+        let kept = std::fs::metadata(&keeper).ok().map(|file| SystemLog { name: String::from("session.log"), path: keeper.to_string_lossy().into_owned(), bytes: file.len() });
         let transcripts = adapters::turn_lines::transcripts_of(&self.host().home, id)
             .into_iter()
             .filter(|file| !file.subagent)
             .filter_map(|file| {
                 let name = file.path.file_name()?.to_string_lossy().into_owned();
-                Some(SystemLog { name, bytes: file.size })
+                Some(SystemLog { name, path: file.path.to_string_lossy().into_owned(), bytes: file.size })
             });
         kept.into_iter().chain(transcripts).collect()
     }

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { CircleDot, Power } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
+import { openInPanel } from "../shared-panel/store";
 import { sizeOf, stopProcess, useSystem, type LogFile, type Process, type Reading } from "./system";
 
 const STATE = { running: { Glyph: CircleDot, said: "Running" }, stopped: { Glyph: Power, said: "Stopped" } } as const;
@@ -23,9 +24,11 @@ function ProcessRow({ sessionId, one }: { sessionId: string; one: Process }) {
       </Tooltip>
       <span className="sv-process__act">
         {one.state === "running" ? (
-          <Button variant="ghost" size="sm" aria-label={`Stop ${one.command}`} onClick={() => stopProcess(sessionId, one.pid)}>
-            Stop
-          </Button>
+          <Tooltip asChild label={`Stop ${one.command}`}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={`Stop ${one.command}`} onClick={() => stopProcess(sessionId, one.pid)}>
+              <Power size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
         ) : null}
       </span>
     </li>
@@ -37,18 +40,21 @@ const figure = (one: Reading): string => (one.unit === "GB" ? `${one.used.toFixe
 function ReadingRow({ name, one }: { name: string; one: Reading }) {
   return (
     <li className="sv-reading">
-      <span className="sv-reading__name">{name}</span>
       <span className="sv-reading__value">{figure(one)}</span>
-      <meter className="sv-reading__bar" min={0} max={one.of} value={one.used} aria-label={`${name} ${figure(one)}`} />
+      <span className="armada-usage__meter sv-reading__bar" role="meter" aria-label={name} aria-valuemin={0} aria-valuemax={one.of} aria-valuenow={one.used} aria-valuetext={figure(one)}>
+        <span className="armada-usage__fill" style={{ width: `${Math.min(100, (one.used / one.of) * 100)}%` }} />
+      </span>
     </li>
   );
 }
 
-function LogRow({ one }: { one: LogFile }) {
+function LogRow({ sessionId, one }: { sessionId: string; one: LogFile }) {
   return (
-    <li className="sv-log">
-      <code className="sv-log__name">{one.name}</code>
-      <span className="sv-log__size">{sizeOf(one.bytes)}</span>
+    <li>
+      <button type="button" className="sv-log" aria-label={`Open ${one.name}`} onClick={() => openInPanel({ kind: "file", path: one.path, from: "session", sessionId })}>
+        <code className="sv-log__name">{one.name}</code>
+        <span className="sv-log__size">{sizeOf(one.bytes)}</span>
+      </button>
     </li>
   );
 }
@@ -102,7 +108,7 @@ export function SystemSections({ sessionId, worktrees }: { sessionId: string; wo
         <Section label="Logs">
           <ul className="sv-layer__rows">
             {logs.map((one) => (
-              <LogRow key={one.name} one={one} />
+              <LogRow key={one.path} sessionId={sessionId} one={one} />
             ))}
           </ul>
         </Section>

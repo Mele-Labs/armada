@@ -26,7 +26,7 @@ export type SystemWorktree = {
 };
 
 /** A file Fleet keeps for the Job: `session.log`, or the agent's transcript. */
-export type SystemLog = { name: string; bytes: number };
+export type SystemLog = { name: string; path: string; bytes: number };
 
 /** `get_session_system`. A figure that could not be read is absent, never zero. */
 export type SessionSystem = {

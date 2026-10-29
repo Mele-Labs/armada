@@ -8,7 +8,7 @@ import type { SessionSystem } from "@armada/protocol";
 export type Process = { pid: number; command: string; port?: number; state: "running" | "stopped" };
 /** One reading of the machine as this Job uses it: `used` of `of`, both in `unit`. */
 export type Reading = { used: number; of: number; unit: string };
-export type LogFile = { name: string; bytes: number };
+export type LogFile = { name: string; path: string; bytes: number };
 export type JobSystem = { processes: readonly Process[]; cpu?: Reading; memory?: Reading; disk?: Reading; logs: readonly LogFile[] };
 
 const none: JobSystem = { processes: [], logs: [] };
@@ -42,7 +42,7 @@ export function systemOf(wire: SessionSystem | undefined, gone: ReadonlyMap<numb
     ...(cpu === undefined ? {} : { cpu }),
     ...(memory === undefined ? {} : { memory }),
     ...(disk === undefined ? {} : { disk }),
-    logs: wire.logs.map((one) => ({ name: one.name, bytes: one.bytes })),
+    logs: wire.logs.map((one) => ({ name: one.name, path: one.path, bytes: one.bytes })),
   };
 }
 

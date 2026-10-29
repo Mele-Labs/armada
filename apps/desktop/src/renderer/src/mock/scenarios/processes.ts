@@ -50,8 +50,8 @@ export const s268Processes: Scenario = {
         disk_of_bytes: 20 * GB,
         worktrees: [],
         logs: [
-          { name: "session.log", bytes: 96 * KB },
-          { name: `${LIVE}.jsonl`, bytes: 3.2 * KB * KB },
+          { name: "session.log", path: `/mock/keepers/${LIVE}.log`, bytes: 96 * KB },
+          { name: `${LIVE}.jsonl`, path: `/mock/transcripts/${LIVE}.jsonl`, bytes: 3.2 * KB * KB },
         ],
       });
       return base.draft!.sessions!(control);

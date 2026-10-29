@@ -45,6 +45,8 @@ pub struct SystemLog {
     /// The file's name: `session.log` for what the agent's process wrote to its error output, else the
     /// transcript's own.
     pub name: String,
+    /// Where it is on this machine, absolute.
+    pub path: String,
     pub bytes: u64,
 }
 
