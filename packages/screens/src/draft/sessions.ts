@@ -491,7 +491,7 @@ export type Session = {
   /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
   paused?: true;
   /**
-   * **A mock's field**: the Job's agent process never started, even on Fleet's second try. `cause` is why, in plain words; `log` is the agent's own
+   * The Job's agent process never started, even on Fleet's second try (`hosted.start_failed`). `cause` is why, in plain words; `log` is the agent's own
    * last error lines. The Job needs him: Start again or a message from him is the retry. Absent once it has started.
    */
   startFailed?: { cause: string; log: readonly string[] };
@@ -889,7 +889,7 @@ export type SessionsDraft = {
    * refusal is said as `stop`'s is, and the Session's `autoLand` follows from Fleet's record. False where nothing changed. Absent where nothing serves it.
    */
   autoLand?: (id: string, on: boolean) => Promise<boolean>;
-  /** **A mock's act**: starts the agent of a Job that did not start, again. The failure is cleared and the Job goes to work. Absent where nothing serves it. */
+  /** Starts the agent of a Job that did not start, again. The failure is cleared and the Job goes to work. Absent where nothing serves it. */
   startAgain?: (id: string) => void;
   /** Lifts a pause: the Session takes a slot again. A message to a paused Session does the same. Absent with `pause`. */
   resume?: (id: string) => Promise<boolean>;

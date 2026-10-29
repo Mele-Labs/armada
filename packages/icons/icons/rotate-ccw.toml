@@ -3,7 +3,7 @@
   group = "Run"
   size = "16px"
   status = "Specified"
-  reserved = "Run again on a command the person ran from a code block. Redispatch of a Job stays `rotate-cw`."
+  reserved = "Run again on a command the person ran from a code block, and Start again on the line in a Job's thread that says its agent did not start. Redispatch of a Job stays `rotate-cw`."
   notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Mirror of `rotate-cw`, so a re-run does not read as a Redispatch. Approved 11 Oct 2026."
 
   [[icons.rotate-ccw.usage]]

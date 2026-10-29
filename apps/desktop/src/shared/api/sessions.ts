@@ -180,6 +180,8 @@ export type SessionsApi = {
   stopSession: (sessionId: string) => Promise<SessionActed>;
   /** Runs again the hand off that failed on this Job. Refused where none stands or one runs; a hand off that fails again is a fresh failed row on the Job. */
   retryHandoff: (sessionId: string) => Promise<SessionActed>;
+  /** Sends again the turns a Job's process would not start for. */
+  startAgain: (sessionId: string) => Promise<SessionActed>;
   /** Stops the turn, commits the work to the Session's branch and gives its slot back. The row stays, marked paused. */
   pauseSession: (sessionId: string) => Promise<SessionActed>;
   /** Auto land on or off for a hosted Session. Fleet keeps the flag first, so a forge's refusal leaves it set and comes back as a refusal. */
@@ -388,6 +390,7 @@ export const SESSIONS_CHANNELS = {
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
   retryHandoff: "bridge:retry-handoff",
+  startAgain: "bridge:start-again",
   pauseSession: "bridge:pause-session",
   resumeSession: "bridge:resume-session",
   setSessionAutoLand: "bridge:set-session-auto-land",
