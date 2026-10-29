@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, FileText, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, ScanText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, FileText, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, ScanText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Undo2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -34,7 +34,7 @@ import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedS
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked" | "closed";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
@@ -142,6 +142,8 @@ export type LedgerEntry = {
   released?: { kept?: string };
   /** A held Job's row: Start at its end begins that Job without opening it. `starting` while the start waits on the request being read. */
   start?: { starting: boolean; onStart: () => void };
+  /** A `closed` row, an item he closed from Needs you: when, and Reopen, which puts it back there. Absent `onReopen` is an item whose thing has ended. */
+  closed?: { at: string; onReopen?: () => void };
   onOpen: () => void;
 };
 
@@ -169,10 +171,25 @@ const READ_FROM_REPLY = { Glyph: ScanText, said: "Read from the reply" };
 /** A row with choices is a question, whatever its press does: one asked in the walk window still opens the walk. */
 const QUESTION = { Glyph: MessageCircleQuestion, said: "Question" };
 
+/** What an item he closed was, by what its press did, as a Closed row's glyph and tooltip name it. */
+const CLOSED_KIND: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
+  walk: { Glyph: AppWindow, said: "Walk" },
+  answer: QUESTION,
+  approve_pr: { Glyph: GitPullRequestArrow, said: "Pull request" },
+  run: { Glyph: Terminal, said: "Command" },
+  message: { Glyph: SquarePen, said: "Message" },
+  steps: { Glyph: ListChecks, said: "Steps" },
+  none: { Glyph: BellRing, said: "Call" },
+};
+
+/** A Closed row's glyph and what its tooltip names. */
+export const closedMark = (row: LedgerEntry): { Glyph: LucideIcon; said: string } => CLOSED_KIND[row.act ?? "none"];
+
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "linked", label: "Linked", Glyph: Link },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
+  { kind: "closed", label: "Closed", Glyph: BellRing },
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
@@ -529,6 +546,23 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
             </li>
           );
         }
+        if (kind === "closed" && row.closed !== undefined) {
+          const mark = closedMark(row);
+          return (
+            <li key={row.key} className="armada-session-ledger__row armada-session-ledger__closed" aria-label={row.name}>
+              <span className="armada-session-ledger__open" data-plain="">
+                <Tooltip label={mark.said}>
+                  <span className="armada-session-mark" role="img" aria-label={mark.said}>
+                    <mark.Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+                <span className="armada-session-ledger__text">{row.text}</span>
+              </span>
+              <Stamp at={row.closed.at} className="armada-session-ledger__when" />
+              <ReopenAct name={row.name} onPress={row.closed.onReopen} />
+            </li>
+          );
+        }
         if (kind === "linked" && row.linked !== undefined) {
           return (
             <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
@@ -687,6 +721,7 @@ const KIND: Record<LedgerKind, { Glyph: LucideIcon; label: string }> = {
   fork: { Glyph: MoveRight, label: "Fork" },
   start: { Glyph: CornerUpRight, label: "Started" },
   linked: { Glyph: Link, label: "Linked" },
+  closed: { Glyph: BellRing, label: "Closed" },
 };
 
 /** The status token a card's tone draws in: the same ones a row's mark takes. */
@@ -781,6 +816,23 @@ function DismissAct({ name, said = "Dismiss", onPress }: { name: string; said?: 
       <Tooltip label={said}>
         <Button variant="ghost" size="sm" iconOnly aria-label={`${said} ${name}`} onClick={onPress}>
           <X size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
+  );
+}
+
+/**
+ * Puts an item he closed back in Needs you. Always shown, since it is what the Closed row is for. A row whose thing has
+ * ended has none, and an empty place of the same width keeps the column where it is.
+ */
+export function ReopenAct({ name, onPress }: { name: string; onPress: (() => void) | undefined }) {
+  if (onPress === undefined) return <span className="armada-session-ledger__reopen" data-none="" aria-hidden="true" />;
+  return (
+    <span className="armada-session-ledger__reopen">
+      <Tooltip label="Reopen">
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Reopen ${name}`} data-layer-row="" onClick={onPress}>
+          <Undo2 size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
     </span>

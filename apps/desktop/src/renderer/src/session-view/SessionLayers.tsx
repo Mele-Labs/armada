@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, ReopenAct, Stamp, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
@@ -122,9 +122,11 @@ function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; session
       label={row.title}
       onOpen={row.open}
       {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
+      {...(row.closed === undefined ? {} : { act: <ReopenAct name={row.title} onPress={row.closed.onReopen} /> })}
       meta={
         <>
           {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
+          {row.closed === undefined ? null : <Stamp at={row.closed.at} className="sv-ledger__word" />}
           {row.words?.map((word) => (
             <span key={word} className="sv-ledger__said">
               {word}

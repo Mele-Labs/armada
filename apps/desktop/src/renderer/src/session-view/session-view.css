@@ -165,6 +165,9 @@
 .sv-review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-4); height: 100%; min-height: 0; padding: var(--space-4); }
 .sv-review:not(:has(.sv-review__sketch)) { grid-template-columns: minmax(0, 1fr); }
 .sv-review__groups { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; overflow-y: auto; }
+/* A pull request's chip, and under it, hung off a hairline, the groups that land in it. */
+.sv-review__landing { display: flex; flex-direction: column; gap: var(--space-2); }
+.sv-review__landing > .sv-review__group { margin-inline-start: var(--space-3); padding-inline-start: var(--space-3); border-inline-start: var(--border-width) solid var(--border-subtle); }
 .sv-review__group .sv-group__row { cursor: default; }
 .sv-review__group .sv-group__row:hover { background: none; }
 /* A task's findings hang under its words: past the state glyph and its gap, which is the indent the card draws them at. */
