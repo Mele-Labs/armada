@@ -96,7 +96,7 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
 
     let turn = turn_of(&rig).await;
     for wanted in [
-        "this row should say which commands\\n\\nPointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-1)",
+        "this row should say which commands\\n\\nPointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-1)\\nScreenshot: image 1 of this message, the whole window, ring 1 marks what he pointed at",
         &format!("Candidates:\\n1. {PATH}:171 — "),
         r#"State: tab \"Bash\" selected; walk burnBySessionModelTool step 6 of 9; take B, Needs you first; scenario usage"#,
         "Page: http://127.0.0.1:1/?walk=burnBySessionModelTool",
@@ -190,11 +190,12 @@ async fn three_notes_reach_the_session_as_one_turn_numbered_with_one_handoff_and
     assert_eq!(turns.len(), 1, "one turn: {turns:#?}");
     let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("the turn carries {wanted}: {turn}"));
     let order = [
-        at("1. too wide\\n   Pointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-b25l)"),
+        at("1. too wide\\n   Pointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-b25l)\\n   Screenshot: image 1 of this message, the whole window, ring 1 marks what he pointed at"),
         at("   Page: http://127.0.0.1:1/?take=A"),
-        at("2. wrong colour\\n   Pointed at: li \\\"Zebra crossings, 4\\\" (note n-dHdv)"),
+        at("2. wrong colour\\n   Pointed at: li \\\"Zebra crossings, 4\\\" (note n-dHdv)\\n   Screenshot: image 2 of this message, the whole window, ring 2 marks what he pointed at"),
         at("   Page: http://127.0.0.1:2/?take=B"),
         at("3. say which\\n"),
+        at("   Screenshot: image 3 of this message, the whole window, ring 3 marks what he pointed at"),
         at("   Page: file:///tmp/page.html"),
         at("Handoff: deliver the way the owner chose when Fleet asked how."),
         at(r#""data":"b25l""#),
@@ -210,6 +211,33 @@ async fn three_notes_reach_the_session_as_one_turn_numbered_with_one_handoff_and
         matches!(&rows[..], [SessionRow::Message { text, .. }] if text == "1. too wide\n2. wrong colour\n3. say which"),
         "the thread keeps each note's words, numbered: {rows:#?}"
     );
+}
+
+#[tokio::test]
+async fn a_note_without_a_crop_has_no_screenshot_line_and_the_next_picture_skips_it() {
+    let rig = rig_fitted(|_| {});
+    a_repository(&rig);
+    let id = rig.start().await;
+    let mut bare = walk_note(&id, "no picture", "Zebra crossings, 4", "http://127.0.0.1:2/?take=B", "dHdv");
+    bare.crop = None;
+
+    Arc::clone(&rig.fleet)
+        .send_session_notes(SendSessionNotes {
+            session_id: id.clone(),
+            notes: vec![
+                walk_note(&id, "first", "Other commands, 16.1% of the burn", "http://127.0.0.1:1/?take=A", "b25l"),
+                bare,
+                walk_note(&id, "third", "Other commands, 16.1% of the burn", "file:///tmp/page.html", "dGhyZWU="),
+            ],
+        })
+        .await
+        .expect("taken");
+
+    let turn = turn_of(&rig).await;
+    assert!(turn.contains("ring 1 marks"), "{turn}");
+    assert!(turn.contains("image 2 of this message, the whole window, ring 3 marks"), "{turn}");
+    assert_eq!(turn.matches("Screenshot:").count(), 2, "none for the note without a crop: {turn}");
+    assert_eq!(turn.matches(r#""type":"image""#).count(), 2, "two pictures: {turn}");
 }
 
 #[tokio::test]
