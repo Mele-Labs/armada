@@ -261,8 +261,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const does = tile.kind === "words" ? `Send the Job: ${short}` : tile.kind === "command" ? `Type ${short} to the Job` : tile.kind === "shell" ? `Run ${short} in the Job's bay` : `Open ${short}`;
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
-  // The Browser tile is drawn only where the Job has a browser: nothing outside the mock gives one yet.
-  const shown = tiles.filter((one) => !one.hidden && (one.builtIn === undefined || one.id !== "browser" || browser !== undefined));
+  const shown = tiles.filter((one) => !one.hidden);
   const idOf = (tile: Tile): SessionTileId | undefined => (tile.builtIn === undefined ? undefined : (tile.id as SessionTileId));
   const whyOf = (tile: Tile): string | undefined => {
     const id = idOf(tile);

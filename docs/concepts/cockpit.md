@@ -154,7 +154,7 @@ Fleet already serves each start: `create_project`, `list_import_folders`, `get_i
 ## The Job's flight controls
 
 While a Job is open on the stage the Flight control panel is that Job's, in the same place.
-It is one row of tiles: Auto land, Pause, Judge, Report, Release, Terminal and Requests, then any tile the owner added.
+It is one row of tiles: Auto land, Pause, Judge, Report, Release, Terminal, Browser and Requests, then any tile the owner added.
 When the Job closes the deck's tiles return.
 
 The tiles are the deck's own, the same as Checks, Calls, Map, Timeline and Dispatch with no Job open, drawn as physical keys.
