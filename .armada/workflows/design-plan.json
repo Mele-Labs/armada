@@ -17,18 +17,17 @@
 # ends it is `present`'s `human_always`, and what carries the reading back to
 # `draft` is the loop.
 #
-# **`draft` is the one step where `artifact_exists` is the whole gate**, since
-# with no Judge nothing else reads what it produced. It refuses an empty file
-# and it refuses a directory of that name, and it still cannot tell a considered
-# design from a sentence.
-#
-# The deliverable stays under `.armada/`. Where one *should* live is
-# `[deliverable-location]` in `docs/OPEN.md`, and is a different question.
+# **`draft` writes a Document, and declares no `artifact_exists`.** The
+# deliverable is the HTML page `docs/concepts/document.md` describes, named
+# for its subject under `.armada/documents/`, which a fixed target cannot
+# name. The check it carried named `.armada/artifacts/draft.md`, read by
+# nothing at runtime, and told the agent to write markdown the person could
+# not note.
 #
 # **`present` declares `phase: delivery`**: it sends nothing out, so the
 # fallback off `delivers` would draw the step the person reads as the work.
 #
-# **`draft` records the plan, `#1006`.** It keeps `draft.md`, and `present`
+# **`draft` records the plan, `#1006`.** It keeps the document, and `present`
 # follows. `draft` is also the step a loop returns to, so each round records
 # again — `WorkPlan::after` replaces a `Recorded` change whole, so a second
 # round's recording is not a second plan beside the first, and
@@ -43,15 +42,12 @@
       "id": "draft",
       "label": "Draft",
       "about": "Writes the design as a document and records the plan behind it. No code is written.",
+      "instructions": "Write the design as a document: load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html, never a markdown file. Conclusion first, what was decided and by whom, a sketch inline where a flow or a structure needs one, and what is still open in its own section. Then record the plan behind it with record_plan. No code is written.",
       "records_plan": true,
       "evidence": {
         "submitted": { "type": "document" }
       },
       "mechanical_checks": [
-        {
-          "type": "artifact_exists",
-          "target": ".armada/artifacts/draft.md"
-        },
         {
           "type": "plan_recorded"
         }
@@ -63,6 +59,7 @@
       "id": "present",
       "label": "Present",
       "about": "Shows you the document. You approve it or send it back with notes for another draft.",
+      "instructions": "The person reads the document in Bridge and notes it. Answer every note by changing the page where the note points and writing the same file again, as the writing-a-document skill says.",
       "phase": "delivery",
       "follows_plan": true,
       "evidence": {
