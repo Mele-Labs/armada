@@ -30,8 +30,6 @@ export type PanelItem =
       tab?: string;
       /** A comment to open the pull request at, named by who wrote it and the start of what they said. */
       comment?: { author: string; body: string };
-      /** The Job whose agent read the comments, so each human one carries its triage and the acts on it. */
-      sessionId?: string;
     }
   | { kind: "issue"; /** The forge's number as digits, or a tracker's key. */ number: string; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
@@ -220,4 +218,24 @@ export function useLanePanel(): LanePanel {
     }),
     [open?.kind, slot],
   );
+}
+
+// ---- A Job's lanes -----------------------------------------------------------------------------------------------------------
+
+/** The Job's Lanes are open in the panel. */
+export const lanesOpenFor = (sessionId: string): boolean => held.open?.kind === "lanes" && held.open.sessionId === sessionId;
+
+/** Opens the Job's Lanes in the panel, or closes them where they are open. Answers whether a panel is hosted. */
+export function toggleLanesPanel(sessionId: string): boolean {
+  if (lanesOpenFor(sessionId)) {
+    closePanel();
+    return true;
+  }
+  return openInPanel({ kind: "lanes", sessionId });
+}
+
+/** Whether this Job's Lanes are open in the panel, for a button that shows it pressed. */
+export function useLanesOpen(sessionId: string): boolean {
+  const { open } = usePanel();
+  return open?.kind === "lanes" && open.sessionId === sessionId;
 }

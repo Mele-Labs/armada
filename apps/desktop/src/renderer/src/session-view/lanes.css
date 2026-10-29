@@ -1,7 +1,9 @@
-/* The Job's Lanes (`LanesLayer.tsx`) and what End lists first (`InFlightDialog.tsx`). The layer's frame is `.sv-layer` (session-view.css). The canvas takes what the comments leave, and the
-   comments are a framed panel under it, as a lane is: a mono-caps head on a raised ground over an open body. Weight is in the frame and the read's glyph, never a fill. */
+/* The Job's Lanes in the side panel (`shared-panel/lanes.tsx`) and what End lists first (`InFlightDialog.tsx`). The canvas takes what the comments leave, and the comments are a framed
+   monitor under it, as a lane is: a mono-caps head on a raised ground over an open body. Weight is in the frame and the read's glyph, never a fill. */
 
-.sv-lanes__body > .armada-lane-canvas { flex: 1 1 0; min-height: calc(var(--space-12) * 7); }
+.sv-lanes__body { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.sv-lanes__body > .armada-lane-canvas { flex: none; height: calc(var(--space-12) * 12); }
+.sv-lanes__ask { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 
 /* ---- The comments on the pull request ---------------------------------------------------------------------------- */
 
@@ -10,8 +12,11 @@
 .sv-lanes__comments { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; }
 
 /* A row is a grid: the read (its glyph and its words, in a column that is one width on every row), the words, then a column each for the sent mark and the two acts, kept whether a row carries them or not. The acts share the centre line of the first line. */
-.sv-lanes__comment { display: grid; grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) var(--h-control-sm) var(--h-control-sm) var(--h-control-sm); column-gap: var(--space-2); align-items: start; padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); }
-.sv-lanes__comment + .sv-lanes__comment { border-top: var(--border-width) solid var(--border-subtle); }
+.sv-lanes__item { margin: 0; }
+.sv-lanes__item + .sv-lanes__item { border-top: var(--border-width) solid var(--border-subtle); }
+.sv-lanes__comment { display: grid; grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) var(--h-control-sm); column-gap: var(--space-2); align-items: start; box-sizing: border-box; width: 100%; padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sv-lanes__comment:hover { background: var(--bg-hover); }
+.sv-lanes__comment:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
 .sv-lanes__read, .sv-lanes__sent { display: inline-flex; align-items: center; justify-content: center; height: var(--h-control-sm); }
 .sv-lanes__read { justify-content: flex-start; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
 .sv-lanes__comment[data-read="change"] .sv-lanes__read { color: var(--fg-default); }
@@ -22,7 +27,7 @@
 .sv-lanes__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: var(--h-control-sm); }
 .sv-lanes__author { flex: none; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
 .sv-lanes__where { min-width: 0; padding-inline: var(--space-1); overflow: hidden; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
-.sv-lanes__text { margin: 0 0 var(--space-1); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-lanes__text { display: block; margin: 0 0 var(--space-1); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
 .sv-lanes__comment[data-read="skip"] .sv-lanes__text { color: var(--fg-subtle); }
 
 /* ---- What End lists first ---------------------------------------------------------------------------------------- */

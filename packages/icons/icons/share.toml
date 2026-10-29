@@ -1,0 +1,7 @@
+[icons.share]
+  means = "An arrow leaving an open tray: a copy handed to somebody"
+  group = "Kit"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Sharing a piece of the person's own as a package file. Never adding a row to the shared home, which is `arrow-up-from-line`, and never sending a message, which is `send`."
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Share on a kept workflow, repository tile or review tool, in the Workflows page's header toolbar beside Commit to repository and Copy. Tooltip `Share`. Drawn at 16px, stroke 2."

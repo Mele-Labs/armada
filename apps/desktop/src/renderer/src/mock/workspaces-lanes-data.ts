@@ -347,6 +347,7 @@ export const ASK_DRAFT = "ra-1";
 
 /** What the agent is doing at the moments it works, in its own account: the line the Now beat reads, and what it has done. The moments it waits on the person it does nothing. */
 export const WORKING: Readonly<Record<number, { now: string; done: readonly string[] }>> = {
+  0: { now: "Reading ARM-41 and ARM-42", done: [] },
   1: { now: "Planning the change in store-web and store-api", done: [] },
   2: { now: "Opening the pull request for ARM-41 and ARM-42", done: ["Planned the change in store-web and store-api", "Built the change in both repositories"] },
   4: { now: "Reading the review comments", done: ["Opened the pull request", "Put Maya and Jun on it as reviewers"] },

@@ -18,3 +18,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. Typing `skip the deploy watch` to the agent changes the Job's copy of the Deploy lane; the mark sits on the corner of the state it changes, which is drawn with a dashed frame, tooltip `Changed on this Job` and the change. The same comparison as the Workflows page's Differs from Armada's."
+
+[[icons.git-compare.usage]]
+  means = "Compare with Armada's, a toggle in the Workflows page's header toolbar"
+  group = "Workflows"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Compare with Armada's`. Pressed, each step of the copy that differs from Armada's says so on its card, as the Differs from Armada's mark does."

@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A human comment's triage on a Job's pull request lane, when the agent reads it as needing a change, and nothing else."
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. Tooltip `Needs a change`. It draws in `--fg-default`, the heaviest of the three reads, and the other two recede from it. `message-square-reply` and `message-square-off` are the other two."
+
+[[icons.message-square-diff.usage]]
+  means = "The same triage mark on a human comment in the pull request panel, where the Job's agent read it as needing a change"
+  group = "Job lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Needs a change`. Triage moved into the pull request panel, beside the comment it is about; the Lanes view keeps the comments as a monitor with the same mark."

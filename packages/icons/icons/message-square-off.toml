@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A human comment's triage on a Job's pull request lane, when the agent reads it as not worth acting on, and nothing else."
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. Tooltip `Not worth acting on`. It draws in `--fg-subtle`, the quietest of the three reads, and its text recedes with it."
+
+[[icons.message-square-off.usage]]
+  means = "The same triage mark on a human comment in the pull request panel, where the Job's agent read it as not worth acting on"
+  group = "Job lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Not worth acting on`."

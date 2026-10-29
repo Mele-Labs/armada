@@ -68,3 +68,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. Bare check in `--step-advanced`, tooltip `Sent`, in a column of its own beside the row's two acts. The row keeps its place."
+
+[[icons.check.usage]]
+  means = "A comment handed to the Job's agent, on its row in the pull request panel"
+  group = "Job lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Replaces the Send to Job button once pressed. Tooltip `Sent to the Job`."

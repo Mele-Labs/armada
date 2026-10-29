@@ -12,3 +12,10 @@
   size = "12px"
   status = "Specified"
   notes = "Accepted 15 Oct 2026 by the owner's ruling, proposed for the walk `needs-you-steps`, tooltip `Bring back`. It takes back the person's own drop, as the canvas rail's undo takes back a line, and the reservation above now says so."
+
+[[icons.undo-2.usage]]
+  means = "Reset to Armada's, in the Workflows page's header toolbar"
+  group = "Workflows"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Reset to Armada's`. Takes back everything the person changed in their copy at once. Never a refresh, which is `rotate-cw`."

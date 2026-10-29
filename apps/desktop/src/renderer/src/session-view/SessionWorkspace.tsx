@@ -19,11 +19,11 @@ import { holdsText } from "@armada/screens/src/keys";
 import { useSessionsDraft } from "../sessions-draft";
 import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
-import { LanesLayer } from "./LanesLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone } from "./StoryColumn";
 import { OverTheApp } from "./OverTheApp";
 import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
+import { lanesOpenFor, toggleLanesPanel } from "../shared-panel/store";
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
@@ -40,11 +40,10 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const { id } = session;
   const open = useLayer(id);
   const page = useLayerPage(id);
-  // The Field large draws itself (`FieldLayer.tsx`), and so do the Lanes (`LanesLayer.tsx`) and the document (`DocumentLayer.tsx`); the other layers are `Layer`'s.
-  // The Lanes need the stage's width, so they stand where the Field large does, with the spine and its strip still on show.
-  const layer = open === "field" || open === "lanes" || open === "document" ? undefined : open;
+  // The Field large draws itself (`FieldLayer.tsx`), and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s. The Lanes are in the app's side panel, not a layer.
+  const layer = open === "field" || open === "document" ? undefined : open;
   const lanes = session.lanes;
-  const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : open === "lanes" && lanes !== undefined ? <LanesLayer session={session} lanes={lanes} /> : null;
+  const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
@@ -63,9 +62,10 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     if (!hasLanes) return;
     const listen = (event: KeyboardEvent) => {
       // In a text box ⌥ and ⇧ type a character, so the key is left to it.
-      if (event.defaultPrevented || !isLanesKey(event) || holdsText(event.target) || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      // The panel the Lanes are in is itself a dialog, which its own key closes.
+      if (event.defaultPrevented || !isLanesKey(event) || holdsText(event.target) || (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null && !lanesOpenFor(id))) return;
       event.preventDefault();
-      toggleLayer(id, "lanes");
+      toggleLanesPanel(id);
     };
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);

@@ -187,6 +187,8 @@ export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
 export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export { DraftRow } from "./compositions/SessionThread/DraftRow";
+export type { DraftAnswer, DraftThreadRow } from "./compositions/SessionThread/DraftRow";
 export { forRequestsOf, stepsOfDefinition, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "./compositions/WorkflowManager/definition";
 export type { DefinitionStep } from "./compositions/WorkflowManager/definition";
 
@@ -419,7 +421,8 @@ export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/P
 export { PullRequestFilesView } from "./compositions/PullRequestPanel/PullRequestFiles";
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
-export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";
+export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize, COMMENT_READ } from "./compositions/PullRequestPanel/PullRequestTabs";
+export type { EntryTriage } from "./compositions/PullRequestPanel/PullRequestTabs";
 export type { FileReach, FilesReach, ReachSource, ReachTest } from "./compositions/PullRequestPanel/PullRequestReach";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/ModRules/ModRules";
