@@ -62,7 +62,7 @@ export function ruleBetween(
     ...(from.lane === "workflow" ? { at: "starts" as const } : {}),
     to,
     ifs: [],
-    does: [toStep ? { act: "agent" as const, text: `Hand over to ${names.to}` } : { act: "tracker" as const, text: `Move the ${names.lane.toLowerCase()} to ${names.to}` }],
+    does: [toStep ? { act: "agent" as const, text: `Hand over to ${names.to}` } : { act: "tracker" as const, text: `Move the ${/^[A-Z0-9]+$/.test(names.lane) ? names.lane : names.lane.toLowerCase()} to ${names.to}` }],
     autonomy: "asks",
     kept: "yours",
     scope: "workspace",

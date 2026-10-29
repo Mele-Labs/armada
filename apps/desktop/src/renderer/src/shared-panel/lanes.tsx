@@ -63,7 +63,7 @@ export function LanesPanel({ item }: { item: Extract<PanelItem, { kind: "lanes" 
     if (next !== undefined && needs !== undefined) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id, row: needs });
   };
   return (
-    <SidePanel title="Lanes" heading={session.title ?? "Lanes"} back={back} onClose={closePanel}>
+    <SidePanel title="Lanes" heading={session.title ?? "Lanes"} through back={back} onClose={closePanel}>
       <div className="sv-lanes__body">
         <LaneCanvas label="Lanes" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
         {triage === undefined ? null : (

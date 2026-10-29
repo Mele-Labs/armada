@@ -300,7 +300,14 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
         </span>
       )}
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={connectable} />
+        <Handle
+          key={`s-${side}`}
+          id={`s-${side}`}
+          type="source"
+          position={side}
+          isConnectable={connectable}
+          {...(connectable && side === Position.Right ? { role: "button", tabIndex: -1, "aria-label": `Connect from ${lane.kind === "workflow" ? "step" : lane.title} ${node.label}` } : {})}
+        />
       ))}
       <NodeToolbar isVisible={picked && hold.editing !== undefined} position={lane.id === hold.topLane ? Position.Bottom : Position.Top} offset={10}>
         <Toolbar pick={{ kind: "node", id: node.id }} name={`${lane.kind === "workflow" ? "step" : lane.title} ${node.label}`} rule={false} />
