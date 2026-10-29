@@ -1,7 +1,0 @@
-[icons.stretch-horizontal]
-  means = "Two wide bars stacked one under another, a lane to each"
-  group = "Job lanes"
-  size = "16px"
-  status = "Proposed"
-  reserved = "The Lanes view in a Job's strip of views, beside Artifacts, Checks, Subagents and Bays. Never a list or a stack of rows, which are `list` and `rows-3`, and never a workflow's steps, which are `workflow`."
-  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. The workflow is the top lane and each ticket, pull request and deploy the Job holds is a lane under it, so the glyph is the lanes and not a state. Tooltip `Lanes`, with ⌥⇧L. Refused: `rows-3`, the Slot view's glyph one place along the same strip; `chart-no-axes-gantt`, reserved to the Dashboard's Timeline; `workflow`, reserved to the Workflows surface."

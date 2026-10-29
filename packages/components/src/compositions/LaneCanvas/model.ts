@@ -25,12 +25,17 @@ export type StateDef = {
   end?: true;
 };
 
+/** What reads a lifecycle's states, which is the shape its nodes are drawn in: the tracker or the forge (a pill), a watch (a hexagon), an Armada document (a pill) or a Job Armada started (a card). */
+export type LifecycleKind = "tracker" | "forge" | "watch" | "document" | "job";
+
 /** A lifecycle as the Workspace defines it, for every workflow that uses it. */
 export type LifecycleDef = {
   id: string;
   label: string;
   /** Where Fleet reads its states from. */
   from: string;
+  /** What reads them. Absent, a state is drawn as the tracker's. */
+  kind?: LifecycleKind;
   states: readonly StateDef[];
   /** The ways a state is left, as pairs of state ids. */
   next: readonly (readonly [string, string])[];
@@ -120,6 +125,17 @@ export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope
 
 // ---- What a canvas draws -------------------------------------------------------------------------------------------------
 
+/**
+ * What a node is, which is its shape and its tint (`LaneCanvas.css`): a step is a rounded box; a state read from the tracker or the forge, or from an Armada document, is a pill; a step that waits
+ * and a state a watch reads are hexagons; a Job another Job started is a card with the drone glyph; and where the workflow starts and ends are small circles. **A kind is never a status**: its tint is a
+ * faint ground from `kinds.css`, and what a node stands in (working, waiting, went through) is its frame and its mark.
+ */
+export type NodeKind = "step" | "wait" | "tracker" | "forge" | "document" | "watch" | "job" | "start" | "end";
+
+/** Where the workflow starts and ends, drawn as small circles at the ends of its lane: not steps, so nothing picks them. */
+export const START_ITEM = "$start";
+export const END_ITEM = "$end";
+
 export type LaneNodeView = {
   id: string;
   label: string;
@@ -127,6 +143,7 @@ export type LaneNodeView = {
   sub?: string;
   col: number;
   role: "step" | "state";
+  kind: NodeKind;
   /** The step the agent is working on. It takes the running hue and the working glyph, and nothing else on the lanes does. */
   lit?: boolean;
   /** Where an instance stands, or the step a Job is at with nobody working on it: a place and not an act, drawn static in no hue. */

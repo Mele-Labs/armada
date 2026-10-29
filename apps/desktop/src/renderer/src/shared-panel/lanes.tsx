@@ -1,4 +1,4 @@
-// A Job's Lanes: the workflow and the tickets, pull request and deploy it holds (`LaneCanvas`), with the comments on the pull request under the canvas as a monitor.
+// A Job's Workflow view: the workflow and the tickets, pull request and deploy it holds (`LaneCanvas`), with the comments on the pull request under the canvas as a monitor.
 // **The body is one**: `LanesBody` is drawn in the app's side panel on a window narrower than `WIDE_WINDOW_PX`, and as a layer in the Job's spine on a wider one (`session-view/LanesLayer.tsx`), the same press or Esc closing either. The panel is the pull request panel's width. **A mock's view**: the lanes are fixtures.
 // A comment here shows that it came in and what the agent made of it; pressing it opens the pull request at that comment, where the acts on it are. A rule waiting on the person opens
 // what it needs (`rule.tsx`).
@@ -64,7 +64,7 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   };
   return (
     <div className="sv-lanes__body">
-      <LaneCanvas label="Lanes" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
+      <LaneCanvas label="Workflow" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
       {triage === undefined ? null : (
         <section className="sv-lanes__triage" aria-label={`Comments on ${held}`}>
           <h4 className="sv-lanes__triage-head">{`Comments on ${held}`}</h4>
@@ -88,7 +88,7 @@ export function LanesPanel({ item }: { item: Extract<PanelItem, { kind: "lanes" 
   const back = useBack();
   if (session?.lanes === undefined) return null;
   return (
-    <SidePanel title="Lanes" heading={session.title ?? "Lanes"} through back={back} onClose={closePanel}>
+    <SidePanel title="Workflow" heading={session.title ?? "Workflow"} through back={back} onClose={closePanel}>
       <LanesBody sessionId={session.id} />
     </SidePanel>
   );

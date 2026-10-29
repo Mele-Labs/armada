@@ -1,8 +1,28 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { lifecyclesFor, nodeId, ruleDiffers, stateDiffers } from "./model";
-import type { Autonomy, Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, Rule, RuleView, Workspace } from "./model";
+import { END_ITEM, START_ITEM, lifecyclesFor, nodeId, ruleDiffers, stateDiffers } from "./model";
+import type { Autonomy, Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, Rule, RuleView, Workspace } from "./model";
+
+/** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
+const STATE_KIND: Readonly<Record<LifecycleKind, NodeKind>> = { tracker: "tracker", forge: "forge", watch: "watch", document: "document", job: "job" };
+const kindOfState = (lifecycle: { kind?: LifecycleKind }): NodeKind => STATE_KIND[lifecycle.kind ?? "tracker"];
+
+/** A step is a box, and one that ends on a state, so waits for it, is a hexagon. */
+const kindOfStep = (step: LaneStep): NodeKind => (step.endsOn === undefined ? "step" : "wait");
+
+/**
+ * The workflow's lane with a small circle at each end: where it starts and where it ends. They sit in the columns of the first and the last step, and are no steps, so nothing picks them. `began` and
+ * `ended` are a Job's: it has started its first step, and every step is over.
+ */
+function withEnds(steps: readonly LaneNodeView[], pairs: readonly (readonly [string, string])[], standing?: { began: boolean; ended: boolean }): { nodes: LaneNodeView[]; moves: (readonly [string, string])[] } {
+  const first = steps[0];
+  const last = steps[steps.length - 1];
+  if (first === undefined || last === undefined) return { nodes: [...steps], moves: [...pairs] };
+  const start: LaneNodeView = { id: nodeId("workflow", START_ITEM), label: "Start", col: first.col, role: "step", kind: "start", ...(standing?.began === true ? { passed: true as const } : {}) };
+  const end: LaneNodeView = { id: nodeId("workflow", END_ITEM), label: "End", col: last.col, role: "step", kind: "end", ...(standing?.ended === true ? { here: true as const } : {}) };
+  return { nodes: [start, ...steps, end], moves: [[start.id, first.id], ...pairs, [last.id, end.id]] };
+}
 
 const laneOfLifecycle = (lifecycle: Lifecycle, id: string, title: string, note: string | undefined, nodes: readonly LaneNodeView[]): LaneView => ({
   id,
@@ -58,17 +78,14 @@ export function editorLanes(input: {
   const autonomyHere = (rule: Rule): Autonomy => (scope === "workspace" ? rule.autonomy : (rule.overrides?.find((one) => one.scope === scope)?.autonomy ?? rule.autonomy));
   const steps = stepsOf(workspace, workflow, input.steps);
   const lifecycles = lifecyclesFor(workspace, workflow);
-  const flow: LaneView = {
-    id: "workflow",
-    kind: "workflow",
-    title: workflow,
-    source: "Workflow",
-    nodes: steps.map((step) => {
+  const drawnSteps = withEnds(
+    steps.map((step): LaneNodeView => {
       const sub = endsOnSaid(step, lifecycles);
-      return { id: nodeId("workflow", step.id), label: step.label, ...(sub === undefined ? {} : { sub }), col: step.col, role: "step" as const };
+      return { id: nodeId("workflow", step.id), label: step.label, ...(sub === undefined ? {} : { sub }), col: step.col, role: "step", kind: kindOfStep(step) };
     }),
-    moves: steps.slice(1).map((step, at) => [nodeId("workflow", steps[at]!.id), nodeId("workflow", step.id)] as const),
-  };
+    steps.slice(1).map((step, at) => [nodeId("workflow", steps[at]!.id), nodeId("workflow", step.id)] as const),
+  );
+  const flow: LaneView = { id: "workflow", kind: "workflow", title: workflow, source: "Workflow", nodes: drawnSteps.nodes, moves: drawnSteps.moves };
   const lanes = lifecycles.map((lifecycle) =>
     laneOfLifecycle(
       lifecycle,
@@ -77,7 +94,7 @@ export function editorLanes(input: {
       undefined,
       lifecycle.states.map((state) => {
         const differs = marked(stateDiffers(state));
-        return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
+        return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, kind: kindOfState(lifecycle), ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
       }),
     ),
   );
@@ -118,12 +135,8 @@ const instancesOf = (job: JobLanes, lane: string): readonly Instance[] => job.in
 export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneView[]; rules: RuleView[] } {
   const { copy } = job;
   const label = (lane: string, item: string): string => copy.lifecycles.find((one) => one.id === lane)?.states.find((one) => one.id === item)?.label ?? item;
-  const flow: LaneView = {
-    id: "workflow",
-    kind: "workflow",
-    title: standing.workflow,
-    source: "Workflow",
-    nodes: copy.steps.map((step, at) => {
+  const drawnSteps = withEnds(
+    copy.steps.map((step, at): LaneNodeView => {
       const sub = endsOnSaid(step, copy.lifecycles);
       const waiting = job.waitingOn?.step === step.id ? waitingSaid(job, copy.lifecycles) : undefined;
       const changed = job.changes.find((one) => one.lane === "workflow" && one.item === step.id)?.text;
@@ -132,7 +145,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         label: step.label,
         ...(sub === undefined ? {} : { sub }),
         col: step.col,
-        role: "step" as const,
+        role: "step",
+        kind: kindOfStep(step),
         ...(at === standing.at ? (standing.working === true ? { lit: true as const } : { here: true as const }) : {}),
         ...(at < standing.at ? { passed: true as const } : {}),
         ...(waiting === undefined ? {} : { waiting }),
@@ -140,8 +154,10 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         ...(changed === undefined ? {} : { changed }),
       };
     }),
-    moves: copy.steps.slice(1).map((step, at) => [nodeId("workflow", copy.steps[at]!.id), nodeId("workflow", step.id)] as const),
-  };
+    copy.steps.slice(1).map((step, at) => [nodeId("workflow", copy.steps[at]!.id), nodeId("workflow", step.id)] as const),
+    { began: standing.at >= 0, ended: standing.at >= copy.steps.length },
+  );
+  const flow: LaneView = { id: "workflow", kind: "workflow", title: standing.workflow, source: "Workflow", nodes: drawnSteps.nodes, moves: drawnSteps.moves };
   const lanes: LaneView[] = [
     flow,
     ...job.instances.flatMap((instance): LaneView[] => {
@@ -160,6 +176,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
             label: state.label,
             col: state.col,
             role: "state" as const,
+            kind: kindOfState(lifecycle),
             ...(state.id === instance.state ? { here: true as const } : {}),
             ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
             ...(state.end === true ? { end: true as const } : {}),

@@ -23,11 +23,11 @@ import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } fro
  * The Workspace a workflow is edited in: its steps on top of a lane for each lifecycle it uses, and rules as edges. **A mock's editor**: no Fleet serves a Workspace yet.
  * **Runs in** is a row of tabs over the canvas: All of the Workspace is the base, and each repository is the base with its own overrides, as a site builder edits a breakpoint. A repository's tab draws the
  * lanes as the workflow runs there, marks the nodes that differ there, and what is edited on it is an override for that repository alone. The panel shows the picked tab's one value, and says where a
- * repository's differs from the base.
+ * repository's differs from the base. **Under the tabs is the box that tells an agent what to change** (`above`), always on show.
  *
- * **What is picked opens in the app's side panel**, drawn into the slot the host gives (`LanePanel`), since the panel is the host's and this is a component: the facts, then the same
- * fields to edit, or a box to tell an agent. **Hand editing is on the canvas**: a toolbar over what is picked, a connector from one node to another, and on Armada's copy the first
- * edit makes the person's own, which the toolbar says.
+ * **What is picked opens in the app's side panel**, drawn into the slot the host gives (`LanePanel`), since the panel is the host's and this is a component: its settings as live fields, saved as they
+ * are changed, or a box to tell an agent. **There is no read only state and no mode to enter.** Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from
+ * one node to another. **The first change on Armada's workflow makes the person's own copy, quietly**: the change lands on it, and nothing here says copy.
  */
 export type WorkspaceEditing = {
   value: Workspace;
@@ -58,6 +58,9 @@ export type StepsChange =
   | { kind: "order"; ids: readonly string[] };
 
 const NONE: readonly never[] = [];
+
+/** The width the editor keeps beside a panel before the list gives up room: the title's acts, and the tabs on a line each. */
+const NARROW = 420;
 const NOBODY = () => undefined;
 
 const AUTONOMY_SAID: Readonly<Record<Autonomy, string>> = { acts: "Acts", asks: "Asks", off: "Off" };
@@ -65,7 +68,8 @@ const AUTONOMY_SAID: Readonly<Record<Autonomy, string>> = { acts: "Acts", asks: 
 const refOf = (id: string): { lane: string; item: string } => ({ lane: id.slice(0, id.indexOf("/")), item: id.slice(id.indexOf("/") + 1) });
 const splitValues = (text: string): string[] => text.split(",").map((one) => one.trim()).filter((one) => one !== "");
 
-type Mode = "read" | "edit" | "tell";
+/** What the panel holds for the pick: its fields, or a box to tell an agent about it. */
+type Mode = "fields" | "tell";
 
 export function WorkspaceEditor({
   editing,
@@ -73,6 +77,7 @@ export function WorkspaceEditor({
   editable,
   proposed = NONE,
   stepCard,
+  above,
   panel,
   onMakeCopy,
   onTell,
@@ -80,13 +85,16 @@ export function WorkspaceEditor({
 }: {
   editing: WorkspaceEditing;
   workflow: ManagedWorkflow;
-  /** The person's own copy: Armada's is read only, and the first edit makes the person's own. */
+  /** The person's own copy. Armada's is not, and the first change on it makes one. */
   editable: boolean;
   /** The rules a change waiting on Approve would add, drawn as a diff. */
   proposed?: readonly Rule[];
   /** The step card for the step picked: its words, what ends it, what drifted. */
   stepCard: (step: ManagedStep, at: number) => ReactNode;
+  /** What stands under the tabs and over the canvas: the box that tells an agent what to change. */
+  above?: ReactNode;
   panel: LanePanel;
+  /** Makes the person's own copy of Armada's workflow, behind the first change made on it. */
   onMakeCopy: () => void;
   /** An agent told a change about what is picked. */
   onTell: (request: string) => Promise<WorkflowActAnswer>;
@@ -94,14 +102,24 @@ export function WorkspaceEditor({
 }) {
   const workspace = editing.value;
   const [picked, setPicked] = useState<LanePick | undefined>();
-  const [mode, setMode] = useState<Mode>("read");
+  const [mode, setMode] = useState<Mode>("fields");
   // The tab: the Workspace's base, or one repository's.
   const [scope, setScope] = useState("workspace");
+  const section = useRef<HTMLElement>(null);
   const repository = workspace.repositories.find((one) => one.id === scope);
   useEffect(() => setScope("workspace"), [workflow.id]);
-  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps: workflow.steps, proposed, scope: repository?.id ?? "workspace" }), [workspace, workflow.id, workflow.steps, proposed, repository?.id]);
-  const change = (next: Workspace) => editing.onChange(next);
-  const steps = workflow.steps;
+  // The steps are held while a copy's are read, so the canvas is not taken away and drawn again as the person's own copy opens.
+  const read = useRef(workflow.steps);
+  if (workflow.steps.length > 0) read.current = workflow.steps;
+  const steps = workflow.steps.length > 0 ? workflow.steps : read.current;
+  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed, scope: repository?.id ?? "workspace" }), [workspace, workflow.id, steps, proposed, repository?.id]);
+
+  // **The first change on Armada's workflow makes the person's own copy**, without a word: the change is made on the Workspace as it is, and the host makes the copy behind it.
+  const change = (next: Workspace) => {
+    editing.onChange(next);
+    if (!editable) onMakeCopy();
+  };
+  const writeSteps = onSteps;
 
   const names = useMemo(() => {
     const out = new Map<string, { label: string; lane: string }>();
@@ -118,7 +136,7 @@ export function WorkspaceEditor({
     return { title: `${named?.lane ?? ""}: ${named?.label ?? at.id}`.replace(/^: /, ""), heading: named?.label ?? at.id, crumb: named?.lane ?? "" };
   };
 
-  const pick = (next: LanePick | undefined, then: Mode = "read") => {
+  const pick = (next: LanePick | undefined, then: Mode = "fields") => {
     setPicked(next);
     setMode(then);
     if (next === undefined) panel.close();
@@ -130,7 +148,7 @@ export function WorkspaceEditor({
   useEffect(() => {
     if (was.current && !panel.open) {
       setPicked(undefined);
-      setMode("read");
+      setMode("fields");
     }
     was.current = panel.open;
   }, [panel.open]);
@@ -152,19 +170,67 @@ export function WorkspaceEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [named?.title]);
 
+  // **The panel takes room, and the editor gives it.** The app's side panel floats over the right of the window, so the column the editor stands in is narrowed by what it covers (and the list beside
+  // it gives up room when what is left is narrow), and nothing the panel lies over is left to be pressed beneath it.
+  useEffect(() => {
+    const root = section.current?.closest<HTMLElement>(".armada-wm");
+    if (root === null || root === undefined) return;
+    const sheet = panel.open ? panel.slot?.closest<HTMLElement>("[data-side]") : null;
+    const release = () => {
+      root.style.removeProperty("--armada-wm-covered");
+      delete root.dataset.covered;
+      delete root.dataset.crowded;
+    };
+    if (sheet === null || sheet === undefined) return release();
+    let live = true;
+    let settled = false;
+    const measure = () => {
+      if (!live || !settled) return;
+      const bounds = root.getBoundingClientRect();
+      const covered = Math.max(0, Math.round(bounds.right - sheet.getBoundingClientRect().left));
+      if (covered === 0) return release();
+      const style = getComputedStyle(root);
+      const list = parseFloat(style.getPropertyValue("--w-guide-list")) || 0;
+      const gap = parseFloat(style.columnGap) || 0;
+      root.style.setProperty("--armada-wm-covered", `${covered}px`);
+      root.dataset.covered = "";
+      if (bounds.width - covered - list - gap < NARROW) root.dataset.crowded = "";
+      else delete root.dataset.crowded;
+    };
+    // The panel travels in from the edge: it is read once it has settled, and again as it is resized or the window is.
+    void Promise.allSettled(sheet.getAnimations().map((one) => one.finished)).then(() => {
+      settled = true;
+      measure();
+    });
+    const watch = new ResizeObserver(measure);
+    watch.observe(sheet);
+    watch.observe(root);
+    return () => {
+      live = false;
+      watch.disconnect();
+      release();
+    };
+  }, [panel.open, panel.slot]);
+
+  /** Edit goes to the first field of what is picked, in the panel, once the panel shows it. */
+  const toFields = () => {
+    setMode("fields");
+    window.setTimeout(() => panel.slot?.querySelector<HTMLElement>("input:not([type='radio']), textarea, select")?.focus(), 0);
+  };
+
   const addAfter = (at: LanePick) => {
     if (at.kind !== "node") return;
     const { lane, item } = refOf(at.id);
     if (lane === "workflow") {
       const id = uniqueId("New step", steps.map((one) => one.id));
       change(withStepAfter(workspace, workflow.id, stepsOf(workspace, workflow.id, steps), item, id));
-      onSteps({ kind: "add", after: item, id, label: "New step" });
-      pick({ kind: "node", id: nodeId("workflow", id) }, "edit");
+      writeSteps({ kind: "add", after: item, id, label: "New step" });
+      pick({ kind: "node", id: nodeId("workflow", id) });
       return;
     }
     const made = withStateAfter(workspace, workflow.id, lane, item, "New state");
     change(made.workspace);
-    pick({ kind: "node", id: nodeId(lane, made.id) }, "edit");
+    pick({ kind: "node", id: nodeId(lane, made.id) });
   };
 
   const remove = (at: LanePick) => {
@@ -173,7 +239,7 @@ export function WorkspaceEditor({
       const { lane, item } = refOf(at.id);
       if (lane === "workflow") {
         change(withoutStep(workspace, workflow.id, item));
-        onSteps({ kind: "remove", id: item });
+        writeSteps({ kind: "remove", id: item });
       } else change(withoutState(workspace, lane, item));
     }
     pick(undefined);
@@ -188,30 +254,26 @@ export function WorkspaceEditor({
       const ids = steps.map((one) => one.id).filter((one) => one !== b.item);
       ids.splice(ids.indexOf(a.item) + 1, 0, b.item);
       change(withStepsOrder(workspace, workflow.id, stepsOf(workspace, workflow.id, steps), ids));
-      onSteps({ kind: "order", ids });
+      writeSteps({ kind: "order", ids });
       pick({ kind: "node", id: to });
       return;
     }
     const rule = ruleBetween(workspace, workflow.id, a, b, { from: names.get(from)?.label ?? a.item, to: names.get(to)?.label ?? b.item, lane: names.get(to)?.lane ?? b.lane });
     change(withNewRule(workspace, rule));
-    pick({ kind: "rule", id: rule.id }, "edit");
+    pick({ kind: "rule", id: rule.id });
   };
 
   const handles: LaneEditing = {
-    armada: !editable,
-    editing: mode === "edit",
     ...(repository === undefined ? {} : { scoped: true }),
-    onEdit: () => setMode((now) => (now === "edit" ? "read" : "edit")),
+    onEdit: toFields,
     onTell: () => setMode("tell"),
     onAddAfter: addAfter,
     onDelete: remove,
-    onMakeCopy,
     onConnect: connect,
   };
 
   const inspected = (() => {
     if (picked === undefined) return null;
-    const open = editable && mode === "edit";
     if (picked.kind === "rule") {
       const rule = [...workspace.rules, ...proposed].find((one) => one.id === picked.id);
       if (rule === undefined) return null;
@@ -222,8 +284,6 @@ export function WorkspaceEditor({
           workspace={workspace}
           steps={steps}
           scope={repository}
-          editing={open && !added}
-          editable={editable && !added}
           added={added}
           onChange={(patch) => change(withRule(workspace, rule.id, patch))}
           onOverride={(scope, autonomy) => change(withOverride(workspace, rule.id, scope, autonomy))}
@@ -237,7 +297,9 @@ export function WorkspaceEditor({
       if (step === undefined) return null;
       return (
         <>
-          {open ? <Field label="Step name" value={step.label} onCommit={(label) => onSteps({ kind: "label", id: step.id, label })} /> : null}
+          <div className="armada-wm-inspector__edit">
+            <Field label="Step name" value={step.label} onCommit={(label) => label !== "" && writeSteps({ kind: "label", id: step.id, label })} />
+          </div>
           {stepCard(step, index)}
         </>
       );
@@ -251,8 +313,6 @@ export function WorkspaceEditor({
         state={state}
         workspace={workspace}
         scope={repository}
-        editing={open}
-        editable={editable}
         onLabel={(label) => change(withStateLabel(workspace, lane, item, label))}
         onReads={(read) => change(withReads(workspace, lane, item, read))}
       />
@@ -272,14 +332,17 @@ export function WorkspaceEditor({
   const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
 
   return (
-    <section className="armada-wm-lanes" aria-label="Lanes">
+    <section ref={section} className="armada-wm-lanes" aria-label="Lanes">
       <div className="armada-wm-scope" role="group" aria-label="Runs in">
         <span className="armada-wm-scope__label" aria-hidden="true">
           Runs in
         </span>
-        <Tabs items={[{ id: "workspace", label: `All of ${workspace.name}` }, ...workspace.repositories.map((one) => ({ id: one.id, label: one.name }))]} value={repository?.id ?? "workspace"} onChange={setScope} />
+        <div className="armada-wm-scope__tabs">
+          <Tabs items={[{ id: "workspace", label: `All of ${workspace.name}` }, ...workspace.repositories.map((one) => ({ id: one.id, label: one.name }))]} value={repository?.id ?? "workspace"} onChange={setScope} />
+        </div>
         {repository === undefined ? null : <p className="armada-wm-scope__says">{`Edits here change ${repository.name} only`}</p>}
       </div>
+      {above}
       {/* Drawn once the steps are read: lanes that fill in after they open would pan to what arrived. */}
       {steps.length === 0 ? null : <LaneCanvas label={`Lanes of ${workflow.id}`} lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={(next) => pick(next)} editing={handles} coveredBy={panel.open ? panel.slot : null} />}
       {content === null || panel.slot === null ? null : createPortal(<div className="armada-wm-inspector">{content}</div>, panel.slot)}
@@ -339,15 +402,15 @@ function Field({ label, value, onCommit, mono = false, placeholder }: { label: s
   );
 }
 
-/** Lines of text that edit a stored list, said where the box is left. */
-function Lines({ label, lines, onCommit }: { label: string; lines: readonly string[]; onCommit: (next: string[]) => void }) {
+/** Lines of text that edit a stored list, said where the box is left. `keep` names what the lines are about, so a line half typed is there when the panel comes back. */
+function Lines({ label, keep, lines, onCommit }: { label: string; keep: string; lines: readonly string[]; onCommit: (next: string[]) => void }) {
   const [text, setText] = useState(lines.join("\n"));
   useEffect(() => setText(lines.join("\n")), [lines]);
   return (
     <Textarea
       label={label}
       rows={Math.max(2, lines.length)}
-      keep={false}
+      keep={keep}
       value={text}
       onChange={(event) => setText(event.target.value)}
       onBlur={() => {
@@ -372,16 +435,14 @@ function Differs({ repository, children }: { repository: string; children: React
   );
 }
 
-/** What a repository's tab says of a value it overrides: where it differs from the base, and the way back to the base's. The way back is offered on a copy that can be edited. */
-function Changed({ repository, base, onUseBase }: { repository: string; base: string; onUseBase: (() => void) | undefined }) {
+/** What a repository's tab says of a value it overrides: where it differs from the base, and the way back to the base's. */
+function Changed({ repository, base, onUseBase }: { repository: string; base: string; onUseBase: () => void }) {
   return (
     <dd className="armada-wm-inspector__changed">
       <Differs repository={repository}>{`Changed for ${repository}`}</Differs>
-      {onUseBase === undefined ? null : (
-        <Button type="button" variant="ghost" size="sm" onClick={onUseBase}>
-          {`Use ${base}'s`}
-        </Button>
-      )}
+      <Button type="button" variant="ghost" size="sm" onClick={onUseBase}>
+        {`Use ${base}'s`}
+      </Button>
     </dd>
   );
 }
@@ -395,8 +456,6 @@ function StateFacts({
   state,
   workspace,
   scope,
-  editing,
-  editable,
   onLabel,
   onReads,
 }: {
@@ -405,8 +464,6 @@ function StateFacts({
   workspace: Workspace;
   /** The repository whose tab is picked; absent on the base. */
   scope: { id: string; name: string } | undefined;
-  editing: boolean;
-  editable: boolean;
   onLabel: (label: string) => void;
   onReads: (read: { source: string; scope: string; values: readonly string[] }) => void;
 }) {
@@ -414,7 +471,7 @@ function StateFacts({
   const valuesOf = (source: string, at: string) => state.reads.find((one) => one.source === source && one.scope === at)?.values;
   return (
     <div className="armada-wm-step">
-      {editing && scope === undefined ? (
+      {scope === undefined ? (
         <div className="armada-wm-inspector__edit">
           <Field label="State name" value={state.label} onCommit={(label) => label !== "" && onLabel(label)} />
         </div>
@@ -433,22 +490,18 @@ function StateFacts({
           return [
             <dt key={`${source}:name`}>{`${source} statuses`}</dt>,
             <dd key={source}>
-              {editing ? (
-                <Field
-                  label={scope === undefined ? `${source} statuses` : `${source} statuses for ${scope.name}`}
-                  mono
-                  value={shown.join(", ")}
-                  onCommit={(text) => {
-                    const values = splitValues(text);
-                    // On a repository's tab the base's own words are no override.
-                    onReads({ source, scope: scope?.id ?? "workspace", values: scope !== undefined && values.join(", ") === base.join(", ") ? [] : values });
-                  }}
-                />
-              ) : (
-                <code className="armada-wm-inspector__values">{shown.join(", ")}</code>
-              )}
+              <Field
+                label={scope === undefined ? `${source} statuses` : `${source} statuses for ${scope.name}`}
+                mono
+                value={shown.join(", ")}
+                onCommit={(text) => {
+                  const values = splitValues(text);
+                  // On a repository's tab the base's own words are no override.
+                  onReads({ source, scope: scope?.id ?? "workspace", values: scope !== undefined && values.join(", ") === base.join(", ") ? [] : values });
+                }}
+              />
             </dd>,
-            scope === undefined || own === undefined ? null : <Changed key={`${source}:changed`} repository={scope.name} base={workspace.name} onUseBase={editable ? () => onReads({ source, scope: scope.id, values: [] }) : undefined} />,
+            scope === undefined || own === undefined ? null : <Changed key={`${source}:changed`} repository={scope.name} base={workspace.name} onUseBase={() => onReads({ source, scope: scope.id, values: [] })} />,
           ];
         })}
       </dl>
@@ -465,8 +518,6 @@ function RuleFacts({
   workspace,
   steps,
   scope,
-  editing,
-  editable,
   added,
   onChange,
   onOverride,
@@ -476,8 +527,7 @@ function RuleFacts({
   steps: readonly { id: string; label: string }[];
   /** The repository whose tab is picked; absent on the base. */
   scope: { id: string; name: string } | undefined;
-  editing: boolean;
-  editable: boolean;
+  /** A rule the proposed change would add is not the Workspace's yet: it is shown, and Approve makes it. */
   added: boolean;
   onChange: (patch: { label?: string; at?: "starts" | "ends"; ifs?: readonly string[]; does?: Rule["does"]; autonomy?: Autonomy }) => void;
   onOverride: (scope: string, autonomy: Autonomy) => void;
@@ -485,7 +535,7 @@ function RuleFacts({
   const own = scope === undefined ? undefined : rule.overrides?.find((one) => one.scope === scope.id)?.autonomy;
   const autonomy = own ?? rule.autonomy;
   // Its name, its place and its lines are the base's: they are edited there, not per repository.
-  const writing = editing && scope === undefined;
+  const writing = scope === undefined && !added;
   const kind = rule.does[0]?.act ?? "agent";
   return (
     <div className="armada-wm-step" data-added={added || undefined}>
@@ -526,7 +576,7 @@ function RuleFacts({
             <dt>If</dt>
             <dd>
               {writing ? (
-                <Lines label="If" lines={rule.ifs} onCommit={(ifs) => onChange({ ifs })} />
+                <Lines label="If" keep={`workflows:if:${rule.id}`} lines={rule.ifs} onCommit={(ifs) => onChange({ ifs })} />
               ) : (
                 <ul className="armada-wm-step__ends" aria-label="If">
                   {rule.ifs.map((one) => (
@@ -540,7 +590,7 @@ function RuleFacts({
         <dt>Do</dt>
         <dd>
           {writing ? (
-            <Lines label="Do" lines={rule.does.map((one) => one.text)} onCommit={(lines) => onChange({ does: lines.map((text, at) => ({ act: rule.does[at]?.act ?? kind, text })) })} />
+            <Lines label="Do" keep={`workflows:do:${rule.id}`} lines={rule.does.map((one) => one.text)} onCommit={(lines) => onChange({ does: lines.map((text, at) => ({ act: rule.does[at]?.act ?? kind, text })) })} />
           ) : (
             <ul className="armada-wm-step__ends" aria-label="Do">
               {rule.does.map((one) => (
@@ -553,13 +603,13 @@ function RuleFacts({
         <dd>
           <RadioGroup label="Autonomy">
             {(["acts", "asks", "off"] as const).map((one) => (
-              <Radio key={one} name={`autonomy:${rule.id}`} checked={autonomy === one} disabled={!editing} onChange={() => (scope === undefined ? onChange({ autonomy: one }) : onOverride(scope.id, one))}>
+              <Radio key={one} name={`autonomy:${rule.id}`} checked={autonomy === one} disabled={added} onChange={() => (scope === undefined ? onChange({ autonomy: one }) : onOverride(scope.id, one))}>
                 {AUTONOMY_SAID[one]}
               </Radio>
             ))}
           </RadioGroup>
         </dd>
-        {scope === undefined || own === undefined ? null : <Changed repository={scope.name} base={workspace.name} onUseBase={editable ? () => onOverride(scope.id, rule.autonomy) : undefined} />}
+        {scope === undefined || own === undefined ? null : <Changed repository={scope.name} base={workspace.name} onUseBase={() => onOverride(scope.id, rule.autonomy)} />}
       </dl>
     </div>
   );

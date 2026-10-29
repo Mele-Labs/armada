@@ -1,9 +1,9 @@
-// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story, and Lanes after them on a Job that holds lifecycles, which open in the spine on a wide window and in the side panel on a narrower one. Thread is the thread itself; the five are the layers (`session-view/layers.ts`). A press
+// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story, and Workflow after them on a Job that holds lifecycles, which open in the spine on a wide window and in the side panel on a narrower one. Thread is the thread itself; the five are the layers (`session-view/layers.ts`). A press
 // opens the layer, a press on the lit one shuts it, as Esc does. A view with nothing in it stays in its place, off, with its reason as the tooltip (`offeredOf`), so nothing moves. The facts the tiles carried
 // stay with each: Subagents the number running, Checks a pulse while any runs, Bays the clash, and Bays tinted while a bay is wrong. **A layer opens in the spine, under the strip**, so the strip stays on show while a layer is read. The keys press them (`flight-keys.ts`).
 
 import type { ReactNode } from "react";
-import { StretchHorizontal, type LucideIcon } from "lucide-react";
+import { Waypoints, type LucideIcon } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -82,9 +82,9 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
       onPress: () => toggleLayer(session.id, layer),
     };
   });
-  // Lanes is a Job's own when the Workspace gives it lifecycles. It has no flight key: its ⌥⇧L is heard by the workspace, so the host's `data-key` handler does not toggle it twice.
+  // Workflow is a Job's own when the Workspace gives it lifecycles. It has no flight key: its ⌥⇧L is heard by the workspace, so the host's `data-key` handler does not toggle it twice.
   if (session.lanes === undefined) return views;
-  return [...views, { id: "lanes", label: "Lanes", tip: "Lanes", Glyph: StretchHorizontal, alsoKey: LANES_KEY.cap, pressed: lanesOpen, onPress: () => toggleLanes(session.id) }];
+  return [...views, { id: "lanes", label: "Workflow", tip: "Workflow", Glyph: Waypoints, alsoKey: LANES_KEY.cap, pressed: lanesOpen, onPress: () => toggleLanes(session.id) }];
 }
 
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */

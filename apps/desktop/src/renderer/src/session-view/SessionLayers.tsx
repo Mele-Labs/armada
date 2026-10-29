@@ -391,7 +391,7 @@ function LanesLayer({ session }: { session: Session }) {
   // Focus goes to the canvas, as it does in the panel, so its keys work at once.
   useEffect(() => root.current?.querySelector<HTMLElement>("[data-node]")?.focus({ preventScroll: true }), []);
   return (
-    <Shell label="Lanes" owns="[ ]">
+    <Shell label="Workflow" owns="[ ]">
       <div ref={root} className="sv-lanes__layer">
         <LanesBody sessionId={session.id} />
       </div>

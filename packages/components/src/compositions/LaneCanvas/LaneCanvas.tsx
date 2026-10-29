@@ -13,7 +13,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { Ban, Check, CircleDot, Clock, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Trash2, UserCheck, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleDot, Clock, Drone, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Trash2, UserCheck, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -31,7 +31,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
 import { GEO, HOME, isArrow, nearest, panTo, place, placeChips, type Placement, type Rect } from "./layout";
-import type { LaneNodeView, LaneView, RuleView } from "./model";
+import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
 
 /**
  * The lanes of a Workspace or of a Job: the workflow's steps on top, a lane under it for each lifecycle the workflow uses, and rules as
@@ -47,8 +47,12 @@ import type { LaneNodeView, LaneView, RuleView } from "./model";
  * to what changed, with the earliest of it at the left; as it opens it shows where the Job stands; and it pans to a rule that is picked and to any node or chip that takes focus
  * by key or hover. The lane heads stand over the left of the frame, so a pan never takes a lane's name away. The zoom is the person's and nothing here changes it.
  *
+ * **Every node is the shape of what it is** (`NodeKind`): a step a rounded box, a state the tracker or the forge reads a pill, a wait or a watch a hexagon, a Job another Job started a card with the drone glyph, and
+ * where the workflow starts and ends small circles; a rule's chip leads with a diamond. Each kind has its own faint tint from `kinds.css`, which is never a status: what a node stands in is its frame and its mark.
+ * A wait is reached by a dashed edge, a transition by a solid one.
+ *
  * **Edited by hand where `editing` is given.** What is picked shows a toolbar over it: Edit, Tell an agent, Add after and Delete; a hovered node shows connectors, and one dragged
- * to another node is `onConnect`. On Armada's copy the toolbar is Make my copy alone, and no connector is drawn: the first edit makes the person's own copy.
+ * to another node is `onConnect`. Edit takes the person to the picked thing's fields in the side panel, which are live; the first change on Armada's workflow makes the person's own copy, and nothing here says so.
  *
  * **Keys**: arrows step to the nearest node, `]` and `[` go to the next and the previous rule and pick it, `Enter` picks what has focus, `Esc` lets
  * go of the pick. With something picked and editing on, `E` edits it, `T` tells an agent, `A` adds after it, `Backspace` deletes it, and `C` starts a connector from a node, which
@@ -60,17 +64,13 @@ export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string
 
 /** What the person may do by hand to the lanes. Every act takes what is picked; a connector takes the two nodes it joins. */
 export type LaneEditing = {
-  /** The copy drawn is Armada's, which nobody edits: the toolbar offers Make my copy, and nothing is connected. */
-  armada: boolean;
-  /** The pick is being edited in its panel. */
-  editing: boolean;
   /** One repository's tab is drawn: only its values and autonomy are edited, as an override for it, so there is no Add after, no Delete and no connector. */
   scoped?: boolean;
+  /** Takes the person to the picked thing's fields, which the side panel draws live. */
   onEdit: (pick: LanePick) => void;
   onTell: (pick: LanePick) => void;
   onAddAfter: (pick: LanePick) => void;
   onDelete: (pick: LanePick) => void;
-  onMakeCopy: () => void;
   onConnect: (from: string, to: string) => void;
 };
 
@@ -115,7 +115,7 @@ const Hold = createContext<Held | undefined>(undefined);
 type LaneData = { lane: LaneView };
 type ItemData = { node: LaneNodeView; lane: LaneView };
 type RuleData = { rule: RuleView; target: string; chip: { x: number; y: number } };
-type MoveData = { back: boolean };
+type MoveData = { back: boolean; wait: boolean };
 type CanvasNode = Node<LaneData, "lane"> | Node<ItemData, "item">;
 type CanvasEdge = Edge<RuleData, "rule"> | Edge<MoveData, "move">;
 
@@ -134,38 +134,32 @@ function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undef
 /** What a mark on a node or a rule says of the repositories it differs in: `Differs in store-api`. */
 const differsSaid = (names: readonly string[]): string => `Differs in ${names.join(", ")}`;
 
-/** The act a toolbar button is, with its glyph and the key that does it. */
+/** The acts a toolbar offers after Edit, with their glyphs and the keys that do them. */
 const ACTS = [
-  { id: "edit", said: "Edit", Glyph: SquarePen, key: "E" },
   { id: "tell", said: "Tell an agent", Glyph: MessageSquareText, key: "T" },
   { id: "add", said: "Add after", Glyph: SquarePlus, key: "A" },
   { id: "delete", said: "Delete", Glyph: Trash2, key: "⌫" },
 ] as const;
 
 /**
- * The toolbar over what is picked. On the person's own copy it is Edit, Tell an agent, Add after and Delete, each a glyph with its tooltip and key; a rule has no Add after. On Armada's
- * it is Make my copy alone, since Armada's rows are read only and the first edit makes the person's own.
+ * The toolbar over what is picked: Edit as a button that says so, then Tell an agent, Add after and Delete, each a glyph with its tooltip and key; a rule has no Add after. Edit goes to the fields in the side
+ * panel, which are live: there is no mode to enter, and the first change on Armada's workflow makes the person's own copy without saying so.
  */
 function Toolbar({ pick, name, rule }: { pick: LanePick; name: string; rule: boolean }) {
   const { editing } = useContext(Hold)!;
   if (editing === undefined) return null;
-  if (editing.armada) {
-    return (
-      <div className="armada-lane-toolbar nodrag nopan" role="toolbar" aria-label={`Edit ${name}`}>
-        <Tooltip label="Armada's copy is read only" shortcut="E">
-          <Button type="button" variant="secondary" size="sm" onClick={editing.onMakeCopy}>
-            Make my copy
-          </Button>
-        </Tooltip>
-      </div>
-    );
-  }
-  const run = { edit: editing.onEdit, tell: editing.onTell, add: editing.onAddAfter, delete: editing.onDelete };
+  const run = { tell: editing.onTell, add: editing.onAddAfter, delete: editing.onDelete };
   return (
     <div className="armada-lane-toolbar nodrag nopan" role="toolbar" aria-label={`Edit ${name}`}>
+      <Tooltip label="Edit" shortcut="E">
+        <Button type="button" variant="ghost" size="sm" aria-label={`Edit ${name}`} onClick={() => editing.onEdit(pick)}>
+          <SquarePen size={16} strokeWidth={2} aria-hidden="true" />
+          Edit
+        </Button>
+      </Tooltip>
       {ACTS.filter((one) => !(rule && one.id === "add") && !(editing.scoped === true && (one.id === "add" || one.id === "delete"))).map((one) => (
         <Tooltip key={one.id} label={one.said} shortcut={one.key}>
-          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`${one.said} ${name}`} aria-pressed={one.id === "edit" ? editing.editing : undefined} onClick={() => run[one.id](pick)}>
+          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`${one.said} ${name}`} onClick={() => run[one.id](pick)}>
             <one.Glyph size={16} strokeWidth={2} aria-hidden="true" />
           </Button>
         </Tooltip>
@@ -207,13 +201,43 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
   );
 }
 
+/** The outline each kind is drawn in. */
+type Shape = "box" | "pill" | "hexagon" | "card" | "dot";
+const SHAPE: Readonly<Record<NodeKind, Shape>> = { step: "box", wait: "hexagon", watch: "hexagon", tracker: "pill", forge: "pill", document: "pill", job: "card", start: "dot", end: "dot" };
+
+/** The handles an edge joins a node by, on each side: those it lands on, drawn under the node, and those it leaves by, drawn over it so a connector can be started from them. */
+function Handles({ node, lane, connectable, part }: { node: LaneNodeView; lane: LaneView; connectable: boolean; part: "target" | "source" }) {
+  return part === "target" ? (
+    <>
+      {GRAPH_CANVAS_SIDES.map((side) => (
+        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={connectable} />
+      ))}
+      {connectable ? <Handle id="t-node" className="armada-lane-item__drop" type="target" position={Position.Top} /> : null}
+    </>
+  ) : (
+    <>
+      {GRAPH_CANVAS_SIDES.map((side) => (
+        <Handle
+          key={`s-${side}`}
+          id={`s-${side}`}
+          type="source"
+          position={side}
+          isConnectable={connectable}
+          {...(connectable && side === Position.Right ? { role: "button", tabIndex: -1, "aria-label": `Connect from ${lane.kind === "workflow" ? "step" : lane.title} ${node.label}` } : {})}
+        />
+      ))}
+    </>
+  );
+}
+
 function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const hold = useContext(Hold)!;
   const { node, lane } = data;
   const mine = hold.current === node.id;
   const picked = hold.picked?.kind === "node" && hold.picked.id === node.id;
   const mark = markOf(node);
-  const connectable = hold.editing !== undefined && !hold.editing.armada && hold.editing.scoped !== true;
+  const shape = SHAPE[node.kind];
+  const connectable = hold.editing !== undefined && hold.editing.scoped !== true && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
   const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}`;
   const lines = [
@@ -224,10 +248,28 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
     ...(node.differs === undefined ? [] : [differsSaid(node.differs)]),
     ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub]),
   ];
+  // Where the workflow starts and ends are circles with nothing to pick: a name on hover, and the edge that joins them.
+  if (shape === "dot") {
+    return (
+      <div className="armada-lane-item" data-kind={node.kind} data-shape={shape} data-passed={node.passed || undefined} data-here={node.here || undefined}>
+        <Handles node={node} lane={lane} connectable={false} part="target" />
+        <Handles node={node} lane={lane} connectable={false} part="source" />
+        <span
+          className="armada-lane-item__dot"
+          role="img"
+          aria-label={node.label}
+          onMouseEnter={(event) => hold.tip([node.label], event.currentTarget)}
+          onMouseLeave={() => hold.tip(undefined)}
+        />
+      </div>
+    );
+  }
   return (
     <div
       className="armada-lane-item"
       data-role={node.role}
+      data-kind={node.kind}
+      data-shape={shape}
       data-connectable={connectable || undefined}
       data-connecting={hold.connecting === node.id || undefined}
       data-dropping={dropping || undefined}
@@ -239,10 +281,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
       data-skipped={node.skipped || undefined}
       data-changed={node.changed !== undefined || undefined}
     >
-      {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={connectable} />
-      ))}
-      {connectable ? <Handle id="t-node" className="armada-lane-item__drop" type="target" position={Position.Top} /> : null}
+      <Handles node={node} lane={lane} connectable={connectable} part="target" />
       <button
         type="button"
         ref={(element) => hold.node(node.id, element)}
@@ -266,8 +305,13 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
         onMouseLeave={() => hold.tip(undefined)}
         onClick={() => (hold.connecting !== undefined && hold.connecting !== node.id ? hold.connect(node.id) : hold.pick(picked ? undefined : { kind: "node", id: node.id }))}
       >
+        {shape === "hexagon" ? (
+          <svg className="armada-lane-item__shape" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polygon points="8,0 92,0 100,50 92,100 8,100 0,50" />
+          </svg>
+        ) : null}
         <span className="armada-lane-item__mark" aria-hidden="true">
-          {mark === undefined ? null : <mark.Glyph size={16} strokeWidth={2} />}
+          {shape === "card" ? <Drone size={16} strokeWidth={2} /> : mark === undefined ? null : <mark.Glyph size={16} strokeWidth={2} />}
         </span>
         <span className="armada-lane-item__label">{node.label}</span>
         {node.sub === undefined && node.waiting === undefined ? null : <span className="armada-lane-item__sub">{node.waiting ?? node.sub}</span>}
@@ -275,6 +319,11 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
           <span className="armada-lane-item__who" aria-hidden="true">
             <UserCheck size={14} strokeWidth={2} />
             <span>{node.who}</span>
+          </span>
+        )}
+        {shape !== "card" || mark === undefined ? null : (
+          <span className="armada-lane-item__status" aria-hidden="true">
+            <mark.Glyph size={14} strokeWidth={2} />
           </span>
         )}
       </button>
@@ -301,16 +350,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
           <Split size={14} strokeWidth={2} aria-hidden="true" />
         </span>
       )}
-      {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle
-          key={`s-${side}`}
-          id={`s-${side}`}
-          type="source"
-          position={side}
-          isConnectable={connectable}
-          {...(connectable && side === Position.Right ? { role: "button", tabIndex: -1, "aria-label": `Connect from ${lane.kind === "workflow" ? "step" : lane.title} ${node.label}` } : {})}
-        />
-      ))}
+      <Handles node={node} lane={lane} connectable={connectable} part="source" />
       <NodeToolbar isVisible={picked && hold.editing !== undefined} position={lane.id === hold.topLane ? Position.Bottom : Position.Top} offset={10}>
         <Toolbar pick={{ kind: "node", id: node.id }} name={`${lane.kind === "workflow" ? "step" : lane.title} ${node.label}`} rule={false} />
       </NodeToolbar>
@@ -381,7 +421,12 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
           onMouseLeave={() => hold.tip(undefined)}
           onClick={() => hold.pick(picked ? undefined : { kind: "rule", id: rule.rule })}
         >
-          {mark === undefined ? null : <mark.Glyph className="armada-lane-chip__mark" size={14} strokeWidth={2} aria-hidden="true" />}
+          <span className="armada-lane-chip__diamond" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <polygon points="12,1 23,12 12,23 1,12" />
+            </svg>
+            {mark === undefined ? null : <mark.Glyph className="armada-lane-chip__mark" size={12} strokeWidth={2} />}
+          </span>
           {rule.quiet === true ? null : (
             <>
               <span className="armada-lane-chip__label">{rule.label}</span>
@@ -400,11 +445,11 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
   );
 }
 
-/** A way a state is left within its lane: a thin line, looping underneath when it goes back. */
+/** A way a state is left within its lane: a thin solid line, looping underneath when it goes back, and dashed where it leads to a wait. */
 function MoveEdge(props: EdgeProps<Edge<MoveData, "move">>) {
   const [path] = getBezierPath(props);
   return (
-    <g className="armada-lane-move" data-back={props.data?.back || undefined}>
+    <g className="armada-lane-move" data-back={props.data?.back || undefined} data-wait={props.data?.wait || undefined}>
       <defs>
         <marker id={`head-${props.id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path className="armada-lane-move__head" d="M0 0L10 5L0 10z" />
@@ -420,7 +465,7 @@ const EDGE_TYPES = { rule: RuleEdge, move: MoveEdge };
 
 /** Across when the target lies in the same lane; a way down or up the lanes leaves and enters at the top and the bottom. */
 function sidesOf(from: Rect, to: Rect): { sourceHandle: string; targetHandle: string } {
-  if (Math.abs(from.y - to.y) < 1) {
+  if (Math.abs(from.y + from.h / 2 - (to.y + to.h / 2)) < 1) {
     return to.x >= from.x ? { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Left}` } : { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Bottom}` };
   }
   return to.y > from.y ? { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Top}` } : { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${Position.Bottom}` };
@@ -502,11 +547,17 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   const chipButtons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  // The lanes fill the frame's height, so the frame is measured and the lanes placed in it.
+  // The lanes fill the frame's height, so the frame is measured and the lanes placed in it. A frame that is narrowed (a panel took the room beside it) brings the pick back into what is left.
+  const width = useRef(0);
+  const again = useRef<() => void>(() => undefined);
   useLayoutEffect(() => {
     const held = frame.current;
     if (held === null) return;
-    const read = () => setHeight(held.clientHeight);
+    const read = () => {
+      setHeight(held.clientHeight);
+      if (width.current !== 0 && held.clientWidth < width.current) again.current();
+      width.current = held.clientWidth;
+    };
     read();
     const watch = new ResizeObserver(read);
     watch.observe(held);
@@ -515,7 +566,9 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   const placement = useMemo(() => place(lanes, height), [lanes, height]);
   const chips = useMemo(() => placeChips(rules, placement), [rules, placement]);
-  const first = lanes[0]?.nodes[0]?.id;
+  // Where the workflow starts and ends are circles nothing reaches: the first node to focus is the first step.
+  const ends = useMemo(() => new Set(lanes.flatMap((lane) => lane.nodes.filter((node) => node.kind === "start" || node.kind === "end").map((node) => node.id))), [lanes]);
+  const first = lanes[0]?.nodes.find((node) => !ends.has(node.id))?.id;
   const here = current !== undefined && placement.items.has(current) ? current : first;
 
   // **The canvas follows what it is asked to show.** A request names nodes and chips, and the pan brings them into view at the zoom the person has (`Pans`).
@@ -572,6 +625,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     const edges = rules.filter((rule) => rule.rule === picked.id);
     reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]));
   };
+  again.current = revealPick;
   useEffect(() => {
     revealPick();
     // Only a change of what is picked pans.
@@ -632,7 +686,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   // A connector dragged from one node's handle to another's.
   const connect = useCallback((joined: Connection) => editing?.onConnect(joined.source, joined.target), [editing]);
-  const connectable = editing !== undefined && !editing.armada && editing.scoped !== true;
+  const connectable = editing !== undefined && editing.scoped !== true;
 
   const nodes = useMemo<CanvasNode[]>(() => {
     const out: CanvasNode[] = [];
@@ -671,12 +725,14 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   const edges = useMemo<CanvasEdge[]>(() => {
     const titleOf = new Map(lanes.map((lane) => [lane.id, lane.title] as const));
+    const kindOf = new Map(lanes.flatMap((lane) => lane.nodes.map((node) => [node.id, node.kind] as const)));
     const moves = lanes.flatMap((lane) =>
       lane.moves.flatMap((pair): CanvasEdge[] => {
         const from = placement.items.get(pair[0]);
         const to = placement.items.get(pair[1]);
         if (from === undefined || to === undefined) return [];
-        return [{ id: `move:${pair[0]}>${pair[1]}`, source: pair[0], target: pair[1], type: "move", ...sidesOf(from, to), focusable: false, selectable: false, data: { back: to.x < from.x } }];
+        const waits = kindOf.get(pair[1]);
+        return [{ id: `move:${pair[0]}>${pair[1]}`, source: pair[0], target: pair[1], type: "move", ...sidesOf(from, to), focusable: false, selectable: false, data: { back: to.x < from.x, wait: waits === "wait" || waits === "watch" } }];
       }),
     );
     const drawn = rules.flatMap((rule): CanvasEdge[] => {
@@ -721,7 +777,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     }
     // What is picked is edited by key too: `E` edits it, `T` tells an agent, `A` adds after it, `Backspace` deletes it, and `C` starts a connector from a node, which the next node
     // pressed ends.
-    if (editing !== undefined && picked !== undefined && !editing.armada) {
+    if (editing !== undefined && picked !== undefined) {
       const structure = editing.scoped !== true;
       const act = { e: editing.onEdit, t: editing.onTell, a: picked.kind === "node" && structure ? editing.onAddAfter : undefined, Backspace: structure ? editing.onDelete : undefined, Delete: structure ? editing.onDelete : undefined }[event.key] as ((pick: LanePick) => void) | undefined;
       if (act !== undefined) {
@@ -752,7 +808,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     }
     const node = target.closest<HTMLElement>("[data-node]")?.dataset.node;
     if (node === undefined || !isArrow(event.key)) return;
-    const to = nearest(placement.items, node, event.key);
+    const to = nearest(placement.items, node, event.key, ends);
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") event.preventDefault();
     if (to === undefined) return;
     event.preventDefault();

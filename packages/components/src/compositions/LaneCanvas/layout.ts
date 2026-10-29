@@ -18,6 +18,11 @@ export const GEO = {
   /** A lane is never shorter than a node and a chip's height either side of it. */
   laneMin: 128,
   chipH: 28,
+  /** The small circle where the workflow starts or ends, and how far it stands from the first or the last step. */
+  dot: 24,
+  dotGap: 16,
+  /** Room before the first column, for the circle that starts the workflow. */
+  lead: 48,
 } as const;
 
 /** Where the canvas opens and Fit returns to: the top left, at the scale the lanes are drawn at. */
@@ -37,8 +42,11 @@ export type Placement = {
 
 /** The lanes fill `height`, and stand at the least the lane height tall each when it is short. */
 export function place(lanes: readonly LaneView[], height: number): Placement {
-  const last = Math.max(0, ...lanes.flatMap((lane) => lane.nodes.map((node) => node.col)));
-  const width = GEO.head + GEO.pad * 2 + last * GEO.colW + GEO.nodeW;
+  const nodes = lanes.flatMap((lane) => lane.nodes);
+  const last = Math.max(0, ...nodes.map((node) => node.col));
+  const origin = GEO.head + GEO.pad + GEO.lead;
+  const tail = nodes.some((node) => node.kind === "end") ? GEO.dotGap + GEO.dot : 0;
+  const width = origin + GEO.pad + last * GEO.colW + GEO.nodeW + tail;
   const laneH = Math.max(GEO.laneMin, Math.floor(height / Math.max(1, lanes.length)));
   const bands = new Map<string, Rect>();
   const items = new Map<string, Rect>();
@@ -49,7 +57,11 @@ export function place(lanes: readonly LaneView[], height: number): Placement {
     const h = (lane.kind === "workflow" ? GEO.stepH : GEO.stateH) + lines * GEO.subLine;
     bands.set(lane.id, { x: 0, y, w: width, h: laneH });
     for (const node of lane.nodes) {
-      items.set(node.id, { x: GEO.head + GEO.pad + node.col * GEO.colW, y: y + (laneH - h) / 2, w: GEO.nodeW, h });
+      const x = origin + node.col * GEO.colW;
+      // The circles that start and end the workflow stand just before the first step and just after the last.
+      if (node.kind === "start") items.set(node.id, { x: x - GEO.dotGap - GEO.dot, y: y + (laneH - GEO.dot) / 2, w: GEO.dot, h: GEO.dot });
+      else if (node.kind === "end") items.set(node.id, { x: x + GEO.nodeW + GEO.dotGap, y: y + (laneH - GEO.dot) / 2, w: GEO.dot, h: GEO.dot });
+      else items.set(node.id, { x, y: y + (laneH - h) / 2, w: GEO.nodeW, h });
     }
   });
   return { bands, items, laneH, width, height: lanes.length * laneH };
@@ -61,7 +73,7 @@ export function place(lanes: readonly LaneView[], height: number): Placement {
 export function chipSize(rule: RuleView): { w: number; h: number } {
   if (rule.quiet === true) return { w: GEO.chipH, h: GEO.chipH };
   const words = rule.label.length * 6.6 + (rule.meta === undefined ? 0 : 12 + rule.meta.length * 7.9);
-  return { w: Math.ceil(words + 36 + (rule.differs === undefined ? 0 : 18)), h: GEO.chipH };
+  return { w: Math.ceil(words + 44 + (rule.differs === undefined ? 0 : 18)), h: GEO.chipH };
 }
 
 /** The shape of the curve React Flow draws between a bottom and a top handle: its height and width as fractions of the way along, both from the one parameter. */
@@ -181,16 +193,16 @@ export const isArrow = (key: string): key is Arrow => key === "ArrowLeft" || key
 
 /**
  * The node an arrow reaches: the nearest whose centre lies that way, one off to the side costing twice what one straight on does.
- * Lanes are rows, so a step down lands in the lane below at the nearest column.
+ * Lanes are rows, so a step down lands in the lane below at the nearest column. `skip` are the nodes nothing reaches: the circles at the ends of the workflow.
  */
-export function nearest(items: ReadonlyMap<string, Rect>, from: string, arrow: Arrow): string | undefined {
+export function nearest(items: ReadonlyMap<string, Rect>, from: string, arrow: Arrow, skip?: ReadonlySet<string>): string | undefined {
   const here = items.get(from);
   if (here === undefined) return undefined;
   const cx = here.x + here.w / 2;
   const cy = here.y + here.h / 2;
   let best: { id: string; cost: number } | undefined;
   for (const [id, one] of items) {
-    if (id === from) continue;
+    if (id === from || skip?.has(id) === true) continue;
     const dx = one.x + one.w / 2 - cx;
     const dy = one.y + one.h / 2 - cy;
     const along = arrow === "ArrowRight" ? dx : arrow === "ArrowLeft" ? -dx : arrow === "ArrowDown" ? dy : -dy;

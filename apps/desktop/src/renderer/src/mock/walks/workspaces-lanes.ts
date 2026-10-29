@@ -1,8 +1,8 @@
 // Workspaces, lifecycles and rules (29 Oct 2026): System › Workflows draws the Workspace my-store as lanes, a workflow over the lifecycles it moves, with rules as the edges
-// between them. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Lanes opens in the same panel and draws the same lanes
+// between them. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Workflow opens in the same panel and draws the same lanes
 // as its tickets, pull request and deploy move, until the deploy is healthy and the tickets are closed. Ending a Job that still holds a deploy lists what is in flight first.
 // A third Job goes through app feedback and changes its own copy of the workflow, starts two Jobs that each get a lane, and offers `dispatch`; on a window wider than 1800px
-// Lanes open in the spine instead of the side panel, which the scenario switches on for a step because a walk cannot resize its window.
+// the Workflow opens in the spine instead of the side panel, which the scenario switches on for a step because a walk cannot resize its window.
 // A mock, no Fleet behind it. The design of 28 Oct, Workspaces, lifecycles and rules.
 
 import { button, deckRow, dialog, inside, region, role, text, toSystemPage, walk } from "../walk";
@@ -11,6 +11,8 @@ import { toSessions } from "../sessions/walk-kit";
 const group = (name: string) => role("group", name, { exact: true });
 const YOURS = group("Yours");
 const LANES = region("Lanes", { exact: true });
+// The first change on Armada's workflow makes the person's own copy; the settings in the panel are fields, saved as they are changed.
+const statuses = (name = "Jira statuses") => role("textbox", name, { exact: true });
 const PANEL = role("dialog");
 const RUNS_IN = group("Runs in");
 const tab = (name: string) => inside(RUNS_IN, role("tab", name, { exact: true }));
@@ -18,16 +20,16 @@ const PROPOSED = region("Proposed change");
 const ASK = role("textbox", "Tell an agent what to change");
 
 const views = role("toolbar", "Views", { exact: true });
-const lanes = button("Lanes", { exact: true });
-const LANES_PANEL = dialog("Lanes");
-const JOB_LANES = inside(LANES_PANEL, group("Lanes"));
+const workflowView = button("Workflow", { exact: true });
+const LANES_PANEL = dialog("Workflow");
+const JOB_LANES = inside(LANES_PANEL, group("Workflow"));
 const node = (name: string) => inside(JOB_LANES, button(name, { exact: true }));
 const RULE_PANEL = dialog("Rule: Ask for review");
 const PR_PANEL = role("dialog", /#812/);
 const SEND_MAYA = button("Send to Job: Maya on src/cart/totals.ts:42", { exact: true });
 // On a window wider than 1800px the same lanes are a layer in the spine, under the views.
-const SPINE = region("Lanes", { exact: true });
-const SPINE_LANES = inside(SPINE, group("Lanes"));
+const SPINE = region("Workflow", { exact: true });
+const SPINE_LANES = inside(SPINE, group("Workflow"));
 const inSpine = (name: string) => inside(SPINE_LANES, button(name, { exact: true }));
 
 export const workspacesLanes = walk("workspaces-lanes", [
@@ -36,22 +38,22 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { look: RUNS_IN, say: "Runs in: all of my-store, or one repository's tab. The canvas draws the workflow as it runs there" },
   { look: inside(LANES, role("img", "Differs in store-api")), say: "A mark on In review: one repository reads it differently" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "The Ticket lifecycle's In review state, in the side panel" },
-  { look: inside(PANEL, text("Code Review, In Review")), say: "Jira statuses: Code Review and In Review count as In review for my-store" },
+  { look: inside(PANEL, statuses()), say: "Jira statuses, a field saved as it is changed: Code Review and In Review count as In review for my-store" },
   { press: tab("store-api"), say: "store-api's tab draws the lanes as the workflow runs in store-api" },
   { look: inside(LANES, role("img", "Differs in store-api")), say: "In review carries the mark here too: it is store-api's own" },
-  { look: inside(PANEL, text("Peer Review")), say: "The panel follows the tab: Jira statuses are Peer Review in store-api" },
-  { look: inside(PANEL, text("Changed for store-api")), say: "Marked as changed for store-api. Armada's copy is read only, so there is no way back to my-store's here" },
+  { look: inside(PANEL, statuses("Jira statuses for store-api")), say: "The panel follows the tab: Jira statuses are Peer Review in store-api" },
+  { look: inside(PANEL, text("Changed for store-api")), say: "Marked as changed for store-api, with a way back to my-store's" },
   { press: tab("All of my-store"), say: "Back to the base" },
   { press: inside(LANES, button("Move to In review", { exact: true })), say: "A rule, the edge from the PR lane to the Ticket lane" },
   { look: inside(PANEL, role("radio", "Acts")), say: "When the PR opens, move the ticket to In review. Autonomy is Acts" },
   { key: "]", on: role("group", "Lanes of feature"), say: "] goes to the next rule, and [ to the one before" },
   { look: inside(PANEL, role("radio", "Asks")), say: "The panel follows to Ask for review: when the PR has reviewers on, draft the ask. Autonomy is Asks" },
-  { press: inside(YOURS, button("feature", { exact: true })), say: "Yours, a copy that can be changed" },
-  { press: tab("store-api"), say: "store-api's tab, on the copy that can be changed" },
+  { press: inside(YOURS, button("feature", { exact: true })), say: "Yours, where a change is kept" },
+  { press: tab("store-api"), say: "store-api's tab on Yours" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review, marked" },
   { look: inside(PANEL, text("Changed for store-api")), say: "Changed for store-api, with a way back" },
   { press: inside(PANEL, button("Use my-store's", { exact: true })), say: "Use my-store's drops store-api's own value" },
-  { look: inside(PANEL, text("Code Review, In Review")), say: "store-api reads Code Review and In Review again, and the mark is gone" },
+  { look: inside(PANEL, statuses("Jira statuses for store-api")), say: "store-api reads Code Review and In Review again, and the mark is gone" },
   { press: tab("All of my-store"), say: "Back to the base" },
   { type: "close the ticket once merged and the deploy is healthy", into: ASK, say: "Tell an agent what to change" },
   { press: button("Send to agent"), say: "Send" },
@@ -62,7 +64,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
 
   toSessions,
   { press: deckRow("Add gift cards to the cart"), say: "A Job dispatched with ARM-41 and ARM-42" },
-  { press: inside(views, lanes), say: "Lanes, beside the Job's other views, opens in the side panel" },
+  { press: inside(views, workflowView), say: "Workflow, beside the Job's other views, opens in the side panel" },
   { later: JOB_LANES, say: "The workflow on top and a lane for each ticket. Both are To do, and the rule that moves them waits for Plan to start" },
   { later: node("ARM-41: In progress, assigned to you"), say: "Plan starts. The tickets move to In progress and are assigned to you" },
   { later: node("PR #812: Draft"), say: "The PR opens and gets its own lane. The tickets move to In review" },
@@ -71,14 +73,15 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { press: inside(JOB_LANES, button("Ask for review", { exact: true })), say: "The rule waiting on you opens what it needs in the panel" },
   { look: inside(RULE_PANEL, text("Maya and Jun")), say: "The ask is the rule's: where it goes and to whom" },
   { press: inside(RULE_PANEL, button("Send", { exact: true })), say: "Send sends the review ask" },
-  { press: inside(RULE_PANEL, button("Back")), say: "Back to the lanes" },
+  { look: inside(RULE_PANEL, role("img", "Sent", { exact: true })), say: "The panel stays open and says it went. Back is still in it" },
+  { press: inside(RULE_PANEL, button("Back")), say: "Back to the Workflow" },
   { later: inside(JOB_LANES, button("Ask for review", { exact: true })), say: "The ask went out, so its rule reads as acted" },
   { later: inside(LANES_PANEL, region("Comments on PR #812")), say: "Comments arrive. Triage marks two as needing a change and one as not worth acting on" },
   { press: inside(LANES_PANEL, button(/^Open in the pull request: .* on src\/cart\/totals\.ts/)), say: "A comment opens the pull request at that comment" },
   { look: inside(PR_PANEL, SEND_MAYA), say: "The triage is on the comment itself: a mark for what it needs, where in the code, and its act" },
   { press: inside(PR_PANEL, SEND_MAYA), say: "Send to Job hands the comment to the agent" },
   { look: inside(PR_PANEL, role("img", "Sent to the Job")), say: "A check says it went" },
-  { press: inside(PR_PANEL, button("Back")), say: "Back to the lanes" },
+  { press: inside(PR_PANEL, button("Back")), say: "Back to the Workflow" },
   { later: text("Waiting on PR #812: Approved"), say: "Land waits on the PR being approved" },
   { later: node("Deploy: Rolling out"), say: "Merged. The deploy lane starts, rolling out" },
   { look: inside(JOB_LANES, button("Close the ticket", { exact: true })), say: "The deploy is healthy and the tickets are closed. Every step is done, and the Job's row reads done" },
@@ -93,17 +96,17 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { press: inside(dialog("In flight"), button("Keep going", { exact: true })), say: "Keep going" },
 
   { press: deckRow("Go through app feedback"), say: "A third Job goes through app feedback, on the feature workflow as it started" },
-  { press: inside(views, lanes), say: "Lanes opens in the side panel on a window narrower than 1800px" },
+  { press: inside(views, workflowView), say: "Workflow opens in the side panel on a window narrower than 1800px" },
   { later: JOB_LANES, say: "The workflow as the Job started it: Propose, Discuss, Approve plan, Walk, Refine, Deliver" },
   { look: inside(JOB_LANES, role("img", "Changed on this Job: Added after Dispatch")), say: "The agent changed its own copy: Dispatch and Oversee added after Approve plan, each marked with a dashed frame, as the deploy watch was" },
   { hover: node("Step: Refine"), say: "Walk and Refine are skipped on this Job only, struck through and marked. The workflow itself is unchanged" },
   { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee, after it, waits for them" },
-  { look: node("Fix cart rounding: PR open"), say: "Two Jobs started. Each is an instance of the Job lifecycle in a lane of its own, linked to Dispatch" },
+  { look: node("Fix cart rounding: PR open"), say: "Two Jobs started. Each is a card with the Drone on a lane of its own, linked to Dispatch" },
   { look: inside(JOB_LANES, text("Waiting on: Fix cart rounding, Tidy the PR panel landing")), say: "Oversee ends when every Job it started has landed, and names them" },
   { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
-  { later: inside(views, lanes), say: "Both Jobs are out. The next steps play a window wider than 1800px" },
-  { press: inside(views, lanes), say: "Wider than 1800px, Lanes opens in the spine column, under the views as Artifacts and Checks do" },
-  { look: inside(SPINE_LANES, text("Waiting on Tidy the PR panel landing: Landed")), say: "The column is as wide as the pull request panel while Lanes is open. Fix cart rounding has landed, and Oversee waits on the other" },
+  { later: inside(views, workflowView), say: "Both Jobs are out. The next steps play a window wider than 1800px" },
+  { press: inside(views, workflowView), say: "Wider than 1800px, Workflow opens in the spine column, under the views as Artifacts and Checks do" },
+  { look: inside(SPINE_LANES, text("Waiting on Tidy the PR panel landing: Landed")), say: "The column is as wide as the pull request panel while Workflow is open. Fix cart rounding has landed, and Oversee waits on the other" },
   { later: inSpine("Tidy the PR panel landing: PR open"), say: "Tidy the PR panel landing is in review" },
   { look: inSpine("Tidy the PR panel landing: Landed"), say: "Both landed. Oversee has what it waited for, and the two Jobs' Landed nodes are in view" },
   { key: "Escape", on: inSpine("Tidy the PR panel landing: Landed"), say: "Esc shuts it, and the column goes back to its width" },

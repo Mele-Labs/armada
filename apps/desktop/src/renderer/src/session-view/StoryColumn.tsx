@@ -23,6 +23,7 @@ import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
 import { useSessionsDraft } from "../sessions-draft";
+import { openInPanel } from "../shared-panel/store";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -52,6 +53,13 @@ import { useLedgerView } from "./ledger-view";
 import "./progress-takes.css";
 import "./story.css";
 import "./story-zones.css";
+
+/** The rule a waiting item is the ask of, and its card in the thread: an item `draft:<card>` that a rule on the Job's lanes left. Absent where no rule did. */
+function ruleOf(session: Session, itemId: string): { rule: string; row: string } | undefined {
+  const row = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
+  const fired = row === undefined ? undefined : session.lanes?.job.fired.find((one) => one.needs === row);
+  return row === undefined || fired === undefined ? undefined : { rule: fired.rule, row };
+}
 
 export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
@@ -207,9 +215,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     <div className="sv-nav" onKeyDown={arrowsIn}>
       <ul className="sv-beats" aria-label="Now">
         {asking === undefined ? null : <AskBeat said="Waiting on you" text={asking} />}
-        {owed.map((one) => (
-          <AskBeat key={one.id} said="Waiting on you" text={one.text} />
-        ))}
+        {owed.map((one) => {
+          const rule = ruleOf(session, one.id);
+          return <AskBeat key={one.id} said="Waiting on you" text={one.text} {...(rule === undefined ? {} : { onOpen: () => openInPanel({ kind: "rule", sessionId: session.id, ...rule }) })} />;
+        })}
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
         <WorkBeat
           mark={<TaskMark state={working_ ? "working" : "open"} />}

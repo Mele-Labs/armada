@@ -85,6 +85,7 @@ const TICKET: LifecycleDef = {
   id: "ticket",
   label: "Ticket",
   from: "Jira",
+  kind: "tracker",
   states: [
     { id: "todo", label: "To do", reads: [{ source: "Jira", values: ["To Do", "Backlog"], scope: "workspace" }] },
     { id: "ready", label: "Ready", reads: [{ source: "Jira", values: ["Ready for Dev", "Selected for Development"], scope: "workspace" }] },
@@ -112,6 +113,7 @@ const PULL_REQUEST: LifecycleDef = {
   id: "pull_request",
   label: "PR",
   from: "GitHub",
+  kind: "forge",
   states: [
     { id: "draft", label: "Draft", reads: [{ source: "GitHub", values: ["Draft"], scope: "workspace" }] },
     { id: "reviewers_on", label: "Reviewers on", reads: [{ source: "GitHub", values: ["Review requested"], scope: "workspace" }] },
@@ -131,6 +133,7 @@ const DEPLOY: LifecycleDef = {
   id: "deploy",
   label: "Deploy",
   from: "Rollout watch",
+  kind: "watch",
   states: [
     { id: "rolling_out", label: "Rolling out", reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "workspace" }] },
     { id: "healthy", label: "Healthy", end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "workspace" }] },
@@ -143,6 +146,7 @@ const DOCUMENT: LifecycleDef = {
   id: "document",
   label: "Document",
   from: "Armada document",
+  kind: "document",
   states: [
     { id: "draft", label: "Draft", reads: [{ source: "Armada document", values: ["draft"], scope: "workspace" }] },
     { id: "in_review", label: "In review", reads: [{ source: "Armada document", values: ["in review"], scope: "workspace" }] },
@@ -159,6 +163,7 @@ const JOB: LifecycleDef = {
   id: "job",
   label: "Job",
   from: "Armada",
+  kind: "job",
   states: [
     { id: "started", label: "Started", reads: [{ source: "Armada", values: ["running"], scope: "workspace" }] },
     { id: "pr_open", label: "PR open", reads: [{ source: "Armada", values: ["pull request open"], scope: "workspace" }] },
