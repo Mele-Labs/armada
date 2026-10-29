@@ -18,6 +18,7 @@ The agent reads the notes numbered in order, each with its words and Fleet's lin
 The thread keeps the words alone, numbered. A batch of one note is sent as `send_session_note` sends it.
 
 **Bridge's call** is `SessionsHost.sendNotes` in main, which folds `NotesSent.session` as `sendNote` folds its record.
+The renderer reaches it as `sendSessionNotes` on `window.armada` (channel `bridge:send-session-notes`), each note with the box its picture is ringed at beside it; main burns the ring in, tagged with the note's place in the turn, and the box never reaches the wire.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge words as a send that failed.

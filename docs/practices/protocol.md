@@ -200,7 +200,7 @@ Bridge's half is `packages/protocol/src/session-notes.ts`, written by hand, fiel
 | `NoteCrop` | Bridge sends | `{ media_type, data }`, `data` base64 |
 | `Candidate` | Fleet answers | `{ file, line, why, text }`, at most five, best first; `file` is relative to the checkout Fleet searched, `line` is 1-based |
 
-**Bridge's call** is `sendSessionNote` on `window.armada` (channel `bridge:send-session-note`, `SessionsHost.sendNote` in main).
+**Bridge's call** is `SessionsHost.sendNote` in main, for a note on a Job's browser; Bridge's own layer sends its notes as one turn (`protocol/a-walks-notes-sent-as-one-turn.md`).
 It folds `NoteSent.session` into the held Sessions as a message's answer is, and hands the candidates back to the caller.
 An empty array on the wire is the same as an omitted one, so the mirror marks each as optional.
 
