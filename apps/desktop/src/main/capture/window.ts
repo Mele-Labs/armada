@@ -101,6 +101,8 @@ export type WindowQuestion = {
 const WALK_READ_MS = 250;
 const WALK_FIND_MS = 100;
 const WALK_FIND_TRIES = 50;
+/** How long steps a Session passed wait on the page being looked at for a walk of its own. Every steps walk pays it, and a mock's walk mounts in an effect just after load. */
+const STEPS_HELD_MS = 1000;
 /** The longest one read or act waits on the page before the next is allowed. */
 const WALK_ASK_MS = 1000;
 /** How often a loaded page is looked at for an error overlay or nothing drawn. */
@@ -198,11 +200,13 @@ export class CaptureWindow {
   private readonly stoppedSteps = new StoppedSteps();
   private walkReading = false;
   /**
-   * The steps a Session passed, played from here. **Present: the page's own `__armadaWalk` is not
-   * looked for**, since the walk is Bridge's and the page draws nothing of it.
+   * The steps a Session passed, played from here. **The page's own `__armadaWalk` wins over them**: found, they are
+   * stopped and dropped for good, and the bar drives the page's walk.
    */
-  private readonly stepwalk: StepWalk | null;
+  private stepwalk: StepWalk | null;
   private stepsBegun = false;
+  /** The steps' first act, waiting on the page being looked at for a walk of its own. */
+  private stepsHeld: ReturnType<typeof setTimeout> | null = null;
   /** Which load's looking is current, so an answer that lands after another load began is let go. */
   private walkRound = 0;
   /** A page that cannot be shown, told to whoever opened the walk. */
@@ -297,6 +301,8 @@ export class CaptureWindow {
     this.stopWatchingWalk();
     this.popup?.close();
     this.stepwalk?.stop();
+    if (this.stepsHeld !== null) clearTimeout(this.stepsHeld);
+    this.stepsHeld = null;
     this.failures.stopped();
     clearInterval(this.lookTimer);
   }
@@ -431,8 +437,8 @@ export class CaptureWindow {
     this.framesRefused = 0;
     if (this.onScreen()) this.window.setTitle(titled(this.pin));
     this.tell();
-    // The steps are the window's and not a take's: another take starts them over.
-    if (this.stepwalk !== null) this.stepwalk.act("replay");
+    // The steps are the window's and not a take's: another take starts them over. Not yet begun, the load holds them again.
+    if (this.stepwalk !== null && this.stepsBegun) this.stepwalk.act("replay");
     else void this.page.webContents.loadURL(take.url);
   }
 
@@ -719,7 +725,7 @@ export class CaptureWindow {
   /** Reload the pinned origin. There is no Back, no Forward and no history. A page that has lost its place starts its steps over. */
   reload(): void {
     if (!this.serving || this.page.webContents.isDestroyed()) return;
-    if (this.stepwalk !== null) this.stepwalk.act("replay");
+    if (this.stepwalk !== null && this.stepsBegun) this.stepwalk.act("replay");
     else void this.page.webContents.loadURL(this.pin.url);
   }
 
@@ -973,8 +979,7 @@ export class CaptureWindow {
     contents.on("did-finish-load", () => {
       const onShownOrigin = onOrigin(this.pin.origin, contents.getURL());
       if (this.stepwalk === null || !beginsOn({ begun: this.stepsBegun, signingIn: this.signingIn, onShownOrigin })) return;
-      this.stepsBegun = true;
-      this.stepwalk.begin();
+      this.holdSteps();
     });
     contents.on("did-fail-load", (_event, code, description, address, mainFrame) => {
       if (mainFrame) {
@@ -1070,11 +1075,11 @@ export class CaptureWindow {
    * as long as it answers. The row stays through a reload, so Back does not flicker the layout.
    */
   private findWalk(): void {
-    // Steps Bridge plays are the walk; the page's own handle is not looked for.
-    if (this.stepwalk !== null) return;
     this.stopWatchingWalk();
     this.walkHosted = false;
     const round = this.walkRound;
+    // Beside steps, only as long as their first act is held, on every load.
+    const tries = this.stepwalk === null ? WALK_FIND_TRIES : STEPS_HELD_MS / WALK_FIND_MS;
     let missed = 0;
     const look = async (): Promise<void> => {
       if (!this.open) return;
@@ -1082,9 +1087,10 @@ export class CaptureWindow {
       // A later load has started its own looking.
       if (!this.open || round !== this.walkRound) return;
       if (found) missed = 0;
-      else if ((missed += 1) > WALK_FIND_TRIES) {
+      else if ((missed += 1) > tries) {
         this.stoppedSteps.seen(null);
-        this.setWalk(null);
+        // The steps' row is theirs, and stays.
+        if (this.stepwalk === null) this.setWalk(null);
         return;
       }
       this.walkTimer = setTimeout(() => void look(), found ? WALK_READ_MS : WALK_FIND_MS);
@@ -1128,10 +1134,12 @@ export class CaptureWindow {
 
   /** Read the walk once and tell the bar if it moved. Whether the page has a walk. */
   private async readWalk(): Promise<boolean> {
-    if (this.walkReading) return this.walk !== null;
+    // The steps' state is not the page's walk.
+    if (this.walkReading) return this.stepwalk === null && this.walk !== null;
     this.walkReading = true;
     try {
       const walk = readWalk(await this.inPage(readSource()));
+      if (walk !== null) this.dropSteps();
       if (walk !== null && !this.walkHosted) {
         this.walkHosted = true;
         await this.inPage(hostSource());
@@ -1186,13 +1194,38 @@ export class CaptureWindow {
         if (!view.webContents.isDestroyed()) view.webContents.focus();
       },
       reload: () => this.reloadPage(),
-      changed: () => this.setWalk(this.stepwalk?.state() ?? null),
+      // Steps dropped for the page's own walk say nothing more, from an act still in flight.
+      changed: () => {
+        if (this.stepwalk !== null) this.setWalk(this.stepwalk.state());
+      },
       stuck: (why) => {
-        if ("session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
+        if (this.stepwalk !== null && "session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
       },
       open: () => this.open && this.serving,
       guarded: () => loopbackOrigin(this.pin.origin) === null,
     });
+  }
+
+  /** The steps' first act, once the page has been looked at for a walk of its own. A load before then waits again. */
+  private holdSteps(): void {
+    if (this.stepsHeld !== null) clearTimeout(this.stepsHeld);
+    this.stepsHeld = setTimeout(() => {
+      this.stepsHeld = null;
+      if (this.stepwalk === null || !this.open) return;
+      this.stepsBegun = true;
+      this.stepwalk.begin();
+    }, STEPS_HELD_MS);
+  }
+
+  /** The page plays its own walk, which wins: the steps stop for good and the Job is told once. */
+  private dropSteps(): void {
+    const steps = this.stepwalk;
+    if (steps === null || !this.open) return;
+    this.stepwalk = null;
+    if (this.stepsHeld !== null) clearTimeout(this.stepsHeld);
+    this.stepsHeld = null;
+    steps.stop();
+    this.failed(this.pin.url, "this page plays its own walk, so your steps were not played: show it again without steps");
   }
 
   /** The pinned address loaded again, resolving once it has loaded or failed to. */
@@ -1221,7 +1254,8 @@ export class CaptureWindow {
    */
   async walkAct(act: WalkAct): Promise<void> {
     if (this.stepwalk !== null) {
-      this.stepwalk.act(act);
+      // Back or Replay before the first act would play the steps before the page is looked at for its own walk.
+      if (this.stepsBegun || (act !== "back" && act !== "replay")) this.stepwalk.act(act);
       return;
     }
     if (this.walk === null) return;
