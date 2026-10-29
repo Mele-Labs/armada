@@ -142,6 +142,7 @@ mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
 mod session_pause_work;
+mod session_start_failed;
 mod session_queue;
 mod session_slot_asking;
 mod session_slot_choice;

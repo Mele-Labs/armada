@@ -351,3 +351,116 @@ impl Processes for ProcessHost {
         super::kept::attached(stream, self.agent.clone(), sink, &socket, &spool).ok()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::tmp::TempDir;
+    use std::os::unix::fs::{symlink, MetadataExt, PermissionsExt};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    /// A short folder straight under /tmp, since a machine folder only fits a socket where its path is
+    /// short, and the system temporary folder is not on macOS.
+    struct Short(PathBuf);
+
+    impl Short {
+        fn new() -> Short {
+            let path = PathBuf::from(format!("/tmp/ak-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+            std::fs::create_dir_all(&path).expect("a short folder");
+            Short(path)
+        }
+        /// A path under this folder whose socket path, `sessions/<id>.sock`, is `socket` bytes long.
+        fn machine_for(&self, socket: usize) -> PathBuf {
+            let own = "/sessions/".len() + LONGEST_SESSION.len() + ".sock".len();
+            let wanted = socket - own - self.0.as_os_str().len() - 1;
+            self.0.join("m".repeat(wanted))
+        }
+    }
+
+    impl Drop for Short {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn mode_of(path: &Path) -> u32 {
+        std::fs::metadata(path).expect("the folder is there").mode() & 0o777
+    }
+
+    #[test]
+    fn a_machine_folder_whose_sockets_fit_keeps_them_and_is_made() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST);
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        assert_eq!(made, Ok(machine.join("sessions")));
+        assert!(machine.join("sessions").is_dir());
+        assert!(!root.path().join("armada-nick").exists(), "nothing is made under the private root");
+    }
+
+    #[test]
+    fn a_machine_folder_one_byte_too_deep_moves_to_a_private_folder_made_0700() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        let private = root.path().join("armada-nick");
+        assert_eq!(made, Ok(private.join("sessions")));
+        assert_eq!(mode_of(&private), 0o700);
+        assert_eq!(mode_of(&private.join("sessions")), 0o700);
+        assert!(!machine.exists(), "the machine folder is not made");
+    }
+
+    #[test]
+    fn a_private_folder_others_can_open_is_refused_for_the_users_own_temporary_folder() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+        let open = root.path().join("armada-nick");
+        std::fs::create_dir(&open).unwrap();
+        std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        assert_eq!(made, Ok(short.0.join("armada-sessions")));
+        assert!(short.0.join("armada-sessions").is_dir());
+        assert!(!open.join("sessions").exists(), "nothing is put in the open folder");
+        assert_eq!(mode_of(&open), 0o755, "the open folder is left as it was");
+    }
+
+    #[test]
+    fn an_open_private_folder_with_no_temporary_folder_that_fits_is_an_error_naming_it() {
+        let (short, root, home) = (Short::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+        let too_deep = short.0.join("t".repeat(80));
+        let open = root.path().join("armada-nick");
+        std::fs::create_dir(&open).unwrap();
+        std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &too_deep);
+
+        let why = made.expect_err("no folder is safe");
+        assert!(why.contains(&open.display().to_string()), "it names the open folder: {why}");
+        assert!(!open.join("sessions").exists());
+        assert!(!too_deep.exists());
+    }
+
+    #[test]
+    fn a_private_folder_that_is_a_link_to_a_0700_folder_is_refused() {
+        let (short, root, home, elsewhere) = (Short::new(), TempDir::new(), TempDir::new(), TempDir::new());
+        let machine = short.machine_for(SOCKET_PATH_MOST + 1);
+        let target = elsewhere.path().join("theirs");
+        std::fs::create_dir(&target).unwrap();
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let link = root.path().join("armada-nick");
+        symlink(&target, &link).unwrap();
+
+        let made = keepers_dir_under(&machine, home.path(), "nick", root.path(), &short.0);
+
+        assert_eq!(made, Ok(short.0.join("armada-sessions")));
+        assert!(!target.join("sessions").exists(), "nothing is put where the link leads");
+    }
+}
