@@ -91,7 +91,7 @@ describe("tilesOf, with a repository's own", () => {
   });
 
   test("a repository's tiles take the keys after yours, and Pause keeps p", () => {
-    const hidden = withoutPause.slice(0, 5).map((id) => ({ id, hidden: true }));
+    const hidden = withoutPause.slice(0, 6).map((id) => ({ id, hidden: true }));
     const tiles = tilesOf("job", file(hidden), file([SPECS, LINT]));
     const key = (id: string) => tiles.find((one) => one.id === id)?.key;
     expect(key(withoutPause.at(-1)!)).toBe("⌥⇧8");
