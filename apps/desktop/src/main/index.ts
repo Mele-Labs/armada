@@ -155,7 +155,7 @@ const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json")
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  holdNote: (note) => void heldNotes.hold(note),
+  holdNote: (note, ring) => void heldNotes.hold(note, ring),
   heldOn: (sessionId) => heldNotes.of(sessionId).length,
   // A pull request's walk no Session holds: the note stays in Armada. No Approve.
   reviewNote: async (review, said, capture) => {
@@ -496,7 +496,7 @@ const sessionAttention = new SessionAttention({
 void app.whenReady().then(() => {
   wearTheMark();
   if (!app.isPackaged) {
-    // A sent note's screenshot: the part of the window the note points at, #1250.
+    // A note's screenshot, #1250: the layer asks for the whole window, and its note's box is ringed on it as it is sent.
     handleAnnotations(ipcMain, app.getAppPath(), async (event, box) => {
       const image = await (event as Electron.IpcMainInvokeEvent).sender.capturePage({
         x: Math.max(0, Math.round(box.x)),

@@ -4,6 +4,7 @@
 // draws it from main's list, and the mock's walk window from its own.
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { CircleDashed } from "lucide-react";
 import { Button, Textarea, Tooltip } from "@armada/components";
 import type { PanelHeldNote } from "@armada/studios/api";
@@ -41,8 +42,8 @@ export function HeldNotes({ notes, onEdit, onRemove, onSend }: { notes: readonly
       </header>
       <div className="armada-held-notes__body">
         <ol className="armada-held-notes__list">
-          {notes.map((one) => (
-            <HeldNoteRow key={one.id} note={one} onEdit={onEdit} onRemove={onRemove} />
+          {notes.map((one, at) => (
+            <HeldNoteRow key={one.id} note={one} number={at + 1} onEdit={onEdit} onRemove={onRemove} />
           ))}
         </ol>
         {refused === undefined ? null : (
@@ -60,7 +61,7 @@ export function HeldNotes({ notes, onEdit, onRemove, onSend }: { notes: readonly
   );
 }
 
-function HeldNoteRow({ note, onEdit, onRemove }: { note: PanelHeldNote } & Pick<HeldNotesActs, "onEdit" | "onRemove">) {
+function HeldNoteRow({ note, number, onEdit, onRemove }: { note: PanelHeldNote; number: number } & Pick<HeldNotesActs, "onEdit" | "onRemove">) {
   const [text, setText] = useState(note.said);
   // Main's words win once they change there: an edit taken, or the same note told again.
   useEffect(() => setText(note.said), [note.said]);
@@ -72,7 +73,7 @@ function HeldNoteRow({ note, onEdit, onRemove }: { note: PanelHeldNote } & Pick<
   }
   return (
     <li className="armada-held-notes__note" aria-label={note.said}>
-      {note.crop === undefined ? null : <Crop crop={note.crop} on={note.on} />}
+      {note.crop === undefined ? null : <Crop crop={note.crop} ring={note.ring} number={number} on={note.on} />}
       <div className="armada-held-notes__fields">
         <span className="armada-held-notes__on">On {note.on}</span>
         <Textarea label="Note" keep={`held-note:${note.id}`} rows={2} grow value={text} onChange={(event) => setText(event.target.value)} onBlur={leave} />
@@ -84,14 +85,50 @@ function HeldNoteRow({ note, onEdit, onRemove }: { note: PanelHeldNote } & Pick<
   );
 }
 
-/** The crop main took of the element, drawn from a blob: the panel's CSP takes `blob:` images and no `data:` ones. */
-function Crop({ crop, on }: { crop: NonNullable<PanelHeldNote["crop"]>; on: string }) {
+/**
+ * The crop main took, drawn from a blob: the panel's CSP takes `blob:` images and no `data:` ones. With a ring it is the
+ * whole window, shrunk to the panel's width, the box ringed over it and tagged with the note's number in the turn sent.
+ */
+function Crop({ crop, ring, number, on }: { crop: NonNullable<PanelHeldNote["crop"]>; ring: PanelHeldNote["ring"]; number: number; on: string }) {
   const [src, setSrc] = useState<string | null>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   useEffect(() => {
     const bytes = Uint8Array.from(atob(crop.data), (one) => one.charCodeAt(0));
     const address = URL.createObjectURL(new Blob([bytes], { type: crop.media_type }));
     setSrc(address);
     return () => URL.revokeObjectURL(address);
   }, [crop.data, crop.media_type]);
-  return src === null ? null : <img className="armada-held-notes__crop" src={src} alt={`Crop of ${on}`} />;
+  if (src === null) return null;
+  if (ring === undefined) return <img className="armada-held-notes__crop" src={src} alt={`Crop of ${on}`} />;
+  // The box as fractions of the picture, so it stays on the element at whatever width the panel draws it.
+  const at =
+    size === null
+      ? null
+      : ({
+          "--ring-x": `${(ring.x / size.width) * 100}%`,
+          "--ring-y": `${(ring.y / size.height) * 100}%`,
+          "--ring-width": `${(ring.width / size.width) * 100}%`,
+          "--ring-height": `${(ring.height / size.height) * 100}%`,
+        } as CSSProperties);
+  return (
+    <div className="armada-held-notes__shot">
+      <img
+        className="armada-held-notes__window"
+        src={src}
+        alt={`Window, ${on} ringed`}
+        onLoad={(event) => setSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+      />
+      {at === null ? null : (
+        <span className="armada-held-notes__ring" style={at}>
+          <span className="armada-held-notes__tag">
+            <Tooltip label={`Note ${number}`}>
+              <span role="img" aria-label={`Note ${number}`}>
+                {number}
+              </span>
+            </Tooltip>
+          </span>
+        </span>
+      )}
+    </div>
+  );
 }
