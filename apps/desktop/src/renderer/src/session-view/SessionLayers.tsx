@@ -17,6 +17,7 @@ import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
+import { ProcessesGroup } from "./ProcessesGroup";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { openClashFile } from "./ClashFileSheet";
@@ -251,7 +252,12 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
         </>
       }
     >
-      {view === "list" ? <Groups groups={shown} session={session} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
+      {view === "list" ? (
+        <>
+          <Groups groups={shown} session={session} />
+          <ProcessesGroup sessionId={session.id} words={words} />
+        </>
+      ) : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );
 }
