@@ -12,7 +12,7 @@ const projectsOtherRepository = walk("projects-other-repository", [
   { press: button("Dispatch Update the changelog"), say: "Dispatch on a task of armada's" },
   { look: request, say: "The sheet opens on armada, the task's repository, with the task as the words" },
   { press: inside(frame, role("radio", "Repository site", { exact: true })), say: "Another repository picked" },
-  { look: inside(frame, text(/This task is in armada\. A Job started in site does not hold it\./)), say: "The sheet says the Job will not hold the task" },
+  { look: inside(frame, text(/This task is in armada\. A Job started in site is not linked to it, so finishing the Job leaves it open\./)), say: "The sheet says the Job will not be linked to the task" },
   { press: start, say: "Start. Fleet takes it, with the task's words and no rows" },
   { look: text(/Update the changelog/), say: "The Job opens in site, on the task's words" },
   { press: place("Projects"), say: "Back to Projects" },

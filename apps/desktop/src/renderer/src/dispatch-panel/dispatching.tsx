@@ -408,7 +408,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     const unheld =
       rowsIn === undefined || rowed.current.length === 0 || named === undefined || manifestId === rowsIn
         ? undefined
-        : `${many ? "These tasks are" : "This task is"} in ${manifestLabel(rowsIn, repositories)}. A Job started in ${repositoryLabel(named, repositories)} does not hold ${many ? "them" : "it"}.`;
+        : `${many ? "These tasks are" : "This task is"} in ${manifestLabel(rowsIn, repositories)}. A Job started in ${repositoryLabel(named, repositories)} is not linked to ${many ? "them" : "it"}, so finishing the Job leaves ${many ? "them" : "it"} open.`;
     const sessionBody =
       kind !== "session" || workflow !== null || (unheld === undefined && refused === undefined) ? undefined : (
         <div className="armada-dispatch-panel__autopilot">
