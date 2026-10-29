@@ -145,7 +145,24 @@ export function useDeckShell(sessionId: string, served: boolean): ShellPaneProps
 }
 
 /** The Job's shell as Flight control's Terminal tile reads and presses it: whether it shows on the Job's page, docked, in the side panel or in its window. */
-export type JobTerminal = { shown: boolean; windowed: boolean; press: () => void };
+export type JobTerminal = { shown: boolean; windowed: boolean; /** The shell printed a moment ago, so something is running in it. */ running: boolean; press: () => void };
+
+/** How long after its last output a shell still counts as running something. */
+const IDLE_MS = 3000;
+
+/** Whether the shell printed within `IDLE_MS`, drawn again as it goes quiet. */
+function useShellRunning(shell: JobShell | undefined): boolean {
+  const printedAt = shell?.ended === false ? shell.printedAt : undefined;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (printedAt === undefined) return;
+    const wait = printedAt + IDLE_MS - Date.now();
+    if (wait <= 0) return;
+    const timer = setTimeout(() => tick((n) => n + 1), wait);
+    return () => clearTimeout(timer);
+  }, [printedAt]);
+  return printedAt !== undefined && Date.now() - printedAt < IDLE_MS;
+}
 
 /**
  * The Job page's shell from outside its view. A press opens it as the view's own Terminal did; while it shows, a press puts it away and
@@ -154,7 +171,8 @@ export type JobTerminal = { shown: boolean; windowed: boolean; press: () => void
  */
 export function useJobTerminal(sessionId: string, served: boolean): JobTerminal | undefined {
   const shells = served ? shellsOf(window.armada) : null;
-  const { shown: docked, windowed } = useJobShell(shells, "page", sessionId);
+  const { shell, shown: docked, windowed } = useJobShell(shells, "page", sessionId);
+  const running = useShellRunning(shell);
   const open = usePanel().open;
   const inPanel = open?.kind === "terminal" && open.sessionId === sessionId;
   const where = useJobTerminalPlace(shells !== null);
@@ -162,6 +180,7 @@ export function useJobTerminal(sessionId: string, served: boolean): JobTerminal 
   return {
     shown: docked || inPanel || windowed,
     windowed,
+    running,
     press: () => {
       if (windowed) shells.toWindow(sessionId);
       else if (docked) shells.show("page", sessionId, false);

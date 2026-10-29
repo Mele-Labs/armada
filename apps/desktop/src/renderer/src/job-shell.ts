@@ -27,6 +27,8 @@ export type JobShell = {
   /** Which shell this is: a new one starts the screen over. */
   screen: number;
   ended: boolean;
+  /** When it last printed, in ms; absent until it has. Flight control's Terminal tile pulses while this is recent. */
+  printedAt?: number;
   /** Opened once the pane has fitted its screen, at that size. */
   waiting: boolean;
 };
@@ -241,7 +243,7 @@ export class JobShells {
     }
     const now = this.shells.get(sessionId);
     if (now?.runId !== runId) return;
-    if (message.kind === "output" && message.text !== "") this.set(sessionId, { ...now, out: trimmed(now.out + message.text) });
+    if (message.kind === "output" && message.text !== "") this.set(sessionId, { ...now, out: trimmed(now.out + message.text), printedAt: Date.now() });
     else if (message.kind === "exited") this.end(runId);
   }
 
