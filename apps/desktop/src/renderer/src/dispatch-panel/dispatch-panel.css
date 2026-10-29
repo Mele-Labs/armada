@@ -338,6 +338,9 @@
 /* The menu past nine is drawn in a layer of its own, since the frame clips what hangs out of it; it has to clear the scrim. */
 body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] { z-index: var(--z-palette); }
 
+/* A start the sheet sent and Fleet refused is the window's toast, so the toasts clear the scrim and the sheet while it is up. */
+body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1); }
+
 /* ---- The request's words: the tag of the Session a brief waits on is lit in the text ------------ */
 
 /* The mirror draws the request's words under the field, in its own metrics, with the tag marked: the field's text stays the only text. */

@@ -89,7 +89,7 @@ import { AgentSignInAlert } from "./agent-sign-in";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
-import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsFollowed, useProjectsStore } from "./projects-tab/store"; import { ProjectsUndo } from "./projects-tab/undo"; import { usePaletteTasks } from "./projects-tab/palette";
+import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsFollowed, useProjectsStore } from "./projects-tab/store"; import { ProjectsUndo } from "./projects-tab/undo"; import { usePaletteTasks } from "./projects-tab/palette"; import { useShowTaskAsked } from "./projects-tab/held";
 import { SessionsOwnership } from "./sessions";
 import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { askForFixes, useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
@@ -251,6 +251,9 @@ export function App() {
   useProjectsFollowed(state.connection.state === "connected");
   const projectsStore = useProjectsStore();
   const paletteTasks = usePaletteTasks(repositories); // The palette finds a task by its title: `projects-tab/palette.ts`.
+  // A task found by title, or pressed in a Job's rail, opens on the Projects tab, in its project or on All tasks, and its card takes the focus.
+  const showTask = projectsStore === undefined ? undefined : (rowId: string) => (goTo(SURFACE.projects), projectsStore.showRow(rowId));
+  useShowTaskAsked(showTask);
   const repository = state.repository ?? undefined;
   // Whether Fleet has answered the listing. `models` is what says the holdings were read.
   const listed = state.connection.state === "connected" && state.holds.models !== null;
@@ -763,8 +766,7 @@ export function App() {
             pickRepository: pick,
             compose: () => newSession(),
             surface: goTo,
-            // A task found by title opens on the Projects tab, in its project or on All tasks, and its card takes the focus.
-            ...(projectsStore === undefined ? {} : { task: (rowId: string) => (goTo(SURFACE.projects), projectsStore.showRow(rowId)) }),
+            ...(showTask === undefined ? {} : { task: showTask }),
             run: (entryId) => {
               goTo(SURFACE.manifest);
               setPicked(entryId);
