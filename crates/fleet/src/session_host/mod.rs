@@ -61,6 +61,7 @@ pub(crate) mod preview_offers;
 pub(crate) mod planning;
 mod places;
 mod process;
+pub(crate) mod processes;
 pub(crate) mod proposing;
 pub mod queueing;
 pub(crate) mod slot_asking;
