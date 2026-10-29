@@ -487,6 +487,31 @@ pub enum LinkedEvent {
     Started,
 }
 
+/// The subagent an `Agent` call started, on that call's row. `id` is its ledger attachment's target,
+/// which `get_session_subagent` takes; `latest` is its own last call, one line.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolSubagent {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    pub task: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest: Option<String>,
+    pub state: ToolSubagentState,
+    pub since: Instant,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended: Option<Instant>,
+}
+
+/// Where a call's subagent stands. `cut_off` is one a stop or a replaced process ended before it reported.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolSubagentState {
+    Running,
+    Finished,
+    CutOff,
+}
+
 /// One row of a hosted session's thread.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -504,12 +529,19 @@ pub enum SessionRow {
         /// mute a notice by it. Absent on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
+        /// The person's words, held by the agent's CLI until the call its turn waits on returns.
+        /// **The row is replaced by id** with it false once the agent has read them.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        queued: bool,
     },
     /// A tool call, one line.
     Tool {
         id: String,
         at: Instant,
         text: String,
+        /// The subagent an `Agent` call started. **The row is replaced by id** as it works and settles.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        subagent: Option<ToolSubagent>,
     },
     /// A command the person ran in the terminal, as typed: `/reload-plugins`,
     /// with its arguments. Its output is not drawn. Since 23.56.

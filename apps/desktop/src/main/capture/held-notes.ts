@@ -10,16 +10,26 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 import type { SendSessionNote, SessionNote } from "@armada/protocol";
 
+import { isRing, type Ring } from "../../shared/ring";
 import type { LandsOn } from "./layout";
 
-/** A note held on a Job: `send_session_notes`' entry for it, and when it was taken. */
-export type HeldNote = { id: string; at: string; note: SessionNote };
+/**
+ * A note held on a Job: `send_session_notes`' entry for it, when it was taken, and where its box is on its picture, the whole
+ * window. **The ring is not on the picture yet**: it is burned in at the send, tagged with the note's place in the turn.
+ */
+export type HeldNote = { id: string; at: string; note: SessionNote; ring?: Ring };
 
 type Kept = { jobs: Record<string, HeldNote[]> };
 
 const isHeld = (value: unknown): value is HeldNote => {
   const one = value as Partial<HeldNote> | null;
-  return typeof one?.id === "string" && typeof one.at === "string" && typeof one.note?.said === "string" && typeof one.note.place === "object";
+  return (
+    typeof one?.id === "string" &&
+    typeof one.at === "string" &&
+    typeof one.note?.said === "string" &&
+    typeof one.note.place === "object" &&
+    (one.ring === undefined || isRing(one.ring))
+  );
 };
 
 function read(file: string | null): Map<string, HeldNote[]> {
@@ -54,10 +64,10 @@ export class HeldNotes {
     return this.jobs.get(sessionId) ?? [];
   }
 
-  /** The note a save built, held on its Job instead of sent. */
-  hold(send: SendSessionNote): HeldNote {
+  /** The note a save built, held on its Job instead of sent, with where its box is on its picture. */
+  hold(send: SendSessionNote, ring: Ring | null = null): HeldNote {
     const { session_id: sessionId, ...note } = send;
-    const held: HeldNote = { id: this.mint(), at: this.now(), note };
+    const held: HeldNote = { id: this.mint(), at: this.now(), note, ...(ring === null || note.crop === undefined ? {} : { ring }) };
     this.jobs.set(sessionId, [...this.of(sessionId), held]);
     this.moved(sessionId);
     return held;

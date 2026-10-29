@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ BrowserWindow: class {}, session: {}, app: {}, WebContentsView: class {} }));
 
+import type { SendSessionNote } from "@armada/protocol";
 import type { JobBrowserState } from "../shared/api/job-browser";
+import { ringOn, type Ring } from "../shared/ring";
 import { JobBrowsers, type BrowserPage, type Host, type JobBrowserMake } from "./job-browsers";
 
 /** A page that records which host holds it; the rest of `JobPage` answers nothing. */
@@ -116,5 +118,27 @@ describe("a Job's browser moving between the side panel and its window", () => {
     expect(states.at(-1)?.driver).toBe("owner");
     held.drive("01JOB");
     expect(states.at(-1)?.driver).toBe("agent");
+  });
+});
+
+describe("a note taken on a Job's browser", () => {
+  it("sends the whole frozen page with the part he picked ringed in its pixels, tagged 1", async () => {
+    const page = fakePage();
+    // A Retina page: its picture twice the viewport's width.
+    page.picture = async () => ({ png: Buffer.from("whole page"), ring: (box) => ringOn(box, 800, 1600) });
+    page.ask = async () => ({ capture: { element: { tag: "button", text: "Pay" }, selector: "main > button", markup: "<button>Pay</button>", bounds: { x: 100, y: 50, width: 80, height: 20 }, location: "/cart" } });
+    const notes: SendSessionNote[] = [];
+    const burned: [string, Ring, number][] = [];
+    const held = new JobBrowsers(
+      { page: () => page, window: () => ({ host: {}, focus: () => {}, close: () => {} }) },
+      { changed: () => {}, show: () => {}, capture: () => {}, answer: async () => {}, note: async (body) => (notes.push(body), { ok: true }) },
+      (png, ring, number) => (burned.push([Buffer.from(png).toString(), ring, number]), Buffer.from("ringed")),
+    );
+    held.show("01JOB");
+    await held.freeze("01JOB");
+    await held.hold("01JOB", 120, 60);
+    expect(await held.note("01JOB", "Too small")).toEqual({ ok: true });
+    expect(burned).toEqual([["whole page", { x: 200, y: 100, width: 160, height: 40, scale: 2 }, 1]]);
+    expect(notes[0]?.crop).toEqual({ media_type: "image/png", data: Buffer.from("ringed").toString("base64") });
   });
 });

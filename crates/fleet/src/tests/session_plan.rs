@@ -506,8 +506,9 @@ async fn a_touch_is_attributed_to_the_subagent_whose_call_the_line_sat_under() {
     let id = running(&rig).await;
 
     // What the stream reader sends for those two lines.
-    let spawned: Vec<(String, String)> = adapters::subagent_calls(SPAWNING).into_iter().map(|one| (one.call, one.kind)).collect();
-    assert_eq!(spawned, [("toolu_77".to_string(), "rust-engineer".to_string())]);
+    let spawned = adapters::subagent_calls(SPAWNING);
+    let named: Vec<(&str, &str)> = spawned.iter().map(|one| (one.call.as_str(), one.kind.as_str())).collect();
+    assert_eq!(named, [("toolu_77", "rust-engineer")]);
     rig.stand_in.hears(0, Heard::Spawned(spawned));
     rig.stand_in.hears(0, Heard::Subagent { events: vec![edit("crates/store/src/plan.rs")], call: adapters::subagent_parent(INSIDE) });
     rig.stand_in.says(0, vec![edit("/not/under/the/session/a.rs"), edit("README.md")]);

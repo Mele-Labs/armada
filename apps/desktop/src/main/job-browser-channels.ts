@@ -44,6 +44,9 @@ export function handleJobBrowsers({ ipc, browsers, known }: { ipc: IpcMain; brow
   ipc.handle(CHANNELS.jobBrowserHold, (_event, sessionId: unknown, x: unknown, y: unknown) =>
     text(sessionId) && number(x) && number(y) ? browsers.hold(sessionId, x, y) : null,
   );
+  ipc.handle(CHANNELS.jobBrowserAim, (_event, sessionId: unknown, x: unknown, y: unknown) =>
+    text(sessionId) && number(x) && number(y) ? browsers.aim(sessionId, x, y) : null,
+  );
   ipc.handle(CHANNELS.jobBrowserNote, (_event, sessionId: unknown, said: unknown) =>
     text(sessionId) && typeof said === "string" && said.trim() !== "" ? browsers.note(sessionId, said) : { ok: false, why: "not_understood" },
   );
