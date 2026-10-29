@@ -813,6 +813,17 @@
   flex: none;
 }
 
+/* Held until the call the turn waits on returns: the queued clock and its word, quieter than the band's ink. */
+.armada-session-you__queued {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
 .armada-session-you__delivery[data-state="sending"] > svg {
   animation: armada-session-you-turn var(--duration-pulse) linear infinite;
 }
