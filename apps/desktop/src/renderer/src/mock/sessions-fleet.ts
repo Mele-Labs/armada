@@ -340,27 +340,18 @@ export class FakeSessionsFleet {
     return { ok: true, value: undefined };
   }
 
-  /** Whether the run of `claude update` that fails once, as a CLI installed where the person cannot write does, has failed. */
-  private updateFailed = false;
   private readonly runListeners = new Set<(runId: string, message: SessionRunMessage) => void>();
 
-  /** `start_session_run`: `claude update` prints a line and exits, failing the first time and updating the second. Any other command exits clean. */
+  /** `start_session_run`: `claude update` prints a line and exits clean, and any other command exits clean. */
   private startingRun(sessionId: string, command: string): SessionActed<{ run_id: string }> {
     const runId = `run-${(this.minted += 1)}`;
     const send = (message: SessionRunMessage) => this.runListeners.forEach((on) => on(runId, message));
     const updating = command.trim() === "claude update";
-    const fails = updating && !this.updateFailed;
     setTimeout(() => {
-      if (fails) {
-        this.updateFailed = true;
-        send({ kind: "output", text: "Error: permission denied, open '/usr/local/lib/node_modules'\r\n" });
-        return send({ kind: "exited", code: 1, stopped: false });
-      }
-      if (updating) {
-        send({ kind: "output", text: "Updated Claude Code to 2.1.340\r\n" });
-        this.mend(sessionId, "task_tools");
-      }
+      if (updating) send({ kind: "output", text: "Updated Claude Code to 2.1.340\r\n" });
       send({ kind: "exited", code: 0, stopped: false });
+      // Exit 0 clears the piece here; in the real build it leaves at the Job's next init line.
+      if (updating) this.mend(sessionId, "task_tools");
     }, 1200);
     return { ok: true, value: { run_id: runId } };
   }

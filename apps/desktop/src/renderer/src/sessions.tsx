@@ -1115,7 +1115,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)];
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
-  const toolsFixing = useToolsFixes(session);
+  const toolsFixing = useToolsFixes(session, terminal?.dock);
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>

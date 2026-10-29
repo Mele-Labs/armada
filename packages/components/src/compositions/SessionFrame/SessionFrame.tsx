@@ -102,8 +102,9 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 /**
  * One thing the agent came up without, as the mark's menu lists it. `act` is the press that puts it right and is absent where nothing in this
  * build can; `running` shows the act's button as working, and `error` is the CLI's own words under a row whose act failed.
+ * `closes` puts the menu away on the press, for an act that goes on in the Job's terminal.
  */
-export type ToolsFix = { piece: string; said: string; act?: string; running?: boolean; error?: string };
+export type ToolsFix = { piece: string; said: string; act?: string; running?: boolean; error?: string; closes?: boolean };
 
 /** Arrow keys move among the menu's acts, as a menu's do. */
 function arrowAmong(event: ReactKeyboardEvent<HTMLElement>): void {
@@ -117,7 +118,7 @@ function arrowAmong(event: ReactKeyboardEvent<HTMLElement>): void {
 }
 
 /** The menu's body: what the mark's sentence says beyond its pieces (the CLI and its version), then a row for each piece, its act at the row's end. */
-function ToolsMenu({ said, fixes, onFix }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void }) {
+function ToolsMenu({ said, fixes, onFix, close }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void; close: () => void }) {
   const body = useRef<HTMLDivElement>(null);
   const head = fixes.reduce((left, one) => left.replace(one.said, ""), said).trim();
   // Opened, it takes focus on the first act, so the arrow keys have somewhere to start.
@@ -130,7 +131,10 @@ function ToolsMenu({ said, fixes, onFix }: { said: string; fixes: readonly Tools
           <li key={one.piece} className="armada-tools-menu__row">
             <span className="armada-tools-menu__said">{one.said}</span>
             {one.act === undefined ? null : (
-              <Button size="sm" ground="sunken" pending={one.running === true} onClick={() => onFix(one.piece)}>
+              <Button size="sm" ground="sunken" pending={one.running === true} onClick={() => {
+                  onFix(one.piece);
+                  if (one.closes === true) close();
+                }}>
                 {one.running === true ? (
                   <span className="armada-tools-menu__working" role="img" aria-label="Working">
                     <LoaderCircle size={12} strokeWidth={2} aria-hidden />
@@ -173,7 +177,7 @@ export function ToolsMark({ said, size = 16, fixes, onFix }: { said: string; siz
         </Tooltip>
       }
     >
-      <ToolsMenu said={said} fixes={fixes} onFix={onFix} />
+      {(close) => <ToolsMenu said={said} fixes={fixes} onFix={onFix} close={close} />}
     </Popover>
   );
 }
