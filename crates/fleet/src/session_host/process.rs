@@ -300,7 +300,7 @@ impl Processes for ProcessHost {
         // agent's, which it writes later, land in one file.
         let logged = std::fs::write(&log, "")
             .and_then(|()| std::fs::OpenOptions::new().append(true).open(&log))
-            .map_err(|why| format!("the job's keeper has no log: {why}"))?;
+            .map_err(|why| format!("the agent's log could not be made: {why}"))?;
         let alone = super::keeper::ALONE_FOR.as_secs().to_string();
         let mut keeper = Detached::program(&self.exe)
             .arg("session-keep")
@@ -316,7 +316,7 @@ impl Processes for ProcessHost {
             .writing_output_to(&logged)
             .map_err(|why| why.to_string())?
             .spawn()
-            .map_err(|why| format!("the job's keeper would not start: {why}"))?;
+            .map_err(|why| format!("the agent would not start: {why}"))?;
         // A keeper binds within milliseconds. Polled, because the trait this
         // answers is not async, and bounded, so a keeper that died says so.
         let waited = std::time::Instant::now();
@@ -325,13 +325,10 @@ impl Processes for ProcessHost {
                 break stream;
             }
             if let Ok(Some(status)) = keeper.try_wait() {
-                return Err(format!(
-                    "the job's keeper exited ({status}) before it answered{}",
-                    super::kept::tail_of(&log)
-                ));
+                return Err(format!("the agent exited ({status}) before it came up"));
             }
             if waited.elapsed() > KEEPER_WITHIN {
-                return Err(String::from("the job's keeper did not answer"));
+                return Err(format!("the agent did not come up within {} seconds", KEEPER_WITHIN.as_secs()));
             }
             std::thread::sleep(Duration::from_millis(10));
         };
