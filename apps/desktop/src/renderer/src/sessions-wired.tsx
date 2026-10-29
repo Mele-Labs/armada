@@ -384,9 +384,9 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome);
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[], refused?: (words: string) => void): Promise<string | undefined> {
-    // A start that says where its refusal goes leaves the window's own line, drawn on the open Job's thread, alone.
-    if (refused === undefined) this.say(undefined);
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[], toasted?: boolean): Promise<string | undefined> {
+    // A start whose refusal is a toast leaves the window's own line, drawn on the open Job's thread, alone.
+    if (toasted !== true) this.say(undefined);
     // A start that waits on nothing is the call it always was; one held waits on its start card, and never on a wait. Rows of his
     // projects ride on any of them, and a start with none is the call it was.
     const rows = projectRows === undefined || projectRows.length === 0 ? undefined : projectRows;
@@ -398,7 +398,7 @@ export class WiredStore {
           : held === true
             ? await this.api.startSession(undefined, root, request, tuning, undefined, true)
             : await this.api.startSession(undefined, root, request, tuning);
-    if (!done.ok) return void (refused === undefined ? this.say(done.outcome) : refused(refusalWords(done.outcome)));
+    if (!done.ok) return void (toasted === true ? this.tell(done.outcome, { act: "start_session", request: { root, request, project_rows: rows } }) : this.say(done.outcome));
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
     await this.held(id);
@@ -672,7 +672,7 @@ export class WiredStore {
     everywhere: () => this.mappedEverywhere,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root, request, tuning, after, held, projectRows, refused) => this.starting(tag, root, request, tuning, after, held, projectRows, refused),
+    start: (tag, root, request, tuning, after, held, projectRows, toasted) => this.starting(tag, root, request, tuning, after, held, projectRows, toasted),
     begin: (id, delivery, message) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(message === undefined ? {} : { message }) })),
     readsWait: (words) => this.readingWait(words),
     settlesWait: (words) => this.settledWait(words),

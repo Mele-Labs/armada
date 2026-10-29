@@ -137,7 +137,7 @@ export type PanelProps = {
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Pastes too big to send as words, kept as files for the Session to start with. Absent where the kind takes none. */
   snippets?: { files: readonly File[]; onPaste: (words: string) => void; onRemove: (file: File) => void };
-  /** Under the band: an Autopilot's read settings, or a Session's refused start. */
+  /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
   autoFocus?: boolean;

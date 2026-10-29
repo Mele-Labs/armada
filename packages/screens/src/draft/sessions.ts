@@ -797,9 +797,9 @@ export type SessionsDraft = {
    * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
    * `held` starts it on its start card: the words are read and nothing runs until `begin`.
    * `projectRows` are the rows of the repository's projects it starts with: each written task is held by the Job.
-   * `refused` takes a refusal's words in place of `said`, for a caller that draws them itself, as the dispatch sheet does.
+   * `toasted` raises a refusal as the window's toast in place of `said`, which it leaves alone, as the dispatch sheet's starts do.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[], refused?: (words: string) => void) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[], toasted?: boolean) => string | Promise<string | undefined>;
   /**
    * Begins a Session held on its start card: the agent starts, and `delivery` is how the work lands where the Job's workflow has a landing
    * step. `message` is the first message as he left it on the card. Absent where nothing serves it, and the card offers no Start.

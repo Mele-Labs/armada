@@ -206,7 +206,7 @@ test("plain ↵ still starts a Session, and queues nothing", async () => {
   await userEvent.keyboard("{Enter}");
 
   await expect.poll(() => fleet.start.mock.calls.length).toBe(1);
-  expect(fleet.start).toHaveBeenCalledWith(undefined, ROOT, "Fix the login page", {}, undefined, true, undefined, expect.any(Function));
+  expect(fleet.start).toHaveBeenCalledWith(undefined, ROOT, "Fix the login page", {}, undefined, true, undefined, true);
   await expect.poll(() => scene.opened).toEqual(["s-new"]);
   expect(fleet.queue).not.toHaveBeenCalled();
 });

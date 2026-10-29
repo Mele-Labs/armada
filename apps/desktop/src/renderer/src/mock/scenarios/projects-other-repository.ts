@@ -1,7 +1,8 @@
 // Projects, with a task dispatched to another repository than its own, and a start Fleet refuses. Fleet's copy has lost Raise a
-// call on all done since the list was read, so a start that names it is refused with Fleet's words. Mock only. The walk
-// `projects-other-repository` plays it.
+// call on all done since the list was read, so a start that names it is refused with Fleet's words, raised as the window's toast
+// as the wired store raises it. Mock only. The walk `projects-other-repository` plays it.
 
+import { askToTell } from "../../tell";
 import type { Scenario } from "../moment";
 import { s331Projects as projects } from "./projects";
 
@@ -18,9 +19,9 @@ export const projectsOtherRepository: Scenario = {
       const store = projects.draft!.sessions!(control, more);
       return {
         ...store,
-        start: (tag, root, request, tuning, after, held, projectRows, refused) => {
-          if (projectRows?.some((one) => one.row === GONE) !== true) return store.start(tag, root, request, tuning, after, held, projectRows);
-          refused?.(REFUSED);
+        start: (tag, root, request, tuning, after, held, projectRows, toasted) => {
+          if (projectRows?.some((one) => one.row === GONE) !== true) return store.start(tag, root, request, tuning, after, held, projectRows, toasted);
+          if (toasted === true) askToTell(REFUSED);
           return Promise.resolve(undefined);
         },
       };

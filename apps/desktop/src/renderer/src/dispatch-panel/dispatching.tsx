@@ -217,11 +217,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     const text = workflow === null ? typedWords : workflowBrief(typedWords, workflow);
     recall(at);
     const hand = handNow();
-    const mine = stamp.current;
     setSending(true);
-    setRefused(undefined);
-    // A refused start is said here, in the sheet that still holds its words, and never on the open Job's thread.
-    const refuse = (words: string) => void (mine === stamp.current && setRefused(words));
     // A real reading is waited for, so a Session is not started on the defaults while the proposer is still out.
     void Promise.resolve(draft.settlesWait?.(text) ?? draft.readsWait?.(text))
       .then((read) => {
@@ -232,14 +228,15 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
         const rows = rowed.current.length === 0 ? undefined : rowed.current;
+        // A refused start is the window's toast, and never a line on the open Job's thread. The sheet keeps its words.
         const started =
           rows === undefined
             ? after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true, undefined, refuse)
-              : draft.start(undefined, at, text, tuningNow(), after, undefined, undefined, refuse)
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, undefined, true)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, undefined, true)
             : after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows, refuse)
-              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows, refuse);
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows, true)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows, true);
         return Promise.resolve(started).then((id) => ({ id, after, refers }));
       })
       .then(({ id, after, refers }) => {
@@ -389,19 +386,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     // A reading belongs to the repository it was made for.
     useEffect(() => setRead(undefined), [root]);
 
-    // A Session's own body: a refused start.
-    const sessionBody =
-      kind !== "session" || workflow !== null || refused === undefined ? undefined : (
-        <div className="armada-dispatch-panel__autopilot">
-          {refused === undefined ? null : (
-            <p className="armada-autopilot__refused" role="alert">
-              {refused}
-            </p>
-          )}
-        </div>
-      );
-    const drawn = body ?? sessionBody;
-
     useEffect(() => {
       if (!waiting || (root === undefined && found.state === "detecting")) return;
       setWaiting(false);
@@ -475,7 +459,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
           act();
         }
       },
-      ...(drawn === undefined ? {} : { body: drawn }),
+      ...(body === undefined ? {} : { body }),
       disabled: state.connection.state !== "connected",
     };
   };
