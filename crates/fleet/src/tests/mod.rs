@@ -123,6 +123,7 @@ mod session_mcp;
 mod plan_held;
 mod plan_asks;
 mod session_plan;
+mod subagent_rows;
 mod task_marks;
 mod session_provenance;
 mod session_proposal;
