@@ -53,6 +53,7 @@ import { TeachingHost } from "./teaching";
 import { ReviewsHost } from "./reviews";
 import { TerritoryHost } from "./territory";
 import { BayHistoryHost } from "./bay-history";
+import { SessionSystemHost } from "./session-system";
 import { LogbookHost } from "./logbook";
 import { UsageSummaryHost } from "./usage-summary";
 import { FlightControlsHost } from "./flight-controls";
@@ -188,6 +189,8 @@ export class FleetConnection {
   readonly territory: TerritoryHost = new TerritoryHost(() => this.connected()?.port ?? null);
   /** Who held one slot and what was checked out in it — `bay-history.ts`. */
   readonly bayHistory: BayHistoryHost = new BayHistoryHost(() => this.connected()?.port ?? null);
+  /** A Job's processes, load, worktrees and logs, and ending a process of it — `session-system.ts`. */
+  readonly sessionSystem: SessionSystemHost = new SessionSystemHost(() => this.connected()?.port ?? null);
   /** What agents learned, and the owner's acts on an entry — `logbook.ts`. */
   readonly logbook: LogbookHost = new LogbookHost(() => this.connected()?.port ?? null);
   /** What the last seven days cost, for the Usage page — `usage-summary.ts`. */

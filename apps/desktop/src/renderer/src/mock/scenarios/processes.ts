@@ -1,14 +1,15 @@
-// A Job's System layer: its processes, CPU, memory and disk, the two worktrees it holds and three logs. Over the
+// A Job's System layer: its processes, CPU, memory and disk, the two worktrees it holds and its logs. Over the
 // `one-session-view` scenario, with its Session "Queue session for later". The walk `processes` plays it.
 
 import type { WorktreeSlot } from "@armada/protocol";
 
-import { seedSystem } from "../../session-view/system";
+import { seedSystem } from "../slices/session-system";
 import type { Scenario } from "../moment";
 import { s261OneSessionView as base } from "./one-session-view";
 
 const LIVE = "one-view-5";
 const KB = 1024;
+const GB = KB * KB * KB;
 
 export const s268Processes: Scenario = {
   ...base,
@@ -35,19 +36,22 @@ export const s268Processes: Scenario = {
   draft: {
     ...base.draft,
     sessions: (control) => {
-      seedSystem(LIVE, {
+      seedSystem({
+        session_id: LIVE,
         processes: [
           { pid: 48211, command: "vite --port 5501", port: 5501, state: "running" },
           { pid: 48390, command: "armada fleet --dev", state: "running" },
           { pid: 47802, command: "vitest watch", state: "stopped" },
         ],
-        cpu: { used: 38, of: 100, unit: "%" },
-        memory: { used: 1.8, of: 8, unit: "GB" },
-        disk: { used: 6.4, of: 20, unit: "GB" },
+        cpu_percent: 38,
+        memory_bytes: 1.8 * GB,
+        memory_of_bytes: 8 * GB,
+        disk_bytes: 6.4 * GB,
+        disk_of_bytes: 20 * GB,
+        worktrees: [],
         logs: [
-          { name: "vite.log", bytes: 412 * KB },
-          { name: "fleet-dev.log", bytes: 3.2 * KB * KB },
-          { name: "vitest.log", bytes: 96 * KB },
+          { name: "session.log", bytes: 96 * KB },
+          { name: `${LIVE}.jsonl`, bytes: 3.2 * KB * KB },
         ],
       });
       return base.draft!.sessions!(control);

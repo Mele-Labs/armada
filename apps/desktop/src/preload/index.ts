@@ -57,6 +57,7 @@ import type { ProjectsActed } from "../shared/api/projects";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
+import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "../shared/api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
 import type { PullRequestNoteAnswer, PullRequestNotesAnswer } from "../shared/api/pull-request-notes";
 import type { SavePullRequestNote, SendPullRequestNotes } from "@armada/protocol";
@@ -448,6 +449,8 @@ const api: BridgeApi = {
   },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
   getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
+  getSessionSystem: (sessionId: string): Promise<SessionSystemRead> => ipcRenderer.invoke(CHANNELS.getSessionSystem, sessionId),
+  stopProcess: (sessionId: string, target: ProcessTarget): Promise<ProcessStopRead> => ipcRenderer.invoke(CHANNELS.stopProcess, sessionId, target),
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> => ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
