@@ -24,6 +24,9 @@ pub(crate) struct CallRows {
     calls: VecDeque<Call>,
     /// The person's rows put `queued`, to be put again once the agent has read them.
     queued: Vec<SessionRow>,
+    /// The rows of calls settled lately, by call: a latest call put outside the lock can land after
+    /// one, and puts it again so it does not stand as running.
+    settled: VecDeque<(String, SessionRow)>,
 }
 
 struct Call {
@@ -174,7 +177,17 @@ impl CallRows {
         let subagent = drawn.subagent.as_mut()?;
         subagent.state = state;
         subagent.ended = Some(ended.clone());
-        Some(drawn.row())
+        let row = drawn.row();
+        self.settled.push_back((one.call, row.clone()));
+        while self.settled.len() > CALLS_AT_MOST {
+            self.settled.pop_front();
+        }
+        Some(row)
+    }
+
+    /// The settled row of call `call`, where it settled while its latest call was being put.
+    pub(crate) fn settled_since(&self, call: &str) -> Option<SessionRow> {
+        self.settled.iter().find(|(one, _)| one == call).map(|(_, row)| row.clone())
     }
 
     /// The process went, and every call with it.
@@ -235,18 +248,27 @@ where
         let now = std::time::Instant::now();
         let said = runtime.state().call_rows.latest(call, latest, now);
         match said {
-            Latest::Put(row) => self.row_put(id, row).await,
+            Latest::Put(row) => self.latest_put(id, call, row).await,
             Latest::After(wait) => {
                 let (fleet, id, call) = (Arc::clone(self), id.to_string(), call.to_string());
                 tokio::spawn(async move {
                     tokio::time::sleep(wait).await;
                     let row = fleet.hosts().of(&id).state().call_rows.owed(&call, std::time::Instant::now());
                     if let Some(row) = row {
-                        fleet.row_put(&id, row).await;
+                        fleet.latest_put(&id, &call, row).await;
                     }
                 });
             }
             Latest::Held => {}
+        }
+    }
+
+    /// A running row put outside the lock: where its subagent settled meanwhile, the settled row again.
+    async fn latest_put(&self, id: &str, call: &str, row: SessionRow) {
+        self.row_put(id, row).await;
+        let settled = self.hosts().of(id).state().call_rows.settled_since(call);
+        if let Some(row) = settled {
+            self.row_put(id, row).await;
         }
     }
 
