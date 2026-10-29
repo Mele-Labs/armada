@@ -16,6 +16,7 @@ import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRu
 import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
+import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
 export type SessionTrail = {
@@ -591,6 +592,8 @@ export type Session = {
   work?: SessionWork;
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
+  /** The Workspace's lanes as this Job holds them: its tickets, pull request and deploy, and the rules that fired. Mock-only: no Fleet serves a Workspace yet. Absent draws no Lanes view. */
+  lanes?: SessionLanes;
 };
 
 /**

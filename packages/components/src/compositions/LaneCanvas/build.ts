@@ -87,6 +87,9 @@ export function editorLanes(input: {
 /** Where a Job stands in its workflow, as the story reads it. */
 export type JobStanding = { workflow: string; at: number; skipped?: readonly number[] };
 
+/** What a Job's Lanes view draws: where the workflow stands (`at` is -1 before a step starts, the step count once all ended) and what the Job holds. */
+export type SessionLanes = JobStanding & { job: JobLanes };
+
 const instancesOf = (job: JobLanes, lane: string): readonly Instance[] => job.instances.filter((one) => one.lifecycle === lane);
 
 /**
