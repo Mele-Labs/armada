@@ -228,14 +228,15 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
         const rows = rowed.current.length === 0 ? undefined : rowed.current;
+        // A refused start is the window's toast, and never a line on the open Job's thread. The sheet keeps its words.
         const started =
           rows === undefined
             ? after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true)
-              : draft.start(undefined, at, text, tuningNow(), after)
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, undefined, true)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, undefined, true)
             : after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows)
-              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows);
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows, true)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows, true);
         return Promise.resolve(started).then((id) => ({ id, after, refers }));
       })
       .then(({ id, after, refers }) => {
