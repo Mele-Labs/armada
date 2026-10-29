@@ -769,8 +769,9 @@ Fleet holds a Manifest's server Commands — the ones with `serve`, which [Manif
 > **Rule.** Fleet runs at most one instance of each server Command per checkout, and hands a second request the running one.
 > Why: the agent that asks second must not start another on the same port.
 
-A server runs in a checkout of the repository `?manifest_id=` names — its main checkout, or a worktree of it that `start_server`'s `checkout` names — and uses **that checkout's own span**.
-It stops on Stop, when it exits, or when Fleet stops; the span itself is released only when Fleet stops, after teardown.
+A server runs in a checkout of the repository `?manifest_id=` names — its main checkout, a worktree of it that `start_server`'s `checkout` names, or a Job's slot — and uses **that checkout's own span**.
+A Job's agent that names no `checkout` is served on the slot its Job holds, read from Fleet's record of the lease; with no slot yet it gets the main checkout. A Job's slot is never named by path.
+It stops on Stop, when it exits, when its slot is given back, or when Fleet stops; the span itself is released only when Fleet stops, after teardown.
 
 > **Rule.** A port span is claimed per checkout, never per repository.
 > Why: a repository has more than one checkout and each declares the same `ports:`, so one span between them is the number two servers bind.

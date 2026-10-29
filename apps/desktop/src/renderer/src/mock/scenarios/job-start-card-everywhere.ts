@@ -53,11 +53,10 @@ const HANDOFF = "Handoff: deliver the way the owner chose when Fleet asked how. 
 function turnOf(note: SendSessionNote): string {
   const { element, stamp, component, owners } = note.place;
   const named = (element.label ?? "").trim() || element.text.trim();
-  const lines = [`Pointed at: ${element.tag}${named === "" ? "" : ` "${named}"`}${note.note_id === undefined ? "" : ` (note ${note.note_id})`}`];
-  if (stamp === undefined) lines.push("No line on screen matched the code in /Users/user/code/armada");
-  else lines.push("Candidates:", `1. ${stamp} — the page's stamp, checked`, `   <${element.tag} aria-label="${named === "" ? component : named}">`);
+  const lines = ["Where he pointed, to find the code; not the request:", `Pointed at: ${element.tag}${named === "" ? "" : ` "${named}"`}${note.note_id === undefined ? "" : ` (note ${note.note_id})`}`];
+  if (stamp !== undefined) lines.push("Candidates:", `1. ${stamp} — the page's stamp, checked`, `   <${element.tag} aria-label="${named === "" ? component : named}">`);
   lines.push(`Page: ${note.address}`);
-  const chain = [...(component === undefined ? [] : [component]), ...(owners ?? [])];
+  const chain = [...(component === undefined ? [] : [component]), ...(owners ?? [])].slice(0, 3);
   if (chain.length > 0) lines.push(`Inside: component chain ${chain.join(" ← ")}`);
   return [note.said.trim(), "", ...lines, HANDOFF].join("\n");
 }

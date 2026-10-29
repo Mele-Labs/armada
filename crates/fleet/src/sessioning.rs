@@ -781,8 +781,15 @@ where
                 .await?;
             }
         }
-        // Bridge names a step it cannot play by its place, which is not a page that failed to load.
-        let text = if failed.why.trim().starts_with("step ") {
+        // Bridge names a step it cannot play by its place, which is not a page that failed to load,
+        // and says `steps set aside` where the page plays its own walk, which wins over the steps.
+        let text = if failed.why.trim().starts_with("steps set aside") {
+            format!(
+                "Your walk window on {} plays the page's own walk, so the steps you passed were set \
+                 aside and the person walks the page's. Show it again without steps.",
+                failed.url.trim()
+            )
+        } else if failed.why.trim().starts_with("step ") {
             format!(
                 "Your walk window on {} is held at {}. The person cannot walk past it until your \
                  steps match the page. Fix the steps, then call show_window again with them.",
