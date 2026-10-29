@@ -1225,7 +1225,8 @@ export class CaptureWindow {
     if (this.stepsHeld !== null) clearTimeout(this.stepsHeld);
     this.stepsHeld = null;
     steps.stop();
-    this.failed(this.pin.url, "this page plays its own walk, so your steps were not played: show it again without steps");
+    // Fleet reads the leading `steps set aside` and words it as neither a failed load nor a stuck step.
+    this.failed(this.pin.url, "steps set aside: this page plays its own walk");
   }
 
   /** The pinned address loaded again, resolving once it has loaded or failed to. */
