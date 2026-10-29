@@ -1,6 +1,6 @@
 ---
 name: writing-a-document
-description: Write the result of a Job as an HTML page the person reads in Bridge, with a conclusion first, sections, tables and live sketches, and revise it from numbered notes. Load when the Job's result is something a person reads, such as an investigation, findings or a report.
+description: Write the result of a Job as an HTML page the person reads in Bridge, with a conclusion first, sections, tables and live sketches, and revise it from numbered notes. Load when the Job's result is something a person reads, such as a design, an investigation, findings or a report.
 ---
 
 # Writing a document
