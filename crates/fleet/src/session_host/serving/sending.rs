@@ -415,6 +415,11 @@ where
         let id = sent.session_id.as_str().to_string();
         let approved = super::super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::super::readiness::note_address(&sent.text).map(str::to_string);
+        // A pinned note keeps its own; a plain message may carry window-scope notes by name.
+        let window_notes = match instead {
+            None => super::super::annotating::window_notes_named(&sent),
+            Some(_) => Vec::new(),
+        };
         // Read before the send: the clear below runs after it, and the agent has to be told.
         let standing = self.store().lock().await.done_since(&id).ok().flatten().is_some();
         let instead = if standing {
@@ -441,6 +446,7 @@ where
         if noted.is_some() {
             self.window_noted(&id).await;
         }
+        self.window_notes_kept(&id, window_notes).await;
         // The person spoke, so the agent's word that nothing was left no longer stands.
         let done = self.done_cleared(&id).await;
         // And so does the reply the last turn left: he has answered it.

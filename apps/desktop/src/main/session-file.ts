@@ -16,6 +16,8 @@ export function namesFile(record: SessionRecord | undefined, path: string): bool
       (one) =>
         one.kind === "artifact" &&
         ((one.target === path && (one.detail?.["form"] === "file" || one.detail?.["form"] === "image")) ||
+          // A sent note's picture, at the path Fleet recorded for it.
+          (one.detail?.["form"] === "note" && one.detail["picture"] === path) ||
           // A document's pages are the revisions Fleet kept for it, and only those.
           (one.detail?.["form"] === "document" && revisionsOfDetail(one.detail["revisions"]).includes(path))),
     ) === true

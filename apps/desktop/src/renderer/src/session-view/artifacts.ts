@@ -2,12 +2,12 @@
 // as `LedgerEntry` rows that know where each press goes) and from the thread: the files its drones touched, the commits and the commands it ran.
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
-import { ExternalLink, GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, Ticket, type LucideIcon } from "lucide-react";
+import { ExternalLink, GitCommitHorizontal, GitPullRequest, Link, MessageSquareText, PencilRuler, Presentation, Split, SquareTerminal, Ticket, type LucideIcon } from "lucide-react";
 import { ARTIFACT, BACKGROUND, FILE_SHOWN, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
 import { attachmentsOf, issueLabel, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { openLink } from "../commands";
-import { shownOnly } from "../session-cards";
+import { NOTE_SAID, shownOnly } from "../session-cards";
 import { openInPanel } from "../shared-panel/store";
 import { childrenOf, linkedPropsOf } from "./linked";
 
@@ -19,8 +19,12 @@ export type ArtifactRow = {
   title: string;
   /** An address, a path or a branch: mono, quiet, after the title. */
   sub?: string;
-  /** The row's state, as the ledger's marks draw it. */
-  mark?: { glyph: SessionLedgerTone; said: string };
+  /** Quiet words after `sub`, such as the screen a note was written on. */
+  words?: readonly string[];
+  /** The row's state, as the ledger's marks draw it. `word` stands beside the glyph in place of the tone's own. */
+  mark?: { glyph: SessionLedgerTone; said: string; word?: string };
+  /** A picture's absolute path, drawn as a thumbnail and read as an artifact file is. */
+  picture?: string;
   pr?: LedgerPullRequest;
   /** Set on a pull request's own row, which the layer draws as Landing does. */
   prNumber?: number;
@@ -31,6 +35,9 @@ export type ArtifactRow = {
 export type ArtifactGroup = { id: string; label: string; rows: ArtifactRow[] };
 
 const ACTS = { write: "Written", edit: "Edited", remove: "Removed" } as const;
+
+/** A sent note's state, drawn with the ledger's marks: open waits on the Job, returned went back when the Job closed unfinished. */
+const NOTE_TONE = { open: "pending", done: "done", returned: "stopped" } as const satisfies Record<keyof typeof NOTE_SAID, SessionLedgerTone>;
 
 /** The ledger row an attachment is drawn as, which knows where its press goes. */
 const entryOf = (entries: readonly LedgerEntry[], kind: LedgerEntry["kind"], key: string) => entries.find((one) => one.kind === kind && one.key === key);
@@ -121,6 +128,21 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   );
 
   add(
+    "note",
+    "Notes",
+    newest(attachmentsOf(session, "note")).map((one) => ({
+      key: `note:${one.id}`,
+      Glyph: MessageSquareText,
+      said: "Note",
+      title: one.text,
+      ...(one.component === undefined ? {} : { sub: one.component }),
+      ...(one.screen === undefined ? {} : { words: [one.screen] }),
+      mark: { glyph: NOTE_TONE[one.status], said: NOTE_SAID[one.status], word: NOTE_SAID[one.status] },
+      ...(one.picture === undefined ? {} : { picture: one.picture }),
+    })),
+  );
+
+  add(
     "link",
     "Links",
     newest(attachmentsOf(session, "link")).map((one) => ({ key: `link:${one.url}`, Glyph: ExternalLink, said: "Link", title: linkTitle(one.url), sub: one.by === "agent" ? "Agent" : "You", open: () => void openLink(one.url) })),
@@ -168,7 +190,7 @@ export function matching(groups: readonly ArtifactGroup[], words: string): Artif
   const query = words.trim().toLowerCase();
   if (query === "") return [...groups];
   return groups.flatMap((group) => {
-    const rows = group.label.toLowerCase().includes(query) ? group.rows : group.rows.filter((row) => `${row.title} ${row.sub ?? ""} ${row.said}`.toLowerCase().includes(query));
+    const rows = group.label.toLowerCase().includes(query) ? group.rows : group.rows.filter((row) => `${row.title} ${row.sub ?? ""} ${row.words?.join(" ") ?? ""} ${row.said}`.toLowerCase().includes(query));
     return rows.length === 0 ? [] : [{ ...group, rows }];
   });
 }

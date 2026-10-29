@@ -1,5 +1,5 @@
 // What a Job's Artifacts rows open, from its Pages, Files and Docs groups: each in the side panel, a picture fit to it,
-// a file's text, and a page or a Doc in a frame. Over the `session-ledger` scenario, whose "Write up the store clock" Job
+// a file's text, and a page or a Doc in a frame, with a note sent to it beside them. Over the `session-ledger` scenario, whose "Write up the store clock" Job
 // holds one of each.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
@@ -16,6 +16,8 @@ function steps(): Step[] {
       { look: inside(artifacts, region("Pages", { exact: true })), say: "The page it published" },
       { look: inside(artifacts, region("Files", { exact: true })), say: "The file it wrote and the screenshot, in Files" },
       { look: inside(artifacts, region("Docs", { exact: true })), say: "The Doc it made" },
+      { look: inside(artifacts, region("Notes", { exact: true })), say: "A note you sent it: its words, the component and the screen, and its state" },
+      { look: inside(artifacts, button("Picture of The clock legend reads too small beside the chart")), say: "The note's picture, small, which opens large" },
     ]),
     ...row("ledger-screenshot.png", "A picture opens in the panel"),
     { look: inside(panel("ledger-screenshot.png"), role("img", "ledger-screenshot.png")), say: "The picture, fit to the panel" },
