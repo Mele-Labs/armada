@@ -173,6 +173,11 @@ export type SessionRecord = {
    */
   settled?: WaitingItem[];
   /**
+   * The items the person closed from `waiting_for`, newest first, a bounded window: each kept whole at the moment he closed it.
+   * `reopen_waiting` lets one wait again. Absent when none. Since 29 Oct 2026.
+   */
+  closed?: ClosedWaiting[];
+  /**
    * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
    * met. Absent once it has started. Since 16 Oct 2026.
    */
@@ -473,6 +478,24 @@ export type DismissWaiting = { session_id: string; item_id: string; reason?: str
  * that asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
  */
 export type ConfirmWaiting = { session_id: string; item_id: string };
+
+/**
+ * `POST /sessions/waiting/reopen`: the person lets an item he closed wait again, by the `id` in `SessionRecord.closed`. An agent's own item
+ * goes back on its list as it was stated, and the agent is told nothing. Fleet refuses 409 `fleet.session_waiting_unheld` for an id nothing
+ * closed holds, and 422 `fleet.session_waiting_unreopenable` where `ended` is true.
+ */
+export type ReopenWaiting = { session_id: string; item_id: string };
+
+/**
+ * An item the person closed, as `SessionRecord.closed` lists it: `item` is the `WaitingItem` as Needs you drew it when he closed it
+ * (`id`, `text`, `since`, `source`, `act`, `options`, `steps`; `reopen_waiting` takes `item.id`), and `at` when he closed it. `ended` is sent
+ * only as `true`: what the item stood for has ended, so it cannot be reopened (a permission whose call ended, a walk that was withdrawn, any
+ * item of a Job that has ended). The agent's own items and those whose subject still stands are reopenable.
+ */
+export type ClosedWaiting = { item: WaitingItem; at: string; ended?: true };
+
+/** `GET /sessions/waiting/closed`, an agent's read: the Job's `closed` items, newest first. */
+export type ClosedWaitingList = { session_id: string; closed: ClosedWaiting[] };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };

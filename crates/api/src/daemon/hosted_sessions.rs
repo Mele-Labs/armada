@@ -117,6 +117,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `reopen_waiting`: the person lets an item he closed wait again. [`Refusal::IllegalMove`] where no
+    /// closed item has that id, [`Refusal::Unacceptable`] where it would not wait again.
+    fn reopen_waiting(
+        self: Arc<Self>,
+        reopen: ipc::ReopenWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `confirm_waiting`: thumbs up on an item read from a reply. [`Refusal::IllegalMove`] where
     /// nothing holds the item, and where it was not read from a reply.
     fn confirm_waiting(

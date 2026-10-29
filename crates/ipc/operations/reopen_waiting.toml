@@ -1,0 +1,16 @@
+[operations.reopen_waiting]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Let one thing the person closed wait on him again"
+notes = """
+`POST /sessions/waiting/reopen`, body `ReopenWaiting`: `session_id` and `item_id`, the `item.id` of a `SessionRecord.closed` entry. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+**What a closed item keeps.** When `dismiss_waiting` closes an item, Fleet keeps it whole beside the dismissal: its text, its source, its act, its options and steps, when it began to wait and when it was closed. The Job's `closed` lists them newest first, at most 50, each `{ item, at, ended? }`. An item a Job's own process dismissed (a walk it withdrew, a pull request that merged) is not listed.
+
+**Reopenable** is an item the agent stated, or one Fleet derived whose subject still stands, so it would appear in `waiting_for` again with the dismissal lifted; `ended` is sent, as `true`, on one that is not. `item` is the `WaitingItem` as it was when closed (`id`, `text`, `since`, `source`, `act`, `options`, `steps`) and `at` when it was closed. A permission whose call ended, a walk that was withdrawn and a `done` the person's message cleared are not, and neither is anything on a Job that has ended. Reopening one with `ended` is a 422 `fleet.session_waiting_unreopenable`; an id that is not in `closed` is a 409, as for `dismiss_waiting`.
+
+**Reopening** lets the id wait again. An agent item goes back to the end of the agent's list as it was stated. The agent is told nothing.
+
+`agent_access` is `No`: the person decides what stands before him; the agent lists the items with `list_closed_waiting`.
+"""

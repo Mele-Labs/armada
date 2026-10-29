@@ -34,6 +34,12 @@ The owner, 14 Oct 2026: "when there is a 'needs me' item on a job, I should be a
 Maybe I can give a reason when I do." **A walk, or a sentence Fleet read from the agent's reply, tells it too**: the Job is sent `Owner dismissed "<item text>"`, so it neither shows nor asks again for want of knowing; it comes back only if the agent shows or asks again.
 The owner, 28 Oct 2026: "I should be able to dismiss any needs you item, even walks and PRs. It should let the agent know I dismissed them."
 An item Fleet derived in any other way (a card, a permission, a window question, a task asked about, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
+**A closed item is kept whole.** `dismiss_waiting` keeps the item as it stood (text, source, act, options, steps, when it began) and when it was closed, beside the dismissed id in `session_waiting_dismissed`, whatever the source.
+The Job's record lists them as `closed`, newest first, at most 50: each `{ item, at, ended? }`.
+**`reopen_waiting`** (`session_id`, `item_id`) lets one wait again: an agent's own item goes back at the end of its list as it was stated, and the agent is told nothing.
+`ended` marks one that cannot be reopened because what it stood for has ended (a permission whose call ended, a walk that was withdrawn, a done the person's message cleared, anything on a Job that has ended); reopening it is refused.
+An agent reads the same list with `list_closed_waiting`.
+A dismissal a Job's own process makes (a walk it withdrew, a pull request that merged) is not a close and is not listed.
 **A draft item is withdrawn, not only dropped**: the Withdraw (Dismiss) on its card is `dismiss_waiting`, and the Job is sent `Withdrawn: <title>.` and `Do not propose it again.`, with the reason on the next line where one was given, and the row settles `withdrawn`.
 The job takes back a draft of its own with `withdraw_draft`, and is sent nothing; both are in [Proposing a draft](proposing-a-draft.md).
 The message goes before the item is dropped, so a send that fails leaves the item standing to try again.

@@ -916,6 +916,26 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 **Skew.** As above.
 **The event stream.** The Session is published as `session.changed`, so the open risk below is neither better nor worse.
 
+## A closed item is kept whole: `closed`, `reopen_waiting` and `list_closed_waiting`
+
+Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A closed item is kept whole*.
+**Two operations and one field**: a command Bridge sends, a query an agent reads, and a list on the Session's record; no event kind.
+Bridge's half is `ClosedWaiting`, `ClosedWaitingList`, `ReopenWaiting` and `closed` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRecord.closed` | Fleet writes, Bridge reads | `ClosedWaiting` `{ item, at, ended? }`, newest first, at most 50: `item` the `WaitingItem` as it stood, `at` when it was closed, `ended` sent only as `true`. Absent when none |
+| `reopen_waiting` (`POST /sessions/waiting/reopen`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ReopenWaiting` `{ session_id, item_id }`; answered with the `SessionRecord`. 409 `fleet.session_waiting_unheld` for an id nothing closed holds; 422 `fleet.session_waiting_unreopenable` for one with `ended` |
+| `list_closed_waiting` (`GET /sessions/waiting/closed?session_id=`, `agent_access = "Yes"`) | An agent reads | `ClosedWaitingList` `{ session_id, closed[] }`, the same entries. 422 `fleet.session_waiting_unnamed` for a call that places no Job |
+
+**Kept at the close.** `dismiss_waiting` writes the item's snapshot into new nullable columns of `session_waiting_dismissed` (additive, `20261029T0100Z-session_waiting.closed`).
+The id stays dismissed until `reopen_waiting` deletes the row.
+**`ended`** is read on every record by lifting every closed item's dismissal in a second pass over the same reads and asking which ids come back; the agent's own items are reopenable while the Job lives.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** The Session is published as `session.changed` on a close and a reopen, as on any dismiss.
+The record gains up to 50 small entries, so the open risk below is neither better nor much worse.
+
 ## The Job open when a note was pinned: `SessionNote.job`
 
 Since 23 Oct 2026. The pinned note above, `docs/concepts/session.md`.

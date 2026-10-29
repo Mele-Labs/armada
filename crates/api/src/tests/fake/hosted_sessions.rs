@@ -80,6 +80,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn reopen_waiting(
+        self: Arc<Self>,
+        _reopen: ipc::ReopenWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         _confirm: ipc::ConfirmWaiting,
