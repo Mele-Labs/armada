@@ -101,7 +101,7 @@ export type WindowQuestion = {
 const WALK_READ_MS = 250;
 const WALK_FIND_MS = 100;
 const WALK_FIND_TRIES = 50;
-/** How long steps a Session passed wait on the page being looked at for a walk of its own. Every steps walk pays it, and a mock's walk mounts in an effect just after load. */
+/** How long steps a Session passed wait before their first act, while the page is looked at for a walk of its own. A walk found later still wins. */
 const STEPS_HELD_MS = 1000;
 /** The longest one read or act waits on the page before the next is allowed. */
 const WALK_ASK_MS = 1000;
@@ -1078,8 +1078,6 @@ export class CaptureWindow {
     this.stopWatchingWalk();
     this.walkHosted = false;
     const round = this.walkRound;
-    // Beside steps, only as long as their first act is held, on every load.
-    const tries = this.stepwalk === null ? WALK_FIND_TRIES : STEPS_HELD_MS / WALK_FIND_MS;
     let missed = 0;
     const look = async (): Promise<void> => {
       if (!this.open) return;
@@ -1087,13 +1085,14 @@ export class CaptureWindow {
       // A later load has started its own looking.
       if (!this.open || round !== this.walkRound) return;
       if (found) missed = 0;
-      else if ((missed += 1) > tries) {
+      // Beside steps the looking never gives up: a page behind other windows is throttled, and a mock's walk can mount seconds late.
+      else if ((missed += 1) > WALK_FIND_TRIES && this.stepwalk === null) {
         this.stoppedSteps.seen(null);
-        // The steps' row is theirs, and stays.
-        if (this.stepwalk === null) this.setWalk(null);
+        this.setWalk(null);
         return;
       }
-      this.walkTimer = setTimeout(() => void look(), found ? WALK_READ_MS : WALK_FIND_MS);
+      const beat = found || missed > WALK_FIND_TRIES ? WALK_READ_MS : WALK_FIND_MS;
+      this.walkTimer = setTimeout(() => void look(), beat);
     };
     void look();
   }
