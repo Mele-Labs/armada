@@ -1,7 +1,7 @@
 // The acts behind the tools mark's menu: what puts right each thing a Job's agent came up without. Held here, not in a component, so the Job's
 // header and its row in the Jobs list show one run, and a run goes on while the menu is shut.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 import { ToolsMark, type TerminalDockRun, type ToolsFix } from "@armada/components";
 import { toolsMissingSaid, toolsPieceSaid, type Session, type SessionsDraft, type ToolsPiece } from "@armada/screens/src/draft/sessions";
@@ -24,15 +24,30 @@ function put(key: string, phase: Phase | undefined): void {
   listeners.forEach((on) => on());
 }
 
+/** A command a row's menu asked for in a Job whose view was not open yet: the view starts it in its terminal once it is drawn. */
+let asked: ReadonlyMap<string, string> = new Map();
+
+function ask(id: string, command: string | undefined): void {
+  const next = new Map(asked);
+  if (command === undefined) next.delete(id);
+  else next.set(id, command);
+  asked = next;
+  listeners.forEach((on) => on());
+}
+
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
 
 /** The Job's own terminal, as its view docks it: the update runs there, where the person sees all of it and can answer a prompt. */
 type Terminal = Pick<TerminalDockRun, "start">;
 
-function press(draft: SessionsDraft, id: string, piece: ToolsPiece, terminal: Terminal | undefined): void {
-  // Left to the terminal: its own pane shows the run and its exit, so no phase is held here.
+function press(draft: SessionsDraft, id: string, piece: ToolsPiece, terminal: Terminal | undefined, open: (() => void) | undefined): void {
+  // Left to the terminal: its own pane shows the run and its exit, so no phase is held here. From a row the Job opens first.
   if (piece === "task_tools") {
-    terminal?.start(UPDATE);
+    if (terminal !== undefined) terminal.start(UPDATE);
+    else if (open !== undefined) {
+      ask(id, UPDATE);
+      open();
+    }
     return;
   }
   const key = `${id}:${piece}`;
@@ -45,11 +60,18 @@ function press(draft: SessionsDraft, id: string, piece: ToolsPiece, terminal: Te
 }
 
 /** What the mark's menu lists for a Job, with the press on each act. Absent where the Job came up whole. */
-export function useToolsFixes(session: Session, terminal?: Terminal): { fixes: ToolsFix[]; onFix: (piece: string) => void } | undefined {
+export function useToolsFixes(session: Session, terminal?: Terminal, open?: () => void): { fixes: ToolsFix[]; onFix: (piece: string) => void } | undefined {
   const draft = useSessionsDraft();
   const phases = useSyncExternalStore(subscribe, () => held);
+  const wanted = useSyncExternalStore(subscribe, () => asked.get(session.id));
+  // The Job's view, drawn, starts what a row asked for.
+  useEffect(() => {
+    if (wanted === undefined || terminal === undefined) return;
+    ask(session.id, undefined);
+    terminal.start(wanted);
+  }, [wanted, terminal, session.id]);
   if (session.toolsMissing === undefined || draft === undefined) return undefined;
-  const can: Record<ToolsPiece, boolean> = { mod: draft.mendTools !== undefined, door: draft.actOnMcp !== undefined, task_tools: terminal !== undefined };
+  const can: Record<ToolsPiece, boolean> = { mod: draft.mendTools !== undefined, door: draft.actOnMcp !== undefined, task_tools: terminal !== undefined || open !== undefined };
   const fixes = session.toolsMissing.missing.map((piece): ToolsFix => {
     const phase = phases.get(`${session.id}:${piece}`);
     return {
@@ -62,12 +84,12 @@ export function useToolsFixes(session: Session, terminal?: Terminal): { fixes: T
       ...(phase !== undefined && "error" in phase ? { error: phase.error } : {}),
     };
   });
-  return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, terminal) };
+  return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, terminal, open) };
 }
 
 /** The tools mark of a Job, with its menu where the build can act on it. Nothing where the Job came up whole. */
-export function ToolsMarkOf({ session, size }: { session: Session; size?: 12 | 16 }) {
-  const fixing = useToolsFixes(session);
+export function ToolsMarkOf({ session, size, open }: { session: Session; size?: 12 | 16; open?: () => void }) {
+  const fixing = useToolsFixes(session, undefined, open);
   if (session.toolsMissing === undefined) return null;
   return <ToolsMark said={toolsMissingSaid(session.toolsMissing)} {...(size === undefined ? {} : { size })} {...(fixing ?? {})} />;
 }

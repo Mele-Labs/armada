@@ -293,7 +293,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
         )}
         {toolsMissing === undefined || sessionOf === undefined ? null : (
           <span className="deck-row__tools">
-            <ToolsMarkOf session={sessionOf} size={12} />
+            <ToolsMarkOf session={sessionOf} size={12} open={() => onPick(one)} />
           </span>
         )}
         {one.kind === "pr" || !view.conflicts ? null : (
