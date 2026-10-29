@@ -143,6 +143,7 @@ export const NOTHING_YET: BridgeState = {
 import { AUTOPILOT_CHANNELS } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS } from "./api/sketch-share";
 import { FILES_CHANNELS } from "./api/files";
+import { ATTACHMENTS_CHANNELS } from "./api/attachments";
 import { REQUESTS_CHANNELS } from "./api/requests";
 import { LOGBOOK_CHANNELS } from "./api/logbook";
 import { TEACHING_CHANNELS } from "./api/teaching";
@@ -180,6 +181,7 @@ export const CHANNELS = {
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,
   ...FILES_CHANNELS,
+  ...ATTACHMENTS_CHANNELS,
   ...FLIGHT_CONTROLS_CHANNELS,
   ...ONBOARDING_CHANNELS,
   ...REQUESTS_CHANNELS,

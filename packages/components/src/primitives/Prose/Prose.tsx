@@ -9,6 +9,9 @@ import { unified } from "unified";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { commandOf, CopyAct, ProseRunner, RunnableBlock } from "./RunnableBlock";
 import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
+import { AttachedImage, AttachedVideo, isForgeAddress, isVideoAddress, ProseAttachments } from "./ProseAttachments";
+export { ProseAttachments } from "./ProseAttachments";
+export type { AttachmentBytes } from "./ProseAttachments";
 export type { CodePhase, CodeRun, CodeRunEvent, CodeRunner, TerminalSize } from "./RunnableBlock";
 export { CopyAct, ProseRunner, RunnableBlock, RunOutput, useCodeRun } from "./RunnableBlock";
 export { forgetKeptRuns } from "./runs";
@@ -351,9 +354,37 @@ function said(level: number) {
   };
 }
 
+/** A bare attachment address on a line of its own draws as the video it is, where `ProseAttachments` is provided. */
+function Paragraph({ children }: { children?: ReactNode }) {
+  const attachments = useContext(ProseAttachments);
+  if (attachments === null) return <p className="armada-prose__paragraph">{children}</p>;
+  const parts = Children.toArray(children);
+  const bare = (part: ReactNode): string | null => {
+    if (!isValidElement<{ href?: string; children?: ReactNode }>(part)) return null;
+    const { href, children: text } = part.props;
+    return typeof href === "string" && text === href && isVideoAddress(href) ? href : null;
+  };
+  const isBreak = (part: ReactNode) => isValidElement(part) && part.type === "br";
+  const out = parts.map((part, at) => {
+    const address = bare(part);
+    const alone = (at === 0 || isBreak(parts[at - 1])) && (at === parts.length - 1 || isBreak(parts[at + 1]));
+    return address !== null && alone ? <AttachedVideo key={at} address={address} /> : part;
+  });
+  return <p className="armada-prose__paragraph">{out}</p>;
+}
+
+/** An image: drawn from its bytes where a forge attachment can be fetched; a link otherwise. */
+function Picture({ src, alt }: { src?: string | Blob; alt?: string }) {
+  const attachments = useContext(ProseAttachments);
+  const address = typeof src === "string" ? src : undefined;
+  const link = <Link href={address}>{alt || address}</Link>;
+  if (attachments === null || address === undefined || !isForgeAddress(address)) return link;
+  return <AttachedImage address={address} name={alt || "Image"} fallback={link} />;
+}
+
 /** Elements left out (`em`, `del`, `tr`, `thead`, `tbody`) carry no treatment of their own. */
 const DRAWN: Components = {
-  p: ({ children }) => <p className="armada-prose__paragraph">{children}</p>,
+  p: Paragraph,
   h1: said(1),
   h2: said(2),
   h3: said(3),
@@ -387,9 +418,7 @@ const DRAWN: Components = {
   td: ({ children }) => <td className="armada-prose__td">{children}</td>,
   a: ({ href, children }) => <Link href={href}>{children}</Link>,
   // A link, never a fetch: the CSP's `img-src 'self' blob:` would draw it broken.
-  img: ({ src, alt }) => (
-    <Link href={typeof src === "string" ? src : undefined}>{alt || src}</Link>
-  ),
+  img: Picture,
 };
 
 /** The parts of an mdast node `proseText` reads. */

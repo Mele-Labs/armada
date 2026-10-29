@@ -241,6 +241,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::ActOnSessionMcp,
     ) -> impl Future<Output = Result<ipc::SessionMcpActed, Refusal>> + Send;
 
+    /// `start_again`: sends again the turns a Job's process would not start for.
+    fn start_again(
+        self: std::sync::Arc<Self>,
+        asked: ipc::StartAgain,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `resume_session`: takes a slot again at the branch tip, or waits for one.
     fn resume_session(
         self: std::sync::Arc<Self>,

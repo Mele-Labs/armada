@@ -1545,3 +1545,54 @@ export const DraftSentBack: Story = {
     await expect(within(card).queryByRole("button", { name: /^(Approve|Edit|Note)$/ })).toBeNull();
   },
 };
+
+const NOT_STARTED: SessionThreadRow = { id: "n1", at: "14:09:00", kind: "not_started", why: "Did not start: the agent did not come up within 10 seconds", log: ["error: unknown option '--resume'", "usage: agent [flags]"] };
+
+/** A Job whose agent never came up: the cause is the line, the error lines stay folded until pressed open, and Start again and Report call their handlers. */
+export const StartFailed: Story = {
+  args: { rows: [NOT_STARTED], onStartAgain: fn(), onReport: fn() },
+  play: async ({ canvas, args }) => {
+    const line = within(canvas.getByRole("region", { name: "Failed to start" }));
+    await expect(line.getByText("Did not start: the agent did not come up within 10 seconds")).toBeVisible();
+    await expect(line.queryByText(/unknown option/)).toBeNull();
+    await userEvent.click(line.getByRole("button", { name: "Error lines" }));
+    await expect(line.getByText(/unknown option '--resume'/)).toBeVisible();
+    await expect(line.getByText(/usage: agent \[flags\]/)).toBeVisible();
+    await userEvent.click(line.getByRole("button", { name: "Error lines" }));
+    await expect(line.queryByText(/unknown option/)).toBeNull();
+    await userEvent.click(line.getByRole("button", { name: "Start again" }));
+    await expect(args.onStartAgain).toHaveBeenCalledTimes(1);
+    await userEvent.click(line.getByRole("button", { name: "Report" }));
+    await expect(args.onReport).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Where the host serves neither act, and the agent left no error lines, the line is the cause alone: no press is drawn. */
+export const StartFailedWithNothingToPress: Story = {
+  args: { rows: [{ ...NOT_STARTED, log: [] } as SessionThreadRow] },
+  play: async ({ canvas }) => {
+    const line = within(canvas.getByRole("region", { name: "Failed to start" }));
+    await expect(line.getByText("Did not start: the agent did not come up within 10 seconds")).toBeVisible();
+    await expect(line.queryByRole("button")).toBeNull();
+  },
+};
+
+/** Each press is absent when its handler is: with only Report served, Start again is not drawn. */
+export const StartFailedPressesFollowTheirHandlers: Story = {
+  args: { rows: [NOT_STARTED], onReport: fn() },
+  play: async ({ canvas }) => {
+    const line = within(canvas.getByRole("region", { name: "Failed to start" }));
+    await expect(line.getByRole("button", { name: "Report" })).toBeInTheDocument();
+    await expect(line.queryByRole("button", { name: "Start again" })).toBeNull();
+  },
+};
+
+/** And with only Start again served, Report is not drawn. */
+export const StartFailedWithoutReport: Story = {
+  args: { rows: [NOT_STARTED], onStartAgain: fn() },
+  play: async ({ canvas }) => {
+    const line = within(canvas.getByRole("region", { name: "Failed to start" }));
+    await expect(line.getByRole("button", { name: "Start again" })).toBeInTheDocument();
+    await expect(line.queryByRole("button", { name: "Report" })).toBeNull();
+  },
+};

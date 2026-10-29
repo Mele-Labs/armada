@@ -20,6 +20,7 @@ import { TerminalPanel } from "./terminal";
 import { BrowserSide } from "../job-browser/BrowserSide";
 import { RunPanel } from "./run";
 import { TeachSide } from "./teach";
+import { AttachmentsProvided } from "../attachments-provided";
 import { WatchPanel } from "./watch";
 import { usePanelReads } from "./reads";
 import { openInPanel, usePanel } from "./store";
@@ -44,6 +45,7 @@ export function SharedPanelHost() {
   if (reads === undefined) return null;
   const onOpenLink = (address: string) => void openLink(address);
   return (
+    <AttachmentsProvided>
     <ProseRefs.Provider value={refs}>
     <OverTheApp open={open !== undefined}>
       {open === undefined ? null : open.kind === "pr" ? (
@@ -79,5 +81,6 @@ export function SharedPanelHost() {
       ) : null}
     </OverTheApp>
     </ProseRefs.Provider>
+    </AttachmentsProvided>
   );
 }

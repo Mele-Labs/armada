@@ -268,9 +268,15 @@ fn only_reads(said: &str) -> bool {
                 || word.starts_with("-fprint")
                 || *word == "-fls"
         });
+    // `sed` prints unless it edits in place (`-i`, `-ni`, `-i.bak`, `--in-place`).
+    let sed_edits = program == "sed"
+        && arguments.iter().any(|word| {
+            word.starts_with("--in-place")
+                || (word.starts_with('-') && !word.starts_with("--") && word[1..].contains('i'))
+        });
     // `sqlite3 -readonly` opens a database it cannot change.
     let reads_a_database = program == "sqlite3" && arguments.contains(&"-readonly");
-    (READERS.contains(&program) && !find_acts) || reads_a_database
+    (READERS.contains(&program) && !find_acts) || (program == "sed" && !sed_edits) || reads_a_database
 }
 
 /// The words in front of a segment's program: a leading `env` or `command`, and the keywords that

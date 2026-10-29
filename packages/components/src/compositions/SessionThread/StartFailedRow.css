@@ -1,0 +1,48 @@
+/* Fleet's line for a Job whose agent never came up: the ruled line of the other Fleet lines, in the failed hue, with a column each for
+   the error lines' chevron and the two presses, so the presses sit in the same place however long the cause runs. */
+.armada-session-start-failed {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  min-width: 0;
+  padding-block: var(--space-1);
+  border-block: var(--border-width) dashed var(--border-default);
+  color: var(--status-completed-failed);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-start-failed__mark,
+.armada-session-start-failed__col {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.armada-session-start-failed__why {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-session-start-failed__col {
+  color: var(--fg-muted);
+}
+
+.armada-session-start-failed__at {
+  color: var(--fg-subtle);
+}
+
+/* The agent's own words: mono, a few lines, folded until the chevron opens them. */
+.armada-session-start-failed__log {
+  grid-column: 1 / -1;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

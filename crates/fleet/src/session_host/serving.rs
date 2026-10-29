@@ -463,6 +463,12 @@ where
         })
     }
 
+    async fn start_again(self: Arc<Self>, asked: ipc::StartAgain) -> Result<SessionRecord, Refusal> {
+        let id = asked.session_id.as_str().to_string();
+        self.session_and_hosting(&id).await?;
+        self.started_again(&id).await
+    }
+
     async fn resume_session(self: Arc<Self>, asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
         self.session_resumed(asked).await
     }
