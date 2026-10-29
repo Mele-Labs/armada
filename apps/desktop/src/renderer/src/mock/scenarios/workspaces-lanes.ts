@@ -3,7 +3,7 @@
 // Workspace, a lifecycle or a rule yet. The walk `workspaces-lanes` plays it.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
-import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository, workflow } from "@armada/screens/src/fixtures/repository";
 
 import { connected } from "../moment";
@@ -31,19 +31,38 @@ const STORE_API: RepositorySummary = {
 };
 
 const STEPS = ["Plan", "Build", "Open PR", "Get it ready", "Answer reviews", "Land"];
-const day = (time: string) => `2026-10-28T${time}:00Z`;
+
+/** The mock's one clock: a time today, which the lanes' chips, the rail's steps and the thread's rows all read. The thread's own rows are stamped as `HH:MM:SS`. */
+const local = (time: string) => {
+  const [hours, minutes] = time.split(":").map(Number);
+  return new Date(new Date().setHours(hours!, minutes!, 0, 0)).toISOString();
+};
 
 /** When each step began, up to the one the Job is at. */
 const VISITS = [
-  { step: 0, since: day("12:04") },
-  { step: 1, since: day("12:12") },
-  { step: 2, since: day("12:31") },
-  { step: 3, since: day("12:40") },
-  { step: 4, since: day("13:02") },
-  { step: 5, since: day("13:20") },
+  { step: 0, since: local("12:04") },
+  { step: 1, since: local("12:12") },
+  { step: 2, since: local("12:31") },
+  { step: 3, since: local("12:40") },
+  { step: 4, since: local("13:02") },
+  { step: 5, since: local("13:20") },
 ] as const;
 
+/** The pull request a Job opened, as the thread's ledger and the rail's route read it. */
+const pull = (number: number, state: "draft" | "open" | "merged"): SessionAttachment => ({
+  kind: "pull_request",
+  number,
+  title: number === 812 ? "Add gift cards to the cart" : "Fix cart rounding",
+  branch: number === 812 ? "feat/gift-cards" : "fix/cart-rounding",
+  address: `https://git.example/store-web/pull/${number}`,
+  checks: { state: "passed" },
+  state,
+  auto: false,
+});
+
 const brief: SessionRow = { id: "gc-1", at: "11:58:00", kind: "message", from: { kind: "you" }, text: "Add gift cards to the cart. Tickets ARM-41 and ARM-42." };
+const SENT_AT = "14:04:10";
+const SKIPPED_AT = "14:05:00";
 
 const jobA: Session = {
   id: JOB,
@@ -69,10 +88,10 @@ const jobOther: Session = {
   standing: "replied",
   lastTurnAt: new Date().toISOString(),
   rows: [{ id: "ct-1", at: "09:02:00", kind: "message", from: { kind: "you" }, text: "The cart total is a cent off when a discount applies. ARM-52." }],
-  attachments: [],
+  attachments: [pull(815, "merged")],
   work: {
     proposal: { workflow: "feature", picked: ["workflow"] },
-    workflow: { name: "feature", steps: STEPS, at: 5, visits: VISITS.slice() },
+    workflow: { name: "feature", steps: STEPS, at: STEPS.length, visits: VISITS.slice() },
   },
   lanes: jobB(),
 };
@@ -81,7 +100,10 @@ const ASK_ID = "draft:ra-1";
 const ASK_TITLE = "Review ask for PR #812";
 const ASK_TEXT = "Maya, Jun: PR #812 adds gift cards to the cart and the balance endpoint. Could you review it today?";
 
-const reply = (id: string, text: string): SessionRow => ({ id, at: new Date().toISOString(), kind: "message", from: { kind: "agent" }, text });
+const reply = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
+
+/** The pull request's state at a moment: a draft when it opens, open once reviewers are on, merged when Land is done. */
+const prAt = (moment: number) => (moment >= 6 ? "merged" : moment >= 3 ? "open" : "draft");
 
 function sessions() {
   const store = sessionsStore([jobA, jobOther]);
@@ -90,15 +112,29 @@ function sessions() {
   const sent: string[] = [];
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
-  /** The Job at a moment: its lanes, and the step the rail is on. */
+  /** The Job at a moment: its lanes, the step the rail is on, its pull request, and whether it is done. */
   const at = (n: number) => (one: Session): Session => {
     const lanes = jobAt(n, sent);
+    const step = Math.max(0, Math.min(lanes.at, STEPS.length));
+    const { done, standing, ...rest } = one;
+    void done;
+    void standing;
     return {
-      ...one,
+      ...rest,
       lanes,
-      work: { ...one.work, workflow: { name: "feature", steps: STEPS, at: Math.max(0, Math.min(lanes.at, STEPS.length - 1)), visits: VISITS.slice(0, Math.max(0, Math.min(lanes.at, STEPS.length - 1)) + 1) } },
+      attachments: [...one.attachments.filter((it) => it.kind !== "pull_request"), ...(n >= 2 ? [pull(812, prAt(n))] : [])],
+      work: { ...one.work, workflow: { name: "feature", steps: STEPS, at: step, visits: VISITS.slice(0, Math.min(step, STEPS.length - 1) + 1) } },
+      // The deploy is healthy and the tickets are closed: nothing is left, and the row reads done.
+      standing: n >= 7 ? "done" : "replied",
+      ...(n >= 7 ? { done: { since: local("13:52") } } : {}),
     };
   };
+  /** The review ask is sent: its card settles and the item goes. */
+  const settled = (one: Session): Session => ({
+    ...one,
+    rows: one.rows.map((row) => (row.id === "ra-1" && row.kind === "draft" && row.settled === undefined ? { ...row, settled: { how: "approved" as const, at: "12:44:00" } } : row)),
+    waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ASK_ID),
+  });
   return {
     ...store,
     get: () => {
@@ -113,40 +149,43 @@ function sessions() {
       moment = Math.min(moment + 1, 7);
       store.edit(JOB, (one) => {
         const next = at(moment)(one);
-        // The review ask is drafted for his press: a card in the thread and a Needs you item.
+        // The review ask is drafted for his press: a card in the thread and an item the rail carries.
         if (moment === 3) {
           const item: WaitingItem = { id: ASK_ID, text: ASK_TITLE, since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ASK_ID }, options: [{ label: "Approve" }] };
-          return { ...next, rows: [...next.rows, { id: "ra-1", at: new Date().toISOString(), kind: "draft", title: ASK_TITLE, text: ASK_TEXT }], waitingFor: [item] };
+          return { ...next, rows: [...next.rows, { id: "ra-1", at: "12:40:00", kind: "draft", title: ASK_TITLE, text: ASK_TEXT }], waitingFor: [item] };
+        }
+        // Merged: the ask a person never sent has nothing left to wait for.
+        if (moment >= 6 && !sent.includes("ask")) {
+          sent.push("ask");
+          return at(moment)(settled(next));
         }
         return next;
       });
     },
-    // The ask is sent: the card settles and the item goes.
     answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; fixed?: string }) => {
       if (itemId !== ASK_ID) return store.answerWaiting?.(id, itemId, given);
-      store.edit(id, (one) => ({
-        ...one,
-        rows: one.rows.map((row) => (row.id === "ra-1" && row.kind === "draft" ? { ...row, settled: { how: "approved" as const, at: new Date().toISOString() } } : row)),
-        waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ASK_ID),
-      }));
+      if (!sent.includes("ask")) sent.push("ask");
+      store.edit(id, (one) => at(moment)(settled(one)));
     },
     // A comment sent to the Job: it reads as sent on the lane.
     sendComment: (id: string, comment: string) => {
       if (!sent.includes(comment)) sent.push(comment);
       store.edit(id, at(moment));
     },
-    // The person tells this Job to skip the deploy watch: the Deploy lane marks the change.
+    // The person tells this Job to skip the deploy watch: the Deploy lane marks the change. The message and the reply are stamped on the mock's clock.
     send: (id: string, message: Parameters<typeof store.send>[1]) => {
+      const had = new Set((store.get().find((one) => one.id === id)?.rows ?? []).map((row) => row.id));
       store.send(id, message);
-      if (id !== JOB || !/skip the deploy watch/i.test(message.text)) return;
+      if (id !== JOB) return;
+      store.edit(JOB, (one) => ({ ...one, rows: one.rows.map((row) => (had.has(row.id) ? row : { ...row, at: SENT_AT })) }));
+      if (!/skip the deploy watch/i.test(message.text)) return;
       moment = 8;
       window.setTimeout(
         () =>
           store.edit(JOB, (one) => ({
             ...at(8)(one),
             turn: { state: "idle" },
-            standing: "replied",
-            rows: [...one.rows, reply("gc-skip", "Skipping the deploy watch on this Job.")],
+            rows: [...one.rows, reply("gc-skip", SKIPPED_AT, "Skipping the deploy watch on this Job.")],
           })),
         900,
       );

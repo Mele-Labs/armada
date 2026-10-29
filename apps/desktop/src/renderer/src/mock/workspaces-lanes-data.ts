@@ -2,7 +2,7 @@
 // under, and a Job's lanes at each moment of the walk `workspaces-lanes`. **A mock's model**: no Fleet serves a Workspace, a lifecycle or a rule yet
 // (`docs/design`, Workspaces, lifecycles and rules). Only `scenarios/workspaces-lanes.ts` reads this.
 
-import type { CommentRead, Instance, JobLanes, Lifecycle, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
+import type { CommentRead, Fired, Instance, JobLanes, Lifecycle, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
 
 import type { Definition } from "./workflows-managed";
 
@@ -62,7 +62,7 @@ const TICKET: Lifecycle = {
         { source: "Jira", values: ["Peer Review"], scope: API },
       ],
     },
-    { id: "done", label: "Done", col: 8, end: true, reads: [{ source: "Jira", values: ["Done", "Closed"], scope: "workspace" }] },
+    { id: "done", label: "Done", col: 9, end: true, reads: [{ source: "Jira", values: ["Done", "Closed"], scope: "workspace" }] },
   ],
   next: [
     ["todo", "in_progress"],
@@ -77,12 +77,14 @@ const PULL_REQUEST: Lifecycle = {
   from: "GitHub",
   states: [
     { id: "draft", label: "Draft", col: 2, reads: [{ source: "GitHub", values: ["Draft"], scope: "workspace" }] },
-    { id: "in_review", label: "In review", col: 3, reads: [{ source: "GitHub", values: ["Ready for review", "Review requested"], scope: "workspace" }] },
-    { id: "approved", label: "Approved", col: 5, reads: [{ source: "GitHub", values: ["Approved by a reviewer"], scope: "workspace" }] },
-    { id: "merged", label: "Merged", col: 6, end: true, reads: [{ source: "GitHub", values: ["Merged"], scope: "workspace" }] },
+    { id: "reviewers_on", label: "Reviewers on", col: 4, reads: [{ source: "GitHub", values: ["Review requested"], scope: "workspace" }] },
+    { id: "in_review", label: "In review", col: 5, reads: [{ source: "GitHub", values: ["Ready for review", "Review comments"], scope: "workspace" }] },
+    { id: "approved", label: "Approved", col: 6, reads: [{ source: "GitHub", values: ["Approved by a reviewer"], scope: "workspace" }] },
+    { id: "merged", label: "Merged", col: 7, end: true, reads: [{ source: "GitHub", values: ["Merged"], scope: "workspace" }] },
   ],
   next: [
-    ["draft", "in_review"],
+    ["draft", "reviewers_on"],
+    ["reviewers_on", "in_review"],
     ["in_review", "approved"],
     ["approved", "merged"],
   ],
@@ -93,8 +95,8 @@ const DEPLOY: Lifecycle = {
   label: "Deploy",
   from: "Rollout watch",
   states: [
-    { id: "rolling_out", label: "Rolling out", col: 7, reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "workspace" }] },
-    { id: "healthy", label: "Healthy", col: 8, end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "workspace" }] },
+    { id: "rolling_out", label: "Rolling out", col: 8, reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "workspace" }] },
+    { id: "healthy", label: "Healthy", col: 9, end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "workspace" }] },
   ],
   next: [["rolling_out", "healthy"]],
 };
@@ -134,18 +136,13 @@ const REVIEW: Rule = {
 const ASK: Rule = {
   id: "ask",
   label: "Ask for review",
-  from: { lane: "workflow", item: "open_pr" },
-  at: "ends",
-  to: { lane: "pull_request", item: "in_review" },
+  from: { lane: "pull_request", item: "reviewers_on" },
+  to: { lane: "workflow", item: "get_it_ready" },
   ifs: [],
-  does: [
-    { act: "message", text: "Draft the review ask to the reviewers" },
-    { act: "forge", text: "Request the reviewers on the pull request" },
-  ],
+  does: [{ act: "message", text: "Draft the review ask to the reviewers" }],
   autonomy: "asks",
   kept: "armada",
   scope: "workspace",
-  labelAt: 0.25,
 };
 
 const TRIAGE: Rule = {
@@ -161,7 +158,6 @@ const TRIAGE: Rule = {
   autonomy: "acts",
   kept: "armada",
   scope: "workspace",
-  labelAt: 0.75,
 };
 
 const DEPLOY_WATCH: Rule = {
@@ -199,7 +195,6 @@ export const CLOSE: Rule = {
   autonomy: "acts",
   kept: "yours",
   scope: "workspace",
-  labelAt: 0.4,
 };
 
 export const MY_STORE: Workspace = {
@@ -213,9 +208,9 @@ export const MY_STORE: Workspace = {
     plan: { col: 0 },
     build: { col: 1 },
     open_pr: { col: 2 },
-    get_it_ready: { col: 3 },
-    answer_reviews: { col: 4 },
-    land: { col: 5, endsOn: { lane: "pull_request", state: "approved" } },
+    get_it_ready: { col: 4 },
+    answer_reviews: { col: 5 },
+    land: { col: 6, endsOn: { lane: "pull_request", state: "approved" } },
   },
   lifecycles: LIFECYCLES,
   rules: [PROGRESS, REVIEW, ASK, TRIAGE, DEPLOY_WATCH, CLOSE_ON_MERGE],
@@ -226,8 +221,16 @@ export const PROPOSALS: readonly { asked: string; rule: Rule }[] = [{ asked: "cl
 
 // ---- A Job in it ----------------------------------------------------------------------------------------------------------
 
-const COPY_STEPS = STEPS.map((one, at) => ({ id: one.id, label: one.label, col: at, ...(one.id === "land" ? { endsOn: { lane: "pull_request" as const, state: "approved" } } : {}) }));
+const COPY_STEPS = STEPS.map((one) => ({ id: one.id, label: one.label, col: MY_STORE.steps[one.id]!.col, ...(one.id === "land" ? { endsOn: { lane: "pull_request" as const, state: "approved" } } : {}) }));
 const COPY_RULES = [...MY_STORE.rules, CLOSE];
+
+/** The states a pull request went through to stand in each. */
+const PR_SEEN: Record<string, readonly string[]> = {
+  draft: ["draft"],
+  reviewers_on: ["draft", "reviewers_on"],
+  in_review: ["draft", "reviewers_on", "in_review"],
+  merged: ["draft", "reviewers_on", "in_review", "approved", "merged"],
+};
 
 const instance = (id: string, lifecycle: Instance["lifecycle"], label: string, state: string, visited: readonly string[], rest: Partial<Instance> = {}): Instance => ({ id, lifecycle, label, state, visited, ...rest });
 
@@ -241,8 +244,9 @@ const COMMENTS: readonly { id: string; author: string; where: string; text: stri
 export const triaged = (sent: readonly string[]): TriagedComment[] => COMMENTS.map((one) => ({ ...one, ...(sent.includes(one.id) ? { sent: true as const } : {}) }));
 
 /**
- * Job A, `ARM-41` and `ARM-42`, at a moment of the walk: 0 dispatched, 1 Plan starts, 2 the PR opens, 3 the review ask waits, 4 comments are triaged,
- * 5 Land waits on the approval, 6 merged and rolling out, 7 healthy and the tickets closed, 8 the deploy watch skipped.
+ * Job A, `ARM-41` and `ARM-42`, at a moment of the walk: 0 dispatched, 1 Plan starts, 2 the PR opens, 3 reviewers are on and the review ask waits, 4 comments are triaged,
+ * 5 Land waits on the approval, 6 merged and rolling out, 7 healthy and the tickets closed, 8 the deploy watch skipped. `sent` is what the person has sent: a comment's id, or `ask`.
+ * The times are the mock's one clock; the thread's rows and the rail's steps are stamped from it (`scenarios/workspaces-lanes.ts`).
  */
 export function jobAt(moment: number, sent: readonly string[] = []): SessionLanes {
   const at = [-1, 0, 2, 3, 4, 5, 6, 6, 6][moment]!;
@@ -250,28 +254,30 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
   const walked = ["todo", "in_progress", "in_review", "done"];
   const seen = walked.slice(0, walked.indexOf(ticket) + 1);
   const assignee = moment >= 1 ? { assignee: "you" } : {};
-  const pr = moment >= 6 ? "merged" : moment >= 3 ? "in_review" : "draft";
-  const prSeen = moment >= 6 ? ["draft", "in_review", "approved", "merged"] : moment >= 3 ? ["draft", "in_review"] : ["draft"];
+  const pr = moment >= 6 ? "merged" : moment >= 4 ? "in_review" : moment >= 3 ? "reviewers_on" : "draft";
+  const prSeen = PR_SEEN[pr]!;
+  const reviewers = { says: { reviewers_on: "Maya, Jun" } };
   const instances: Instance[] = [
     instance("arm-41", "ticket", "ARM-41", ticket, seen, { title: "Add gift cards to the cart", ...assignee }),
     instance("arm-42", "ticket", "ARM-42", ticket, seen, { title: "Gift card balance endpoint", ...assignee }),
-    ...(moment >= 2 ? [instance("pr-812", "pull_request", "PR #812", pr, prSeen)] : []),
+    ...(moment >= 2 ? [instance("pr-812", "pull_request", "PR #812", pr, prSeen, reviewers)] : []),
     ...(moment >= 6 ? [instance("deploy", "deploy", "Deploy", moment >= 7 ? "healthy" : "rolling_out", moment >= 7 ? ["rolling_out", "healthy"] : ["rolling_out"])] : []),
   ];
-  const fired = [
-    ...(moment >= 1 ? ["arm-41", "arm-42"].map((one) => ({ rule: "progress", instance: one, outcome: "acted" as const, at: "12:04" })) : []),
-    ...(moment >= 2 ? ["arm-41", "arm-42"].map((one) => ({ rule: "review", instance: one, outcome: "acted" as const, at: "12:31" })) : []),
-    ...(moment >= 3 ? [{ rule: "ask", instance: "pr-812", outcome: "asked" as const, at: "12:40" }] : []),
-    ...(moment >= 4 ? [{ rule: "triage", instance: "pr-812", outcome: "acted" as const, at: "13:02" }] : []),
-    ...(moment >= 6 ? [{ rule: "deploy", instance: "deploy", outcome: "acted" as const, at: "13:40" }] : []),
-    ...(moment >= 7 ? ["arm-41", "arm-42"].map((one) => ({ rule: "close", instance: one, outcome: "acted" as const, at: "13:52" })) : []),
+  const asked = sent.includes("ask");
+  const fired: Fired[] = [
+    ...(moment >= 1 ? ["arm-41", "arm-42"].map((one) => ({ rule: "progress", instance: one, outcome: "acted" as const, at: "12:04", did: "Assigned to you, moved to In progress" })) : []),
+    ...(moment >= 2 ? ["arm-41", "arm-42"].map((one) => ({ rule: "review", instance: one, outcome: "acted" as const, at: "12:31", did: "Moved to In review" })) : []),
+    ...(moment >= 3 ? [{ rule: "ask", instance: "pr-812", outcome: asked ? ("acted" as const) : ("asked" as const), at: asked ? "12:44" : "12:40", did: asked ? "Review ask sent" : "Review ask drafted" }] : []),
+    ...(moment >= 4 ? [{ rule: "triage", instance: "pr-812", outcome: "acted" as const, at: "13:02", did: "Comments read" }] : []),
+    ...(moment >= 6 ? [{ rule: "deploy", instance: "deploy", outcome: "acted" as const, at: "13:40", did: "Started the rollout watch" }] : []),
+    ...(moment >= 7 ? ["arm-41", "arm-42"].map((one) => ({ rule: "close", instance: one, outcome: "acted" as const, at: "13:52", did: "Moved to Done" })) : []),
   ];
   const job: JobLanes = {
     workspace: MY_STORE.id,
     copy: { steps: COPY_STEPS, lifecycles: LIFECYCLES, rules: COPY_RULES },
     instances,
     fired,
-    changes: moment >= 8 ? [{ id: "skip-deploy-watch", lane: "deploy", text: "Skip the deploy watch", at: "14:05" }] : [],
+    changes: moment >= 8 ? [{ id: "skip-deploy-watch", lane: "deploy", item: "rolling_out", text: "Skip the deploy watch", at: "14:05" }] : [],
     ...(moment === 5 ? { waitingOn: { step: "land", instance: "pr-812", state: "approved" } } : {}),
     ...(moment >= 4 && moment <= 5 ? { triage: { instance: "pr-812", comments: triaged(sent) } } : {}),
   };
@@ -285,13 +291,13 @@ export function jobB(): SessionLanes {
     copy: { steps: COPY_STEPS, lifecycles: LIFECYCLES, rules: COPY_RULES },
     instances: [
       instance("arm-52", "ticket", "ARM-52", "in_review", ["todo", "in_progress", "in_review"], { title: "Cart totals are a cent off", assignee: "you" }),
-      instance("pr-815", "pull_request", "PR #815", "merged", ["draft", "in_review", "approved", "merged"]),
+      instance("pr-815", "pull_request", "PR #815", "merged", PR_SEEN.merged!, { says: { reviewers_on: "Maya" } }),
       instance("deploy-815", "deploy", "Deploy", "rolling_out", ["rolling_out"]),
     ],
     fired: [
-      { rule: "progress", instance: "arm-52", outcome: "acted", at: "09:12" },
-      { rule: "review", instance: "arm-52", outcome: "acted", at: "09:48" },
-      { rule: "deploy", instance: "deploy-815", outcome: "acted", at: "10:20" },
+      { rule: "progress", instance: "arm-52", outcome: "acted", at: "09:12", did: "Assigned to you, moved to In progress" },
+      { rule: "review", instance: "arm-52", outcome: "acted", at: "09:48", did: "Moved to In review" },
+      { rule: "deploy", instance: "deploy-815", outcome: "acted", at: "10:20", did: "Started the rollout watch" },
     ],
     changes: [],
   };

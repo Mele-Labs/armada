@@ -1,7 +1,7 @@
 // The Job's Lanes, as a layer over its stage: the workflow as the top lane and a lane under it for each ticket, pull request and deploy the Job holds (`LaneCanvas`),
 // with the comments on the pull request under the canvas while it is in review. It takes the stage and not the spine, so the strip stays on show and the same press or
 // Esc closes it, as the Field large does. **A mock's view**: the lanes are fixtures, and Send to Job marks a comment sent through the draft and reaches no agent.
-// Keys: the canvas's own (arrows step between nodes, R and Shift R go round the rules, Esc lets go of the pick); a second Esc is Back. Tab leaves the canvas for the comments.
+// Keys: the canvas's own (arrows step between nodes, ] and [ go to the next and the previous rule, Esc lets go of the pick); a second Esc is Back. Tab leaves the canvas for the comments.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ExternalLink, MessageSquareDiff, MessageSquareOff, MessageSquareReply, Send, X, type LucideIcon } from "lucide-react";
@@ -21,19 +21,18 @@ const READ: Record<CommentRead, { Glyph: LucideIcon; said: string }> = {
 };
 
 /**
- * One human comment: the agent's read, who wrote it and where, the words, and the two acts in columns of their own at the trailing edge. A comment that was sent keeps its row
- * and its place, and a mark in a column of its own says so. Open in PR leaves the row as it is: the mock has no pull request to go to.
+ * One human comment: the agent's read as its glyph and its words in a column of one width, who wrote it and where, the words, and the two acts in columns of their own at the trailing edge.
+ * A comment that was sent keeps its row and its place, and a mark in a column of its own says so. Open in PR leaves the row as it is: the mock has no pull request to go to.
  */
 function CommentRow({ comment, send }: { comment: TriagedComment; send: (() => void) | undefined }) {
   const { Glyph, said } = READ[comment.read];
   const who = `${comment.author} on ${comment.where}`;
   return (
     <li className="sv-lanes__comment" data-read={comment.read} data-sent={comment.sent || undefined}>
-      <Tooltip asChild label={said}>
-        <span className="sv-lanes__read" role="img" aria-label={said}>
-          <Glyph size={16} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
+      <span className="sv-lanes__read">
+        <Glyph size={16} strokeWidth={2} aria-hidden />
+        <span>{said}</span>
+      </span>
       <div className="sv-lanes__words">
         <div className="sv-lanes__who">
           <span className="sv-lanes__author">{comment.author}</span>
@@ -103,7 +102,7 @@ export function LanesLayer({ session, lanes }: { session: Session; lanes: Sessio
   }, []);
 
   return (
-    <section className="sv-layer" aria-label="Lanes" data-keeps-escape="" data-owns-keys="r">
+    <section className="sv-layer" aria-label="Lanes" data-keeps-escape="" data-owns-keys="[ ]">
       <header className="sv-layer__head">
         <h3 className="sv-layer__title">Lanes</h3>
         <Tooltip label="Back" shortcut="Esc">

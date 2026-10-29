@@ -9,11 +9,11 @@
 .sv-lanes__triage-head { flex: none; margin: 0; padding: var(--space-1) var(--space-3); border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
 .sv-lanes__comments { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; }
 
-/* A row is a grid: the read, the words, then a column each for the sent mark and the two acts, kept whether a row carries them or not. The acts share the centre line of the first line. */
-.sv-lanes__comment { display: grid; grid-template-columns: var(--space-6) minmax(0, 1fr) var(--h-control-sm) var(--h-control-sm) var(--h-control-sm); column-gap: var(--space-2); align-items: start; padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); }
+/* A row is a grid: the read (its glyph and its words, in a column that is one width on every row), the words, then a column each for the sent mark and the two acts, kept whether a row carries them or not. The acts share the centre line of the first line. */
+.sv-lanes__comment { display: grid; grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) var(--h-control-sm) var(--h-control-sm) var(--h-control-sm); column-gap: var(--space-2); align-items: start; padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); }
 .sv-lanes__comment + .sv-lanes__comment { border-top: var(--border-width) solid var(--border-subtle); }
 .sv-lanes__read, .sv-lanes__sent { display: inline-flex; align-items: center; justify-content: center; height: var(--h-control-sm); }
-.sv-lanes__read { color: var(--fg-muted); }
+.sv-lanes__read { justify-content: flex-start; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
 .sv-lanes__comment[data-read="change"] .sv-lanes__read { color: var(--fg-default); }
 .sv-lanes__comment[data-read="skip"] .sv-lanes__read { color: var(--fg-subtle); }
 .sv-lanes__sent { color: var(--step-advanced); }

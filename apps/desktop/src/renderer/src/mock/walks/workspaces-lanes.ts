@@ -18,6 +18,7 @@ const views = role("toolbar", "Views", { exact: true });
 const lanes = button("Lanes", { exact: true });
 const JOB_LANES = region("Lanes", { exact: true });
 const node = (name: string) => inside(JOB_LANES, button(name, { exact: true }));
+const ASK_CARD = role("article", "Draft: Review ask for PR #812", { exact: true });
 
 export const workspacesLanes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
@@ -31,7 +32,8 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { press: inside(SCOPE, tab("my-store", { exact: true })), say: "Back to the Workspace" },
   { press: inside(LANES, button("Move to In review", { exact: true })), say: "A rule, the edge from the PR lane to the Ticket lane" },
   { look: inside(INSPECTOR, role("radio", "Acts")), say: "When the PR opens, move the ticket to In review. Autonomy is Acts" },
-  { key: "r", on: role("group", "Lanes of feature"), say: "R goes round the rules" },
+  { key: "]", on: role("group", "Lanes of feature"), say: "] goes to the next rule, and [ to the one before" },
+  { look: inside(INSPECTOR, role("radio", "Asks")), say: "The inspector follows to Ask for review: when the PR has reviewers on, draft the ask. Autonomy is Asks" },
   { press: inside(YOURS, button("feature", { exact: true })), say: "Yours, a copy that can be changed" },
   { type: "close the ticket once merged and the deploy is healthy", into: ASK, say: "Tell an agent what to change" },
   { press: button("Send to agent"), say: "Send" },
@@ -44,17 +46,22 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { press: deckRow("Add gift cards to the cart"), say: "A Job dispatched with ARM-41 and ARM-42" },
   { press: inside(views, lanes), say: "Lanes, beside the Job's other views" },
   { later: JOB_LANES, say: "The workflow on top and a lane for each ticket. Both are To do, and the rule that moves them waits for Plan to start" },
-  { later: node("ARM-41: In progress"), say: "Plan starts. The tickets move to In progress and are assigned to you" },
+  { later: node("ARM-41: In progress, assigned to you"), say: "Plan starts. The tickets move to In progress and are assigned to you" },
   { later: node("PR #812: Draft"), say: "The PR opens and gets its own lane. The tickets move to In review" },
-  { later: text("Review ask for PR #812"), say: "Reviewers are assigned, and the review ask waits as a draft for your press" },
+  { look: node("PR #812: Reviewers on"), say: "Reviewers are on the PR, and the review ask waits as a draft for your press" },
+  { hover: node("PR #812: Reviewers on"), say: "The reviewers are named in its tooltip" },
+  { press: inside(views, lanes), say: "Back to the thread, where the draft is" },
+  { press: inside(ASK_CARD, button("Approve")), say: "Approve sends the review ask" },
+  { press: inside(views, lanes), say: "Lanes again" },
+  { later: inside(JOB_LANES, button("Ask for review", { exact: true })), say: "The ask went out, so its rule reads as acted" },
   { later: inside(JOB_LANES, region("Comments on PR #812")), say: "Comments arrive. Triage marks two as needing a change and one as not worth acting on" },
   { later: text("Waiting on PR #812: Approved"), say: "Land waits on the PR being approved" },
   { later: node("Deploy: Rolling out"), say: "Merged. The deploy lane starts, rolling out" },
-  { look: inside(JOB_LANES, button("Close the ticket", { exact: true })), say: "The deploy is healthy, the tickets are closed, and the Job is done" },
+  { look: inside(JOB_LANES, button("Close the ticket", { exact: true })), say: "The deploy is healthy and the tickets are closed. Every step is done, and the Job's row reads done" },
   { press: inside(views, lanes), say: "Back to the thread" },
   { type: "skip the deploy watch on this one\n", into: role("textbox", "Message"), say: "Skip the deploy watch, typed to the agent on this Job" },
   { press: inside(views, lanes), say: "Lanes again" },
-  { look: inside(JOB_LANES, role("img", /^Changed on this Job/)), say: "The Deploy lane marks the change" },
+  { look: inside(JOB_LANES, role("img", /^Changed on this Job/)), say: "The Rolling out state is marked as changed on this Job, with a dashed frame" },
 
   { press: inside(views, lanes), say: "Back to the thread" },
   { press: deckRow("Fix cart rounding"), say: "A second Job, with its deploy still rolling out" },
