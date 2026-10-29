@@ -218,7 +218,7 @@ export type Fired = {
 /** A change made to this Job's own copy, marked on the state of the lane it changes: `lane` is the instance and `item` its state. */
 export type JobChange = { id: string; lane: string; item: string; text: string; at: string };
 
-/** What the agent made of a human comment on the pull request. */
+/** What the agent made of a human comment left on an instance. */
 export type CommentRead = "change" | "answer" | "skip";
 
 export type TriagedComment = { id: string; author: string; where: string; text: string; read: CommentRead; sent?: true };
@@ -232,7 +232,7 @@ export type JobLanes = {
   changes: readonly JobChange[];
   /** The step that is waiting on an instance reaching a state, and which. */
   waitingOn?: { step: string; instance: string; state: string };
-  /** The comments on the pull request while it is in review. */
+  /** The comments left on an instance while it is in review. */
   triage?: { instance: string; comments: readonly TriagedComment[] };
 };
 

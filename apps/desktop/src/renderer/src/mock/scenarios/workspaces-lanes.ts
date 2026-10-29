@@ -207,7 +207,7 @@ function sessions() {
 }
 
 function build(): Scenario {
-  const base: Scenario = { name: "workspaces-lanes", says: "The Workspace my-store: the feature workflow over its Ticket, PR and Deploy lanes, and a Job drawing the same lanes as its tickets, pull request and deploy move", state: connected([workflow()], [STORE_WEB, STORE_API]) };
+  const base: Scenario = { name: "workspaces-lanes", says: "The Workspace my-store: the feature and planning workflows over their lanes, edited by hand in the side panel, and a Job drawing the same lanes as its tickets, pull request and deploy move", state: connected([workflow()], [STORE_WEB, STORE_API]) };
   return {
     ...base,
     state: { ...base.state, repository: STORE_WEB.root, health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting", workflows_left_out: false } } },
