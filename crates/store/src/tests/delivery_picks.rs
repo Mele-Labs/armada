@@ -39,6 +39,26 @@ fn a_hosting_is_held_on_its_start_card_across_a_reopen() {
 }
 
 #[test]
+fn a_workflow_the_person_chose_is_kept_across_a_reopen_and_a_row_from_before_reads_unchosen() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut hosting = crate::tests::session_ledger::hosting("chosen", "armada", false);
+    assert!(!hosting.workflow_chosen, "a hosting is not chosen unless it is put so");
+    hosting.workflow_chosen = true;
+    store.keep_hosting(&hosting).expect("kept");
+    // A row written before the column existed carries only what that migration knew.
+    store
+        .conn
+        .execute("INSERT INTO hosted_sessions (session_id, manifest_id, mode) VALUES ('old', 'armada', 'auto')", [])
+        .expect("an old row");
+    drop(store);
+
+    let store = open(&dir);
+    assert!(store.hosting("chosen").expect("reads").expect("kept").workflow_chosen);
+    assert!(!store.hosting("old").expect("reads").expect("kept").workflow_chosen, "an old row is not chosen");
+}
+
+#[test]
 fn a_held_jobs_first_turn_is_kept_once_survives_a_reopen_and_is_taken_whole() {
     let dir = TempDir::new();
     let mut store = open(&dir);

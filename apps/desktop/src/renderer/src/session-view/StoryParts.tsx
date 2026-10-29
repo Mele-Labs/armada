@@ -146,7 +146,7 @@ const VIEWS: readonly { id: LedgerView; label: string; Glyph: LucideIcon }[] = [
   { id: "kind", label: "By kind", Glyph: Tags },
 ];
 
-/** How Completed is read, as two icon toggles of one radio group. ← → and ↑ ↓ move between them and choose; the key (`story.ts`) flips them. */
+/** How Done is read, as two icon toggles of one radio group. ← → and ↑ ↓ move between them and choose; the key (`story.ts`) flips them. */
 export function LedgerToggle({ view, onChange }: { view: LedgerView; onChange: (next: LedgerView) => void }) {
   const move = (event: KeyboardEvent<HTMLElement>) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];

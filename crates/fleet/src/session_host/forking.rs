@@ -344,6 +344,7 @@ where
                     auto_land: false,
                     mod_job: false,
                     start_held: start.held,
+                    workflow_chosen: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // `spent`, not `standing`: the old session ending gives back what

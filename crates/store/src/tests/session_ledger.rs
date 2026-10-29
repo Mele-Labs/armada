@@ -415,6 +415,7 @@ pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::Ke
         auto_land: false,
         mod_job: false,
         start_held: false,
+        workflow_chosen: false,
     }
 }
 

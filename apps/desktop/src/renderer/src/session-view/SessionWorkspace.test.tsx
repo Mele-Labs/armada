@@ -71,7 +71,7 @@ const press = (init: KeyboardEventInit) => act(() => void window.dispatchEvent(n
 const layer = (side: HTMLElement) => side.querySelector('section.sv-layer[aria-label="Artifacts"]');
 const panels = (side: HTMLElement) => [...side.querySelectorAll("section.sv-panel")].map((one) => one.getAttribute("data-area"));
 
-test("the story is the right column's Completed, Now and Next in order on one timeline, with no layer over it", () => {
+test("the story is the right column's Done, Now and Open in order on one timeline, with no layer over it", () => {
   const { side } = mount();
   expect(panels(side)).toEqual(["done", "now", "next"]);
   expect(side.querySelector(".sv-spine")).not.toBeNull();

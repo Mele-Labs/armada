@@ -14,6 +14,7 @@ use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 
 use super::delivery_gate::workflow;
 use super::session_host::{eventually, rig_fitted, Rig};
+use super::workflow_off::{back_on, off, saved};
 use crate::daemon::Fittings;
 use crate::session_host::address_of;
 use crate::session_host::delivering::delivery_of;
@@ -259,6 +260,85 @@ async fn a_held_job_takes_the_feature_workflow_where_the_repository_holds_one() 
     rig.send_unsettled(&id, FIRST).await;
     read(&rig, &id).await;
     assert_eq!(record(&rig, &id).await.workflow.as_deref(), Some("feature"), "not bug, which sorts first");
+}
+
+/// The repository's workflows `bug`, `chore` and `feature`, which `held_defaulted` chooses among.
+fn three(fittings: &mut Fittings<FakeHarness, FakeVcs, FakeWorkProduct>) {
+    fitted(fittings);
+    fittings.starting().workflows =
+        ["bug", "chore", "feature"].into_iter().map(super::daemon::workflow_named).map(|one| (one.id().clone(), one)).collect();
+}
+
+/// A held Job whose first message has been read: the default has been weighed.
+async fn defaulted(rig: &Rig) -> Option<String> {
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, FIRST).await;
+    read(rig, &id).await;
+    record(rig, &id).await.workflow
+}
+
+#[tokio::test]
+async fn a_held_job_takes_feature_if_it_is_on_else_the_first_that_is_on_else_nothing() {
+    let rig = rig_fitted(three);
+    let here = manifest(&rig);
+    assert_eq!(defaulted(&rig).await.as_deref(), Some("feature"), "feature, with all on");
+
+    saved(&rig, off(&[], &[(&here, &["feature"])])).await;
+    assert_eq!(defaulted(&rig).await.as_deref(), Some("bug"), "feature off: the first that is on");
+    saved(&rig, off(&["bug", "feature"], &[])).await;
+    assert_eq!(defaulted(&rig).await.as_deref(), Some("chore"), "and the next where that is off too, for the machine");
+    saved(&rig, off(&["bug", "feature"], &[(&here, &["chore"])])).await;
+    assert_eq!(defaulted(&rig).await, None, "none on: none taken");
+}
+
+#[tokio::test]
+async fn a_default_that_found_nothing_on_is_not_weighed_so_a_workflow_switched_on_later_is_taken() {
+    let rig = rig_fitted(three);
+    saved(&rig, off(&["bug", "chore", "feature"], &[])).await;
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
+    assert_eq!(record(&rig, &id).await.workflow, None);
+    assert!(!rig.fleet.hosts().of(id.as_str()).state().proposal.defaulted, "nothing was weighed");
+
+    saved(&rig, back_on()).await;
+    rig.fleet.held_defaulted(id.as_str()).await;
+    assert_eq!(record(&rig, &id).await.workflow.as_deref(), Some("feature"), "the next weighing takes it");
+}
+
+#[tokio::test]
+async fn a_none_picked_on_the_card_survives_a_fleet_restart_and_no_default_goes_over_it() {
+    let rig = rig_fitted(three);
+    let id = rig.start_held().await;
+    Arc::clone(&rig.fleet).set_session_workflow(SetSessionWorkflow { session_id: id.clone(), workflow: None }).await.expect("set");
+    let rig = rig.restarted(three);
+
+    rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
+    rig.fleet.held_defaulted(id.as_str()).await;
+    assert_eq!(record(&rig, &id).await.workflow, None, "his None stands");
+    assert_eq!(defaulted(&rig).await.as_deref(), Some("feature"), "where a Job he did not pick for takes its default");
+}
+
+#[tokio::test]
+async fn picking_the_workflow_a_job_already_holds_is_still_a_choice_the_default_does_not_go_over() {
+    let rig = rig_fitted(three);
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
+    let chosen = |rig: &Rig| {
+        let fleet = Arc::clone(&rig.fleet);
+        let id = id.clone();
+        async move { fleet.store().lock().await.hosting(id.as_str()).expect("reads").expect("kept").workflow_chosen }
+    };
+    assert_eq!(record(&rig, &id).await.workflow.as_deref(), Some("feature"), "taken as its default");
+    assert!(!chosen(&rig).await, "a default is not a choice");
+
+    Arc::clone(&rig.fleet)
+        .set_session_workflow(SetSessionWorkflow { session_id: id.clone(), workflow: Some("feature".into()) })
+        .await
+        .expect("set");
+    assert!(chosen(&rig).await, "picking what it holds is a choice, and kept");
 }
 
 #[tokio::test]

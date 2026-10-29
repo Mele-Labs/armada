@@ -67,20 +67,39 @@ where
     pub(crate) fn run_log_retention(&self) -> std::time::Duration {
         self.tuned(|dials| dials.run_log_retention)
     }
-    /// How far this machine lets Helm act rather than only read. **The one
-    /// place `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-
-    /// only` is resolved to a value** — `crate::helm::admitting` is the one
-    /// place it is asked, and the brief and the door both follow that answer.
-    /// `#943`.
-    /// Whether a Session may follow a workflow: `features.workflows`.
-    pub(crate) fn workflows_on(&self) -> bool {
-        self.tuned(|dials| dials.workflows)
+    /// Whether `workflow` may be followed in the repository `manifest`: the main switch is on and
+    /// `workflows.off` names it for neither the machine nor that repository. **The one place the
+    /// two are read together**, so a workflow's offer, its default, its setting and its rail agree.
+    pub(crate) fn workflow_on(&self, manifest: &str, workflow: &str) -> bool {
+        self.tuned(|dials| dials.workflows && !dials.workflows_off.has(manifest, workflow))
+    }
+    /// `held` less every workflow that is off for the repository `manifest`: what a picker or the
+    /// proposer is shown. Nothing, with the main switch off.
+    pub(crate) fn workflows_offered(
+        &self,
+        manifest: &str,
+        held: &Arc<std::collections::BTreeMap<core_model::WorkflowId, config::ResolvedWorkflow>>,
+    ) -> Arc<std::collections::BTreeMap<core_model::WorkflowId, config::ResolvedWorkflow>> {
+        if held.keys().all(|id| self.workflow_on(manifest, id.as_str())) {
+            return Arc::clone(held);
+        }
+        Arc::new(
+            held.iter()
+                .filter(|(id, _)| self.workflow_on(manifest, id.as_str()))
+                .map(|(id, found)| (id.clone(), found.clone()))
+                .collect(),
+        )
     }
     /// Whether a dispute starts a review, and replies are read for one: `features.disputeReviews`.
     pub(crate) fn dispute_reviews_on(&self) -> bool {
         self.tuned(|dials| dials.dispute_reviews)
     }
 
+    /// How far this machine lets Helm act rather than only read. **The one
+    /// place `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-
+    /// only` is resolved to a value** — `crate::helm::admitting` is the one
+    /// place it is asked, and the brief and the door both follow that answer.
+    /// `#943`.
     pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
         self.tuned(|dials| dials.helm_authority)
     }

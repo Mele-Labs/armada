@@ -70,7 +70,8 @@ Why: a Job started on a near miss would be held to steps that are not its work, 
 
 **An id the repository does not hold reads as `none` too.**
 
-**With `features.workflows` off, the proposer is shown no workflows.** It never picks one and still proposes the title, model and effort.
+**With `features.workflows` off, the proposer is shown no workflows**, and with one switched off in `workflows.off` it is shown none of that one for the Job's repository.
+It never picks one that is off and still proposes the title, model and effort.
 
 ## What it reads
 

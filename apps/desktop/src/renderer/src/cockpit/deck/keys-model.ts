@@ -125,7 +125,7 @@ export function keySheetOf(): readonly SheetGroup[] {
     {
       head: "Job open",
       rows: [
-        ...BAND_KEYS.map((one) => ({ keys: [one.cap], does: one.area === "workflow" ? "Choose the workflow" : `Open or fold ${one.area === "done" ? "Completed" : one.area[0]!.toUpperCase() + one.area.slice(1)}` })),
+        ...BAND_KEYS.map((one) => ({ keys: [one.cap], does: one.area === "workflow" ? "Choose the workflow" : `Open or fold ${one.area === "done" ? "Done" : one.area[0]!.toUpperCase() + one.area.slice(1)}` })),
         { keys: [WHOLE_KEY.cap], does: "Blueprint: now or the whole plan" },
         { keys: [ARTIFACTS_KEY.cap], does: "Artifacts over the right column" },
       ],

@@ -1,4 +1,4 @@
-// What a Job has produced, as one list in the order it was produced, for the Completed zone of the story (`StoryColumn.tsx`). Read from what the Job
+// What a Job has produced, as one list in the order it was produced, for the Done zone of the story (`StoryColumn.tsx`). Read from what the Job
 // already holds: the approved plan, the documents and sketches, the files and pages, the commits in the thread, the walks it ended, the issues
 // and pull requests attached, the mods it made and the follow-ups he kept. Nothing is fetched and nothing is guessed from what an agent said.
 //
@@ -82,7 +82,7 @@ export function madeOf(session: Session, entries: readonly LedgerEntry[], opts: 
     const group = plan?.groups.find((one) => issueOfGroup(session, one.issue)?.prs.some((other) => other.number === pr.number) === true)?.id;
     out.push({ shape: "pr", key: `pr:${pr.number}`, bucket: "pull_request", pr, ...(group === undefined ? {} : { group }) });
   }
-  // A follow-up he marked Deferred is settled; the rest are still to come (`StoryColumn.tsx`, Next).
+  // A follow-up he marked Deferred is settled; the rest are still to come (`StoryColumn.tsx`, Open).
   for (const one of session.later ?? []) if (one.confirmed === true) made("issue", row(`later:${one.id}`, CalendarClock, "Deferred", one.text));
   return out;
 }

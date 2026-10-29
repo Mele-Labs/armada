@@ -100,7 +100,7 @@ test("the Brief is the first zone, folded to one line", () => {
   expect(zone(host, "Brief").querySelector("dl")).toBeNull();
 });
 
-test("a Job at a step of a workflow has one zone for each step, in the workflow's order, and no Completed, Now or Next", () => {
+test("a Job at a step of a workflow has one zone for each step, in the workflow's order, and no Done, Now or Open", () => {
   const host = mount();
   expect(zones(host)).toEqual(["Brief", ...STEPS]);
 });
@@ -126,13 +126,13 @@ test("the current step holds Now, with the plan groups not yet started beneath t
   expect(walk.textContent!.indexOf("Live work")).toBeLessThan(walk.textContent!.indexOf("Later work"));
 });
 
-test("the last step holds the landing that Next held", () => {
+test("the last step holds the landing that Open held", () => {
   const host = mount();
   const ahead = zone(host, "Deliver").querySelector('ol[aria-label="Ahead"]')!;
   expect(ahead.textContent).toContain("Pull request");
   expect(ahead.textContent).toContain("Merge queue");
   expect(zone(host, "Refine").querySelector('ol[aria-label="Ahead"]')).toBeNull();
-  expect(host.querySelector('section[aria-label="Next"]')).toBeNull();
+  expect(host.querySelector('section[aria-label="Open"]')).toBeNull();
 });
 
 test("a Walk step not reached yet, with no walk shown, carries the mark for the walk to come", () => {
@@ -190,21 +190,40 @@ test("a finished pull request stands under the step its opening time falls in", 
   expect(zone(host, "Approve plan").textContent).not.toContain("Search the issues");
 });
 
-test("a Job with no workflow keeps Brief, Completed, Now and Next", () => {
+test("a Job with no workflow keeps Brief, Done, Now and Open", () => {
   const host = mount({ workflow: false });
-  expect(zones(host)).toEqual(["Brief", "Completed", "Now", "Next"]);
+  expect(zones(host)).toEqual(["Brief", "Done", "Now", "Open"]);
   expect(host.querySelector(".sv-workflow")).toBeNull();
 });
 
-test("a Job whose workflows are off keeps Brief, Completed, Now and Next", () => {
+test("a Job whose workflows are off keeps Brief, Done, Now and Open", () => {
   const host = mount({ railOff: true });
-  expect(zones(host)).toEqual(["Brief", "Completed", "Now", "Next"]);
+  expect(zones(host)).toEqual(["Brief", "Done", "Now", "Open"]);
 });
 
-test("the Brief sits above Completed and is not drawn inside it", () => {
+test("a Job with no workflow starts with Done folded, Now and Open open, and a press on Done opens it", () => {
   const host = mount({ workflow: false });
-  expect(zone(host, "Completed").textContent).not.toContain("Add an Issues tab beside Reviews");
-  expect(zone(host, "Completed").querySelector('ol[aria-label="By step"]')).not.toBeNull();
+  expect(shut(zone(host, "Done"))).toBe(true);
+  expect(shut(zone(host, "Now"))).toBe(false);
+  expect(shut(zone(host, "Open"))).toBe(false);
+  act(() => band(zone(host, "Done")).click());
+  expect(shut(zone(host, "Done"))).toBe(false);
+});
+
+test("a Job with workflows off folds Done too, and a question it is held on stays in Now, under Waiting on you", () => {
+  const host = mount({ railOff: true, extra: { asked: { questions: [{ question: "Cap retries at 3 or at 5?" }] } as unknown as Session["asked"] } });
+  expect(zones(host)).toEqual(["Brief", "Done", "Now", "Open"]);
+  expect(shut(zone(host, "Done"))).toBe(true);
+  expect(zone(host, "Now").textContent).toContain("Cap retries at 3 or at 5?");
+  expect(zone(host, "Now").getAttribute("data-state")).toBe("asks");
+  expect(zone(host, "Done").textContent).not.toContain("Cap retries at 3 or at 5?");
+  expect(zone(host, "Open").textContent).not.toContain("Cap retries at 3 or at 5?");
+});
+
+test("the Brief sits above Done and is not drawn inside it", () => {
+  const host = mount({ workflow: false });
+  expect(zone(host, "Done").textContent).not.toContain("Add an Issues tab beside Reviews");
+  expect(zone(host, "Done").querySelector('ol[aria-label="By step"]')).not.toBeNull();
 });
 
 test("⌥1 folds and unfolds all the done steps, ⌥2 the current step, ⌥3 the steps to come", () => {
