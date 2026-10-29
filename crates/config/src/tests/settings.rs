@@ -240,6 +240,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::TIME_FORMAT,
         s::ROW_VIEW,
         s::REACH_FOLDERS,
+        s::WORKFLOWS_OFF,
     ] {
         assert_eq!(kinds(key.name()), Kind::Json, "{}", key.name());
     }
@@ -250,7 +251,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 13 + 15 + 28 + 2 + 5 + s::prompt_keys().count();
+    let handles = 21 + 13 + 15 + 28 + 2 + 6 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
