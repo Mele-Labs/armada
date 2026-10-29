@@ -1217,12 +1217,17 @@ where
     }
 
     /// `reopen_waiting`: let an item the person closed wait again. **The agent's own item goes back on
-    /// its list as it was stated**, and the agent is told nothing. An item whose subject has ended is
+    /// its list as it was stated**, and the agent is told, so its next `waiting_for` keeps it. An item whose subject has ended is
     /// refused, as the record's `closed` says of it.
     pub(crate) async fn waiting_reopened(self: Arc<Self>, reopen: ReopenWaiting) -> Result<SessionRecord, Refusal> {
         let id = reopen.session_id.as_str().to_string();
-        let record = {
-            let mut store = self.store().lock().await;
+        let terminal = self.terminal_session(&id).await?;
+        if terminal.is_some() {
+            self.terminal_ask_standing(&id).await;
+        }
+        let _settling = self.hosts().settling(&id, &reopen.item_id).ok_or_else(|| self.settled_already())?;
+        let restore = {
+            let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
@@ -1247,14 +1252,32 @@ where
                 .into_iter()
                 .find(|one| one.item_id == reopen.item_id)
                 .ok_or_else(|| self.settled_already())?;
-            let restore = (closed.item.source == WaitingSource::Agent).then(|| KeptWaiting {
+            (closed.item.source == WaitingSource::Agent).then(|| KeptWaiting {
                 item_id: kept.item_id.clone(),
                 text: kept.text,
                 since: kept.since,
                 act: kept.act,
                 options: kept.options,
                 steps: kept.steps,
-            });
+            })
+        };
+        // The agent's next `waiting_for` replaces its whole list, so it is told, or the reopening is undone.
+        // The message goes first, so a send that fails leaves the item closed to try again.
+        if let Some(item) = &restore {
+            let sent = SendSessionMessage {
+                session_id: reopen.session_id.clone(),
+                text: reopened(&item.text),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            };
+            Arc::clone(&self).send_known(terminal, sent).await?;
+        }
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
             store
                 .reopen_waiting(&id, &reopen.item_id, restore.as_ref())
                 .map_err(|why| self.ledger_fault(why))?;
@@ -1417,6 +1440,11 @@ fn removed(item: &str, reason: Option<&str>) -> String {
         Some(why) => format!("Owner removed \"{item}\": {why}"),
         None => format!("Owner removed \"{item}\""),
     }
+}
+
+/// What the agent is told when the person reopens an item it stated, so its next `waiting_for` keeps it.
+fn reopened(item: &str) -> String {
+    format!("The owner reopened \"{item}\"; it is in your waiting_for list again, so keep it when you next call waiting_for.")
 }
 
 /// What the agent is told when the person puts away a walk or a question read from its reply.

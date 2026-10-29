@@ -481,7 +481,7 @@ export type ConfirmWaiting = { session_id: string; item_id: string };
 
 /**
  * `POST /sessions/waiting/reopen`: the person lets an item he closed wait again, by the `id` in `SessionRecord.closed`. An agent's own item
- * goes back on its list as it was stated, and the agent is told nothing. Fleet refuses 409 `fleet.session_waiting_unheld` for an id nothing
+ * goes back on its list as it was stated, and the agent is told so (`The owner reopened "<text>"; ...`); any other item tells it nothing. Fleet refuses 409 `fleet.session_waiting_unheld` for an id nothing
  * closed holds, and 422 `fleet.session_waiting_unreopenable` where `ended` is true.
  */
 export type ReopenWaiting = { session_id: string; item_id: string };

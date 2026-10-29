@@ -36,7 +36,8 @@ The owner, 28 Oct 2026: "I should be able to dismiss any needs you item, even wa
 An item Fleet derived in any other way (a card, a permission, a window question, a task asked about, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
 **A closed item is kept whole.** `dismiss_waiting` keeps the item as it stood (text, source, act, options, steps, when it began) and when it was closed, beside the dismissed id in `session_waiting_dismissed`, whatever the source.
 The Job's record lists them as `closed`, newest first, at most 50: each `{ item, at, ended? }`.
-**`reopen_waiting`** (`session_id`, `item_id`) lets one wait again: an agent's own item goes back at the end of its list as it was stated, and the agent is told nothing.
+**`reopen_waiting`** (`session_id`, `item_id`) lets one wait again: an agent's own item goes back at the end of its list as it was stated, and the agent is sent `The owner reopened "<item text>"; it is in your waiting_for list again, so keep it when you next call waiting_for.`, since its next `waiting_for` replaces the whole list.
+Any other item tells the agent nothing.
 `ended` marks one that cannot be reopened because what it stood for has ended (a permission whose call ended, a walk that was withdrawn, a done the person's message cleared, anything on a Job that has ended); reopening it is refused.
 An agent reads the same list with `list_closed_waiting`.
 A dismissal a Job's own process makes (a walk it withdrew, a pull request that merged) is not a close and is not listed.

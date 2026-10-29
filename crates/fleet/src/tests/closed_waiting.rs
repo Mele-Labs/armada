@@ -144,3 +144,38 @@ async fn the_agent_lists_what_was_closed_newest_first_and_a_call_placing_no_job_
     let unplaced = rig.fleet.list_closed_waiting(None, None).await;
     assert!(matches!(unplaced, Err(api::Refusal::Unacceptable(_))), "{unplaced:?}");
 }
+
+#[tokio::test]
+async fn reopening_an_agent_item_tells_the_agent_and_reopening_a_walk_tells_it_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5173/one";
+    rig.fleet.waiting_for(None, steps_item(&id)).await.unwrap();
+    show(&rig, &id, url).await;
+    Arc::clone(&rig.fleet).dismiss_waiting(close(&id, "a")).await.unwrap();
+    Arc::clone(&rig.fleet).dismiss_waiting(close(&id, &format!("walk:{url}"))).await.unwrap();
+    let told = said_by_the_person(&rig, &id).await.len();
+
+    Arc::clone(&rig.fleet).reopen_waiting(reopen(&id, &format!("walk:{url}"))).await.unwrap();
+    assert_eq!(said_by_the_person(&rig, &id).await.len(), told, "a walk is derived, so the agent has nothing to keep");
+
+    Arc::clone(&rig.fleet).reopen_waiting(reopen(&id, "a")).await.unwrap();
+    let said = said_by_the_person(&rig, &id).await;
+    assert_eq!(said.len(), told + 1);
+    assert_eq!(
+        said.last().unwrap(),
+        "The owner reopened \"Run the tests\"; it is in your waiting_for list again, so keep it when you next call waiting_for."
+    );
+}
+
+/// What the person has said to the Job so far, oldest first.
+async fn said_by_the_person(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
+    rig.rows(id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .collect()
+}
