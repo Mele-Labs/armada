@@ -390,6 +390,23 @@ Live: read when the row is drawn and when a call is made, so a change shows on t
 **The value lives in settings.json under `features.workflows`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.workflows-switched-off]
+name = "Workflows switched off"
+scope = "Machine"
+default = "none"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+**One workflow off, for the machine or for one repository.** `features.workflows` switches every workflow off; this switches one, and is read beside it, so a workflow is on for a repository only where the main switch is on and the workflow is in neither list.
+
+**The value lives in settings.json under `workflows.off`** (live), shaped `{ "machine": ["<workflow id>"], "repositories": { "<manifest id>": ["<workflow id>"] } }`, and is never written into a repository's checkout. Bridge saves it with the settings save it already has. A list absent or one that does not read is empty, so nothing is off.
+
+**Off means what the main switch's off means, for the workflow alone.** The proposer and Autopilot's picker are shown no such workflow; `set_session_workflow` refuses to set it with `fleet.session_workflows_off`, and clearing one still works; a held Job's default is `feature` if that is on, else the first workflow that is on, else none; and a Job already on it has no `workflow_step`, hears no nudge for a step skipped, has no judge run at a step's boundary and is not told its steps on its first turn. Nothing is deleted: the Job keeps its workflow, so switching back on picks the rail up where the facts put it.
+"""
+
 [settings.dispute-reviews]
 name = "Dispute reviews"
 scope = "Machine"

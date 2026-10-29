@@ -168,6 +168,7 @@ async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::Sessi
             auto_land: false,
             mod_job: false,
             start_held: false,
+            workflow_chosen: false,
         })
         .expect("a hosting");
     for (at_row, (from, text)) in said.iter().enumerate() {

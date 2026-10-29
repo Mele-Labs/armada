@@ -13,6 +13,7 @@ use ipc::{BeginSession, DeliveryChoice, Instant, SessionId, SessionRecord, Sessi
 use testkit::FakeJudge;
 
 use super::session_host::{eventually, Rig};
+use super::workflow_off::{off, saved};
 use super::session_rail::{
     approved, approved_plan, at, delivers, follows, on_the_rail, plan_step, record, ruled_on, step, told, workflow,
 };
@@ -224,6 +225,19 @@ async fn the_delivering_step_a_step_past_the_last_and_a_job_with_no_workflow_are
     let plain = rig.start().await;
     let custom = skip(&rig, &plain, 0, true).await;
     assert!(refused_with(&custom, "fleet.session_command_refused"), "{custom:?}");
+}
+
+#[tokio::test]
+async fn skipping_a_step_of_a_workflow_that_is_off_is_refused_and_leaves_the_job_as_it_was() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    saved(&rig, off(&[], &[(rig.manifest.as_str(), &["rail"])])).await;
+
+    let refused = skip(&rig, &id, 0, true).await;
+    assert!(refused_with(&refused, "fleet.session_workflows_off"), "{refused:?}");
+    assert!(record(&rig, &id).await.skipped_steps.is_empty(), "nothing kept");
+    saved(&rig, off(&[], &[("another-repository", &["rail"])])).await;
+    assert_eq!(skip(&rig, &id, 0, true).await.expect("off elsewhere is no bar").skipped_steps, [0]);
 }
 
 #[tokio::test]
