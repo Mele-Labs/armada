@@ -453,6 +453,11 @@ export * from "./compositions/LinkPanel/LinkOffer";
 // A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
 export * from "./compositions/ArtifactGraph/ArtifactGraph";
 
+// The lanes of a Workspace or a Job: the workflow's steps over a lane for each lifecycle, rules as edges between them. A mock's model.
+export * from "./compositions/LaneCanvas/LaneCanvas";
+export * from "./compositions/LaneCanvas/model";
+export * from "./compositions/LaneCanvas/build";
+
 // Notes on a sketch, a file or a picture being read, held on it and sent to a Job as one message.
 export { NoteNumber, ViewerNotesFrom, useViewerNotes } from "./compositions/ViewerNotes/ViewerNotes";
 export type { NoteAnchor, NoteMark, ViewerNotes, ViewerNotesHost, ViewerNotesScope } from "./compositions/ViewerNotes/ViewerNotes";

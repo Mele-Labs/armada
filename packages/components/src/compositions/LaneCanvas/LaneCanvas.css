@@ -1,0 +1,247 @@
+/* The lanes of a Workspace or a Job. The canvas, its rail and the React Flow mapping are GraphCanvas.css. Weight is in the frame: a lane is a
+   mono-caps head on a raised ground beside an open body, a lit state is framed in the running hue, and state is a registry glyph. No
+   gradient, glow or fill that is not a state. */
+
+.armada-lane-canvas {
+  flex: 1 1 auto;
+  min-height: calc(var(--space-12) * 7);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+/* ---- A lane ---------------------------------------------------------------------------------------------------- */
+
+.armada-lane {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  pointer-events: none;
+}
+
+.armada-lane__head {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  width: var(--lane-head);
+  padding: var(--space-2) var(--space-3);
+  border-right: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  pointer-events: auto;
+}
+
+.armada-lane__title {
+  overflow: hidden;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.armada-lane__source {
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The workflow is the heaviest lane: its head takes the frame ground, the others stay raised. */
+.armada-lane[data-kind="workflow"] { border-bottom-color: var(--border-strong); }
+.armada-lane[data-kind="workflow"] .armada-lane__head { background: var(--bg-base); border-right-color: var(--border-strong); }
+
+.armada-lane__changed {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  color: var(--status-awaiting-review);
+  cursor: default;
+}
+
+/* ---- A step or a state ------------------------------------------------------------------------------------------- */
+
+.armada-lane-item {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
+.armada-lane-item__main {
+  --hue: var(--fg-subtle);
+  display: grid;
+  grid-template-columns: var(--space-6) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--space-2) 0 var(--space-1);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+}
+.armada-lane-item__main:hover { background: var(--bg-hover); }
+.armada-lane-item__main:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+
+.armada-lane-item__mark {
+  display: grid;
+  grid-row: 1 / span 2;
+  place-items: center;
+  color: var(--hue);
+}
+.armada-lane-item__label {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.armada-lane-item__sub {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Where an instance stands is framed in the running hue; where a step waits, in the waiting one; what it went through is a tick. */
+.armada-lane-item[data-passed] .armada-lane-item__main { --hue: var(--step-advanced); color: var(--fg-muted); }
+.armada-lane-item[data-lit] .armada-lane-item__main {
+  --hue: var(--step-running);
+  border-color: var(--step-running);
+  background: color-mix(in srgb, var(--step-running) 10%, var(--bg-raised));
+  font-weight: var(--weight-heading);
+}
+.armada-lane-item[data-waiting] .armada-lane-item__main {
+  --hue: var(--status-awaiting-review);
+  border-color: var(--status-awaiting-review);
+  background: color-mix(in srgb, var(--status-awaiting-review) 10%, var(--bg-raised));
+}
+.armada-lane-item[data-waiting] .armada-lane-item__sub { color: var(--status-awaiting-review); }
+.armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
+.armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
+.armada-lane-item[data-end] .armada-lane-item__main { border-radius: var(--radius-lg); }
+
+/* What is picked is a shape: the text colour's frame on the picked ground, and the heading weight. */
+.armada-lane-item__main[data-picked] {
+  background: var(--select-ground);
+  box-shadow: inset 0 0 0 var(--border-width) var(--select-edge);
+  font-weight: var(--weight-heading);
+}
+
+/* ---- Edges -------------------------------------------------------------------------------------------------------- */
+
+.armada-lane-surface .armada-lane-move__line { stroke: var(--border-strong); stroke-width: var(--border-width); }
+.armada-lane-surface .armada-lane-move[data-back] .armada-lane-move__line { stroke-dasharray: var(--space-1) var(--space-1); }
+.armada-lane-move__head { fill: var(--border-strong); }
+
+.armada-lane-edge { --hue: var(--fg-muted); }
+.armada-lane-surface .armada-lane-edge__line { stroke: var(--hue); stroke-width: calc(var(--border-width) * 1.5); }
+.armada-lane-edge__head { fill: var(--hue); }
+.armada-lane-edge[data-tone="acted"] { --hue: var(--step-advanced); }
+.armada-lane-edge[data-tone="asked"] { --hue: var(--status-awaiting-review); }
+.armada-lane-edge[data-tone="waiting"] .armada-lane-edge__line,
+.armada-lane-edge[data-tone="proposed"] .armada-lane-edge__line { stroke-dasharray: var(--space-2) var(--space-1); }
+.armada-lane-edge[data-tone="proposed"] { --hue: var(--step-advanced); }
+.armada-lane-edge[data-autonomy="off"] { --hue: var(--border-strong); }
+.armada-lane-edge[data-autonomy="off"] .armada-lane-edge__line { stroke-dasharray: var(--border-width) var(--space-1); }
+.armada-lane-edge[data-picked] { --hue: var(--fg-default); }
+.armada-lane-surface .armada-lane-edge[data-picked] .armada-lane-edge__line { stroke-width: calc(var(--border-width) * 2.5); }
+
+/* ---- A rule's chip, on its edge ------------------------------------------------------------------------------------ */
+
+.armada-lane-chip {
+  --hue: var(--fg-muted);
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  max-inline-size: calc(var(--space-12) * 4);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 55%, var(--border-default));
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: all;
+  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+}
+.armada-lane-chip:hover { background: var(--bg-hover); }
+.armada-lane-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+.armada-lane-chip[data-tone="acted"] { --hue: var(--step-advanced); }
+.armada-lane-chip[data-tone="asked"] { --hue: var(--status-awaiting-review); }
+.armada-lane-chip[data-tone="proposed"] { --hue: var(--step-advanced); border-style: dashed; }
+.armada-lane-chip[data-tone="waiting"] { border-style: dashed; }
+.armada-lane-chip[data-autonomy="off"] { color: var(--fg-subtle); }
+.armada-lane-chip[data-quiet] { padding: var(--space-1); }
+.armada-lane-chip__mark { flex: none; color: var(--hue); }
+.armada-lane-chip__words { display: flex; min-width: 0; flex-direction: column; }
+.armada-lane-chip__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-lane-chip__meta {
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.armada-lane-chip[data-picked] {
+  background: var(--select-ground);
+  box-shadow: inset 0 0 0 var(--border-width) var(--select-edge);
+  font-weight: var(--weight-heading);
+}
+
+/* ---- The tooltip, in the body ---------------------------------------------------------------------------------------- */
+
+.armada-lane-tip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  inline-size: max-content;
+  max-inline-size: calc(var(--w-tooltip) + var(--space-3));
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font: var(--weight-body) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  text-wrap: pretty;
+  pointer-events: none;
+}
+.armada-lane-tip__line { overflow-wrap: anywhere; color: var(--fg-muted); }
+.armada-lane-tip__line[data-first] { color: var(--fg-default); }
