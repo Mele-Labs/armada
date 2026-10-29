@@ -28,6 +28,9 @@ export function sideOf(was: "right" | "left", right: Box, left: Box, points: rea
   return l && !r ? "right" : "left";
 }
 
+/** Which side of the map a floated card stands: left, toward the thread, unless the window has no room there. */
+export const besideOf = (room: number, width: number): "right" | "left" => (room < width + 16 ? "right" : "left");
+
 export function LensWires({ stage, specs, card, writer, float = false }: { stage: Stage | undefined; specs: readonly LensSpec[] | undefined; card: ReactNode | undefined; writer: P3 | undefined; float?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -64,6 +67,11 @@ export function LensWires({ stage, specs, card, writer, float = false }: { stage
         const rect = wrap.getBoundingClientRect();
         const [w, t, h] = [rect.width, rect.top - host.top, rect.height];
         const style = getComputedStyle(wrap);
+        // Floated, the card stands beside the map toward the thread, and on the other side where the window has no room there.
+        if (over !== null) {
+          const beside = besideOf(host.left, w);
+          if (over.dataset.beside !== beside) over.dataset.beside = beside;
+        }
         // Each corner's inset as the stylesheet sets it, read while the card stands there.
         if (side.current === "right") gaps.current.right = Number.parseFloat(style.right) || gaps.current.right;
         else gaps.current.left = Number.parseFloat(style.left) || gaps.current.left;
