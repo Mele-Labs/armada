@@ -155,7 +155,7 @@ const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json")
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  holdNote: (note) => void heldNotes.hold(note),
+  holdNote: (note, ring) => void heldNotes.hold(note, ring),
   heldOn: (sessionId) => heldNotes.of(sessionId).length,
   // A pull request's walk no Session holds: the note stays in Armada. No Approve.
   reviewNote: async (review, said, capture) => {
