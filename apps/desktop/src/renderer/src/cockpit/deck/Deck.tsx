@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -41,7 +41,7 @@ import { glyphOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { holderKeyOf, useBays, slotKey } from "./bays";
-import { useCollapse } from "./collapse";
+import { useCollapse, useFlightExpanded } from "./collapse";
 import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
@@ -810,12 +810,23 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
   // Picking something else puts the other set under the tiles, and an edit of this one ends.
   useEffect(() => setEditing(false), [set]);
+  const { expanded, toggle: toggleExpanded } = useFlightExpanded();
+  /** Whether the Job's row holds more tiles than it shows; nothing while its tiles are not drawn. */
+  const [overflows, setOverflows] = useState<boolean | undefined>();
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <Standby kind="controls" />
       <header className="deck-band" {...folded.band}>
         <span className="deck-band__name">Flight control</span>
         <PanelKey id="controls" />
+        {/* Only where there is more to see, or to put back. */}
+        {editing || folded.collapsed || set !== "job" || overflows === undefined || !(expanded || overflows) ? null : (
+          <Tooltip label={expanded ? "Collapse" : "Expand"}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={expanded ? "Collapse" : "Expand"} aria-expanded={expanded} className="deck-band__expand" onClick={toggleExpanded}>
+              {expanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+            </Button>
+          </Tooltip>
+        )}
         {editing || folded.collapsed ? null : (
           <Tooltip label="Edit">
             <Button variant="ghost" size="sm" iconOnly aria-label="Edit" className="deck-band__edit" onClick={() => setEditing(true)}>
@@ -828,7 +839,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
       {editing ? (
         <FlightEdit set={set} host={acts} repository={opened} sessionId={session?.id} onClose={() => setEditing(false)} />
       ) : session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} {...(startIn === undefined ? {} : { startIn })} />
+        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} expanded={expanded} onOverflow={setOverflows} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
           {deckTiles.map((tile) => {

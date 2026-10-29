@@ -62,9 +62,10 @@ const tiles = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".de
 const tile = (host: HTMLElement, name: string) => host.querySelector<HTMLElement>(`.deck-flight button[aria-label="${name}"]`)!;
 const lamp = (button: HTMLElement) => button.querySelector<HTMLElement>(".deck-tile__state");
 
-test("Flight control is one row of tiles: Auto land, Pause, Judge, Report, Release, Terminal, Requests", async () => {
+test("Flight control is one row of tiles: Auto land, Pause, Judge, Report, Release, Terminal, Browser, Requests", async () => {
+  // The Job has no browser yet: its tile is there all the same, since a press is what makes one.
   const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} />);
-  expect(tiles(host).map((one) => one.getAttribute("aria-label"))).toEqual(["Auto land", "Pause", "Judge", "Report issue with job", "Release everything the Job holds", "Terminal", "Requests"]);
+  expect(tiles(host).map((one) => one.getAttribute("aria-label"))).toEqual(["Auto land", "Pause", "Judge", "Report issue with job", "Release everything the Job holds", "Terminal", "Browser", "Requests"]);
   // One row: every tile stands at the same height, each to the right of the one before.
   const boxes = tiles(host).map((one) => one.getBoundingClientRect());
   expect(new Set(boxes.map((box) => Math.round(box.top))).size).toBe(1);

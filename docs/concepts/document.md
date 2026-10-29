@@ -9,7 +9,7 @@
 **Part of:** [Job](session.md).
 
 The reader is `DocumentLayer` in `apps/desktop/src/renderer/src/session-view/DocumentLayer.tsx`; the walk is `job-document`.
-An investigation, a report or a set of findings is a document. The Job writes it with its own tools, using `plugins/armada/skills/writing-a-document/SKILL.md`.
+A design, an investigation, a report or a set of findings is a document. The Job writes it with its own tools, using `plugins/armada/skills/writing-a-document/SKILL.md`.
 
 ## Status
 

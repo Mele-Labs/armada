@@ -152,13 +152,17 @@ A tool answers findings, the four explanations Armada carries answer the shape t
 | `<repository>/.armada/review-tools/` | The repository's, for everyone on it | Armada's |
 | `~/.armada/review-tools/` | His, in every repository on the machine | The repository's and Armada's |
 
+**A review tool is a piece, and takes the places every piece takes**: [Who sees each piece of configuration](../design/who-sees-each-piece-of-configuration.md) owns the model.
+A new one is his, and nothing of it reaches the repository or anyone else until he presses Commit to repository or Share ([Kit](kit.md#commit-to-repository)).
+His are read from `~/.armada/review-tools/` on this Mac, whatever place the repository's other pieces are kept at.
+
 **His own wins over the repository's**, so a teammate's commit never replaces a tool he set up.
 Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, and Bridge marks its tile with the eclipse glyph; two copies that are the same carry nothing.
 
 **The name lower cased with its words joined by a dash is the id**, so two places define the same thing by naming it the same.
 A file that does not fit (no front matter, an unknown key, no prompt, two files of one id in one place) is left out and named, and the rest stand.
 The Add sheet writes one file into Kit or the repository.
-Commit to repository copies one of Kit's onto a Job's branch under `.armada/review-tools/`, and Kit's stays ([Kit](kit.md#commit-to-repository)).
+Commit to repository copies one of his into the repository under `.armada/review-tools/`, by a Job of its own whose pull request carries it alone, and his stays ([Kit](kit.md#commit-to-repository)).
 A save that would replace a file of the same id is refused unless the press said to overwrite.
 
 ## Send to a Job

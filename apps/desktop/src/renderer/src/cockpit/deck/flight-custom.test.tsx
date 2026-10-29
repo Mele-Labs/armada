@@ -290,7 +290,7 @@ test("a refused repository save says Fleet's words and keeps the edit on screen"
 test("a repository file that will not read draws your own tiles only, and Edit says why", async () => {
   fleetWith({ what: "not_read", why: "line 3: unknown key" });
   const tiles = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
-  expect(tiles.querySelectorAll(".deck-flight > button").length).toBe(7);
+  expect(tiles.querySelectorAll(".deck-flight > button").length).toBe(8);
   const { host } = await editing();
   expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in widgets not read: line 3: unknown key");
   await userEvent.click(page.getByRole("option", { name: "Add action" }));

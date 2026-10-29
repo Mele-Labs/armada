@@ -68,6 +68,43 @@ async fn a_server_started_from_a_session_names_it_and_one_started_by_hand_names_
     rig.fleet.stopped_server(&by_hand.id).await.expect("it stops");
 }
 
+/// **A Job's agent is served on its own slot**, read from the lease Fleet keeps, and the server goes
+/// when the slot is given back. Before the Job holds a slot it is served on the main checkout.
+#[tokio::test]
+async fn a_jobs_agent_is_served_on_the_slot_its_job_holds_and_on_main_before_it_holds_one() {
+    let rig = rig_serving();
+    let id = running(&rig).await;
+
+    let before = Arc::clone(&rig.fleet).start_server(super::agent_starts::caller(), web(), None).await.expect("it starts");
+    assert_eq!((before.checkout.path.as_str(), before.checkout.branch.as_deref()), (rig.root.as_str(), None), "no slot yet, so main");
+    rig.fleet.stopped_server(&before.id).await.expect("it stops");
+
+    let root = Path::new(&rig.root);
+    super::app_runs::git(root, &["init", "-q"]);
+    super::app_runs::git(root, &["commit", "-q", "--allow-empty", "-m", "start"]);
+    let slot = adapter_traits::slot_path(&rig.root, 1);
+    super::app_runs::git(root, &["worktree", "add", "-q", "-b", "job-branch", &slot]);
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let mut hosting = store.hosting(id.as_str()).expect("reads").expect("hosted");
+        hosting.lease_slot = Some(1);
+        hosting.lease_branch = Some(String::from("job-branch"));
+        store.keep_hosting(&hosting).expect("kept");
+    }
+
+    let on_slot = Arc::clone(&rig.fleet).start_server(super::agent_starts::caller(), web(), None).await.expect("it starts");
+    let canonical = std::fs::canonicalize(&slot).expect("the slot").to_string_lossy().into_owned();
+    assert_eq!((on_slot.checkout.path.as_str(), on_slot.checkout.branch.as_deref()), (canonical.as_str(), Some("job-branch")), "the Job's slot, not main");
+    assert_eq!(on_slot.session_id.as_ref(), Some(&id));
+
+    let by_hand = Arc::clone(&rig.fleet).start_server(None, web(), None).await.expect("it starts");
+    assert_eq!(by_hand.checkout.path, rig.root, "a call from no Job is still served on main");
+    rig.fleet.stopped_server(&by_hand.id).await.expect("it stops");
+
+    rig.fleet.stopped_servers_in(&slot).await;
+    assert!(rig.fleet.stopped_server(&on_slot.id).await.is_err(), "given back with the slot, so nothing is left to stop");
+}
+
 fn shown(url: &str, title: &str) -> ipc::ShowWindow {
     let body = format!(r#"{{"url":"{url}","title":"{title}"}}"#);
     ipc::decode("a window", body.as_bytes()).expect("a window")
