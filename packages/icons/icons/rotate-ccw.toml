@@ -17,5 +17,5 @@
     means = "Start again, on the line in a Job's thread that says its agent did not start"
     group = "Session"
     size = "12px"
-    status = "Proposed"
+    status = "Specified"
     notes = "Proposed 29 Oct 2026 for the walk `job-failed-to-start`. The same act as a re-run: the one start that failed is made again, nothing is dispatched anew, so it is not Redispatch, which stays `rotate-cw`. Icon-only, tooltip and aria-label `Start again`."

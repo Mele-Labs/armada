@@ -11,5 +11,5 @@
     means = "Report, on the line in a Job's thread that says its agent did not start"
     group = "Session"
     size = "12px"
-    status = "Proposed"
+    status = "Specified"
     notes = "Proposed 29 Oct 2026 for the walk `job-failed-to-start`. The glyph the point menu's and the Jobs row menu's Report already wear, so the act reads the same on every surface; the reservation above predates both. Icon-only, tooltip and aria-label `Report`. Opens the same note on the element that the point menu opens."

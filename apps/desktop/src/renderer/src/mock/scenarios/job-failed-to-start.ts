@@ -43,7 +43,7 @@ const failed: Session = {
   lastTurnAt: ago(4),
   startFailed: {
     cause: "the agent did not come up within 10 seconds",
-    log: ["Error: EACCES: permission denied, open '/Users/user/.claude.json'", "    at Object.openSync (node:fs:573:18)", "    at readConfig (/usr/local/lib/claude/cli.js:412:9)"],
+    log: ["Error: EACCES: permission denied, open '/Users/user/.config/agent.json'", "    at Object.openSync (node:fs:573:18)", "    at readConfig (/usr/local/lib/agent/cli.js:412:9)"],
   },
   rows: [{ id: "f3-u", at: "13:44:30", kind: "message", from: { kind: "you" }, text: "Rename the slot pool to bays in the settings and the docs." }],
   attachments: [],
