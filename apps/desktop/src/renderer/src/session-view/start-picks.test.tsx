@@ -10,8 +10,14 @@ import "../styles/index.css";
 import { SessionsFrom } from "../sessions-draft";
 import { useStartPicks } from "./StartPicks";
 
+// `workflows.off` as Fleet's settings list holds it; a test sets it before it mounts.
+const settings = vi.hoisted(() => ({ off: undefined as unknown }));
+vi.mock("../use-setting", () => ({ useSetting: () => settings.off }));
+
 const roots: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
+  settings.off = undefined;
+  draft.work!.workflows = workflows;
   for (const { root, host } of roots.splice(0)) {
     root.unmount();
     host.remove();
@@ -110,4 +116,29 @@ test("a card not yet queued does not say Starting", async () => {
   mount(held({ asksDelivery: true }));
   await expect.element(page.getByRole("combobox", { name: "Workflow" })).toBeVisible();
   expect(document.querySelector('[aria-label="Starting"]')).toBeNull();
+});
+
+const MANY = [{ id: "feature", name: "Feature" }, { id: "bug", name: "Bug" }, { id: "prototype", name: "Prototype" }];
+const heldIn = (manifestId: string): Session => ({ ...held({ asksDelivery: true }), manifestId }) as unknown as Session;
+const offered = () => [...document.querySelectorAll<HTMLOptionElement>('select[aria-label="Workflow"] option')].map((one) => one.textContent);
+
+test("the Workflow picker leaves out a workflow that is off for the machine, and keeps None", async () => {
+  draft.work!.workflows = MANY;
+  settings.off = { machine: ["prototype"], repositories: {} };
+  mount(heldIn("armada"));
+  await expect.poll(offered).toEqual(["None", "Feature", "Bug"]);
+});
+
+test("the Workflow picker leaves out a workflow that is off for the Job's repository, and not one that is off for another", async () => {
+  draft.work!.workflows = MANY;
+  settings.off = { machine: [], repositories: { armada: ["bug"], other: ["feature"] } };
+  mount(heldIn("armada"));
+  await expect.poll(offered).toEqual(["None", "Feature", "Prototype"]);
+});
+
+test("with nothing off the picker lists every workflow, and a value that does not read leaves all of them on", async () => {
+  draft.work!.workflows = MANY;
+  settings.off = "bug";
+  mount(heldIn("armada"));
+  await expect.poll(offered).toEqual(["None", "Feature", "Bug", "Prototype"]);
 });
