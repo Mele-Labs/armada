@@ -24,7 +24,7 @@ const job = (id: string, missing?: ToolsPiece[]): Session => ({
   attachments: [],
   rows: [],
   turn: { state: "idle" },
-  ...(missing === undefined ? {} : { toolsMissing: { harness_version: "2.1.310", missing } }),
+  ...(missing === undefined ? {} : { toolsMissing: { harness: "Harness", update: "harness update", harness_version: "2.1.310", missing } }),
 });
 
 function mount(id: string) {

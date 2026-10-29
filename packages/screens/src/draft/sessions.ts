@@ -469,7 +469,7 @@ export type WaitReading = {
 };
 
 /** What the agent's init line showed it lacks: `mod` did not load, `door` (Fleet's MCP door) did not connect, `task_tools` were not served. */
-export type ToolsMissing = { harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+export type ToolsMissing = { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
 
 const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
 
@@ -481,7 +481,7 @@ export const toolsPieceSaid = (piece: ToolsPiece): string => MISSING_SAID[piece]
 
 /** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. An init line that names no version says only what is missing. */
 export const toolsMissingSaid = (tools: ToolsMissing): string =>
-  [...(tools.harness_version === "" ? [] : [`Claude Code ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
+  [...(tools.harness_version === "" ? [] : [`${tools.harness} ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
 
 export type Session = {
   id: string;

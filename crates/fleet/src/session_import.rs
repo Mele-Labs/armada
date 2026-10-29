@@ -14,6 +14,7 @@ use adapters::agent_mod::{self, Asked, Installed, Step};
 use adapters::session_folders::{self, FolderGit};
 use adapters::session_runs::{self, Reading, RunKind};
 use api::Refusal;
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{ImportFolder, ImportFolders, ImportGit, ImportRuns, Instant, ModInstallStep, ModInstalled, RunFact, RunFactKind, WireError};
 
 use crate::clock::rfc3339_utc;
@@ -169,7 +170,9 @@ where
     /// process starts without the mod**, so it is logged and never fails the launch.
     pub(crate) async fn mod_filled_for_launch(&self) {
         if let Err(said) = self.mod_filled().await {
-            eprintln!("the mod's copy was not filled, so the job starts without it: {said}");
+            let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "the mod's copy was not filled, so the job starts without it")
+                .with_field("why", FieldValue::Str(said));
+            crate::transcript::note_aloud(&envelope);
         }
     }
 

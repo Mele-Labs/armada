@@ -74,7 +74,7 @@ where
                 && !state.unstarted.is_empty();
             if !heal {
                 state.tools_missing = (!missing.is_empty())
-                    .then(|| ToolsMissing { harness_version: reading.version.clone(), missing });
+                    .then(|| ToolsMissing { harness: reading.name.clone(), update: reading.update.clone(), harness_version: reading.version.clone(), missing });
                 return false;
             }
             let lines = std::mem::take(&mut state.unstarted);

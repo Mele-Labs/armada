@@ -110,7 +110,7 @@ export type SessionRecord = {
    * A hosted session whose agent came up without some of its Armada tools, as Fleet read the CLI's init line. `mod`: the mod did not load; `door`: Fleet's MCP door did not
    * connect; `task_tools`: the CLI served no task list tools. Absent when nothing is missing.
    */
-  tools_missing?: { harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+  tools_missing?: { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
   /**
    * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
    * agent's first. Absent is nothing, and always absent for an ended session.

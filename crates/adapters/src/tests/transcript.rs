@@ -90,7 +90,7 @@ fn an_init_line_says_which_of_armadas_pieces_the_session_came_up_with() {
     );
     assert_eq!(
         whole,
-        HarnessReading { version: "2.1.310".into(), mod_loaded: true, door_connected: true, task_tools: true }
+        HarnessReading { name: "Claude Code".into(), update: "claude update".into(), version: "2.1.310".into(), mod_loaded: true, door_connected: true, task_tools: true }
     );
 
     let bare = started_by(
@@ -98,7 +98,7 @@ fn an_init_line_says_which_of_armadas_pieces_the_session_came_up_with() {
     );
     assert_eq!(
         bare,
-        HarnessReading { version: "2.0.1".into(), mod_loaded: false, door_connected: false, task_tools: true },
+        HarnessReading { name: "Claude Code".into(), update: "claude update".into(), version: "2.0.1".into(), mod_loaded: false, door_connected: false, task_tools: true },
         "a door still pending is not connected, and an older CLI's TodoWrite is task tools"
     );
 

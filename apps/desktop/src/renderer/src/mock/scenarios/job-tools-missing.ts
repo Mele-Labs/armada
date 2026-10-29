@@ -7,6 +7,7 @@ import type { RepositorySummary, SessionRow } from "@armada/protocol";
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, hosted } from "../sessions-fleet";
+import { AGENT } from "../slices/onboarding";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -20,8 +21,8 @@ const JOBS = [
 
 /** What the second and third Jobs came up without; the first came up whole. */
 const MISSING: Record<string, NonNullable<ReturnType<typeof hosted>["tools_missing"]>> = {
-  [JOBS[1]!.id]: { harness_version: "2.1.312", missing: ["mod", "task_tools"] },
-  [JOBS[2]!.id]: { harness_version: "2.1.308", missing: ["door"] },
+  [JOBS[1]!.id]: { harness: AGENT.name, update: AGENT.update, harness_version: "2.1.312", missing: ["mod", "task_tools"] },
+  [JOBS[2]!.id]: { harness: AGENT.name, update: AGENT.update, harness_version: "2.1.308", missing: ["door"] },
 };
 
 /** Idle, the last turn ended and nothing is asked of him. */

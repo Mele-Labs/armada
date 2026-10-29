@@ -8,8 +8,7 @@ import { toolsMissingSaid, toolsPieceSaid, type Session, type SessionsDraft, typ
 
 import { useSessionsDraft } from "./sessions-draft";
 
-const ACT: Record<ToolsPiece, string> = { mod: "Restart the agent", door: "Reconnect", task_tools: "Update Claude Code" };
-const UPDATE = "claude update";
+const ACT: Record<Exclude<ToolsPiece, "task_tools">, string> = { mod: "Restart the agent", door: "Reconnect" };
 
 type Phase = { running: true } | { error: string };
 
@@ -40,12 +39,12 @@ const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.d
 /** The Job's own terminal, as its view docks it: the update runs there, where the person sees all of it and can answer a prompt. */
 type Terminal = Pick<TerminalDockRun, "start">;
 
-function press(draft: SessionsDraft, id: string, piece: ToolsPiece, terminal: Terminal | undefined, open: (() => void) | undefined): void {
+function press(draft: SessionsDraft, id: string, piece: ToolsPiece, update: string, terminal: Terminal | undefined, open: (() => void) | undefined): void {
   // Left to the terminal: its own pane shows the run and its exit, so no phase is held here. From a row the Job opens first.
   if (piece === "task_tools") {
-    if (terminal !== undefined) terminal.start(UPDATE);
+    if (terminal !== undefined) terminal.start(update);
     else if (open !== undefined) {
-      ask(id, UPDATE);
+      ask(id, update);
       open();
     }
     return;
@@ -70,21 +69,23 @@ export function useToolsFixes(session: Session, terminal?: Terminal, open?: () =
     ask(session.id, undefined);
     terminal.start(wanted);
   }, [wanted, terminal, session.id]);
-  if (session.toolsMissing === undefined || draft === undefined) return undefined;
+  const tools = session.toolsMissing;
+  if (tools === undefined || draft === undefined) return undefined;
   const can: Record<ToolsPiece, boolean> = { mod: draft.mendTools !== undefined, door: draft.actOnMcp !== undefined, task_tools: terminal !== undefined || open !== undefined };
-  const fixes = session.toolsMissing.missing.map((piece): ToolsFix => {
+  const act: Record<ToolsPiece, string> = { ...ACT, task_tools: `Update ${tools.harness}` };
+  const fixes = tools.missing.map((piece): ToolsFix => {
     const phase = phases.get(`${session.id}:${piece}`);
     return {
       piece,
       said: toolsPieceSaid(piece),
-      ...(can[piece] ? { act: ACT[piece] } : {}),
+      ...(can[piece] ? { act: act[piece] } : {}),
       // The terminal takes over from the menu.
       ...(piece === "task_tools" ? { closes: true } : {}),
       ...(phase !== undefined && "running" in phase ? { running: true } : {}),
       ...(phase !== undefined && "error" in phase ? { error: phase.error } : {}),
     };
   });
-  return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, terminal, open) };
+  return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, tools.update, terminal, open) };
 }
 
 /** What each Job's person put away the band over its message box for: the pieces missing then. In memory, for the life of the window. */

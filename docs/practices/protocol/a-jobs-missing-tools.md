@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`SessionRecord.tools_missing`, optional and additive: `{ harness_version: string, missing: ("mod" | "door" | "task_tools")[] }`.
+`SessionRecord.tools_missing`, optional and additive: `{ harness: string, update: string, harness_version: string, missing: ("mod" | "door" | "task_tools")[] }`.
+`harness` is the CLI's name and `update` the command that updates it, both from the adapter, so Bridge names the CLI without spelling it.
 It is on a hosted Job whose agent came up without some of its Armada pieces, as Fleet read the CLI's `init` line, and absent when nothing is missing.
 `missing` is never empty. Bridge reads it to say what the Job lacks and which CLI it ran on.
 

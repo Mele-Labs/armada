@@ -75,13 +75,13 @@ describe("who owns a chip", () => {
 
 describe("what the tools mark says", () => {
   test("heads with the CLI version, then a sentence for each thing missing, in the order given", () => {
-    expect(toolsMissingSaid({ harness_version: "2.1.310", missing: ["mod", "door", "task_tools"] })).toBe(
-      "Claude Code 2.1.310. No armada mod. No armada tools. No task tools.",
+    expect(toolsMissingSaid({ harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: ["mod", "door", "task_tools"] })).toBe(
+      "Harness 2.1.310. No armada mod. No armada tools. No task tools.",
     );
-    expect(toolsMissingSaid({ harness_version: "2.1.310", missing: ["task_tools"] })).toBe("Claude Code 2.1.310. No task tools.");
+    expect(toolsMissingSaid({ harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: ["task_tools"] })).toBe("Harness 2.1.310. No task tools.");
   });
 
   test("says only what is missing when the init line named no version", () => {
-    expect(toolsMissingSaid({ harness_version: "", missing: ["door"] })).toBe("No armada tools.");
+    expect(toolsMissingSaid({ harness: "Harness", update: "harness update", harness_version: "", missing: ["door"] })).toBe("No armada tools.");
   });
 });

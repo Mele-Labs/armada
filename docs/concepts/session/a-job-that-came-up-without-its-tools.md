@@ -6,7 +6,7 @@
 Fleet reads that `init` line and keeps three facts from it: whether the mod is among the loaded plugins, whether the door is among the MCP servers and `connected`, and whether the CLI serves `TaskCreate` or the older `TodoWrite`.
 
 **What is missing is on the Job's record, and absent when nothing is.**
-`tools_missing` names the CLI's version and the pieces: `mod`, `door`, `task_tools`.
+`tools_missing` names the CLI, its version, the command that updates it and the pieces: `mod`, `door`, `task_tools`.
 The mod counts as missing whenever the line lists no `armada` plugin, whether or not the launch passed `--plugin-dir`.
 Each `init` replaces the last, and the mark stays after the process is let go, so it says how the last one came up.
 
@@ -35,7 +35,7 @@ A copy that cannot be filled refuses the press with the script's words and resta
 **Bridge draws the mark as the `unplug` glyph**, on the Job's row in the Jobs list and in its header, with a tooltip that is the label: the CLI's version, then a sentence for each piece missing, such as `Claude Code 2.1.312. No armada mod. No task tools.`
 The row's inspect card carries the same sentence as its Tools line.
 The row's column is kept for every row while one in the list has the mark, and an ended Job draws none.
-**The open Job shows a band over its message box**, `Tools missing`, in the Needs you band's look, with the CLI's version, a line for each piece missing and its act: Restart the agent, Reconnect for the door (`act_on_session_mcp`), and Update Claude Code, which runs `claude update` in the Job's docked terminal.
+**The open Job shows a band over its message box**, `Tools missing`, in the Needs you band's look, with the CLI's version, a line for each piece missing and its act: Restart the agent, Reconnect for the door (`act_on_session_mcp`), and Update Claude Code, which runs the update command the record names, `claude update`, in the Job's docked terminal.
 It stacks above the Needs you, handoff and end bands, and its dismiss is kept per Job in memory until a piece it did not cover goes missing.
 Wherever the band is not showing, dismissed or on the Job's row, the mark pulses as a needs-you row does, and pressing it opens the same acts.
 

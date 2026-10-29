@@ -1012,6 +1012,10 @@ pub enum ToolMissing {
 /// empty**: a session missing nothing carries none.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolsMissing {
+    /// The harness's own name, so a client names the CLI without spelling it.
+    pub harness: String,
+    /// The command that updates the CLI, which a client runs in the session's terminal.
+    pub update: String,
     pub harness_version: String,
     pub missing: Vec<ToolMissing>,
 }

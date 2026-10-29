@@ -129,7 +129,7 @@ pub(super) struct Rig {
 
 /// An `init` that lacks nothing, so a stand-in process is not restarted for what it never launched with.
 pub(super) fn whole() -> HarnessReading {
-    HarnessReading { version: String::from("stand-in"), mod_loaded: true, door_connected: true, task_tools: true }
+    HarnessReading { name: String::from("stand-in"), update: String::from("stand-in"), version: String::from("stand-in"), mod_loaded: true, door_connected: true, task_tools: true }
 }
 
 fn rig() -> Rig {

@@ -817,10 +817,10 @@ describe("the plan's limit and the context window", () => {
   };
 
   it("carries what the agent came up without, and nothing for a Job that is whole, an empty list or an ended Job", () => {
-    const lacking: NonNullable<SessionRecord["tools_missing"]> = { harness_version: "2.1.310", missing: ["door", "task_tools"] };
+    const lacking: NonNullable<SessionRecord["tools_missing"]> = { harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: ["door", "task_tools"] };
     expect(sessionOfRecord(record("a", { tools_missing: lacking }), undefined, beside()).toolsMissing).toEqual(lacking);
     expect(sessionOfRecord(record("a"), undefined, beside())).not.toHaveProperty("toolsMissing");
-    expect(sessionOfRecord(record("a", { tools_missing: { harness_version: "2.1.310", missing: [] } }), undefined, beside())).not.toHaveProperty("toolsMissing");
+    expect(sessionOfRecord(record("a", { tools_missing: { harness: "Harness", update: "harness update", harness_version: "2.1.310", missing: [] } }), undefined, beside())).not.toHaveProperty("toolsMissing");
     expect(sessionOfRecord(record("a", { state: "ended", tools_missing: lacking }), undefined, beside())).not.toHaveProperty("toolsMissing");
   });
 

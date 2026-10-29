@@ -13,13 +13,15 @@ use ipc::{CloseSession, SessionId, ToolMissing, ToolsMissing};
 use super::session_host::{eventually, rig_placing, whole, Rig};
 
 const VERSION: &str = "2.1.310";
+const HARNESS: &str = "the harness";
+const UPDATE: &str = "harness update";
 
 fn init_reading(reading: HarnessReading) -> Vec<DroneEvent> {
     vec![DroneEvent::Started { session: String::new(), model: String::from("stand-in"), mcp_servers: 1, harness: reading }]
 }
 
 fn reading(mod_loaded: bool, door_connected: bool, task_tools: bool) -> HarnessReading {
-    HarnessReading { version: VERSION.into(), mod_loaded, door_connected, task_tools }
+    HarnessReading { name: HARNESS.into(), update: UPDATE.into(), version: VERSION.into(), mod_loaded, door_connected, task_tools }
 }
 
 async fn missing(rig: &Rig, id: &SessionId) -> Option<ToolsMissing> {
@@ -27,7 +29,7 @@ async fn missing(rig: &Rig, id: &SessionId) -> Option<ToolsMissing> {
 }
 
 fn marked(pieces: &[ToolMissing]) -> Option<ToolsMissing> {
-    Some(ToolsMissing { harness_version: VERSION.into(), missing: pieces.to_vec() })
+    Some(ToolsMissing { harness: HARNESS.into(), update: UPDATE.into(), harness_version: VERSION.into(), missing: pieces.to_vec() })
 }
 
 /// Fleet's copy of the mod on disk, so a launch passes `--plugin-dir` and a mod that did not load is

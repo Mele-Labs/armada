@@ -191,6 +191,8 @@ const TASK_TOOLS: [&str; 2] = ["TaskCreate", "TodoWrite"];
 /// name, or has no status, is read as absent: it cannot show a piece is there.
 fn harness_read(system: &SystemLine) -> HarnessReading {
     HarnessReading {
+        name: crate::harness::HeadlessAgent::harness_name().to_string(),
+        update: crate::harness::HeadlessAgent::update_command(),
         version: system.claude_code_version.clone().unwrap_or_default(),
         mod_loaded: system.plugins.iter().filter_map(Entry::name).any(|name| name.split('@').next() == Some(MOD_PLUGIN)),
         door_connected: system.mcp_servers.iter().any(|one| {

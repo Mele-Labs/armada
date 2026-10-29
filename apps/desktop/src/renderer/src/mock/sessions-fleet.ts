@@ -64,6 +64,7 @@ import { onTimePassing } from "./time-passes";
 import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
 import { skipStep } from "./skip-step";
+import { AGENT } from "./slices/onboarding";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
@@ -342,13 +343,13 @@ export class FakeSessionsFleet {
 
   private readonly runListeners = new Set<(runId: string, message: SessionRunMessage) => void>();
 
-  /** `start_session_run`: `claude update` prints a line and exits clean, and any other command exits clean. */
+  /** `start_session_run`: the agent's update command prints a line and exits clean, and any other command exits clean. */
   private startingRun(sessionId: string, command: string): SessionActed<{ run_id: string }> {
     const runId = `run-${(this.minted += 1)}`;
     const send = (message: SessionRunMessage) => this.runListeners.forEach((on) => on(runId, message));
-    const updating = command.trim() === "claude update";
+    const updating = command.trim() === AGENT.update;
     setTimeout(() => {
-      if (updating) send({ kind: "output", text: "Updated Claude Code to 2.1.340\r\n" });
+      if (updating) send({ kind: "output", text: `Updated ${AGENT.name} to 2.1.340\r\n` });
       send({ kind: "exited", code: 0, stopped: false });
       // Exit 0 clears the piece here; in the real build it leaves at the Job's next init line.
       if (updating) this.mend(sessionId, "task_tools");

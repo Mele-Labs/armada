@@ -4,7 +4,7 @@
 import { deckRow, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const mark = role("button", /Claude Code 2\.1\.312\. No armada mod\. No task tools\./);
+const mark = role("button", / 2\.1\.312\. No armada mod\. No task tools\./);
 
 const jobToolsMissing = walk("job-tools-missing", [
   toSessions,

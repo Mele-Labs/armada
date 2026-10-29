@@ -200,6 +200,10 @@ impl TaskStatus {
 /// process can be read again; a field that is `false` means that line did not list it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HarnessReading {
+    /// The harness's own name, as a person reads it.
+    pub name: String,
+    /// The command that updates the CLI, as typed in a terminal.
+    pub update: String,
     /// The CLI's own version. Empty when the line carried none.
     pub version: String,
     /// Armada's mod is among the plugins the session loaded.
