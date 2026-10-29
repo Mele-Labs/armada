@@ -551,6 +551,15 @@ describe("a session", () => {
     expect(of({}).paused).toBeUndefined();
   });
 
+  it("carries hosted.start_failed to startFailed with its log, an empty log where none came, and none where it is absent", () => {
+    const hosted = (change: object) => ({ turn: { state: "idle" as const }, mode: "auto" as const, running: false, ...change });
+    const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ05", { hosted: hosted(change) }), undefined, beside());
+
+    expect(of({ start_failed: { cause: "The agent exited at once", log: ["error: no such option", "usage: agent [flags]"] } }).startFailed).toEqual({ cause: "The agent exited at once", log: ["error: no such option", "usage: agent [flags]"] });
+    expect(of({ start_failed: { cause: "The agent exited at once" } }).startFailed).toEqual({ cause: "The agent exited at once", log: [] });
+    expect(of({}).startFailed).toBeUndefined();
+  });
+
   it("marks a session Auto land from auto_land, and none where it is absent or the session ended", () => {
     const hosted = { turn: { state: "idle" as const }, mode: "auto" as const, running: false };
     const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ04", { hosted, ...change }), undefined, beside());

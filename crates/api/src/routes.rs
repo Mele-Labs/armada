@@ -371,6 +371,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )
         .route(
+            "/sessions/waiting/reopen",
+            post(crate::hosted_sessions::reopen_waiting::<D>),
+        )
+        .route(
+            "/sessions/waiting/closed",
+            get(crate::sessions::list_closed_waiting::<D>),
+        )
+        .route(
             "/sessions/waiting/confirm",
             post(crate::hosted_sessions::confirm_waiting::<D>),
         )
@@ -509,6 +517,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/mcp/act",
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
+        )
+        .route(
+            "/sessions/start_again",
+            post(crate::hosted_sessions::start_again::<D>),
         )
         .route(
             "/sessions/resume",

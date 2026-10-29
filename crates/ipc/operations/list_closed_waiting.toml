@@ -1,0 +1,12 @@
+[operations.list_closed_waiting]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The things the owner closed from what this Job waits on him for, the newest first: each one's item as it stood, when it was closed and, where it cannot wait again, ended"
+notes = """
+`GET /sessions/waiting/closed?session_id=`. Answers 200 with a `ClosedWaitingList`: `session_id` and `closed`, each a `ClosedWaiting` `{ item, at, ended? }`, the same as `SessionRecord.closed`. At most the newest 50 are kept.
+
+**The Job** is the one the connection places when Fleet hosts it, else `session_id`; a call that places none is a 422 `fleet.session_waiting_unnamed`.
+
+`agent_access` is `Yes`: an agent that was told `Owner removed "<text>"` reads here what he has closed before it states an item again. Reopening one is his: `reopen_waiting` is not an agent tool.
+"""

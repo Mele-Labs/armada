@@ -409,6 +409,14 @@ pub trait Sessions: Send + Sync + 'static {
         set: ipc::SetWaitingFor,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `list_closed_waiting` — what the person closed from the Job's list, newest first. `caller` places a
+    /// hosted session as `waiting_for`'s does. [`Refusal::Unacceptable`] for a call that places no session.
+    fn list_closed_waiting(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> impl Future<Output = Result<ipc::ClosedWaitingList, Refusal>> + Send;
+
     /// `all_done` — the agent says it has nothing left to work on. `caller` places a hosted session as
     /// `waiting_for`'s does. Answers with the row. [`Refusal::Unacceptable`] for a call that places no session.
     fn all_done(

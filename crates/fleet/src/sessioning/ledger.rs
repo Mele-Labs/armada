@@ -277,6 +277,7 @@ where
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        record.closed = waited.closed;
         let settled = waited.settled;
         let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);

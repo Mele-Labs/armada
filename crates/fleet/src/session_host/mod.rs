@@ -105,7 +105,7 @@ use ipc::{HelmCallInFlight, SessionTurn};
 
 use crate::helm::{Asks, HelmAskHold};
 
-pub use process::{Heard, Process, ProcessHost, Processes, Sink, Start};
+pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
 pub use terminal::Terminals;
 pub(crate) use terminal::PromptOpen;
 
@@ -397,6 +397,14 @@ pub(crate) struct Runtime {
     state: Mutex<State>,
 }
 
+/// Why a Job's process would not start, and what it was to be told.
+pub(crate) struct StartFailed {
+    pub cause: String,
+    /// The last lines the agent wrote to its log.
+    pub log: Vec<String>,
+    pub held: Vec<proposing::Held>,
+}
+
 pub(crate) struct State {
     pub process: Option<Arc<dyn Process>>,
     pub turn: SessionTurn,
@@ -439,6 +447,9 @@ pub(crate) struct State {
     pub unstarted: Vec<String>,
     /// Those lines have been sent to a replacement once already.
     pub retried: bool,
+    /// The process would not start, tried twice, with the turns that waited on it. Start again,
+    /// or a message from him, sends them.
+    pub(crate) start_failed: Option<StartFailed>,
     /// The subagents the last restart cut off, told to the agent with its next turn.
     pub cut_off: Vec<String>,
     /// The keeper said busy on reattach and nothing has been heard since, so
@@ -522,6 +533,7 @@ impl State {
             resolved_model: None,
             unstarted: Vec::new(),
             retried: false,
+            start_failed: None,
             cut_off: Vec::new(),
             reattached_busy: false,
             turn_began: None,

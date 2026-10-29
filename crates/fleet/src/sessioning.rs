@@ -839,6 +839,14 @@ where
         self.set_waiting(caller, set).await
     }
 
+    async fn list_closed_waiting(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::ClosedWaitingList, Refusal> {
+        self.closed_waiting_listed(caller, session_id).await
+    }
+
     async fn all_done(
         &self,
         caller: Option<api::Caller>,
