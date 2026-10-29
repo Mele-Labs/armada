@@ -16,7 +16,7 @@ use crate::daemon::Fleet;
 use crate::session_host::{Process, Processes, Sink, Start};
 use crate::tests::tmp::TempDir;
 
-const CAUSE: &str = "claude: command not found";
+const CAUSE: &str = "agent: command not found";
 
 /// The stand-in process seam, refusing to start while `failing` is set.
 struct Flaky {
