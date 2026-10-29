@@ -52,6 +52,22 @@ const NOTES: Record<string, () => Annotation[]> = {
     }),
     note("20261007-135500-ffff", "The window title is blank before the first Session", "#title", "h1", "TitleBar", "packages/shell/src/TitleBar.tsx", { x: 0, y: 0, width: 400, height: 30 }, null),
   ],
+  // Eight notes on three screens: on the Cockpit two with no Job and one sent; on Sessions one with no Job, one sent and one
+  // done; on Settings one with no Job and one done.
+  "annotate-notes-tabs": () => [
+    note("20261007-140000-aaaa", "The title is cut off in the row", 'section[aria-label="Jobs"]', "section", "Cockpit", "apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", { x: 300, y: 120, width: 900, height: 200 }),
+    note("20261007-140100-bbbb", "The places crowd the search field", 'nav[aria-label="Places"]', "nav", "TabBar", "apps/desktop/src/renderer/src/cockpit/deck/TabBar.tsx", { x: 0, y: 0, width: 220, height: 800 }),
+    note("20261007-140200-cccc", "The branch chip overlaps the row badge", "#row-badge", "span", "RowBadge", "packages/surfaces/jobs/src/RowBadge.tsx", { x: 900, y: 140, width: 80, height: 20 }, "Cockpit", {
+      sent: { sessionId: "01SESSIONSENTROWBADGEAAAAA", title: "Row badge spacing", at: AT },
+    }),
+    note("20261007-140300-dddd", "The ledger header wraps under the title", "#session-ledger-head", "header", "LedgerHead", "packages/surfaces/sessions/src/LedgerHead.tsx", { x: 900, y: 40, width: 400, height: 60 }, "Sessions"),
+    note("20261007-140400-eeee", "The composer loses its draft on reload", "#session-composer", "form", "Composer", "packages/surfaces/sessions/src/Composer.tsx", { x: 300, y: 700, width: 600, height: 120 }, "Sessions", {
+      sent: { sessionId: "01SESSIONSENTCOMPOSERAAAAA", title: "Composer draft", at: AT },
+    }),
+    note("20261007-140500-ffff", "The thread jumps when a message lands", "#session-thread", "div", "Thread", "packages/surfaces/sessions/src/Thread.tsx", { x: 300, y: 100, width: 600, height: 500 }, "Sessions", { status: "done" }),
+    note("20261007-140600-gggg", "The repository path is cut off", "#settings-repo", "input", "RepositoryField", "packages/surfaces/settings/src/RepositoryField.tsx", { x: 300, y: 200, width: 500, height: 40 }, "Settings"),
+    note("20261007-140700-hhhh", "The theme picker has no focus ring", "#settings-theme", "select", "ThemePicker", "packages/surfaces/settings/src/ThemePicker.tsx", { x: 300, y: 260, width: 300, height: 40 }, "Settings", { status: "done" }),
+  ],
 };
 
 /** A one-pixel PNG, which is all a capture has to be here. */
