@@ -3,7 +3,7 @@
 // (`docs/design`, Workspaces, lifecycles and rules). Only `scenarios/workspaces-lanes.ts` reads this.
 
 import { lifecyclesFor } from "@armada/components";
-import type { CommentRead, Fired, Instance, JobChange, JobLanes, LaneStep, LifecycleDef, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
+import type { CommentRead, Fired, Instance, JobChange, JobLanes, LaneStep, LifecycleDef, Observed, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
 
 import type { Definition } from "./workflows-managed";
 
@@ -177,6 +177,59 @@ const JOB: LifecycleDef = {
 
 const LIFECYCLES = [DOCUMENT, TICKET, PULL_REQUEST, DEPLOY, JOB] as const;
 
+/**
+ * What a step can wait on besides a lifecycle, each as the dropdowns list it: the thing, then its state. `says` is the sentence `STORE_ENDS` ends a step with, so each step opens with its own
+ * pair chosen. The pull request, the document and the Jobs this Job starts are lifecycles too, and name the state a step that waits on them is held on.
+ */
+const OBSERVES: readonly Observed[] = [
+  { id: "agent", label: "The agent", states: [{ id: "done", label: "says it is done", says: "the agent says it is done" }] },
+  { id: "you", label: "You", states: [{ id: "approve_plan", label: "approve the plan", says: "you approve the plan" }] },
+  { id: "change", label: "The change", states: [{ id: "pushed", label: "is pushed", says: "the change is pushed" }] },
+  {
+    id: "pull_request",
+    label: "The pull request",
+    lifecycle: "pull_request",
+    states: [
+      { id: "open", label: "is open", says: "the pull request is open" },
+      { id: "checks", label: "has green checks", says: "the pull request has green checks" },
+      { id: "ready", label: "is ready for review", says: "the pull request is ready for review" },
+      { id: "approved", label: "is approved", says: "the pull request is approved", endsOn: { lane: "pull_request", state: "approved" } },
+      { id: "landed", label: "has landed", says: "the pull request has landed", endsOn: { lane: "pull_request", state: "merged" } },
+    ],
+  },
+  { id: "comments", label: "Every review comment", states: [{ id: "answered", label: "has an answer", says: "every comment has an answer" }] },
+  { id: "questions", label: "Every question", states: [{ id: "answered", label: "is answered", says: "every question is answered" }] },
+  {
+    id: "document",
+    label: "The document",
+    lifecycle: "document",
+    states: [
+      { id: "draft", label: "is a draft", says: "the document is a draft", endsOn: { lane: "document", state: "draft" } },
+      { id: "in_review", label: "is in review", says: "the document is in review", endsOn: { lane: "document", state: "in_review" } },
+      { id: "approved", label: "is approved", says: "the document is approved", endsOn: { lane: "document", state: "approved" } },
+    ],
+  },
+  { id: "tickets", label: "The tickets", states: [{ id: "linked", label: "link the document", says: "each ticket links the document" }] },
+  {
+    id: "pieces",
+    label: "Every piece",
+    states: [
+      { id: "named", label: "is named", says: "every piece is named" },
+      { id: "has_job", label: "has a Job", says: "every piece has a Job" },
+    ],
+  },
+  { id: "summary", label: "The summary", states: [{ id: "posted", label: "is posted", says: "the summary is posted" }] },
+  {
+    id: "jobs",
+    label: "The Jobs this Job starts",
+    lifecycle: "job",
+    states: [
+      { id: "all_landed", label: "every one landed", says: "every Job it started has landed", endsOn: { lane: "job", state: "landed" } },
+      { id: "any_landed", label: "any one landed", says: "any Job it started has landed", endsOn: { lane: "job", state: "landed" } },
+    ],
+  },
+];
+
 // ---- The rules ------------------------------------------------------------------------------------------------------------
 
 const PROGRESS: Rule = {
@@ -324,6 +377,7 @@ export const MY_STORE: Workspace = {
     { id: API, name: API },
   ],
   lifecycles: LIFECYCLES,
+  observes: OBSERVES,
   workflows: {
     feature: {
       steps: {

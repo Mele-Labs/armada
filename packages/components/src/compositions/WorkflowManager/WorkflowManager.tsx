@@ -15,7 +15,7 @@ import type { SentFromComposer } from "../SessionComposer/SessionComposer";
 import { STEP_FIELDS, stepChangesOf } from "./diff";
 import type { StepChange } from "./diff";
 import { RuleChangeCard, WorkspaceEditor } from "./WorkspaceEditor";
-import type { WorkspaceEditing } from "./WorkspaceEditor";
+import type { StepRows, WorkspaceEditing } from "./WorkspaceEditor";
 import { STEP_GLYPHS, keyOf } from "./types";
 import type {
   AgentState,
@@ -315,7 +315,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
     </p>
   );
   /** One step as its card: in the column, or in the inspector when the lanes pick it. */
-  const stepCard = (step: ManagedStep, at: number): ReactNode => (
+  const stepCard = (step: ManagedStep, at: number, rows?: StepRows): ReactNode => (
     <Step
       key={step.id}
       n={at + 1}
@@ -324,6 +324,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
       keep={`${key}/${step.id}`}
       editable={editable || lanes}
       live={lanes}
+      {...(rows === undefined ? {} : { rows })}
       draft={drafts[`${key}/${step.id}`]}
       onDraft={(words) =>
         setDrafts((was) => {
@@ -482,6 +483,8 @@ type StepProps = {
   editable: boolean;
   /** The words are saved as they are left, with no Save or Discard to press. */
   live: boolean;
+  /** Drawn in the side panel: the step's name and what ends it are fields in the card's rows, and the band that repeats its name is left off. */
+  rows?: StepRows;
   draft: string | undefined;
   onDraft: (words: string | undefined) => void;
   /** Whether the save went through, so the words typed are let go only then. */
@@ -507,6 +510,7 @@ function Step({
   keep,
   editable,
   live,
+  rows,
   draft,
   onDraft,
   onSave,
@@ -522,6 +526,7 @@ function Step({
   versus,
 }: StepProps) {
   const card = useRef<HTMLDivElement>(null);
+  const id = useId();
   const Glyph = step.glyph === undefined ? undefined : STEP_GLYPHS[step.glyph];
   // Fleet's sentence for a suggestion's Approve or Dismiss it would not take, said on the card.
   const [refused, setRefused] = useState<string | undefined>(undefined);
@@ -550,10 +555,15 @@ function Step({
         card.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
       }}
     >
+      {rows !== undefined && !added && !differs && !(changed && !live) ? null : (
       <div className="armada-wm-step__band">
-        <span className="armada-wm-step__n">{n}</span>
-        <span className="armada-wm-step__label">{step.label}</span>
-        {Glyph === undefined ? null : <Glyph size={14} strokeWidth={2} aria-hidden />}
+        {rows !== undefined ? null : (
+          <>
+            <span className="armada-wm-step__n">{n}</span>
+            <span className="armada-wm-step__label">{step.label}</span>
+            {Glyph === undefined ? null : <Glyph size={14} strokeWidth={2} aria-hidden />}
+          </>
+        )}
         <span className="armada-wm-step__marks">
           {added ? (
             <Tooltip label="Not in Armada's">
@@ -600,8 +610,15 @@ function Step({
           ) : null}
         </span>
       </div>
+      )}
 
       <dl className="armada-wm-step__facts">
+        {rows === undefined ? null : (
+          <>
+            <dt id={`${id}-name`}>Name</dt>
+            <dd>{rows.name(`${id}-name`)}</dd>
+          </>
+        )}
         {step.endsAny !== undefined && step.endsAny.length > 1 ? (
           <>
             <dt>Ends when</dt>
@@ -613,13 +630,23 @@ function Step({
               </ul>
             </dd>
           </>
+        ) : rows !== undefined ? (
+          <>
+            <dt id={`${id}-ends`}>Ends when</dt>
+            <dd>{rows.ends(`${id}-ends`)}</dd>
+          </>
         ) : step.ends === "" ? null : (
           <>
             <dt>Ends when</dt>
             <dd>{step.ends}</dd>
           </>
         )}
-        {step.passedOver === undefined ? null : (
+        {rows?.passedOver !== undefined ? (
+          <>
+            <dt id={`${id}-passed`}>Passed over when</dt>
+            <dd>{rows.passedOver(`${id}-passed`)}</dd>
+          </>
+        ) : step.passedOver === undefined ? null : (
           <>
             <dt>Passed over when</dt>
             <dd>{step.passedOver}</dd>

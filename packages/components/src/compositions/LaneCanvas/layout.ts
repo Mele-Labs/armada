@@ -28,6 +28,9 @@ export const GEO = {
 /** Where the canvas opens and Fit returns to: the top left, at the scale the lanes are drawn at. */
 export const HOME = { x: 0, y: 0, zoom: 1 } as const;
 
+/** How far out the canvas goes: a node's words are the kit's body size, and 0.8 of it is the smallest they are still read at. A frame narrower than the lanes scrolls and never shrinks them further. */
+export const MIN_ZOOM = 0.8;
+
 export type Rect = { x: number; y: number; w: number; h: number };
 
 export type Placement = {

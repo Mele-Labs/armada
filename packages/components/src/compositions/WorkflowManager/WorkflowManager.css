@@ -5,20 +5,14 @@
 
 .armada-wm {
   display: grid;
-  grid-template-columns: var(--armada-wm-list, var(--w-guide-list)) minmax(0, 1fr);
+  grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   column-gap: var(--space-6);
   flex: 1;
   min-width: 0;
   min-height: 0;
 }
-/* The app's side panel floats over the right of the window while a node is picked: the editor's column stands clear of it (`WorkspaceEditor`), and the list beside it gives up room when what is left is narrow. */
-.armada-wm[data-covered] > .armada-wm__detail {
-  margin-inline-end: calc(var(--armada-wm-covered) + var(--space-4));
-}
-.armada-wm[data-crowded] {
-  --armada-wm-list: var(--w-guide-list-min);
-}
+
 
 /* ---- The list ------------------------------------------------------------------------------- */
 
@@ -668,17 +662,12 @@
   /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
   height: calc(var(--space-12) * 11);
 }
-/* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. The row wraps where the column is narrow, as the tabs do. */
+/* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
 .armada-wm-scope {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-3);
   min-width: 0;
-}
-.armada-wm-scope__tabs {
-  min-width: 0;
-  max-width: 100%;
 }
 .armada-wm-scope__label {
   flex: none;
@@ -706,8 +695,20 @@
   gap: var(--space-3);
   min-width: 0;
 }
-.armada-wm-inspector__edit {
-  padding: var(--space-3) var(--space-4) 0;
+/* Two dropdowns on one row that set one fact, side by side and as wide as the row lets them be. */
+.armada-wm-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
+  gap: var(--space-2);
+}
+/* Text a screen reader reads and nothing draws: the second dropdown of a pair is told from the first by it. */
+.armada-wm-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* A value a repository overrides: the split's glyph and the words, and the way back to the Workspace's beside them. */
@@ -731,13 +732,6 @@
 }
 .armada-wm-tell {
   min-width: 0;
-}
-
-/* The tracker's own words, in mono, as the lanes' sub lines are. */
-.armada-wm-inspector__values {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-default);
 }
 
 /* A rule the proposed change adds: its leading edge wears the diff's hue, as an added step card does. */

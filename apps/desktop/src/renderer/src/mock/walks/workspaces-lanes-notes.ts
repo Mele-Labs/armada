@@ -13,7 +13,9 @@ const PANEL = role("dialog");
 const YOURS = group("Yours");
 const RUNS_IN = group("Runs in");
 const ASK = role("textbox", "Tell an agent what to change");
-const statuses = (name = "Jira statuses") => role("textbox", name, { exact: true });
+const statuses = () => role("textbox", "Jira statuses", { exact: true });
+const dropdown = (name: string) => role("combobox", name, { exact: true });
+const closePanel = { press: inside(PANEL, button("Close")), say: "Close the panel" } as const;
 const tab = (name: string) => inside(RUNS_IN, role("tab", name, { exact: true }));
 
 const views = role("toolbar", "Views", { exact: true });
@@ -34,24 +36,32 @@ const notes = walk("workspaces-lanes", [
   { look: ASK, say: "Tell an agent what to change stands under the title and the tabs, in view without scrolling" },
   { look: inside(LANES, role("img", "Start", { exact: true })), say: "The canvas draws each kind its own way: the workflow starts and ends at small circles, and a step is a rounded box" },
   { look: inside(LANES, button("Deploy: Rolling out", { exact: true })), say: "A tracker or forge state is a pill, a watch is a hexagon and a rule is a diamond. Each kind has a tint of its own, and a dashed edge is a wait" },
-  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "A node opens the side panel" },
-  { look: inside(PANEL, statuses()), say: "Its settings are fields, saved as they are changed. There is no Edit to get into one: Jira statuses for all of my-store" },
   { press: tab("store-api"), say: "store-api's tab. The node that differs there carries a mark" },
+  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "A node opens the side panel over the canvas" },
   { look: inside(PANEL, text("Changed for store-api")), say: "Peer Review is store-api's own, marked as changed for store-api, with a way back to my-store's" },
+  closePanel,
   { press: tab("All of my-store"), say: "Back to the base" },
-  { press: inside(LANES, button("Ticket: To do", { exact: true })), say: "To do, on Armada's workflow" },
+  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review for all of my-store" },
+  { look: inside(PANEL, statuses()), say: "Jira statuses is a field in the panel, and it saves as it changes" },
+  { press: inside(LANES, button("Ticket: To do", { exact: true })), say: "Another node switches the panel to it" },
   { press: inside(role("toolbar", "Edit Ticket To do"), button("Edit Ticket To do", { exact: true })), say: "Edit, on the node, goes to its fields" },
   { type: "To Do, Backlog, Icebox\n", into: inside(PANEL, statuses()), say: "The first change makes yours, and nothing says so" },
   { look: inside(YOURS, button("feature", { exact: true })), say: "The change is kept under Yours" },
   { look: inside(role("toolbar", "Acts"), group("Where it is kept")), say: "The header is icons with tooltips, in three groups: compare and reset, keep, and delete apart" },
+  closePanel,
   { press: tab("store-api"), say: "store-api's tab, on yours" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review, marked" },
   { press: inside(PANEL, button("Use my-store's", { exact: true })), say: "Use my-store's drops store-api's own value. Edits on a repository's tab change that repository only" },
-  { look: inside(PANEL, statuses("Jira statuses for store-api")), say: "store-api reads my-store's again" },
+  { look: inside(PANEL, statuses()), say: "store-api reads my-store's again" },
+  closePanel,
   { press: tab("All of my-store"), say: "Back to the base" },
   { drag: role("button", "Connect from step Build"), by: { x: 112, y: 263 }, say: "A connector dragged from one node to another draws a rule. A step to a state is a rule that asks" },
   { look: inside(PANEL, role("radio", "Asks")), say: "Its fields open in the panel" },
-  { press: inside(LANES, button("Step: Open PR", { exact: true })), say: "A pick opens the panel and a toolbar over the node" },
+  { look: inside(PANEL, dropdown("When")), say: "When is two dropdowns, the step or state and then the moment: Build starts" },
+  { type: "ends", into: inside(PANEL, dropdown("When moment")), say: "Choosing ends saves at once: Build ends" },
+  { press: inside(LANES, button("Step: Open PR", { exact: true })), say: "Another node switches the panel to it, and a toolbar stands over the node" },
+  { look: inside(PANEL, dropdown("Ends when")), say: "Ends when is two dropdowns, set from the step: The pull request, is open" },
+  { type: "approved", into: inside(PANEL, dropdown("Ends when state")), say: "Choosing is approved saves at once: Open PR ends when the pull request is approved" },
   { press: button("Add after step Open PR"), say: "Edit, Tell an agent, Add after and Delete. Add after puts a step beside it" },
   { press: inside(group("Armada"), button("planning", { exact: true })), say: "A lane is any lifecycle" },
   { look: inside(LANES, button("Document: In review", { exact: true })), say: "planning moves a Document through Draft, In review and Approved, with a ticket beside it" },
@@ -63,10 +73,12 @@ const notes = walk("workspaces-lanes", [
   { later: JOB_LANES, say: "Panned to where the Job is" },
   { later: node("ARM-41: In progress, assigned to you"), say: "A ticket's state is a pin on a heavier frame. Only the step the agent works on takes the accent" },
   { later: node("PR #812: Draft"), say: "Two moments on" },
+  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
   { press: inside(NOW, button("Ask for review", { exact: true })), say: "Waiting on you, in Now, opens the same rule in the side panel as the canvas does" },
   { press: inside(RULE_PANEL, button("Send", { exact: true })), say: "The card is the rule's own: where it goes and to whom. Send sends it" },
-  { look: inside(RULE_PANEL, role("img", "Sent", { exact: true })), say: "The panel stays open and says it went, with Back still in it" },
-  { press: inside(RULE_PANEL, button("Back")), say: "Back to the Workflow" },
+  { look: inside(RULE_PANEL, role("img", "Sent", { exact: true })), say: "The panel stays open and says it went" },
+  { press: inside(RULE_PANEL, button("Close")), say: "Close the panel" },
+  { press: inside(views, workflowView), say: "Workflow opens again" },
   { later: inside(JOB_LANES, button("Ask for review", { exact: true })), say: "The ask went out" },
   { later: inside(LANES_PANEL, region("Comments on PR #812")), say: "Comments are a monitor: what the agent made of each" },
   { press: inside(LANES_PANEL, button(/^Open in the pull request: .* on src\/cart\/totals\.ts/)), say: "A comment opens the pull request at that comment" },

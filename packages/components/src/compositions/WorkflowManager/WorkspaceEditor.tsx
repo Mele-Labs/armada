@@ -1,20 +1,24 @@
 import { ListPlus, Split } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
+import { Select } from "../../primitives/Select/Select";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { editorLanes, stepsOf } from "../LaneCanvas/build";
-import { ruleBetween, uniqueId, withNewRule, withOverride, withReads, withRule, withStateAfter, withStateLabel, withStepAfter, withStepsOrder, withoutRule, withoutState, withoutStep } from "../LaneCanvas/edit";
+import { ruleBetween, uniqueId, withNewRule, withOverride, withReads, withRule, withStateAfter, withStateLabel, withStepAfter, withStepWhen, withStepsOrder, withoutRule, withoutState, withoutStep } from "../LaneCanvas/edit";
+import type { RulePatch } from "../LaneCanvas/edit";
 import { LaneCanvas } from "../LaneCanvas/LaneCanvas";
 import type { LaneEditing, LanePick } from "../LaneCanvas/LaneCanvas";
-import { nodeId, whenSaid } from "../LaneCanvas/model";
-import type { Autonomy, LifecycleDef, Rule, StateDef, Workspace } from "../LaneCanvas/model";
+import { lifecyclesFor, nodeId, whenSaid } from "../LaneCanvas/model";
+import type { Autonomy, LifecycleDef, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
+import { MOMENTS, endsOnOf, fireGroupsOf, momentOf, subjectsOf, waitsOf } from "../LaneCanvas/waits";
+import type { WaitSubject } from "../LaneCanvas/waits";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
 import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } from "./types";
@@ -25,8 +29,9 @@ import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } fro
  * lanes as the workflow runs there, marks the nodes that differ there, and what is edited on it is an override for that repository alone. The panel shows the picked tab's one value, and says where a
  * repository's differs from the base. **Under the tabs is the box that tells an agent what to change** (`above`), always on show.
  *
- * **What is picked opens in the app's side panel**, drawn into the slot the host gives (`LanePanel`), since the panel is the host's and this is a component: its settings as live fields, saved as they
- * are changed, or a box to tell an agent. **There is no read only state and no mode to enter.** Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from
+ * **What is picked opens in the app's side panel**, over the canvas and as wide as the pull request's, drawn into the slot the host gives (`LanePanel`), since the panel is the host's and this is a component:
+ * its settings as live fields, saved as they are changed, or a box to tell an agent. **Each row has its label once**, and the field in it is named by that label. A rule's When and a step's Ends when are two
+ * dropdowns, the thing and then its moment or state. **There is no read only state and no mode to enter.** Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from
  * one node to another. **The first change on Armada's workflow makes the person's own copy, quietly**: the change lands on it, and nothing here says copy.
  */
 export type WorkspaceEditing = {
@@ -59,14 +64,20 @@ export type StepsChange =
 
 const NONE: readonly never[] = [];
 
-/** The width the editor keeps beside a panel before the list gives up room: the title's acts, and the tabs on a line each. */
-const NARROW = 420;
 const NOBODY = () => undefined;
 
 const AUTONOMY_SAID: Readonly<Record<Autonomy, string>> = { acts: "Acts", asks: "Asks", off: "Off" };
 
 const refOf = (id: string): { lane: string; item: string } => ({ lane: id.slice(0, id.indexOf("/")), item: id.slice(id.indexOf("/") + 1) });
 const splitValues = (text: string): string[] => text.split(",").map((one) => one.trim()).filter((one) => one !== "");
+
+/** The fields a step's card takes when the panel draws it, each given the id of the row label that names it. */
+export type StepRows = {
+  name: (labelledBy: string) => ReactNode;
+  ends: (labelledBy: string) => ReactNode;
+  /** Absent where the step is passed over for nothing. */
+  passedOver?: (labelledBy: string) => ReactNode;
+};
 
 /** What the panel holds for the pick: its fields, or a box to tell an agent about it. */
 type Mode = "fields" | "tell";
@@ -89,8 +100,8 @@ export function WorkspaceEditor({
   editable: boolean;
   /** The rules a change waiting on Approve would add, drawn as a diff. */
   proposed?: readonly Rule[];
-  /** The step card for the step picked: its words, what ends it, what drifted. */
-  stepCard: (step: ManagedStep, at: number) => ReactNode;
+  /** The step card for the step picked: its words, what ends it, what drifted. `rows` draws its name and what ends it as the fields of the panel, in the card's own rows. */
+  stepCard: (step: ManagedStep, at: number, rows?: StepRows) => ReactNode;
   /** What stands under the tabs and over the canvas: the box that tells an agent what to change. */
   above?: ReactNode;
   panel: LanePanel;
@@ -105,7 +116,6 @@ export function WorkspaceEditor({
   const [mode, setMode] = useState<Mode>("fields");
   // The tab: the Workspace's base, or one repository's.
   const [scope, setScope] = useState("workspace");
-  const section = useRef<HTMLElement>(null);
   const repository = workspace.repositories.find((one) => one.id === scope);
   useEffect(() => setScope("workspace"), [workflow.id]);
   // The steps are held while a copy's are read, so the canvas is not taken away and drawn again as the person's own copy opens.
@@ -120,6 +130,7 @@ export function WorkspaceEditor({
     if (!editable) onMakeCopy();
   };
   const writeSteps = onSteps;
+  const subjects = useMemo(() => subjectsOf(workspace), [workspace]);
 
   const names = useMemo(() => {
     const out = new Map<string, { label: string; lane: string }>();
@@ -169,48 +180,6 @@ export function WorkspaceEditor({
     // Only a new name asks the panel again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [named?.title]);
-
-  // **The panel takes room, and the editor gives it.** The app's side panel floats over the right of the window, so the column the editor stands in is narrowed by what it covers (and the list beside
-  // it gives up room when what is left is narrow), and nothing the panel lies over is left to be pressed beneath it.
-  useEffect(() => {
-    const root = section.current?.closest<HTMLElement>(".armada-wm");
-    if (root === null || root === undefined) return;
-    const sheet = panel.open ? panel.slot?.closest<HTMLElement>("[data-side]") : null;
-    const release = () => {
-      root.style.removeProperty("--armada-wm-covered");
-      delete root.dataset.covered;
-      delete root.dataset.crowded;
-    };
-    if (sheet === null || sheet === undefined) return release();
-    let live = true;
-    let settled = false;
-    const measure = () => {
-      if (!live || !settled) return;
-      const bounds = root.getBoundingClientRect();
-      const covered = Math.max(0, Math.round(bounds.right - sheet.getBoundingClientRect().left));
-      if (covered === 0) return release();
-      const style = getComputedStyle(root);
-      const list = parseFloat(style.getPropertyValue("--w-guide-list")) || 0;
-      const gap = parseFloat(style.columnGap) || 0;
-      root.style.setProperty("--armada-wm-covered", `${covered}px`);
-      root.dataset.covered = "";
-      if (bounds.width - covered - list - gap < NARROW) root.dataset.crowded = "";
-      else delete root.dataset.crowded;
-    };
-    // The panel travels in from the edge: it is read once it has settled, and again as it is resized or the window is.
-    void Promise.allSettled(sheet.getAnimations().map((one) => one.finished)).then(() => {
-      settled = true;
-      measure();
-    });
-    const watch = new ResizeObserver(measure);
-    watch.observe(sheet);
-    watch.observe(root);
-    return () => {
-      live = false;
-      watch.disconnect();
-      release();
-    };
-  }, [panel.open, panel.slot]);
 
   /** Edit goes to the first field of what is picked, in the panel, once the panel shows it. */
   const toFields = () => {
@@ -281,6 +250,7 @@ export function WorkspaceEditor({
       return (
         <RuleFacts
           rule={rule}
+          workflow={workflow.id}
           workspace={workspace}
           steps={steps}
           scope={repository}
@@ -295,14 +265,21 @@ export function WorkspaceEditor({
       const index = steps.findIndex((one) => one.id === item);
       const step = steps[index];
       if (step === undefined) return null;
-      return (
-        <>
-          <div className="armada-wm-inspector__edit">
-            <Field label="Step name" value={step.label} onCommit={(label) => label !== "" && writeSteps({ kind: "label", id: step.id, label })} />
-          </div>
-          {stepCard(step, index)}
-        </>
+      const placed = stepsOf(workspace, workflow.id, steps);
+      const laid = placed.find((one) => one.id === step.id) ?? { id: step.id, label: step.label, col: index };
+      const waits = (which: "ends" | "passedOver") => (labelledBy: string) => (
+        <WaitsPair
+          labelledBy={labelledBy}
+          subjects={subjects}
+          value={waitsOf(laid, which, which === "ends" ? step.ends : step.passedOver, subjects)}
+          onChange={(next) => change(withStepWhen(workspace, workflow.id, placed, step.id, which, next, endsOnOf(next, subjects)))}
+        />
       );
+      return stepCard(step, index, {
+        name: (labelledBy) => <Field labelledBy={labelledBy} value={step.label} onCommit={(label) => label !== "" && writeSteps({ kind: "label", id: step.id, label })} />,
+        ends: waits("ends"),
+        ...(step.passedOver === undefined && laid.passedOver === undefined ? {} : { passedOver: waits("passedOver") }),
+      });
     }
     const lifecycle = workspace.lifecycles.find((one) => one.id === lane);
     const state = lifecycle?.states.find((one) => one.id === item);
@@ -332,7 +309,7 @@ export function WorkspaceEditor({
   const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
 
   return (
-    <section ref={section} className="armada-wm-lanes" aria-label="Lanes">
+    <section className="armada-wm-lanes" aria-label="Lanes">
       <div className="armada-wm-scope" role="group" aria-label="Runs in">
         <span className="armada-wm-scope__label" aria-hidden="true">
           Runs in
@@ -379,8 +356,8 @@ function TellBox({ keep, onSend }: { keep: string; onSend: (sent: SentFromCompos
   );
 }
 
-/** A field that edits a stored value and says it where it is left, or on Enter. */
-function Field({ label, value, onCommit, mono = false, placeholder }: { label: string; value: string; onCommit: (next: string) => void; mono?: boolean; placeholder?: string }) {
+/** A field that edits a stored value and says it where it is left, or on Enter. Its name is its row's label: `labelledBy` is that label's id. */
+function Field({ labelledBy, value, onCommit, mono = false }: { labelledBy: string; value: string; onCommit: (next: string) => void; mono?: boolean }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   const commit = () => {
@@ -389,10 +366,9 @@ function Field({ label, value, onCommit, mono = false, placeholder }: { label: s
   };
   return (
     <Input
-      label={label}
+      aria-labelledby={labelledBy}
       mono={mono}
       value={text}
-      {...(placeholder === undefined ? {} : { placeholder })}
       onChange={(event) => setText(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -402,13 +378,39 @@ function Field({ label, value, onCommit, mono = false, placeholder }: { label: s
   );
 }
 
+/** Words that run to several lines, shown whole: the box grows with them. Said where it is left, or on Enter; Shift and Enter starts a line. */
+function Wrapped({ labelledBy, keep, value, onCommit }: { labelledBy: string; keep: string; value: string; onCommit: (next: string) => void }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const commit = () => {
+    const next = text.trim();
+    if (next !== value) onCommit(next);
+  };
+  return (
+    <Textarea
+      aria-labelledby={labelledBy}
+      grow
+      rows={1}
+      keep={keep}
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || event.shiftKey) return;
+        event.preventDefault();
+        commit();
+      }}
+    />
+  );
+}
+
 /** Lines of text that edit a stored list, said where the box is left. `keep` names what the lines are about, so a line half typed is there when the panel comes back. */
-function Lines({ label, keep, lines, onCommit }: { label: string; keep: string; lines: readonly string[]; onCommit: (next: string[]) => void }) {
+function Lines({ labelledBy, keep, lines, onCommit }: { labelledBy: string; keep: string; lines: readonly string[]; onCommit: (next: string[]) => void }) {
   const [text, setText] = useState(lines.join("\n"));
   useEffect(() => setText(lines.join("\n")), [lines]);
   return (
     <Textarea
-      label={label}
+      aria-labelledby={labelledBy}
       rows={Math.max(2, lines.length)}
       keep={keep}
       value={text}
@@ -416,6 +418,86 @@ function Lines({ label, keep, lines, onCommit }: { label: string; keep: string; 
       onBlur={() => {
         const next = text.split("\n").map((one) => one.trim()).filter((one) => one !== "");
         if (next.join("\n") !== lines.join("\n")) onCommit(next);
+      }}
+    />
+  );
+}
+
+type Choice = { value: string; label: string };
+
+/**
+ * Two dropdowns on one row that set one fact, a thing and then what it does or is: `[ Build ] [ ends ]`. Both are named by the row's label, the second with a word that tells it from the first, so
+ * the row says its name once. Each saves as it is changed. A value the lists do not hold opens on an empty choice.
+ */
+function Pair({
+  labelledBy,
+  first,
+  second,
+}: {
+  labelledBy: string;
+  first: { value: string; groups: readonly { label?: string; items: readonly Choice[] }[]; onChange: (value: string) => void };
+  second: { value: string; hidden: string; items: readonly Choice[]; onChange: (value: string) => void };
+}) {
+  const hiddenId = useId();
+  const empty = (value: string, items: readonly Choice[]) => value === "" || !items.some((one) => one.value === value);
+  const all = first.groups.flatMap((group) => group.items);
+  return (
+    <div className="armada-wm-pair">
+      <span id={hiddenId} className="armada-wm-hidden">
+        {second.hidden}
+      </span>
+      <Select aria-labelledby={labelledBy} value={empty(first.value, all) ? "" : first.value} onChange={(event) => first.onChange(event.target.value)}>
+        {empty(first.value, all) ? <option value="" /> : null}
+        {first.groups.map((group) =>
+          group.label === undefined ? (
+            group.items.map((one) => (
+              <option key={one.value} value={one.value}>
+                {one.label}
+              </option>
+            ))
+          ) : (
+            <optgroup key={group.label} label={group.label}>
+              {group.items.map((one) => (
+                <option key={one.value} value={one.value}>
+                  {one.label}
+                </option>
+              ))}
+            </optgroup>
+          ),
+        )}
+      </Select>
+      <Select aria-labelledby={`${labelledBy} ${hiddenId}`} value={empty(second.value, second.items) ? "" : second.value} disabled={second.items.length === 0} onChange={(event) => second.onChange(event.target.value)}>
+        {empty(second.value, second.items) ? <option value="" /> : null}
+        {second.items.map((one) => (
+          <option key={one.value} value={one.value}>
+            {one.label}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
+/** What a step is ended by, or passed over for: the thing, then its state. Choosing another thing takes its first state. */
+function WaitsPair({ labelledBy, subjects, value, onChange }: { labelledBy: string; subjects: readonly WaitSubject[]; value: Waits | undefined; onChange: (next: Waits) => void }) {
+  const subject = subjects.find((one) => one.id === value?.on);
+  return (
+    <Pair
+      labelledBy={labelledBy}
+      first={{
+        value: value?.on ?? "",
+        groups: [{ items: subjects.map((one) => ({ value: one.id, label: one.label })) }],
+        onChange: (on) => {
+          const next = subjects.find((one) => one.id === on);
+          const state = next?.states[0];
+          if (next !== undefined && state !== undefined) onChange({ on: next.id, state: state.id });
+        },
+      }}
+      second={{
+        value: value?.state ?? "",
+        hidden: "state",
+        items: (subject?.states ?? []).map((one) => ({ value: one.id, label: one.label })),
+        onChange: (state) => value !== undefined && onChange({ on: value.on, state }),
       }}
     />
   );
@@ -449,7 +531,8 @@ function Changed({ repository, base, onUseBase }: { repository: string; base: st
 
 /**
  * A state: where Fleet reads it from, and the values that count as being in it, **for the tab that is picked**. On the base they are the Workspace's; on a repository's tab they are that
- * repository's, which are the base's until it overrides them, and an override says so and can be dropped. Edited on a tab, they change that tab's alone.
+ * repository's, which are the base's until it overrides them, and an override says so and can be dropped. Edited on a tab, they change that tab's alone. **Each row has its label once**,
+ * and the field in it is named by that label.
  */
 function StateFacts({
   lifecycle,
@@ -467,32 +550,36 @@ function StateFacts({
   onLabel: (label: string) => void;
   onReads: (read: { source: string; scope: string; values: readonly string[] }) => void;
 }) {
+  const id = useId();
   const sources = [...new Set(state.reads.map((one) => one.source))];
   const valuesOf = (source: string, at: string) => state.reads.find((one) => one.source === source && one.scope === at)?.values;
   return (
     <div className="armada-wm-step">
-      {scope === undefined ? (
-        <div className="armada-wm-inspector__edit">
-          <Field label="State name" value={state.label} onCommit={(label) => label !== "" && onLabel(label)} />
-        </div>
-      ) : null}
       <dl className="armada-wm-step__facts">
+        {scope === undefined ? (
+          <>
+            <dt id={`${id}-name`}>Name</dt>
+            <dd>
+              <Field labelledBy={`${id}-name`} value={state.label} onCommit={(label) => label !== "" && onLabel(label)} />
+            </dd>
+          </>
+        ) : null}
         {sources.length === 1 && sources[0] === lifecycle.from ? null : (
           <>
             <dt>Read from</dt>
             <dd>{lifecycle.from}</dd>
           </>
         )}
-        {sources.flatMap((source) => {
+        {sources.flatMap((source, at) => {
           const base = valuesOf(source, "workspace") ?? [];
           const own = scope === undefined ? undefined : valuesOf(source, scope.id);
           const shown = own ?? base;
           return [
-            <dt key={`${source}:name`}>{`${source} statuses`}</dt>,
+            <dt key={`${source}:name`} id={`${id}-${at}`}>{`${source} statuses`}</dt>,
             <dd key={source}>
-              <Field
-                label={scope === undefined ? `${source} statuses` : `${source} statuses for ${scope.name}`}
-                mono
+              <Wrapped
+                labelledBy={`${id}-${at}`}
+                keep={`workflows:statuses:${lifecycle.id}/${state.id}/${source}/${scope?.id ?? "workspace"}`}
                 value={shown.join(", ")}
                 onCommit={(text) => {
                   const values = splitValues(text);
@@ -511,10 +598,12 @@ function StateFacts({
 
 /**
  * A rule: when it fires, what it checks, what it does and how far it may go alone, **for the tab that is picked**. On a repository's tab the autonomy is that repository's, which is the base's
- * until it is overridden, and an override says so and can be dropped. Its words and its place are the base's, edited there.
+ * until it is overridden, and an override says so and can be dropped. Its words and its place are the base's, edited there. **When is two dropdowns**, the step or state and then the moment, so
+ * it is changed in two presses. Each row has its label once.
  */
 function RuleFacts({
   rule,
+  workflow,
   workspace,
   steps,
   scope,
@@ -523,25 +612,32 @@ function RuleFacts({
   onOverride,
 }: {
   rule: Rule;
+  workflow: string;
   workspace: Workspace;
   steps: readonly { id: string; label: string }[];
   /** The repository whose tab is picked; absent on the base. */
   scope: { id: string; name: string } | undefined;
   /** A rule the proposed change would add is not the Workspace's yet: it is shown, and Approve makes it. */
   added: boolean;
-  onChange: (patch: { label?: string; at?: "starts" | "ends"; ifs?: readonly string[]; does?: Rule["does"]; autonomy?: Autonomy }) => void;
+  onChange: (patch: RulePatch) => void;
   onOverride: (scope: string, autonomy: Autonomy) => void;
 }) {
+  const id = useId();
   const own = scope === undefined ? undefined : rule.overrides?.find((one) => one.scope === scope.id)?.autonomy;
   const autonomy = own ?? rule.autonomy;
   // Its name, its place and its lines are the base's: they are edited there, not per repository.
   const writing = scope === undefined && !added;
   const kind = rule.does[0]?.act ?? "agent";
+  const lifecycles = lifecyclesFor(workspace, workflow);
+  const groups = fireGroupsOf(steps, lifecycles);
+  const from = nodeId(rule.from.lane, rule.from.item);
+  // A node the workflow does not draw still names its place, so the choice shows what the rule has.
+  const held: readonly { label?: string; items: readonly Choice[] }[] = groups.some((group) => group.items.some((one) => one.value === from)) ? groups : [{ items: [{ value: from, label: whenSaid({ ...rule, at: undefined }, lifecycles, steps) }] }, ...groups];
+  const moments = rule.from.lane === "workflow" ? MOMENTS.step : MOMENTS.state;
   return (
     <div className="armada-wm-step" data-added={added || undefined}>
       {added ? (
         <div className="armada-wm-step__band">
-          <span className="armada-wm-step__label">{rule.label}</span>
           <span className="armada-wm-step__marks">
             <Tooltip label="Added by the proposed change">
               <span role="img" aria-label="Added by the proposed change">
@@ -551,34 +647,42 @@ function RuleFacts({
           </span>
         </div>
       ) : null}
-      {writing ? (
-        <div className="armada-wm-inspector__edit">
-          <Field label="Rule name" value={rule.label} onCommit={(label) => label !== "" && onChange({ label })} />
-        </div>
-      ) : null}
       <dl className="armada-wm-step__facts">
-        <dt>When</dt>
+        {writing ? (
+          <>
+            <dt id={`${id}-name`}>Name</dt>
+            <dd>
+              <Field labelledBy={`${id}-name`} value={rule.label} onCommit={(label) => label !== "" && onChange({ label })} />
+            </dd>
+          </>
+        ) : null}
+        <dt id={`${id}-when`}>When</dt>
         <dd>
-          {writing && rule.from.lane === "workflow" ? (
-            <RadioGroup label="When">
-              {(["starts", "ends"] as const).map((one) => (
-                <Radio key={one} name={`at:${rule.id}`} checked={(rule.at ?? "starts") === one} onChange={() => onChange({ at: one })}>
-                  {`${steps.find((each) => each.id === rule.from.item)?.label ?? rule.from.item} ${one}`}
-                </Radio>
-              ))}
-            </RadioGroup>
+          {writing ? (
+            <Pair
+              labelledBy={`${id}-when`}
+              first={{
+                value: from,
+                groups: held,
+                onChange: (value) => {
+                  const ref = refOf(value);
+                  onChange({ from: ref, at: ref.lane === "workflow" ? "starts" : "enters" });
+                },
+              }}
+              second={{ value: momentOf(rule), hidden: "moment", items: moments, onChange: (at) => onChange({ at: at as NonNullable<Rule["at"]> }) }}
+            />
           ) : (
             whenSaid(rule, workspace.lifecycles, steps)
           )}
         </dd>
         {writing || rule.ifs.length > 0 ? (
           <>
-            <dt>If</dt>
+            <dt id={`${id}-if`}>If</dt>
             <dd>
               {writing ? (
-                <Lines label="If" keep={`workflows:if:${rule.id}`} lines={rule.ifs} onCommit={(ifs) => onChange({ ifs })} />
+                <Lines labelledBy={`${id}-if`} keep={`workflows:if:${rule.id}`} lines={rule.ifs} onCommit={(ifs) => onChange({ ifs })} />
               ) : (
-                <ul className="armada-wm-step__ends" aria-label="If">
+                <ul className="armada-wm-step__ends" aria-labelledby={`${id}-if`}>
                   {rule.ifs.map((one) => (
                     <li key={one}>{one}</li>
                   ))}
@@ -587,21 +691,21 @@ function RuleFacts({
             </dd>
           </>
         ) : null}
-        <dt>Do</dt>
+        <dt id={`${id}-do`}>Do</dt>
         <dd>
           {writing ? (
-            <Lines label="Do" keep={`workflows:do:${rule.id}`} lines={rule.does.map((one) => one.text)} onCommit={(lines) => onChange({ does: lines.map((text, at) => ({ act: rule.does[at]?.act ?? kind, text })) })} />
+            <Lines labelledBy={`${id}-do`} keep={`workflows:do:${rule.id}`} lines={rule.does.map((one) => one.text)} onCommit={(lines) => onChange({ does: lines.map((text, at) => ({ act: rule.does[at]?.act ?? kind, text })) })} />
           ) : (
-            <ul className="armada-wm-step__ends" aria-label="Do">
+            <ul className="armada-wm-step__ends" aria-labelledby={`${id}-do`}>
               {rule.does.map((one) => (
                 <li key={one.text}>{one.text}</li>
               ))}
             </ul>
           )}
         </dd>
-        <dt>Autonomy</dt>
+        <dt id={`${id}-autonomy`}>Autonomy</dt>
         <dd>
-          <RadioGroup label="Autonomy">
+          <RadioGroup labelledBy={`${id}-autonomy`}>
             {(["acts", "asks", "off"] as const).map((one) => (
               <Radio key={one} name={`autonomy:${rule.id}`} checked={autonomy === one} disabled={added} onChange={() => (scope === undefined ? onChange({ autonomy: one }) : onOverride(scope.id, one))}>
                 {AUTONOMY_SAID[one]}

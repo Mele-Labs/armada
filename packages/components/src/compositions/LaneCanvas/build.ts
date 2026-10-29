@@ -46,7 +46,7 @@ function endsOnSaid(step: LaneStep, lifecycles: readonly Lifecycle[]): string | 
 export function stepsOf(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[]): LaneStep[] {
   return steps.map((step, at) => {
     const given = workspace.workflows[workflow]?.steps[step.id];
-    return { id: step.id, label: step.label, col: given?.col ?? at, ...(given?.endsOn === undefined ? {} : { endsOn: given.endsOn }) };
+    return { id: step.id, label: step.label, col: given?.col ?? at, ...(given?.endsOn === undefined ? {} : { endsOn: given.endsOn }), ...(given?.ends === undefined ? {} : { ends: given.ends }), ...(given?.passedOver === undefined ? {} : { passedOver: given.passedOver }) };
   });
 }
 

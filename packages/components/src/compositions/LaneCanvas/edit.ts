@@ -2,7 +2,7 @@
 // Workspace, so the editor can draw what it makes and the host holds it. **A mock's edits**: no Fleet serves a Workspace yet.
 
 import { nodeId } from "./model";
-import type { Autonomy, LaneStep, Ref, Rule, StateDef, StateReads, Workspace, WorkflowPlace } from "./model";
+import type { Autonomy, LaneStep, Ref, Rule, StateDef, StateReads, Waits, Workspace, WorkflowPlace } from "./model";
 
 const slug = (label: string): string => label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "new";
 
@@ -15,6 +15,9 @@ export function uniqueId(label: string, taken: readonly string[]): string {
 }
 
 const replaceWorkflow = (workspace: Workspace, workflow: string, place: WorkflowPlace): Workspace => ({ ...workspace, workflows: { ...workspace.workflows, [workflow]: place } });
+
+/** A step as the place holds it: everything but its id and its name. */
+const placed = ({ id: _id, label: _label, ...rest }: LaneStep): Omit<LaneStep, "id" | "label"> => rest;
 
 /** Every column from `col` on moves one to the right, so a node can be put at `col`. Steps and states share the columns, so both move. */
 function shiftedFrom(place: WorkflowPlace, col: number): WorkflowPlace {
@@ -130,7 +133,7 @@ export function withoutState(workspace: Workspace, lane: string, state: string):
 export function withStepAfter(workspace: Workspace, workflow: string, current: readonly LaneStep[], after: string, id: string): Workspace {
   const here = current.find((one) => one.id === after);
   const was = workspace.workflows[workflow] ?? { steps: {}, states: {} };
-  const kept: WorkflowPlace = { ...was, steps: Object.fromEntries(current.map((one) => [one.id, { col: one.col, ...(one.endsOn === undefined ? {} : { endsOn: one.endsOn }) }])) };
+  const kept: WorkflowPlace = { ...was, steps: Object.fromEntries(current.map((one) => [one.id, placed(one)])) };
   const col = (here?.col ?? current.length - 1) + 1;
   const moved = shiftedFrom(kept, col);
   return replaceWorkflow(workspace, workflow, { ...moved, steps: { ...moved.steps, [id]: { col } } });
@@ -154,7 +157,28 @@ export function withStepsOrder(workspace: Workspace, workflow: string, current: 
   const steps: Record<string, Omit<LaneStep, "id" | "label">> = {};
   order.forEach((id, at) => {
     const one = was.get(id);
-    steps[id] = { col: cols[at] ?? at, ...(one?.endsOn === undefined ? {} : { endsOn: one.endsOn }) };
+    steps[id] = { ...(one === undefined ? {} : placed(one)), col: cols[at] ?? at };
   });
+  return replaceWorkflow(workspace, workflow, { ...place, steps });
+}
+
+/**
+ * What ends a step, or what it is passed over for: the thing and its state, as the person chose them. A choice that is a lifecycle's state also makes the step wait on it (`endsOn`), and
+ * any other takes that away. Every step's place is kept as it is drawn, since a step given none sits where its order puts it.
+ */
+export function withStepWhen(
+  workspace: Workspace,
+  workflow: string,
+  current: readonly LaneStep[],
+  id: string,
+  which: "ends" | "passedOver",
+  value: Waits,
+  endsOn: { lane: string; state: string } | undefined,
+): Workspace {
+  const place = workspace.workflows[workflow] ?? { steps: {}, states: {} };
+  const steps: Record<string, Omit<LaneStep, "id" | "label">> = Object.fromEntries(current.map((one) => [one.id, placed(one)]));
+  const was = steps[id] ?? { col: current.length };
+  const { endsOn: _gone, ...rest } = was;
+  steps[id] = { ...(which === "ends" ? rest : was), [which]: value, ...(which === "ends" && endsOn !== undefined ? { endsOn } : {}) };
   return replaceWorkflow(workspace, workflow, { ...place, steps });
 }

@@ -30,7 +30,7 @@ import { createPortal } from "react-dom";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
-import { GEO, HOME, isArrow, nearest, panTo, place, placeChips, type Placement, type Rect } from "./layout";
+import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, type Placement, type Rect } from "./layout";
 import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
 
 /**
@@ -547,17 +547,11 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   const chipButtons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  // The lanes fill the frame's height, so the frame is measured and the lanes placed in it. A frame that is narrowed (a panel took the room beside it) brings the pick back into what is left.
-  const width = useRef(0);
-  const again = useRef<() => void>(() => undefined);
+  // The lanes fill the frame's height, so the frame is measured and the lanes placed in it.
   useLayoutEffect(() => {
     const held = frame.current;
     if (held === null) return;
-    const read = () => {
-      setHeight(held.clientHeight);
-      if (width.current !== 0 && held.clientWidth < width.current) again.current();
-      width.current = held.clientWidth;
-    };
+    const read = () => setHeight(held.clientHeight);
     read();
     const watch = new ResizeObserver(read);
     watch.observe(held);
@@ -625,7 +619,6 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     const edges = rules.filter((rule) => rule.rule === picked.id);
     reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]));
   };
-  again.current = revealPick;
   useEffect(() => {
     revealPick();
     // Only a change of what is picked pans.
@@ -826,7 +819,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
           edges={edges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
-          minZoom={0.3}
+          minZoom={MIN_ZOOM}
           home={HOME}
           panOnScroll
           {...(connectable ? { onConnect: connect } : {})}

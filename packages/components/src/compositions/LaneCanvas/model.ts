@@ -64,7 +64,8 @@ export type Rule = {
   label: string;
   /** The node whose entering fires it, or a step starting or ending. */
   from: Ref;
-  at?: "starts" | "ends";
+  /** The moment: a step starts or ends, a state is entered or left. Absent, a step starts and a state is entered. */
+  at?: "starts" | "ends" | "enters" | "leaves";
   /** Where the edge lands: the state it moves something to, or the step it hands something to. */
   to: Ref;
   /** Conditions over linked instances and the Job, each a line. */
@@ -80,8 +81,21 @@ export type Rule = {
   workflow?: string;
 };
 
+/** What a step is ended by, or passed over for: a thing Fleet watches (`Observed`) or a lifecycle, and the state of it. */
+export type Waits = { on: string; state: string };
+
 /** One step of the workflow in a lane, as the page lists it. */
-export type LaneStep = { id: string; label: string; col: number; /** A lifecycle state that ends it, so the step waits on it. */ endsOn?: { lane: string; state: string } };
+export type LaneStep = {
+  id: string;
+  label: string;
+  col: number;
+  /** A lifecycle state that ends it, so the step waits on it. */
+  endsOn?: { lane: string; state: string };
+  /** What the person chose to end it, where it is not the words Fleet read from the definition. */
+  ends?: Waits;
+  /** What the person chose to pass it over for. */
+  passedOver?: Waits;
+};
 
 export type Repository = { id: string; name: string };
 
@@ -93,12 +107,26 @@ export type WorkflowPlace = {
   states: Readonly<Record<string, number>>;
 };
 
+/**
+ * Something Fleet watches that a step can wait on besides a lifecycle: the agent saying it is done, the pull request, the Jobs this Job starts. Each state is a thing it can be,
+ * and `says` is the sentence Fleet's reading of a workflow ends the step with, so the step's words select it. A state that a lifecycle's also is names that one in `endsOn`.
+ */
+export type Observed = {
+  id: string;
+  label: string;
+  /** The lifecycle whose states these are, so that lifecycle is not listed twice. */
+  lifecycle?: string;
+  states: readonly { id: string; label: string; says: string; endsOn?: { lane: string; state: string } }[];
+};
+
 /** A named set of repositories that build one product, and what applies across them. */
 export type Workspace = {
   id: string;
   name: string;
   repositories: readonly Repository[];
   lifecycles: readonly LifecycleDef[];
+  /** What else a step can wait on or be passed over for. */
+  observes?: readonly Observed[];
   /** What each workflow draws of the lifecycles, by workflow id. */
   workflows: Readonly<Record<string, WorkflowPlace>>;
   rules: readonly Rule[];
@@ -269,5 +297,5 @@ export function whenSaid(rule: Rule, lifecycles: readonly Named[], steps: readon
   const name = labelOf(rule.from, lifecycles, steps);
   if (rule.from.lane === "workflow") return `${name} ${rule.at === "ends" ? "ends" : "starts"}`;
   const lifecycle = lifecycles.find((one) => one.id === rule.from.lane);
-  return `${lifecycle?.label ?? rule.from.lane} enters ${name}`;
+  return `${lifecycle?.label ?? rule.from.lane} ${rule.at === "leaves" ? "leaves" : "enters"} ${name}`;
 }

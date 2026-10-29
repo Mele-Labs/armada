@@ -12,7 +12,7 @@ const group = (name: string) => role("group", name, { exact: true });
 const YOURS = group("Yours");
 const LANES = region("Lanes", { exact: true });
 // The first change on Armada's workflow makes the person's own copy; the settings in the panel are fields, saved as they are changed.
-const statuses = (name = "Jira statuses") => role("textbox", name, { exact: true });
+const statuses = () => role("textbox", "Jira statuses", { exact: true });
 const PANEL = role("dialog");
 const RUNS_IN = group("Runs in");
 const tab = (name: string) => inside(RUNS_IN, role("tab", name, { exact: true }));
@@ -37,23 +37,27 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { look: LANES, say: "my-store: the feature workflow on top, and a lane each for Ticket, PR and Deploy" },
   { look: RUNS_IN, say: "Runs in: all of my-store, or one repository's tab. The canvas draws the workflow as it runs there" },
   { look: inside(LANES, role("img", "Differs in store-api")), say: "A mark on In review: one repository reads it differently" },
-  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "The Ticket lifecycle's In review state, in the side panel" },
-  { look: inside(PANEL, statuses()), say: "Jira statuses, a field saved as it is changed: Code Review and In Review count as In review for my-store" },
   { press: tab("store-api"), say: "store-api's tab draws the lanes as the workflow runs in store-api" },
   { look: inside(LANES, role("img", "Differs in store-api")), say: "In review carries the mark here too: it is store-api's own" },
-  { look: inside(PANEL, statuses("Jira statuses for store-api")), say: "The panel follows the tab: Jira statuses are Peer Review in store-api" },
+  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "The Ticket lifecycle's In review state, in the side panel over the canvas" },
+  { look: inside(PANEL, statuses()), say: "Jira statuses, a field saved as it is changed: Peer Review in store-api" },
   { look: inside(PANEL, text("Changed for store-api")), say: "Marked as changed for store-api, with a way back to my-store's" },
+  { press: inside(PANEL, button("Close")), say: "Close the panel" },
   { press: tab("All of my-store"), say: "Back to the base" },
-  { press: inside(LANES, button("Move to In review", { exact: true })), say: "A rule, the edge from the PR lane to the Ticket lane" },
-  { look: inside(PANEL, role("radio", "Acts")), say: "When the PR opens, move the ticket to In review. Autonomy is Acts" },
+  { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review again, for all of my-store" },
+  { look: inside(PANEL, statuses()), say: "Code Review and In Review count as In review for my-store" },
+  { press: inside(LANES, button("Move to In review", { exact: true })), say: "Another node switches the panel: a rule, the edge from the PR lane to the Ticket lane" },
+  { look: inside(PANEL, role("radio", "Acts")), say: "When the PR enters Draft, move the ticket to In review. Autonomy is Acts" },
   { key: "]", on: role("group", "Lanes of feature"), say: "] goes to the next rule, and [ to the one before" },
   { look: inside(PANEL, role("radio", "Asks")), say: "The panel follows to Ask for review: when the PR has reviewers on, draft the ask. Autonomy is Asks" },
+  { press: inside(PANEL, button("Close")), say: "Close the panel" },
   { press: inside(YOURS, button("feature", { exact: true })), say: "Yours, where a change is kept" },
   { press: tab("store-api"), say: "store-api's tab on Yours" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review, marked" },
   { look: inside(PANEL, text("Changed for store-api")), say: "Changed for store-api, with a way back" },
   { press: inside(PANEL, button("Use my-store's", { exact: true })), say: "Use my-store's drops store-api's own value" },
-  { look: inside(PANEL, statuses("Jira statuses for store-api")), say: "store-api reads Code Review and In Review again, and the mark is gone" },
+  { look: inside(PANEL, statuses()), say: "store-api reads Code Review and In Review again, and the mark is gone" },
+  { press: inside(PANEL, button("Close")), say: "Close the panel" },
   { press: tab("All of my-store"), say: "Back to the base" },
   { type: "close the ticket once merged and the deploy is healthy", into: ASK, say: "Tell an agent what to change" },
   { press: button("Send to agent"), say: "Send" },
