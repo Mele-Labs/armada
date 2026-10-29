@@ -12,9 +12,11 @@
 //! them, and Start writes their rows in the order they came, then sends them, so the thread reads as
 //! the agent does.
 //!
-//! **Never blank.** A held Job with no workflow takes the repository's `feature` workflow, else its
-//! first, once the proposer has read it or at once where nothing will; and a card that asks how the
-//! work lands always offers one, Auto land where nothing else names one.
+//! **Blank only by choice.** A held Job with no workflow takes the repository's `feature` workflow if
+//! that is on, else its first that is on, once the proposer has read it or at once where nothing will;
+//! with none on it stays blank. A blank the person picked (None) is kept with the hosting and no
+//! default goes over it, across a Fleet restart too. A card that asks how the work lands always offers
+//! one, Auto land where nothing else names one.
 //!
 //! **The usual landing** is the most frequent of the last ten picks for the Job's workflow in its
 //! repository, once there are three, a tie going to the latest.
@@ -187,12 +189,12 @@ where
 {
     /// Whether the Job's workflow has a step that asks how the work lands.
     fn asks_delivery_of(&self, hosting: &KeptHosting) -> bool {
-        self.workflows_on()
-            && hosting
-                .workflow
-                .as_deref()
-                .and_then(|workflow| self.rail_steps(&hosting.manifest_id, workflow))
-                .is_some_and(|steps| steps.iter().any(|step| step.asks_delivery))
+        hosting
+            .workflow
+            .as_deref()
+            .filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))
+            .and_then(|workflow| self.rail_steps(&hosting.manifest_id, workflow))
+            .is_some_and(|steps| steps.iter().any(|step| step.asks_delivery))
     }
 
     /// The card's facts. The landing the first message names beats the usual one, and Auto land
@@ -283,32 +285,34 @@ where
         Ok(())
     }
 
-    /// A held Job with no workflow takes the repository's `feature` workflow, else its first: once,
-    /// never over one the person chose (custom too), and not while a reading is out, whose end calls
-    /// this again. Nothing with workflows off.
+    /// A held Job with no workflow takes the repository's `feature` workflow if that is on, else the
+    /// first that is on, else none: once, never over a choice the person made (none too, which the
+    /// hosting keeps across a restart), and not while a reading is out, whose end calls this again.
+    /// With nothing on it is not counted as weighed, so one switched on later is still taken.
     pub(crate) async fn held_defaulted(&self, id: &str) {
-        if !self.workflows_on() {
-            return;
-        }
         {
             let runtime = self.hosts().of(id);
             let mut state = runtime.state();
             let proposal = &mut state.proposal;
-            if !proposal.start_held || proposal.defaulted || proposal.workflow_chosen || proposal.reading.is_some() {
+            if !proposal.start_held || proposal.defaulted || proposal.reading.is_some() {
                 return;
             }
             proposal.defaulted = true;
         }
         let mut store = self.store().lock().await;
         let Ok(Some(mut hosting)) = store.hosting(id) else { return };
-        if hosting.workflow.is_some() || !hosting.start_held {
+        if hosting.workflow.is_some() || hosting.workflow_chosen || !hosting.start_held {
             return;
         }
         let held = self
             .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
-            .map(|served| served.workflows())
+            .map(|served| self.workflows_offered(&hosting.manifest_id, &served.workflows()))
             .unwrap_or_default();
-        let Some(workflow) = default_workflow(&held) else { return };
+        let Some(workflow) = default_workflow(&held) else {
+            drop(store);
+            self.hosts().of(id).state().proposal.defaulted = false;
+            return;
+        };
         hosting.workflow = Some(workflow);
         if let Err(why) = store.keep_hosting(&hosting) {
             self.session_warned(id, "a held job's workflow was not set", format!("{why:?}"));

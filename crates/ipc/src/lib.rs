@@ -124,6 +124,8 @@ pub mod key_bindings;
 pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
+/// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
+pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
 /// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.

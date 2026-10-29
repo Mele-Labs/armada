@@ -159,7 +159,7 @@ where
             return memory.fault(&gathered.kept.manifest_id).map_or(Ok(0), Err);
         }
         let asking = self.asking().map_err(|why| format!("{why:?}"))?;
-        let workflows = served.workflows();
+        let workflows = self.workflows_offered(&gathered.kept.manifest_id, &served.workflows());
         let mut made = 0;
         for _ in 0..CALLS_PER_PASS {
             if room == 0 || offered.is_empty() {
