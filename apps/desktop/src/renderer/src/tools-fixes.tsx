@@ -87,20 +87,38 @@ export function useToolsFixes(session: Session, terminal?: Terminal, open?: () =
   return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, terminal, open) };
 }
 
-/**
- * Two takes on making the missing-tools mark more apparent, picked by `?take=` on the mock's page: `pulse` pulses the mark where it is, in the row
- * and the header; `band` keeps a band over the Job's message box until nothing is missing. No take is the mark as it was. The owner picks one and the other goes.
- */
-export const toolsTake = (): "pulse" | "band" | undefined => {
-  const query = new URLSearchParams(window.location.search);
-  // The band's walk plays with no `take` in its address, so its name stands for one.
-  const take = query.get("take") ?? (query.get("walk") === "job-tools-missing-band" ? "band" : null);
-  return take === "pulse" || take === "band" ? take : undefined;
-};
+/** What each Job's person put away the band over its message box for: the pieces missing then. In memory, for the life of the window. */
+let away: ReadonlyMap<string, readonly ToolsPiece[]> = new Map();
 
-/** The tools mark of a Job, with its menu where the build can act on it. Nothing where the Job came up whole. */
+function putAway(id: string, pieces: readonly ToolsPiece[] | undefined): void {
+  const next = new Map(away);
+  if (pieces === undefined) next.delete(id);
+  else next.set(id, pieces);
+  away = next;
+  listeners.forEach((on) => on());
+}
+
+/**
+ * Whether the band over a Job's message box shows, and the act that puts it away. It stays away while every piece missing is one that was missing when
+ * it was put away: a piece fixed leaves it away, a piece newly missing brings it back. Nothing missing forgets the dismissal.
+ */
+export function useToolsBand(session: Session): { shown: boolean; dismiss: () => void } {
+  const gone = useSyncExternalStore(subscribe, () => away.get(session.id));
+  const missing = session.toolsMissing?.missing;
+  useEffect(() => {
+    if (missing === undefined && away.has(session.id)) putAway(session.id, undefined);
+  }, [missing, session.id]);
+  return {
+    shown: missing !== undefined && (gone === undefined || missing.some((piece) => !gone.includes(piece))),
+    dismiss: () => {
+      if (missing !== undefined) putAway(session.id, missing);
+    },
+  };
+}
+
+/** The tools mark of a Job on its row, with its menu where the build can act on it, pulsing: the row has no band. Nothing where the Job came up whole. */
 export function ToolsMarkOf({ session, size, open }: { session: Session; size?: 12 | 16; open?: () => void }) {
   const fixing = useToolsFixes(session, undefined, open);
   if (session.toolsMissing === undefined) return null;
-  return <ToolsMark said={toolsMissingSaid(session.toolsMissing)} {...(size === undefined ? {} : { size })} {...(fixing ?? {})} {...(toolsTake() === "pulse" ? { apparent: true } : {})} />;
+  return <ToolsMark said={toolsMissingSaid(session.toolsMissing)} {...(size === undefined ? {} : { size })} {...(fixing ?? {})} apparent />;
 }

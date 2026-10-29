@@ -22,9 +22,29 @@
   --hue: var(--status-completed-failed);
 }
 
-/* The tools band has nothing to press on its band: it stays up until nothing is missing. */
+/* The tools band has nothing to press on its band but the cross that puts it away. */
 .armada-needs-panel[data-kind="tools"] .armada-needs-panel__trigger {
   cursor: default;
+}
+
+.armada-needs-panel__dismiss {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.armada-needs-panel__dismiss:hover {
+  background: color-mix(in srgb, var(--fg-inverse) 18%, transparent);
+}
+
+.armada-needs-panel__dismiss:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
 }
 
 /* The reason a hand off failed: one line of the body's text, in the secondary ink. */

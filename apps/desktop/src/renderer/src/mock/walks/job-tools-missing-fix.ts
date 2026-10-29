@@ -11,6 +11,7 @@ const terminal = inside(region(/^Job /), role("group", "Terminal", { exact: true
 const jobToolsMissingFix = walk("job-tools-missing", [
   toSessions,
   { press: deckRow(/Add the billing page/), say: "Open the Job whose agent came up without some tools" },
+  { press: inside(region(/^Claude Code 2\.1\.312\./), button("Dismiss", { exact: true })), say: "Put the band over the message box away" },
   { press: mark, say: "Press the mark in its header. It lists each piece and its act" },
   { press: button("Restart the agent", { exact: true }), say: "Restart the agent. The ring turns, then the row goes" },
   { press: button("Update Claude Code", { exact: true }), say: "Update Claude Code. The menu closes and the update runs in the Job's terminal" },
