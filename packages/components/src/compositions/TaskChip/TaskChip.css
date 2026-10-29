@@ -1,0 +1,47 @@
+/* A task as the Projects card colours it: no frame, the muted ink, the state in the glyph's hue (in a Job the running hue,
+   asking the awaiting review hue, done the advanced hue, open the muted ink). Framed, it is a chip among cards: the hue on the
+   frame and a heavier left edge, the ground taking a little of it, an open one the dormant hue. No glow, no gradient. Tokens only. */
+.armada-task-chip {
+  --hue: var(--fg-muted);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+.armada-task-chip:hover { background: var(--bg-hover); color: var(--fg-default); }
+.armada-task-chip:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.armada-task-chip > .armada-tooltip { display: inline-flex; align-items: center; }
+
+.armada-task-chip[data-state="held"] { --hue: var(--status-running); }
+.armada-task-chip[data-state="asking"] { --hue: var(--status-awaiting-review); }
+.armada-task-chip[data-state="done"] { --hue: var(--step-advanced); }
+.armada-task-chip__mark { display: inline-flex; align-items: center; color: var(--hue); }
+
+/* One line: the title gives way first, then the project. */
+.armada-task-chip__words { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; white-space: nowrap; }
+.armada-task-chip__title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.armada-task-chip__project { flex: 0 0 auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+
+.armada-task-chip[data-framed] {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  box-shadow: var(--shadow-card);
+  color: var(--fg-default);
+}
+.armada-task-chip[data-framed][data-state="open"] { --hue: var(--status-not-started); }
+.armada-task-chip[data-framed]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.armada-task-chip[data-framed] .armada-task-chip__title { font-weight: var(--weight-medium); }
+.armada-task-chip[data-framed] .armada-task-chip__project { color: var(--fg-muted); }
