@@ -229,3 +229,107 @@ impl<'de> Visitor<'de> for OrderedVisitor {
         Ok(Ordered::Object(fields))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ME: &str = "0a0a0a0a-0000-0000-0000-000000000000";
+    const OTHER: &str = "0b0b0b0b-0000-0000-0000-000000000000";
+    const WRITTEN: &str = "2026-10-15T09:00:00.000Z";
+    const LATER: &str = "2026-10-16T10:00:00.000Z";
+
+    fn note_sent_to(session: &str) -> String {
+        format!(
+            "{{\n  \"id\": \"mfz1-abc\",\n  \"status\": \"open\",\n  \"scope\": \"window\",\n  \"sent\": {{\n    \"at\": \"{WRITTEN}\",\n    \
+             \"sessionId\": \"{session}\"\n  }},\n  \"text\": \"Too tight\",\n  \"component\": \"Rail\",\n  \
+             \"element\": {{\n    \"tag\": \"li\",\n    \"extra\": 1\n  }},\n  \"screen\": \"usage\",\n  \
+             \"screenshot\": \"mfz1-abc.png\",\n  \"updatedAt\": \"{WRITTEN}\"\n}}\n"
+        )
+    }
+
+    fn keys(bytes: &[u8]) -> Vec<String> {
+        let Ordered::Object(fields) = serde_json::from_slice(bytes).unwrap() else { panic!("an object") };
+        fields.into_iter().map(|(key, _)| key).collect()
+    }
+
+    #[test]
+    fn unsent_removes_sent_and_keeps_the_note_open_and_the_rest_as_it_was() {
+        let note = note_sent_to(ME);
+        let done = marked_done(note.as_bytes(), ME, WRITTEN).unwrap();
+
+        let back = unsent(&done, ME, LATER);
+
+        // A done note (as `marked_done` leaves it) that is let go goes back open.
+        let back = String::from_utf8(back.unwrap()).unwrap();
+        let expected = note
+            .replace(&format!("  \"sent\": {{\n    \"at\": \"{WRITTEN}\",\n    \"sessionId\": \"{ME}\"\n  }},\n"), "")
+            .replace(&format!("\"updatedAt\": \"{WRITTEN}\""), &format!("\"updatedAt\": \"{LATER}\""));
+        assert_eq!(back, expected);
+        assert!(!keys(back.as_bytes()).contains(&"sent".to_string()), "{back}");
+    }
+
+    #[test]
+    fn unsent_refuses_a_note_sent_to_another_session_and_one_sent_to_none() {
+        let theirs = note_sent_to(OTHER);
+        assert_eq!(unsent(theirs.as_bytes(), ME, LATER), Err(NotMarked::NotSentHere));
+
+        let unsent_already = unsent(note_sent_to(ME).as_bytes(), ME, LATER).unwrap();
+        assert_eq!(unsent(&unsent_already, ME, LATER), Err(NotMarked::NotSentHere));
+    }
+
+    #[test]
+    fn unsent_refuses_bytes_that_are_not_a_note_object() {
+        assert!(matches!(unsent(b"[1]", ME, LATER), Err(NotMarked::Unreadable(_))));
+        assert!(matches!(unsent(b"{", ME, LATER), Err(NotMarked::Unreadable(_))));
+    }
+
+    #[test]
+    fn note_read_reads_the_fields_and_ignores_the_rest() {
+        let read = note_read(note_sent_to(ME).as_bytes()).unwrap();
+
+        assert_eq!(
+            read,
+            NoteRead {
+                id: "mfz1-abc".to_string(),
+                status: "open".to_string(),
+                scope: Some("window".to_string()),
+                sent: Some(NoteSentTo { session_id: ME.to_string() }),
+                text: "Too tight".to_string(),
+                component: Some("Rail".to_string()),
+                element: NoteReadElement { tag: "li".to_string() },
+                screen: Some("usage".to_string()),
+                screenshot: Some("mfz1-abc.png".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn note_read_leaves_what_a_note_may_lack_empty_and_refuses_one_missing_its_text() {
+        let bare = br#"{"id": "n-1", "status": "done", "text": "x", "element": {"tag": "p"}, "component": null}"#;
+        let read = note_read(bare).unwrap();
+        assert_eq!((read.scope, read.sent, read.component, read.screen, read.screenshot), (None, None, None, None, None));
+
+        assert!(note_read(br#"{"id": "n-1", "status": "open", "element": {"tag": "p"}}"#).is_err());
+    }
+
+    #[test]
+    fn marked_done_sets_status_and_stamp_keeping_every_key_in_its_place() {
+        let note = note_sent_to(ME);
+
+        let done = marked_done(note.as_bytes(), ME, LATER).unwrap();
+
+        let done = String::from_utf8(done).unwrap();
+        assert_eq!(
+            done,
+            note.replace("\"status\": \"open\"", "\"status\": \"done\"")
+                .replace(&format!("\"updatedAt\": \"{WRITTEN}\""), &format!("\"updatedAt\": \"{LATER}\""))
+        );
+        assert_eq!(keys(done.as_bytes()), keys(note.as_bytes()));
+    }
+
+    #[test]
+    fn marked_done_refuses_a_note_sent_to_another_session() {
+        assert_eq!(marked_done(note_sent_to(OTHER).as_bytes(), ME, LATER), Err(NotMarked::NotSentHere));
+    }
+}
