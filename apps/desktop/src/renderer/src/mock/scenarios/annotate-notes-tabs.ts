@@ -40,11 +40,12 @@ function build(): Scenario {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);
         },
-        // A pinned note is a `send_session_note`, and the thread keeps only what the owner said of it.
-        sendSessionNote: async (send) => {
+        // Pinned notes are one `send_session_notes`, and the thread keeps only what the owner said of them.
+        sendSessionNotes: async (send) => {
           await own.watchSession!(send.session_id);
-          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text: send.said });
-          return sent.ok ? { ok: true, value: { session: sent.value, candidates: [] } } : sent;
+          const text = send.notes.map(({ note }) => note.said).join("\n\n");
+          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text });
+          return sent.ok ? { ok: true, value: { session: sent.value, candidates: send.notes.map(() => []) } } : sent;
         },
       };
     },

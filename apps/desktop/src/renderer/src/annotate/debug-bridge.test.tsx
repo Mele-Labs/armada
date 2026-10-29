@@ -45,7 +45,7 @@ function fleetWith(refuse = false) {
       sent.push(send);
       return { ok: true, value: { id: send.session_id } } as never;
     }),
-    sendSessionNote: vi.fn(async () => ({ ok: true, value: { session: {}, candidates: [] } }) as never),
+    sendSessionNotes: vi.fn(async () => ({ ok: true, value: { session: {}, candidates: [] } }) as never),
     state: vi.fn(async () => ({
       connection: { state: "connected", fleet: { protocolId: "23.62", pid: 4242, port: 7421, startedAt: "Mon Oct 12 09:00:00 2026" }, cursor: 0 },
       health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "read_only" } },

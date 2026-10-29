@@ -44,9 +44,9 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { ModSessionStarted, StartModSession } from "@armada/protocol";
 import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
-import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
+import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
@@ -572,7 +572,7 @@ const api: BridgeApi = {
   startWaitingNow: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startWaitingNow, sessionId),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
-  sendSessionNote: (send: SendSessionNote): Promise<SessionActed<NoteSent>> => ipcRenderer.invoke(CHANNELS.sendSessionNote, send),
+  sendSessionNotes: (send: RingedNotes): Promise<SessionActed<NotesSent>> => ipcRenderer.invoke(CHANNELS.sendSessionNotes, send),
   startModSession: (start: StartModSession): Promise<SessionActed<ModSessionStarted>> => ipcRenderer.invoke(CHANNELS.startModSession, start),
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),

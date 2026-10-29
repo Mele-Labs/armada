@@ -10,6 +10,8 @@
 // Nothing here touches the DOM or Node, because main, the preload, the renderer
 // and a vite plugin all read it.
 
+import { isRing, type Ring } from "./ring";
+
 /** Where the notes land, from the repository root. One JSON file per note. */
 export const ANNOTATIONS_DIR = [".armada", "annotations"] as const;
 
@@ -133,11 +135,16 @@ export type Annotation = {
   box: Box;
   window: { width: number; height: number };
   /**
-   * The picture of the element taken as the note was saved, the layer left out of it: always
+   * The picture of the window taken as the note was saved, the layer left out of it: always
    * `shotName(id)`, beside this file. **Absent** on a note written before pictures were kept, and
    * where nothing could capture one, as in a browser.
    */
   screenshot?: string;
+  /**
+   * Where the element was on `screenshot`, in its pixels: ringed on it, with the note's number, as it is sent. Absent on a
+   * whole-window note, and on one whose picture was of the element alone, from before pictures were of the window.
+   */
+  ring?: Ring;
   createdAt: string;
   updatedAt: string;
 };
@@ -243,6 +250,7 @@ export function isAnnotation(value: unknown): value is Annotation {
     isNumber(window["width"]) &&
     isNumber(window["height"]) &&
     (value["screenshot"] === undefined || value["screenshot"] === shotName(value["id"] as string)) &&
+    (value["ring"] === undefined || isRing(value["ring"])) &&
     isString(value["createdAt"]) &&
     isString(value["updatedAt"])
   );
@@ -275,6 +283,7 @@ export function serializeAnnotation(note: Annotation): string {
     box: note.box,
     window: note.window,
     ...(note.screenshot === undefined ? {} : { screenshot: note.screenshot }),
+    ...(note.ring === undefined ? {} : { ring: note.ring }),
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
   };
