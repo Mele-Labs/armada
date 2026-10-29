@@ -1,5 +1,5 @@
 // The first message of a held Job is put in its box once, and only where the person has not already kept words there.
-// Once he presses Start the card is gone, and nothing reseeds.
+// Once he presses Start the card is gone, and nothing reseeds. A Job begun some other way takes the untouched seed back out.
 
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -50,6 +50,29 @@ test("does not write over words already kept in the box", () => {
 test("seeds nothing where the Job holds no first message", () => {
   mount(session());
   expect(readKept("session:new1")).toBeUndefined();
+});
+
+test("takes the seeded message out of the box when the Job began without it, so it is not sent twice", () => {
+  const show = mount(session({ start: { asksDelivery: true, message: "Port the clock" } }));
+  show(session());
+  expect(readKept("session:new1")).toBeUndefined();
+});
+
+test("takes the seed out when the Job began while its view was closed", () => {
+  mount(session({ start: { asksDelivery: true, message: "Port the clock" } }));
+  for (const { root, host } of roots.splice(0)) {
+    root.unmount();
+    host.remove();
+  }
+  mount(session());
+  expect(readKept("session:new1")).toBeUndefined();
+});
+
+test("keeps words he changed in the seeded box after the Job began", () => {
+  const show = mount(session({ start: { asksDelivery: true, message: "Port the clock" } }));
+  writeKept("session:new1", { text: "Port the clock, and the alarm", tags: [], files: [] });
+  show(session());
+  expect(kept()).toBe("Port the clock, and the alarm");
 });
 
 test("does not seed again once the Job has begun and the card is gone", () => {
