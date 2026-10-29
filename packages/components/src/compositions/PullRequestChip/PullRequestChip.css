@@ -46,6 +46,19 @@
 .armada-pull-chip[data-framed]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
 .armada-pull-chip[data-framed] .armada-pull-chip__number { color: var(--fg-default); font-weight: var(--weight-heading); }
 .armada-pull-chip[data-framed] .armada-pull-chip__title { font-weight: var(--weight-medium); }
+/* Not opened yet: the same shape, its outline dashed in the quiet border and no fill, the glyph muted. It is read, never pressed. */
+.armada-pull-chip[data-placeholder] { cursor: default; }
+.armada-pull-chip[data-placeholder]:hover { background: none; color: var(--fg-muted); }
+.armada-pull-chip[data-placeholder][data-framed] {
+  --hue: var(--fg-subtle);
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: none;
+  box-shadow: none;
+  color: var(--fg-muted);
+}
+.armada-pull-chip[data-placeholder][data-framed]:hover { background: none; }
+.armada-pull-chip[data-placeholder][data-framed] .armada-pull-chip__number { color: var(--fg-subtle); }
 .armada-pull-chip[data-framed] .armada-pr-card__check[data-checks="passed"] { color: var(--step-advanced); }
 .armada-pull-chip[data-framed] .armada-pr-card__check[data-checks="running"] { color: var(--step-running); }
 .armada-pull-chip[data-framed] .armada-pr-card__check[data-checks="failed"] { color: var(--step-failed); }

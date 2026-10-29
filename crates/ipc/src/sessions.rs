@@ -948,6 +948,34 @@ pub struct ConfirmWaiting {
     pub item_id: String,
 }
 
+/// `reopen_waiting`: the person lets an item he closed wait again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReopenWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+}
+
+/// An item the person closed, as the Job's record lists it. Fleet kept the item whole when it was closed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClosedWaiting {
+    /// The item as Needs you drew it when it was closed. Its `id` is what `reopen_waiting` takes.
+    pub item: WaitingItem,
+    /// When it was closed.
+    pub at: Instant,
+    /// What it stood for has ended, so it cannot be reopened: a permission whose call ended, a walk that
+    /// was withdrawn, any item of a Job that has ended. The agent's own item is reopenable while the Job
+    /// lives. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub ended: bool,
+}
+
+/// `list_closed_waiting`: the items the person closed from a Job's list, newest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClosedWaitingList {
+    pub session_id: SessionId,
+    pub closed: Vec<ClosedWaiting>,
+}
+
 fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -1107,6 +1135,10 @@ pub struct SessionRecord {
     /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settled: Vec<WaitingItem>,
+    /// The items the person closed from `waiting_for`, newest first, each kept whole at the moment he did.
+    /// A bounded window. Since 29 Oct 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub closed: Vec<ClosedWaiting>,
     /// Dispatched to wait on another Session and not started: it holds its brief, no slot and no
     /// process until the condition is met. Absent once it has started, and on a Session that never
     /// waited. `docs/concepts/session.md`, *A Session that waits on another*.

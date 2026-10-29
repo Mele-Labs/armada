@@ -40,6 +40,8 @@ import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialRev
 import { LinkedRow } from "./LinkedRow";
 import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
+import { landingsOf, type PlanLandsIn } from "./lands-in";
+import { LandsInChip } from "./LandsInChip";
 import { FleetTurn, noticeEntries } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
@@ -282,7 +284,11 @@ export type PlanApproval = {
   version?: number;
   /** The plan in his words, read first. Present, the groups fold under Details; absent, the card draws the groups as it always did. */
   summary?: string;
-  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; tasks: readonly { id: string; text: string }[] }[];
+  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; tasks: readonly { id: string; text: string }[] }[];
+  /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
+  opensPullRequests?: true;
+  /** Opens a pull request a chip names. */
+  onOpenPullRequest?: (number: number) => void;
   approved: boolean;
   /** He said Not yet: the card is a chip, `Plan set aside`, that unfolds on press, and nothing waits on him for it. */
   setAside?: true;
@@ -1370,9 +1376,24 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           },
         },
   );
-  const groups = (
+  // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
+  const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
+  const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
+    runs.length === 1 && runs[0]!.landsIn === undefined ? (
+      list(runs[0]!.groups)
+    ) : (
+      <div className="armada-session-thread__landings">
+        {runs.map((run) => (
+          <section key={run.key} className="armada-session-thread__landing" aria-label={`Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+            {run.landsIn === undefined ? null : <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />}
+            {list(run.groups)}
+          </section>
+        ))}
+      </div>
+    );
+  const groups = landed((some) => (
     <ul className="armada-session-thread__groups">
-      {approval.groups.map((group) => (
+      {some.map((group) => (
         <li key={group.id} className="armada-session-thread__group">
           <span className="armada-session-thread__group-title">{group.title}</span>
           {approved ? null : (
@@ -1399,7 +1420,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         </li>
       ))}
     </ul>
-  );
+  ));
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
     <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
@@ -1448,9 +1469,11 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           <div className="armada-session-thread__plain">
             <p className="armada-session-thread__plan-summary">{approval.summary}</p>
             {anchors === undefined ? null : <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />}
-            <ul className="armada-session-thread__gives" aria-label="What each group gives">
-              {approval.groups.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
-            </ul>
+            {landed((some) => (
+              <ul className="armada-session-thread__gives" aria-label="What each group gives">
+                {some.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
+              </ul>
+            ))}
             <Button size="sm" variant="ghost" aria-expanded={detailed} onClick={() => setDetailed(!detailed)}>
               {detailed ? "Show less" : "Details"}
             </Button>

@@ -22,6 +22,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
     let group = |id: &str, tasks: Vec<KeptPlanTask>| KeptPlanGroup {
         id: id.to_string(),
         gives: None,
+        lands_in: None,
         agent: "rust-engineer".to_string(),
         title: id.to_string(),
         paths: Vec::new(),

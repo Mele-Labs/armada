@@ -55,6 +55,7 @@ import type {
   DismissConcern,
   ConfirmWaiting,
   DismissWaiting,
+  ReopenWaiting,
   Followed,
   FrameRead,
   HandToSession,
@@ -809,6 +810,10 @@ export class SessionsHost {
 
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
+  async reopenWaiting(reopen: ReopenWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/reopen", reopen);
   }
 
   /** Thumbs up on a follow-up. Fleet answers the record, which is folded. */

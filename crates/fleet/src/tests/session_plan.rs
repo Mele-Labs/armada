@@ -23,6 +23,7 @@ pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], 
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issue: None,
         gives: None,
+        lands_in: None,
         tasks: tasks.iter().map(|(id, title)| PlanTaskInput { id: id.map(String::from), title: title.to_string() }).collect(),
     }
 }

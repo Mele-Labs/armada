@@ -33,6 +33,7 @@ pub(crate) const STARTED_BY: &str = "started_by";
 const STARTED_TO: &str = "started_to";
 
 /// A Job this one's agent started that still waits on its start card.
+#[derive(Clone)]
 pub(crate) struct HeldChild {
     pub id: String,
     pub title: String,
