@@ -19,3 +19,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 17 Oct 2026 for the walk `field-outposts`, for the owner to rule on. Reads as the web at large, which a fetch of a host is. Not a published page: the reservation above is untouched."
+
+  [[icons.globe.usage]]
+    means = "Browser, the Flight control tile that opens a Job's browser in the side panel"
+    group = "Flight control"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. A page on the web, which is what the Job browser shows; the reservation refuses a network, a server or a link, and this is none of them. Tooltip `Open the Job browser in the side panel`."

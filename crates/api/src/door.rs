@@ -162,6 +162,14 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     // The Job's shell stands in its own worktree or directory, read inside no Manifest.
     "type_in_terminal",
     "read_terminal",
+    // The Job browser is the Job's own, read inside no Manifest.
+    "browser_open",
+    "browser_click",
+    "browser_type",
+    "browser_snapshot",
+    "browser_screenshot",
+    "browser_wait_for",
+    "browser_evaluate",
     // The machine's mods, read inside no Manifest: a Mod Job in the mods folder makes them.
     "list_mods",
     "scaffold_mod",

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      Bridge's own CSP, unchanged. A Job browser's window is an Armada document
+      loaded from disk, so `default-src 'self'` binds it as it binds Bridge's
+      window. `blob:` for the page's picture under Capture, which main hands over
+      as bytes. The page itself is another view over this one, which loads none
+      of this and is told nothing of it.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob:" />
+    <title>Job browser</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/browser-window/main.tsx"></script>
+  </body>
+</html>

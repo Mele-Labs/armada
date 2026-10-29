@@ -5,7 +5,7 @@ import type { Tile } from "./flight-controls";
 import { tileKey, type SessionTileId } from "./session-tiles";
 
 /** The tiles drawn, in order. */
-const TILES: readonly SessionTileId[] = ["land", "pause", "judge", "report", "release", "terminal", "requests"];
+const TILES: readonly SessionTileId[] = ["land", "pause", "judge", "report", "release", "terminal", "browser", "requests"];
 
 /** The layers the Job head draws as views, in order. */
 export const VIEW_LAYERS = ["artifacts", "checks", "subagents", "slot"] as const;

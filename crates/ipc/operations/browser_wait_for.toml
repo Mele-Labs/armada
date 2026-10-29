@@ -1,0 +1,12 @@
+[operations.browser_wait_for]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Wait for words or a target to appear on the page in this Job's browser. Body: text, or target as browser_click takes it, not both; optional timeout_ms (5000 unless set, at most 30000); optional session_id, only where you run in a terminal. Answers the page's url, title and snapshot once it appeared; refused where it did not appear in time"
+notes = """
+`POST /sessions/browser/wait_for`, body `BrowserWaitFor`: exactly one of `text` and `target`, `timeout_ms` (absent or 0 is 5000, and at most 30000) and an optional `session_id`. Answered 200 with `BrowserAnswer` `page`. The act is `{ kind: "wait_for", text? | target?, timeout_ms }`, `timeout_ms` as Fleet held it. Neither or both is refused with 422 `fleet.browser_refused`; one that did not appear in time, with 422 `fleet.browser_timed_out`.
+
+**Fleet holds it longer by its own wait**: 20 seconds and `timeout_ms`, at most 50 seconds, inside the minute a hosted Job's harness gives a call over HTTP (spike 15).
+
+Held and refused as `browser_open` is: `docs/practices/protocol/the-job-browser.md`.
+"""

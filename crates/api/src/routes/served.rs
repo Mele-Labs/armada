@@ -307,6 +307,47 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/sessions/terminal/read",
     },
+    // The Job browser: each act held until Bridge answers it, and Bridge's answer.
+    Route {
+        operation: "browser_open",
+        method: "POST",
+        path: "/sessions/browser/open",
+    },
+    Route {
+        operation: "browser_click",
+        method: "POST",
+        path: "/sessions/browser/click",
+    },
+    Route {
+        operation: "browser_type",
+        method: "POST",
+        path: "/sessions/browser/type",
+    },
+    Route {
+        operation: "browser_snapshot",
+        method: "POST",
+        path: "/sessions/browser/snapshot",
+    },
+    Route {
+        operation: "browser_screenshot",
+        method: "POST",
+        path: "/sessions/browser/screenshot",
+    },
+    Route {
+        operation: "browser_wait_for",
+        method: "POST",
+        path: "/sessions/browser/wait_for",
+    },
+    Route {
+        operation: "browser_evaluate",
+        method: "POST",
+        path: "/sessions/browser/evaluate",
+    },
+    Route {
+        operation: "answer_browser_request",
+        method: "POST",
+        path: "/sessions/browser/answer",
+    },
     Route {
         operation: "show_window",
         method: "POST",

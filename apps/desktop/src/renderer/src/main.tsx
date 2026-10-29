@@ -4,9 +4,13 @@ import { createRoot } from "react-dom/client";
 import "./styles/index.css";
 import "@armada/components/src/look";
 import { watchStill } from "./still";
+import { wireJobBrowsers } from "./job-browser/store";
 
 watchStill();
 watchClippedText();
+
+// Each Job's browser, held in main: the store folds what it shows, and the side panel opens where main asks.
+if (window.armada.jobBrowser !== undefined) wireJobBrowsers(window.armada.jobBrowser);
 
 // Dimmed behind a walk window that has focus — `styles/index.css`, `data-walking`.
 window.armada.onWalkFocus((focused) => {

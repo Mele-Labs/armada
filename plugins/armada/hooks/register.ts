@@ -19,7 +19,7 @@
 // The helpers are top-level because the engine follows `$` only into a function
 // declared at the top of a file, and refuses the module otherwise.
 
-import type { Engine, Register } from 'claude-code'
+import type { Engine, Register, ToolCallResult } from 'claude-code'
 
 import {
   answersIn,
@@ -37,6 +37,8 @@ import {
   planOf,
   spentUntil,
   pagesOpenedIn,
+  cmuxBrowserIn,
+  outsideBrowserOf,
   pullRequestsIn,
   pushIn,
   isOwnPush,
@@ -71,7 +73,7 @@ import {
   touchedOf,
   waitedOf,
 } from './facts'
-import type { Equipment, LoadoutItem, LoadoutUse, RateLimit, WaitingItem } from './facts'
+import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Report, Task } from './fleet'
 import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
@@ -116,6 +118,8 @@ type Known = {
   loadout: Loadout
   /** Calls by the session's own agent not yet told to Fleet. */
   calls: number
+  /** Whether the session was reminded of the Job browser, which is done once. */
+  reminded: boolean
 }
 
 /** What the Loadout is made from, the list Fleet last heard, and when the turn its uses go under began. */
@@ -508,7 +512,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
   const loadout = { equipment: { home: '', root: where, rules: false, servers: {}, loaded: [] }, turnAt: '' }
-  known.set(id, { cwd: where, prs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn(), loadout, calls: 0 })
+  known.set(id, { cwd: where, prs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn(), loadout, calls: 0, reminded: false })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -1088,6 +1092,22 @@ async function ended($: Dollar, id: string, reason: string): Promise<void> {
   await flush($)
 }
 
+const BROWSER_REMINDER =
+  'Armada has a Job browser the owner can see and annotate. Drive it with browser_open, browser_click, browser_type, browser_snapshot, browser_screenshot, browser_wait_for and browser_evaluate on the armada tools.'
+
+/**
+ * The first reach for a browser outside Bridge in a session is told to Fleet, and the model reads the
+ * reminder beside the call's own result. The call is never refused.
+ */
+async function remindOutside($: Dollar, ran: ToolCallResult, outside: OutsideBrowser | undefined): Promise<ToolCallResult> {
+  if (outside === undefined || ran.deny !== undefined || (await $.env.get('ARMADA_DRONE'))) return ran
+  const found = await current($).catch(() => undefined)
+  if (found === undefined || found[1].reminded) return ran
+  found[1].reminded = true
+  say($, found[0], { kind: 'browser_outside', ...outside })
+  return { ...ran, context: [...(ran.context ?? []), BROWSER_REMINDER] }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -1147,7 +1167,7 @@ export const register: Register = on => {
       void afterBash($, e.command, ran.text ?? '').catch(() => undefined)
       void backgrounded($, 'Bash', e as Record<string, unknown>, ran.text ?? '').catch(() => undefined)
     }
-    return ran
+    return remindOutside($, ran, cmuxBrowserIn(e.command))
   })
 
   // A whole read of a large file is turned away once, with its outline, so the agent reads a range.
@@ -1378,7 +1398,7 @@ export const register: Register = on => {
         .then(([, one]) => equipmentUsed($, sourced({ kind: 'skill', name: e.skill, ...by }, skillUseOrigin(e.skill, one.loadout.equipment.breakdown))))
         .catch(() => undefined)
     }
-    return ran
+    return remindOutside($, ran, outsideBrowserOf('Skill', e))
   })
 
   on('tool.call', { tool: /^mcp__/ }, async ($, e, next) => {
@@ -1389,7 +1409,7 @@ export const register: Register = on => {
         .then(([, one]) => equipmentUsed($, { kind: 'tool', name: e.tool, ...toolOrigin(e.tool, one.loadout.equipment.breakdown?.mcpTools), ...by }))
         .catch(() => undefined)
     }
-    return ran
+    return remindOutside($, ran, outsideBrowserOf(e.tool, e))
   })
 
   on('tool.call', { tool: 'ToolSearch' }, async ($, e, next) => {

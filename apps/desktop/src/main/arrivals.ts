@@ -54,7 +54,7 @@ export interface ArrivalHost {
   /** The mods on this machine — `mods.ts`. */
   readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
-  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row" | "terminal" | "watchesChanged">;
+  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row" | "terminal" | "watchesChanged" | "browser">;
   /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
   readonly held: Pick<HeldReader, "warm" | "again">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
@@ -369,6 +369,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // the shell prints arrives as a run's does.
     host.publish({ connection });
     host.sessions.terminal(event.kind === "terminal.opened" ? "opened" : "exited", { session_id: event.session_id, run_id: event.run_id });
+    return;
+  }
+  if (event.kind === "browser.request") {
+    // Nothing is folded: the act is the Job browser's to do and answer, and Fleet holds the agent's call until it does.
+    host.publish({ connection });
+    host.sessions.browser({ session_id: event.session_id, request_id: event.request_id, act: event.act });
     return;
   }
   if (event.kind === "checkout_run.finished") {

@@ -182,6 +182,7 @@ WebSocket event stream, read this first.
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`, `mark_not_a_drift`](protocol/the-workflows-page.md) |
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
+| [The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row](protocol/the-job-browser.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

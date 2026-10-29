@@ -28,7 +28,7 @@ import type { TimelineAppended } from "./timeline";
 import type { ActFailed } from "./act-failed";
 import type { Autopilot } from "./autopilot";
 import type { WatchesChanged } from "./watches";
-import type { JobTerminal, SessionRecord } from "./sessions";
+import type { BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
 import type { HelmAskingToRun, HelmCallAnswered } from "./helm-calls";
@@ -90,6 +90,8 @@ export type Event =
   | ({ kind: "terminal.opened" } & JobTerminal)
   /** A Job's shell ended: it exited, was stopped, or its Job ended. */
   | ({ kind: "terminal.exited" } & JobTerminal)
+  /** An agent's act on its Job browser, held by Fleet until Bridge answers it with `answer_browser_request`. Not replayed. */
+  | ({ kind: "browser.request" } & BrowserRequest)
   /** Sleep mode after any change to it, whole. */
   | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */

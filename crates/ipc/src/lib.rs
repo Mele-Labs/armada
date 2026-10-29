@@ -204,6 +204,8 @@ mod session_import;
 mod sessions;
 /// A Job's shell, shared by the person and its agent.
 mod terminals;
+/// The Job browser: a page in Bridge the agent and the owner drive together.
+mod job_browser;
 mod setup;
 mod phone;
 mod show_file;
@@ -592,6 +594,10 @@ pub use sessions::{
 };
 pub use terminals::{
     JobTerminal, OpenTerminal, ReadTerminal, StartTerminalRun, TerminalScreen, TerminalTyped, TypeInTerminal,
+};
+pub use job_browser::{
+    AnswerBrowserRequest, BrowserAct, BrowserAnswer, BrowserClick, BrowserError, BrowserEvaluate, BrowserLook,
+    BrowserOpen, BrowserRequest, BrowserRequestAnswered, BrowserType, BrowserWaitFor,
 };
 pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{

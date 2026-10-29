@@ -777,6 +777,15 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         named: bool,
     },
+    /// The agent reached for a browser outside Bridge, as its mod told (`browser_outside`): `tool`
+    /// as the person reads it, and the address without its query or fragment, where there was one.
+    BrowserReminder {
+        id: String,
+        at: Instant,
+        tool: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        address: Option<String>,
+    },
     /// The agent said a Fleet notice was wrong. `notice` is the Fleet message row's id; `review` the job started, or joined, to settle it, absent where none was.
     Disputed {
         id: String,
@@ -814,6 +823,7 @@ impl SessionRow {
             | SessionRow::PlanChanges { id, .. }
             | SessionRow::Delivery { id, .. }
             | SessionRow::Disputed { id, .. }
+            | SessionRow::BrowserReminder { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

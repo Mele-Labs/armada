@@ -133,6 +133,27 @@ pub trait Sessions: Send + Sync + 'static {
         asked: ipc::ReadTerminal,
     ) -> impl Future<Output = Result<ipc::TerminalScreen, Refusal>> + Send;
 
+    /// `browser_open` and the six other Job browser acts — `act` held for Bridge and answered with
+    /// what Bridge did. `caller` places the Job as `type_in_terminal`'s does. A screenshot's `path`
+    /// is the daemon's to set. [`Refusal::IllegalMove`] while Bridge is not open, the owner drives,
+    /// or Bridge did not answer in time; [`Refusal::Unacceptable`] for a call that places no Job,
+    /// an act that cannot work as asked, and what Bridge could not do.
+    fn drive_browser(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+        act: ipc::BrowserAct,
+    ) -> impl Future<Output = Result<ipc::BrowserAnswer, Refusal>> + Send;
+
+    /// `answer_browser_request` — Bridge's answer to one `browser.request`, which answers the call
+    /// held under its id. [`Refusal::NotFound`] for an id never minted, [`Refusal::IllegalMove`] for
+    /// one withdrawn or answered already, [`Refusal::Unacceptable`] for an answer that does not fit
+    /// the act, which leaves the call held.
+    fn answer_browser_request(
+        &self,
+        answer: ipc::AnswerBrowserRequest,
+    ) -> impl Future<Output = Result<ipc::BrowserRequestAnswered, Refusal>> + Send;
+
     /// `show_window` — a session shows the person a page. `caller` is the connection the call
     /// arrived on, where it came through the agent's door: it places a hosted session. Answers with
     /// the row. [`Refusal::Unacceptable`] for an address that is not `http` or `https`, or a call

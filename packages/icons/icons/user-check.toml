@@ -47,3 +47,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `mergeByHand` (#2396). Follows the number on the pull request's chip in the Cockpit's merge queue, tooltip `Needs merging by hand`, in `--status-awaiting-approval`. The glyph already means a person is required, and `hand` is reserved to a slot handed over with a Job. The same fact is a call and a line under the Manifest form's Save, which draw no glyph."
+
+  [[icons.user-check.usage]]
+    means = "The person driving the Job browser after Take over, on the pane's head"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. Actor=human, which the reservation names: the person is the one acting on the page. A press hands the page back. --accent; tooltip and aria-label: You're driving. Hand back to the agent."

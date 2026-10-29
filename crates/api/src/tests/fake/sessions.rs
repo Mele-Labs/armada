@@ -159,6 +159,26 @@ impl Sessions for FakeDaemon {
         self.runs_nothing_here()
     }
 
+    async fn drive_browser(
+        &self,
+        _caller: Option<crate::Caller>,
+        _session_id: Option<ipc::SessionId>,
+        act: ipc::BrowserAct,
+    ) -> Result<ipc::BrowserAnswer, Refusal> {
+        let url = match act {
+            ipc::BrowserAct::Open { url } => url,
+            _ => String::from("http://localhost:5173/"),
+        };
+        Ok(ipc::BrowserAnswer::Page { url, title: String::from("A page"), snapshot: String::new(), truncated: false })
+    }
+
+    async fn answer_browser_request(
+        &self,
+        answer: ipc::AnswerBrowserRequest,
+    ) -> Result<ipc::BrowserRequestAnswered, Refusal> {
+        Ok(ipc::BrowserRequestAnswered { request_id: answer.request_id, session_id: ipc::SessionId::carried("s1") })
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,

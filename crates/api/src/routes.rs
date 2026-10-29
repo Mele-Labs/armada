@@ -291,6 +291,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/terminal/run", post(crate::terminals::start_terminal_run::<D>))
         .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
+        .route("/sessions/browser/open", post(crate::browsing::browser_open::<D>))
+        .route("/sessions/browser/click", post(crate::browsing::browser_click::<D>))
+        .route("/sessions/browser/type", post(crate::browsing::browser_type::<D>))
+        .route("/sessions/browser/snapshot", post(crate::browsing::browser_snapshot::<D>))
+        .route("/sessions/browser/screenshot", post(crate::browsing::browser_screenshot::<D>))
+        .route("/sessions/browser/wait_for", post(crate::browsing::browser_wait_for::<D>))
+        .route("/sessions/browser/evaluate", post(crate::browsing::browser_evaluate::<D>))
+        .route("/sessions/browser/answer", post(crate::browsing::answer_browser_request::<D>))
         .route(
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
