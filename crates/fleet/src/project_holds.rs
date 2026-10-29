@@ -83,9 +83,15 @@ where
         for one in named {
             let (_, row) = self.row_in(&kept, &one.row)?;
             if row.manifest_id != manifest {
-                return Err(Refusal::Unacceptable(
-                    self.project_refusal(OTHER_REPOSITORY, format!("row {} is another repository's", one.row)),
-                ));
+                // Named as the person wrote it, since a row id means nothing in the sheet that shows this.
+                let named = match &row.item {
+                    store::KeptRowItem::Task { title, .. } => format!("the task {title}"),
+                    store::KeptRowItem::Issue { reference } => format!("the issue {reference}"),
+                };
+                return Err(Refusal::Unacceptable(self.project_refusal(
+                    OTHER_REPOSITORY,
+                    format!("{named} is in {}, and this Job starts in {manifest}", row.manifest_id),
+                )));
             }
             if matches!(row.item, store::KeptRowItem::Task { .. }) {
                 tasks.push(one.row.clone());
