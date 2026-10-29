@@ -1199,12 +1199,12 @@ describe("a subagent and a queued message on the wire", () => {
       "a",
       [
         { kind: "tool", id: "t1", at: AT, text: "Agent Make the thread resizable", subagent },
-        { kind: "message", id: "m1", at: AT, from: "you", text: "and the tests", queued: true },
+        { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "and the tests", queued: true },
       ],
       () => undefined,
     );
     expect(drawn[0]).toMatchObject({ kind: "tool", subagent });
-    expect(drawn[1]).toMatchObject({ kind: "message", from: "you", queued: true });
+    expect(drawn[1]).toMatchObject({ kind: "message", from: { kind: "you" }, queued: true });
   });
 
   it("adds neither to a thread kept before them", () => {
@@ -1212,7 +1212,7 @@ describe("a subagent and a queued message on the wire", () => {
       "a",
       [
         { kind: "tool", id: "t1", at: AT, text: "Read lib.rs" },
-        { kind: "message", id: "m1", at: AT, from: "you", text: "and the tests" },
+        { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "and the tests" },
       ],
       () => undefined,
     );
