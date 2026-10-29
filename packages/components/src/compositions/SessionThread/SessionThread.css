@@ -734,11 +734,6 @@
   line-height: var(--leading-xs);
 }
 
-/* Fleet could not start the agent: the same ruled line, in the failed hue. */
-.armada-session-woke[data-failed] {
-  color: var(--status-completed-failed);
-}
-
 .armada-session-woke__mark,
 .armada-session-act__mark {
   display: inline-flex;

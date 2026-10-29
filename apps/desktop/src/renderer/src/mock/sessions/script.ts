@@ -531,6 +531,13 @@ export function sessionsStore(
       const text = WATCH_LOGS[log];
       return text === undefined ? { ok: false, said: `No kept reading has the log ${log}.` } : { ok: true, text };
     },
+    startAgain(id) {
+      edit(id, (one) => {
+        const { startFailed, ...rest } = one;
+        void startFailed;
+        return { ...rest, turn: { state: "working" }, standing: "working", lastTurnAt: new Date().toISOString() };
+      });
+    },
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {
@@ -538,7 +545,7 @@ export function sessionsStore(
         void pendingTags;
         void done;
         void lapsed;
-        // A message is the retry of a Job that never started.
+        // A message is a retry of a Job that never started, as Start again is.
         void startFailed;
         // A message from the person ends the reply and the done Fleet read off the turn before it.
         void standing;

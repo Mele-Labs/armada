@@ -1,5 +1,6 @@
-// A Job whose agent process never started, beside Jobs that did. Its row reads a state mark with the reason in its tooltip, pulses as a row that
-// needs him does, and its thread ends on a Fleet line with the reason. A message in its box is the retry. The walk `job-failed-to-start` plays it.
+// A Job whose agent process never started, even on Fleet's second try, beside Jobs that did. Its row reads a state mark with the cause in its tooltip,
+// pulses as a row that needs him does, and its thread ends on a Fleet line with the cause, the agent's own error lines folded, and Start again and
+// Report. The walk `job-failed-to-start` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -40,7 +41,10 @@ const failed: Session = {
   title: "Rename the slot pool",
   turn: { state: "idle" },
   lastTurnAt: ago(4),
-  startFailed: "the job's keeper did not answer",
+  startFailed: {
+    cause: "the agent did not come up within 10 seconds",
+    log: ["Error: EACCES: permission denied, open '/Users/devin/.claude.json'", "    at Object.openSync (node:fs:573:18)", "    at readConfig (/usr/local/lib/claude/cli.js:412:9)"],
+  },
   rows: [{ id: "f3-u", at: "13:44:30", kind: "message", from: { kind: "you" }, text: "Rename the slot pool to bays in the settings and the docs." }],
   attachments: [],
 };

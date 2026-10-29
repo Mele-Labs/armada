@@ -24,7 +24,7 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   // The agent process never came up: nothing runs, and nothing but a message from him moves it.
-  if (session.startFailed !== undefined) return { state: "unstarted", said: `Failed to start: ${session.startFailed}` };
+  if (session.startFailed !== undefined) return { state: "unstarted", said: `Failed to start: ${session.startFailed.cause}` };
   // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.
   if (session.waits !== undefined) return { state: "after", said: startsWhenSaid(session.waits) };
   // The proposer is reading the request: the Session starts on its answer.

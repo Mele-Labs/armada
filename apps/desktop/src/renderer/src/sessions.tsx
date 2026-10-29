@@ -79,6 +79,7 @@ import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./s
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
+import { askToReport, canReport } from "./report";
 import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
@@ -1213,6 +1214,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(inlineCards.length === 0 ? {} : { inline: inlineCards })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
+            {...(draft.startAgain === undefined ? {} : { onStartAgain: () => draft.startAgain!(session.id) })}
+            {...(canReport() ? { onReport: askToReport } : {})}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             {...(teachOpen === undefined ? {} : { onTeachAt: ({ quote }: { quote: string }) => teachOpen("words", wordsOfQuote(quote)), onTeachRow: ({ kind, text, at, ids }: TeachPick) => teachOpen(kind, text, at, ids) })}
             {...(draft.muteNotice === undefined ? {} : { onMuteNotice: (notice, choice) => muteNoticeFor(draft.muteNotice!, session, notice, choice) })}
