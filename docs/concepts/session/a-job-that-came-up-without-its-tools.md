@@ -24,4 +24,11 @@ The old process had said `init` and not yet answered, so the turn's message is s
 The replacement resumes the conversation and pays for it again, and the subagents and background work of earlier turns go with the old process, as they do in any restart (*What a restart does to a session*).
 A line that finds Fleet with nothing unfinished to send, or the Job waiting to be moved into a slot, is marked and not restarted.
 
+**Bridge draws the mark as the `unplug` glyph**, on the Job's row in the Jobs list and in its header, with a tooltip that is the label: the CLI's version, then a sentence for each piece missing, such as `Claude Code 2.1.312. No armada mod. No task tools.`
+The row's inspect card carries the same sentence as its Tools line.
+The row's column is kept for every row while one in the list has the mark, and an ended Job draws none.
+
+**The task list reaches the working band through the mod.**
+Current CLIs serve `TaskCreate` and `TaskUpdate`, which Fleet's gate sees without their results, so the band reads the whole list the mod reports as `tasks`; a `TodoWrite` the gate sees still sets it on an older CLI.
+
 **The reading and the mark are kept in memory only.** A Fleet that restarts has neither until the next `init`.
