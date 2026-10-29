@@ -1,6 +1,6 @@
 // One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Activity
 // stands on the right beside Bays. With a Session selected the right column holds
-// the Job's story (Completed, Now and Next, the Field under the Jobs list), and the Ledger and the Dispatch controls give way. The proposer's values stand where they
+// the Job's story (Done, Now and Open, the Field under the Jobs list), and the Ledger and the Dispatch controls give way. The proposer's values stand where they
 // already live: the name in the header, the model and effort in the composer, the workflow over its steps at the head of the story. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 
@@ -25,7 +25,7 @@ export const oneSessionView = walk("one-session-view", [
   { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
   { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Dispatch controls, Activity and Bays give way, and the right column tells the Job's story: Completed, Now and Next, with the Field under the Jobs list" },
+  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Dispatch controls, Activity and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list" },
   { look: role("button", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
   { look: role("button", "More"), say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it" },
   { press: role("button", "More"), say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
@@ -115,7 +115,7 @@ export const oneSessionView = walk("one-session-view", [
   { press: button("Artifacts", { exact: true }), say: "There is no Ledger. The branch and the bay are not drawn while nothing is wrong with them, and the draft pull request is a row in Artifacts" },
   { look: inside(region("Artifacts", { exact: true }), region("Pull requests", { exact: true })), say: "The draft pull request, with its state and checks" },
   { press: inside(region("Artifacts", { exact: true }), button("Back")), say: "Back returns to the thread where it was" },
-  { press: inside(verified, role("button", /Verify/)), say: "A press on a header folds the panel to it. Every panel in the view does this, Completed, Now, Next, the Field, Jobs and Flight control too" },
+  { press: inside(verified, role("button", /Verify/)), say: "A press on a header folds the panel to it. Every panel in the view does this, Done, Now, Open, the Field, Jobs and Flight control too" },
   { press: inside(verified, role("button", /Verify/)), say: "A second press opens it. What he folds or opens by hand holds, kept for the Job" },
   { press: deckRow("Rotate the audit log"), say: "Another Job, on a workflow of twelve steps" },
   { look: region("Smoke", { exact: true }), say: "A workflow of twelve steps is twelve zones, the current one open and those before it folded" },

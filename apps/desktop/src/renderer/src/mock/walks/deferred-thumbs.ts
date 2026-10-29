@@ -3,8 +3,8 @@
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const landing = region("Next", { exact: true });
-const made = region("Completed", { exact: true });
+const landing = region("Open", { exact: true });
+const made = region("Done", { exact: true });
 const rowOf = (words: RegExp) => inside(landing, role("listitem", words));
 
 const deferredThumbs = walk("deferred-thumbs", [
@@ -14,7 +14,8 @@ const deferredThumbs = walk("deferred-thumbs", [
   { press: inside(landing, button(/^Not deferred: The Studio icon/)), say: "Thumbs down takes it off the list" },
   { context: rowOf(/Rename the registry loader/), say: "A right press on another one opens its menu, with the same two acts" },
   { press: role("menuitem", "Deferred", { exact: true }), say: "Deferred keeps it" },
-  { look: inside(made, button(/Rename the registry loader/)), say: "It moves to Completed as a deferred item, with no Remind and no thumbs" },
+  { key: "Alt+1", on: made, say: "Done is folded until pressed: ⌥1 opens it" },
+  { look: inside(made, button(/Rename the registry loader/)), say: "It moves to Done as a deferred item, with no Remind and no thumbs" },
 ]);
 
 export { deferredThumbs as "deferred-thumbs" };

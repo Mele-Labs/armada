@@ -6,7 +6,7 @@
 // Done carrying what it produced, and a pending output moves there when its data arrives.
 //
 // With a workflow whose step the Job is at, the zones are the workflow's steps instead: one for each, a check on the line for a finished step (folded until pressed, holding what
-// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Next holds about landing. ⌥1, ⌥2 and ⌥3
+// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Open holds about landing. ⌥1, ⌥2 and ⌥3
 // then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Done, Now and Open.
 //
 // The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Done, Now and Open and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Done's strip; ⌥N the whole plan; ⌥W the
@@ -338,7 +338,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     return <div className="sv-nav" onKeyDown={arrowsIn}><ol className="sv-beats" aria-label="Done">{rows}</ol></div>;
   };
 
-  // What Next held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
+  // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
   const landing =
     ahead.length === 0 && kept.length === 0 ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
@@ -463,7 +463,7 @@ export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"):
   return true;
 }
 
-/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Completed is above, to scroll back to, and Next below. */
+/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Done is above, to scroll back to, and Open below. */
 function Spine({ session, children }: { session: Session; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {

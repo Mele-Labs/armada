@@ -1,6 +1,6 @@
-// A walk is an output of the Job, as a pull request is, and this plays its whole life on the Job's story: pending in Next under the workflow's Present step; shown, it
+// A walk is an output of the Job, as a pull request is, and this plays its whole life on the Job's story: pending in Open under the workflow's Present step; shown, it
 // moves to Now as a call on him, a lamp that pulses, its name and a tick for each take; pressing it, or Enter on it, opens the walk window as Bridge opens one; and on
-// his Approve it moves to Completed under Present as an approved walk. The walk's `later` step shows the walk. Over the same Job as `field-expand-plan`, at Build, with the real Job of
+// his Approve it moves to Done under Present as an approved walk. The walk's `later` step shows the walk. Over the same Job as `field-expand-plan`, at Build, with the real Job of
 // `job-real-issues-tab` in place of a second.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
@@ -46,7 +46,7 @@ const at = (step: number) => (one: Session): Session => (one.work?.workflow === 
 export const s332JobWalkOnTheSpine: Scenario = {
   ...base,
   name: "job-walk-on-the-spine",
-  says: "A Job at Build whose workflow still has Present ahead: its walk is pending in Next, then shown in Now, then approved in Completed",
+  says: "A Job at Build whose workflow still has Present ahead: its walk is pending in Open, then shown in Now, then approved in Done",
   draft: {
     ...base.draft,
     sessions: (control) => {
