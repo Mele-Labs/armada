@@ -186,7 +186,8 @@ export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
-export { forRequestsOf, stepsOfDefinition, withWords } from "./compositions/WorkflowManager/definition";
+export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export { forRequestsOf, stepsOfDefinition, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "./compositions/WorkflowManager/definition";
 export type { DefinitionStep } from "./compositions/WorkflowManager/definition";
 
 export * from "./compositions/ManifestNotice/ManifestNotice";
@@ -457,6 +458,7 @@ export * from "./compositions/ArtifactGraph/ArtifactGraph";
 export * from "./compositions/LaneCanvas/LaneCanvas";
 export * from "./compositions/LaneCanvas/model";
 export * from "./compositions/LaneCanvas/build";
+export * from "./compositions/LaneCanvas/edit";
 
 // Notes on a sketch, a file or a picture being read, held on it and sent to a Job as one message.
 export { NoteNumber, ViewerNotesFrom, useViewerNotes } from "./compositions/ViewerNotes/ViewerNotes";

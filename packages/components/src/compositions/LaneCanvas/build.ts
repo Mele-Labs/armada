@@ -1,12 +1,12 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { nodeId } from "./model";
+import { lifecyclesFor, nodeId, ruleDiffers, stateDiffers } from "./model";
 import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, Rule, RuleView, Workspace } from "./model";
 
 const laneOfLifecycle = (lifecycle: Lifecycle, id: string, title: string, note: string | undefined, nodes: readonly LaneNodeView[]): LaneView => ({
   id,
-  kind: lifecycle.id,
+  kind: "lifecycle",
   title,
   source: lifecycle.from,
   ...(note === undefined ? {} : { note }),
@@ -23,68 +23,79 @@ function endsOnSaid(step: LaneStep, lifecycles: readonly Lifecycle[]): string | 
 }
 
 /** The steps of a workflow, placed in columns where the Workspace says, and in order where it does not. */
-export function stepsOf(workspace: Workspace, steps: readonly { id: string; label: string }[]): LaneStep[] {
+export function stepsOf(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[]): LaneStep[] {
   return steps.map((step, at) => {
-    const given = workspace.steps[step.id];
+    const given = workspace.workflows[workflow]?.steps[step.id];
     return { id: step.id, label: step.label, col: given?.col ?? at, ...(given?.endsOn === undefined ? {} : { endsOn: given.endsOn }) };
   });
 }
 
-/** Whether a rule applies in the scope the chip picked: the Workspace shows every rule, a repository the ones that apply there. */
-export const appliesIn = (rule: Rule, scope: string): boolean => scope === "workspace" || rule.scope === "workspace" || rule.scope === scope;
+/** The rules a workflow draws: its own, and the Workspace's wherever both ends are on its lanes. */
+export function rulesFor(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[]): Rule[] {
+  const drawn = new Set<string>([...steps.map((step) => nodeId("workflow", step.id)), ...lifecyclesFor(workspace, workflow).flatMap((lifecycle) => lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)))]);
+  return workspace.rules.filter((rule) => (rule.workflow === undefined || rule.workflow === workflow) && drawn.has(nodeId(rule.from.lane, rule.from.item)) && drawn.has(nodeId(rule.to.lane, rule.to.item)));
+}
 
 /**
- * The editor's lanes: the workflow on top, then one lane for each lifecycle, and each rule in the scope as an edge. `proposed` are the
- * rules a change waiting on Approve would add, drawn as a diff.
+ * The editor's lanes: the workflow on top, then one lane for each lifecycle it uses, and each rule it holds as an edge. **The lanes show the Workspace**: where a repository
+ * differs, the node or the rule says so and names it. `proposed` are the rules a change waiting on Approve would add, drawn as a diff.
  */
 export function editorLanes(input: {
   workspace: Workspace;
   workflow: string;
   steps: readonly { id: string; label: string }[];
-  scope: string;
   proposed?: readonly Rule[];
 }): { lanes: LaneView[]; rules: RuleView[] } {
-  const { workspace, workflow, scope } = input;
-  const steps = stepsOf(workspace, input.steps);
+  const { workspace, workflow } = input;
+  const steps = stepsOf(workspace, workflow, input.steps);
+  const lifecycles = lifecyclesFor(workspace, workflow);
+  const named = (ids: readonly string[]): string[] => ids.map((id) => workspace.repositories.find((one) => one.id === id)?.name ?? id);
   const flow: LaneView = {
     id: "workflow",
     kind: "workflow",
     title: workflow,
     source: "Workflow",
     nodes: steps.map((step) => {
-      const sub = endsOnSaid(step, workspace.lifecycles);
+      const sub = endsOnSaid(step, lifecycles);
       return { id: nodeId("workflow", step.id), label: step.label, ...(sub === undefined ? {} : { sub }), col: step.col, role: "step" as const };
     }),
     moves: steps.slice(1).map((step, at) => [nodeId("workflow", steps[at]!.id), nodeId("workflow", step.id)] as const),
   };
-  const lifecycles = workspace.lifecycles.map((lifecycle) =>
+  const lanes = lifecycles.map((lifecycle) =>
     laneOfLifecycle(
       lifecycle,
       lifecycle.id,
       lifecycle.label,
       undefined,
-      lifecycle.states.map((state) => ({ id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, ...(state.end === true ? { end: true as const } : {}) })),
+      lifecycle.states.map((state) => {
+        const differs = named(stateDiffers(state));
+        return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
+      }),
     ),
   );
-  const drawn = (rule: Rule, proposed: boolean): RuleView => ({
-    id: rule.id,
-    rule: rule.id,
-    from: nodeId(rule.from.lane, rule.from.item),
-    to: nodeId(rule.to.lane, rule.to.item),
-    label: rule.label,
-    autonomy: rule.autonomy,
-    ...(proposed ? { proposed: true as const } : {}),
-  });
+  const drawn = (rule: Rule, proposed: boolean): RuleView => {
+    const differs = named(ruleDiffers(rule));
+    return {
+      id: rule.id,
+      rule: rule.id,
+      from: nodeId(rule.from.lane, rule.from.item),
+      to: nodeId(rule.to.lane, rule.to.item),
+      label: rule.label,
+      autonomy: rule.autonomy,
+      ...(differs.length === 0 ? {} : { differs }),
+      ...(proposed ? { proposed: true as const } : {}),
+    };
+  };
   return {
-    lanes: [flow, ...lifecycles],
-    rules: [...workspace.rules.filter((rule) => appliesIn(rule, scope)).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => drawn(rule, true))],
+    lanes: [flow, ...lanes],
+    rules: [...rulesFor(workspace, workflow, input.steps).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => drawn(rule, true))],
   };
 }
 
 // ---- A Job ---------------------------------------------------------------------------------------------------------------
 
-/** Where a Job stands in its workflow, as the story reads it. */
-export type JobStanding = { workflow: string; at: number; skipped?: readonly number[] };
+/** Where a Job stands in its workflow, as the story reads it. `working` is the agent being on that step now: only then is the step lit. */
+export type JobStanding = { workflow: string; at: number; skipped?: readonly number[]; working?: boolean };
 
 /** What a Job's Lanes view draws: where the workflow stands (`at` is -1 before a step starts, the step count once all ended) and what the Job holds. */
 export type SessionLanes = JobStanding & { job: JobLanes };
@@ -92,8 +103,8 @@ export type SessionLanes = JobStanding & { job: JobLanes };
 const instancesOf = (job: JobLanes, lane: string): readonly Instance[] => job.instances.filter((one) => one.lifecycle === lane);
 
 /**
- * A Job's lanes: its workflow on top with the step it is at lit, then a lane for each instance it holds, the state it stands in lit and the
- * ones it went through marked. A rule that fired is an edge with its outcome and when; a rule still waiting is a dashed edge naming what it
+ * A Job's lanes: its workflow on top with the step it is at (lit while the agent works on it), then a lane for each instance it holds, the state it
+ * stands in marked as where it is, and the ones it went through marked. A rule that fired is an edge with its outcome and when; a rule still waiting is a dashed edge naming what it
  * waits for. A rule turned off is not drawn.
  */
 export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneView[]; rules: RuleView[] } {
@@ -113,7 +124,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         ...(sub === undefined ? {} : { sub }),
         col: step.col,
         role: "step" as const,
-        ...(at === standing.at ? { lit: true as const } : {}),
+        ...(at === standing.at ? (standing.working === true ? { lit: true as const } : { here: true as const }) : {}),
         ...(at < standing.at ? { passed: true as const } : {}),
         ...(waiting === undefined ? {} : { waiting }),
         ...(standing.skipped?.includes(at) === true ? { skipped: true as const } : {}),
@@ -139,7 +150,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
             label: state.label,
             col: state.col,
             role: "state" as const,
-            ...(state.id === instance.state ? { lit: true as const } : {}),
+            ...(state.id === instance.state ? { here: true as const } : {}),
             ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
             ...(state.end === true ? { end: true as const } : {}),
             ...(state.id === instance.state && instance.assignee !== undefined ? { who: instance.assignee } : {}),
@@ -180,6 +191,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
           autonomy: rule.autonomy,
           status,
           ...(fired?.did === undefined ? {} : { did: fired.did }),
+          ...(fired?.needs === undefined ? {} : { needs: fired.needs }),
           ...(first ? {} : { quiet: true as const }),
         });
         first = false;
@@ -189,7 +201,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
   return { lanes, rules };
 }
 
-/** What the rail says a step is waiting on: `Waiting on PR #812: Approved`. */
+/** What the rail says a step is waiting on: `Waiting on Document: Approved`. */
 export function waitingSaid(job: JobLanes, lifecycles: readonly Lifecycle[]): string | undefined {
   const waiting = job.waitingOn;
   if (waiting === undefined) return undefined;

@@ -1,6 +1,7 @@
-import { Ban, Check, CircleDashed, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle, Plus } from "lucide-react";
+import { Ban, Check, CircleDashed, CopyPlus, GitCompare, GitPullRequestArrow, Layers, Link2, ListMinus, ListPlus, LoaderCircle, Plus, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -272,6 +273,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
     else setSaid((was) => (words !== undefined ? { words } : was?.refused === true ? null : was));
     return refused === undefined;
   };
+  const first = workflow.source === "armada" || comparable || (workflow.leftOut !== undefined && armada !== undefined);
   const header = workflow.leftOut === undefined ? (
     <p className="armada-wm__for">
       <span className="armada-wm__fact-label">For requests</span>
@@ -321,59 +323,51 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           <h2 className="armada-wm__name">{workflow.id}</h2>
           {header}
         </div>
-        <div className="armada-wm__acts">
-          {workflow.source === "armada" ? (
-            <>
-              <Button variant="secondary" size="sm" onClick={() => void run(() => acts.onMakeCopy(ref))}>
-                Make my copy
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
+        <div className="armada-wm__acts" role="toolbar" aria-label="Acts">
+          {first ? (
+          <div className="armada-wm__acts-group" role="group" aria-label="Armada's copy">
+            {workflow.source === "armada" ? (
+              <Act
+                label="Make my copy"
+                Glyph={CopyPlus}
+                onPress={() => void run(() => acts.onMakeCopy(ref))}
+              />
+            ) : null}
+            {comparable ? <Act label="Compare with Armada's" Glyph={GitCompare} pressed={comparing} onPress={() => setComparing(!comparing)} /> : null}
+            {comparable || (workflow.leftOut !== undefined && armada !== undefined) ? (
+              <Act
+                label="Reset to Armada's"
+                Glyph={Undo2}
+                onPress={() =>
+                  void run(async () => {
+                    const refused = await acts.onReset(ref);
+                    if (refused === undefined) setDrafts((was) => Object.fromEntries(Object.entries(was).filter(([name]) => !name.startsWith(`${key}/`))));
+                    return refused;
+                  }, "Matches Armada's")
+                }
+              />
+            ) : null}
+            {workflow.source === "armada" ? (
+              <Act
+                label="Propose to Armada"
+                Glyph={GitPullRequestArrow}
                 disabled={said !== null && said.refused !== true}
-                onClick={() =>
+                onPress={() =>
                   void (async () => {
                     const proposed = await acts.onPropose(ref);
                     if (typeof proposed === "string") setSaid({ words: proposed, refused: true });
                     else setSaid({ words: proposed?.note ?? "Sent. A Job started on the Armada repository", ...(proposed === undefined ? {} : { job: proposed.jobId }) });
                   })()
                 }
-              >
-                Propose to Armada
-              </Button>
-            </>
-          ) : (
-            <>
-              {comparable ? (
-                <>
-                  <Button variant="secondary" size="sm" aria-pressed={comparing} onClick={() => setComparing(!comparing)}>
-                    Compare with Armada's
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      void run(async () => {
-                        const refused = await acts.onReset(ref);
-                        if (refused === undefined) setDrafts((was) => Object.fromEntries(Object.entries(was).filter(([name]) => !name.startsWith(`${key}/`))));
-                        return refused;
-                      }, "Matches Armada's")
-                    }
-                  >
-                    Reset to Armada's
-                  </Button>
-                </>
-              ) : null}
-              {workflow.leftOut !== undefined && armada !== undefined ? (
-                <Button variant="secondary" size="sm" onClick={() => void run(() => acts.onReset(ref), "Matches Armada's")}>
-                  Reset to Armada's
-                </Button>
-              ) : null}
-              {editable ? actsFor?.(ref) : null}
-              <Button variant="destructive" size="sm" onClick={() => void run(() => acts.onDelete(ref))}>
-                Delete
-              </Button>
-            </>
+              />
+            ) : null}
+          </div>
+          ) : null}
+          {workflow.source !== "armada" && editable ? actsFor?.(ref) : null}
+          {workflow.source === "armada" ? null : (
+            <div className="armada-wm__acts-group" role="group" aria-label="Delete" data-end="">
+              <Act label="Delete" Glyph={Trash2} destructive onPress={() => void run(() => acts.onDelete(ref))} />
+            </div>
           )}
         </div>
         {said === null ? null : <Said {...said} onOpenJob={(job) => acts.onOpenJob(ref, job)} />}
@@ -388,6 +382,10 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           editable={editable}
           proposed={agent.phase === "proposed" ? agent.rules : undefined}
           stepCard={stepCard}
+          panel={acts.workspace.panel}
+          onMakeCopy={() => void run(() => acts.onMakeCopy(ref))}
+          onTell={(request) => acts.onAsk(ref, request)}
+          onSteps={(change) => acts.workspace!.onSteps(ref, change)}
         />
       )}
 
@@ -408,6 +406,17 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
         />
       ) : null}
     </>
+  );
+}
+
+/** One act of the header's toolbar: a glyph with its tooltip, named for a reader who cannot see it. */
+function Act({ label, Glyph, onPress, pressed, disabled, destructive }: { label: string; Glyph: LucideIcon; onPress: () => void; pressed?: boolean; disabled?: boolean; destructive?: boolean }) {
+  return (
+    <Tooltip label={label}>
+      <Button variant={destructive === true ? "destructive" : "secondary"} size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onPress}>
+        <Glyph size={16} strokeWidth={2} aria-hidden />
+      </Button>
+    </Tooltip>
   );
 }
 

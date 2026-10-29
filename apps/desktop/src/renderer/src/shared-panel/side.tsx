@@ -61,9 +61,10 @@ export function SidePanel({
   acts?: ReactNode;
   /** A control over the tabs that every tab answers to. */
   bar?: ReactNode;
-  tabs: readonly Tab[];
-  tab: string;
-  onTab: (id: string) => void;
+  /** Absent, the panel is the one body and draws no tabs. */
+  tabs?: readonly Tab[];
+  tab?: string;
+  onTab?: (id: string) => void;
   back?: SheetBack | undefined;
   onClose: () => void;
   /**
@@ -78,9 +79,9 @@ export function SidePanel({
   const body = useRef<HTMLDivElement>(null);
   const floats = left !== undefined && !floor;
   useTabKeys(
-    tabs.map((one) => one.id),
-    tab,
-    onTab,
+    (tabs ?? []).map((one) => one.id),
+    tab ?? "",
+    onTab ?? (() => undefined),
   );
   // The list's close takes focus as it opens; the tab keeps it, as in the pull request panel.
   useEffect(() => {
@@ -121,12 +122,18 @@ export function SidePanel({
           </div>
         )}
         {bar === undefined ? null : <div className="side-panel__bar">{bar}</div>}
-        <div className="armada-pr-tabs">
-          <Tabs items={[...tabs]} value={tab} onChange={onTab} />
-          <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
-            {children}
-          </TabPanel>
-        </div>
+        {tabs === undefined || tab === undefined || onTab === undefined ? (
+          <div className="armada-pr-tabs">
+            <div className="armada-pr-tabs__panel">{children}</div>
+          </div>
+        ) : (
+          <div className="armada-pr-tabs">
+            <Tabs items={[...tabs]} value={tab} onChange={onTab} />
+            <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
+              {children}
+            </TabPanel>
+          </div>
+        )}
       </div>
     </Sheet>
     {floats && left !== undefined ? (

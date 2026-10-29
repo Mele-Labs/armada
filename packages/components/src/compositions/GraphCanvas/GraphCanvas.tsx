@@ -4,6 +4,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  type Connection,
   type Edge,
   type EdgeTypes,
   type FitViewOptions,
@@ -70,6 +71,8 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
   home?: Viewport;
   /** The wheel and a trackpad's two fingers pan the canvas, and the pinch zooms it. Absent is the wheel zooming. */
   panOnScroll?: boolean;
+  /** A node's connectors may be dragged to another node, and the caller is told the two it joins. Absent, nothing is connected. */
+  onConnect?: (connection: Connection) => void;
   /**
    * The rail's own groups, above the view group this draws — what a person puts
    * on the canvas. `GraphCanvasRailGroup` is what goes here, one per group, and
@@ -259,6 +262,7 @@ function Surface<N extends Node, E extends Edge>({
   minZoom,
   home,
   panOnScroll,
+  onConnect,
   onPanePress,
   onNodePress,
   placing = false,
@@ -341,7 +345,8 @@ function Surface<N extends Node, E extends Edge>({
       onSelectionChange={onPicked}
       {...(onPanePress === undefined ? {} : { onPaneClick })}
       {...(onNodePress === undefined ? {} : { onNodeClick })}
-      nodesConnectable={false}
+      nodesConnectable={onConnect !== undefined}
+      {...(onConnect === undefined ? {} : { onConnect })}
       nodesDraggable={nodesDraggable && !still}
       {...(still
         ? {

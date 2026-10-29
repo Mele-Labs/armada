@@ -1,16 +1,14 @@
-// What the lanes draw: a workflow's steps in a top lane, then a lane for each kind of thing a Job touches (a ticket, a pull request, a
-// deploy), each a small state machine, with rules as edges between them. **A mock's model**: no Fleet serves a Workspace, a lifecycle or a
-// rule yet (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes
-// with one lane for each instance and the rules that fired.
+// What the lanes draw: a workflow's steps in a top lane, then a lane for each lifecycle the workflow uses, each a small state machine, with
+// rules as edges between them. **A lifecycle is any lifecycle**: a ticket, a pull request, a deploy, a document. Fleet reads each of its states from
+// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **A mock's model**: no Fleet serves a Workspace, a lifecycle
+// or a rule yet (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
+// one lane for each instance and the rules that fired.
 
-/** What a lifecycle is for. Fleet reads each state from a tracker, the forge or a watch. */
-export type LifecycleKind = "ticket" | "pull_request" | "deploy";
-
-/** The lane a node sits in: the workflow, or a lifecycle's own (in the editor) or an instance's (on a Job). */
+/** The lane a node sits in: the workflow's own, or a lifecycle's id (in the editor) or an instance's (on a Job). */
 export type WorkflowLane = "workflow";
 
 /** A place in a lane: the lane, and the step or state in it. */
-export type Ref = { lane: WorkflowLane | LifecycleKind; item: string };
+export type Ref = { lane: string; item: string };
 
 /** The id a node is drawn under, and the one a selection names. */
 export const nodeId = (lane: string, item: string): string => `${lane}/${item}`;
@@ -18,25 +16,31 @@ export const nodeId = (lane: string, item: string): string => `${lane}/${item}`;
 /** The tracker's, forge's or watch's own words that count as being in a state, for the Workspace or for one repository. */
 export type StateReads = { source: string; values: readonly string[]; scope: string };
 
-export type LifecycleState = {
+/** A state as the Workspace defines it: where Fleet reads it from is the lifecycle's, and the words that count as being in it are its own. */
+export type StateDef = {
   id: string;
   label: string;
-  /** The column it is drawn in, shared with the workflow's steps so time reads across the lanes. */
-  col: number;
   reads: readonly StateReads[];
   /** Nothing follows it. */
   end?: true;
 };
 
-export type Lifecycle = {
-  id: LifecycleKind;
+/** A lifecycle as the Workspace defines it, for every workflow that uses it. */
+export type LifecycleDef = {
+  id: string;
   label: string;
   /** Where Fleet reads its states from. */
   from: string;
-  states: readonly LifecycleState[];
+  states: readonly StateDef[];
   /** The ways a state is left, as pairs of state ids. */
   next: readonly (readonly [string, string])[];
 };
+
+/** A state as a workflow draws it: in a column shared with the workflow's steps, so time reads across the lanes. */
+export type LifecycleState = StateDef & { col: number };
+
+/** A lifecycle as a workflow draws it, or a Job holds it: the states the workflow places, each with its column. */
+export type Lifecycle = Omit<LifecycleDef, "states"> & { states: readonly LifecycleState[] };
 
 /** Who may change a piece: Armada's, the person's own, or the repository's. */
 export type Kept = "armada" | "yours" | "repository";
@@ -45,6 +49,9 @@ export type Autonomy = "acts" | "asks" | "off";
 
 /** Kinds of act a rule does. A write to the tracker or the forge and a message that speaks as the person default to Asks. */
 export type ActKind = "tracker" | "forge" | "message" | "job" | "watch" | "tell" | "command" | "agent";
+
+/** A repository that lets a rule do more or less than the Workspace does. */
+export type RuleOverride = { scope: string; autonomy: Autonomy };
 
 export type Rule = {
   id: string;
@@ -62,23 +69,54 @@ export type Rule = {
   kept: Kept;
   /** `workspace`, or the id of the one repository it applies in. */
   scope: string;
+  /** Where a repository's autonomy differs from the one above. */
+  overrides?: readonly RuleOverride[];
+  /** The one workflow it belongs to. Absent, it applies in every workflow that has both ends. */
+  workflow?: string;
 };
 
 /** One step of the workflow in a lane, as the page lists it. */
-export type LaneStep = { id: string; label: string; col: number; /** A lifecycle state that ends it, so the step waits on it. */ endsOn?: { lane: LifecycleKind; state: string } };
+export type LaneStep = { id: string; label: string; col: number; /** A lifecycle state that ends it, so the step waits on it. */ endsOn?: { lane: string; state: string } };
 
 export type Repository = { id: string; name: string };
+
+/** What one workflow draws of the Workspace: where its steps sit, and which states of which lifecycles it has a lane for, and where. */
+export type WorkflowPlace = {
+  /** The column and ends-on of each of its steps, by step id. */
+  steps: Readonly<Record<string, Omit<LaneStep, "id" | "label">>>;
+  /** The column of each state it draws, by `lifecycle/state`. **A lifecycle with no state placed has no lane here**, and a state with no column is not drawn. */
+  states: Readonly<Record<string, number>>;
+};
 
 /** A named set of repositories that build one product, and what applies across them. */
 export type Workspace = {
   id: string;
   name: string;
   repositories: readonly Repository[];
-  /** The columns and ends-on of the steps of the workflows this Workspace draws, by step id. */
-  steps: Readonly<Record<string, Omit<LaneStep, "id" | "label">>>;
-  lifecycles: readonly Lifecycle[];
+  lifecycles: readonly LifecycleDef[];
+  /** What each workflow draws of the lifecycles, by workflow id. */
+  workflows: Readonly<Record<string, WorkflowPlace>>;
   rules: readonly Rule[];
 };
+
+/** The lifecycles a workflow draws, each with the states it places, in the Workspace's order. */
+export function lifecyclesFor(workspace: Workspace, workflow: string): Lifecycle[] {
+  const place = workspace.workflows[workflow]?.states ?? {};
+  return workspace.lifecycles.flatMap((lifecycle): Lifecycle[] => {
+    const states = lifecycle.states.flatMap((state): LifecycleState[] => {
+      const col = place[`${lifecycle.id}/${state.id}`];
+      return col === undefined ? [] : [{ ...state, col }];
+    });
+    const drawn = new Set(states.map((state) => state.id));
+    return states.length === 0 ? [] : [{ ...lifecycle, states, next: lifecycle.next.filter(([from, to]) => drawn.has(from) && drawn.has(to)) }];
+  });
+}
+
+/** The tracker values that differ in a repository, as repository ids: a state mapped to other words. */
+export const stateDiffers = (state: StateDef): string[] => [...new Set(state.reads.filter((one) => one.scope !== "workspace").map((one) => one.scope))];
+
+/** The repositories a rule differs in: where it applies alone, or where its autonomy is another. */
+export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope === "workspace" ? [] : [rule.scope]), ...(rule.overrides ?? []).map((one) => one.scope)])];
 
 // ---- What a canvas draws -------------------------------------------------------------------------------------------------
 
@@ -89,8 +127,10 @@ export type LaneNodeView = {
   sub?: string;
   col: number;
   role: "step" | "state";
-  /** The state an instance stands in, or the step a Job is at. */
+  /** The step the agent is working on. It takes the running hue and the working glyph, and nothing else on the lanes does. */
   lit?: boolean;
+  /** Where an instance stands, or the step a Job is at with nobody working on it: a place and not an act, drawn static in no hue. */
+  here?: boolean;
   /** An earlier state the instance went through. */
   passed?: boolean;
   /** A step that waits on a lifecycle state, and the words for it. */
@@ -103,11 +143,13 @@ export type LaneNodeView = {
   facts?: readonly string[];
   /** The Job's own copy changed here, and how. */
   changed?: string;
+  /** The repositories this differs in, by name: a state mapped to other tracker values. */
+  differs?: readonly string[];
 };
 
 export type LaneView = {
   id: string;
-  kind: "workflow" | LifecycleKind;
+  kind: "workflow" | "lifecycle";
   title: string;
   /** Under the title, quiet: where its states are read from. */
   source: string;
@@ -130,6 +172,10 @@ export type RuleView = {
   autonomy: Autonomy;
   /** On a Job: fired and acted, fired and asked, or still waiting. */
   status?: "acted" | "asked" | "waiting";
+  /** What an asked rule left for the person to answer, by the id of its card: pressing the rule opens it. */
+  needs?: string;
+  /** The repositories this differs in, by name: where it applies alone, or where its autonomy is another. */
+  differs?: readonly string[];
   /** Added by a change waiting on Approve. */
   proposed?: true;
   /** The same rule's second edge: drawn with its mark and no words. */
@@ -143,7 +189,8 @@ export type RuleView = {
 /** One thing a Job holds: a ticket, its pull request, a deploy. */
 export type Instance = {
   id: string;
-  lifecycle: LifecycleKind;
+  /** The id of the lifecycle it is an instance of. */
+  lifecycle: string;
   /** What the lane and the rail call it: `ARM-41`, `PR #812`, `Deploy`. */
   label: string;
   /** A ticket's own title. */
@@ -157,7 +204,16 @@ export type Instance = {
 };
 
 /** A rule that fired for an instance, and how it ended. */
-export type Fired = { rule: string; instance: string; outcome: "acted" | "asked"; at: string; /** What it did, for the chip's tooltip. */ did?: string };
+export type Fired = {
+  rule: string;
+  instance: string;
+  outcome: "acted" | "asked";
+  at: string;
+  /** What it did, for the chip's tooltip. */
+  did?: string;
+  /** The id of the card an asked rule left in the thread, while it waits to be answered. */
+  needs?: string;
+};
 
 /** A change made to this Job's own copy, marked on the state of the lane it changes: `lane` is the instance and `item` its state. */
 export type JobChange = { id: string; lane: string; item: string; text: string; at: string };
@@ -182,14 +238,17 @@ export type JobLanes = {
 
 // ---- Words ---------------------------------------------------------------------------------------------------------------
 
+/** Enough of a lifecycle to name its states. */
+type Named = { id: string; label: string; states: readonly { id: string; label: string }[] };
+
 /** The label of a state or a step in the lifecycles and steps given. */
-export function labelOf(ref: Ref, lifecycles: readonly Lifecycle[], steps: readonly { id: string; label: string }[]): string {
+export function labelOf(ref: Ref, lifecycles: readonly Named[], steps: readonly { id: string; label: string }[]): string {
   if (ref.lane === "workflow") return steps.find((one) => one.id === ref.item)?.label ?? ref.item;
   return lifecycles.find((one) => one.id === ref.lane)?.states.find((one) => one.id === ref.item)?.label ?? ref.item;
 }
 
-/** What fires a rule, as a line: `Pull request enters Draft`, `Plan starts`. */
-export function whenSaid(rule: Rule, lifecycles: readonly Lifecycle[], steps: readonly { id: string; label: string }[]): string {
+/** What fires a rule, as a line: `Document enters Approved`, `Plan starts`. */
+export function whenSaid(rule: Rule, lifecycles: readonly Named[], steps: readonly { id: string; label: string }[]): string {
   const name = labelOf(rule.from, lifecycles, steps);
   if (rule.from.lane === "workflow") return `${name} ${rule.at === "ends" ? "ends" : "starts"}`;
   const lifecycle = lifecycles.find((one) => one.id === rule.from.lane);

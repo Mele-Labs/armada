@@ -10,6 +10,7 @@ import { openLink } from "../commands";
 import { OverTheApp } from "../session-view/OverTheApp";
 import { BayPanel, CheckPanel, IssuePanel } from "./panels";
 import { ModPanel } from "./mod";
+import { LaneSide } from "./lane-side";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RequestsPanel } from "./requests";
@@ -65,9 +66,11 @@ export function SharedPanelHost() {
         <RequestsPanel key={`requests:${open.sessionId ?? ""}:${open.from ?? ""}`} item={open} />
       ) : open.kind === "teach" ? (
         <TeachSide key={`teach:${open.sessionId}:${open.source}:${open.text}`} item={open} />
-      ) : (
+      ) : open.kind === "lane" ? (
+        <LaneSide key="lane" item={open} />
+      ) : open.kind === "check" ? (
         <CheckPanel key={`check:${open.id}`} item={open} />
-      )}
+      ) : null}
     </OverTheApp>
     </ProseRefs.Provider>
   );

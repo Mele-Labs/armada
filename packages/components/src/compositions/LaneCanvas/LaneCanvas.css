@@ -139,7 +139,16 @@
   line-height: var(--leading-xs);
 }
 
-/* Where an instance stands is framed in the running hue; where a step waits, in the waiting one; what it went through is a tick in the advanced one, and its frame follows. */
+/* **Where an instance stands is a place, drawn still**: a heavier neutral frame and ground and a pin. The running hue below is for the step the agent is working on, and for nothing else. */
+.armada-lane-item[data-here] .armada-lane-item__main {
+  --hue: var(--fg-default);
+  border-color: var(--fg-muted);
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 var(--border-width) var(--fg-muted);
+  font-weight: var(--weight-heading);
+}
+
+/* What the agent is working on is framed in the running hue; where a step waits, in the waiting one; what it went through is a tick in the advanced one, and its frame follows. */
 .armada-lane-item[data-passed] .armada-lane-item__main { --hue: var(--step-advanced); border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-strong)); color: var(--fg-muted); }
 .armada-lane-item[data-lit] .armada-lane-item__main {
   --hue: var(--step-running);
@@ -174,6 +183,24 @@
   color: var(--status-awaiting-review);
   cursor: default;
 }
+
+/* A node a repository maps differently: the split's glyph on its corner, neutral, beside the comparison's when both are there. */
+.armada-lane-item__differs {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: calc(var(--space-2) * -1);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  cursor: default;
+}
+.armada-lane-item__differs[data-beside] { right: calc(var(--space-6) - var(--space-1)); }
 
 /* What is picked is a shape: the text colour's frame on the picked ground, and the heading weight. */
 .armada-lane-item__main[data-picked] {
@@ -237,6 +264,9 @@
 .armada-lane-chip[data-autonomy="off"] { color: var(--fg-subtle); }
 .armada-lane-chip[data-quiet] { width: calc(var(--space-6) + var(--space-1)); justify-content: center; padding: 0; }
 .armada-lane-chip__mark { flex: none; color: var(--hue); }
+.armada-lane-chip__differs { flex: none; color: var(--fg-muted); }
+/* A rule waiting on the person is framed in the waiting hue, as a row that needs them is. */
+.armada-lane-chip[data-needs] { --hue: var(--status-awaiting-review); border-style: dashed; }
 .armada-lane-chip__meta {
   color: var(--fg-subtle);
   font-family: var(--font-mono);
@@ -248,6 +278,51 @@
   box-shadow: inset 0 0 0 var(--border-width) var(--select-edge);
   font-weight: var(--weight-heading);
 }
+
+/* ---- Editing by hand ------------------------------------------------------------------------------------------------ */
+
+/* What is picked carries its acts above it. */
+.armada-lane-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  pointer-events: all;
+}
+.armada-lane-toolbar-at { position: absolute; pointer-events: none; }
+
+/* A connector is a dot on a node's side, drawn while the node is hovered or a connector starts from it, and a node a connector is dragged over takes it by its whole face. */
+.armada-lane-item[data-connectable]:hover .react-flow__handle,
+.armada-lane-item[data-connecting] .react-flow__handle {
+  width: var(--space-2);
+  height: var(--space-2);
+  min-width: var(--space-2);
+  min-height: var(--space-2);
+  border: var(--border-width) solid var(--fg-muted);
+  background: var(--bg-raised);
+  opacity: 1;
+  cursor: crosshair;
+}
+.armada-lane-item[data-connecting] .armada-lane-item__main { border-style: dashed; border-color: var(--fg-default); }
+.armada-lane-item .react-flow__handle.armada-lane-item__drop {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  transform: none;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+.armada-lane-item[data-dropping] .react-flow__handle.armada-lane-item__drop { pointer-events: all; }
+.armada-lane-item[data-dropping] .armada-lane-item__main { border-color: var(--fg-default); background: var(--select-ground); }
 
 /* ---- The tooltip, in the body ---------------------------------------------------------------------------------------- */
 

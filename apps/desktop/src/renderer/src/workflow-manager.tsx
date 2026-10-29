@@ -5,8 +5,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { WorkflowManager, forRequestsOf, keyOf, withWords } from "@armada/components";
-import type { AgentState, DriftedJob, ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } from "@armada/components";
+import { WorkflowManager, forRequestsOf, keyOf, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "@armada/components";
+import type { AgentState, DriftedJob, ManagedStep, ManagedWorkflow, StepsChange, WorkflowActAnswer, WorkflowRef } from "@armada/components";
 import type { Outcome, WorkflowChange } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { Boundary } from "@armada/shell";
@@ -34,6 +34,7 @@ import { useDispatching } from "./dispatch-panel/dispatching";
 import { IssueJobCard } from "./issues-tab/marks";
 import { askToOpenSessionInCockpit } from "./open-session";
 import { useSessions } from "./sessions-draft";
+import { useLanePanel } from "./shared-panel/store";
 import { PieceActs } from "./sharing/PieceActs";
 import { useWorkspaceHeld } from "./workspace-draft";
 import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
@@ -89,6 +90,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const sessions = useSessions();
   // The Workspace the lanes are drawn in, where the window holds one, and a change to its rules an agent has drawn up.
   const workspace = useWorkspaceHeld();
+  const lanePanel = useLanePanel();
   const [ruled, setRuled] = useState<AgentState | undefined>(undefined);
   const ruling = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(ruling.current), []);
@@ -211,6 +213,27 @@ function Held({ current, repository, root, served }: { current: string | null; r
     return answer.ok ? undefined : refusalWords(answer.outcome);
   };
 
+  /** A change to the steps themselves, written to the definition the copy is read from: its labels, which steps it has and the order they run in. */
+  const writeSteps = (one: WorkflowRef, change: StepsChange) => {
+    void (async () => {
+      const held = await readWorkflowDefinition(one.id, wireOf(one), manifestFor(one));
+      if (!held.ok) return setNotice(refusalWords(held.outcome));
+      const text = held.definition.definition;
+      const definition =
+        change.kind === "label"
+          ? withLabel(text, change.id, change.label)
+          : change.kind === "add"
+            ? withStepAdded(text, change.after, { id: change.id, label: change.label })
+            : change.kind === "remove"
+              ? withStepRemoved(text, change.id)
+              : withStepOrder(text, change.ids);
+      if (definition === undefined) return setNotice(`${held.definition.file} has no step to change`);
+      const saved = await saveWorkflow({ manifestId: manifestFor(one), body: { scope: one.source === "repository" ? "repository" : "kit", definition, overwrite: true } });
+      if (!saved.ok) return setNotice(refusalWords(saved.outcome));
+      await refresh(one);
+    })();
+  };
+
   return (
     <WorkflowManager
       repository={repository}
@@ -224,13 +247,13 @@ function Held({ current, repository, root, served }: { current: string | null; r
         open(one, armadaOf(rows, one.id));
       }}
       agent={ruled ?? agentOf(changes, known)}
-      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onAutonomy: workspace.setAutonomy } })}
+      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onChange: workspace.change, panel: lanePanel, onSteps: writeSteps } })}
       suggestions={picked === null ? {} : { [picked.id]: suggestions }}
       suggesting={suggesting}
       actsFor={(one) => {
         // The copy's own repository: on All there is no pick to share under.
         const at = served.find((each) => each.manifestId === one.manifestId)?.root ?? root;
-        return at === null ? null : <PieceActs repository={at} piece={{ kind: "workflow", workflow_id: one.id }} />;
+        return at === null ? null : <PieceActs icons repository={at} piece={{ kind: "workflow", workflow_id: one.id }} />;
       }}
       onMakeCopy={async (one) => {
         const armada = await readWorkflowDefinition(one.id, "armada", manifestFor(one));

@@ -2,9 +2,9 @@
 // and it answers whether a panel is drawn at all: where nothing hosts one the answer is `false` and the surface opens
 // the thing as it always has. The host (`host.tsx`) is mounted where a window serves the reads the panels draw from.
 
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { RequestHeader } from "@armada/protocol";
-import type { TeachSourceKind } from "@armada/components";
+import type { LanePanel, TeachSourceKind } from "@armada/components";
 import type { ModKind } from "@armada/protocol";
 
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
@@ -18,7 +18,21 @@ export type PanelFileMarked = { lines?: { from: number; to: number }; region?: N
 
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
-  | { kind: "pr"; number: number; address: string; repository?: string; manifestId?: string; root?: string; title?: string; branch?: string; tab?: string }
+  | {
+      kind: "pr";
+      number: number;
+      address: string;
+      repository?: string;
+      manifestId?: string;
+      root?: string;
+      title?: string;
+      branch?: string;
+      tab?: string;
+      /** A comment to open the pull request at, named by who wrote it and the start of what they said. */
+      comment?: { author: string; body: string };
+      /** The Job whose agent read the comments, so each human one carries its triage and the acts on it. */
+      sessionId?: string;
+    }
   | { kind: "issue"; /** The forge's number as digits, or a tracker's key. */ number: string; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
   /** One of a Session's watches, read from the Session as `watches.changed` last carried it. */
@@ -32,6 +46,12 @@ export type PanelItem =
    * that row's id), or on a saved request where it was opened on a `saved` row.
    */
   | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
+  /** A pick on the Workflows page's lanes: the page draws it into the panel's body (`useLanePanel`). */
+  | { kind: "lane"; title: string; heading: string; crumb: string }
+  /** A Job's lanes: the workflow and what it holds, with the spine left on show beside. */
+  | { kind: "lanes"; sessionId: string }
+  /** What a rule on a Job's lanes is waiting on the person for, answered there. */
+  | { kind: "rule"; sessionId: string; rule: string }
   /** A Job's own shell, where `terminal.openJobTerminalIn` says the side panel. */
   | { kind: "terminal"; sessionId: string }
   /** A Job's browser, the page its agent drives (`job-browser/store.ts`). */
@@ -171,3 +191,33 @@ export const openRequestsInPanel = (sessionId?: string): boolean => openInPanel(
 /** The deck's pull request, as the panel names it. */
 export const openPullRequestInPanel = (pr: { number: number; url: string; root: string; title: string; branch: string }): boolean =>
   openInPanel({ kind: "pr", number: pr.number, address: pr.url, root: pr.root, title: pr.title, branch: pr.branch });
+
+// ---- The Workflows page's lanes ---------------------------------------------------------------------------------------------
+
+let laneSlot: HTMLElement | null = null;
+const slotListeners = new Set<() => void>();
+
+/** The panel's body for a pick on the lanes, given as the panel draws it and taken back as it goes. */
+export function holdLaneSlot(element: HTMLElement | null): void {
+  if (laneSlot === element) return;
+  laneSlot = element;
+  slotListeners.forEach((one) => one());
+}
+
+/** The side panel as the Workflows page's lanes ask for it (`LanePanel`). */
+export function useLanePanel(): LanePanel {
+  const { open } = usePanel();
+  const slot = useSyncExternalStore(
+    (listener) => (slotListeners.add(listener), () => slotListeners.delete(listener)),
+    () => laneSlot,
+  );
+  return useMemo(
+    () => ({
+      open: open?.kind === "lane",
+      slot: open?.kind === "lane" ? slot : null,
+      show: (what) => void openInPanel({ kind: "lane", ...what }),
+      close: () => held.open?.kind === "lane" && closePanel(),
+    }),
+    [open?.kind, slot],
+  );
+}

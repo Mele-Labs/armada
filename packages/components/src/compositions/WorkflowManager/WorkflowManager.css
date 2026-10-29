@@ -172,10 +172,20 @@
   text-transform: uppercase;
 }
 
+/* The acts are a toolbar of glyphs in three groups, each its own run: Armada's copy, where the piece is kept, and Delete, set apart at the end. */
 .armada-wm__acts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+}
+.armada-wm__acts-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.armada-wm__acts > :last-child[data-end] {
+  margin-inline-start: var(--space-4);
 }
 
 .armada-wm__said {
@@ -639,12 +649,51 @@
   /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
   height: calc(var(--space-12) * 11);
 }
-.armada-wm-lanes__scope {
+/* What is picked is drawn in the app's side panel. */
+.armada-wm-inspector {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.armada-wm-inspector__edit {
+  padding: var(--space-3) var(--space-4) 0;
 }
 
-.armada-wm-inspector {
+/* Each repository's value beside the Workspace's: the ones the same are quiet, and the one that differs carries the split's glyph. */
+.armada-wm-inspector__differs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-default);
+}
+.armada-wm-inspector__differs > [role="img"] {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+.armada-wm-inspector__values[data-same],
+.armada-wm-inspector__same {
+  color: var(--fg-subtle);
+}
+.armada-wm-inspector__repositories {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.armada-wm-inspector__repositories > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: center;
+  gap: var(--space-3);
+}
+.armada-wm-inspector__repository {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-wm-tell {
   min-width: 0;
 }
 

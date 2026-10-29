@@ -1,6 +1,10 @@
 /* Commit to repository, Share and Copy on a piece of the person's own, and the line saying what the last came to. */
 .piece-acts { display: grid; gap: var(--space-2); }
 .piece-acts__row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* In a toolbar the three are one group, and what they said takes a line of its own after the toolbar's last. */
+.piece-acts[data-icons] { display: contents; }
+.piece-acts[data-icons] .piece-acts__row { flex-wrap: nowrap; gap: var(--space-1); }
+.piece-acts[data-icons] .piece-acts__said { order: 9; flex-basis: 100%; }
 .piece-acts__said { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
 
 /* A piece of yours that hides the repository's of the same name. */

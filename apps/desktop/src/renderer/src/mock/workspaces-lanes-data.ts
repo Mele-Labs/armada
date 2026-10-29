@@ -1,8 +1,9 @@
-// The Workspace `my-store` as the mock holds it, and the Jobs that run in it: the lifecycles, the rules, the `feature` workflow the lanes are drawn
+// The Workspace `my-store` as the mock holds it, and the Jobs that run in it: the lifecycles, the rules, the `feature` and `planning` workflows the lanes are drawn
 // under, and a Job's lanes at each moment of the walk `workspaces-lanes`. **A mock's model**: no Fleet serves a Workspace, a lifecycle or a rule yet
 // (`docs/design`, Workspaces, lifecycles and rules). Only `scenarios/workspaces-lanes.ts` reads this.
 
-import type { CommentRead, Fired, Instance, JobLanes, Lifecycle, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
+import { lifecyclesFor } from "@armada/components";
+import type { CommentRead, Fired, Instance, JobLanes, LifecycleDef, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
 
 import type { Definition } from "./workflows-managed";
 
@@ -26,11 +27,23 @@ const FOR = "adding or changing something a customer uses in the store";
 
 const define = (steps: Written[]): Definition => ({ version: 1, workflow_id: "feature", name: "feature", for_requests: FOR, steps });
 
+/** The planning workflow: a design document is written and reviewed before any ticket is ready to build. */
+const PLANNING_STEPS: Written[] = [
+  { id: "read", label: "Read the tickets", instructions: "Read each ticket and the code it touches. Note what is unclear and ask the person before writing." },
+  { id: "write", label: "Write the design", instructions: "Write the design as a document: what changes in each repository, what it costs and what is left out." },
+  { id: "get_review", label: "Get it reviewed", instructions: "Put the document in front of the reviewers. Answer what they say and change the document to match." },
+  { id: "hand_off", label: "Hand off", instructions: "Link the approved document in each ticket and say what builds first." },
+];
+
+const PLANNING_FOR = "a change in the store that needs a design before anyone builds it";
+const planning = (): Definition => ({ version: 1, workflow_id: "planning", name: "planning", for_requests: PLANNING_FOR, steps: PLANNING_STEPS });
+
 const withInstructions = (id: string, instructions: string): Written[] => STEPS.map((one) => (one.id === id ? { ...one, instructions } : one));
 
 /** `feature` as Armada ships it, the store-web repository's copy that adds its test command to Build, and one of Yours that names the repository each ticket takes in Plan. */
 export const STORE_DEFINITIONS: readonly { source: "armada" | "repository" | "kit"; definition: Definition }[] = [
   { source: "armada", definition: define(STEPS) },
+  { source: "armada", definition: planning() },
   { source: "repository", definition: define(withInstructions("build", "Make the change in each repository. Keep to the plan and run the repository's checks before going on. Run pnpm test in store-web before pushing.")) },
   { source: "kit", definition: define(withInstructions("plan", "Read the tickets. Write what changes in each repository, which repository takes each ticket, and what is left out. Wait for the person to approve it.")) },
 ];
@@ -42,45 +55,51 @@ export const STORE_ENDS: Readonly<Record<string, { ends: string; endsAny?: reado
   get_it_ready: { ends: "the pull request is ready for review" },
   answer_reviews: { ends: "every comment has an answer" },
   land: { ends: "the pull request is approved" },
+  read: { ends: "every question is answered" },
+  write: { ends: "the document is a draft" },
+  get_review: { ends: "the document is approved" },
+  hand_off: { ends: "each ticket links the document" },
 };
 
 // ---- The lifecycles -------------------------------------------------------------------------------------------------------
 
-const TICKET: Lifecycle = {
+const TICKET: LifecycleDef = {
   id: "ticket",
   label: "Ticket",
   from: "Jira",
   states: [
-    { id: "todo", label: "To do", col: 0, reads: [{ source: "Jira", values: ["To Do", "Backlog"], scope: "workspace" }] },
-    { id: "in_progress", label: "In progress", col: 1, reads: [{ source: "Jira", values: ["In Progress"], scope: "workspace" }] },
+    { id: "todo", label: "To do", reads: [{ source: "Jira", values: ["To Do", "Backlog"], scope: "workspace" }] },
+    { id: "ready", label: "Ready", reads: [{ source: "Jira", values: ["Ready for Dev", "Selected for Development"], scope: "workspace" }] },
+    { id: "in_progress", label: "In progress", reads: [{ source: "Jira", values: ["In Progress"], scope: "workspace" }] },
     {
       id: "in_review",
       label: "In review",
-      col: 3,
       reads: [
         { source: "Jira", values: ["Code Review", "In Review"], scope: "workspace" },
         { source: "Jira", values: ["Peer Review"], scope: API },
       ],
     },
-    { id: "done", label: "Done", col: 9, end: true, reads: [{ source: "Jira", values: ["Done", "Closed"], scope: "workspace" }] },
+    { id: "done", label: "Done", end: true, reads: [{ source: "Jira", values: ["Done", "Closed"], scope: "workspace" }] },
   ],
   next: [
+    ["todo", "ready"],
     ["todo", "in_progress"],
+    ["ready", "in_progress"],
     ["in_progress", "in_review"],
     ["in_review", "done"],
   ],
 };
 
-const PULL_REQUEST: Lifecycle = {
+const PULL_REQUEST: LifecycleDef = {
   id: "pull_request",
   label: "PR",
   from: "GitHub",
   states: [
-    { id: "draft", label: "Draft", col: 2, reads: [{ source: "GitHub", values: ["Draft"], scope: "workspace" }] },
-    { id: "reviewers_on", label: "Reviewers on", col: 4, reads: [{ source: "GitHub", values: ["Review requested"], scope: "workspace" }] },
-    { id: "in_review", label: "In review", col: 5, reads: [{ source: "GitHub", values: ["Ready for review", "Review comments"], scope: "workspace" }] },
-    { id: "approved", label: "Approved", col: 6, reads: [{ source: "GitHub", values: ["Approved by a reviewer"], scope: "workspace" }] },
-    { id: "merged", label: "Merged", col: 7, end: true, reads: [{ source: "GitHub", values: ["Merged"], scope: "workspace" }] },
+    { id: "draft", label: "Draft", reads: [{ source: "GitHub", values: ["Draft"], scope: "workspace" }] },
+    { id: "reviewers_on", label: "Reviewers on", reads: [{ source: "GitHub", values: ["Review requested"], scope: "workspace" }] },
+    { id: "in_review", label: "In review", reads: [{ source: "GitHub", values: ["Ready for review", "Review comments"], scope: "workspace" }] },
+    { id: "approved", label: "Approved", reads: [{ source: "GitHub", values: ["Approved by a reviewer"], scope: "workspace" }] },
+    { id: "merged", label: "Merged", end: true, reads: [{ source: "GitHub", values: ["Merged"], scope: "workspace" }] },
   ],
   next: [
     ["draft", "reviewers_on"],
@@ -90,18 +109,34 @@ const PULL_REQUEST: Lifecycle = {
   ],
 };
 
-const DEPLOY: Lifecycle = {
+const DEPLOY: LifecycleDef = {
   id: "deploy",
   label: "Deploy",
   from: "Rollout watch",
   states: [
-    { id: "rolling_out", label: "Rolling out", col: 8, reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "workspace" }] },
-    { id: "healthy", label: "Healthy", col: 9, end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "workspace" }] },
+    { id: "rolling_out", label: "Rolling out", reads: [{ source: "Rollout watch", values: ["rolling out"], scope: "workspace" }] },
+    { id: "healthy", label: "Healthy", end: true, reads: [{ source: "Rollout watch", values: ["healthy"], scope: "workspace" }] },
   ],
   next: [["rolling_out", "healthy"]],
 };
 
-const LIFECYCLES = [TICKET, PULL_REQUEST, DEPLOY] as const;
+/** The document a planning Job writes, read from the Job's own Armada document: its draft, the review of it, and the approval. */
+const DOCUMENT: LifecycleDef = {
+  id: "document",
+  label: "Document",
+  from: "Armada document",
+  states: [
+    { id: "draft", label: "Draft", reads: [{ source: "Armada document", values: ["draft"], scope: "workspace" }] },
+    { id: "in_review", label: "In review", reads: [{ source: "Armada document", values: ["in review"], scope: "workspace" }] },
+    { id: "approved", label: "Approved", end: true, reads: [{ source: "Armada document", values: ["approved"], scope: "workspace" }] },
+  ],
+  next: [
+    ["draft", "in_review"],
+    ["in_review", "approved"],
+  ],
+};
+
+const LIFECYCLES = [DOCUMENT, TICKET, PULL_REQUEST, DEPLOY] as const;
 
 // ---- The rules ------------------------------------------------------------------------------------------------------------
 
@@ -131,6 +166,7 @@ const REVIEW: Rule = {
   autonomy: "acts",
   kept: "yours",
   scope: "workspace",
+  overrides: [{ scope: API, autonomy: "asks" }],
 };
 
 const ASK: Rule = {
@@ -184,6 +220,34 @@ const CLOSE_ON_MERGE: Rule = {
   scope: API,
 };
 
+/** The planning workflow's two rules: the document goes in review when the step starts, and the ticket is ready once the document is approved. */
+const DOCUMENT_REVIEW: Rule = {
+  id: "document_review",
+  label: "Put in review",
+  from: { lane: "workflow", item: "get_review" },
+  at: "starts",
+  to: { lane: "document", item: "in_review" },
+  ifs: [],
+  does: [{ act: "agent", text: "Mark the document In review" }],
+  autonomy: "acts",
+  kept: "armada",
+  scope: "workspace",
+  workflow: "planning",
+};
+
+const READY: Rule = {
+  id: "ready",
+  label: "Ready the ticket",
+  from: { lane: "document", item: "approved" },
+  to: { lane: "ticket", item: "ready" },
+  ifs: ["Every ticket is linked in the document"],
+  does: [{ act: "tracker", text: "Move the ticket to Ready" }],
+  autonomy: "acts",
+  kept: "armada",
+  scope: "workspace",
+  workflow: "planning",
+};
+
 /** What "close the ticket once merged and the deploy is healthy" comes back as when it is typed to the agent. */
 export const CLOSE: Rule = {
   id: "close",
@@ -195,6 +259,7 @@ export const CLOSE: Rule = {
   autonomy: "acts",
   kept: "yours",
   scope: "workspace",
+  workflow: "feature",
 };
 
 export const MY_STORE: Workspace = {
@@ -204,16 +269,48 @@ export const MY_STORE: Workspace = {
     { id: WEB, name: WEB },
     { id: API, name: API },
   ],
-  steps: {
-    plan: { col: 0 },
-    build: { col: 1 },
-    open_pr: { col: 2 },
-    get_it_ready: { col: 4 },
-    answer_reviews: { col: 5 },
-    land: { col: 6, endsOn: { lane: "pull_request", state: "approved" } },
-  },
   lifecycles: LIFECYCLES,
-  rules: [PROGRESS, REVIEW, ASK, TRIAGE, DEPLOY_WATCH, CLOSE_ON_MERGE],
+  workflows: {
+    feature: {
+      steps: {
+        plan: { col: 0 },
+        build: { col: 1 },
+        open_pr: { col: 2 },
+        get_it_ready: { col: 4 },
+        answer_reviews: { col: 5 },
+        land: { col: 6, endsOn: { lane: "pull_request", state: "approved" } },
+      },
+      states: {
+        "ticket/todo": 0,
+        "ticket/in_progress": 1,
+        "ticket/in_review": 3,
+        "ticket/done": 9,
+        "pull_request/draft": 2,
+        "pull_request/reviewers_on": 4,
+        "pull_request/in_review": 5,
+        "pull_request/approved": 6,
+        "pull_request/merged": 7,
+        "deploy/rolling_out": 8,
+        "deploy/healthy": 9,
+      },
+    },
+    planning: {
+      steps: {
+        read: { col: 0 },
+        write: { col: 1 },
+        get_review: { col: 2, endsOn: { lane: "document", state: "approved" } },
+        hand_off: { col: 4 },
+      },
+      states: {
+        "document/draft": 1,
+        "document/in_review": 2,
+        "document/approved": 3,
+        "ticket/todo": 0,
+        "ticket/ready": 4,
+      },
+    },
+  },
+  rules: [PROGRESS, REVIEW, ASK, TRIAGE, DEPLOY_WATCH, CLOSE_ON_MERGE, DOCUMENT_REVIEW, READY],
 };
 
 /** A change typed to the agent that is about rules, and the rule it comes back with. Matched on the lower-cased words. */
@@ -221,8 +318,10 @@ export const PROPOSALS: readonly { asked: string; rule: Rule }[] = [{ asked: "cl
 
 // ---- A Job in it ----------------------------------------------------------------------------------------------------------
 
-const COPY_STEPS = STEPS.map((one) => ({ id: one.id, label: one.label, col: MY_STORE.steps[one.id]!.col, ...(one.id === "land" ? { endsOn: { lane: "pull_request" as const, state: "approved" } } : {}) }));
-const COPY_RULES = [...MY_STORE.rules, CLOSE];
+const FEATURE = MY_STORE.workflows.feature!;
+const COPY_STEPS = STEPS.map((one) => ({ id: one.id, label: one.label, col: FEATURE.steps[one.id]!.col, ...(FEATURE.steps[one.id]!.endsOn === undefined ? {} : { endsOn: FEATURE.steps[one.id]!.endsOn }) }));
+const COPY_LIFECYCLES = lifecyclesFor(MY_STORE, "feature");
+const COPY_RULES = [...MY_STORE.rules.filter((rule) => rule.workflow === undefined), CLOSE];
 
 /** The states a pull request went through to stand in each. */
 const PR_SEEN: Record<string, readonly string[]> = {
@@ -274,7 +373,7 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
   ];
   const job: JobLanes = {
     workspace: MY_STORE.id,
-    copy: { steps: COPY_STEPS, lifecycles: LIFECYCLES, rules: COPY_RULES },
+    copy: { steps: COPY_STEPS, lifecycles: COPY_LIFECYCLES, rules: COPY_RULES },
     instances,
     fired,
     changes: moment >= 8 ? [{ id: "skip-deploy-watch", lane: "deploy", item: "rolling_out", text: "Skip the deploy watch", at: "14:05" }] : [],
@@ -288,7 +387,7 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
 export function jobB(): SessionLanes {
   const job: JobLanes = {
     workspace: MY_STORE.id,
-    copy: { steps: COPY_STEPS, lifecycles: LIFECYCLES, rules: COPY_RULES },
+    copy: { steps: COPY_STEPS, lifecycles: COPY_LIFECYCLES, rules: COPY_RULES },
     instances: [
       instance("arm-52", "ticket", "ARM-52", "in_review", ["todo", "in_progress", "in_review"], { title: "Cart totals are a cent off", assignee: "you" }),
       instance("pr-815", "pull_request", "PR #815", "merged", PR_SEEN.merged!, { says: { reviewers_on: "Maya" } }),

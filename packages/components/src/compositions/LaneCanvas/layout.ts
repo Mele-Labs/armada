@@ -56,7 +56,7 @@ export function place(lanes: readonly LaneView[], height: number): Placement {
 export function chipSize(rule: RuleView): { w: number; h: number } {
   if (rule.quiet === true) return { w: GEO.chipH, h: GEO.chipH };
   const words = rule.label.length * 6.6 + (rule.meta === undefined ? 0 : 12 + rule.meta.length * 7.9);
-  return { w: Math.ceil(words + 36), h: GEO.chipH };
+  return { w: Math.ceil(words + 36 + (rule.differs === undefined ? 0 : 18)), h: GEO.chipH };
 }
 
 /** The shape of the curve React Flow draws between a bottom and a top handle: its height and width as fractions of the way along, both from the one parameter. */
