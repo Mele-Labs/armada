@@ -13,29 +13,43 @@
 
 /* ---- A lane ---------------------------------------------------------------------------------------------------- */
 
+/* A lane's own line, under its nodes. The workflow is the heaviest lane: its line is the strong one. */
 .armada-lane {
   box-sizing: border-box;
-  display: flex;
   width: 100%;
   height: 100%;
   border-bottom: var(--border-width) solid var(--border-subtle);
   pointer-events: none;
 }
+.armada-lane[data-kind="workflow"] { border-bottom-color: var(--border-strong); }
+
+/* The surface is the positioning context of the heads. */
+.armada-lane-surface { position: relative; }
+
+/* The heads stand over the left of the frame, above the canvas and its chips, so a pan to a later column keeps each lane named. Weight is in the frame: a mono-caps title on a raised ground. */
+.armada-lane-heads {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  pointer-events: none;
+}
 
 .armada-lane__head {
-  position: relative;
+  position: absolute;
+  left: 0;
   display: flex;
-  flex: none;
   flex-direction: column;
   justify-content: center;
   gap: var(--space-1);
   box-sizing: border-box;
-  width: var(--lane-head);
   padding: var(--space-2) var(--space-3);
   border-right: var(--border-width) solid var(--border-default);
+  border-bottom: var(--border-width) solid var(--border-subtle);
   background: var(--bg-raised);
   pointer-events: auto;
 }
+.armada-lane__head[data-kind="workflow"] { border-right-color: var(--border-strong); border-bottom-color: var(--border-strong); background: var(--bg-base); }
 
 .armada-lane__title {
   overflow: hidden;
@@ -59,10 +73,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* The workflow is the heaviest lane: its head takes the frame ground, the others stay raised. */
-.armada-lane[data-kind="workflow"] { border-bottom-color: var(--border-strong); }
-.armada-lane[data-kind="workflow"] .armada-lane__head { background: var(--bg-base); border-right-color: var(--border-strong); }
 
 /* ---- A step or a state ------------------------------------------------------------------------------------------- */
 

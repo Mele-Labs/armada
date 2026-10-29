@@ -83,9 +83,9 @@ const touches = (a: Rect, b: Rect, margin: number): boolean => a.x < b.x + b.w +
  * that crosses several lanes has several gutters to choose from, and takes the next when a chip is already there. A chip that finds none free slides along the gutter.
  * The ones with words are placed first, so a chip with only its mark is the one that moves.
  */
-export function placeChips(rules: readonly RuleView[], placement: Placement): Map<string, { x: number; y: number }> {
+export function placeChips(rules: readonly RuleView[], placement: Placement): Map<string, { x: number; y: number; w: number; h: number }> {
   const { items, laneH, width } = placement;
-  const out = new Map<string, { x: number; y: number }>();
+  const out = new Map<string, { x: number; y: number; w: number; h: number }>();
   const taken: Rect[] = [];
   const ordered = [...rules.filter((rule) => rule.quiet !== true), ...rules.filter((rule) => rule.quiet === true)];
   for (const rule of ordered) {
@@ -122,12 +122,54 @@ export function placeChips(rules: readonly RuleView[], placement: Placement): Ma
       chosen = sits;
     }
     taken.push(chosen);
-    out.set(rule.id, { x: chosen.x + chosen.w / 2, y: chosen.y + chosen.h / 2 });
+    out.set(rule.id, { x: chosen.x + chosen.w / 2, y: chosen.y + chosen.h / 2, w: chosen.w, h: chosen.h });
   }
   return out;
 }
 
 const range = (from: number, to: number): number[] => Array.from({ length: Math.max(0, to - from + 1) }, (_, at) => from + at);
+
+// ---- Following ------------------------------------------------------------------------------------------------------------
+
+export type View = { x: number; y: number; zoom: number };
+
+/**
+ * The view that brings `rects` into the frame, or `undefined` where they already are, at the zoom they are in. The lane heads stand over the left of the frame, so what is
+ * brought in clears them. **A set wider than the frame keeps its newest**: the leftmost is let go until the rest fits. `follow` puts the set at the left where it fits, so the
+ * earliest of what changed is the context the person reads from; without it the pan is the least that brings the set into view, as a step by key wants.
+ */
+export function panTo(rects: readonly Rect[], view: View, frame: { width: number; height: number }, content: { width: number; height: number }, follow: boolean): View | undefined {
+  if (rects.length === 0 || frame.width === 0 || frame.height === 0) return undefined;
+  const { zoom } = view;
+  const left = GEO.head + GEO.pad;
+  const right = GEO.pad;
+  const gap = GEO.pad / 2;
+  const usable = frame.width - left - right;
+  const sorted = [...rects].sort((a, b) => a.x - b.x);
+  const box = (set: readonly Rect[]): Rect => {
+    const x = Math.min(...set.map((one) => one.x));
+    const y = Math.min(...set.map((one) => one.y));
+    return { x, y, w: Math.max(...set.map((one) => one.x + one.w)) - x, h: Math.max(...set.map((one) => one.y + one.h)) - y };
+  };
+  let kept = sorted;
+  while (kept.length > 1 && box(kept).w * zoom > usable) kept = kept.slice(1);
+  const at = box(kept);
+  let x = view.x;
+  const from = at.x * zoom + view.x;
+  const to = (at.x + at.w) * zoom + view.x;
+  if (from < left || to > frame.width - right) {
+    if (follow || from < left || at.w * zoom > usable) x = left - at.x * zoom;
+    else x = frame.width - right - (at.x + at.w) * zoom;
+  }
+  let y = view.y;
+  const top = at.y * zoom + view.y;
+  const bottom = (at.y + at.h) * zoom + view.y;
+  if (top < gap || bottom > frame.height - gap) y = top < gap || at.h * zoom > frame.height - gap * 2 ? gap - at.y * zoom : frame.height - gap - (at.y + at.h) * zoom;
+  // Never past the lanes: nothing is left of the first column or right of the last.
+  x = Math.min(0, content.width * zoom > frame.width ? Math.max(x, frame.width - content.width * zoom) : 0);
+  y = Math.min(0, content.height * zoom > frame.height ? Math.max(y, frame.height - content.height * zoom) : 0);
+  return Math.abs(x - view.x) < 1 && Math.abs(y - view.y) < 1 ? undefined : { x, y, zoom };
+}
 
 export type Arrow = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 export const isArrow = (key: string): key is Arrow => key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowDown";

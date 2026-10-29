@@ -20,13 +20,12 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
-import { GEO, HOME, isArrow, nearest, place, placeChips, type Rect } from "./layout";
+import { GEO, HOME, isArrow, nearest, panTo, place, placeChips, type Placement, type Rect } from "./layout";
 import type { LaneNodeView, LaneView, RuleView } from "./model";
 
 /**
@@ -38,7 +37,9 @@ import type { LaneNodeView, LaneView, RuleView } from "./model";
  * that waits and a rule that fired are marks; the words are in the tooltip.
  *
  * **Drawn at the scale it is read**, one canvas unit a pixel, so a node's name is the kit's body size and never fitted down to a frame: the lanes
- * fill its height and the person pans across. A rule's chip sits in the gutter between lanes, where no node is (`layout.ts`).
+ * fill its height and the person pans across. A rule's chip sits in the gutter between lanes, where no node is (`layout.ts`). **The canvas follows**: when the lanes change it pans
+ * to what changed, with the earliest of it at the left; as it opens it shows where the Job stands; and it pans to a rule that is picked and to any node or chip that takes focus
+ * by key or hover. The lane heads stand over the left of the frame, so a pan never takes a lane's name away. The zoom is the person's and nothing here changes it.
  *
  * **Keys**: arrows step to the nearest node, `]` and `[` go to the next and the previous rule and pick it, `Enter` picks what has focus, `Esc` lets
  * go of the pick. (`R` and `Shift R` are the walk player's own, and the letter keys the Cockpit takes.) A tooltip is drawn outside the canvas, since a bubble
@@ -69,6 +70,8 @@ type Held = {
   tip: (lines: readonly string[] | undefined, on?: Element, soon?: boolean) => void;
   /** A key was pressed in the canvas a moment ago, so focus that arrives now was moved by it and is read. */
   keyed: () => boolean;
+  /** Pans to bring nodes and chips (by id) into view. `follow` is for what changed, which is put at the left; without it the pan is the least that shows them. */
+  reveal: (ids: readonly string[], follow?: boolean) => void;
 };
 
 const Hold = createContext<Held | undefined>(undefined);
@@ -91,19 +94,35 @@ function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undef
   return undefined;
 }
 
+/** The lane's own line, under its nodes. Its head is drawn over the left of the frame (`Heads`), so it stays on show as the canvas pans. */
 function LaneBand({ data }: NodeProps<Node<LaneData, "lane">>) {
+  return <div className="armada-lane" data-kind={data.lane.kind} />;
+}
+
+/** The lane heads, over the left of the frame at the lanes' own heights: a title and where its states are read from, which a pan to a later column never takes away. */
+function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Placement }) {
   const hold = useContext(Hold)!;
-  const { lane } = data;
+  const transform = useStore((state) => state.transform);
+  const ty = transform[1];
+  const zoom = transform[2];
   return (
-    <div className="armada-lane" data-kind={lane.kind} style={{ "--lane-head": `${GEO.head}px` } as CSSProperties}>
-      <div
-        className="armada-lane__head"
-        onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], event.currentTarget)}
-        onMouseLeave={() => hold.tip(undefined)}
-      >
-        <span className="armada-lane__title">{lane.title}</span>
-        <span className="armada-lane__source">{lane.source}</span>
-      </div>
+    <div className="armada-lane-heads">
+      {lanes.map((lane) => {
+        const band = placement.bands.get(lane.id)!;
+        return (
+          <div
+            key={lane.id}
+            className="armada-lane__head"
+            data-kind={lane.kind}
+            style={{ top: ty + band.y * zoom, height: band.h * zoom, width: GEO.head }}
+            onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], event.currentTarget)}
+            onMouseLeave={() => hold.tip(undefined)}
+          >
+            <span className="armada-lane__title">{lane.title}</span>
+            <span className="armada-lane__source">{lane.source}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -142,10 +161,14 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
         aria-current={node.lit === true ? "step" : undefined}
         onFocus={(event) => {
           hold.setCurrent(node.id);
+          if (hold.keyed()) hold.reveal([node.id]);
           if (event.currentTarget.matches(":focus-visible") && hold.keyed()) hold.tip(lines, event.currentTarget, true);
         }}
         onBlur={() => hold.tip(undefined)}
-        onMouseEnter={(event) => hold.tip(lines, event.currentTarget)}
+        onMouseEnter={(event) => {
+          hold.reveal([node.id]);
+          hold.tip(lines, event.currentTarget);
+        }}
         onMouseLeave={() => hold.tip(undefined)}
         onClick={() => hold.pick(picked ? undefined : { kind: "node", id: node.id })}
       >
@@ -224,10 +247,14 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
           aria-pressed={picked}
           style={{ transform: `translate(-50%, -50%) translate(${chip.x}px, ${chip.y}px)` }}
           onFocus={(event) => {
+            if (hold.keyed()) hold.reveal([props.id]);
             if (event.currentTarget.matches(":focus-visible") && hold.keyed()) hold.tip(lines, event.currentTarget, true);
           }}
           onBlur={() => hold.tip(undefined)}
-          onMouseEnter={(event) => hold.tip(lines, event.currentTarget)}
+          onMouseEnter={(event) => {
+            hold.reveal([props.id]);
+            hold.tip(lines, event.currentTarget);
+          }}
           onMouseLeave={() => hold.tip(undefined)}
           onClick={() => hold.pick(picked ? undefined : { kind: "rule", id: rule.rule })}
         >
@@ -310,27 +337,29 @@ function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
   );
 }
 
-/** Brings the node focus reached into the frame, at the zoom the person has. Nothing is current until something is focused, so opening pans nowhere. */
-function Follows({ node, items }: { node: string | undefined; items: ReadonlyMap<string, Rect> }) {
+/** A pan asked for: the rectangles to bring into view, and whether they are what changed. */
+type Pan = { n: number; rects: readonly Rect[]; follow: boolean };
+
+/** Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met. */
+function Pans({ pan, content }: { pan: Pan | undefined; content: { width: number; height: number } }) {
   const flow = useReactFlow();
   const width = useStore((state) => state.width);
   const height = useStore((state) => state.height);
+  const done = useRef(0);
   useEffect(() => {
-    const one = node === undefined ? undefined : items.get(node);
-    if (one === undefined || width === 0) return;
-    const { x, y, zoom } = flow.getViewport();
-    const inset = 24;
-    const left = one.x * zoom + x;
-    const top = one.y * zoom + y;
-    const right = (one.x + one.w) * zoom + x;
-    const bottom = (one.y + one.h) * zoom + y;
-    if (left >= inset && top >= inset && right <= width - inset && bottom <= height - inset) return;
-    void flow.setCenter(one.x + one.w / 2, one.y + one.h / 2, { zoom, duration: 150 });
-    // Only the node changing pans: a resize or a new set of lanes leaves the view where the person put it.
+    if (pan === undefined || pan.n === done.current || width === 0 || height === 0) return;
+    done.current = pan.n;
+    const next = panTo(pan.rects, flow.getViewport(), { width, height }, content, pan.follow);
+    if (next !== undefined) void flow.setViewport(next);
+    // The request is what runs it: a resize or new lanes leave the view where the person put it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flow, node]);
+  }, [flow, pan, width, height]);
   return null;
 }
+
+/** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
+const markOfNode = (node: LaneNodeView): string => [node.lit, node.passed, node.waiting, node.skipped, node.who, node.changed, node.sub].map(String).join("|");
+const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did].map(String).join("|");
 
 export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();
@@ -359,6 +388,54 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
   const first = lanes[0]?.nodes[0]?.id;
   const here = current !== undefined && placement.items.has(current) ? current : first;
 
+  // **The canvas follows what it is asked to show.** A request names nodes and chips, and the pan brings them into view at the zoom the person has (`Pans`).
+  const [pan, setPan] = useState<Pan | undefined>();
+  const asked = useRef(0);
+  const geometry = useRef({ placement, chips });
+  geometry.current = { placement, chips };
+  const reveal = useCallback((ids: readonly string[], follow = false) => {
+    const { placement: laid, chips: placed } = geometry.current;
+    const rects: Rect[] = [];
+    for (const id of ids) {
+      const item = laid.items.get(id);
+      const chip = placed.get(id);
+      if (item !== undefined) rects.push(item);
+      else if (chip !== undefined) rects.push({ x: chip.x - chip.w / 2, y: chip.y - chip.h / 2, w: chip.w, h: chip.h });
+    }
+    if (rects.length === 0) return;
+    asked.current += 1;
+    setPan({ n: asked.current, rects, follow });
+  }, []);
+
+  // When the lanes change, what changed is brought into view with the earliest of it at the left, and as they open, where the Job stands: the states it is in, what waits, what was
+  // changed on it and the rules between them. A rule's chip and the nodes it joins go together, so the context for a chip is on show with it.
+  const drawn = useRef<ReadonlyMap<string, string> | undefined>(undefined);
+  useEffect(() => {
+    const now = new Map<string, string>();
+    for (const lane of lanes) for (const node of lane.nodes) now.set(node.id, markOfNode(node));
+    for (const rule of rules) now.set(rule.id, markOfRule(rule));
+    const before = drawn.current;
+    drawn.current = now;
+    const standing = new Set(lanes.flatMap((lane) => lane.nodes.filter((node) => node.lit === true || node.waiting !== undefined || node.changed !== undefined).map((node) => node.id)));
+    const ids = new Set<string>();
+    for (const rule of rules) {
+      const fresh = before === undefined ? rule.proposed === true || standing.has(rule.from) || standing.has(rule.to) : before.get(rule.id) !== now.get(rule.id);
+      if (fresh) for (const id of [rule.id, rule.from, rule.to]) ids.add(id);
+    }
+    for (const lane of lanes) for (const node of lane.nodes) if (before === undefined ? standing.has(node.id) : before.get(node.id) !== now.get(node.id)) ids.add(node.id);
+    if (ids.size > 0) reveal([...ids], true);
+  }, [lanes, rules, reveal]);
+
+  // A rule picked is brought into view with its chips and the nodes it joins.
+  useEffect(() => {
+    if (picked === undefined) return;
+    if (picked.kind === "node") return reveal([picked.id]);
+    const edges = rules.filter((rule) => rule.rule === picked.id);
+    reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]));
+    // Only a change of what is picked pans.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked?.kind, picked?.id]);
+
   const hold = useMemo<Held>(
     () => ({
       picked,
@@ -374,8 +451,9 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
         timer.current = window.setTimeout(() => setTip({ lines, on }), TIP_DELAY);
       },
       keyed: () => performance.now() - keyedAt.current < 300,
+      reveal,
     }),
-    [here, picked, onPick],
+    [here, picked, onPick, reveal],
   );
 
   const nodes = useMemo<CanvasNode[]>(() => {
@@ -496,7 +574,8 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick }: LaneCanvasPr
           home={HOME}
           panOnScroll
         >
-          <Follows node={current} items={placement.items} />
+          <Pans pan={pan} content={{ width: placement.width, height: placement.height }} />
+          <Heads lanes={lanes} placement={placement} />
         </GraphCanvas>
       </div>
       {tip === undefined ? null : <TipView tip={tip} within={frame.current} />}

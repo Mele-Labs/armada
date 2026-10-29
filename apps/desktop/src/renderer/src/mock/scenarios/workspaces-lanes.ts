@@ -132,7 +132,8 @@ function sessions() {
   /** The review ask is sent: its card settles and the item goes. */
   const settled = (one: Session): Session => ({
     ...one,
-    rows: one.rows.map((row) => (row.id === "ra-1" && row.kind === "draft" && row.settled === undefined ? { ...row, settled: { how: "approved" as const, at: "12:44:00" } } : row)),
+    // The card is stamped with the time it was approved, as the chip's is.
+    rows: one.rows.map((row) => (row.id === "ra-1" && row.kind === "draft" && row.settled === undefined ? { ...row, at: "12:44:00", settled: { how: "approved" as const, at: "12:44:00" } } : row)),
     waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ASK_ID),
   });
   return {
