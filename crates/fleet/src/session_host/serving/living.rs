@@ -156,6 +156,7 @@ where
                     }
                 };
                 let hosting = &resumed;
+                self.mod_filled_for_launch().await;
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),
