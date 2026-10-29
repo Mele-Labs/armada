@@ -265,7 +265,7 @@ export function WorkspaceEditor({
   return (
     <section className="armada-wm-lanes" aria-label="Lanes">
       {/* Drawn once the steps are read: lanes that fill in after they open would pan to what arrived. */}
-      {steps.length === 0 ? null : <LaneCanvas label={`Lanes of ${workflow.id}`} lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={(next) => pick(next)} editing={handles} />}
+      {steps.length === 0 ? null : <LaneCanvas label={`Lanes of ${workflow.id}`} lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={(next) => pick(next)} editing={handles} coveredBy={panel.open ? panel.slot : null} />}
       {content === null || panel.slot === null ? null : createPortal(<div className="armada-wm-inspector">{content}</div>, panel.slot)}
     </section>
   );

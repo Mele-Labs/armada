@@ -47,6 +47,7 @@ export function SidePanel({
   back,
   onClose,
   left,
+  size = "panel",
   children,
 }: {
   /** `Issue #1873`: names the dialog. */
@@ -72,6 +73,8 @@ export function SidePanel({
    * it would lie over the panel: the caller draws it in the body there.
    */
   left?: { title: string; body: ReactNode } | undefined;
+  /** `dock` for a pick on a canvas behind the panel, which a full panel would cover. */
+  size?: "panel" | "dock";
   /** The chosen tab's body. */
   children: ReactNode;
 }) {
@@ -97,7 +100,7 @@ export function SidePanel({
       floor={floor}
       title={title}
       {...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> })}
-      size="panel"
+      size={size}
       {...(back === undefined ? {} : { back })}
       closeLabel="Close"
       closeBinding="Esc"

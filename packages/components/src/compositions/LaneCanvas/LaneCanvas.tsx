@@ -81,6 +81,8 @@ export type LaneCanvasProps = {
   onPick?: (pick: LanePick | undefined) => void;
   /** Absent, the lanes are read and not edited. */
   editing?: LaneEditing | undefined;
+  /** What is drawn over the canvas's right edge, an overlay panel: the canvas pans to keep what it shows clear of it. */
+  coveredBy?: HTMLElement | null | undefined;
 };
 
 /** A tooltip is held to the element it describes, and goes with it. */
@@ -97,6 +99,8 @@ type Held = {
   /** A key was pressed in the canvas a moment ago, so focus that arrives now was moved by it and is read. */
   keyed: () => boolean;
   editing: LaneEditing | undefined;
+  /** The lane drawn first, whose nodes carry their toolbar underneath since the frame ends above them. */
+  topLane: string | undefined;
   /** The node a connector was started from by key, which the next node pressed ends. */
   connecting: string | undefined;
   connect: (to: string) => void;
@@ -298,7 +302,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={connectable} />
       ))}
-      <NodeToolbar isVisible={picked && hold.editing !== undefined} position={Position.Top} offset={10}>
+      <NodeToolbar isVisible={picked && hold.editing !== undefined} position={lane.id === hold.topLane ? Position.Bottom : Position.Top} offset={10}>
         <Toolbar pick={{ kind: "node", id: node.id }} name={`${lane.kind === "workflow" ? "step" : lane.title} ${node.label}`} rule={false} />
       </NodeToolbar>
     </div>
@@ -457,7 +461,7 @@ function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
 type Pan = { n: number; rects: readonly Rect[]; follow: boolean };
 
 /** Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met. */
-function Pans({ pan, content }: { pan: Pan | undefined; content: { width: number; height: number } }) {
+function Pans({ pan, content, covered }: { pan: Pan | undefined; content: { width: number; height: number }; covered: number }) {
   const flow = useReactFlow();
   const width = useStore((state) => state.width);
   const height = useStore((state) => state.height);
@@ -465,11 +469,11 @@ function Pans({ pan, content }: { pan: Pan | undefined; content: { width: number
   useEffect(() => {
     if (pan === undefined || pan.n === done.current || width === 0 || height === 0) return;
     done.current = pan.n;
-    const next = panTo(pan.rects, flow.getViewport(), { width, height }, content, pan.follow);
+    const next = panTo(pan.rects, flow.getViewport(), { width: Math.max(1, width - covered), height }, content, pan.follow);
     if (next !== undefined) void flow.setViewport(next);
     // The request is what runs it: a resize or new lanes leave the view where the person put it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flow, pan, width, height]);
+  }, [flow, pan, width, height, covered]);
   return null;
 }
 
@@ -477,7 +481,7 @@ function Pans({ pan, content }: { pan: Pan | undefined; content: { width: number
 const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.changed, node.differs, node.sub].map(String).join("|");
 const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.differs].map(String).join("|");
 
-export function LaneCanvas({ label, lanes, rules, picked, onPick, editing }: LaneCanvasProps) {
+export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();
   const [connecting, setConnecting] = useState<string | undefined>();
   const [tip, setTip] = useState<Tip | undefined>();
@@ -544,14 +548,42 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing }: Lan
   }, [lanes, rules, reveal]);
 
   // A rule picked is brought into view with its chips and the nodes it joins.
-  useEffect(() => {
+  const revealPick = () => {
     if (picked === undefined) return;
     if (picked.kind === "node") return reveal([picked.id]);
     const edges = rules.filter((rule) => rule.rule === picked.id);
     reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]));
+  };
+  useEffect(() => {
+    revealPick();
     // Only a change of what is picked pans.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picked?.kind, picked?.id]);
+
+  // **What an overlay covers is not the canvas.** The panel slides in over the right edge, so once it has settled the width it takes is read, and the pick is brought into what is left.
+  const [covered, setCovered] = useState(0);
+  useEffect(() => {
+    const sheet = coveredBy?.closest<HTMLElement>("[data-side]");
+    if (coveredBy === null || coveredBy === undefined || sheet === null || sheet === undefined) return setCovered(0);
+    let live = true;
+    const read = () => {
+      const held = frame.current;
+      if (!live || held === null) return;
+      setCovered(Math.max(0, Math.round(held.getBoundingClientRect().right - sheet.getBoundingClientRect().left)));
+    };
+    void Promise.allSettled(sheet.getAnimations().map((one) => one.finished)).then(read);
+    return () => {
+      live = false;
+    };
+  }, [coveredBy]);
+  const seen = useRef(0);
+  useEffect(() => {
+    if (covered === seen.current) return;
+    seen.current = covered;
+    if (covered > 0) revealPick();
+    // The width it covers is what asks again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [covered]);
 
   const hold = useMemo<Held>(
     () => ({
@@ -569,6 +601,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing }: Lan
       },
       keyed: () => performance.now() - keyedAt.current < 300,
       editing,
+      topLane: lanes[0]?.id,
       connecting,
       connect: (to) => {
         if (connecting !== undefined) editing?.onConnect(connecting, to);
@@ -576,7 +609,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing }: Lan
       },
       reveal,
     }),
-    [here, picked, onPick, reveal, editing, connecting],
+    [here, picked, onPick, reveal, editing, connecting, lanes],
   );
 
   // A connector dragged from one node's handle to another's.
@@ -723,7 +756,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing }: Lan
           panOnScroll
           {...(connectable ? { onConnect: connect } : {})}
         >
-          <Pans pan={pan} content={{ width: placement.width, height: placement.height }} />
+          <Pans pan={pan} covered={covered} content={{ width: placement.width, height: placement.height }} />
           <Heads lanes={lanes} placement={placement} />
         </GraphCanvas>
       </div>
