@@ -93,7 +93,6 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
       root,
       tags,
       rows.flatMap((row) => store.refOf(row.id) ?? []),
-      first.manifestId,
     );
   };
   // One request for each repository: the first opens now, and each next opens when the one before starts or is put away.

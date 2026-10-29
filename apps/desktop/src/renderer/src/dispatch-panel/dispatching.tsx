@@ -15,8 +15,8 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProjectRowRef, RepositorySummary } from "@armada/protocol";
-import { Alert, Radio, RadioGroup, forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
-import { jobIdOf, manifestLabel, repositoryEntries, repositoryLabel, useRecentRepositories } from "@armada/shell";
+import { Radio, RadioGroup, forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
+import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
 
@@ -99,10 +99,8 @@ export type Dispatching = {
    * A dispatch row chosen in the palette, a thought routed, a pull request's fix: the sheet holding these words, for the repository `root` where one is named.
    * `tags` are held as a `#` chosen in the request would be, so each is sent with the words while its title is still in them.
    * `projectRows` are the rows of his projects the words came from: the Job starts with them, and holds each written task.
-   * `rowsIn` is the Manifest id of the one repository those rows are in. Where it is named, the rows go only with a start in that
-   * repository, and the sheet says so once another is picked. Absent, they go with any start, as they always did.
    */
-  openSheet: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[], rowsIn?: string) => void;
+  openSheet: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[]) => void;
   /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
   /** New workflow, from the Workflows page: the sheet for a Job that makes one, with the scope chosen on it. */
@@ -161,8 +159,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
   const tagged = useRef<ComposerTag[]>([]);
   // The rows of his projects the sheet was opened with, sent with the start.
   const rowed = useRef<readonly ProjectRowRef[]>([]);
-  // The repository those rows are in, by Manifest id. The wire's row carries none, so it is kept here.
-  const rowedIn = useRef<string | undefined>(undefined);
   // Pastes too big to send as words. They are files, so they are held here and not with the words, and go with the first message.
   const [snippets, setSnippets] = useState<readonly File[]>([]);
   const snippetsNow = useRef<readonly File[]>([]);
@@ -186,7 +182,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     clearPicked();
     tagged.current = [];
     rowed.current = [];
-    rowedIn.current = undefined;
     setSnippets([]);
     setAsking(false);
     setWaiting(false);
@@ -215,13 +210,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
   const manifestOf = (at: string) => repositories.find((one) => one.root === at)?.manifest?.id;
 
-  /** Whether a start in `at` may carry the rows: it is their repository, or the sheet was not told theirs. */
-  const rowsGoTo = (at: string) => {
-    if (rowedIn.current === undefined) return true;
-    const starts = repositories.find((one) => one.root === at);
-    return starts !== undefined && jobIdOf(starts) === rowedIn.current;
-  };
-
   function startSession(at: string) {
     if (draft === undefined) return;
     const kept = snippetsNow.current;
@@ -243,8 +231,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const refers = read?.plain === true && waitsOn !== undefined ? ({ kind: "session", id: read.on.id, title: read.on.title } as const) : undefined;
         const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
-        // Rows go only with a start in their own repository, which Fleet would refuse otherwise. The words still name the task.
-        const rows = rowed.current.length === 0 || !rowsGoTo(at) ? undefined : rowed.current;
+        const rows = rowed.current.length === 0 ? undefined : rowed.current;
         const started =
           rows === undefined
             ? after === undefined
@@ -402,17 +389,10 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     // A reading belongs to the repository it was made for.
     useEffect(() => setRead(undefined), [root]);
 
-    // A Session's own body: the rows it will not carry where another repository is picked (`rowsGoTo`), and a refused start.
-    const rowsIn = rowedIn.current;
-    const many = rowed.current.length > 1;
-    const unheld =
-      rowsIn === undefined || rowed.current.length === 0 || named === undefined || manifestId === rowsIn
-        ? undefined
-        : `${many ? "These tasks are" : "This task is"} in ${manifestLabel(rowsIn, repositories)}. A Job started in ${repositoryLabel(named, repositories)} is not linked to ${many ? "them" : "it"}, so finishing the Job leaves ${many ? "them" : "it"} open.`;
+    // A Session's own body: a refused start.
     const sessionBody =
-      kind !== "session" || workflow !== null || (unheld === undefined && refused === undefined) ? undefined : (
+      kind !== "session" || workflow !== null || refused === undefined ? undefined : (
         <div className="armada-dispatch-panel__autopilot">
-          {unheld === undefined ? null : <Alert tone="caution">{unheld}</Alert>}
           {refused === undefined ? null : (
             <p className="armada-autopilot__refused" role="alert">
               {refused}
@@ -505,7 +485,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     stamp.current += 1;
     writeKept(REQUEST, "");
     rowed.current = [];
-    rowedIn.current = undefined;
     setSnippets([]);
     setWorkflow(null);
     if (at !== undefined) pick(at);
@@ -520,7 +499,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     stamp.current += 1;
     writeKept(REQUEST, "");
     rowed.current = [];
-    rowedIn.current = undefined;
     setSnippets([]);
     choose("session");
     setWorkflow("kit");
@@ -553,13 +531,12 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     openNew,
     openWorkflow,
     ...(draft?.readsWait === undefined || !kinds.includes("session") ? {} : { openAfter }),
-    openSheet: (next, at, tags, rows, rowsIn) => {
+    openSheet: (next, at, tags, rows) => {
       stamp.current += 1;
       setWorkflow(null);
       writeKept(REQUEST, next);
       if (tags !== undefined) tagged.current = [...tags];
       rowed.current = rows === undefined ? [] : [...rows];
-      rowedIn.current = rows === undefined ? undefined : rowsIn;
       setSnippets([]);
       if (at !== undefined) pick(at);
       setLatest(undefined);
