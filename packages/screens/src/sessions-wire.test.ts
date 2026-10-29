@@ -1190,3 +1190,33 @@ describe("a Job's attachment history", () => {
     expect(read).toEqual([{ at: "2026-10-22T10:00:00Z", attachment: { kind: "link", url: "https://example.com/rfc", by: "agent" } }]);
   });
 });
+
+describe("a subagent and a queued message on the wire", () => {
+  const subagent = { id: "agent:a1", agent_type: "implementer", task: "Make the thread resizable", latest: "Edit Pane.tsx", state: "running" as const, since: AT };
+
+  it("keeps the subagent a tool row carries, and a message's queued mark", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "tool", id: "t1", at: AT, text: "Agent Make the thread resizable", subagent },
+        { kind: "message", id: "m1", at: AT, from: "you", text: "and the tests", queued: true },
+      ],
+      () => undefined,
+    );
+    expect(drawn[0]).toMatchObject({ kind: "tool", subagent });
+    expect(drawn[1]).toMatchObject({ kind: "message", from: "you", queued: true });
+  });
+
+  it("adds neither to a thread kept before them", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "tool", id: "t1", at: AT, text: "Read lib.rs" },
+        { kind: "message", id: "m1", at: AT, from: "you", text: "and the tests" },
+      ],
+      () => undefined,
+    );
+    expect(drawn[0]).not.toHaveProperty("subagent");
+    expect(drawn[1]).not.toHaveProperty("queued");
+  });
+});
