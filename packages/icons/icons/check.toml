@@ -67,4 +67,4 @@
     group = "Job lanes"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 28 Oct 2026 with the comments under a Job's Lanes view. Bare check in `--step-advanced`, tooltip `Sent`, in a column of its own beside the row's two acts. The row keeps its place."
+    notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. Bare check in `--step-advanced`, tooltip `Sent`, in a column of its own beside the row's two acts. The row keeps its place."

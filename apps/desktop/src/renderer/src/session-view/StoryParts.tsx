@@ -2,7 +2,7 @@
 // a step of the workflow, and a beat the Job is on. A state is a glyph or a lamp with a tooltip and no row prints a state word.
 
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { Circle, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
+import { Circle, Clock, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
 import { Button, LinkedSession, Readout, Stamp, Tooltip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -82,6 +82,16 @@ export function AskBeat({ said, text }: { said: string; text: string }) {
   return (
     <li className="sv-beat" data-lamp="needs">
       <Lead Glyph={Megaphone} said={said} pulse />
+      <span className="sv-beat__label" data-wraps="">{text}</span>
+    </li>
+  );
+}
+
+/** A step held on a state an instance has yet to reach, such as a pull request being approved. It is a fact and no call: the agent rests and nothing is owed, so the clock does not pulse. */
+export function WaitBeat({ text }: { text: string }) {
+  return (
+    <li className="sv-beat" data-wait="">
+      <Lead Glyph={Clock} said="Waiting" />
       <span className="sv-beat__label" data-wraps="">{text}</span>
     </li>
   );

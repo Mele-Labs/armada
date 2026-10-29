@@ -662,6 +662,14 @@ export function sessionsStore(
     },
     // Fleet answers End at once and parks the Job in the background: it reads as ended a moment later.
     close: (id) => after(END_MS, () => void edit(id, (one) => ({ ...one, dead: "ended" as const }))),
+    // The comment reads as sent. Nothing reaches an agent here.
+    sendComment: (id, comment) =>
+      edit(id, (one) => {
+        const lanes = one.lanes;
+        if (lanes?.job.triage === undefined) return one;
+        const triage = { ...lanes.job.triage, comments: lanes.job.triage.comments.map((it) => (it.id === comment ? { ...it, sent: true as const } : it)) };
+        return { ...one, lanes: { ...lanes, job: { ...lanes.job, triage } } };
+      }),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;

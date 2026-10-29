@@ -849,6 +849,8 @@ export type SessionsDraft = {
   retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
+  /** The person sends a triaged comment on the Job's pull request (`comment` is its id in `Session.lanes`) to the Job's agent, and it reads as sent. Mock-only: no Fleet reads a pull request's comments yet. Absent draws no Send to Job. */
+  sendComment?: (id: string, comment: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */

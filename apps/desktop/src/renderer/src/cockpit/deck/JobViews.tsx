@@ -1,15 +1,15 @@
-// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story. Thread is the thread itself; the four are the layers (`session-view/layers.ts`). A press
+// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story, and Lanes after them on a Job that holds lifecycles. Thread is the thread itself; the five are the layers (`session-view/layers.ts`). A press
 // opens the layer, a press on the lit one shuts it, as Esc does. A view with nothing in it stays in its place, off, with its reason as the tooltip (`offeredOf`), so nothing moves. The facts the tiles carried
 // stay with each: Subagents the number running, Checks a pulse while any runs, Bays the clash, and Bays tinted while a bay is wrong. **A layer opens in the spine, under the strip**, so the strip stays on show while a layer is read. The keys press them (`flight-keys.ts`).
 
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { StretchHorizontal, type LucideIcon } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
 import { toggleLayer, useLayer } from "../../session-view/layers";
-import { ARTIFACTS_KEY } from "../../session-view/story";
+import { ARTIFACTS_KEY, LANES_KEY } from "../../session-view/story";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import { tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
@@ -53,7 +53,7 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
   const clashing = (bays?.clashes ?? []).map((one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label);
   const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
   const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
-  return VIEW_LAYERS.map((layer): JobView => {
+  const views = VIEW_LAYERS.map((layer): JobView => {
     const tile = tiles.find((one) => one.builtIn !== undefined && one.id === layer);
     const key = tile === undefined ? undefined : flightKey(tile);
     const why = off[layer];
@@ -80,6 +80,9 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
       onPress: () => toggleLayer(session.id, layer),
     };
   });
+  // Lanes is a Job's own when the Workspace gives it lifecycles. It has no flight key: its ⌥⇧L is heard by the workspace, so the host's `data-key` handler does not toggle it twice.
+  if (session.lanes === undefined) return views;
+  return [...views, { id: "lanes", label: "Lanes", tip: "Lanes", Glyph: StretchHorizontal, alsoKey: LANES_KEY.cap, pressed: open === "lanes", onPress: () => toggleLayer(session.id, "lanes") }];
 }
 
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */

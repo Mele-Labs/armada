@@ -14,7 +14,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
-import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
+import { Button, TaskMark, Tooltip, waitingSaid, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import { owesOf, type Session, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
 
@@ -41,7 +41,7 @@ import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
-import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
+import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WaitBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
 import { SkipStep, skipMenu } from "./StepSkip";
 import { SvPanel, type PanelState } from "./SvPanel";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
@@ -121,6 +121,9 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
+  // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
+  const lanes = session.lanes?.job;
+  const waiting = lanes === undefined ? undefined : waitingSaid(lanes, lanes.copy.lifecycles);
 
   const prs = made.filter((one) => one.shape === "pr");
   const landed = prs.length > 0 && prs.every((one) => one.shape === "pr" && one.pr.state === "merged");
@@ -215,6 +218,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           line={working.length === 0 ? now : undefined}
         />
         {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
+        {waiting === undefined ? null : <WaitBeat text={waiting} />}
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}

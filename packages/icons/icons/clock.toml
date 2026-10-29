@@ -45,4 +45,4 @@
     group = "Job lanes"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 28 Oct 2026 with a Job's Lanes view. The agent rests and Fleet's watch wakes the Job on the change, so nobody is acting, which is the clock's claim. It is a fact and no call: the lamp does not pulse and nothing joins Needs you. It is a beat and not a step's activity mark, so it sits outside `step_activity_borrowing`; a step waiting on a person keeps `eye`. Tooltip `Waiting`."
+    notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, a Job's Lanes view. The agent rests and Fleet's watch wakes the Job on the change, so nobody is acting, which is the clock's claim. It is a fact and no call: the lamp does not pulse and nothing joins Needs you. It is a beat and not a step's activity mark, so it sits outside `step_activity_borrowing`; a step waiting on a person keeps `eye`. Tooltip `Waiting`."

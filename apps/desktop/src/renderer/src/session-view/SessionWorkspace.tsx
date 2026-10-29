@@ -4,7 +4,7 @@
 // **What stays on screen.** The Work list, the thread and composer, the Job's story in the right column, and Flight control. The story is told
 // in three zones, Completed, Now and Next (`StoryColumn.tsx`), as a timeline or as three panels. The Field stands in the Cockpit's lower left, under the Jobs list. The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
 // thread as it was. **Artifacts is the exception: it opens over the right column**, from the head's Artifacts icon, its key or Flight control, the
-// story steps aside, and Esc returns to it. Pull requests stand in Completed and on the Merge line. The slot and branch are drawn only when something is wrong with
+// story steps aside, and Esc returns to it. A Job that holds lifecycles also has Lanes in the strip: it takes the stage as the Field large does, with the spine and the strip left on show. Pull requests stand in Completed and on the Merge line. The slot and branch are drawn only when something is wrong with
 // them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's right column (`hosts`).
 
 import { useEffect } from "react";
@@ -14,10 +14,12 @@ import { isPressed } from "@armada/components";
 import type { LedgerEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
+import { holdsText } from "@armada/screens/src/keys";
 
 import { useSessionsDraft } from "../sessions-draft";
 import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
+import { LanesLayer } from "./LanesLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone } from "./StoryColumn";
 import { OverTheApp } from "./OverTheApp";
@@ -25,7 +27,7 @@ import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./la
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
-import { bandOf, isArtifactsKey, isLedgerKey, isWholeKey, pressBand, pressWhole } from "./story";
+import { bandOf, isArtifactsKey, isLanesKey, isLedgerKey, isWholeKey, pressBand, pressWhole } from "./story";
 import { flipLedgerView } from "./ledger-view";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
@@ -38,9 +40,11 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const { id } = session;
   const open = useLayer(id);
   const page = useLayerPage(id);
-  // The Field large draws itself (`FieldLayer.tsx`) and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s.
-  const layer = open === "field" || open === "document" ? undefined : open;
-  const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
+  // The Field large draws itself (`FieldLayer.tsx`), and so do the Lanes (`LanesLayer.tsx`) and the document (`DocumentLayer.tsx`); the other layers are `Layer`'s.
+  // The Lanes need the stage's width, so they stand where the Field large does, with the spine and its strip still on show.
+  const layer = open === "field" || open === "lanes" || open === "document" ? undefined : open;
+  const lanes = session.lanes;
+  const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : open === "lanes" && lanes !== undefined ? <LanesLayer session={session} lanes={lanes} /> : null;
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
@@ -53,6 +57,19 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // mounted while the Job is, so focus goes back to the opener when the document closes, and not when a dev render mounts it twice.
   const reading = <OverTheApp open={open === "document"}>{open === "document" ? <DocumentLayer key={page} session={session} /> : null}</OverTheApp>;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+  // The Lanes key toggles the view on a Job that has lanes, with or without a story. It is no flight key: the host would press the strip's button as well.
+  const hasLanes = lanes !== undefined;
+  useEffect(() => {
+    if (!hasLanes) return;
+    const listen = (event: KeyboardEvent) => {
+      // In a text box ⌥ and ⇧ type a character, so the key is left to it.
+      if (event.defaultPrevented || !isLanesKey(event) || holdsText(event.target) || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      event.preventDefault();
+      toggleLayer(id, "lanes");
+    };
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, [hasLanes, id]);
   // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
     if (!story) return;
