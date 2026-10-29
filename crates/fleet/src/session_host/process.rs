@@ -151,19 +151,28 @@ const PRIVATE_ROOT: &str = "/tmp";
 /// Where each Job's keeper socket goes: `machine/sessions` while a socket there fits, so keepers
 /// already running are found after an upgrade. A long username puts it past the limit, and then a
 /// folder of this user's own under /tmp, which anyone may write to: Fleet refuses one it did not make
-/// private, since a keeper's socket drives an agent.
+/// private, since a keeper's socket drives an agent. One refused there gives way to the user's own
+/// temporary folder, which macOS makes for that user alone.
 pub fn keepers_dir(machine: &Path, home: &Path, user: &str) -> Result<PathBuf, String> {
-    keepers_dir_under(machine, home, user, Path::new(PRIVATE_ROOT))
+    keepers_dir_under(machine, home, user, Path::new(PRIVATE_ROOT), &std::env::temp_dir())
 }
 
-fn keepers_dir_under(machine: &Path, home: &Path, user: &str, root: &Path) -> Result<PathBuf, String> {
+fn keepers_dir_under(machine: &Path, home: &Path, user: &str, root: &Path, own: &Path) -> Result<PathBuf, String> {
     let usual = machine.join("sessions");
-    let keepers = match fits(&usual) {
-        true => usual,
-        false => root.join(format!("armada-{user}")).join("sessions"),
+    if fits(&usual) {
+        keepers_made(&usual, home, root)?;
+        return Ok(usual);
+    }
+    let private = root.join(format!("armada-{user}")).join("sessions");
+    let refused = match keepers_made(&private, home, root) {
+        Ok(()) => return Ok(private),
+        Err(refused) => refused,
     };
-    keepers_made(&keepers, home, root)?;
-    Ok(keepers)
+    let own = own.join("armada-sessions");
+    match fits(&own) && keepers_made(&own, home, root).is_ok() {
+        true => Ok(own),
+        false => Err(refused),
+    }
 }
 
 fn fits(keepers: &Path) -> bool {
