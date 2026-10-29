@@ -20,7 +20,7 @@ import type { HelmContext } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { contextOf, HelmDock, screenOf } from "@armada/helm";
 import { UsageSurface } from "./usage-surface";
-import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks, useNowWhile } from "@armada/components";
+import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseAttachments, ProseLinks, useNowWhile } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -129,6 +129,8 @@ export function App() {
       }),
     [setTelling],
   );
+  // A forge attachment in a model's or a person's text is fetched by main, for every Prose in the window.
+  const fetchAttachment = useCallback((address: string) => window.armada.fetchAttachment(address), []);
   const asked = useAsked(); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
   const lands = useLandings(); // The section a pressed notification asked for, and the call an alert did.
   // Whether the held worktrees are open. **Its own view for the reports' kind of reason and not the
@@ -478,6 +480,7 @@ export function App() {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
+      <ProseAttachments.Provider value={fetchAttachment}>
       <RefsHost.Provider value={refsHost}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
@@ -800,6 +803,7 @@ export function App() {
         </SessionsOwnership>
       </GuidanceProvider>
       </RefsHost.Provider>
+      </ProseAttachments.Provider>
     </ProseLinks.Provider>
   );
 }
