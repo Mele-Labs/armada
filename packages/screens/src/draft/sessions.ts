@@ -473,6 +473,12 @@ export type ToolsMissing = { harness_version: string; missing: Array<"mod" | "do
 
 const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
 
+/** One thing the agent came up without. */
+export type ToolsPiece = ToolsMissing["missing"][number];
+
+/** The sentence for one piece, as the mark's menu lists it. */
+export const toolsPieceSaid = (piece: ToolsPiece): string => MISSING_SAID[piece];
+
 /** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. An init line that names no version says only what is missing. */
 export const toolsMissingSaid = (tools: ToolsMissing): string =>
   [...(tools.harness_version === "" ? [] : [`Claude Code ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
@@ -857,6 +863,8 @@ export type SessionsDraft = {
   mcp?: (id: string) => Promise<McpRead>;
   /** Acts on one MCP server of a hosted Session. A Reconnect or a Turn on answers once the CLI has tried to connect, up to 90s. Absent with `mcp`. */
   actOnMcp?: (id: string, server: string, act: McpServerAct) => Promise<McpActed>;
+  /** Restarts the Job's agent with its mod: `mend_session_tools`. Absent where Fleet offers no such command (mock only for now), and the mark's menu then lists the piece with no act. */
+  mendTools?: (id: string) => Promise<{ ok: true } | { ok: false; said: string }>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.

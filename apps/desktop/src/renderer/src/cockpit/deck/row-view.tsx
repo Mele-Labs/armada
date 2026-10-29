@@ -4,10 +4,10 @@
 // line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on.
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { Readout, Stamp, ToolsMark, Tooltip } from "@armada/components";
+import { Readout, Stamp, Tooltip } from "@armada/components";
 import type { SettingValue } from "@armada/protocol";
 import type { DropdownMenuEntry } from "@armada/components";
-import { toolsMissingSaid, type Session } from "@armada/screens/src/draft/sessions";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { saveSetting, useSetting } from "../../use-setting";
 import type { Subject } from "./ship";
@@ -103,10 +103,13 @@ const columnsOn = (view: RowView, earlier: boolean, tools: boolean) => COLUMNS.f
  * The row's columns: the title, then each field that is on. The conflicts column is kept while a row in the list carries the earlier-Job mark, which stands in the same place.
  * `clashRight` is where that column's own mark sits from the row's trailing edge, since the mark is drawn over the row and not in it.
  */
-export function columnsOf(view: RowView, earlier: boolean, tools = false): { template: string; clashRight: string } {
+export function columnsOf(view: RowView, earlier: boolean, tools = false): { template: string; clashRight: string; toolsRight: string } {
   const on = columnsOn(view, earlier, tools);
   const after = on.slice(on.findIndex(({ field }) => field === "conflicts") + 1);
+  // The tools mark is a button, so it too is drawn over the row, in its column's place.
+  const afterTools = on.slice(on.findIndex(({ field }) => field === "tools") + 1);
   return {
+    toolsRight: `calc(var(--space-3)${afterTools.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
     // A column's width is a variable of the list (`--deck-w-<field>`), so the stylesheet can take it to nothing where no row of the list has the field.
     template: ["minmax(0, 1fr)", ...on.map(({ field, width }) => `var(--deck-w-${field}, ${width}px)`)].join(" "),
     clashRight: `calc(var(--space-3)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
@@ -151,7 +154,7 @@ export function RowFields({ view, earlier, tools, one, session, hit, status }: {
         ? cell("time", hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><Readout className="deck-row__said" data-found="">{hit.short}</Readout></Tooltip> : one.at === undefined ? null : <Tooltip label="Last turn"><Readout className="deck-row__said"><Stamp still first="age" at={one.at} /></Readout></Tooltip>)
         : null}
       {view.conflicts || earlier ? cell("conflicts", null) : null}
-      {tools ? cell("tools", session?.toolsMissing === undefined ? null : <ToolsMark size={12} said={toolsMissingSaid(session.toolsMissing)} />) : null}
+      {tools ? cell("tools", null) : null}
       {view.status ? cell("status", status) : null}
       {view.workflow ? cell("workflow", flow === undefined ? null : <Tooltip label={`${flow.name}: ${flow.step}`}><span className="deck-row__flow">{flow.step}</span></Tooltip>) : null}
       {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}

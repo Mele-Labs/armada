@@ -200,6 +200,89 @@ button.armada-session-frame__context:focus-visible {
   align-items: center;
 }
 
+/* The tools mark as a button: the mark's own look, with a focus ring and a pointer. */
+.armada-tools-mark {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.armada-tools-mark:hover {
+  color: var(--fg-default);
+}
+
+.armada-tools-mark:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: var(--space-1);
+}
+
+/* The menu in the popover: the mark's sentence as its heading, then a row for each piece. */
+.armada-tools-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-tools-menu__head {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-tools-menu__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-tools-menu__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+.armada-tools-menu__said {
+  min-width: 0;
+  color: var(--fg-default);
+}
+
+/* The CLI's own words, under the row whose act failed. */
+.armada-tools-menu__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--status-completed-failed);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  overflow-wrap: anywhere;
+}
+
+/* The loader-circle of an act under way, turning in front of the label. */
+.armada-tools-menu__working {
+  display: inline-flex;
+  margin-inline-end: var(--space-1);
+  animation: armada-tools-menu-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-tools-menu-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-tools-menu__working {
+    animation: none;
+  }
+}
+
 /* The running mark breathes as Badge's does: only the inner dot moves. */
 .armada-session-mark[data-pulsing] > svg > circle + circle {
   transform-box: fill-box;

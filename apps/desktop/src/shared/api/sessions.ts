@@ -233,6 +233,11 @@ export type SessionsApi = {
    * Waits for the server to settle, up to a minute and a half. A `sign_in` in the answer is a page for `openLink`.
    */
   actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
+  /**
+   * Restarts a hosted Job's agent so it loads the mod it came up without: `mend_session_tools`, body `{ session_id }`.
+   * **Mock only**: the command is not in the protocol yet, and no preload or main carries it, so it is absent from a real build.
+   */
+  mendSessionTools?: (sessionId: string) => Promise<SessionActed<void>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */

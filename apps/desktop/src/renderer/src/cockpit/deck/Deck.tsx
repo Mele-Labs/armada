@@ -51,6 +51,7 @@ import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
+import { ToolsMarkOf } from "../../tools-fixes";
 import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
@@ -248,7 +249,8 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     const hit = found?.get(one.key);
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
     const call = calling?.get(one.key);
-    const toolsMissing = one.kind === "session" ? sessions.find((each) => each.id === one.id)?.toolsMissing : undefined;
+    const sessionOf = one.kind === "session" ? sessions.find((each) => each.id === one.id) : undefined;
+    const toolsMissing = sessionOf?.toolsMissing;
     // Needs him: the row is the ask hue and pulses while it does. The open Session's own calls are in its thread, so its row is quiet.
     // The row stands for the earlier Job too: it is open when that one is.
     const here = selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
@@ -289,6 +291,11 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             <EarlierMark onOpen={() => onEarlier(one.earlier!)} />
           </span>
         )}
+        {toolsMissing === undefined || sessionOf === undefined ? null : (
+          <span className="deck-row__tools">
+            <ToolsMarkOf session={sessionOf} size={12} />
+          </span>
+        )}
         {one.kind === "pr" || !view.conflicts ? null : (
           <span className="deck-row__clash">
             <ClashMark kind={one.kind} id={one.id} />
@@ -307,7 +314,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight } as CSSProperties}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (

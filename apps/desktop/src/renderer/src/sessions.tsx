@@ -93,6 +93,7 @@ import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
+import { useToolsFixes } from "./tools-fixes";
 import { attachmentsOf, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
 import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
@@ -1114,6 +1115,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)];
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
+  const toolsFixing = useToolsFixes(session);
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1129,6 +1131,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(draft.nameForMe === undefined ? {} : { onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve() })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         {...(session.toolsMissing === undefined ? {} : { toolsMissing: toolsMissingSaid(session.toolsMissing) })}
+        {...(toolsFixing === undefined ? {} : { toolsFixes: toolsFixing })}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
