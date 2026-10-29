@@ -538,6 +538,41 @@ it("sets a plan aside by dismissing the item Fleet holds for it, `plan:<version>
   expect(dismissWaiting).toHaveBeenCalledWith({ session_id: "a", item_id: "plan:3" });
 });
 
+// ---- Reopening what he closed from Needs you ------------------------------------------------------------------
+
+/** A store whose one Job holds a closed item, with Fleet's answer to a Reopen as `answer` says and the window's refusals caught in `told`. */
+function reopening(answer: "ok" | "refused") {
+  const refusal = { ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code: "fleet.session_waiting_unreopenable", message: "the call it asked about has ended" } } };
+  const reopenWaiting = vi.fn(async () => (answer === "ok" ? { ok: true as const, value: record("a") } : refusal));
+  const told = vi.fn();
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: told });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} get detail() { return this.init.detail; } });
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof send) => ((send = on), () => undefined), reopenWaiting } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const closed = [{ item: { id: "a2", text: "Open the walk", since: AT, source: "walk" as const }, at: AT }];
+  send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [{ ...record("a"), closed }] } }), seq: 0 });
+  return { store, reopenWaiting, said: () => told.mock.calls.map(([event]) => (event as { detail: { sentence: string } }).detail.sentence) };
+}
+
+it("reads what he closed off the record, so the Closed rows have something to draw", () => {
+  const { store } = reopening("ok");
+  expect(store.draft.get()[0]?.closed).toEqual([{ item: { id: "a2", text: "Open the walk", since: AT, source: "walk" }, at: AT }]);
+});
+
+it("sends Reopen to Fleet by the Job and the item", () => {
+  const { store, reopenWaiting } = reopening("ok");
+  store.draft.reopenWaiting!("a", "a2");
+  expect(reopenWaiting).toHaveBeenCalledExactlyOnceWith({ session_id: "a", item_id: "a2" });
+});
+
+it("tells Fleet's refusal of a Reopen as a toast in its own words", async () => {
+  const { store, said } = reopening("refused");
+  await store.draft.reopenWaiting!("a", "a2");
+  expect(said()).toEqual(["the call it asked about has ended"]);
+});
+
 // ---- A pull request press frees on the write's answer --------------------------------------------------------
 
 it("answers a pull request press on the write, while the read that refreshes the sheet is still out", async () => {

@@ -722,7 +722,7 @@ export function entriesOf(
 }
 
 /** What he closed from Needs you, newest first: its words, when, and Reopen while its thing still stands. The row is read; Reopen is its one act. */
-function closedOf(session: Session, reopen: ((itemId: string) => void) | undefined): LedgerEntry[] {
+export function closedOf(session: Session, reopen: ((itemId: string) => void) | undefined): LedgerEntry[] {
   return [...(session.closed ?? [])]
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
     .map(({ item, at, ended }): LedgerEntry => ({
