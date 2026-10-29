@@ -998,6 +998,38 @@ describe("a sketch on the ledger", () => {
   });
 });
 
+/** A note Fleet kept on the ledger as an artifact of form `note`: every detail a string. */
+const noteRow = (note: string, detail: Record<string, string> = {}, state: Attachment["state"] = "standing") =>
+  held("artifact", `note:${note}`, { form: "note", note, text: "The title is cut off", tag: "section", status: "open", sent: AT, ...detail }, state);
+
+describe("a note sent to the Job, on the ledger", () => {
+  const read = (...attachments: Attachment[]) => attachmentsOfRecord(record("a", { attachments }), beside());
+
+  it("is read with its text, component, screen, picture and state", () => {
+    expect(read(noteRow("n1", { title: "Title cut", component: "Deck", screen: "Cockpit", picture: "/notes/n1.png", status: "done" }))).toEqual([
+      { kind: "note", id: "n1", title: "Title cut", text: "The title is cut off", tag: "section", component: "Deck", screen: "Cockpit", picture: "/notes/n1.png", status: "done", sent: AT },
+    ]);
+  });
+
+  it("takes its text as the title where none was kept, and leaves off what it was not pinned to", () => {
+    const [one] = read(noteRow("n1"));
+    expect(one).toEqual({ kind: "note", id: "n1", title: "The title is cut off", text: "The title is cut off", tag: "section", status: "open", sent: AT });
+    for (const key of ["component", "screen", "picture"]) expect(one).not.toHaveProperty(key);
+  });
+
+  it("reads each state, including a note returned when its Job closed unfinished", () => {
+    expect(read(noteRow("a", { status: "open" }), noteRow("b", { status: "done" }), noteRow("c", { status: "returned" })).map((one) => (one.kind === "note" ? one.status : null))).toEqual(["open", "done", "returned"]);
+  });
+
+  it("is left out where a field it needs is missing or its state is one this build does not know", () => {
+    for (const key of ["note", "text", "tag", "sent", "status"]) {
+      const { [key]: _gone, ...detail } = { form: "note", note: "n1", text: "x", tag: "div", status: "open", sent: AT } as Record<string, string>;
+      expect(read(held("artifact", "note:n1", detail)), `without ${key}`).toEqual([]);
+    }
+    expect(read(noteRow("n1", { status: "archived" }))).toEqual([]);
+  });
+});
+
 describe("a show_sketch call in the thread", () => {
   const call = (args: unknown, tool = "mcp__armada-fleet__show_sketch") => `${tool} ${JSON.stringify(args)}`;
 
