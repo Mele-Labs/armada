@@ -1,0 +1,18 @@
+[operations.get_session_system]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What a job costs the machine: its processes, their CPU and memory, its slot's disk, the worktrees it holds and its logs"
+notes = """
+`GET /sessions/system?session_id=`, for the System layer of a job. Answers `SessionSystem`: `session_id`, `processes`, `cpu_percent`, `memory_bytes`, `memory_of_bytes`, `disk_bytes`, `disk_of_bytes`, `worktrees` and `logs`. Refused where Fleet hosts no such job.
+
+**A `process` is one the job started** and that still runs: the agent's process tree, and whatever runs a file from a directory the job holds. The agent itself and Fleet are left out. Each has `pid`, `command`, `port` where it listens on a TCP port, and `state`, which Fleet always answers `running`: it lists what runs, and a process stopped is gone from the next reading. Bridge keeps one it has just stopped as `stopped` until then.
+
+**Figures are read when asked and absent where the reading failed**, never zero. `cpu_percent` and `memory_bytes` are the listed processes' together (resident memory), so both are absent for a job with none. `disk_bytes` is what `du` finds in the job's slot, or its repository's root before it has leased one. `memory_of_bytes` and `disk_of_bytes` are the machine's memory and the volume's size, to set the readings against.
+
+**`worktrees`** are the slots of the repository's pool the job holds, with the branch each is on. Slot is the Bay's own number.
+
+**`logs`** are the two files Fleet keeps for a job: `session.log`, what the keeper of the agent's process wrote to its error output, and the agent's transcript (`<id>.jsonl`). A subagent's transcript is not listed. A file that is not there is not listed.
+
+Not offered to agents: a job learns its own processes by running `ps`, and the act on one is `stop_process`.
+"""

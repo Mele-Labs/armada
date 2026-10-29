@@ -53,6 +53,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("show_window", shape::of::<crate::ShowWindow>()),
         ("start_another_session", shape::of::<crate::StartAnotherSession>()),
         ("start_watch", shape::of::<crate::StartWatch>()),
+        ("stop_process", shape::of::<crate::StopProcess>()),
         ("stop_watch", shape::of::<crate::StopWatch>()),
         ("take_main_red", shape::of::<crate::TakeMainRed>()),
         ("try_tracker_mod", shape::of::<crate::TryTrackerMod>()),

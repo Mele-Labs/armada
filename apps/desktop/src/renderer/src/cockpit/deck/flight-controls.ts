@@ -66,6 +66,7 @@ const JOB_GLYPH: Record<SessionTileId, string> = {
   subagents: "split",
   checks: "shield-check",
   slot: "rows-3",
+  system: "cpu",
   requests: "arrow-right-left",
   terminal: "file-terminal",
   browser: "globe",

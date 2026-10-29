@@ -700,6 +700,32 @@ pub(crate) async fn get_session_usage<D: Sessions>(
     }
 }
 
+/// `?session_id=` on `get_session_system`.
+#[derive(Deserialize)]
+pub(crate) struct SystemAsk {
+    session_id: String,
+}
+
+pub(crate) async fn get_session_system<D: Sessions>(State(served): State<Served<D>>, Query(ask): Query<SystemAsk>) -> Response {
+    match served.shared().get_session_system(ipc::SessionId::carried(ask.session_id)).await {
+        Ok(system) => answer(StatusCode::OK, &system, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One process the job started is ended. 200 with the pid and command; 422 for neither or both of pid and port, a
+/// process the job did not start, or a call that places no session; 409 for a session that has ended.
+pub(crate) async fn stop_process<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let stop: ipc::StopProcess = match ipc::decode("a process to stop", &body) {
+        Ok(stop) => stop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().stop_process(crate::acting::asking(), stop).await {
+        Ok(stopped) => answer(StatusCode::OK, &stopped, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?since=&until=&tz_offset_minutes=` on `get_usage_summary`.
 #[derive(Deserialize)]
 pub(crate) struct SummaryWindow {

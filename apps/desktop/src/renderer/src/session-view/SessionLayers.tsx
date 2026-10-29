@@ -17,6 +17,7 @@ import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
+import { SystemSections } from "./SystemLayer";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { LanesBody } from "../shared-panel/lanes";
@@ -399,11 +400,22 @@ function LanesLayer({ session }: { session: Session }) {
   );
 }
 
+/** What the Job costs the machine, and the bays it holds, drawn as the Bays layer draws them. */
+export function SystemLayer({ session, bays }: { session: Session; bays: SessionBays | undefined }) {
+  const held = bays?.bays ?? [];
+  return (
+    <Shell label="System">
+      <SystemSections sessionId={session.id} worktrees={held.length === 0 ? null : held.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)} />
+    </Shell>
+  );
+}
+
 /** The layer that is open. */
 export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession, onOpenSketch }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; bays: SessionBays | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
   if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />;
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
   if (id === "lanes") return <LanesLayer session={session} />;
+  if (id === "system") return <SystemLayer session={session} bays={bays} />;
   return <BaysLayer session={session} bays={bays} />;
 }

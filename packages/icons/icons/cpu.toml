@@ -11,3 +11,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."
+
+  [[icons.cpu.usage]]
+    means = "System: what a Job runs and what it costs the machine, as a key on Flight control"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 29 Oct 2026 for the walk `processes`, tooltip `System`. The chip is the machine's, so the key reads as processes, CPU, memory and disk. Refused: `server`, Fleet's; `hard-drive`, a held disk; `activity`, reserved to the Asker view."
