@@ -69,9 +69,8 @@ export type StartSession = {
    */
   held?: boolean;
   /**
-   * Rows of the repository's projects this Job starts with. Each written task is held by the Job; a linked issue row is
-   * only named, so the brief can carry it. Refused 404 for a project or row that is not there and 422
-   * `fleet.project_row_other_repository` for one of another repository. Left out when empty. Not read with `fork` or `root`.
+   * Rows of his projects this Job starts with, of any repository. Each written task is held by the Job; a linked issue row is
+   * only named, so the brief can carry it. Refused 404 for a project or row that is not there. Left out when empty. Not read with `fork` or `root`.
    */
   project_rows?: ProjectRowRef[];
 };

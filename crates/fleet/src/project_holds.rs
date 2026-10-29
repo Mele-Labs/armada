@@ -15,11 +15,6 @@ use store::{KeptAsked, KeptProjects, KeptRowItem, SessionState, Store, LOOSE_PRO
 use crate::daemon::Fleet;
 use crate::session_host::NO_SUCH_SESSION;
 
-/// A start names a row of another repository. A 422.
-const OTHER_REPOSITORY: &str = "fleet.project_row_other_repository";
-
-/// A Job to hold a task is another repository's. A 422.
-const JOB_OTHER_REPOSITORY: &str = "fleet.project_job_other_repository";
 /// A Job to hold a task has ended. A 422.
 const JOB_ENDED: &str = "fleet.project_job_ended";
 
@@ -73,26 +68,15 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The written tasks among `named`, by row id, once every row is known to be one of
-    /// `manifest`'s. **All or nothing**: one row that is missing, or another repository's, refuses
-    /// the start. An issue row passes and is not returned.
-    pub(crate) async fn project_rows_checked(&self, manifest: &str, named: &[ProjectRowRef]) -> Result<Vec<String>, Refusal> {
+    /// The written tasks among `named`, by row id, once every row is known. **All or nothing**: one
+    /// row that is missing refuses the start. A row of any repository is held, whatever the Job's
+    /// own: a task keeps the repository it was filed in. An issue row passes and is not returned.
+    pub(crate) async fn project_rows_checked(&self, named: &[ProjectRowRef]) -> Result<Vec<String>, Refusal> {
         let store = self.store().lock().await;
         let kept = store.projects().map_err(|why| self.ledger_fault(why))?;
         let mut tasks = Vec::new();
         for one in named {
             let (_, row) = self.row_in(&kept, &one.row)?;
-            if row.manifest_id != manifest {
-                // Named as the person wrote it, since a row id means nothing in the sheet that shows this.
-                let named = match &row.item {
-                    store::KeptRowItem::Task { title, .. } => format!("the task {title}"),
-                    store::KeptRowItem::Issue { reference } => format!("the issue {reference}"),
-                };
-                return Err(Refusal::Unacceptable(self.project_refusal(
-                    OTHER_REPOSITORY,
-                    format!("{named} is in {}, and this Job starts in {manifest}", row.manifest_id),
-                )));
-            }
             if matches!(row.item, store::KeptRowItem::Task { .. }) {
                 tasks.push(one.row.clone());
             }
@@ -104,16 +88,11 @@ where
         Ok(tasks)
     }
 
-    /// `session` may hold tasks of `manifest`: a Job Fleet has a record of, still running, in that repository.
-    pub(crate) fn job_may_hold(&self, store: &Store, manifest: &str, session: &str) -> Result<(), Refusal> {
+    /// `session` may hold tasks: a Job Fleet has a record of, still running, in any repository.
+    pub(crate) fn job_may_hold(&self, store: &Store, session: &str) -> Result<(), Refusal> {
         let Some(job) = store.session(session).map_err(|why| self.ledger_fault(why))? else {
             return Err(Refusal::NotFound(self.project_refusal(NO_SUCH_SESSION, format!("no job is named {session}"))));
         };
-        if job.manifest_id.as_deref() != Some(manifest) {
-            return Err(Refusal::Unacceptable(
-                self.project_refusal(JOB_OTHER_REPOSITORY, format!("job {session} is another repository's")),
-            ));
-        }
         if job.state == SessionState::Ended {
             return Err(Refusal::Unacceptable(self.project_refusal(JOB_ENDED, format!("job {session} has ended"))));
         }
