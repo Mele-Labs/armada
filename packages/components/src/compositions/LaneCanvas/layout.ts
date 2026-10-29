@@ -12,6 +12,9 @@ export const GEO = {
   /** A step's node holds its name and what ends it, two lines; a state's holds its name and who it is assigned to. */
   stepH: 68,
   stateH: 56,
+  /** A step's second line is a state or the Jobs it waits on by name, which wraps: about this many characters to a line, and each line past the two its node holds adds this much height. */
+  subChars: 20,
+  subLine: 16,
   /** A lane is never shorter than a node and a chip's height either side of it. */
   laneMin: 128,
   chipH: 28,
@@ -41,7 +44,9 @@ export function place(lanes: readonly LaneView[], height: number): Placement {
   const items = new Map<string, Rect>();
   lanes.forEach((lane, at) => {
     const y = at * laneH;
-    const h = lane.kind === "workflow" ? GEO.stepH : GEO.stateH;
+    // A step that names what it waits on (several Jobs, by title) is as tall as its words need.
+    const lines = lane.kind === "workflow" ? Math.max(0, ...lane.nodes.map((node) => Math.ceil((node.waiting ?? node.sub ?? "").length / GEO.subChars) - 2)) : 0;
+    const h = (lane.kind === "workflow" ? GEO.stepH : GEO.stateH) + lines * GEO.subLine;
     bands.set(lane.id, { x: 0, y, w: width, h: laneH });
     for (const node of lane.nodes) {
       items.set(node.id, { x: GEO.head + GEO.pad + node.col * GEO.colW, y: y + (laneH - h) / 2, w: GEO.nodeW, h });

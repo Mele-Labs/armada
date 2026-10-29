@@ -1,5 +1,5 @@
-// A Job's Lanes, in the side panel: the workflow and the tickets, pull request and deploy it holds (`LaneCanvas`), with the comments on the pull request under the canvas as a monitor.
-// **The panel is the app's one side panel**, so the Job's spine stays on show beside it and the same press or Esc closes it. **A mock's view**: the lanes are fixtures.
+// A Job's Lanes: the workflow and the tickets, pull request and deploy it holds (`LaneCanvas`), with the comments on the pull request under the canvas as a monitor.
+// **The body is one**: `LanesBody` is drawn in the app's side panel on a window narrower than `WIDE_WINDOW_PX`, and as a layer in the Job's spine on a wider one (`session-view/LanesLayer.tsx`), the same press or Esc closing either. The panel is the pull request panel's width. **A mock's view**: the lanes are fixtures.
 // A comment here shows that it came in and what the agent made of it; pressing it opens the pull request at that comment, where the acts on it are. A rule waiting on the person opens
 // what it needs (`rule.tsx`).
 
@@ -46,9 +46,9 @@ function CommentRow({ comment, onOpen }: { comment: TriagedComment; onOpen: () =
   );
 }
 
-export function LanesPanel({ item }: { item: Extract<PanelItem, { kind: "lanes" }> }) {
-  const session = useSessions().find((one) => one.id === item.sessionId);
-  const back = useBack();
+/** The lanes and the comments under them, for the panel and the layer to frame. Nothing when the Job has no lanes. */
+export function LanesBody({ sessionId }: { sessionId: string }) {
+  const session = useSessions().find((one) => one.id === sessionId);
   const [picked, setPicked] = useState<LanePick | undefined>();
   const lanes = session?.lanes;
   const drawn = useMemo(() => (lanes === undefined ? undefined : jobLanes(lanes.job, lanes)), [lanes]);
@@ -63,24 +63,33 @@ export function LanesPanel({ item }: { item: Extract<PanelItem, { kind: "lanes" 
     if (next !== undefined && needs !== undefined) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id, row: needs });
   };
   return (
+    <div className="sv-lanes__body">
+      <LaneCanvas label="Lanes" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
+      {triage === undefined ? null : (
+        <section className="sv-lanes__triage" aria-label={`Comments on ${held}`}>
+          <h4 className="sv-lanes__triage-head">{`Comments on ${held}`}</h4>
+          <ul className="sv-lanes__comments">
+            {triage.comments.map((comment) => (
+              <CommentRow
+                key={comment.id}
+                comment={comment}
+                onOpen={() => pull !== undefined && openInPanel({ kind: "pr", number: pull.number, address: pull.address ?? "", title: pull.title, branch: pull.branch, tab: "conversation", comment: { author: comment.author, body: comment.text } })}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+export function LanesPanel({ item }: { item: Extract<PanelItem, { kind: "lanes" }> }) {
+  const session = useSessions().find((one) => one.id === item.sessionId);
+  const back = useBack();
+  if (session?.lanes === undefined) return null;
+  return (
     <SidePanel title="Lanes" heading={session.title ?? "Lanes"} through back={back} onClose={closePanel}>
-      <div className="sv-lanes__body">
-        <LaneCanvas label="Lanes" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
-        {triage === undefined ? null : (
-          <section className="sv-lanes__triage" aria-label={`Comments on ${held}`}>
-            <h4 className="sv-lanes__triage-head">{`Comments on ${held}`}</h4>
-            <ul className="sv-lanes__comments">
-              {triage.comments.map((comment) => (
-                <CommentRow
-                  key={comment.id}
-                  comment={comment}
-                  onOpen={() => pull !== undefined && openInPanel({ kind: "pr", number: pull.number, address: pull.address ?? "", title: pull.title, branch: pull.branch, tab: "conversation", comment: { author: comment.author, body: comment.text } })}
-                />
-              ))}
-            </ul>
-          </section>
-        )}
-      </div>
+      <LanesBody sessionId={session.id} />
     </SidePanel>
   );
 }

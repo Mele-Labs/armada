@@ -3,7 +3,7 @@
 // (`docs/design`, Workspaces, lifecycles and rules). Only `scenarios/workspaces-lanes.ts` reads this.
 
 import { lifecyclesFor } from "@armada/components";
-import type { CommentRead, Fired, Instance, JobLanes, LifecycleDef, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
+import type { CommentRead, Fired, Instance, JobChange, JobLanes, LaneStep, LifecycleDef, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
 
 import type { Definition } from "./workflows-managed";
 
@@ -38,6 +38,20 @@ const PLANNING_STEPS: Written[] = [
 const PLANNING_FOR = "a change in the store that needs a design before anyone builds it";
 const planning = (): Definition => ({ version: 1, workflow_id: "planning", name: "planning", for_requests: PLANNING_FOR, steps: PLANNING_STEPS });
 
+/** The dispatch workflow a Job proposes: it splits what came in into pieces, starts a Job for each, and waits for every one to land. */
+const DISPATCH_STEPS: Written[] = [
+  { id: "assess", label: "Assess", instructions: "Read what came in and group it into pieces of work. Name each piece and say which are left out." },
+  { id: "plan", label: "Plan", instructions: "Write what each piece changes. Wait for the person to approve it." },
+  { id: "dispatch", label: "Dispatch", instructions: "Start a Job for each piece, with its part of the plan as the brief." },
+  { id: "oversee", label: "Oversee", instructions: "Wait for every Job started to land. Answer what any of them asks." },
+  { id: "summarise", label: "Summarise", instructions: "Say what landed and what was left out." },
+];
+
+const DISPATCH_FOR = "a pile of separate fixes that each need their own Job";
+
+/** The text of the dispatch workflow, as the Job offers it. */
+export const dispatchText = (): string => JSON.stringify({ version: 1, workflow_id: "dispatch", name: "dispatch", for_requests: DISPATCH_FOR, steps: DISPATCH_STEPS }, null, 2);
+
 const withInstructions = (id: string, instructions: string): Written[] => STEPS.map((one) => (one.id === id ? { ...one, instructions } : one));
 
 /** `feature` as Armada ships it, the store-web repository's copy that adds its test command to Build, and one of Yours that names the repository each ticket takes in Plan. */
@@ -59,6 +73,10 @@ export const STORE_ENDS: Readonly<Record<string, { ends: string; endsAny?: reado
   write: { ends: "the document is a draft" },
   get_review: { ends: "the document is approved" },
   hand_off: { ends: "each ticket links the document" },
+  assess: { ends: "every piece is named" },
+  dispatch: { ends: "every piece has a Job" },
+  oversee: { ends: "every Job it started has landed" },
+  summarise: { ends: "the summary is posted" },
 };
 
 // ---- The lifecycles -------------------------------------------------------------------------------------------------------
@@ -136,7 +154,23 @@ const DOCUMENT: LifecycleDef = {
   ],
 };
 
-const LIFECYCLES = [DOCUMENT, TICKET, PULL_REQUEST, DEPLOY] as const;
+/** A Job another Job started, read from Armada itself: it is running, its pull request is open, it has landed. */
+const JOB: LifecycleDef = {
+  id: "job",
+  label: "Job",
+  from: "Armada",
+  states: [
+    { id: "started", label: "Started", reads: [{ source: "Armada", values: ["running"], scope: "workspace" }] },
+    { id: "pr_open", label: "PR open", reads: [{ source: "Armada", values: ["pull request open"], scope: "workspace" }] },
+    { id: "landed", label: "Landed", end: true, reads: [{ source: "Armada", values: ["merged into main"], scope: "workspace" }] },
+  ],
+  next: [
+    ["started", "pr_open"],
+    ["pr_open", "landed"],
+  ],
+};
+
+const LIFECYCLES = [DOCUMENT, TICKET, PULL_REQUEST, DEPLOY, JOB] as const;
 
 // ---- The rules ------------------------------------------------------------------------------------------------------------
 
@@ -248,6 +282,21 @@ const READY: Rule = {
   workflow: "planning",
 };
 
+/** The dispatch workflow's rule: Dispatch starting starts a Job for each piece, and each Job is a lane of its own. */
+export const START_JOB: Rule = {
+  id: "start_job",
+  label: "Start a Job",
+  from: { lane: "workflow", item: "dispatch" },
+  at: "starts",
+  to: { lane: "job", item: "started" },
+  ifs: [],
+  does: [{ act: "job", text: "Start a Job for each piece" }],
+  autonomy: "acts",
+  kept: "armada",
+  scope: "workspace",
+  workflow: "dispatch",
+};
+
 /** What "close the ticket once merged and the deploy is healthy" comes back as when it is typed to the agent. */
 export const CLOSE: Rule = {
   id: "close",
@@ -309,8 +358,22 @@ export const MY_STORE: Workspace = {
         "ticket/ready": 4,
       },
     },
+    dispatch: {
+      steps: {
+        assess: { col: 0 },
+        plan: { col: 1 },
+        dispatch: { col: 2 },
+        oversee: { col: 3, endsOn: { lane: "job", state: "landed" } },
+        summarise: { col: 5 },
+      },
+      states: {
+        "job/started": 2,
+        "job/pr_open": 3,
+        "job/landed": 4,
+      },
+    },
   },
-  rules: [PROGRESS, REVIEW, ASK, TRIAGE, DEPLOY_WATCH, CLOSE_ON_MERGE, DOCUMENT_REVIEW, READY],
+  rules: [PROGRESS, REVIEW, ASK, TRIAGE, DEPLOY_WATCH, CLOSE_ON_MERGE, DOCUMENT_REVIEW, READY, START_JOB],
 };
 
 /** A change typed to the agent that is about rules, and the rule it comes back with. Matched on the lower-cased words. */
@@ -415,4 +478,80 @@ export function jobB(): SessionLanes {
     changes: [],
   };
   return { workflow: "feature", at: 6, working: false, job };
+}
+
+
+// ---- The feedback Job -----------------------------------------------------------------------------------------------------
+
+/** The id of the Job that goes through the app feedback, and of the two Jobs it starts. */
+export const FEEDBACK = "app-feedback";
+const CART = "job-cart";
+const PANEL = "job-pr-panel";
+
+/** The workflow the Job started on, and its steps as the rail names them. */
+export const FEEDBACK_STEPS = ["Propose", "Discuss", "Approve plan", "Walk", "Refine", "Deliver"];
+/** The same after the Job changed its own copy: Walk and Refine skipped, Dispatch and Oversee after Approve plan. */
+export const FEEDBACK_STEPS_CHANGED = ["Propose", "Discuss", "Approve plan", "Dispatch", "Oversee", "Walk", "Refine", "Deliver"];
+export const FEEDBACK_SKIPPED = [5, 6] as const;
+
+const FEEDBACK_COPY_START: readonly LaneStep[] = [
+  { id: "propose", label: "Propose", col: 0 },
+  { id: "discuss", label: "Discuss", col: 1 },
+  { id: "approve_plan", label: "Approve plan", col: 2 },
+  { id: "walk", label: "Walk", col: 3 },
+  { id: "refine", label: "Refine", col: 4 },
+  { id: "deliver", label: "Deliver", col: 5 },
+];
+
+const FEEDBACK_COPY_CHANGED: readonly LaneStep[] = [
+  { id: "propose", label: "Propose", col: 0 },
+  { id: "discuss", label: "Discuss", col: 1 },
+  { id: "approve_plan", label: "Approve plan", col: 2 },
+  { id: "dispatch", label: "Dispatch", col: 3 },
+  { id: "oversee", label: "Oversee", col: 4, endsOn: { lane: "job", state: "landed" } },
+  { id: "walk", label: "Walk", col: 5 },
+  { id: "refine", label: "Refine", col: 6 },
+  { id: "deliver", label: "Deliver", col: 7 },
+];
+
+/** The Job lifecycle as this Job's copy draws it, its states under Dispatch and Oversee. */
+const JOB_COPY = { ...JOB, states: JOB.states.map((state, at) => ({ ...state, col: 3 + at })) };
+
+const JOB_SEEN: Record<string, readonly string[]> = { started: ["started"], pr_open: ["started", "pr_open"], landed: ["started", "pr_open", "landed"] };
+
+/** What the feedback Job's agent is doing at the moments it works. */
+export const FEEDBACK_WORKING: Readonly<Record<number, { now: string; done: readonly string[] }>> = {
+  0: { now: "Going through the feedback", done: [] },
+  1: { now: "Splitting the feedback into fixes", done: ["Read the feedback", "Changed this Job's workflow"] },
+  4: { now: "Writing up what landed", done: ["Started two Jobs", "Both Jobs landed"] },
+};
+
+const CHANGES: readonly JobChange[] = [
+  { id: "add-dispatch", lane: "workflow", item: "dispatch", text: "Added after Approve plan", at: "14:09" },
+  { id: "add-oversee", lane: "workflow", item: "oversee", text: "Added after Dispatch", at: "14:09" },
+  { id: "skip-walk", lane: "workflow", item: "walk", text: "Skipped on this Job", at: "14:09" },
+  { id: "skip-refine", lane: "workflow", item: "refine", text: "Skipped on this Job", at: "14:09" },
+];
+
+/**
+ * The Job that goes through the app feedback, at a moment: 0 it reads the feedback on the `feature` workflow as it started, 1 it has changed its own copy (Walk and Refine skipped,
+ * Dispatch and Oversee added), 2 it has started two Jobs and Oversee waits on both, 3 one has landed, 4 both have landed and Oversee is done.
+ */
+export function feedbackAt(moment: number): SessionLanes {
+  const changed = moment >= 1;
+  const cart = moment >= 3 ? "landed" : moment >= 2 ? "pr_open" : "started";
+  const panel = moment >= 4 ? "landed" : moment >= 3 ? "pr_open" : "started";
+  const instances: Instance[] = moment >= 2 ? [instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!), instance(PANEL, "job", "Tidy the PR panel landing", panel, JOB_SEEN[panel]!)] : [];
+  const fired: Fired[] = moment >= 2 ? [CART, PANEL].map((one) => ({ rule: "start_job", instance: one, outcome: "acted" as const, at: "14:12", did: "Started the Job" })) : [];
+  const job: JobLanes = {
+    workspace: MY_STORE.id,
+    copy: changed ? { steps: FEEDBACK_COPY_CHANGED, lifecycles: [JOB_COPY], rules: [START_JOB] } : { steps: FEEDBACK_COPY_START, lifecycles: [], rules: [] },
+    instances,
+    fired,
+    changes: changed ? CHANGES : [],
+    ...(moment === 2 ? { waitingOn: { step: "oversee", instance: CART, state: "landed", and: [PANEL] } } : {}),
+    ...(moment === 3 ? { waitingOn: { step: "oversee", instance: PANEL, state: "landed" } } : {}),
+  };
+  const at = [1, 3, 4, 4, 7][moment]!;
+  return { workflow: "feature", at, working: FEEDBACK_WORKING[moment] !== undefined, ...(changed ? { skipped: FEEDBACK_SKIPPED } : {}), job };
 }

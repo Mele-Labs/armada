@@ -1,6 +1,7 @@
 // The 29 Oct 2026 notes on Workspaces, lifecycles and rules, each change straight to: a pick opens the side panel, a repository that differs is marked, the header is icons, the lanes
 // are edited by hand on a copy of your own, a lane is any lifecycle, the Job's Lanes opens in the side panel with the Now beat saying what the agent is doing, a rule waiting on you
-// is answered there, and a comment's triage is on the comment in the pull request. The long walk is `workspaces-lanes`. A mock, no Fleet behind it.
+// is answered there, and a comment's triage is on the comment in the pull request. A third Job changes its own copy of the workflow and starts two Jobs; Lanes opens in the side panel
+// on a window narrower than 1800px and in the spine on a wider one. The long walk is `workspaces-lanes`. A mock, no Fleet behind it.
 
 import { button, deckRow, inside, region, role, text, toSystemPage, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
@@ -15,6 +16,9 @@ const JOB_LANES = inside(LANES_PANEL, group("Lanes"));
 const node = (name: string) => inside(JOB_LANES, button(name, { exact: true }));
 const RULE_PANEL = role("dialog", "Rule: Ask for review");
 const PR_PANEL = role("dialog", /#812/);
+const SPINE = region("Lanes", { exact: true });
+const SPINE_LANES = inside(SPINE, group("Lanes"));
+const inSpine = (name: string) => inside(SPINE_LANES, button(name, { exact: true }));
 
 const notes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
@@ -43,6 +47,22 @@ const notes = walk("workspaces-lanes", [
   { later: inside(LANES_PANEL, region("Comments on PR #812")), say: "Comments are a monitor: what the agent made of each" },
   { press: inside(LANES_PANEL, button(/^Open in the pull request: .* on src\/cart\/totals\.ts/)), say: "A comment opens the pull request at that comment" },
   { look: inside(PR_PANEL, button("Send to Job: Maya on src/cart/totals.ts:42", { exact: true })), say: "The triage is a mark on the comment, with its acts" },
+
+  { press: inside(PR_PANEL, button("Back")), say: "Back to the lanes" },
+  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
+  { press: deckRow("Go through app feedback"), say: "A Job that goes through app feedback" },
+  { press: inside(views, button("Lanes", { exact: true })), say: "Lanes opens in the side panel on a window narrower than 1800px" },
+  { later: JOB_LANES, say: "Lanes opens on the workflow as the Job started it" },
+  { look: node("Step: Oversee"), say: "The agent changed its own copy: Walk and Refine skipped, Dispatch and Oversee added after Approve plan. Each is marked" },
+  { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee waits for them" },
+  { look: node("Fix cart rounding: PR open"), say: "Two Jobs, each a lane of its own with Started, PR open and Landed" },
+  { look: inside(JOB_LANES, text("Waiting on: Fix cart rounding, Tidy the PR panel landing")), say: "Oversee names the Jobs it waits on, and ends when the last lands" },
+  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
+  { later: inside(views, button("Lanes", { exact: true })), say: "The next steps play a window wider than 1800px" },
+  { press: inside(views, button("Lanes", { exact: true })), say: "Wider than 1800px, Lanes opens in the spine column" },
+  { look: inside(SPINE_LANES, text("Waiting on Tidy the PR panel landing: Landed")), say: "It is a view like Artifacts and Checks: pressed again, or Esc, shuts it" },
+  { later: inSpine("Tidy the PR panel landing: PR open"), say: "One Job has landed and one is in review" },
+  { look: inSpine("Tidy the PR panel landing: Landed"), say: "Both landed. Oversee is done" },
 ]);
 
 export { notes as "workspaces-lanes-notes" };

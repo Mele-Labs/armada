@@ -34,3 +34,8 @@
 
 .sv-inflight { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-inflight__row { min-width: 0; overflow-wrap: anywhere; }
+
+/* In the spine (`LanesLayer`) the canvas takes the height the comments leave, and the layer's own scroll is for a short window. */
+.sv-lanes__layer { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.sv-lanes__layer > .sv-lanes__body { flex: 1 1 auto; min-height: 0; }
+.sv-lanes__layer > .sv-lanes__body > .armada-lane-canvas { flex: 1 1 auto; height: auto; min-height: calc(var(--space-12) * 8); }

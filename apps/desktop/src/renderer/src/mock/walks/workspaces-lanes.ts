@@ -1,6 +1,8 @@
 // Workspaces, lifecycles and rules (29 Oct 2026): System › Workflows draws the Workspace my-store as lanes, a workflow over the lifecycles it moves, with rules as the edges
 // between them. What is picked opens in the side panel, and the lanes are edited by hand or by telling an agent. A Job's Lanes opens in the same panel and draws the same lanes
 // as its tickets, pull request and deploy move, until the deploy is healthy and the tickets are closed. Ending a Job that still holds a deploy lists what is in flight first.
+// A third Job goes through app feedback and changes its own copy of the workflow, starts two Jobs that each get a lane, and offers `dispatch`; on a window wider than 1800px
+// Lanes open in the spine instead of the side panel, which the scenario switches on for a step because a walk cannot resize its window.
 // A mock, no Fleet behind it. The design of 28 Oct, Workspaces, lifecycles and rules.
 
 import { button, deckRow, dialog, inside, region, role, text, toSystemPage, walk } from "../walk";
@@ -21,6 +23,10 @@ const node = (name: string) => inside(JOB_LANES, button(name, { exact: true }));
 const RULE_PANEL = dialog("Rule: Ask for review");
 const PR_PANEL = role("dialog", /#812/);
 const SEND_MAYA = button("Send to Job: Maya on src/cart/totals.ts:42", { exact: true });
+// On a window wider than 1800px the same lanes are a layer in the spine, under the views.
+const SPINE = region("Lanes", { exact: true });
+const SPINE_LANES = inside(SPINE, group("Lanes"));
+const inSpine = (name: string) => inside(SPINE_LANES, button(name, { exact: true }));
 
 export const workspacesLanes = walk("workspaces-lanes", [
   ...toSystemPage("Workflows", "Workflows, from System"),
@@ -71,6 +77,28 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { press: inside(role("region", /^Job: /), button("More")), say: "End job is behind the three dots" },
   { press: role("menuitem", "End job"), say: "End lists what is in flight first" },
   { look: dialog("In flight"), say: "Deploy is rolling out and ARM-52 is in review. Ending the Job ends them" },
+  { press: inside(dialog("In flight"), button("Keep going", { exact: true })), say: "Keep going" },
+
+  { press: deckRow("Go through app feedback"), say: "A third Job goes through app feedback, on the feature workflow as it started" },
+  { press: inside(views, lanes), say: "Lanes opens in the side panel on a window narrower than 1800px" },
+  { later: JOB_LANES, say: "The workflow as the Job started it: Propose, Discuss, Approve plan, Walk, Refine, Deliver" },
+  { look: inside(JOB_LANES, role("img", "Changed on this Job: Added after Dispatch")), say: "The agent changed its own copy: Dispatch and Oversee added after Approve plan, each marked with a dashed frame, as the deploy watch was" },
+  { hover: node("Step: Refine"), say: "Walk and Refine are skipped on this Job only, struck through and marked. The workflow itself is unchanged" },
+  { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee, after it, waits for them" },
+  { look: node("Fix cart rounding: PR open"), say: "Two Jobs started. Each is an instance of the Job lifecycle in a lane of its own, linked to Dispatch" },
+  { look: inside(JOB_LANES, text("Waiting on: Fix cart rounding, Tidy the PR panel landing")), say: "Oversee ends when every Job it started has landed, and names them" },
+  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
+  { later: inside(views, lanes), say: "Both Jobs are out. The next steps play a window wider than 1800px" },
+  { press: inside(views, lanes), say: "Wider than 1800px, Lanes opens in the spine column, under the views as Artifacts and Checks do" },
+  { look: inside(SPINE_LANES, text("Waiting on Tidy the PR panel landing: Landed")), say: "The column is as wide as the pull request panel while Lanes is open. Fix cart rounding has landed, and Oversee waits on the other" },
+  { later: inSpine("Tidy the PR panel landing: PR open"), say: "Tidy the PR panel landing is in review" },
+  { look: inSpine("Tidy the PR panel landing: Landed"), say: "Both landed. Oversee ends and the Job is at Deliver" },
+  { key: "Escape", on: inSpine("Tidy the PR panel landing: Landed"), say: "Esc shuts it, and the column goes back to its width" },
+
+  ...toSystemPage("Workflows", "Workflows, from System"),
+  { press: inside(YOURS, button("dispatch", { exact: true })), say: "dispatch, which the Job proposed, is listed under Yours" },
+  { look: inside(LANES, button("Step: Oversee", { exact: true })), say: "Oversee ends on a Job landing, so the Job lifecycle is a lane of its own under the workflow, and Dispatch starts a Job" },
+  { look: inside(PROPOSED, text("Oversee")), say: "The change waits on Approve: Assess, Plan, Dispatch, Oversee and Summarise, added to Yours" },
 ]);
 
 export { workspacesLanes as "workspaces-lanes" };

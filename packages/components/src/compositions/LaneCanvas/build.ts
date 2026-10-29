@@ -118,6 +118,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
     nodes: copy.steps.map((step, at) => {
       const sub = endsOnSaid(step, copy.lifecycles);
       const waiting = job.waitingOn?.step === step.id ? waitingSaid(job, copy.lifecycles) : undefined;
+      const changed = job.changes.find((one) => one.lane === "workflow" && one.item === step.id)?.text;
       return {
         id: nodeId("workflow", step.id),
         label: step.label,
@@ -128,6 +129,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         ...(at < standing.at ? { passed: true as const } : {}),
         ...(waiting === undefined ? {} : { waiting }),
         ...(standing.skipped?.includes(at) === true ? { skipped: true as const } : {}),
+        ...(changed === undefined ? {} : { changed }),
       };
     }),
     moves: copy.steps.slice(1).map((step, at) => [nodeId("workflow", copy.steps[at]!.id), nodeId("workflow", step.id)] as const),
@@ -201,10 +203,14 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
   return { lanes, rules };
 }
 
-/** What the rail says a step is waiting on: `Waiting on Document: Approved`. */
+/** What the rail says a step is waiting on: `Waiting on Document: Approved`, or the several it waits on by name: `Waiting on: Fix cart rounding, Tidy the PR panel landing`. */
 export function waitingSaid(job: JobLanes, lifecycles: readonly Lifecycle[]): string | undefined {
   const waiting = job.waitingOn;
   if (waiting === undefined) return undefined;
+  if (waiting.and !== undefined && waiting.and.length > 0) {
+    const named = [waiting.instance, ...waiting.and].flatMap((id) => job.instances.find((one) => one.id === id)?.label ?? []);
+    return `Waiting on: ${named.join(", ")}`;
+  }
   const instance = job.instances.find((one) => one.id === waiting.instance);
   const state = lifecycles.find((one) => one.id === instance?.lifecycle)?.states.find((one) => one.id === waiting.state);
   return instance === undefined ? undefined : `Waiting on ${instance.label}: ${state?.label ?? waiting.state}`;

@@ -544,13 +544,22 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     for (const rule of rules) now.set(rule.id, markOfRule(rule));
     const before = drawn.current;
     drawn.current = now;
-    const standing = new Set(lanes.flatMap((lane) => lane.nodes.filter((node) => node.lit === true || node.here === true || node.waiting !== undefined || node.changed !== undefined).map((node) => node.id)));
+    // A step the Job skips is marked where it stands, but nothing happens there: the view goes to what does.
+    const standing = new Set(lanes.flatMap((lane) => lane.nodes.filter((node) => node.skipped !== true && (node.lit === true || node.here === true || node.waiting !== undefined || node.changed !== undefined)).map((node) => node.id)));
     const ids = new Set<string>();
     for (const rule of rules) {
       const fresh = before === undefined ? rule.proposed === true || standing.has(rule.from) || standing.has(rule.to) : before.get(rule.id) !== now.get(rule.id);
       if (fresh) for (const id of [rule.id, rule.from, rule.to]) ids.add(id);
     }
-    for (const lane of lanes) for (const node of lane.nodes) if (before === undefined ? standing.has(node.id) : before.get(node.id) !== now.get(node.id)) ids.add(node.id);
+    // A node added to a lane that was there is a change. A node of a lane that is itself new is one only where something stands on it: the lane is shown at the states that are held, not every one it has.
+    for (const lane of lanes) {
+      const laneWas = before !== undefined && [...before.keys()].some((key) => key.startsWith(`${lane.id}/`));
+      for (const node of lane.nodes) {
+        if (node.skipped === true) continue;
+        const was = before?.get(node.id);
+        if (before === undefined ? standing.has(node.id) : was === undefined ? laneWas || standing.has(node.id) : was !== now.get(node.id)) ids.add(node.id);
+      }
+    }
     if (ids.size > 0) reveal([...ids], true);
   }, [lanes, rules, reveal]);
 

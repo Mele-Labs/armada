@@ -85,6 +85,13 @@ export function proposeWorkflowChange(id: number, workflowId: string, scope: "ki
   PROPOSED.push({ id, workflow_id: workflowId, source: scope, origin: { kind: "new" }, before: "", after: text, state: "ready", at: new Date().toISOString() });
 }
 
+/** A Job offers a workflow and it is listed under its scope at once, as a draft with a change waiting on Approve: the page picks it and draws the proposed steps. A mock's route. */
+export function offerWorkflow(id: number, workflowId: string, scope: "kit" | "repository", text: string): void {
+  approveProposedWorkflow(workflowId, scope, text);
+  settleProposedChange(id);
+  proposeWorkflowChange(id, workflowId, scope, text);
+}
+
 /** The proposal settled, approved or dismissed: the reads stop listing it. */
 export function settleProposedChange(id: number): void {
   const at = PROPOSED.findIndex((one) => one.id === id);
@@ -381,6 +388,13 @@ export function workflowsServed(
       changes: { changes: [...open(workflowId, source, under(manifestId)).map((kept) => settled(kept)), ...PROPOSED.filter((one) => one.workflow_id === workflowId && one.source === source)] },
     }),
     approveWorkflowChange: async (id) => {
+      // A workflow a Job offered is already held as a draft: approving it settles the change and keeps the draft as the copy.
+      const offered = PROPOSED.find((one) => one.id === id);
+      if (offered !== undefined) {
+        settleProposedChange(id);
+        const source = place(offered.source)!;
+        return { ok: true, approved: { change: { ...offered, state: "approved" }, saved: { workflow_id: offered.workflow_id, scope: source === "kit" ? "kit" : "repository", file: fileOf(source, offered.workflow_id), replaced: false, runs_from: source } } };
+      }
       const kept = outcomeOfChange(id);
       if (kept === undefined) return { ok: false, outcome: noChange };
       const change = settled(kept);
@@ -398,6 +412,13 @@ export function workflowsServed(
       return { ok: true, approved: { change: approved, saved: { workflow_id: one.id, scope: source === "kit" ? "kit" : "repository", file: one.file, replaced: true, runs_from: source } } };
     },
     dismissWorkflowChange: async (id) => {
+      // A workflow a Job offered is dropped with the draft that held it.
+      const offered = PROPOSED.find((one) => one.id === id);
+      if (offered !== undefined) {
+        settleProposedChange(id);
+        files = [...files, ...APPROVED.splice(0)].filter((one) => !(one.id === offered.workflow_id && one.source === offered.source));
+        return { ok: true, change: { ...offered, state: "dismissed" } };
+      }
       const kept = outcomeOfChange(id);
       if (kept === undefined) return { ok: false, outcome: noChange };
       const dismissed: WorkflowChange = { ...settled(kept), state: "dismissed" };

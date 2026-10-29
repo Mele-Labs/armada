@@ -215,7 +215,7 @@ export type Fired = {
   needs?: string;
 };
 
-/** A change made to this Job's own copy, marked on the state of the lane it changes: `lane` is the instance and `item` its state. */
+/** A change made to this Job's own copy, marked on the node it changes: `lane` is the instance and `item` its state, or `workflow` and `item` the step added or skipped. */
 export type JobChange = { id: string; lane: string; item: string; text: string; at: string };
 
 /** What the agent made of a human comment left on an instance. */
@@ -230,8 +230,8 @@ export type JobLanes = {
   instances: readonly Instance[];
   fired: readonly Fired[];
   changes: readonly JobChange[];
-  /** The step that is waiting on an instance reaching a state, and which. */
-  waitingOn?: { step: string; instance: string; state: string };
+  /** The step that is waiting on an instance reaching a state, and which. `and` are the other instances it waits on as well: the step names them all and not their state. */
+  waitingOn?: { step: string; instance: string; state: string; and?: readonly string[] };
   /** The comments left on an instance while it is in review. */
   triage?: { instance: string; comments: readonly TriagedComment[] };
 };

@@ -4,7 +4,7 @@
 // **What stays on screen.** The Work list, the thread and composer, the Job's story in the right column, and Flight control. The story is told
 // in three zones, Completed, Now and Next (`StoryColumn.tsx`), as a timeline or as three panels. The Field stands in the Cockpit's lower left, under the Jobs list. The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
 // thread as it was. **Artifacts is the exception: it opens over the right column**, from the head's Artifacts icon, its key or Flight control, the
-// story steps aside, and Esc returns to it. A Job that holds lifecycles also has Lanes in the strip: it takes the stage as the Field large does, with the spine and the strip left on show. Pull requests stand in Completed and on the Merge line. The slot and branch are drawn only when something is wrong with
+// story steps aside, and Esc returns to it. A Job that holds lifecycles also has Lanes in the strip: on a wide window it opens in the spine under the strip, as the others do, and on a narrower one in the side panel over the spine (`lanes-width.ts`). Pull requests stand in Completed and on the Merge line. The slot and branch are drawn only when something is wrong with
 // them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's right column (`hosts`).
 
 import { useEffect } from "react";
@@ -23,7 +23,8 @@ import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone } from "./StoryColumn";
 import { OverTheApp } from "./OverTheApp";
 import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
-import { lanesOpenFor, toggleLanesPanel } from "../shared-panel/store";
+import { lanesOpenFor } from "../shared-panel/store";
+import { placeLanes, toggleLanes, useWideWindow } from "./lanes-width";
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
@@ -40,7 +41,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const { id } = session;
   const open = useLayer(id);
   const page = useLayerPage(id);
-  // The Field large draws itself (`FieldLayer.tsx`), and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s. The Lanes are in the app's side panel, not a layer.
+  // The Field large draws itself (`FieldLayer.tsx`), and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s, Lanes among them on a wide window. A narrower one has Lanes in the app's side panel (`lanes-width.ts`).
   const layer = open === "field" || open === "document" ? undefined : open;
   const lanes = session.lanes;
   const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
@@ -58,6 +59,11 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
   // The Lanes key toggles the view on a Job that has lanes, with or without a story. It is no flight key: the host would press the strip's button as well.
   const hasLanes = lanes !== undefined;
+  // Resized across the line, open Lanes go to the place the new width puts them.
+  const wide = useWideWindow();
+  useEffect(() => {
+    if (hasLanes) placeLanes(id);
+  }, [hasLanes, id, wide]);
   useEffect(() => {
     if (!hasLanes) return;
     const listen = (event: KeyboardEvent) => {
@@ -65,7 +71,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       // The panel the Lanes are in is itself a dialog, which its own key closes.
       if (event.defaultPrevented || !isLanesKey(event) || holdsText(event.target) || (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null && !lanesOpenFor(id))) return;
       event.preventDefault();
-      toggleLanesPanel(id);
+      toggleLanes(id);
     };
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);

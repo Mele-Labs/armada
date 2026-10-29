@@ -225,15 +225,6 @@ export function useLanePanel(): LanePanel {
 /** The Job's Lanes are open in the panel. */
 export const lanesOpenFor = (sessionId: string): boolean => held.open?.kind === "lanes" && held.open.sessionId === sessionId;
 
-/** Opens the Job's Lanes in the panel, or closes them where they are open. Answers whether a panel is hosted. */
-export function toggleLanesPanel(sessionId: string): boolean {
-  if (lanesOpenFor(sessionId)) {
-    closePanel();
-    return true;
-  }
-  return openInPanel({ kind: "lanes", sessionId });
-}
-
 /** Whether this Job's Lanes are open in the panel, for a button that shows it pressed. */
 export function useLanesOpen(sessionId: string): boolean {
   const { open } = usePanel();
