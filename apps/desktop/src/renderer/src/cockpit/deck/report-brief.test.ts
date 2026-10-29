@@ -91,3 +91,23 @@ test("the lists keep the last messages, tool calls and this Session's own timeli
   expect(after("Last tool calls, oldest first:")).toEqual([2, 3, 4, 5, 6].map((n) => `- 14:0${n}:00 Bash step ${n}`));
   expect(after("Last timeline events, oldest first:").map((one) => one.split(" session.turn: ")[1])).toEqual(["e4", "e5", "e6", "e7", "e8"]);
 });
+
+test("a Job whose agent did not start says why and carries the agent's error lines in a fence", () => {
+  const held = { ...bare, startFailed: { cause: "The agent exited at once", log: ["error: no such option", "usage: agent [flags]"] } } as unknown as Session;
+  expect(reportLists(held, from())).toEqual(["", "Did not start: The agent exited at once", "", "The agent's last error lines, oldest first:", "```", "error: no such option", "usage: agent [flags]", "```"]);
+});
+
+test("the fence is longer than any run of backticks in the log, so a line of the agent's own cannot close it", () => {
+  const held = { ...bare, startFailed: { cause: "The agent exited at once", log: ["see `agent --help`", "```", "`````` end"] } } as unknown as Session;
+  const lists = reportLists(held, from());
+  const fence = "`".repeat(7);
+  expect(lists.filter((one) => one === fence)).toHaveLength(2);
+  expect(lists.indexOf(fence)).toBeLessThan(lists.indexOf("```"));
+  expect(lists.lastIndexOf(fence)).toBe(lists.length - 1);
+  expect(reportBrief("It would not start.", held, from())).toContain("Did not start: The agent exited at once");
+});
+
+test("a Job that did not start with no error lines gets the cause and no fence", () => {
+  const held = { ...bare, startFailed: { cause: "The agent exited at once", log: [] } } as unknown as Session;
+  expect(reportLists(held, from())).toEqual(["", "Did not start: The agent exited at once"]);
+});
