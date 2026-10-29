@@ -624,3 +624,37 @@
 .armada-wm__new {
   align-self: flex-start;
 }
+
+/* ---- The Workspace's lanes ------------------------------------------------------------------- */
+
+/* The canvas takes the column's width and a height of its own; the inspector sits under it, so the canvas is never narrowed by what is picked. */
+.armada-wm-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.armada-wm-lanes > .armada-lane-canvas {
+  flex: none;
+  height: calc(var(--space-12) * 10);
+}
+.armada-wm-lanes__scope {
+  display: flex;
+  align-items: center;
+}
+
+.armada-wm-inspector {
+  min-width: 0;
+}
+
+/* The tracker's own words, in mono, as the lanes' sub lines are. */
+.armada-wm-inspector__values {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-default);
+}
+
+/* A rule the proposed change adds: its leading edge wears the diff's hue, as an added step card does. */
+.armada-wm-step[data-added] {
+  border-inline-start: calc(var(--border-width) * 3) solid var(--diff-add-fg);
+}

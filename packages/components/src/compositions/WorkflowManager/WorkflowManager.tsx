@@ -13,6 +13,8 @@ import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
 import { STEP_FIELDS, stepChangesOf } from "./diff";
 import type { StepChange } from "./diff";
+import { RuleChangeCard, WorkspaceEditor } from "./WorkspaceEditor";
+import type { WorkspaceEditing } from "./WorkspaceEditor";
 import { STEP_GLYPHS, keyOf } from "./types";
 import type {
   AgentState,
@@ -77,6 +79,8 @@ export type WorkflowManagerProps = {
   onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
   onNew?: () => void;
+  /** The Workspace the workflows are edited in: the picked one draws as lanes with rules between them, in place of its column of steps. Absent draws the column. */
+  workspace?: WorkspaceEditing;
 };
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
@@ -279,6 +283,37 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
       <span>{workflow.leftOut.said}</span>
     </p>
   );
+  /** One step as its card: in the column, or in the inspector when the lanes pick it. */
+  const stepCard = (step: ManagedStep, at: number): ReactNode => (
+    <Step
+      key={step.id}
+      n={at + 1}
+      first={at === 0 && acts.workspace === undefined}
+      step={step}
+      keep={`${key}/${step.id}`}
+      editable={editable}
+      draft={drafts[`${key}/${step.id}`]}
+      onDraft={(words) =>
+        setDrafts((was) => {
+          const next = { ...was };
+          if (words === undefined) delete next[`${key}/${step.id}`];
+          else next[`${key}/${step.id}`] = words;
+          return next;
+        })
+      }
+      onSave={(words) => run(() => acts.onSaveWords(ref, step.id, words))}
+      drifted={drift[workflow.id]?.[step.id] ?? []}
+      suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
+      suggestible={editable}
+      suggesting={suggesting === `${workflow.id}/${step.id}`}
+      onOpenJob={(job) => acts.onOpenJob(ref, job.jobId)}
+      onNotDrift={(driftId) => void run(() => acts.onNotDrift(ref, step.id, driftId))}
+      onSuggest={() => void run(() => acts.onSuggest(ref, step.id))}
+      onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
+      onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
+      versus={comparing && comparable ? { armada: armada!.steps.find((one) => one.id === step.id) } : undefined}
+    />
+  );
   return (
     <>
       <header className="armada-wm__head">
@@ -344,38 +379,17 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
         {said === null ? null : <Said {...said} onOpenJob={(job) => acts.onOpenJob(ref, job)} />}
       </header>
 
-      <div className="armada-wm__steps">
-        {workflow.steps.map((step, at) => (
-          <Step
-            key={step.id}
-            n={at + 1}
-            first={at === 0}
-            step={step}
-            keep={`${key}/${step.id}`}
-            editable={editable}
-            draft={drafts[`${key}/${step.id}`]}
-            onDraft={(words) =>
-              setDrafts((was) => {
-                const next = { ...was };
-                if (words === undefined) delete next[`${key}/${step.id}`];
-                else next[`${key}/${step.id}`] = words;
-                return next;
-              })
-            }
-            onSave={(words) => run(() => acts.onSaveWords(ref, step.id, words))}
-            drifted={drift[workflow.id]?.[step.id] ?? []}
-            suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
-            suggestible={editable}
-            suggesting={suggesting === `${workflow.id}/${step.id}`}
-            onOpenJob={(job) => acts.onOpenJob(ref, job.jobId)}
-            onNotDrift={(driftId) => void run(() => acts.onNotDrift(ref, step.id, driftId))}
-            onSuggest={() => void run(() => acts.onSuggest(ref, step.id))}
-            onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
-            onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
-            versus={comparing && comparable ? { armada: armada!.steps.find((one) => one.id === step.id) } : undefined}
-          />
-        ))}
-      </div>
+      {acts.workspace === undefined ? (
+        <div className="armada-wm__steps">{workflow.steps.map((step, at) => stepCard(step, at))}</div>
+      ) : (
+        <WorkspaceEditor
+          editing={acts.workspace}
+          workflow={workflow}
+          editable={editable}
+          proposed={agent.phase === "proposed" ? agent.rules : undefined}
+          stepCard={stepCard}
+        />
+      )}
 
       {editable ? (
         <Agent
@@ -389,6 +403,8 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           onBuildSupport={() => acts.onBuildSupport(ref)}
           onOpenJob={(job) => acts.onOpenJob(ref, job)}
           jobFor={jobFor}
+          workspace={acts.workspace}
+          steps={workflow.steps}
         />
       ) : null}
     </>
@@ -771,6 +787,8 @@ function Agent({
   onBuildSupport,
   onOpenJob,
   jobFor,
+  workspace,
+  steps,
 }: {
   keep: string;
   agent: AgentState;
@@ -781,6 +799,9 @@ function Agent({
   onBuildSupport: () => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
   onOpenJob: (job: string) => void;
   jobFor: ((jobId: string) => ReactNode) | undefined;
+  /** Where the rules a proposal adds are named. */
+  workspace: WorkspaceEditing | undefined;
+  steps: readonly ManagedStep[];
 }) {
   const [asked, setAsked] = useState("");
   const [notes, setNotes] = useState<string | null>(null);
@@ -907,8 +928,9 @@ function Agent({
           {changes.map((one) => (
             <StepChangeCard key={`${one.kind}:${one.kind === "removed" ? one.before.id : one.after.id}`} change={one} />
           ))}
+          {workspace === undefined ? null : (agent.rules ?? []).map((one) => <RuleChangeCard key={one.id} rule={one} workspace={workspace.value} steps={steps} />)}
         </div>
-        {unchanged.length === 0 ? null : (
+        {unchanged.length === 0 || agent.rules !== undefined ? null : (
           <p className="armada-wm-diff__unchanged">
             <span className="armada-wm__fact-label">Unchanged</span>
             <span>{unchanged.join(", ")}</span>
