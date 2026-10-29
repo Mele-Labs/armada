@@ -316,6 +316,7 @@
 .deck-list__rows:not(:has(.deck-row__cell[data-field="workflow"]:not(:empty))) { --deck-w-workflow: calc(var(--space-1) * 0); }
 .deck-row__cell { display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); }
 .deck-row__cell[data-field="time"] { justify-content: flex-end; }
+.deck-row__cell[data-field="tools"] { justify-content: center; color: var(--fg-subtle); }
 .deck-row__cell[data-field="status"] { display: grid; grid-template-columns: repeat(2, var(--space-4)); column-gap: var(--space-1); justify-items: center; overflow: visible; }
 .deck-row__cell > .armada-tooltip { min-width: 0; max-width: 100%; }
 .deck-row__chip,
@@ -336,6 +337,20 @@
   justify-content: center;
   width: var(--space-4);
 }
+/* The tools mark is a button too, drawn over the tools column the same way. */
+.deck-row__tools {
+  position: absolute;
+  inset-block: 0;
+  right: var(--deck-tools-right, calc(var(--space-3) + var(--space-4) + var(--space-1)));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  color: var(--fg-subtle);
+  pointer-events: none;
+}
+.deck-row__tools > * { pointer-events: auto; }
+.deck-list__rows:is([data-now], [data-pr]) .deck-row__tools { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 .deck-row__clash { flex-direction: row-reverse; pointer-events: none; }
 .deck-row__clash > * { pointer-events: auto; }
 .deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }

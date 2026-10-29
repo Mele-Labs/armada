@@ -107,6 +107,7 @@ export * from "./compositions/FactChip/FactChip";
 export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/HandoffMark/HandoffMark";
 export * from "./compositions/NeedsYouPanel/HandoffBand";
+export * from "./compositions/NeedsYouPanel/ToolsBand";
 export * from "./compositions/PathChip/PathChip";
 
 // One row of the run — the step, its mark, its elapsed figure, and the short
@@ -380,6 +381,8 @@ export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
+export * from "./compositions/SessionThread/lands-in";
+export * from "./compositions/SessionThread/LandsInChip";
 export { callsLine } from "./compositions/SessionThread/calls-line";
 export { NOTICE_NAMES } from "./compositions/SessionThread/FleetTurn";
 export * from "./compositions/SessionThread/debug-info";

@@ -119,6 +119,7 @@ export function planOf(plan: SessionPlan, beside: Pick<WorkBeside, "attachments"
       paths: group.paths,
       ...(group.gives === undefined || group.gives === "" ? {} : { gives: group.gives }),
       ...(group.issue === undefined ? {} : { issue: group.issue }),
+      landsIn: { label: group.lands_in.label, ...(group.lands_in.pull_request === undefined ? {} : { pullRequest: { number: group.lands_in.pull_request.number, title: group.lands_in.pull_request.title, state: group.lands_in.pull_request.state } }) },
       tasks: group.tasks.map((task) => ({
         id: task.id,
         text: task.text,

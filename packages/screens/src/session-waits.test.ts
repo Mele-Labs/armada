@@ -100,7 +100,7 @@ describe("a plan on the Session waited on", () => {
       recorded_at: AT,
       approved: true,
       scope: [],
-      groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], tasks: [{ id: "t1", text: "Add the column", state: "done" }] }],
+      groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Add the column", state: "done" }] }],
     };
     const drawn = sessionOfRecord(record("a", { plan }), undefined, beside);
     expect(drawn.work?.plan?.groups[0]?.id).toBe("g1");

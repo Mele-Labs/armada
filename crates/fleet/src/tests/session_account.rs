@@ -235,6 +235,7 @@ fn group(title: &str, tasks: &[&str]) -> PlanGroupInput {
         paths: vec![format!("crates/{}", title.to_lowercase())],
         issue: None,
         gives: None,
+        lands_in: None,
         tasks: tasks.iter().map(|title| PlanTaskInput { id: None, title: title.to_string() }).collect(),
     }
 }

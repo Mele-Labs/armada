@@ -66,3 +66,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`. A connection that is not there, as a sign-in that could not reach the forge draws it. Failed hue, tooltip `No answer` and Fleet's words. That walk is replaced by `requests-collections-and-environments`, which sends no request nothing answers."
+
+  [[icons.unplug.usage]]
+    means = "A hosted Job whose agent came up without some of its Armada tools: the mod did not load, the tools did not connect, or no task list tools were served"
+    group = "Session"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 29 Oct 2026 for the walk `job-tools-missing`. A connection that is not there, as the Loadout's failed MCP server draws it. On the Job's row in the Jobs list, in a column of its own kept for every row while one has the mark, and in its header beside the state. Tooltip `Claude Code 2.1.312. No armada mod. No task tools.`: the harness version, then one sentence for each thing missing. Nothing is drawn where nothing is missing. Pressed, it opens a menu of the pieces, each with its act (`job-tools-missing-fix`, 29 Oct 2026). The row carries no reservation."

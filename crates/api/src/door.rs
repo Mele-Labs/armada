@@ -56,6 +56,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
     ("list_watches", &["session_id", "ended"]),
+    ("list_closed_waiting", &["session_id"]),
     ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["lines", "session_id", "until", "regex", "wait_seconds"]),
     ("get_workflow", &["workflow_id", "source"]),
@@ -145,6 +146,7 @@ const WITHOUT_A_MANIFEST: &str = "without_manifest";
 const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     door::ASKS_A_PERSON,
     "waiting_for",
+    "list_closed_waiting",
     "all_done",
     "show_window",
     "withdraw_window",

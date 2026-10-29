@@ -55,6 +55,7 @@ import type {
   DismissConcern,
   ConfirmWaiting,
   DismissWaiting,
+  ReopenWaiting,
   Followed,
   FrameRead,
   HandToSession,
@@ -134,6 +135,13 @@ export const REOPEN_WITHIN_MS = 15 * 60 * 1000;
  * and a margin, so Fleet's refusal in words arrives rather than Bridge's abort. Coupled by this comment.
  */
 export const MCP_ACT_MS = 110_000;
+
+/**
+ * What a restart of a Job's agent waits: Fleet fills its copy of the mod first, which the script may take
+ * `STEP_WITHIN` over (120 s, `crates/fleet/src/session_import.rs`), then answers once the restart is under way.
+ * Coupled by this comment.
+ */
+export const MEND_TOOLS_MS = 130_000;
 
 /** Where each press on a pull request is served. `crates/ipc/operations/` is the authority. */
 const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = {
@@ -811,6 +819,10 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
 
+  async reopenWaiting(reopen: ReopenWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/reopen", reopen);
+  }
+
   /** Thumbs up on a follow-up. Fleet answers the record, which is folded. */
   async confirmLater(confirm: ConfirmLater): Promise<SessionActed> {
     return await this.act("POST", "/sessions/later/confirm", confirm);
@@ -1052,6 +1064,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/sessions/mcp/act", { session_id: sessionId, server, act }, MCP_ACT_MS);
     return answer.ok === true ? { ok: true, value: answer.body as SessionMcpActed } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** Restarts a hosted Job's agent so it loads the mod it came up without. Fleet answers the record, which `session.changed` carries too. */
+  async mendTools(sessionId: string): Promise<SessionActed<void>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/tools/mend", { session_id: sessionId }, MEND_TOOLS_MS);
+    return answer.ok === true ? { ok: true, value: undefined } : { ok: false, outcome: answer.outcome };
   }
 
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */

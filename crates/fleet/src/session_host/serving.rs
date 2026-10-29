@@ -273,6 +273,13 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn reopen_waiting(
+        self: Arc<Self>,
+        reopen: ipc::ReopenWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.waiting_reopened(reopen).await
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         confirm: ipc::ConfirmWaiting,
@@ -461,6 +468,10 @@ where
             servers: super::mcp_servers::on_wire(acted.servers),
             sign_in: acted.sign_in.map(|sign_in| ipc::McpSignIn { url: sign_in.url, callback_expected: sign_in.callback_expected }),
         })
+    }
+
+    async fn mend_session_tools(self: Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
+        self.tools_mended(asked).await
     }
 
     async fn start_again(self: Arc<Self>, asked: ipc::StartAgain) -> Result<SessionRecord, Refusal> {
