@@ -1,10 +1,10 @@
 // The Job's brief as the first beat of its spine, above the zones: one line while shut, and pressed it opens in place to the whole text and how the Job started (workflow,
 // delivery, model, effort, mode, and the Job it was started from). A row the Job holds no value for is left out. `session.started` is what Fleet sends; without it the grid
-// reads what the Job holds now. Under it, open or shut, the tasks of his projects the Job holds, each with its project; a press opens one on Projects.
+// reads what the Job holds now. Under it, open or shut, the tasks of his projects the Job holds, each a task chip; a press opens one on Projects.
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { Tooltip } from "@armada/components";
+import { TaskChip } from "@armada/components";
 import type { DeliveryChoice } from "@armada/protocol";
 import type { Session, SessionMode, SessionWork } from "@armada/screens/src/draft/sessions";
 
@@ -29,7 +29,7 @@ export function startedRows(session: Session, work: SessionWork): Row[] {
   return rows.filter((one): one is Row => one !== undefined && one.value !== "");
 }
 
-/** The tasks the Job holds, as a row of How it started is drawn: the label, then a line each with its project. */
+/** The tasks the Job holds, as a row of How it started is drawn: the label, then a task chip each. */
 function HeldTasks({ tasks }: { tasks: readonly HeldTask[] }) {
   const label = tasks.length === 1 ? "Task" : "Tasks";
   return (
@@ -40,12 +40,7 @@ function HeldTasks({ tasks }: { tasks: readonly HeldTask[] }) {
           <ul className="sv-brief__tasks" aria-label={label}>
             {tasks.map((task) => (
               <li key={task.id}>
-                <Tooltip asChild label="Open on Projects">
-                  <button type="button" className="sv-brief__task" aria-label={`Open ${task.title} on Projects`} onClick={() => askToShowTask(task.id)}>
-                    <span className="sv-brief__task-title">{task.title}</span>
-                    <span className="sv-brief__task-project">{task.project}</span>
-                  </button>
-                </Tooltip>
+                <TaskChip title={task.title} project={task.project} state={task.state} onOpen={() => askToShowTask(task.id)} />
               </li>
             ))}
           </ul>
