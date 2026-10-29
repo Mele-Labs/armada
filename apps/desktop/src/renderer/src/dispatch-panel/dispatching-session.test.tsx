@@ -80,7 +80,7 @@ test("starting a Session from the sheet passes the typed words as the request an
   await expect.element(request).toHaveValue("Fix the login page");
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => start.mock.calls.length).toBe(1);
-  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Fix the login page", {}, undefined, true);
+  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Fix the login page", {}, undefined, true, undefined, expect.any(Function));
   await expect.poll(() => send.mock.calls.length).toBe(1);
   expect(send).toHaveBeenCalledWith("01SESSION", expect.objectContaining({ text: "Fix the login page" }));
   expect(opened).toHaveBeenCalledWith("01SESSION");

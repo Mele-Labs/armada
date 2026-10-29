@@ -99,7 +99,7 @@ test("the Session starts on the typed words, with the snippet sent as a file", a
   await expect.element(page.getByText("pasted-snippet-1.txt")).toBeVisible();
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => start.mock.calls.length).toBe(1);
-  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Why does this fail", {}, undefined, true);
+  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Why does this fail", {}, undefined, true, undefined, expect.any(Function));
   await expect.poll(() => send.mock.calls.length).toBe(1);
   const [, sent] = send.mock.calls[0]!;
   expect(sent.text).toBe("Why does this fail");

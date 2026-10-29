@@ -93,7 +93,7 @@ test("sending a brief that tags a Session waits for the proposer's reading, then
 
   await expect.poll(() => start.mock.calls.length).toBe(1);
   expect(settles).toHaveBeenCalledWith("Write the docs once @Retry loop lands, so the schema is in");
-  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Write the docs once @Retry loop lands, so the schema is in", {}, { on: { id: "a", title: "Retry loop" }, when: "lands", base: "main", needs: "the schema" });
+  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Write the docs once @Retry loop lands, so the schema is in", {}, { on: { id: "a", title: "Retry loop" }, when: "lands", base: "main", needs: "the schema" }, undefined, undefined, expect.any(Function));
   await expect.poll(() => opened.mock.calls.length).toBe(1);
   expect(send).not.toHaveBeenCalled();
 });

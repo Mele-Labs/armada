@@ -15,8 +15,8 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProjectRowRef, RepositorySummary } from "@armada/protocol";
-import { Radio, RadioGroup, forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
-import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
+import { Alert, Radio, RadioGroup, forgetKept, isPressed, readKept, snippetOf, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
+import { jobIdOf, manifestLabel, repositoryEntries, repositoryLabel, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
 
@@ -229,7 +229,11 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     const text = workflow === null ? typedWords : workflowBrief(typedWords, workflow);
     recall(at);
     const hand = handNow();
+    const mine = stamp.current;
     setSending(true);
+    setRefused(undefined);
+    // A refused start is said here, in the sheet that still holds its words, and never on the open Job's thread.
+    const refuse = (words: string) => void (mine === stamp.current && setRefused(words));
     // A real reading is waited for, so a Session is not started on the defaults while the proposer is still out.
     void Promise.resolve(draft.settlesWait?.(text) ?? draft.readsWait?.(text))
       .then((read) => {
@@ -244,11 +248,11 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const started =
           rows === undefined
             ? after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true)
-              : draft.start(undefined, at, text, tuningNow(), after)
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, undefined, refuse)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, undefined, refuse)
             : after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows)
-              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows);
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows, refuse)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows, refuse);
         return Promise.resolve(started).then((id) => ({ id, after, refers }));
       })
       .then(({ id, after, refers }) => {
@@ -398,6 +402,26 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     // A reading belongs to the repository it was made for.
     useEffect(() => setRead(undefined), [root]);
 
+    // A Session's own body: the rows it will not carry where another repository is picked (`rowsGoTo`), and a refused start.
+    const rowsIn = rowedIn.current;
+    const many = rowed.current.length > 1;
+    const unheld =
+      rowsIn === undefined || rowed.current.length === 0 || named === undefined || manifestId === rowsIn
+        ? undefined
+        : `${many ? "These tasks are" : "This task is"} in ${manifestLabel(rowsIn, repositories)}. A Job started in ${repositoryLabel(named, repositories)} does not hold ${many ? "them" : "it"}.`;
+    const sessionBody =
+      kind !== "session" || workflow !== null || (unheld === undefined && refused === undefined) ? undefined : (
+        <div className="armada-dispatch-panel__autopilot">
+          {unheld === undefined ? null : <Alert tone="caution">{unheld}</Alert>}
+          {refused === undefined ? null : (
+            <p className="armada-autopilot__refused" role="alert">
+              {refused}
+            </p>
+          )}
+        </div>
+      );
+    const drawn = body ?? sessionBody;
+
     useEffect(() => {
       if (!waiting || (root === undefined && found.state === "detecting")) return;
       setWaiting(false);
@@ -471,7 +495,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
           act();
         }
       },
-      ...(body === undefined ? {} : { body }),
+      ...(drawn === undefined ? {} : { body: drawn }),
       disabled: state.connection.state !== "connected",
     };
   };
