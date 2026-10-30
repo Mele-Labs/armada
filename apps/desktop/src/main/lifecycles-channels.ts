@@ -50,6 +50,7 @@ export function handleLifecycles({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.listRepositoryWorkspaces, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.workspaces(manifestId) ?? unsent) : unsent));
   ipc.handle(CHANNELS.listLifecycles, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.lifecycles(manifestId) ?? unsent) : unsent));
   ipc.handle(CHANNELS.listLifecycleRules, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.rules(manifestId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.listKeepDrafts, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.keepDrafts(manifestId) ?? unsent) : unsent));
   ipc.handle(CHANNELS.saveLifecyclePiece, (_event, body: unknown) => {
     const save = saveOf(body);
     return save === null ? unsent : (host()?.save(save) ?? unsent);

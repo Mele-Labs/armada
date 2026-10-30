@@ -281,6 +281,15 @@ export type NodeKind = "step" | "wait" | "tracker" | "forge" | "document" | "wat
 /** What the mark on a piece says while the pull request that removes it from the repository is open. */
 export const REMOVAL_WAITS = "Removed from the repository when its pull request merges";
 
+/** What the mark says while the draft that keeps the piece for every Job waits on the owner's Approve. */
+export const KEEP_WAITS = "Kept for every Job once its draft is approved";
+
+/** What a piece's clock waits on: a pull request that removes it, or the owner's Approve of a draft that keeps it. */
+export type PendingKind = "removal" | "keep";
+
+/** The sentence of each wait, which is its mark's tooltip. */
+export const PENDING_SAID: Readonly<Record<PendingKind, string>> = { removal: REMOVAL_WAITS, keep: KEEP_WAITS };
+
 /** Where the workflow starts and ends, drawn as small circles at the ends of its lane: not steps, so nothing picks them. */
 export const START_ITEM = "$start";
 export const END_ITEM = "$end";
@@ -332,8 +341,8 @@ export type LaneView = {
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
   moves: readonly (readonly [string, string])[];
-  /** The repository's file that defines it is being removed by a pull request that has not merged. */
-  pending?: true;
+  /** The repository's file that defines it is being removed by a pull request that has not merged, or a draft that keeps it for every Job waits on Approve. */
+  pending?: PendingKind;
 };
 
 export type RuleView = {
@@ -356,8 +365,8 @@ export type RuleView = {
   proposed?: true;
   /** The Job's own copy changed this rule, and how. */
   changed?: string;
-  /** The repository's file that defines it is being removed by a pull request that has not merged. */
-  pending?: true;
+  /** The repository's file that defines it is being removed by a pull request that has not merged, or a draft that keeps it for every Job waits on Approve. */
+  pending?: PendingKind;
   /** The same rule's second edge: drawn with its mark and no words. */
   quiet?: true;
   /** What the rule did, a line for each act, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
