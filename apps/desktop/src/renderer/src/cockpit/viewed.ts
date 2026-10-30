@@ -38,6 +38,9 @@ export function viewedAt(sessionId: string): number {
   return held[sessionId] ?? 0;
 }
 
+/** Whether this Session is on screen in this window now, with the window visible. */
+export const viewingNow = (sessionId: string): boolean => (viewing.get(sessionId) ?? 0) > 0 && visible();
+
 /** Record that he was in this Session at `at`. */
 export function markViewed(sessionId: string, at: number = Date.now()): void {
   held ??= read();
