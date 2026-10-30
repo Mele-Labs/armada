@@ -17,6 +17,9 @@ pub enum ChangeOrigin {
     /// Armada drafted it, or he pressed Suggest a change, from the nudges kept for one step. `nudges` are
     /// their `StepNudge::id`s.
     Drift { nudges: Vec<i64> },
+    /// A Job proposed new text for a workflow that exists, whole, and it is ready at once. Approving it saves
+    /// `after` to `source`, replacing the file there.
+    Job,
     /// A Job proposed a workflow nothing held before. `before` is empty and `after` is the definition,
     /// whole; approving it saves it to `source` without replacing anything.
     New,

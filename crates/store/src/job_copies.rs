@@ -87,6 +87,32 @@ impl Store {
         Ok(true)
     }
 
+    /// Put a piece in the Job's copy, replacing the one of its kind and id. **False for a Job that froze
+    /// no copy**: a copy is made when a Job starts, and one is not made for it here.
+    pub fn keep_job_copy_piece(&mut self, session_id: &str, piece: &KeptPiece) -> Result<bool, WriteError> {
+        if !self.has_job_copy(session_id)? {
+            return Ok(false);
+        }
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO job_copy_pieces (session_id, kind, piece_id, path, text) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![session_id, piece.kind.as_str(), piece.piece_id, piece.path, piece.text],
+            )
+            .map(|_| true)
+            .map_err(failing("changing a piece of the copy of the lifecycles and rules a job started with"))
+    }
+
+    /// Take a piece out of the Job's copy. Whether there was one.
+    pub fn drop_job_copy_piece(&mut self, session_id: &str, kind: PieceKind, piece_id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "DELETE FROM job_copy_pieces WHERE session_id = ?1 AND kind = ?2 AND piece_id = ?3",
+                params![session_id, kind.as_str(), piece_id],
+            )
+            .map(|gone| gone > 0)
+            .map_err(failing("dropping a piece of the copy of the lifecycles and rules a job started with"))
+    }
+
     /// Whether the Job froze a copy. A look at every Job asks, so it reads no file.
     pub fn has_job_copy(&self, session_id: &str) -> Result<bool, WriteError> {
         self.conn

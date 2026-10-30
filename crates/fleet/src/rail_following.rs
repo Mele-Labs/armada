@@ -83,7 +83,7 @@ where
         if !self.workflow_on(manifest.as_str(), workflow) {
             return;
         }
-        let Some(steps) = self.rail_steps(manifest.as_str(), workflow) else {
+        let Some(steps) = self.job_rail_steps(&id, manifest.as_str(), workflow).await else {
             return;
         };
         // The walk the nudge reads is in the thread, so it is read only for a Job that wrote a test.
@@ -261,7 +261,7 @@ where
             return said;
         }
         let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
-        let steps = self.rail_steps(&hosting.manifest_id, workflow)?;
+        let steps = self.job_rail_steps(id, &hosting.manifest_id, workflow).await?;
         let skipped = self.store().lock().await.session_rail(id).map(|kept| kept.skipped).unwrap_or_default();
         let skips = rail::skips_said(&self.workflow_name(&hosting.manifest_id, workflow), &steps, &skipped);
         match (said, skips) {
@@ -275,7 +275,7 @@ where
             return None;
         }
         let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
-        let steps = self.rail_steps(&hosting.manifest_id, workflow)?;
+        let steps = self.job_rail_steps(id, &hosting.manifest_id, workflow).await?;
         let (session, from, to) = {
             let mut store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;

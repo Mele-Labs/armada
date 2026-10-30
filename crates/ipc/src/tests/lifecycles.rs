@@ -181,6 +181,8 @@ fn a_job() -> JobLifecycles {
                 entered: None,
             },
         ],
+        rules: Vec::new(),
+        changes: Vec::new(),
     }
 }
 
@@ -242,7 +244,7 @@ fn what_is_absent_leaves_no_key() {
 
     let bare = RuleTarget { among: RuleAmong::Entered, in_state: None };
     assert_eq!(encode(&bare).expect("plain data"), r#"{"among":{"kind":"entered"}}"#);
-    let job = JobLifecycles { session_id: SessionId::carried("job-1"), lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new() };
+    let job = JobLifecycles { session_id: SessionId::carried("job-1"), lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new(), rules: Vec::new(), changes: Vec::new() };
     assert_eq!(encode(&job).expect("plain data"), r#"{"session_id":"job-1","lifecycles":[],"instances":[],"moves":[]}"#);
 
     let planned = RuleActReading {

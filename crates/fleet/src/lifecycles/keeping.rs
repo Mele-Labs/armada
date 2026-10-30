@@ -144,13 +144,14 @@ where
         let Some(manifest) = self.store().lock().await.session(parent).ok().flatten().and_then(|one| one.manifest_id) else {
             return;
         };
-        let step = child
-            .workflow
-            .as_deref()
-            .zip(child.workflow_step)
-            .zip(child.manifest_id.as_ref())
-            .and_then(|((workflow, step), manifest)| self.rail_steps(manifest.as_str(), workflow)?.get(step as usize).map(|one| one.id.clone()))
-            .map(|id| StepId::new(&id));
+        let step = match child.workflow.as_deref().zip(child.workflow_step).zip(child.manifest_id.as_ref()) {
+            Some(((workflow, step), manifest)) => self
+                .job_rail_steps(child.id.as_str(), manifest.as_str(), workflow)
+                .await
+                .and_then(|steps| steps.get(step as usize).map(|one| one.id.clone())),
+            None => None,
+        }
+        .map(|id| StepId::new(&id));
         let seen = JobSeen {
             step,
             opened_pull_request: opened_pull_request(&child.attachments),

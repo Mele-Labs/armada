@@ -390,4 +390,11 @@ pub struct JobLifecycles {
     pub moves: Vec<InstanceMove>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acts: Vec<RuleActReading>,
+    /// The rules the Job's copy holds, which are the ones that run for it. Left out for a Job that froze no
+    /// copy, whose rules are those `list_lifecycle_rules` serves for its repository.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<AppliedRule>,
+    /// What was changed in the Job's own copy, for the lanes to mark. Left out where nothing was.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changes: Vec<crate::JobCopyChange>,
 }
