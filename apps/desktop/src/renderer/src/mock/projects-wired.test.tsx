@@ -102,22 +102,50 @@ test("cards selected in two repositories open a sheet for each, and the second o
   await expect.poll(() => (page.getByRole("textbox", { name: "Request" }).element() as HTMLTextAreaElement).value).toContain("Write the pairing page");
 });
 
-test("a task filed from the palette on another page is written through Fleet and the page stays", async () => {
+/** The palette on the Logbook, the words typed and Tab on to the Task row, which carries the repository and project chips. */
+async function typedAsTask(words: string) {
   const app = mount(SCENARIO);
   await onScreen();
   await toPlace("Logbook");
   const write = vi.spyOn(app.api, "addProjectTask");
-
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  await userEvent.keyboard("Check the pairing copy");
+  await userEvent.keyboard(words);
   await userEvent.keyboard("{Tab}{Tab}");
   await expect.element(page.getByRole("option", { name: /^Add a task / })).toBeVisible();
+  return write;
+}
+
+test("a task filed from the palette on another page is written on one Enter, in no project and the last used repository", async () => {
+  const write = await typedAsTask("Check the pairing copy");
+  await expect.element(page.getByRole("button", { name: "Project No project" })).toBeVisible();
   await userEvent.keyboard("{Enter}");
+
+  await expect.poll(() => write.mock.calls.length).toBe(1);
+  expect(write.mock.calls[0]![0]).toMatchObject({ manifest_id: "armada", title: "Check the pairing copy" });
+  expect(write.mock.calls[0]![0].project).toBeUndefined();
+  await expect.element(page.getByRole("tab", { name: "Logbook" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("a project chosen from the row's chip is where the palette files the task", async () => {
+  const write = await typedAsTask("Check the pairing copy");
+  await userEvent.click(page.getByRole("button", { name: "Project No project" }));
   await userEvent.click(page.getByRole("option", { name: "Pocket launch" }));
+  await expect.element(page.getByRole("button", { name: "Project Pocket launch" })).toBeVisible();
+  // The row is pressed rather than Enter: a press on the list's option takes the focus out of the field.
+  await userEvent.click(page.getByRole("option", { name: /^Add a task / }));
 
   await expect.poll(() => write.mock.calls.length).toBe(1);
   expect(write.mock.calls[0]![0]).toMatchObject({ manifest_id: "armada", project: "pocket-launch", title: "Check the pairing copy" });
-  await expect.element(page.getByRole("tab", { name: "Logbook" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("a repository and a project typed as @site and +Pocket launch leave the title and set the chips", async () => {
+  const write = await typedAsTask("Check the pairing copy @site +Pocket launch");
+  await expect.element(page.getByRole("option", { name: /^Add a task “Check the pairing copy”/ })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Repository site" })).toBeVisible();
+  await userEvent.keyboard("{Enter}");
+
+  await expect.poll(() => write.mock.calls.length).toBe(1);
+  expect(write.mock.calls[0]![0]).toMatchObject({ manifest_id: "site", project: "pocket-launch", title: "Check the pairing copy" });
 });
 
 test("the done ask on the Job is answered in Needs you and the task card follows to done", async () => {
