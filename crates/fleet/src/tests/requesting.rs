@@ -131,6 +131,8 @@ fn own(method: &str, url: &str, session: Option<&SessionId>) -> SendRequest {
         environment: None,
         headers: Vec::new(),
         body: None,
+        body_inline: true,
+        pick: None,
     }
 }
 
@@ -309,6 +311,8 @@ fn saved(collection: &str, request: &str) -> SendRequest {
         environment: Some("staging".to_string()),
         headers: Vec::new(),
         body: None,
+        body_inline: true,
+        pick: None,
     }
 }
 
@@ -442,4 +446,54 @@ fn a_body_that_cannot_be_written_is_answered_unsaved_and_says_why() {
     assert_eq!(done.answer.saved, None);
     let note = done.answer.note.clone().expect("a note");
     assert!(note.starts_with("The body was not saved: ") && !note.contains(TOKEN), "{note}");
+}
+
+fn agent_send(server: &Answering, send: SendRequest) -> super::super::requesting::Sent {
+    sent(server, &keychain(), RequestBy::Agent, &send, &filling(), &Bounds::shipped()).expect("sent")
+}
+
+#[test]
+fn a_send_with_no_inline_body_answers_status_headers_and_the_saved_file_only() {
+    let server = Answering(format!("{{\"owner\":\"{TOKEN}\",\"n\":1}}"), "application/json");
+    let mut send = with_a_secret();
+    send.body_inline = false;
+    let folder = crate::tests::tmp::TempDir::new();
+    let mut done = agent_send(&server, send);
+    done.save_body(folder.path(), "r1");
+    assert_eq!(done.answer.status, Some(200));
+    assert_eq!(done.answer.body, "");
+    assert!(!done.answer.truncated);
+    assert!(!done.answer.headers.is_empty());
+    let saved = done.answer.saved.clone().expect("saved");
+    assert_eq!(std::fs::read_to_string(saved.path).unwrap(), "{\"owner\":\"{{token}}\",\"n\":1}");
+}
+
+#[test]
+fn a_pick_answers_only_the_picked_value_with_secrets_hidden() {
+    let server = Answering(format!("{{\"totals\":{{\"sum\":3,\"by\":\"{TOKEN}\"}},\"rows\":[1,2]}}"), "application/json");
+    let mut send = with_a_secret();
+    send.pick = Some("$.totals".to_string());
+    let done = agent_send(&server, send);
+    assert_eq!(done.answer.body, "{\"by\":\"{{token}}\",\"sum\":3}");
+    let mut several = with_a_secret();
+    several.pick = Some("$.rows[*]".to_string());
+    assert_eq!(agent_send(&server, several).answer.body, "[1,2]");
+}
+
+#[test]
+fn a_pick_that_cannot_be_answered_gives_no_body_and_a_note() {
+    let json = Answering("{\"a\":1}".to_string(), "application/json");
+    for (path, why) in [("$.missing", "matched nothing"), ("$[", "not a JSONPath")] {
+        let mut send = with_a_secret();
+        send.pick = Some(path.to_string());
+        let done = agent_send(&json, send);
+        assert_eq!(done.answer.body, "", "{path}");
+        assert!(done.answer.note.clone().unwrap().contains(why), "{path}: {:?}", done.answer.note);
+    }
+    let text = Answering("plain words".to_string(), "text/plain");
+    let mut send = with_a_secret();
+    send.pick = Some("$.a".to_string());
+    let done = agent_send(&text, send);
+    assert_eq!(done.answer.body, "");
+    assert!(done.answer.note.unwrap().contains("not JSON"));
 }
