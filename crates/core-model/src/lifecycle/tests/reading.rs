@@ -99,3 +99,35 @@ fn each_built_in_is_read_from_its_own_source() {
         assert!(!one.ends().is_empty(), "{} ends", one.id());
     }
 }
+
+#[test]
+fn a_standing_survives_being_written_down_and_a_spelling_nobody_wrote_is_refused() {
+    for standing in [
+        Standing::Unread,
+        Standing::In(id("in_review")),
+        Standing::Unmapped(text("Awaiting QA")),
+        Standing::Unmapped(text("in:review")),
+    ] {
+        assert_eq!(Standing::from_wire(&standing.as_wire()), Some(standing.clone()), "{standing:?}");
+    }
+    for refused in ["", "in:", "in:Two Words", "somewhere:else"] {
+        assert_eq!(Standing::from_wire(refused), None, "{refused:?}");
+    }
+}
+
+#[test]
+fn what_was_seen_is_read_back_from_its_spelling_through_the_source_that_said_it() {
+    let seen = [
+        Observed::Tracker("Code Review"),
+        Observed::Forge(ForgeFact::ReviewersOn),
+        Observed::Watch(ReadingState::Running),
+        Observed::Fleet(FleetFact::StepEntered(StepId::new("plan"))),
+    ];
+    for one in seen {
+        let spelled = one.spelled();
+        assert_eq!(Observed::read(one.source(), &spelled), Some(one.clone()), "{one:?}");
+    }
+    // A word the source has no name for is not made into one.
+    assert_eq!(Observed::read(StateSource::Forge, "queued"), None);
+    assert_eq!(Observed::read(StateSource::Watch, "healthy"), None);
+}

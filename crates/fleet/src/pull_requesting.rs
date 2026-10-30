@@ -357,6 +357,7 @@ where
     ) -> Result<PullRequestState, Refusal> {
         let state = self.pull_request_read(manifest_id, root, number)?;
         self.ledger_follows(&state).await;
+        self.lifecycle_pull_seen(manifest_id, root, &state).await;
         Ok(state)
     }
 

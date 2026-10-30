@@ -141,6 +141,8 @@ mod workflow_page;
 mod workflow_changes;
 mod workflow_proposal_waits;
 mod auto_land;
+mod lifecycle_keeping;
+mod lifecycle_reading;
 mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
