@@ -5,9 +5,10 @@
 //! is for. A piece file that spells the same lifecycle out reads back equal to it, which a test in
 //! `config` holds.
 //!
-//! The ticket lists no tracker words. Two trackers rarely share theirs, and a lifecycle scoped to a
-//! Workspace (a set of repositories) or to a repository is where a person says which are which;
-//! until then every status is unmapped, which is a fact, where a default would have been a guess.
+//! The ticket lists one tracker word, `closed`, which no tracker spells another way. Two trackers
+//! rarely share the rest, and a lifecycle scoped to a Workspace (a set of repositories) or to a
+//! repository is where a person says which are which; until then every other status is unmapped,
+//! which is a fact, where a default would have been a guess.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -53,6 +54,7 @@ impl Lifecycle {
     /// A ticket in the tracker: `ticket`.
     pub fn ticket() -> Lifecycle {
         let words = || StateRead::Tracker(TrackerWords::default());
+        let closed = StateRead::Tracker(TrackerWords::of(["closed"]).expect("`closed` is one word"));
         built(
             "ticket",
             "Ticket",
@@ -60,7 +62,7 @@ impl Lifecycle {
                 state("todo", "To do", words()),
                 state("in_progress", "In progress", words()),
                 state("in_review", "In review", words()),
-                state("closed", "Closed", words()),
+                state("closed", "Closed", closed),
             ],
             moves(&[("todo", "in_progress"), ("in_progress", "in_review"), ("in_review", "closed")]),
             &["closed"],

@@ -674,6 +674,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/rows/:row/edit", post(crate::projects::edit_project_task::<D>))
         .route("/projects/rows/:row/remove", post(crate::projects::remove_project_row::<D>))
         .route("/projects/rows/:row/move", post(crate::projects::move_project_row::<D>))
+        .route("/projects/rows/:row/repository", post(crate::projects::move_project_task_repository::<D>))
         .route("/projects/rows/:row/tick", post(crate::projects::tick_project_task::<D>))
         .route("/health", get(get_health::<D>))
         .route("/manifests/:manifest_id", get(get_manifest::<D>))

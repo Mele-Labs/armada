@@ -9,12 +9,13 @@ import type { IssueRow, Linked, LinkedPull, Project, ProjectRow, TaskRow } from 
 /** An issue as the tracker names it: a bare number is `#7`, any other reference as it is. */
 export const referenceOf = (issue: string): string => (/^\d+$/.test(issue.trim()) ? `#${issue.trim()}` : issue.trim());
 
-const linked = (one: TaskIssue): Linked => ({ reference: referenceOf(one.issue), title: one.title ?? "", url: "", state: one.state ?? "open" });
-const pulled = (one: TaskPull): LinkedPull => ({ number: one.number, title: one.title ?? "", url: "", state: one.state ?? "open" });
+// A link names the repository it was linked in; one that does not is the task's own.
+const linked = (one: TaskIssue, manifestId: string): Linked => ({ reference: referenceOf(one.issue), title: one.title ?? "", url: "", state: one.state ?? "open", manifestId: one.manifest_id ?? manifestId });
+const pulled = (one: TaskPull, manifestId: string): LinkedPull => ({ number: one.number, title: one.title ?? "", url: "", state: one.state ?? "open", manifestId: one.manifest_id ?? manifestId });
 
 function rowOf(row: WireRow): ProjectRow {
   const manifestId = row.manifest_id;
-  if (row.kind === "issue") return { kind: "issue", id: row.id, manifestId, ...linked({ issue: row.issue, ...(row.title === undefined ? {} : { title: row.title }), ...(row.state === undefined ? {} : { state: row.state }) }) } satisfies IssueRow;
+  if (row.kind === "issue") return { kind: "issue", id: row.id, ...linked({ issue: row.issue, ...(row.title === undefined ? {} : { title: row.title }), ...(row.state === undefined ? {} : { state: row.state }) }, manifestId), manifestId } satisfies IssueRow;
   return {
     kind: "task",
     id: row.id,
@@ -24,8 +25,8 @@ function rowOf(row: WireRow): ProjectRow {
     done: row.state === "done",
     ...(row.state === "asked" ? { asked: true } : {}),
     ...(row.held_by === undefined ? {} : { job: { id: row.held_by.session_id, title: row.held_by.title ?? "Job" } }),
-    ...((row.issues ?? []).length === 0 ? {} : { issues: (row.issues ?? []).map(linked) }),
-    ...((row.pulls ?? []).length === 0 ? {} : { pulls: (row.pulls ?? []).map(pulled) }),
+    ...((row.issues ?? []).length === 0 ? {} : { issues: (row.issues ?? []).map((one) => linked(one, manifestId)) }),
+    ...((row.pulls ?? []).length === 0 ? {} : { pulls: (row.pulls ?? []).map((one) => pulled(one, manifestId)) }),
   } satisfies TaskRow;
 }
 

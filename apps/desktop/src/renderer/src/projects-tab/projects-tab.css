@@ -209,6 +209,15 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__issue { flex: none; }
 .projects-row__issues { display: inline-flex; flex: none; gap: var(--space-1); }
 .projects-row__issue[data-state="closed"] { color: var(--fg-subtle); text-decoration: line-through; }
+/* A task's repository is a menu in the chip's place, as quiet as the chip: it moves the task. */
+.projects-row__repository { flex: none; margin-inline-start: auto; }
+.projects-row__repository .armada-dropdown-menu__trigger { border-color: transparent; background: transparent; color: var(--fg-subtle); }
+.projects-row__repository .armada-dropdown-menu__trigger:hover { background: var(--bg-hover); color: var(--fg-default); }
+/* A link made in another repository than its task's: muted, with that repository's name after it. */
+.projects-row__issue-link { display: inline-flex; flex: none; align-items: baseline; gap: var(--space-1); }
+.projects-row__issue-link[data-elsewhere] .projects-row__issue,
+.projects-row__linked[data-elsewhere] .armada-pull-chip { color: var(--fg-subtle); }
+.projects-row__linked-in { flex: none; color: var(--fg-subtle); font-size: var(--text-xs); white-space: nowrap; }
 
 /* The first line's right-hand columns: the done ask, then the acts flush to the card's right padding. The Job is the second line. */
 .projects-row__ask { grid-column: 3; grid-row: 1; display: flex; justify-content: flex-end; gap: var(--space-1); }

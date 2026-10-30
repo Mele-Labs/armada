@@ -267,7 +267,7 @@ fn a_task_keeps_the_issues_linked_to_it_by_reference_and_loses_them_with_itself(
     store.add_project_row("p1", &task("t", "Task")).unwrap();
     store.add_project_row("p1", &issue("i", "7")).unwrap();
     let linked = |store: &crate::Store| match find(store, "t").item {
-        KeptRowItem::Task { issues, .. } => issues,
+        KeptRowItem::Task { issues, .. } => issues.into_iter().map(|one| one.reference).collect::<Vec<_>>(),
         KeptRowItem::Issue { .. } => panic!("a task"),
     };
     assert!(store.link_task_issue("t", "ABC-12").unwrap());
@@ -288,7 +288,7 @@ fn a_task_keeps_the_issues_linked_to_it_by_reference_and_loses_them_with_itself(
 
 fn pulls_of(store: &crate::Store, task: &str) -> Vec<u64> {
     match find(store, task).item {
-        KeptRowItem::Task { pulls, .. } => pulls,
+        KeptRowItem::Task { pulls, .. } => pulls.into_iter().map(|one| one.number).collect(),
         KeptRowItem::Issue { .. } => panic!("a task"),
     }
 }
@@ -350,6 +350,108 @@ fn a_merge_asks_about_an_open_or_held_task_once_and_leaves_a_done_one_alone() {
     assert_eq!(state_of(&store, "open"), KeptTaskState::Open, "so a task kept open stays open");
     assert!(store.ask_pulled_project_tasks("m2", 43, "2026-10-26T11:05:00.000Z").unwrap().is_empty(), "not another repository's");
     assert_eq!(store.ask_pulled_project_tasks("m1", 43, "2026-10-26T11:06:00.000Z").unwrap().len(), 0, "its other pull request already asked about it");
+}
+
+fn issue_links(store: &crate::Store, task: &str) -> Vec<(String, String)> {
+    match find(store, task).item {
+        KeptRowItem::Task { issues, .. } => issues.into_iter().map(|one| (one.reference, one.manifest_id)).collect(),
+        KeptRowItem::Issue { .. } => panic!("a task"),
+    }
+}
+
+fn pull_links(store: &crate::Store, task: &str) -> Vec<(u64, String)> {
+    match find(store, task).item {
+        KeptRowItem::Task { pulls, .. } => pulls.into_iter().map(|one| (one.number, one.manifest_id)).collect(),
+        KeptRowItem::Issue { .. } => panic!("a task"),
+    }
+}
+
+#[test]
+fn a_link_records_the_repository_its_task_is_in() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project_row(LOOSE_PROJECT, &task_in("m2", "t", "Task")).unwrap();
+    assert!(store.link_task_issue("t", "ABC-12").unwrap());
+    assert!(store.link_task_pull("t", 42).unwrap());
+    drop(store);
+
+    let store = open(&dir);
+    assert_eq!(issue_links(&store, "t"), [("ABC-12".to_string(), "m2".to_string())]);
+    assert_eq!(pull_links(&store, "t"), [(42, "m2".to_string())]);
+    let kept = |sql: &str| store.conn.query_row(sql, [], |row| row.get::<_, String>(0)).unwrap();
+    assert_eq!(kept("SELECT manifest_id FROM project_task_issues"), "m2", "kept on the link, not read off its task");
+    assert_eq!(kept("SELECT manifest_id FROM project_task_pulls"), "m2");
+}
+
+#[test]
+fn moving_a_task_to_another_repository_takes_its_subtasks_and_leaves_its_links_where_they_were_linked() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
+    store.add_project_row("p1", &task("p", "Parent")).unwrap();
+    store.add_project_row("p1", &subtask("s", "Sub", "p")).unwrap();
+    store.add_project_row("p1", &task("q", "Other")).unwrap();
+    store.add_project_row("p1", &issue("i", "7")).unwrap();
+    for one in ["p", "s"] {
+        store.link_task_issue(one, "ABC-12").unwrap();
+        store.link_task_pull(one, 42).unwrap();
+    }
+    store.hold_project_tasks("s1", &["p".to_string()]).unwrap();
+
+    assert!(store.move_project_task_repository("p", "m2").unwrap());
+    assert_eq!(find(&store, "p").manifest_id, "m2");
+    assert_eq!(find(&store, "s").manifest_id, "m2", "its subtask goes with it");
+    assert_eq!(find(&store, "q").manifest_id, "m1", "and no other row");
+    assert_eq!(row_ids(&store, 0), ["p", "s", "q", "i"], "in the place it stood");
+    assert!(matches!(state_of(&store, "p"), KeptTaskState::Held(holder) if holder.session == "s1"), "a Job holding it keeps it");
+    for one in ["p", "s"] {
+        assert_eq!(issue_links(&store, one), [("ABC-12".to_string(), "m1".to_string())], "{one}'s issue stays in m1");
+        assert_eq!(pull_links(&store, one), [(42, "m1".to_string())], "{one}'s pull request stays in m1");
+    }
+    store.link_task_pull("p", 43).unwrap();
+    assert_eq!(pull_links(&store, "p"), [(42, "m1".to_string()), (43, "m2".to_string())], "one linked after is the new repository's");
+
+    assert!(store.move_project_task_repository("p", "m2").unwrap(), "to the repository it is in");
+    assert_eq!(find(&store, "p").manifest_id, "m2");
+    assert!(!store.move_project_task_repository("s", "m3").unwrap(), "a subtask moves only with its task");
+    assert!(!store.move_project_task_repository("i", "m3").unwrap(), "an issue row is not a task");
+    assert!(!store.move_project_task_repository("nope", "m3").unwrap(), "nor a row there is not");
+    assert_eq!(find(&store, "s").manifest_id, "m2");
+    assert_eq!(find(&store, "i").manifest_id, "m1");
+}
+
+#[test]
+fn a_link_kept_before_links_named_their_repository_is_its_tasks_and_stays_there_when_the_task_moves() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project_row(LOOSE_PROJECT, &task("t", "Task")).unwrap();
+    // As a build before links named their repository kept them.
+    store.conn.execute("INSERT INTO project_task_issues (task_id, issue, position) VALUES ('t', '7', 0)", []).unwrap();
+    store.conn.execute("INSERT INTO project_task_pulls (task_id, pull, position) VALUES ('t', 42, 0)", []).unwrap();
+    assert_eq!(issue_links(&store, "t"), [("7".to_string(), "m1".to_string())], "its task's repository");
+    assert_eq!(pull_links(&store, "t"), [(42, "m1".to_string())]);
+
+    assert!(store.move_project_task_repository("t", "m2").unwrap());
+    assert_eq!(issue_links(&store, "t"), [("7".to_string(), "m1".to_string())], "still the one it was linked in");
+    assert_eq!(pull_links(&store, "t"), [(42, "m1".to_string())]);
+    assert_eq!(store.ask_pulled_project_tasks("m1", 42, "2026-10-26T11:00:00.000Z").unwrap().len(), 1, "its merge in m1 asks");
+}
+
+#[test]
+fn a_merge_asks_by_the_repository_a_pull_request_was_linked_in_after_its_task_moved() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project_row(LOOSE_PROJECT, &task_in("m1", "t", "Moved")).unwrap();
+    store.add_project_row(LOOSE_PROJECT, &task_in("m2", "u", "Stayed")).unwrap();
+    store.link_task_pull("t", 42).unwrap();
+    store.link_task_pull("u", 42).unwrap();
+    assert!(store.move_project_task_repository("t", "m2").unwrap());
+
+    assert_eq!(store.ask_pulled_project_tasks("m2", 42, "2026-10-26T11:00:00.000Z").unwrap().len(), 1, "m2's 42 asks only the task linked to it in m2");
+    assert_eq!(state_of(&store, "u"), KeptTaskState::Asked(None));
+    assert_eq!(state_of(&store, "t"), KeptTaskState::Open, "the same number in the repository it moved to is not its pull request");
+    assert_eq!(store.ask_pulled_project_tasks("m1", 42, "2026-10-26T11:01:00.000Z").unwrap().len(), 1, "m1's 42 still asks it");
+    assert_eq!(state_of(&store, "t"), KeptTaskState::Asked(None));
 }
 
 #[test]
@@ -439,6 +541,21 @@ fn migrating_gives_each_row_its_projects_repository_and_the_project_none() {
     assert!(conn.prepare("SELECT manifest_id FROM projects").is_err(), "a project has no repository now");
     assert_eq!(strings(&conn, "SELECT project_id FROM project_rows WHERE id IN ('a', 'b') ORDER BY id"), ["p1", "p2"], "rows stay in their project");
     assert_eq!(strings(&conn, "SELECT CAST(pull AS TEXT) FROM project_task_pulls"), ["7"], "links are left alone");
+}
+
+#[test]
+fn migrating_gives_each_link_a_repository_column_and_leaves_the_link_as_it_was() {
+    let conn = before_spanning();
+    old_project(&conn, "p1", "m1", "Launch", 0, "2026-10-26T10:00:01.000Z");
+    old_row(&conn, "a", "p1", 0, "");
+    conn.execute("INSERT INTO project_task_pulls (task_id, pull, position) VALUES ('a', 7, 0)", []).unwrap();
+    conn.execute("INSERT INTO project_task_issues (task_id, issue, position) VALUES ('a', 'ABC-12', 0)", []).unwrap();
+    span_repositories(&conn);
+
+    conn.execute_batch(include_str!("../../migrations/20261030T1500Z-project_task_links.repository.sql")).unwrap();
+
+    assert_eq!(strings(&conn, "SELECT CAST(pull AS TEXT) || '@' || manifest_id FROM project_task_pulls"), ["7@"], "empty: its task's, read when read");
+    assert_eq!(strings(&conn, "SELECT issue || '@' || manifest_id FROM project_task_issues"), ["ABC-12@"]);
 }
 
 #[test]

@@ -147,8 +147,8 @@ impl FleetFact {
 /// wrong is a ticket moved on a hunch. The words a person has not listed are unmapped, and the
 /// editor offers to map them.
 ///
-/// None is allowed: the lifecycle Armada carries lists no words because two trackers rarely share
-/// theirs, so every value is unmapped until a lifecycle scoped to a Workspace (a set of
+/// None is allowed: the lifecycle Armada carries lists only `closed` because two trackers rarely share
+/// the rest, so every other value is unmapped until a lifecycle scoped to a Workspace (a set of
 /// repositories) or to a repository lists them.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct TrackerWords(Vec<String>);

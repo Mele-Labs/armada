@@ -164,7 +164,7 @@ async fn closing_a_job_that_called_all_done_marks_its_notes_done_and_the_artifac
     let file = note_file(&rig.root, "n-1", Some(id.as_str()));
     Arc::clone(&rig.fleet).send_session_note(note(&id, "Other commands", None)).await.expect("taken");
     assert_eq!(status_of(&rig, &id, "n-1").await, "open");
-    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()) }).await.expect("done");
+    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()), summary: None }).await.expect("done");
 
     closed(&rig, &id).await;
 
@@ -209,7 +209,7 @@ async fn closing_a_job_leaves_a_note_sent_to_another_job_alone() {
     let theirs = note_file(&rig.root, "t-1", Some(OTHERS));
     let nobodys = note_file(&rig.root, "u-1", None);
     let (theirs_before, nobodys_before) = (on_disk(&theirs), on_disk(&nobodys));
-    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()) }).await.expect("done");
+    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()), summary: None }).await.expect("done");
 
     closed(&rig, &id).await;
 

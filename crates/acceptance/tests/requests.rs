@@ -208,6 +208,8 @@ fn send() -> SendRequest {
         environment: Some(ENVIRONMENT.to_string()),
         headers: vec![RequestHeader { name: "Authorization".to_string(), value: "Bearer {{token}}".to_string() }],
         body: None,
+        body_inline: true,
+        pick: None,
     }
 }
 

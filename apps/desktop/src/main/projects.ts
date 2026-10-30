@@ -1,7 +1,7 @@
 // His projects, as main asks Fleet for them: one request per route, and the stream's `projects.changed`, passed on to
 // every window. Nothing is kept here, since every write answers his projects and the loose tasks whole.
 
-import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
 import type { ProjectsActed } from "../shared/api/projects";
 import { ask } from "./request";
 
@@ -103,6 +103,11 @@ export class ProjectsHost {
   /** `POST /projects/rows/:row/move`. */
   moveRow(row: string, body: MoveProjectRow): Promise<ProjectsActed> {
     return this.row(row, "/move", body);
+  }
+
+  /** `POST /projects/rows/:row/repository`. */
+  moveTaskRepository(row: string, body: MoveProjectTaskRepository): Promise<ProjectsActed> {
+    return this.row(row, "/repository", body);
   }
 
   /** `POST /projects/rows/:row/tick`. */

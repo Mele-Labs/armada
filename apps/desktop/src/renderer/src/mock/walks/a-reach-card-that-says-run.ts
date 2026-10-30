@@ -8,7 +8,7 @@ const JOBS = region("Jobs", { exact: true });
 
 export const aReachCardThatSaysRun = walk("session-reach-outside", [
   { press: place("Cockpit"), say: "Cockpit" },
-  { press: inside(JOBS, button(/Custom margins/)), say: "A job held on a cat of a file in Documents" },
+  { press: inside(JOBS, button(/Retry budget/)), say: "A job held on a cat of a file in Documents" },
   { look: inside(CARD, text("Permission to read")), say: "A known read says read" },
   { press: place("Cockpit"), say: "Back to Jobs" },
   { press: inside(JOBS, button(/Release notes/)), say: "A job held on a write to the Desktop" },
