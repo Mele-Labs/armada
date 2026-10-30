@@ -148,8 +148,8 @@ impl FleetFact {
 /// editor offers to map them.
 ///
 /// None is allowed: the lifecycle Armada carries lists no words because two trackers rarely share
-/// theirs, so every value is unmapped until a lifecycle scoped to a Workspace or a repository
-/// lists them.
+/// theirs, so every value is unmapped until a lifecycle scoped to a Workspace (a set of
+/// repositories) or to a repository lists them.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct TrackerWords(Vec<String>);
 

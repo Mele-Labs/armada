@@ -2,8 +2,8 @@
 //!
 //! **A lifecycle's id and a state's id are written by a person and read back in
 //! `ends_on`** (`pr: approved`), so they are one word with no space and no colon,
-//! checked once here and never again. A scope is a Workspace's or a repository's
-//! id, and this crate knows nothing more of it than that it is not blank.
+//! checked once here and never again. A scope is the id of a Workspace (a set of repositories)
+//! or of a repository, and this crate knows nothing more of it than that it is not blank.
 
 use alloc::string::String;
 use core::fmt;
@@ -76,7 +76,10 @@ an_id! {
     StateId
 }
 
-/// A Workspace's or a repository's id, which is all a lifecycle says of the place it applies to.
+/// The id of a Workspace or a repository, which is all a lifecycle says of the place it applies to.
+///
+/// **Workspace here is the set of repositories that build one product**, and not the Manifest's
+/// monorepo unit that `config` also calls a workspace.
 ///
 /// **By id and not by value**: the Workspace is a noun of its own, in modules of its own, and a
 /// lifecycle that held one would be a lifecycle that could not be read before it existed.
@@ -103,7 +106,7 @@ pub struct BlankScope;
 
 impl fmt::Display for BlankScope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a scope is the id of a Workspace or a repository, and blank is neither")
+        f.write_str("a scope is the id of a set of repositories or of one repository, and blank is neither")
     }
 }
 

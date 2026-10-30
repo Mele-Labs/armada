@@ -31,7 +31,7 @@ fn an_id_is_one_word_of_lower_case_letters_digits_and_underscores() {
         assert!(StateId::new(written).is_err(), "{written:?} is not an id");
         assert!(LifecycleId::new(written).is_err(), "{written:?} is not an id");
     }
-    assert!(ScopeId::new("my-store").is_ok(), "a scope is an id the Workspace or repository chose");
+    assert!(ScopeId::new("my-store").is_ok(), "a scope is an id the set of repositories or the repository chose");
     assert!(ScopeId::new("  ").is_err());
 }
 

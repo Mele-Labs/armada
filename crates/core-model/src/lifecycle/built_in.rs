@@ -6,8 +6,8 @@
 //! `config` holds.
 //!
 //! The ticket lists no tracker words. Two trackers rarely share theirs, and a lifecycle scoped to a
-//! Workspace or a repository is where a person says which are which; until then every status is
-//! unmapped, which is a fact, where a default would have been a guess.
+//! Workspace (a set of repositories) or to a repository is where a person says which are which;
+//! until then every status is unmapped, which is a fact, where a default would have been a guess.
 
 use alloc::vec;
 use alloc::vec::Vec;

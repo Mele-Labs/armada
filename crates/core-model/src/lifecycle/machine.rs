@@ -26,7 +26,7 @@ use super::read::{Observed, Overlap, StateRead};
 pub enum LifecycleScope {
     /// Every repository, which is where the lifecycles Armada carries apply.
     Everywhere,
-    /// One Workspace or one repository, by id.
+    /// One Workspace (a set of repositories) or one repository, by id.
     Within(ScopeId),
 }
 
