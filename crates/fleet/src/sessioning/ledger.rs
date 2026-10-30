@@ -276,6 +276,7 @@ where
             .map(|hosting| self.hosted_facts_of(&session.id, hosting, reads.start));
         if session.state == store::SessionState::Live {
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
+            record.done_summary = reads.waiting.done_summary.clone();
             record.held_until = reads.limited.as_deref().map(wire_instant);
         }
         record.context_breakdown = reads

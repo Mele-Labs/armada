@@ -15,7 +15,7 @@ use super::session_host::{eventually, rig_placing};
 const TAKES_DONE_BACK: &str = "call all_done again";
 
 fn done(id: &SessionId) -> AllDone {
-    AllDone { session_id: Some(id.clone()) }
+    AllDone { session_id: Some(id.clone()), summary: None }
 }
 
 fn owed(id: &SessionId, items: usize) -> SetWaitingFor {
@@ -51,8 +51,54 @@ async fn a_done_session_reads_back_and_a_second_call_keeps_the_first_instant() {
     let again = rig.fleet.all_done(None, done(&id)).await.unwrap();
     assert_eq!(again.done_since, Some(since), "the callout does not move");
 
-    let nameless = rig.fleet.all_done(None, AllDone { session_id: None }).await;
+    let nameless = rig.fleet.all_done(None, AllDone { session_id: None, summary: None }).await;
     assert!(nameless.is_err(), "a call that places no session says nothing");
+}
+
+fn done_saying(id: &SessionId, summary: &str) -> AllDone {
+    AllDone { session_id: Some(id.clone()), summary: Some(summary.into()) }
+}
+
+#[tokio::test]
+async fn a_done_with_a_summary_puts_it_on_the_record_trimmed_and_the_persons_message_removes_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    assert_eq!(read(&rig, &id).await.done_summary, None);
+
+    let said = rig.fleet.all_done(None, done_saying(&id, "  Shipped the done summary.\n")).await.unwrap();
+    assert_eq!(said.done_summary.as_deref(), Some("Shipped the done summary."), "the answer carries it, trimmed");
+    assert_eq!(read(&rig, &id).await.done_summary.as_deref(), Some("Shipped the done summary."), "read back");
+
+    let bare = rig.fleet.all_done(None, done(&id)).await.unwrap();
+    assert_eq!(bare.done_summary.as_deref(), Some("Shipped the done summary."), "none keeps the kept one");
+    let blank = rig.fleet.all_done(None, done_saying(&id, "   ")).await.unwrap();
+    assert_eq!(blank.done_summary.as_deref(), Some("Shipped the done summary."), "a blank one is none");
+    let later = rig.fleet.all_done(None, done_saying(&id, "Also walked it.")).await.unwrap();
+    assert_eq!(later.done_summary.as_deref(), Some("Also walked it."), "a later one replaces");
+
+    rig.send(&id, "one more thing").await;
+    let after = read(&rig, &id).await;
+    assert_eq!((after.done_since, after.done_summary), (None, None));
+}
+
+#[tokio::test]
+async fn a_blank_summary_on_a_first_done_leaves_none_and_a_turn_starting_again_removes_a_kept_one() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let blank = rig.fleet.all_done(None, done_saying(&id, " \n ")).await.unwrap();
+    assert_eq!(blank.done_summary, None);
+    assert!(blank.done_since.is_some());
+
+    rig.send(&id, "do the thing").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "done");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+
+    rig.fleet.all_done(None, done_saying(&id, "Shipped it.")).await.unwrap();
+    assert_eq!(read(&rig, &id).await.done_summary.as_deref(), Some("Shipped it."));
+    rig.stand_in.init(0);
+    eventually(|| async { read(&rig, &id).await.done_summary.is_none() }).await;
+    assert_eq!(read(&rig, &id).await.done_since, None);
 }
 
 #[tokio::test]

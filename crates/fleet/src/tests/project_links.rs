@@ -89,7 +89,7 @@ async fn a_linked_job_finishing_asks_about_the_task_as_a_job_started_with_it_wou
     let job = a_job(&rig, "Launch").await;
     rig.fleet.link_task_job(parent, job_link(&job)).await.expect("linked");
 
-    rig.fleet.all_done(None, AllDone { session_id: Some(job.clone()) }).await.expect("done");
+    rig.fleet.all_done(None, AllDone { session_id: Some(job.clone()), summary: None }).await.expect("done");
 
     let rows = read(&rig).await;
     assert_eq!(held(&rows_of(&rows, 0)[0]).0, ProjectTaskState::Asked);
