@@ -5,6 +5,7 @@
 
 import { forgetAllKept, watchClippedText } from "@armada/components";
 
+import { setReasonTake } from "../cockpit/deck/needs-reason";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { forgetViewed } from "../cockpit/viewed";
 import { annotatesWith } from "./annotating";
@@ -29,6 +30,9 @@ const script = inline ?? (walking === null ? undefined : EVERY_WALK.get(walking)
 const asked = script?.scenario ?? query.get("scenario");
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
+// `?take=row|pillar|both` is where a Job's reason for needing him is drawn (`needs-reason.ts`); both without it.
+const take = query.get("take");
+if (take === "row" || take === "pillar" || take === "both") setReasonTake(take);
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;
 if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);

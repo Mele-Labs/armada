@@ -78,6 +78,8 @@ export type DroneSpec = {
   focused: boolean;
   dim: boolean;
   call: CallTone | undefined;
+  /** Why it calls him, the words the label over its marker carries: none where the take draws none. */
+  reason: string | undefined;
   /** The call was opened or answered a moment ago: its marker is going. */
   leaving: boolean;
   /** How many write clashes Fleet has it in, a small amber mark each. */
@@ -213,6 +215,8 @@ export type SceneInputs = {
   calls: ReadonlyMap<string, CallTone>;
   /** The call markers on a drone, whether live or still going out. */
   callOf: (key: string) => CallTone | undefined;
+  /** Why each drone calls him, by key, for the label over its marker. */
+  reasons?: ReadonlyMap<string, string>;
   loops: ReadonlySet<string>;
   /** The camera is locked on a drone, so the calm ones stand back. */
   locked: boolean;
@@ -336,6 +340,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       focused: i.focus === drone.key,
       dim: i.focus !== undefined && i.focus !== drone.key,
       call: i.callOf(drone.key),
+      reason: i.reasons?.get(drone.key),
       leaving: !i.calls.has(drone.key),
       clashes: i.clashed.get(drone.key) ?? 0,
       loop: i.loops.has(drone.key),

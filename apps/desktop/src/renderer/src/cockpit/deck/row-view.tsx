@@ -144,10 +144,10 @@ const cell = (field: ViewField | "tools" | "reported", content: ReactNode) => (
 );
 
 /**
- * The cells of a row after its title, one for each field that is on, then Now's line and Active PRs' line. `status` and `hit` are the row's own: the state marks it drew before, and what a search
+ * The cells of a row after its title, one for each field that is on, then Now's line (or `why`, the reason a row needs him, in its place) and Active PRs' line. `status` and `hit` are the row's own: the state marks it drew before, and what a search
  * matched in place of its age.
  */
-export function RowFields({ view, earlier, tools, reported, one, session, hit, status }: { view: RowView; earlier: boolean; tools: boolean; reported: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }) {
+export function RowFields({ view, earlier, tools, reported, one, session, hit, status, why }: { view: RowView; earlier: boolean; tools: boolean; reported: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode; why?: string | undefined }) {
   const issue = issueOf(session);
   const issueText = issue === undefined ? undefined : /^\d+$/.test(issue.number) ? `#${issue.number}` : issue.number;
   const flow = workflowOf(session);
@@ -163,7 +163,13 @@ export function RowFields({ view, earlier, tools, reported, one, session, hit, s
       {reported ? cell("reported", null) : null}
       {view.status ? cell("status", status) : null}
       {view.workflow ? cell("workflow", flow === undefined ? null : <Tooltip label={`${flow.name}: ${flow.step}`}><span className="deck-row__flow">{flow.step}</span></Tooltip>) : null}
-      {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}
+      {why !== undefined ? (
+        <Tooltip label={why} asChild>
+          <span className="deck-row__says deck-row__why">{why}</span>
+        </Tooltip>
+      ) : view.now ? (
+        <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
+      ) : null}
       {view.pr && open !== undefined ? (
         <span className="deck-row__prs">
           <Tooltip label={`Pull request #${open.number}`}><Readout className="deck-row__chip">#{open.number}</Readout></Tooltip>

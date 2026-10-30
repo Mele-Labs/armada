@@ -325,6 +325,10 @@
 .deck-row__flow { font-family: var(--font-sans); }
 .deck-row__says { grid-column: 1 / -1; grid-row: 2; min-height: var(--leading-head); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-head); }
 .deck-row__prs { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; }
+/* A row that needs him says why on a second line, whether or not Now is on: the same room Now takes, for this row alone. */
+.deck-row[data-why] { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
+.deck-row[data-why]:not([data-queued]) { grid-template-rows: var(--deck-line) auto auto; }
+.deck-list__item:has(> .deck-row[data-why]) :is(.deck-row__reported, .deck-row__tools, .deck-row__clash, .deck-row__earlier) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 /* The clash mark is a button, so it sits beside the row, over the marks' first slot, set from the trailing edge by the columns after its own. The earlier Job behind a row that took its place is
    a button on the same slot. */
 .deck-row__clash,

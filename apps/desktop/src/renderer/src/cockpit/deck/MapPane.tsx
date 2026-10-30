@@ -5,6 +5,7 @@ import type { CockpitProps } from "./props";
 import { Battlefield } from "./Battlefield";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
 import { moveCursor, select, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
+import { reasonOnPillar } from "./needs-reason";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
 import { openPullRequestInPanel, openSlotKeyInPanel } from "../../shared-panel/store";
@@ -26,7 +27,7 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
 export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
   const cursor = useDeck((deck) => deck.cursor);
   const field = useField(props, ship, listed, props.picked?.root);
-  const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds, outposts } = field;
+  const { replay, calls, reasons, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds, outposts } = field;
   return (
     <section className="deck-pane" data-bare="" aria-label="Flight map">
       <div className="deck-map">
@@ -41,6 +42,7 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
           plays={drawn}
           facts={facts}
           calls={calls}
+          reasons={reasonOnPillar() ? reasons : undefined}
           clashes={clashes}
           focus={replay === undefined ? focusKey : undefined}
           builds={builds}

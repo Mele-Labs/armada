@@ -27,6 +27,7 @@ import { fieldAt, windowOf } from "./replay";
 import { MOST_PLAYING, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./plays";
 import { toneOf } from "./order";
 import { callOfSubject, scene, useDeck } from "./store";
+import { reasonOf, reasonsOf } from "./needs-reason";
 import { slotsOf, type Ship, type Subject } from "./ship";
 import { clashesOf, touchesFromEvents, touchesOf } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
@@ -224,7 +225,8 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       const build = replay === undefined ? built.get(drone.key) : undefined;
       const { last, ticks } = eventFactsOf(before, drone.key, keyOf, at);
       const owed = callOfSubject(subject, answered);
-      const call = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed)?.title;
+      // The call's line is why it calls him; the Job's title is the callout's own.
+      const call = owed === undefined ? undefined : reasonOf(subject, ship.calls) ?? ship.calls.find((one) => one.key === owed)?.title;
       const pad = drone.slot === undefined ? undefined : pads.get(drone.slot);
       out.set(drone.key, {
         state: { Glyph: subject.mark.Glyph, said: subject.mark.said, tone: toneOf(subject) },
@@ -253,6 +255,9 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     [flying, ship.subjects, answered, visited, replay === undefined],
   );
 
+  // Why each drone that holds a call calls him, for the label over its marker.
+  const reasons = useMemo(() => reasonsOf(ship), [ship.subjects, ship.calls]);
+
   // Where Fleet says two holders write one area, as the marks of the drones the map holds.
   const clashes = useMemo(
     () =>
@@ -263,5 +268,5 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     [written, all],
   );
 
-  return { calls, repos, pads, goals, crates, drones: shaped, outposts, builds, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
+  return { calls, reasons, repos, pads, goals, crates, drones: shaped, outposts, builds, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
 }

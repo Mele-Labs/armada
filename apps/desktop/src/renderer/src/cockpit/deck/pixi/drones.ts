@@ -27,7 +27,7 @@ export const GHOST = 0.25;
 /** Everything that changes the picture, so a drone is drawn again only when one of these does. */
 export function droneSig(s: DroneSpec): string {
   const d = s.drone;
-  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes, s.ghost, s.small].join(":");
+  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.reason, s.leaving, s.clashes, s.ghost, s.small].join(":");
 }
 
 /** A rotor: a squashed disc so it reads at an angle, its blades standing still inside it. */
@@ -77,11 +77,14 @@ const MEGAPHONE = [
   "M8 6v8",
 ];
 
+/** How many characters of a reason the label over a marker holds. */
+const REASON_MOST = 30;
+
 /**
  * The marker of a call he has not opened: a badge over the drone on a stem, amber while it is owed and red while its Check is failing,
- * lit so it is found across the field. Its origin is the foot of the stem. The stage scales it against the zoom, so it is one size.
+ * lit so it is found across the field. Its origin is the foot of the stem. The stage scales it against the zoom, so it is one size. A `reason` is the label over the badge.
  */
-export function callMark(tone: "ask" | "bad", p: Palette): Container {
+export function callMark(tone: "ask" | "bad", p: Palette, reason?: string): Container {
   const c = tone === "bad" ? p.bad : p.ask;
   const out = new Container();
   const lit = glowSprite(46, c, 0.7);
@@ -95,6 +98,13 @@ export function callMark(tone: "ask" | "bad", p: Palette): Container {
   icon.scale.set(18 / 24);
   icon.position.set(-9, -33 - 9);
   out.addChild(g, icon);
+  // Why it calls, over the badge: the smallest type, cut where it would run past the badge's neighbours.
+  if (reason !== undefined) {
+    const said = reason.length > REASON_MOST ? `${reason.slice(0, REASON_MOST - 1)}…` : reason;
+    const label = name(said, p, p.fg, { x: 0.5, y: 1 });
+    label.position.set(0, -33 - 17 - 5);
+    out.addChild(label);
+  }
   return out;
 }
 
@@ -165,7 +175,7 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   out.alpha = alphaOf(s);
   const tone = s.call;
   const head = Math.round(40 * big);
-  const mark = tone === undefined ? undefined : callMark(tone, p);
+  const mark = tone === undefined ? undefined : callMark(tone, p, s.reason);
   if (mark !== undefined && s.leaving) mark.alpha = 0.35;
   return { body: out, mark, clashes: Array.from({ length: s.clashes }, () => clashMark(p)), head };
 }

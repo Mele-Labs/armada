@@ -60,6 +60,8 @@ export type BattlefieldProps = {
   facts: ReadonlyMap<string, DroneFacts>;
   /** The drones that hold a call he has not opened, and whether it is owed to him or its Check is failing. */
   calls: ReadonlyMap<string, CallTone>;
+  /** Why each of those drones calls him, by key, for the label over its marker. */
+  reasons?: ReadonlyMap<string, string> | undefined;
   /** Where Fleet reports two holders writing one area. */
   clashes: readonly Clash[];
   /** The drone a picked event is about. */
@@ -116,7 +118,7 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, trails, plays: givenPlays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, float = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, trails, plays: givenPlays, facts, calls, reasons, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, float = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -380,8 +382,8 @@ export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, 
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }), ...(lights === undefined ? {} : { lights }), ...(walk === undefined ? {} : { walk }), ...(lens === undefined ? {} : { lens }), links, linkLoops }),
-    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned, touched, glow, route, lights, walk, lens, links, linkLoops],
+    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, ...(reasons === undefined ? {} : { reasons }), loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }), ...(lights === undefined ? {} : { lights }), ...(walk === undefined ? {} : { walk }), ...(lens === undefined ? {} : { lens }), links, linkLoops }),
+    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, reasons, gone, heldLoops, locked, trails, planned, touched, glow, route, lights, walk, lens, links, linkLoops],
   );
   const locateWord = lock !== undefined ? "Locate the selection" : framing !== undefined ? "Back to this Job" : "Back to the whole field";
 

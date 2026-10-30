@@ -71,6 +71,7 @@ import { MarkGlyph } from "./shared";
 import { lampOf, toneOf } from "./order";
 import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, moveRow, openCall, openLinked, openSubject, select, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
 import { callingHomes } from "./homes";
+import { reasonOnRow, reasonsOf } from "./needs-reason";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { FieldDock } from "../../session-view/FieldDock";
@@ -227,7 +228,7 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-function List({ subjects, calling, banding, selected, builds, picked, found, onPick, onEarlier, onMove, onAutopilot, onReported }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onEarlier: (id: string) => void; onMove: (key: string, target: string, after: boolean) => void; onAutopilot: (root: string) => void; onReported: (reportId: string) => void }) {
+function List({ subjects, calling, reasons, banding, selected, builds, picked, found, onPick, onEarlier, onMove, onAutopilot, onReported }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; reasons: ReadonlyMap<string, string>; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onEarlier: (id: string) => void; onMove: (key: string, target: string, after: boolean) => void; onAutopilot: (root: string) => void; onReported: (reportId: string) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
@@ -265,6 +266,8 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     // The row stands for the earlier Job too: it is open when that one is.
     const here = selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
     const needs = one.kind === "session" && toneOf(one) === "ask" && !here;
+    // Why it needs him, as a second line under its name.
+    const why = needs && reasonOnRow() ? reasons.get(one.key) : undefined;
     // What the row says of how it stands: a handoff or a pause, else its phase, then its state mark.
     const state = (
       <>
@@ -275,7 +278,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     return (
       <li key={one.key} className="deck-list__item" style={one.linked?.depth === undefined ? undefined : ({ "--deck-depth": one.linked.depth } as CSSProperties)} data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} {...(toolsMissing === undefined ? {} : { tools: toolsMissingSaid(toolsMissing) })} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-lamp={lampOf(one)} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-why={why === undefined ? undefined : ""} data-lamp={lampOf(one)} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
           if (event.key === "h" && one.earlier !== undefined && !event.metaKey && !event.ctrlKey && !event.altKey) return (event.preventDefault(), onEarlier(one.earlier));
           if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
@@ -293,7 +296,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             )}
             {one.title}
           </span>
-          <RowFields view={view} earlier={earlier} tools={tooled} reported={reported} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
+          <RowFields view={view} earlier={earlier} tools={tooled} reported={reported} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} why={why} />
         </button>
         </Inspect>
         {one.earlier === undefined ? null : (
@@ -1084,6 +1087,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   // A Session calling him pulses on its row; there is no panel of calls.
   const calling = useMemo(() => new Map(incoming.map((one) => [callOwnerOf(one), one] as const)), [incoming]);
+  const reasons = useMemo(() => reasonsOf(ship), [ship.subjects, ship.calls]);
   // The Field under the Jobs list is the open Job's, else the Cockpit's own map, and not a second map while the centre already draws it.
   const selectedJob = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const centreView = useDeck((deck) => deck.view);
@@ -1125,7 +1129,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
-          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
+          <List subjects={listed} calling={calling} reasons={reasons} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
           {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
