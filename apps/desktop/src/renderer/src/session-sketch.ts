@@ -19,12 +19,22 @@ export function sceneOfSketch(drawing: SessionSketch | Scene): Scene {
   };
 }
 
-/** What the panel reads of a ledger sketch: its scene, and the one it was drawn against. */
-export function readingOfSketch(one: Sketch): { scene: Scene; title: string; against?: { title: string; scene: Scene } } {
+/** A ledger sketch with the scenes of its revisions, once `useSketchRevisions` has read them all. */
+type SketchRead = Sketch & { revisionScenes?: readonly Scene[] };
+
+/** `one` with the scenes of its revisions where all of them are read, so a reading of it offers them. */
+export function withRevisionScenes(one: Sketch | undefined, revisions: ReadonlyMap<string, readonly Scene[]>): SketchRead | undefined {
+  const scenes = one === undefined ? undefined : revisions.get(one.id);
+  return one === undefined || scenes === undefined ? one : { ...one, revisionScenes: scenes };
+}
+
+/** What the panel reads of a ledger sketch: its scene, the one it was drawn against, and its revisions where read. */
+export function readingOfSketch(one: SketchRead): { scene: Scene; title: string; against?: { title: string; scene: Scene }; revisions?: readonly Scene[] } {
   return {
     title: one.title,
     scene: sceneOfSketch(one.drawing),
     ...(one.against === undefined ? {} : { against: { title: one.against.title, scene: sceneOfSketch(one.against.drawing) } }),
+    ...(one.revisionScenes === undefined ? {} : { revisions: one.revisionScenes }),
   };
 }
 

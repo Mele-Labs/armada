@@ -80,7 +80,7 @@ import { chooseFolder, openLink, readRetro, readWorkflowChanges, searchFiles } f
 import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } from "./session-view/watch-marks";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
-import { readingOfSketch, sceneOfSketch, useSketchRevisions, withSketchRevisions } from "./session-sketch";
+import { readingOfSketch, sceneOfSketch, useSketchRevisions, withRevisionScenes, withSketchRevisions } from "./session-sketch";
 import { documentAnswerOf, forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
 import { askToReportJob } from "./report";
 import { backgroundEntryOf } from "./session-background";
@@ -1117,11 +1117,11 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
   const opensPrs = opensPullRequests(session);
   // A sketch put to him and not yet answered is pinned after the plan, where the plan waits. The ledger is newest first, so the first is the latest drawn.
-  const put = draft.answerSketch === undefined ? undefined : attachmentsOf(session, "sketch").find((one) => one.asked === true && one.settled === undefined);
+  const put = withRevisionScenes(draft.answerSketch === undefined ? undefined : attachmentsOf(session, "sketch").find((one) => one.asked === true && one.settled === undefined), sketchRevisions);
   const sketching =
     put === undefined
       ? undefined
-      : { ...readingOfSketch(put), ...(sketchRevisions.has(put.id) ? { revisions: sketchRevisions.get(put.id)! } : {}), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
+      : { ...readingOfSketch(put), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
