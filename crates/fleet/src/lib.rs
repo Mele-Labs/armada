@@ -350,6 +350,9 @@ mod wire;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
+/// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read
+/// from the places a piece is kept.
+mod piece_places;
 pub mod workspaces;
 
 #[cfg(test)]
