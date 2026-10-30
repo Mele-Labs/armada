@@ -1,0 +1,7 @@
+[icons.copy-plus]
+  means = "A sheet with a second sheet behind it and a cross: a copy made"
+  group = "Workflows"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Make my copy: Armada's workflow becomes one of the person's own, which they may change. Never the clipboard, which is `copy`."
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. On Armada's row in the Workflows page's header toolbar, and as the toolbar over a node on Armada's lanes, where the first edit makes the person's own copy. Tooltip `Make my copy`. Drawn at 16px, stroke 2."

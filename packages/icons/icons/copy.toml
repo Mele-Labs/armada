@@ -10,3 +10,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `account-page`. An icon act beside the code of a sign-in in flight, tooltip `Copy`, then `Copied` and `check` for a moment."
+
+[[icons.copy.usage]]
+  means = "Copy a piece's package text to the clipboard, in a toolbar"
+  group = "Kit"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Copy`, beside `Share` and Commit to repository."

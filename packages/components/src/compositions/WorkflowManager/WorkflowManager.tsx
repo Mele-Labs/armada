@@ -1,6 +1,7 @@
-import { Ban, Check, CircleDashed, GitCompare, Layers, Link2, ListMinus, ListPlus, LoaderCircle, Plus } from "lucide-react";
+import { Ban, Check, CircleDashed, CopyPlus, GitCompare, GitPullRequestArrow, Layers, Link2, ListMinus, ListPlus, LoaderCircle, Plus, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -14,6 +15,8 @@ import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
 import { STEP_FIELDS, stepChangesOf } from "./diff";
 import type { StepChange } from "./diff";
+import { RuleChangeCard, WorkspaceEditor } from "./WorkspaceEditor";
+import type { StepRows, WorkspaceEditing } from "./WorkspaceEditor";
 import { STEP_GLYPHS, keyOf } from "./types";
 import type {
   AgentState,
@@ -34,10 +37,11 @@ import type {
  * as its steps, one card each, with the words the agent is told in a box that is edited where it stands.
  * The decision of 27 Oct, a feature Job walks before it tests.
  *
- * **Armada's rows are read-only.** Make my copy puts one under Yours; Propose to Armada asks for the
- * change to land for every install. A repository's copy and Yours are edited, compared with Armada's,
- * reset to it, shared and deleted. A change of shape is typed to an agent, and nothing saves until its
- * diff is approved.
+ * **Armada's rows are read-only** in the column of steps: Make my copy puts one under Yours; Propose to Armada
+ * asks for the change to land for every install. A repository's copy and Yours are edited, compared with
+ * Armada's, reset to it, shared and deleted. A change of shape is typed to an agent, and nothing saves until
+ * its diff is approved. **In the Workspace's lanes every row is edited**: the first change to Armada's makes
+ * the person's own copy behind it, and the box that tells an agent what to change stands over the lanes.
  *
  * Its columns are `data-col`, for the System page's keys: up and down pick a row, Enter goes into the
  * steps, and `E` edits the focused step.
@@ -79,6 +83,8 @@ export type WorkflowManagerProps = {
   onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
   onNew?: () => void;
+  /** The Workspace the workflows are edited in: the picked one draws as lanes with rules between them, in place of its column of steps. Absent draws the column. */
+  workspace?: WorkspaceEditing;
   /** The switch for Jobs at the top and one on each row. Absent draws none. */
   switches?: WorkflowSwitches;
 };
@@ -206,6 +212,9 @@ export function WorkflowManager(props: WorkflowManagerProps) {
             {props.notice}
           </p>
         )}
+        <h3 className="armada-wm__kept" aria-hidden="true">
+          Kept in
+        </h3>
         <div className="armada-wm__groups">
           {groups.map((group) => (
             <div key={group.key} role="group" aria-label={group.label} className="armada-wm__group">
@@ -256,7 +265,8 @@ export function WorkflowManager(props: WorkflowManagerProps) {
       <div className="armada-wm__detail" data-col="detail">
         {current === undefined ? null : (
           <Detail
-            key={keyOf(current)}
+            // In the lanes a copy made on the first edit swaps the row for Yours; the pick, the tab and the panel stay.
+            key={props.workspace === undefined ? keyOf(current) : current.id}
             {...props}
             workflow={current}
             armada={workflows.find((one) => one.source === "armada" && one.id === current.id && one.leftOut === undefined)}
@@ -292,6 +302,31 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
     else setSaid((was) => (words !== undefined ? { words } : was?.refused === true ? null : was));
     return refused === undefined;
   };
+  const lanes = acts.workspace !== undefined;
+  // **In the lanes the first change on Armada's workflow makes the person's own copy**, once, and the change is written to it.
+  const yours: WorkflowRef = { id: workflow.id, source: "yours", ...(workflow.manifestId === undefined ? {} : { manifestId: workflow.manifestId }) };
+  const copying = useRef<Promise<WorkflowActAnswer> | undefined>(undefined);
+  useEffect(() => {
+    copying.current = undefined;
+  }, [workflow.source]);
+  /** Fleet's sentence where the copy was refused. */
+  const ensureCopy = (): Promise<WorkflowActAnswer> => {
+    if (workflow.source !== "armada") return Promise.resolve(undefined);
+    copying.current ??= acts.onMakeCopy(ref).then((refused) => {
+      if (refused !== undefined) {
+        copying.current = undefined;
+        setSaid({ words: refused, refused: true });
+      }
+      return refused;
+    });
+    return copying.current;
+  };
+  /** Writes a change to the workflow's own definition, or to the copy the change makes. */
+  const inCopy = async (act: (to: WorkflowRef) => Promise<WorkflowActAnswer>): Promise<WorkflowActAnswer> => {
+    if (workflow.source !== "armada") return act(ref);
+    return (await ensureCopy()) ?? act(yours);
+  };
+  const first = workflow.source === "armada" || comparable || (workflow.leftOut !== undefined && armada !== undefined);
   const header = workflow.leftOut === undefined ? (
     <p className="armada-wm__for">
       <span className="armada-wm__fact-label">For requests</span>
@@ -303,6 +338,57 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
       <span>{workflow.leftOut.said}</span>
     </p>
   );
+  /** One step as its card: in the column, or in the inspector when the lanes pick it. */
+  const stepCard = (step: ManagedStep, at: number, rows?: StepRows): ReactNode => (
+    <Step
+      key={step.id}
+      n={at + 1}
+      first={at === 0 && acts.workspace === undefined}
+      step={step}
+      keep={rows?.keep ?? `${key}/${step.id}`}
+      editable={editable || lanes}
+      live={lanes}
+      {...(rows === undefined ? {} : { rows })}
+      draft={drafts[`${key}/${step.id}`]}
+      onDraft={(words) =>
+        setDrafts((was) => {
+          const next = { ...was };
+          if (words === undefined) delete next[`${key}/${step.id}`];
+          else next[`${key}/${step.id}`] = words;
+          return next;
+        })
+      }
+      onSave={rows?.save ?? ((words) => run(() => inCopy((to) => acts.onSaveWords(to, step.id, words))))}
+      drifted={drift[workflow.id]?.[step.id] ?? []}
+      suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
+      suggestible={editable}
+      suggesting={suggesting === `${workflow.id}/${step.id}`}
+      onOpenJob={(job) => acts.onOpenJob(ref, job.jobId)}
+      onNotDrift={(driftId) => void run(() => acts.onNotDrift(ref, step.id, driftId))}
+      onSuggest={() => void run(() => acts.onSuggest(ref, step.id))}
+      onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
+      onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
+      versus={comparing && comparable ? { armada: armada!.steps.find((one) => one.id === step.id) } : undefined}
+    />
+  );
+  /** The box that tells an agent what to change, and the diff it comes back with. In the lanes it stands over them, on every workflow. */
+  const agentBox =
+    editable || lanes ? (
+      <Agent
+        key={lanes ? workflow.id : key}
+        keep={lanes ? workflow.id : key}
+        agent={agent}
+        onAsk={(request) => inCopy((to) => acts.onAsk(to, request))}
+        onApprove={() => acts.onApprove(ref)}
+        onDismiss={() => acts.onDismiss(ref)}
+        onSendBack={(notes) => acts.onSendBack(ref, notes)}
+        onBuildSupport={() => acts.onBuildSupport(ref)}
+        onOpenJob={(job) => acts.onOpenJob(ref, job)}
+        jobFor={jobFor}
+        workspace={acts.workspace}
+        steps={workflow.steps}
+      />
+    ) : null;
   return (
     <>
       <header className="armada-wm__head">
@@ -310,112 +396,91 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
           <h2 className="armada-wm__name">{workflow.id}</h2>
           {header}
         </div>
-        <div className="armada-wm__acts">
-          {workflow.source === "armada" ? (
-            <>
-              <Button variant="secondary" size="sm" onClick={() => void run(() => acts.onMakeCopy(ref))}>
-                Make my copy
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
+        <div className="armada-wm__acts" role="toolbar" aria-label="Acts">
+          {first ? (
+          <div className="armada-wm__acts-group" role="group" aria-label="Armada's">
+            {workflow.source === "armada" && !lanes ? (
+              <Act
+                label="Make my copy"
+                Glyph={CopyPlus}
+                onPress={() => void run(() => acts.onMakeCopy(ref))}
+              />
+            ) : null}
+            {comparable ? <Act label="Compare with Armada's" Glyph={GitCompare} pressed={comparing} onPress={() => setComparing(!comparing)} /> : null}
+            {comparable || (workflow.leftOut !== undefined && armada !== undefined) ? (
+              <Act
+                label="Reset to Armada's"
+                Glyph={Undo2}
+                onPress={() =>
+                  void run(async () => {
+                    const refused = await acts.onReset(ref);
+                    if (refused === undefined) setDrafts((was) => Object.fromEntries(Object.entries(was).filter(([name]) => !name.startsWith(`${key}/`))));
+                    return refused;
+                  }, "Matches Armada's")
+                }
+              />
+            ) : null}
+            {workflow.source === "armada" ? (
+              <Act
+                label="Propose to Armada"
+                Glyph={GitPullRequestArrow}
                 disabled={said !== null && said.refused !== true}
-                onClick={() =>
+                onPress={() =>
                   void (async () => {
                     const proposed = await acts.onPropose(ref);
                     if (typeof proposed === "string") setSaid({ words: proposed, refused: true });
                     else setSaid({ words: proposed?.note ?? "Sent. A Job started on the Armada repository", ...(proposed === undefined ? {} : { job: proposed.jobId }) });
                   })()
                 }
-              >
-                Propose to Armada
-              </Button>
-            </>
-          ) : (
-            <>
-              {comparable ? (
-                <>
-                  <Button variant="secondary" size="sm" aria-pressed={comparing} onClick={() => setComparing(!comparing)}>
-                    Compare with Armada's
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      void run(async () => {
-                        const refused = await acts.onReset(ref);
-                        if (refused === undefined) setDrafts((was) => Object.fromEntries(Object.entries(was).filter(([name]) => !name.startsWith(`${key}/`))));
-                        return refused;
-                      }, "Matches Armada's")
-                    }
-                  >
-                    Reset to Armada's
-                  </Button>
-                </>
-              ) : null}
-              {workflow.leftOut !== undefined && armada !== undefined ? (
-                <Button variant="secondary" size="sm" onClick={() => void run(() => acts.onReset(ref), "Matches Armada's")}>
-                  Reset to Armada's
-                </Button>
-              ) : null}
-              {editable ? actsFor?.(ref) : null}
-              <Button variant="destructive" size="sm" onClick={() => void run(() => acts.onDelete(ref))}>
-                Delete
-              </Button>
-            </>
+              />
+            ) : null}
+          </div>
+          ) : null}
+          {workflow.source !== "armada" && editable ? actsFor?.(ref) : null}
+          {workflow.source === "armada" ? null : (
+            <div className="armada-wm__acts-group" role="group" aria-label="Delete" data-end="">
+              <Act label="Delete" Glyph={Trash2} destructive onPress={() => void run(() => acts.onDelete(ref))} />
+            </div>
           )}
         </div>
         {said === null ? null : <Said {...said} onOpenJob={(job) => acts.onOpenJob(ref, job)} />}
       </header>
 
-      <div className="armada-wm__steps">
-        {workflow.steps.map((step, at) => (
-          <Step
-            key={step.id}
-            n={at + 1}
-            first={at === 0}
-            step={step}
-            keep={`${key}/${step.id}`}
-            editable={editable}
-            draft={drafts[`${key}/${step.id}`]}
-            onDraft={(words) =>
-              setDrafts((was) => {
-                const next = { ...was };
-                if (words === undefined) delete next[`${key}/${step.id}`];
-                else next[`${key}/${step.id}`] = words;
-                return next;
-              })
-            }
-            onSave={(words) => run(() => acts.onSaveWords(ref, step.id, words))}
-            drifted={drift[workflow.id]?.[step.id] ?? []}
-            suggestion={editable ? suggestions[workflow.id]?.[step.id] : undefined}
-            suggestible={editable}
-            suggesting={suggesting === `${workflow.id}/${step.id}`}
-            onOpenJob={(job) => acts.onOpenJob(ref, job.jobId)}
-            onNotDrift={(driftId) => void run(() => acts.onNotDrift(ref, step.id, driftId))}
-            onSuggest={() => void run(() => acts.onSuggest(ref, step.id))}
-            onApproveSuggestion={() => acts.onApproveSuggestion(ref, step.id)}
-            onDismissSuggestion={() => acts.onDismissSuggestion(ref, step.id)}
-            versus={comparing && comparable ? { armada: armada!.steps.find((one) => one.id === step.id) } : undefined}
-          />
-        ))}
-      </div>
-
-      {editable ? (
-        <Agent
-          key={key}
-          keep={key}
-          agent={agent}
-          onAsk={(request) => acts.onAsk(ref, request)}
-          onApprove={() => acts.onApprove(ref)}
-          onDismiss={() => acts.onDismiss(ref)}
-          onSendBack={(notes) => acts.onSendBack(ref, notes)}
-          onBuildSupport={() => acts.onBuildSupport(ref)}
-          onOpenJob={(job) => acts.onOpenJob(ref, job)}
-          jobFor={jobFor}
+      {acts.workspace === undefined ? (
+        <div className="armada-wm__steps">{workflow.steps.map((step, at) => stepCard(step, at))}</div>
+      ) : (
+        <WorkspaceEditor
+          editing={acts.workspace}
+          workflow={workflow}
+          editable={editable}
+          proposed={agent.phase === "proposed" ? agent.rules : undefined}
+          stepCard={stepCard}
+          panel={acts.workspace.panel}
+          above={agentBox}
+          onMakeCopy={() => void ensureCopy()}
+          onTell={(request) => inCopy((to) => acts.onAsk(to, request))}
+          onSteps={(change) =>
+            void inCopy(async (to) => {
+              acts.workspace!.onSteps(to, change);
+              return undefined;
+            })
+          }
         />
-      ) : null}
+      )}
+
+      {lanes || !editable ? null : agentBox}
     </>
+  );
+}
+
+/** One act of the header's toolbar: a glyph with its tooltip, named for a reader who cannot see it. */
+function Act({ label, Glyph, onPress, pressed, disabled, destructive }: { label: string; Glyph: LucideIcon; onPress: () => void; pressed?: boolean; disabled?: boolean; destructive?: boolean }) {
+  return (
+    <Tooltip label={label}>
+      <Button variant={destructive === true ? "destructive" : "secondary"} size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onPress}>
+        <Glyph size={16} strokeWidth={2} aria-hidden />
+      </Button>
+    </Tooltip>
   );
 }
 
@@ -440,6 +505,10 @@ type StepProps = {
   step: ManagedStep;
   keep: string;
   editable: boolean;
+  /** The words are saved as they are left, with no Save or Discard to press. */
+  live: boolean;
+  /** Drawn in the side panel: the step's name and what ends it are fields in the card's rows, and the band that repeats its name is left off. */
+  rows?: StepRows;
   draft: string | undefined;
   onDraft: (words: string | undefined) => void;
   /** Whether the save went through, so the words typed are let go only then. */
@@ -464,6 +533,8 @@ function Step({
   step,
   keep,
   editable,
+  live,
+  rows,
   draft,
   onDraft,
   onSave,
@@ -479,6 +550,7 @@ function Step({
   versus,
 }: StepProps) {
   const card = useRef<HTMLDivElement>(null);
+  const id = useId();
   const Glyph = step.glyph === undefined ? undefined : STEP_GLYPHS[step.glyph];
   // Fleet's sentence for a suggestion's Approve or Dismiss it would not take, said on the card.
   const [refused, setRefused] = useState<string | undefined>(undefined);
@@ -507,10 +579,15 @@ function Step({
         card.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
       }}
     >
+      {rows !== undefined && !added && !differs && !(changed && !live) ? null : (
       <div className="armada-wm-step__band">
-        <span className="armada-wm-step__n">{n}</span>
-        <span className="armada-wm-step__label">{step.label}</span>
-        {Glyph === undefined ? null : <Glyph size={14} strokeWidth={2} aria-hidden />}
+        {rows !== undefined ? null : (
+          <>
+            <span className="armada-wm-step__n">{n}</span>
+            <span className="armada-wm-step__label">{step.label}</span>
+            {Glyph === undefined ? null : <Glyph size={14} strokeWidth={2} aria-hidden />}
+          </>
+        )}
         <span className="armada-wm-step__marks">
           {added ? (
             <Tooltip label="Not in Armada's">
@@ -527,7 +604,7 @@ function Step({
           ) : null}
         </span>
         <span className="armada-wm-step__save">
-          {changed ? (
+          {changed && !live ? (
             <>
               <Button
                 variant="ghost"
@@ -557,8 +634,15 @@ function Step({
           ) : null}
         </span>
       </div>
+      )}
 
       <dl className="armada-wm-step__facts">
+        {rows === undefined ? null : (
+          <>
+            <dt id={`${id}-name`}>Name</dt>
+            <dd>{rows.name(`${id}-name`)}</dd>
+          </>
+        )}
         {step.endsAny !== undefined && step.endsAny.length > 1 ? (
           <>
             <dt>Ends when</dt>
@@ -570,13 +654,23 @@ function Step({
               </ul>
             </dd>
           </>
+        ) : rows !== undefined ? (
+          <>
+            <dt id={`${id}-ends`}>Ends when</dt>
+            <dd>{rows.ends(`${id}-ends`)}</dd>
+          </>
         ) : step.ends === "" ? null : (
           <>
             <dt>Ends when</dt>
             <dd>{step.ends}</dd>
           </>
         )}
-        {step.passedOver === undefined ? null : (
+        {rows?.passedOver !== undefined ? (
+          <>
+            <dt id={`${id}-passed`}>Passed over when</dt>
+            <dd>{rows.passedOver(`${id}-passed`)}</dd>
+          </>
+        ) : step.passedOver === undefined ? null : (
           <>
             <dt>Passed over when</dt>
             <dd>{step.passedOver}</dd>
@@ -594,6 +688,10 @@ function Step({
               keep={`workflows:words:${keep}`}
               value={draft ?? step.words}
               onChange={(event) => onDraft(event.target.value)}
+              onBlur={() => {
+                if (!live || draft === undefined || draft === step.words) return;
+                void onSave(draft).then((saved) => saved && onDraft(undefined));
+              }}
               onKeyDown={(event) => {
                 if (event.key !== "Escape") return;
                 event.preventDefault();
@@ -605,6 +703,7 @@ function Step({
             <p className="armada-wm-step__words">{step.words}</p>
           )}
         </dd>
+        {rows?.after}
       </dl>
 
       {suggestion === undefined ? null : (
@@ -795,6 +894,8 @@ function Agent({
   onBuildSupport,
   onOpenJob,
   jobFor,
+  workspace,
+  steps,
 }: {
   keep: string;
   agent: AgentState;
@@ -805,6 +906,9 @@ function Agent({
   onBuildSupport: () => Promise<WorkflowActAnswer | { jobId: string; note?: string }>;
   onOpenJob: (job: string) => void;
   jobFor: ((jobId: string) => ReactNode) | undefined;
+  /** Where the rules a proposal adds are named. */
+  workspace: WorkspaceEditing | undefined;
+  steps: readonly ManagedStep[];
 }) {
   const [asked, setAsked] = useState("");
   const [notes, setNotes] = useState<string | null>(null);
@@ -931,8 +1035,9 @@ function Agent({
           {changes.map((one) => (
             <StepChangeCard key={`${one.kind}:${one.kind === "removed" ? one.before.id : one.after.id}`} change={one} />
           ))}
+          {workspace === undefined ? null : (agent.rules ?? []).map((one) => <RuleChangeCard key={one.id} rule={one} workspace={workspace.value} steps={steps} />)}
         </div>
-        {unchanged.length === 0 ? null : (
+        {unchanged.length === 0 || agent.rules !== undefined ? null : (
           <p className="armada-wm-diff__unchanged">
             <span className="armada-wm__fact-label">Unchanged</span>
             <span>{unchanged.join(", ")}</span>

@@ -14,7 +14,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
-import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
+import { Button, TaskMark, Tooltip, waitingSaid, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import { owesOf, type AgentTask, type Session, type SessionTodo, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
 
@@ -25,6 +25,7 @@ import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
 import { useSessionsDraft } from "../sessions-draft";
+import { openInPanel } from "../shared-panel/store";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -43,7 +44,7 @@ import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
-import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
+import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WaitBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
 import { SkipStep, skipMenu } from "./StepSkip";
 import { SvPanel, type PanelState } from "./SvPanel";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
@@ -54,6 +55,13 @@ import { useLedgerView } from "./ledger-view";
 import "./progress-takes.css";
 import "./story.css";
 import "./story-zones.css";
+
+/** The rule a waiting item is the ask of, and its card in the thread: an item `draft:<card>` that a rule on the Job's lanes left. Absent where no rule did. */
+function ruleOf(session: Session, itemId: string): { rule: string; row: string } | undefined {
+  const row = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
+  const fired = row === undefined ? undefined : session.lanes?.job.fired.find((one) => one.needs === row);
+  return row === undefined || fired === undefined ? undefined : { rule: fired.rule, row };
+}
 
 export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
@@ -124,6 +132,9 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
+  // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
+  const lanes = session.lanes?.job;
+  const waiting = lanes === undefined ? undefined : waitingSaid(lanes, lanes.copy.lifecycles);
   // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
   // Fleet holds the live list in memory only; after a restart the build record's copy stands in until the agent next changes it.
   const reported = session.activity?.todos ?? [];
@@ -214,9 +225,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     <div className="sv-nav" onKeyDown={arrowsIn}>
       <ul className="sv-beats" aria-label="Now">
         {asking === undefined ? null : <AskBeat said="Waiting on you" text={asking} />}
-        {owed.map((one) => (
-          <AskBeat key={one.id} said="Waiting on you" text={one.text} />
-        ))}
+        {owed.map((one) => {
+          const rule = ruleOf(session, one.id);
+          return <AskBeat key={one.id} said="Waiting on you" text={one.text} {...(rule === undefined ? {} : { onOpen: () => openInPanel({ kind: "rule", sessionId: session.id, ...rule }) })} />;
+        })}
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
         <WorkBeat
           mark={<TaskMark state={working_ ? "working" : "open"} />}
@@ -225,6 +237,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           line={working.length === 0 ? now : undefined}
         />
         {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
+        {waiting === undefined ? null : <WaitBeat text={waiting} />}
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}

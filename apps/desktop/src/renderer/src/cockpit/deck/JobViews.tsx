@@ -1,15 +1,16 @@
-// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story. Thread is the thread itself; the four are the layers (`session-view/layers.ts`). A press
+// The Job's views at the top of its spine: Artifacts, Checks, Subagents and Bays, a strip of icon buttons above the story, and Workflow after them on a Job that holds lifecycles, which open in the spine on a wide window and in the side panel on a narrower one. Thread is the thread itself; the five are the layers (`session-view/layers.ts`). A press
 // opens the layer, a press on the lit one shuts it, as Esc does. A view with nothing in it stays in its place, off, with its reason as the tooltip (`offeredOf`), so nothing moves. The facts the tiles carried
 // stay with each: Subagents the number running, Checks a pulse while any runs, Bays the clash, and Bays tinted while a bay is wrong. **A layer opens in the spine, under the strip**, so the strip stays on show while a layer is read. The keys press them (`flight-keys.ts`).
 
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { Waypoints, type LucideIcon } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
 import { toggleLayer, useLayer } from "../../session-view/layers";
-import { ARTIFACTS_KEY } from "../../session-view/story";
+import { toggleLanes, useLanesView } from "../../session-view/lanes-width";
+import { ARTIFACTS_KEY, LANES_KEY } from "../../session-view/story";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import { tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
@@ -41,9 +42,10 @@ export type JobView = {
 
 const GLYPH: Record<(typeof VIEW_LAYERS)[number], string> = { artifacts: "library", checks: "shield-check", subagents: "drone", slot: "rows-3", system: "cpu" };
 
-/** The Job's four views, or none where there is no draft to read what is on. */
+/** The Job's views, or none where there is no draft to read what is on. */
 export function useJobViews(session: Session, bays: SessionBays | undefined): readonly JobView[] | undefined {
   const open = useLayer(session.id);
+  const lanesOpen = useLanesView(session.id);
   const draft = useSessionsDraft();
   const tiles = tilesOf("job", useFlightFile());
   if (draft === undefined) return undefined;
@@ -53,7 +55,7 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
   const clashing = (bays?.clashes ?? []).map((one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label);
   const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
   const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
-  return VIEW_LAYERS.map((layer): JobView => {
+  const views = VIEW_LAYERS.map((layer): JobView => {
     const tile = tiles.find((one) => one.builtIn !== undefined && one.id === layer);
     const key = tile === undefined ? undefined : flightKey(tile);
     const why = off[layer];
@@ -80,6 +82,9 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
       onPress: () => toggleLayer(session.id, layer),
     };
   });
+  // Workflow is a Job's own when the Workspace gives it lifecycles. It has no flight key: its ⌥⇧L is heard by the workspace, so the host's `data-key` handler does not toggle it twice.
+  if (session.lanes === undefined) return views;
+  return [...views, { id: "lanes", label: "Workflow", tip: "Workflow", Glyph: Waypoints, alsoKey: LANES_KEY.cap, pressed: lanesOpen, onPress: () => toggleLanes(session.id) }];
 }
 
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */
