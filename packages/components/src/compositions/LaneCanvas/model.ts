@@ -323,10 +323,14 @@ export type LaneView = {
   title: string;
   /** Under the title, quiet: where its states are read from. */
   source: string;
+  /** What kind of thing the lane is, in its lifecycle's own name, drawn under the title in place of `source` where the title is not that name: a Job's lane is titled for the Job, so it reads `Job`. */
+  what?: string;
   /** The tooltip of the title: a ticket's own title. */
   note?: string;
   /** The tracker's lifecycle: this lane is a ticket. */
   ticket?: true;
+  /** Its head opens the Workflow of the Job the lane stands for (`onOpen`): set by the caller, which knows whether that Job has lanes to open. */
+  opens?: true;
   /** Ending the Job ended this instance. */
   ended?: boolean;
   /** The Job's own copy of this lane's lifecycle changed, and how. */

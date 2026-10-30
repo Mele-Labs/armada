@@ -221,7 +221,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         }),
       );
       const changed = job.changes.find((one) => one.lane === instance.lifecycle && one.item === "")?.text;
-      return [{ ...lane, ...(instance.ended === true ? { ended: true as const } : {}), ...(changed === undefined ? {} : { changed }) }];
+      return [{ ...lane, what: lifecycle.label, ...(instance.ended === true ? { ended: true as const } : {}), ...(changed === undefined ? {} : { changed }) }];
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);

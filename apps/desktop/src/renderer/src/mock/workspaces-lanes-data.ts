@@ -547,7 +547,7 @@ export function jobB(): SessionLanes {
 
 /** The id of the Job that goes through the app feedback, and of the two Jobs it starts. */
 export const FEEDBACK = "app-feedback";
-const CART = "job-cart";
+export const CART = "job-cart";
 const PANEL = "job-pr-panel";
 
 /** The workflow the Job started on, and its steps as the rail names them. */
@@ -588,6 +588,28 @@ const JOB_SEEN: Record<string, readonly string[]> = { started: ["started"], pr_o
 const CART_TICKET = { label: "ARM-52", title: "Cart totals are a cent off" } as const;
 const CART_TICKET_STATE: Readonly<Record<string, string>> = { started: "In progress", pr_open: "In review", landed: "Done" };
 const TICKET_COPY = COPY_LIFECYCLES.find((one) => one.id === "ticket")!;
+
+/**
+ * `Fix cart rounding` as its own lanes read at the moment the feedback Job is at: the ticket the feedback Job reads from it, In review while its pull request is open and Done once it
+ * lands, and the pull request. Its workflow is the Workspace's `feature`, at Answer reviews and then done.
+ */
+export function cartAt(moment: number): SessionLanes {
+  const landed = moment >= 3;
+  const ticket = landed ? "done" : "in_review";
+  const pr = landed ? "merged" : "in_review";
+  const walked = ["todo", "in_progress", "in_review", "done"];
+  const job: JobLanes = {
+    workspace: MY_STORE.id,
+    copy: { steps: COPY_STEPS, lifecycles: COPY_LIFECYCLES, rules: [] },
+    instances: [
+      instance("arm-52", "ticket", CART_TICKET.label, ticket, walked.slice(0, walked.indexOf(ticket) + 1), { title: CART_TICKET.title, assignee: "you" }),
+      instance("pr-815", "pull_request", "PR #815", pr, PR_SEEN[pr]!),
+    ],
+    fired: [],
+    changes: [],
+  };
+  return { workflow: "feature", at: landed ? COPY_STEPS.length : 4, working: false, job };
+}
 
 /** What the feedback Job's agent is doing at the moments it works. */
 export const FEEDBACK_WORKING: Readonly<Record<number, { now: string; done: readonly string[] }>> = {
