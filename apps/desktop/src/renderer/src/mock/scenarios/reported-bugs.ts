@@ -1,6 +1,6 @@
 // Bugs agents reported in Armada itself. The Issues tab on All has a Reported bugs band over the repositories' issues: three
-// reports from two Jobs, two unread and one kept, and the Cockpit marks both Jobs. Armada reads its issues from GitHub and
-// storefront from GitHub too, so the band stands over two lists. The walk `reported-bugs` plays it.
+// reports from two Jobs, two unread and one kept, and the Cockpit marks both Jobs. Armada and storefront each read their
+// issues from a tracker, so the band stands over two lists. The walk `reported-bugs` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
