@@ -554,7 +554,7 @@ type BeginChild = (id: string, delivery: DeliveryChoice | undefined) => void;
  * The Start a Job held on its start card is given, by the Needs you row of the Job whose agent started it and by that Job's Started row in its
  * parent's thread, so the two press alike. While the proposer reads, no landing goes and Fleet takes the reading's; once read, the landing the child's card has ready.
  */
-function startOfHeldJob(child: Session | undefined, begin: BeginChild | undefined): NonNullable<LedgerEntry["start"]> | undefined {
+export function startOfHeldJob(child: Session | undefined, begin: BeginChild | undefined): NonNullable<LedgerEntry["start"]> | undefined {
   const held = child?.start;
   if (child === undefined || held === undefined || begin === undefined) return undefined;
   return { starting: held.queued === true, onStart: () => begin(child.id, child.work?.proposal?.reading === true || !held.asksDelivery ? undefined : (held.picked?.choice ?? "auto_land")) };
