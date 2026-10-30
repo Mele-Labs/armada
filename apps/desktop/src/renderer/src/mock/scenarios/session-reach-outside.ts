@@ -75,7 +75,7 @@ const running: HelmCallInFlight = {
 
 function fleet(): FakeSessionsFleet {
   const records = [
-    hosted(SESSION, { title: "Custom margins", attachments: [held("slot", "4")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: reaching } }),
+    hosted(SESSION, { title: "Retry budget", attachments: [held("slot", "4")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: reaching } }),
     hosted(WRITER, { title: "Release notes", attachments: [held("slot", "5")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: writing } }),
     hosted(RUNNER, { title: "Tidy other repo", attachments: [held("slot", "6")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: running } }),
   ];
