@@ -235,6 +235,7 @@ where
                 loop {
                     tokio::time::sleep(every).await;
                     fleet.sweep_quiet().await;
+                    fleet.processes_moved_onto_mod().await;
                 }
             });
         }

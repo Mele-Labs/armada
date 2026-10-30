@@ -80,7 +80,7 @@ mod wire;
 
 pub(crate) use ledger::{placed, Placed};
 pub(crate) use shown::steps_shown;
-pub(crate) use wire::mod_is_older;
+pub(crate) use wire::{mod_copy_version, mod_is_older};
 use shown::{origins_named, shows_a_page, sign_in_named, takes_shown, ONE_AT_A_TIME};
 use wire::{
     attachment_state, held_wire, mod_version_in, origin_text, session_state, session_wire,

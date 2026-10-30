@@ -45,6 +45,7 @@ pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
 mod tools_missing;
+mod mod_moved;
 pub mod keeper;
 /// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
 /// `act_on_session_mcp`.
@@ -514,6 +515,10 @@ pub(crate) struct State {
     /// The generation of the process Fleet restarted because its `init` lacked a piece it can mend. A
     /// process with this generation that lacks it again is not restarted. In memory.
     pub healed_into: Option<u64>,
+    /// The version of the mod's copy Fleet last restarted this process onto, because the mod it had
+    /// reported was older. A replacement that still reports an older one is not restarted for the same
+    /// copy again. In memory.
+    pub moved_onto: Option<String>,
 }
 
 impl State {
@@ -525,6 +530,19 @@ impl State {
         if let Some(process) = &self.process {
             process.send(line);
         }
+    }
+
+    /// A live process with no turn running, none on its way and no question waiting: the only time
+    /// Fleet restarts one for a reason of its own.
+    pub(crate) fn between_turns(&self) -> bool {
+        self.process.is_some()
+            && matches!(self.turn, SessionTurn::Idle)
+            && self.queued == 0
+            && self.unstarted.is_empty()
+            && self.asked.is_none()
+            && self.moving.is_none()
+            && !self.reattached_busy
+            && !self.proposal.holds_back()
     }
 
     fn new() -> State {
@@ -570,6 +588,7 @@ impl State {
             marks_owed: false,
             tools_missing: None,
             healed_into: None,
+            moved_onto: None,
         }
     }
 }
