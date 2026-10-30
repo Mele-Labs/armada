@@ -270,6 +270,16 @@ fn the_rules_say_a_wrong_fleet_notice_is_disputed_through_the_call() {
     }
 }
 
+/// A job is told when Armada's own fault is for `report_bug`, what to send with it, and that a wrong
+/// Fleet notice and a fault in the repository are not.
+#[test]
+fn the_rules_say_when_to_call_report_bug_and_with_what() {
+    let bugs = rules().split("\n\n").find(|block| block.starts_with("Bugs in Armada.")).expect("a paragraph on bugs in Armada");
+    for named in ["`report_bug`", "`title`", "`what`", "`steps`", "`errors`", "`logs`", "`dispute_fleet`", "posted nowhere"] {
+        assert!(bugs.contains(named), "{named}");
+    }
+}
+
 /// The paragraph only a hosted session is given: a dispute is tied to a row of the thread, and a
 /// terminal job's thread is not Fleet's, so `dispute_fleet` refuses one.
 const HOSTED_ONLY: &str = "Fleet's notices.";

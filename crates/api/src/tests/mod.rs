@@ -24,6 +24,7 @@ mod issue_queries;
 mod projects;
 mod helm_tells;
 mod hosted_sessions;
+mod bug_reports;
 mod door_receipts;
 mod accounts;
 mod adversarial_review;
