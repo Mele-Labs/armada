@@ -25,7 +25,7 @@ fn a_move_is_said_by_the_label_its_lifecycle_gives_the_state_and_a_pull_request_
     };
     assert_eq!(said(&moved, Some(&instance("ticket", "ARM-41")), &lifecycles), "Move ARM-41 to In progress");
     let draft = Act::Draft { template: words("Ready for {pr}"), target: Target { among: Among::Entered, in_state: None } };
-    assert_eq!(said(&draft, Some(&instance("pr", "812")), &lifecycles), "Draft a message on #812: Ready for #812");
+    assert_eq!(said(&draft, Some(&instance("pr", "812")), &lifecycles), "Draft a message on PR #812: Ready for PR #812");
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn the_acts_done_to_nothing_are_said_without_a_thing_and_a_long_prompt_is_cut() 
 #[test]
 fn a_failure_is_said_in_the_acts_own_words_and_a_template_names_only_what_it_is_left_on() {
     assert_eq!(failed("Start the web deploy watch", "  no such recipe \n"), "Start the web deploy watch failed: no such recipe");
-    assert_eq!(filled("Ready for {pr}, see {ticket}", Some(("pr", "812"))), "Ready for #812, see {ticket}");
+    assert_eq!(filled("Ready for {pr}, see {ticket}", Some(("pr", "812"))), "Ready for PR #812, see {ticket}");
     assert_eq!(filled("Ready for {pr}", None), "Ready for {pr}");
-    assert_eq!((thing("pr", "812"), thing("ticket", "ARM-41")), ("#812".to_string(), "ARM-41".to_string()));
+    assert_eq!((thing("pr", "812"), thing("ticket", "ARM-41")), ("PR #812".to_string(), "ARM-41".to_string()));
 }

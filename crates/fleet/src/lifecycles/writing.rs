@@ -113,7 +113,7 @@ pub(crate) fn tracker_write(write: &TrackerWrite, on: Option<(&str, &str)>, life
             let state = lifecycle.state(to).ok_or_else(|| format!("the ticket lifecycle has no state {}", to.as_str()))?;
             first_word(state)
                 .map(Resolved::Move)
-                .ok_or_else(|| format!("the ticket lifecycle lists no tracker word for {}", state.label().as_str()))
+                .ok_or_else(|| format!("The ticket lifecycle names no tracker word for {}", state.label().as_str()))
         }
         // The word for closed, where the lifecycle gives one: the first of an end state that lists any.
         TrackerWrite::Close => Ok(Resolved::Close(tickets.and_then(|lifecycle| {

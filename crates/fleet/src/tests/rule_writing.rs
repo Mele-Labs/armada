@@ -34,6 +34,14 @@ do:
   - forge_write: { merge: true, on: { entered: true } }
 ";
 
+const MOVES_ANY_TICKET: &str = "version: 1
+rule_id: move_any_ticket
+name: Move any ticket
+when: { enters: { lifecycle: pr, state: approved } }
+do:
+  - tracker_write: { move: in_progress, on: { held: ticket } }
+";
+
 const ASKS_FIRST: &str = "version: 1
 rule_id: write_when_told
 name: Write when told
@@ -95,10 +103,10 @@ async fn under_acts_every_write_is_made_at_once_in_the_tracker_and_forge_and_ask
         [
             "Moved ARM-41 to In Progress",
             "Assigned ARM-41 to ana",
-            "Asked ana, bob to review #812",
-            "Marked #812 ready",
-            "Turned on auto-merge for #812",
-            "The forge took the merge of #812",
+            "Asked ana, bob to review PR #812",
+            "Marked PR #812 ready",
+            "Turned on auto-merge for PR #812",
+            "The forge took the merge of PR #812",
         ]
     );
 
@@ -131,7 +139,7 @@ async fn under_asks_each_write_waits_as_do_it_or_skip_in_the_owners_words_and_is
     Arc::clone(&rig.fleet).rule_acts_carried_out().await;
 
     let asked = items(&rig, &job).await;
-    assert_eq!(asked.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), ["Move ARM-41 to In progress", "Request review on #812 from ana"]);
+    assert_eq!(asked.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), ["Move ARM-41 to In progress", "Request review on PR #812 from ana"]);
     assert!(asked.iter().all(|one| one.options.iter().map(|option| option.label.as_str()).eq(["Do it", "Skip"])));
     assert!(tracker.writes().is_empty(), "nothing is written before he says");
     assert!(rig.fleet.vcs().delivered().iter().all(|one| !matches!(one, Delivered::RequestedReviewers { .. })));
@@ -156,7 +164,7 @@ async fn a_write_the_tracker_cannot_make_is_kept_as_not_carried_with_why_and_rai
     let rows = kept(&rig, &job).await;
     assert_eq!(rows[0], ("Move ARM-41 to In progress".to_string(), standing::NOT_CARRIED.to_string(), 0, "this tracker cannot move an issue".to_string()));
     assert_eq!(rows[1].1, standing::ASKED, "the forge write beside it is still asked");
-    assert_eq!(items(&rig, &job).await.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), ["Request review on #812 from ana"], "only what can be done is asked");
+    assert_eq!(items(&rig, &job).await.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), ["Request review on PR #812 from ana"], "only what can be done is asked");
 
     Arc::clone(&rig.fleet).rule_acts_carried_out().await;
     assert!(tracker.writes().is_empty());
@@ -167,15 +175,18 @@ async fn a_write_the_tracker_cannot_make_is_kept_as_not_carried_with_why_and_rai
 async fn a_move_to_a_state_the_ticket_lifecycle_gives_no_tracker_word_is_not_carried_and_says_so() {
     let tracker = Arc::new(FakeTracker::empty());
     // Armada's own ticket lifecycle lists no tracker word for any state: the Workspace says what its tracker calls them.
-    let rig = rig_with(&tracker, ASKS_FIRST, false);
+    // No tracker word reads a ticket into To do either, so the rule names any ticket the Job holds.
+    let rig = rig_with(&tracker, MOVES_ANY_TICKET, false);
     let job = rig.start().await;
     let at = rig.fleet.now().as_str().to_string();
     rig.fleet.store().lock().await.take_on_lifecycle_instance(job.as_str(), "ticket", "ARM-41", &[], &at).expect("taken on");
-    rig.fleet.lifecycle_seen(job.as_str(), "ticket", "ARM-41", core_model::Observed::Tracker("To do")).await;
     approved(&rig, &job).await;
 
     let rows = kept(&rig, &job).await;
-    assert!(rows.iter().all(|one| one.0 != "Move ARM-41 to In progress" || (one.1 == standing::NOT_CARRIED && one.3.contains("no tracker word"))), "{rows:?}");
+    let moved: Vec<_> = rows.iter().filter(|one| one.0 == "Move ARM-41 to In progress").collect();
+    assert_eq!(moved.len(), 1, "{rows:?}");
+    assert_eq!((moved[0].1.as_str(), moved[0].3.as_str()), (standing::NOT_CARRIED, "The ticket lifecycle names no tracker word for In progress"));
+    assert!(items(&rig, &job).await.iter().all(|one| one.text != "Move ARM-41 to In progress"), "and nothing is asked");
 }
 
 #[tokio::test]

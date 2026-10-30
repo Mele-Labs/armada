@@ -101,14 +101,14 @@ fn a_tracker_that_cannot_make_the_move_is_not_carried_with_why_and_is_never_call
     // Armada's own ticket lifecycle lists no tracker word for any state, so a move under it names no status to write.
     let built_in = vec![Lifecycle::ticket()];
     let why = writes_over(&Arc::new(FakeTracker::empty())).carries(moves[0].act(), on_of(&moves[0]), &built_in).expect_err("no word");
-    assert!(why.contains("no tracker word"), "{why}");
+    assert_eq!(why, "The ticket lifecycle names no tracker word for In progress");
 }
 
 #[test]
 fn the_planned_forge_writes_are_made_through_the_forge_and_a_merge_is_the_forges_own_so_a_queue_takes_it() {
     let (planned, copy) = approved_pull_request();
     let lines: Vec<String> = planned.iter().map(|one| said(one.act(), one.on(), &copy)).collect();
-    assert_eq!(lines, ["Request review on #812 from ana, bob", "Mark #812 ready", "Turn on auto-merge for #812", "Merge #812"]);
+    assert_eq!(lines, ["Request review on PR #812 from ana, bob", "Mark PR #812 ready", "Turn on auto-merge for PR #812", "Merge PR #812"]);
     assert!(planned.iter().all(|one| one.course() == Course::Asks), "a write to the forge asks until the owner says otherwise");
 
     let tracker = Arc::new(FakeTracker::empty());
@@ -122,7 +122,7 @@ fn the_planned_forge_writes_are_made_through_the_forge_and_a_merge_is_the_forges
     }
     assert_eq!(
         said_done,
-        ["Asked ana, bob to review #812", "Marked #812 ready", "Turned on auto-merge for #812", "The forge took the merge of #812"]
+        ["Asked ana, bob to review PR #812", "Marked PR #812 ready", "Turned on auto-merge for PR #812", "The forge took the merge of PR #812"]
     );
 
     let delivered = forge.delivered();

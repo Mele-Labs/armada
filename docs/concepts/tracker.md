@@ -265,7 +265,8 @@ What each does:
 | Beads | `bd update --status` for `open`, `in_progress` and `blocked`; `bd close` for `closed` | `bd update --assignee` | `bd close --force`, as a close from the backlog is |
 | A tracker mod | Its `[move]`, if it has one | Its `[assign]` | Its `[close]`, else its `[move]` to that word. [Tracker mods](mods.md#tracker-mods) |
 
-**The status is the Workspace's word and not Armada's.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to.
+**The status is the Workspace's word and not Armada's.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to, and the act is kept as not carried with `The ticket lifecycle names no tracker word for In progress`.
+Armada's own ticket lifecycle lists none, and no word is guessed for a tracker that may not have it.
 
 **The forge's half is the forge's own calls.** A rule may ask reviewers (`gh pr edit --add-reviewer`), mark a pull request ready, turn on auto-merge and merge it.
 A pull request is named by its number in this repository, and a key that names another repository's is refused before anything is asked.

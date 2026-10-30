@@ -153,7 +153,7 @@ async fn a_draft_a_rule_plans_under_asks_is_proposed_at_once_and_the_drafts_own_
     save(&rig, "review.yml", DRAFTS_A_MESSAGE);
     let job = rig.start().await;
     approved(&rig, &job).await;
-    let line = "Draft a message on #812: Ready for #812".to_string();
+    let line = "Draft a message on PR #812: Ready for PR #812".to_string();
     assert_eq!(acts(&rig, &job).await, [(line.clone(), standing::PLANNED.to_string(), 0)], "planned for doing: Draft is Asks by default");
     assert!(items(&rig, &job).await.is_empty(), "no rule_act item to answer before the draft exists");
 
