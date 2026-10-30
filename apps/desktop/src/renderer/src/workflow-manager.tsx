@@ -251,6 +251,9 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const kept = (held: NonNullable<typeof fleet>) => ({
     pieces: true as const,
     ...(held.readOnly ? { readOnly: true as const } : {}),
+    lands: held.lands,
+    canConnect: held.canConnect,
+    pending: held.pending,
     pieceActs: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => {
       const found = held.pieceAt(pick, tab);
       const at = found === undefined ? undefined : (served.find((one) => one.manifestId === found.home)?.root ?? root);

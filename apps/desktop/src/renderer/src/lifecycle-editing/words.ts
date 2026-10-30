@@ -1,7 +1,7 @@
 // A rule's If and Do as the editor's rows say them, from the structure Fleet serves. **Said from the definition and not from an instance**: the rule has not fired, so
 // a ticket is "the ticket" and a state is named by the label its lifecycle gives it. Fleet's own line for an act that has fired (`saying.rs`) names the instance.
 
-import type { LifecycleDefinition, LifecycleRule, RuleAct, RuleAmong, RuleCondition, RuleTarget } from "@armada/protocol";
+import type { LifecycleRule, RuleAct, RuleAmong, RuleCondition, RuleTarget } from "@armada/protocol";
 import type { ActKind } from "@armada/components";
 
 /** The longest a prompt or a message is quoted in a line. */
@@ -12,7 +12,9 @@ const cut = (text: string): string => {
   return first.length > QUOTED ? `${first.slice(0, QUOTED).trimEnd()}...` : first;
 };
 
-type Lifecycles = readonly Pick<LifecycleDefinition, "id" | "name" | "states">[];
+/** Enough of a lifecycle to word a rule about it. */
+export type Named = { id: string; name: string; states: readonly { id: string; label: string }[]; ends: readonly string[] };
+type Lifecycles = readonly Pick<Named, "id" | "name" | "states">[];
 
 /** The lifecycle a target is of: the one named, or the one whose entering set the rule off. */
 export function laneOf(among: RuleAmong, rule: Pick<LifecycleRule, "when">): string | undefined {

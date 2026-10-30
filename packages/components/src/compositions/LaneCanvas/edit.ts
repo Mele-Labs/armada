@@ -2,7 +2,8 @@
 // Workspace, so the editor can draw what it makes and the host holds it. The host saves what they change as pieces (`apps/desktop/src/renderer/src/lifecycle-editing/`).
 
 import { DEFAULT, levelsOf, nodeId, ruleAt, stateLabelAt } from "./model";
-import type { AddedStep, LaneStep, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";
+import type { AddedStep, LaneStep, LifecycleDef, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";
+import type { LifecycleRule } from "@armada/protocol";
 import { momentOf } from "./waits";
 
 const slug = (label: string): string => label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "new";
@@ -32,7 +33,7 @@ function shiftedFrom(place: WorkflowPlace, col: number): WorkflowPlace {
 
 // ---- Rules ---------------------------------------------------------------------------------------------------------------
 
-export type RulePatch = Partial<Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "overrides">>;
+export type RulePatch = Partial<Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "overrides" | "wire">>;
 
 /** The fields of a rule that can differ at a level below the default. */
 export type RuleFields = Partial<Pick<Rule, "label" | "from" | "at" | "ifs" | "does" | "autonomy">>;
@@ -66,6 +67,21 @@ export function withRuleAt(workspace: Workspace, id: string, scope: string, patc
   }
   const rest = (rule.overrides ?? []).filter((one) => one.scope !== scope);
   return withRule(workspace, id, { overrides: Object.keys(next).length === 0 ? rest : [...rest, { scope, ...next } as RuleOverride] });
+}
+
+const unscoped = (wire: LifecycleRule | undefined) => (wire === undefined ? undefined : { ...wire, scope: undefined });
+
+/**
+ * A rule's piece set at a level, where the host keeps rules as pieces. At the default, or at the level that added the rule, it is the rule's own piece. At the Workspace or a repository it is that level's own
+ * piece **whole**, which Fleet runs in place of the one above; one that says what the level above does is no piece, so it is dropped. The host draws the fields from the piece.
+ */
+export function withRuleWireAt(workspace: Workspace, id: string, scope: string, wire: LifecycleRule): Workspace {
+  const rule = workspace.rules.find((one) => one.id === id);
+  if (rule === undefined) return workspace;
+  if (scope === DEFAULT || rule.scope === scope) return withRule(workspace, id, { wire });
+  const rest = (rule.overrides ?? []).filter((one) => one.scope !== scope);
+  const above = ruleAt(rule, levelsOf(scope)[1]!).wire;
+  return withRule(workspace, id, { overrides: same(unscoped(wire), unscoped(above)) ? rest : [...rest, { scope, wire }] });
 }
 
 /** Everything a level changes of a rule taken away: the rule reads as the level above says. */
@@ -169,6 +185,33 @@ export function withoutState(workspace: Workspace, lane: string, state: string):
     rules: workspace.rules.filter((rule) => nodeId(rule.from.lane, rule.from.item) !== gone && nodeId(rule.to.lane, rule.to.item) !== gone),
   };
 }
+
+// ---- Lifecycles ----------------------------------------------------------------------------------------------------------
+
+/** A new lifecycle at a level, read from the tracker, with two states and a way from the first to the second. It exists on that tab and under it, and every workflow places its states. */
+export function withLifecycleAdded(workspace: Workspace, label: string, scope: string = DEFAULT): { workspace: Workspace; id: string } {
+  const id = uniqueId(label, workspace.lifecycles.map((one) => one.id));
+  const home = scope === DEFAULT ? {} : { scope };
+  const state = (stateId: string, name: string, end: boolean): StateDef => ({ id: stateId, label: name, ...home, reads: [{ source: "Tracker", values: [], scope }], ...(end ? { end: true as const } : {}) });
+  const lifecycle: LifecycleDef = { id, label, from: "Tracker", kind: "tracker", kept: "yours", ...home, states: [state("open", "Open", false), state("done", "Done", true)], next: [["open", "done"]] };
+  return {
+    workspace: {
+      ...workspace,
+      lifecycles: [...workspace.lifecycles, lifecycle],
+      workflows: Object.fromEntries(Object.entries(workspace.workflows).map(([workflow, place]) => [workflow, { ...place, states: { ...place.states, [nodeId(id, "open")]: 0, [nodeId(id, "done")]: 1 } }])),
+    },
+    id,
+  };
+}
+
+export const withLifecycleLabel = (workspace: Workspace, id: string, label: string): Workspace => ({ ...workspace, lifecycles: workspace.lifecycles.map((one) => (one.id === id ? { ...one, label } : one)) });
+
+/** A lifecycle taken away with the places of its states. */
+export const withoutLifecycle = (workspace: Workspace, id: string): Workspace => ({
+  ...workspace,
+  lifecycles: workspace.lifecycles.filter((one) => one.id !== id),
+  workflows: Object.fromEntries(Object.entries(workspace.workflows).map(([workflow, place]) => [workflow, { ...place, states: Object.fromEntries(Object.entries(place.states).filter(([key]) => !key.startsWith(`${id}/`))) }])),
+});
 
 // ---- Steps ---------------------------------------------------------------------------------------------------------------
 

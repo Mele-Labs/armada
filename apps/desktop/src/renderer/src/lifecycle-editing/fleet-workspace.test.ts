@@ -2,17 +2,18 @@
 // slice answers the reads and takes the saves, so the two halves are tried against each other.
 
 import { describe, expect, it, vi } from "vitest";
-import { ruleBetween, withNewRule, withRuleAt, withStateAfter, withStateLabelAt, withoutRule, withoutState, withStepLayer, DEFAULT } from "@armada/components";
+import { DEFAULT, ruleAt, ruleBetween, withLifecycleAdded, withLifecycleLabel, withNewRule, withRuleWireAt, withStateAfter, withStateLabelAt, withStepLayer, withoutLifecycle, withoutRule, withoutState, withoutRuleOverride } from "@armada/components";
 import type { Workspace } from "@armada/components";
+import type { LifecycleRule } from "@armada/protocol";
 import type { BridgeApi } from "../../../shared/api";
 import { lifecycles } from "../mock/slices/lifecycles";
 import { storePieces } from "../mock/pieces-seed";
 import type { Scenario } from "../mock/moment";
-import { readPieces, rootOf, runOps, sent } from "./fleet-pieces";
+import { readPieces, rootOf, runOps } from "./fleet-pieces";
 import type { PiecesApi, Served } from "./fleet-pieces";
 import { WORKSPACE } from "./levels";
-import { kitPieceAt, opsFrom } from "./write";
-import { withPlaces, workspaceOf } from "./read";
+import { kitPieceAt, opsFrom, withWires } from "./write";
+import { landing, namedOf, withDrawn, withPlaces, workspaceOf } from "./read";
 
 const WEB = { id: "01WEB", root: "/Users/user/store-web" };
 const API = { id: "01API", root: "/Users/user/store-api" };
@@ -40,6 +41,12 @@ async function opened() {
 }
 
 const rule = (workspace: Workspace, id: string) => workspace.rules.find((one) => one.id === id)!;
+
+/** A rule's piece changed on a tab, the way the editor's form changes it, with every field drawn again from the piece as the page does. */
+const edited = (workspace: Workspace, id: string, tab: string, change: (piece: LifecycleRule) => LifecycleRule): Workspace => {
+  const now = ruleAt(rule(workspace, id), tab).wire!;
+  return withDrawn(withRuleWireAt(workspace, id, tab, change(now)));
+};
 
 describe("what Fleet keeps, read into the editor's model", () => {
   it("is the Workspace that runs for the repository, with a tab for each of its repositories", async () => {
@@ -85,54 +92,134 @@ describe("what Fleet keeps, read into the editor's model", () => {
   });
 });
 
+describe("what a rule's piece is read as", () => {
+  it("is the whole piece at the level that keeps it, which the fields are drawn from", async () => {
+    const { workspace } = await opened();
+    const progress = rule(workspace, "progress");
+    expect(progress.wire).toMatchObject({ id: "progress", name: "Start the ticket", when: { kind: "enters", lifecycle: "pull_request", state: "draft" } });
+    expect(progress.overrides).toBeUndefined();
+  });
+
+  it("is a level's own piece whole where that level keeps one, and the level above's for the rest", async () => {
+    const mock = fleet();
+    const own = withDrawn(workspaceOf((await readPieces(mock.api, WEB.id, SERVED) as { ok: true; read: never }).read)!);
+    const piece = { ...ruleAt(rule(own, "progress"), DEFAULT).wire!, name: "Begin the ticket", scope: { kind: "within" as const, id: WEB.id } };
+    await mock.api.saveLifecyclePiece({ piece: { kind: "rule", rule: piece } });
+    const again = await readPieces(mock.api, WEB.id, SERVED);
+    if (!again.ok) throw new Error("not read");
+    const held = workspaceOf(again.read)!;
+    expect(ruleAt(rule(held, "progress"), WEB.id).label).toBe("Begin the ticket");
+    expect(ruleAt(rule(held, "progress"), WEB.id).wire).toEqual(piece);
+    // The default's tab and the Workspace's still read the default's piece.
+    expect(ruleAt(rule(held, "progress"), DEFAULT).label).toBe("Start the ticket");
+    expect(ruleAt(rule(held, "progress"), WORKSPACE).label).toBe("Start the ticket");
+  });
+
+  it("leaves a state out on a tab whose own piece does not have it", async () => {
+    const seed = storePieces(WEB, API);
+    const web = seed.lifecycles.find((one) => one.lifecycle.id === "ticket" && one.lifecycle.scope.kind === "within")!;
+    web.lifecycle = { ...web.lifecycle, states: web.lifecycle.states.filter((one) => one.id !== "todo"), transitions: web.lifecycle.transitions.filter((one) => one.from !== "todo"), ends: web.lifecycle.ends };
+    const api = lifecycles.api({ draft: { pieces: seed } } as Scenario, {} as never) as unknown as PiecesApi;
+    const answer = await readPieces(api, WEB.id, SERVED);
+    if (!answer.ok) throw new Error("not read");
+    const ticket = workspaceOf(answer.read)!.lifecycles.find((one) => one.id === "ticket")!;
+    expect(ticket.states.find((one) => one.id === "todo")!.absent).toEqual([WEB.id]);
+  });
+});
+
 describe("what a change comes to", () => {
   it("is nothing where nothing changed", async () => {
     const { read, workspace } = await opened();
     expect(opsFrom(read, workspace, workspace)).toEqual([]);
   });
 
-  it("saves over the person's own rule, and only the fields that changed", async () => {
+  it("saves over the person's own rule when its default tab changes, as the piece whole", async () => {
     const { read, workspace } = await opened();
-    const next = withRuleAt(workspace, "progress", DEFAULT, { autonomy: "asks" });
+    const next = edited(workspace, "progress", DEFAULT, (piece) => ({ ...piece, autonomy: "asks", does: piece.does.map((one) => ({ ...one, autonomy: "asks" })) }));
     const [save, ...rest] = opsFrom(read, workspace, next);
     expect(rest).toEqual([]);
     expect(save).toMatchObject({ op: "save", overwrite: true, piece: { kind: "rule", rule: { id: "progress", scope: { kind: "everywhere" }, autonomy: "asks", name: "Start the ticket" } } });
     expect(save).toMatchObject({ piece: { rule: { does: [{ autonomy: "asks", kind: "tracker_write" }] } } });
   });
 
+  it("saves what the pickers change of a rule: when, if, do and how it fails", async () => {
+    const { read, workspace } = await opened();
+    const next = edited(workspace, "progress", DEFAULT, (piece) => ({
+      ...piece,
+      when: { kind: "step_ends", step: "plan" },
+      conditions: [{ kind: "instances", among: { kind: "held", lifecycle: "ticket" }, quantity: "every", in_state: "todo" }, { kind: "at_step", step: "plan" }],
+      does: [...piece.does, { what: { act: "tell", message: "Start on it" }, kind: "tell_agent", autonomy: "acts" }],
+      on_failure: { retries: 4, then: "tell_agent" },
+    }));
+    const [save] = opsFrom(read, workspace, next);
+    expect(save).toMatchObject({
+      op: "save",
+      piece: { rule: { when: { kind: "step_ends", step: "plan" }, on_failure: { retries: 4, then: "tell_agent" }, does: [{ what: { act: "tracker_move" } }, { what: { act: "tell", message: "Start on it" } }] } },
+    });
+  });
+
   it("saves a repository's rule as the person's own copy, not over the repository's file", async () => {
     const { read, workspace } = await opened();
-    const [save] = opsFrom(read, workspace, withRuleAt(workspace, "close-on-merge", DEFAULT, { label: "Close it" }));
+    const [save] = opsFrom(read, workspace, edited(workspace, "close-on-merge", DEFAULT, (piece) => ({ ...piece, name: "Close it" })));
     expect(save).toMatchObject({ op: "save", overwrite: false, piece: { rule: { id: "close-on-merge", name: "Close it" } } });
   });
 
   it("saves what a repository's tab changes as a piece for that repository alone", async () => {
     const { read, workspace } = await opened();
-    const [save, ...rest] = opsFrom(read, workspace, withRuleAt(workspace, "progress", WEB.id, { label: "Begin the ticket" }));
+    const [save, ...rest] = opsFrom(read, workspace, edited(workspace, "progress", WEB.id, (piece) => ({ ...piece, name: "Begin the ticket" })));
     expect(rest).toEqual([]);
     expect(save).toMatchObject({ op: "save", overwrite: false, piece: { rule: { id: "progress", scope: { kind: "within", id: WEB.id }, name: "Begin the ticket" } } });
   });
 
-  it("takes the piece of a level away when the level goes back to the one above", async () => {
-    const { read, workspace } = await opened();
-    const changed = withRuleAt(workspace, "progress", WEB.id, { label: "Begin the ticket" });
-    // Fleet now holds a piece for the repository; reading it and then going back deletes it.
+  it("writes the default alone when the default changes, and a repository's own piece as it was", async () => {
     const mock = fleet();
-    await runOps(mock.api, sent(opsFrom(read, workspace, changed)), SERVED);
+    const first = await readPieces(mock.api, WEB.id, SERVED);
+    if (!first.ok) throw new Error("not read");
+    const start = withPlaces(workspaceOf(first.read)!, ["feature"]);
+    await runOps(mock.api, opsFrom(first.read, start, edited(start, "progress", WEB.id, (piece) => ({ ...piece, name: "Begin the ticket" }))), SERVED);
     const again = await readPieces(mock.api, WEB.id, SERVED);
     if (!again.ok) throw new Error("not read");
     const held = withPlaces(workspaceOf(again.read)!, ["feature"]);
-    const back = withRuleAt(held, "progress", WEB.id, { label: "Start the ticket" });
+    // The repository keeps its own piece; the default's changes, and only the default's is written.
+    const ops = opsFrom(again.read, held, edited(held, "progress", DEFAULT, (piece) => ({ ...piece, autonomy: "off", does: piece.does.map((one) => ({ ...one, autonomy: "off" })) })));
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ op: "save", piece: { rule: { scope: { kind: "everywhere" }, autonomy: "off" } } });
+  });
+
+  it("takes the piece of a level away when the level goes back to the one above", async () => {
+    const mock = fleet();
+    const first = await readPieces(mock.api, WEB.id, SERVED);
+    if (!first.ok) throw new Error("not read");
+    const start = withPlaces(workspaceOf(first.read)!, ["feature"]);
+    await runOps(mock.api, opsFrom(first.read, start, edited(start, "progress", WEB.id, (piece) => ({ ...piece, name: "Begin the ticket" }))), SERVED);
+    const again = await readPieces(mock.api, WEB.id, SERVED);
+    if (!again.ok) throw new Error("not read");
+    const held = withPlaces(workspaceOf(again.read)!, ["feature"]);
+    expect(opsFrom(again.read, held, withoutRuleOverride(held, "progress", WEB.id))).toEqual([{ op: "delete", id: { kind: "rule", id: "progress", scope: { kind: "within", id: WEB.id } } }]);
+    const back = edited(held, "progress", WEB.id, (piece) => ({ ...piece, name: "Start the ticket" }));
     expect(opsFrom(again.read, held, back)).toEqual([{ op: "delete", id: { kind: "rule", id: "progress", scope: { kind: "within", id: WEB.id } } }]);
   });
 
-  it("names a state at the default by saving the lifecycle there, and one the repository keeps its own copy of too", async () => {
+  it("names a state at the default by saving the lifecycle there alone, and not the repository's own copy", async () => {
     const { read, workspace } = await opened();
     const ops = opsFrom(read, workspace, withStateLabelAt(workspace, "ticket", "todo", DEFAULT, "Backlog"));
-    expect(ops.map((one) => one.op === "save" && [one.piece.kind === "lifecycle" && one.piece.lifecycle.scope, one.overwrite])).toEqual([
-      [{ kind: "everywhere" }, false],
-      [{ kind: "within", id: WEB.id }, false],
+    expect(ops.map((one) => one.op === "save" && [one.piece.kind === "lifecycle" && one.piece.lifecycle.scope, one.overwrite])).toEqual([[{ kind: "everywhere" }, false]]);
+  });
+
+  it("writes a repository's piece as it runs it, with its own moves, when its tab names a state", async () => {
+    const { read, workspace } = await opened();
+    const ops = opsFrom(read, workspace, withStateLabelAt(workspace, "ticket", "todo", WEB.id, "Backlog"));
+    expect(ops).toHaveLength(1);
+    const piece = ops[0]?.op === "save" && ops[0].piece.kind === "lifecycle" ? ops[0].piece.lifecycle : undefined;
+    expect(piece?.scope).toEqual({ kind: "within", id: WEB.id });
+    expect(piece?.states.find((one) => one.id === "in_review")).toMatchObject({ label: "In QA", read: { source: "tracker", words: ["QA"] } });
+    expect(piece?.states.find((one) => one.id === "todo")?.label).toBe("Backlog");
+    expect(piece?.transitions).toEqual([
+      { from: "todo", to: "in_progress" },
+      { from: "in_progress", to: "in_review" },
+      { from: "in_review", to: "done" },
     ]);
+    expect(piece?.ends).toEqual(["done"]);
   });
 
   it("adds a state to a tracker's lifecycle at the level that added it, read as its own name", async () => {
@@ -146,16 +233,11 @@ describe("what a change comes to", () => {
     expect(piece?.transitions).toContainEqual({ from: "in_progress", to: "blocked" });
   });
 
-  it("refuses a state added to a lifecycle the forge reads, which has no words to read it by", async () => {
-    const { read, workspace } = await opened();
-    const { workspace: next } = withStateAfter(workspace, "feature", "pull_request", "draft", "Parked", DEFAULT);
-    expect(opsFrom(read, workspace, next)).toEqual([{ op: "refuse", said: "Pull request states are read from forge, so none can be added" }]);
-  });
-
   it("saves a new rule from a connector, by the act Fleet runs for where it lands", async () => {
     const { read, workspace } = await opened();
     const made = ruleBetween(workspace, "feature", { lane: "pull_request", item: "ready" }, { lane: "ticket", item: "in_review" }, { from: "Ready", to: "In review", lane: "Ticket" });
-    const [save] = opsFrom(read, workspace, withNewRule(workspace, made));
+    const next = withDrawn(withWires(workspace, withNewRule(workspace, made), "my-store"));
+    const [save] = opsFrom(read, workspace, next);
     expect(save).toMatchObject({
       op: "save",
       overwrite: false,
@@ -171,12 +253,10 @@ describe("what a change comes to", () => {
     });
   });
 
-  it("refuses a connector to a state no act brings anything to, and one set off by leaving a state", async () => {
-    const { read, workspace } = await opened();
+  it("draws no rule from a connector Fleet has no act for", async () => {
+    const { workspace } = await opened();
     const toDeploy = ruleBetween(workspace, "feature", { lane: "pull_request", item: "merged" }, { lane: "deploy", item: "healthy" }, { from: "Merged", to: "Healthy", lane: "Deploy" });
-    expect(opsFrom(read, workspace, withNewRule(workspace, toDeploy))).toEqual([{ op: "refuse", said: "Fleet has no act that brings deploy to Healthy" }]);
-    const leaving = { ...ruleBetween(workspace, "feature", { lane: "ticket", item: "todo" }, { lane: "ticket", item: "in_progress" }, { from: "To do", to: "In progress", lane: "Ticket" }), at: "leaves" as const };
-    expect(opsFrom(read, workspace, withNewRule(workspace, leaving))).toEqual([{ op: "refuse", said: "Fleet runs no rule on leaving a state" }]);
+    expect(withWires(workspace, withNewRule(workspace, toDeploy), "my-store").rules.map((one) => one.id)).not.toContain(toDeploy.id);
   });
 
   it("deletes the person's own rule and takes a repository's out by a Job of its own", async () => {
@@ -194,20 +274,71 @@ describe("what a change comes to", () => {
     expect(ops.some((one) => one.op === "save" && one.piece.kind === "lifecycle" && one.piece.lifecycle.id === "pull_request")).toBe(true);
   });
 
-  it("says what is not saved: the rows of a rule, and a step changed below the default", async () => {
+  it("keeps nothing of a step changed below the default, which no piece holds", async () => {
     const { read, workspace } = await opened();
-    const rows = { ...workspace, rules: workspace.rules.map((one) => (one.id === "progress" ? { ...one, does: [{ act: "tracker" as const, text: "Move it along" }] } : one)) };
-    expect(opsFrom(read, workspace, rows)).toEqual([{ op: "unsaved", said: "If and Do rows are not saved" }]);
-    const step = withStepLayer(workspace, "feature", "plan", WEB.id, { label: "Think" }, {});
-    expect(opsFrom(read, workspace, step)).toEqual([{ op: "unsaved", said: "What a step ends on, and steps changed below the default, are not saved" }]);
+    expect(opsFrom(read, workspace, withStepLayer(workspace, "feature", "plan", WEB.id, { label: "Think" }, {}))).toEqual([]);
+  });
+});
+
+describe("a whole lifecycle", () => {
+  it.each([
+    [DEFAULT, { kind: "everywhere" }],
+    [WORKSPACE, { kind: "within", id: "my-store" }],
+    [WEB.id, { kind: "within", id: WEB.id }],
+  ])("is added on the tab %s as a piece of that tab's scope, read from the tracker", async (tab, scope) => {
+    const { read, workspace } = await opened();
+    const { workspace: next, id } = withLifecycleAdded(workspace, "Incident", tab);
+    const ops = opsFrom(read, workspace, next);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({
+      op: "save",
+      overwrite: false,
+      piece: { kind: "lifecycle", lifecycle: { id, name: "Incident", scope, transitions: [{ from: "open", to: "done" }], ends: ["done"] } },
+    });
+    expect(ops[0]?.op === "save" && ops[0].piece.kind === "lifecycle" ? ops[0].piece.lifecycle.states.map((one) => one.read) : []).toEqual([
+      { source: "tracker", words: [] },
+      { source: "tracker", words: [] },
+    ]);
+  });
+
+  it("is read back as the person's own, renamed in the piece that holds its name, and deleted with its file", async () => {
+    const { api, read, workspace } = await opened();
+    const added = withLifecycleAdded(workspace, "Incident", DEFAULT);
+    await runOps(api, opsFrom(read, workspace, added.workspace), SERVED);
+    const again = await readPieces(api, WEB.id, SERVED);
+    if (!again.ok) throw new Error("not read");
+    const held = withPlaces(workspaceOf(again.read)!, ["feature"]);
+    expect(held.lifecycles.find((one) => one.id === added.id)).toMatchObject({ label: "Incident", kept: "yours" });
+    const [renamed] = opsFrom(again.read, held, withLifecycleLabel(held, added.id, "Outage"));
+    expect(renamed).toMatchObject({ op: "save", overwrite: true, piece: { lifecycle: { id: added.id, name: "Outage", scope: { kind: "everywhere" } } } });
+    expect(opsFrom(again.read, held, withoutLifecycle(held, added.id))).toEqual([{ op: "delete", id: { kind: "lifecycle", id: added.id, scope: { kind: "everywhere" } } }]);
+  });
+
+  it("is a file of the repository's removed by a Job, and Armada's own are no files at all", async () => {
+    const { read, workspace } = await opened();
+    expect(opsFrom(read, workspace, withoutLifecycle(workspace, "deploy"))).toEqual([]);
+    expect(workspace.lifecycles.find((one) => one.id === "deploy")?.kept).toBe("armada");
+  });
+});
+
+describe("where a rule lands", () => {
+  it("is the state a ticket moves to, or the step the Job is on where nothing else lands", async () => {
+    const { workspace } = await opened();
+    const defs = namedOf(workspace.lifecycles);
+    const wire = rule(workspace, "progress").wire!;
+    expect(landing(wire, defs)).toEqual({ lane: "ticket", item: "in_progress" });
+    const tell: LifecycleRule = { ...wire, does: [{ what: { act: "tell", message: "Go" }, kind: "tell_agent", autonomy: "acts" }] };
+    expect(landing(tell, defs)).toBeUndefined();
+    expect(landing({ ...tell, conditions: [{ kind: "at_step", step: "plan" }] }, defs)).toEqual({ lane: "workflow", item: "plan" });
   });
 });
 
 describe("doing them", () => {
   it("keeps a saved piece, and reads it back as the person's own", async () => {
     const { api, read, workspace } = await opened();
-    const ran = await runOps(api, sent(opsFrom(read, workspace, withRuleAt(workspace, "progress", DEFAULT, { autonomy: "asks" }))), SERVED);
-    expect(ran).toEqual({ ok: true });
+    const next = edited(workspace, "progress", DEFAULT, (piece) => ({ ...piece, autonomy: "asks", does: piece.does.map((one) => ({ ...one, autonomy: "asks" })) }));
+    const ran = await runOps(api, opsFrom(read, workspace, next), SERVED);
+    expect(ran).toEqual({ ok: true, removing: [] });
     const again = await readPieces(api, WEB.id, SERVED);
     if (!again.ok) throw new Error("not read");
     expect(rule(workspaceOf(again.read)!, "progress").autonomy).toBe("asks");
@@ -219,22 +350,23 @@ describe("doing them", () => {
     const { api, read, workspace } = await opened();
     const error = { code: "fleet.piece_unfit", message: "progress names a lifecycle, nowhere, that is not kept", run_id: "r", fields: {}, chain: [] };
     const refusing = { ...api, saveLifecyclePiece: async () => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error } }) } as PiecesApi;
-    const ran = await runOps(refusing, sent(opsFrom(read, workspace, withRuleAt(workspace, "progress", DEFAULT, { autonomy: "off" }))), SERVED);
+    const next = edited(workspace, "progress", DEFAULT, (piece) => ({ ...piece, autonomy: "off" }));
+    const ran = await runOps(refusing, opsFrom(read, workspace, next), SERVED);
     expect(ran).toEqual({ ok: false, said: "progress names a lifecycle, nowhere, that is not kept" });
   });
 
   it("takes a repository's piece out by a commit that removes it, from the root of the repository that holds it", async () => {
     const { api, commit, read, workspace } = await opened();
-    const ran = await runOps(api, sent(opsFrom(read, workspace, withoutRule(workspace, "close-on-merge"))), SERVED);
+    const ran = await runOps(api, opsFrom(read, workspace, withoutRule(workspace, "close-on-merge")), SERVED);
     expect(commit).toHaveBeenCalledWith({ repository: WEB.root, piece: { kind: "lifecycle_rule", id: "close-on-merge", scope: { kind: "everywhere" } }, remove: true });
-    expect(ran).toEqual({ ok: true, said: "Removed from the repository when its pull request merges" });
+    expect(ran).toEqual({ ok: true, removing: [{ kind: "rule", id: "close-on-merge", scope: { kind: "everywhere" } }] });
   });
 
   it("is read only, and says no error, on a Fleet that does not serve the route", async () => {
     const { api, read, workspace } = await opened();
     const gone = { ok: false as const, outcome: { ok: false as const, why: "transport" as const, detail: "404", fault: { method: "POST", path: "/lifecycles/pieces/save", why: "unanswerable" as const, status: 404 } } };
     const old = { ...api, saveLifecyclePiece: async () => gone } as PiecesApi;
-    const ran = await runOps(old, sent(opsFrom(read, workspace, withRuleAt(workspace, "progress", DEFAULT, { autonomy: "asks" }))), SERVED);
+    const ran = await runOps(old, opsFrom(read, workspace, edited(workspace, "progress", DEFAULT, (piece) => ({ ...piece, autonomy: "asks" }))), SERVED);
     expect(ran).toEqual({ ok: false, said: "", old: true });
   });
 

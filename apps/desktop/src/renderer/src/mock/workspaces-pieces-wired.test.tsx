@@ -2,7 +2,7 @@
 // back to what Fleet holds, a Fleet without the save routes leaves the editor read only and says nothing, and a rule changed on Armada's workflow makes no copy of the workflow.
 
 import { expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 import { workspacesPieces } from "./scenarios/workspaces-pieces";
@@ -80,4 +80,68 @@ test("a rule the person keeps offers Commit to repository, and one the repositor
   await region.getByRole("button", { name: "Close the ticket", exact: true }).click();
   await expect.element(PANEL.getByRole("radio", { name: "Asks", exact: true })).toBeChecked();
   expect(PANEL.getByRole("button", { name: "Commit to repository" }).elements()).toHaveLength(0);
+});
+
+const region = () => page.getByRole("region", { name: "Workflow", exact: true });
+const pick = (name: string) => PANEL.getByRole("combobox", { name, exact: true });
+
+test("the pickers of a rule change its piece, and an act that needs words is added once they are typed", async () => {
+  const app = await lanes();
+  const saved = vi.spyOn(app.api, "saveLifecyclePiece");
+  await openProgress();
+  await PANEL.getByRole("combobox", { name: "When" }).selectOptions("ends|build");
+  await expect.poll(() => saved.mock.calls.length).toBe(1);
+  expect(saved.mock.calls[0]![0]).toMatchObject({ overwrite: true, piece: { rule: { id: "progress", when: { kind: "step_ends", step: "build" } } } });
+  // Choosing the act saves nothing until it has its message.
+  await pick("Add an act").selectOptions("tell");
+  expect(saved).toHaveBeenCalledTimes(1);
+  await PANEL.getByRole("textbox", { name: "Message" }).fill("Start on it");
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => saved.mock.calls.length).toBe(2);
+  expect(saved.mock.calls[1]![0]).toMatchObject({ piece: { rule: { does: [{ what: { act: "tracker_move" } }, { what: { act: "tell", message: "Start on it" } }] } } });
+});
+
+test("a lifecycle is added on the tab, named, and deleted, each kept as its own piece", async () => {
+  const app = await lanes();
+  const saved = vi.spyOn(app.api, "saveLifecyclePiece");
+  const deleted = vi.spyOn(app.api, "deleteLifecyclePiece");
+  await page.getByRole("button", { name: "Add lifecycle", exact: true }).click();
+  await expect.poll(() => saved.mock.calls.length).toBe(1);
+  expect(saved.mock.calls[0]![0]).toMatchObject({ piece: { kind: "lifecycle", lifecycle: { id: "new_lifecycle", name: "New lifecycle", scope: { kind: "everywhere" } } } });
+  const name = PANEL.getByRole("textbox", { name: "Name" });
+  await name.fill("Incident");
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => saved.mock.calls.length).toBe(2);
+  expect(saved.mock.calls[1]![0]).toMatchObject({ overwrite: true, piece: { lifecycle: { id: "new_lifecycle", name: "Incident" } } });
+  await PANEL.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect.poll(() => deleted.mock.calls.length).toBe(1);
+  expect(deleted.mock.calls[0]![0]).toMatchObject({ kind: "lifecycle", id: "new_lifecycle", scope: { kind: "everywhere" } });
+});
+
+test("what Fleet cannot run is not offered: no add on a forge lifecycle, no delete on Armada's, no step edits below the default", async () => {
+  await lanes();
+  await region().getByRole("button", { name: "Pull request: Draft", exact: true }).click();
+  await expect.element(page.getByRole("toolbar", { name: "Edit pull request Draft" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Add after pull request Draft" }).elements()).toHaveLength(0);
+  await PANEL.getByRole("button", { name: "Close" }).click();
+  await region().getByRole("button", { name: "Ticket", exact: false }).first().click();
+  expect(PANEL.getByRole("button", { name: "Delete", exact: true }).elements()).toHaveLength(0);
+  await PANEL.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("tab", { name: "store-web", exact: true }).click();
+  await region().getByRole("button", { name: "Step: Build", exact: true }).click();
+  expect(page.getByRole("button", { name: "Add after step Build" }).elements()).toHaveLength(0);
+  expect(PANEL.getByRole("textbox", { name: "Name" }).elements()).toHaveLength(0);
+  expect(PANEL.getByRole("combobox", { name: "Ends when" }).elements()).toHaveLength(0);
+});
+
+test("a rule the repository committed that is deleted stays, marked with when it goes", async () => {
+  await page.viewport(1800, 900);
+  const app = await lanes();
+  const committed = vi.spyOn(app.api, "commitToRepository");
+  await region().getByRole("button", { name: "Close the ticket", exact: true }).click();
+  await page.getByRole("button", { name: "Delete rule Close the ticket" }).click();
+  await expect.poll(() => committed.mock.calls.length).toBe(1);
+  expect(committed.mock.calls[0]![0]).toMatchObject({ remove: true, piece: { id: "close-on-merge" } });
+  await region().getByRole("button", { name: "Close the ticket", exact: true }).hover();
+  await expect.element(page.getByText("Removed from the repository when its pull request merges")).toBeVisible();
 });

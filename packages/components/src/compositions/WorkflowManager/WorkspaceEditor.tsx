@@ -1,15 +1,13 @@
-import { ListPlus, Split } from "lucide-react";
+import { Clock, ListPlus, Plus, Split, Trash2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
+import type { LifecycleRule } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
-import { Input } from "../../primitives/Input/Input";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
-import { Select } from "../../primitives/Select/Select";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import type { TabsItem } from "../../primitives/Tabs/Tabs";
-import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { changedAt, editorLanes, stepsOf } from "../LaneCanvas/build";
 import {
@@ -18,7 +16,11 @@ import {
   withNewRule,
   withReads,
   withRuleAt,
+  withRuleWireAt,
   withAddedStep,
+  withLifecycleAdded,
+  withLifecycleLabel,
+  withoutLifecycle,
   withStateAfter,
   withStateLabelAt,
   withStepAddedAt,
@@ -36,12 +38,16 @@ import {
 import type { RuleFields, StepFields } from "../LaneCanvas/edit";
 import { LaneCanvas } from "../LaneCanvas/LaneCanvas";
 import type { LaneEditing, LanePick } from "../LaneCanvas/LaneCanvas";
-import { DEFAULT, layersAt, levelsOf, lifecyclesAt, nodeId, readsAt, ruleAt, stateDiffers, stateLabelAt, stepDiffers, stepsAt, whenSaid } from "../LaneCanvas/model";
-import type { Autonomy, LifecycleDef, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
+import { DEFAULT, END_ITEM, REMOVAL_WAITS, START_ITEM, existsAt, layersAt, levelsOf, lifecyclesAt, nodeId, readsAt, ruleAt, stateDiffers, stateExistsAt, stateLabelAt, stepDiffers, stepsAt, whenSaid } from "../LaneCanvas/model";
+import type { Autonomy, LifecycleDef, Ref, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
 import { MOMENTS, endsOnOf, fireGroupsOf, momentOf, subjectsOf, waitsOf } from "../LaneCanvas/waits";
 import type { WaitSubject } from "../LaneCanvas/waits";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
+import { Field, Lines, Pair, Wrapped } from "./InspectorFields";
+import type { Choice } from "./InspectorFields";
+import { RuleForm } from "./RuleForm";
+import type { RuleFormLifecycle } from "./RuleForm";
 import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } from "./types";
 
 /**
@@ -71,6 +77,12 @@ export type WorkspaceEditing = {
   readOnly?: true;
   /** Where the picked rule or lifecycle is kept, drawn under its fields: the acts on it, for the tab it is picked on. Absent, nothing stands there. */
   pieceActs?: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => ReactNode;
+  /** Whether a rule, as it stands, lands on a node of the lanes, which is how it is drawn and picked. Absent, every rule does. */
+  lands?: (rule: LifecycleRule) => boolean;
+  /** Whether a connector from one node to another makes a rule Fleet can run. A pair that does not is offered no landing. Absent, any pair does. */
+  canConnect?: (from: Ref, to: Ref) => boolean;
+  /** The rules and lifecycles whose removal waits on a pull request, as `rule:<id>` and `lifecycle:<id>`. */
+  pending?: ReadonlySet<string>;
 };
 
 /** The app's side panel as the editor asks for it: opened for what is picked, and its body given back as a slot to draw into. */
@@ -108,8 +120,12 @@ const splitValues = (text: string): string[] => text.split(",").map((one) => one
 
 /** The fields a step's card takes when the panel draws it, each given the id of the row label that names it. */
 export type StepRows = {
-  name: (labelledBy: string) => ReactNode;
-  ends: (labelledBy: string) => ReactNode;
+  /** Absent where the step's name is not this level's to change. */
+  name?: (labelledBy: string) => ReactNode;
+  /** Absent where nothing keeps what ends it: the card says it as the workflow's definition does. */
+  ends?: (labelledBy: string) => ReactNode;
+  /** The words are read and not edited here, where nothing keeps a level's own. */
+  fixed?: true;
   /** Absent where the step is passed over for nothing. */
   passedOver?: (labelledBy: string) => ReactNode;
   /** Saves the words where a level below the default holds them. Absent, the words are the workflow's and the host saves them. */
@@ -171,7 +187,7 @@ export function WorkspaceEditor({
   const place = workspace.workflows[workflow.id];
   /** The steps as they run on this tab: the definition's, and the ones added at this level or above. */
   const steps = useMemo(() => stepsAt(defined, place, scope, (one): ManagedStep => ({ id: one.id, label: one.label, ends: "", words: one.words ?? "" })), [defined, place, scope]);
-  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed, scope }), [workspace, workflow.id, steps, proposed, scope]);
+  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed, scope, ...(editing.pending === undefined ? {} : { pending: editing.pending }) }), [workspace, workflow.id, steps, proposed, scope, editing.pending]);
 
   // **The first change on Armada's workflow makes the person's own copy**, without a word: the change is made on the Workspace as it is, and the host makes the copy behind it.
   const change = (next: Workspace) => {
@@ -193,6 +209,10 @@ export function WorkspaceEditor({
       const found = [...workspace.rules, ...proposed].find((one) => one.id === at.id);
       const rule = found === undefined ? undefined : ruleAt(found, scope);
       return { title: `Rule: ${rule?.label ?? at.id}`, heading: rule?.label ?? at.id, crumb: "Rule" };
+    }
+    if (at.kind === "lane") {
+      const label = workspace.lifecycles.find((one) => one.id === at.id)?.label ?? at.id;
+      return { title: label, heading: label, crumb: "Lifecycle" };
     }
     const named = names.get(at.id);
     return { title: `${named?.lane ?? ""}: ${named?.label ?? at.id}`.replace(/^: /, ""), heading: named?.label ?? at.id, crumb: named?.lane ?? "" };
@@ -258,6 +278,7 @@ export function WorkspaceEditor({
 
   const remove = (at: LanePick) => {
     if (at.kind === "rule") change(withoutRule(workspace, at.id));
+    else if (at.kind === "lane") change(withoutLifecycle(workspace, at.id));
     else {
       const { lane, item } = refOf(at.id);
       if (lane === "workflow") {
@@ -290,13 +311,42 @@ export function WorkspaceEditor({
   /** A tab deletes what it added, and the default what the workflow holds. */
   const canDelete = (at: LanePick): boolean => {
     if (at.kind === "rule") return (workspace.rules.find((one) => one.id === at.id)?.scope ?? DEFAULT) === scope;
+    if (at.kind === "lane") return lifecycleDeletable(at.id);
     const { lane, item } = refOf(at.id);
     if (lane === "workflow") return ((place?.added ?? []).find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
     return (workspace.lifecycles.find((one) => one.id === lane)?.states.find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
   };
 
+  const pieces = editing.pieces === true;
+  /** A lifecycle is deleted on the tab that added it, when a file of the person's or the repository's defines it and no rule names it: Armada's four are not files to delete. */
+  const lifecycleDeletable = (id: string): boolean => {
+    const found = workspace.lifecycles.find((one) => one.id === id);
+    if (found === undefined || (found.scope ?? DEFAULT) !== scope) return false;
+    if (pieces && (found.kept === undefined || found.kept === "armada")) return false;
+    const named = `"lifecycle":"${id}"`;
+    return !workspace.rules.some((rule) => rule.from.lane === id || rule.to.lane === id || [rule.wire, ...(rule.overrides ?? []).map((one) => one.wire)].some((wire) => wire !== undefined && JSON.stringify(wire).includes(named)));
+  };
+  /** Where the lifecycles and rules are pieces, a node is added only where something can keep it: the workflow's steps on the default, and the states of a lifecycle the tracker reads. */
+  const canAdd = (at: LanePick): boolean => {
+    if (!pieces || at.kind !== "node") return true;
+    const { lane } = refOf(at.id);
+    if (lane === "workflow") return level === undefined;
+    const kind = workspace.lifecycles.find((one) => one.id === lane)?.kind;
+    return kind === undefined || kind === "tracker";
+  };
+  const canConnect = (from: string, to: string): boolean => {
+    const a = refOf(from);
+    const b = refOf(to);
+    if (from === to || [a.item, b.item].some((one) => one === START_ITEM || one === END_ITEM)) return false;
+    // Between two steps it is order, which is the workflow's own and is set on the default.
+    if (a.lane === "workflow" && b.lane === "workflow") return !pieces || level === undefined;
+    return editing.canConnect?.(a, b) ?? true;
+  };
+
   const handles: LaneEditing = {
     canDelete,
+    canAdd,
+    canConnect,
     // An agent drafts a change to the workflow's steps, so where the lifecycles and rules are pieces kept apart from it, only a step can be told.
     ...(editing.pieces === true ? { canTell: (at: LanePick) => at.kind === "node" && refOf(at.id).lane === "workflow" } : {}),
     onEdit: toFields,
@@ -312,6 +362,28 @@ export function WorkspaceEditor({
       const rule = [...workspace.rules, ...proposed].find((one) => one.id === picked.id);
       if (rule === undefined) return null;
       const added = proposed.includes(rule);
+      const wire = ruleAt(rule, scope).wire;
+      // Where rules are pieces, a rule is its piece: pickers over what Fleet can run, each change a piece kept whole at this tab.
+      if (pieces && wire !== undefined && !added) {
+        const here = lifecyclesOf(workspace, scope);
+        return (
+          <div className="armada-wm-step">
+            {editing.pending?.has(`rule:${rule.id}`) === true ? <Pending /> : null}
+            <dl className="armada-wm-step__facts">
+              <RuleForm
+                key={`${rule.id}/${scope}`}
+                rule={wire}
+                lifecycles={here}
+                steps={stepsOf(workspace, workflow.id, steps, scope)}
+                workflows={Object.keys(workspace.workflows)}
+                lands={editing.lands ?? (() => true)}
+                onChange={(next) => change(withRuleWireAt(workspace, rule.id, scope, next))}
+              />
+              {level === undefined || !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : <Changed name={level.name} back={level.back} onUseAbove={() => change(withoutRuleOverride(workspace, rule.id, scope))} />}
+            </dl>
+          </div>
+        );
+      }
       return (
         <RuleFacts
           rule={rule}
@@ -322,6 +394,20 @@ export function WorkspaceEditor({
           added={added}
           onChange={(patch) => change(withRuleAt(workspace, rule.id, scope, patch))}
           onUseAbove={() => change(withoutRuleOverride(workspace, rule.id, scope))}
+        />
+      );
+    }
+    if (picked.kind === "lane") {
+      const lifecycle = workspace.lifecycles.find((one) => one.id === picked.id);
+      if (lifecycle === undefined) return null;
+      return (
+        <LifecycleFacts
+          key={lifecycle.id}
+          lifecycle={lifecycle}
+          pending={editing.pending?.has(`lifecycle:${lifecycle.id}`) === true}
+          named={(lifecycle.scope ?? DEFAULT) === scope}
+          onName={(label) => change(withLifecycleLabel(workspace, lifecycle.id, label))}
+          onDelete={lifecycleDeletable(lifecycle.id) ? () => remove({ kind: "lane", id: lifecycle.id }) : undefined}
         />
       );
     }
@@ -357,6 +443,14 @@ export function WorkspaceEditor({
         />
       );
       const own = level !== undefined && !mine && stepDiffers(place, step.id).includes(scope);
+      // Where lifecycles and rules are pieces, what the workflow's definition holds is saved by the page: the name and order of its steps on the default. What a level below the default would change of a step, and
+      // what ends it or passes it over, have nothing to be kept in, so they are not offered.
+      if (pieces) {
+        return stepCard({ ...step, label: here.label, words: here.words }, index, {
+          ...(level === undefined ? { name: (labelledBy: string) => <Field labelledBy={labelledBy} value={here.label} onCommit={(label) => label !== "" && writeSteps({ kind: "label", id: step.id, label })} /> } : { fixed: true as const }),
+          keep: `${workflow.id}/${step.id}/${scope}`,
+        });
+      }
       return stepCard({ ...step, label: here.label, words: here.words }, index, {
         name: (labelledBy) => <Field labelledBy={labelledBy} value={here.label} onCommit={(label) => label !== "" && (mine ? change(withAddedStep(workspace, workflow.id, step.id, { label })) : level === undefined ? writeSteps({ kind: "label", id: step.id, label }) : layer({ label }))} />,
         ends: waits("ends"),
@@ -400,7 +494,16 @@ export function WorkspaceEditor({
 
   const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
   /** The rule or lifecycle the pick is of, for the acts on where it is kept. A step is the workflow's. */
-  const piece = picked === undefined || mode === "tell" ? undefined : picked.kind === "rule" ? ({ kind: "rule", id: picked.id } as const) : refOf(picked.id).lane === "workflow" ? undefined : ({ kind: "lifecycle", id: refOf(picked.id).lane } as const);
+  const piece =
+    picked === undefined || mode === "tell"
+      ? undefined
+      : picked.kind === "rule"
+        ? ({ kind: "rule", id: picked.id } as const)
+        : picked.kind === "lane"
+          ? ({ kind: "lifecycle", id: picked.id } as const)
+          : refOf(picked.id).lane === "workflow"
+            ? undefined
+            : ({ kind: "lifecycle", id: refOf(picked.id).lane } as const);
   const acts = piece === undefined ? null : (editing.pieceActs?.(piece, scope) ?? null);
 
   return (
@@ -413,6 +516,21 @@ export function WorkspaceEditor({
           <Tabs icons items={tabs} value={scope} onChange={setScope} />
         </div>
         <p className="armada-wm-scope__says">{SAYS(scope, workspace.name, repository?.name)}</p>
+        {editing.readOnly === true ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const made = withLifecycleAdded(workspace, "New lifecycle", scope);
+              change(made.workspace);
+              pick({ kind: "lane", id: made.id });
+            }}
+          >
+            <Plus size={16} strokeWidth={2} aria-hidden="true" />
+            Add lifecycle
+          </Button>
+        )}
       </div>
       {above}
       {/* Drawn once the steps are read: lanes that fill in after they open would pan to what arrived. */}
@@ -427,6 +545,51 @@ export function WorkspaceEditor({
             panel.slot,
           )}
     </section>
+  );
+}
+
+/** The lifecycles as a tab has them, for the pickers of a rule: the ones that exist there, each with the states that do and the names the tab gives them. */
+const lifecyclesOf = (workspace: Workspace, scope: string): RuleFormLifecycle[] =>
+  workspace.lifecycles
+    .filter((one) => existsAt(one.scope, scope))
+    .map((one) => ({ id: one.id, name: one.label, kind: one.kind, states: one.states.filter((state) => stateExistsAt(state, scope)).map((state) => ({ id: state.id, label: stateLabelAt(state, scope) })) }));
+
+/** The mark on a piece whose removal waits on a pull request: a glyph, with the sentence in its tooltip. */
+function Pending() {
+  return (
+    <div className="armada-wm-step__band">
+      <span className="armada-wm-step__marks">
+        <Tooltip label={REMOVAL_WAITS}>
+          <span role="img" aria-label={REMOVAL_WAITS}>
+            <Clock size={14} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      </span>
+    </div>
+  );
+}
+
+/** A lifecycle: its name, where Fleet reads its states from, and deleting it. A tab that did not add it reads the name and cannot delete it. */
+function LifecycleFacts({ lifecycle, pending, named, onName, onDelete }: { lifecycle: LifecycleDef; pending: boolean; named: boolean; onName: (label: string) => void; onDelete: (() => void) | undefined }) {
+  const id = useId();
+  return (
+    <div className="armada-wm-step">
+      {pending ? <Pending /> : null}
+      <dl className="armada-wm-step__facts">
+        <dt id={`${id}-name`}>Name</dt>
+        <dd>{named ? <Field labelledBy={`${id}-name`} value={lifecycle.label} onCommit={(label) => label !== "" && onName(label)} /> : lifecycle.label}</dd>
+        <dt>Read from</dt>
+        <dd>{lifecycle.from}</dd>
+        {onDelete === undefined ? null : (
+          <dd className="armada-wm-inspector__changed">
+            <Button type="button" variant="ghost" size="sm" onClick={onDelete}>
+              <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              Delete
+            </Button>
+          </dd>
+        )}
+      </dl>
+    </div>
   );
 }
 
@@ -459,128 +622,6 @@ function TellBox({ keep, onSend }: { keep: string; onSend: (sent: SentFromCompos
         draftKey={`workflows:tell:${keep}`}
         onSend={onSend}
       />
-    </div>
-  );
-}
-
-/** A field that edits a stored value and says it where it is left, or on Enter. Its name is its row's label: `labelledBy` is that label's id. */
-function Field({ labelledBy, value, onCommit, mono = false }: { labelledBy: string; value: string; onCommit: (next: string) => void; mono?: boolean }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  const commit = () => {
-    const next = text.trim();
-    if (next !== value) onCommit(next);
-  };
-  return (
-    <Input
-      aria-labelledby={labelledBy}
-      mono={mono}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") commit();
-      }}
-    />
-  );
-}
-
-/** Words that run to several lines, shown whole: the box grows with them. Said where it is left, or on Enter; Shift and Enter starts a line. */
-function Wrapped({ labelledBy, keep, value, onCommit }: { labelledBy: string; keep: string; value: string; onCommit: (next: string) => void }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  const commit = () => {
-    const next = text.trim();
-    if (next !== value) onCommit(next);
-  };
-  return (
-    <Textarea
-      aria-labelledby={labelledBy}
-      grow
-      rows={1}
-      keep={keep}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" || event.shiftKey) return;
-        event.preventDefault();
-        commit();
-      }}
-    />
-  );
-}
-
-/** Lines of text that edit a stored list, said where the box is left. `keep` names what the lines are about, so a line half typed is there when the panel comes back. */
-function Lines({ labelledBy, keep, lines, onCommit }: { labelledBy: string; keep: string; lines: readonly string[]; onCommit: (next: string[]) => void }) {
-  const [text, setText] = useState(lines.join("\n"));
-  useEffect(() => setText(lines.join("\n")), [lines]);
-  return (
-    <Textarea
-      aria-labelledby={labelledBy}
-      rows={Math.max(2, lines.length)}
-      keep={keep}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() => {
-        const next = text.split("\n").map((one) => one.trim()).filter((one) => one !== "");
-        if (next.join("\n") !== lines.join("\n")) onCommit(next);
-      }}
-    />
-  );
-}
-
-type Choice = { value: string; label: string };
-
-/**
- * Two dropdowns on one row that set one fact, a thing and then what it does or is: `[ Build ] [ ends ]`. Both are named by the row's label, the second with a word that tells it from the first, so
- * the row says its name once. Each saves as it is changed. A value the lists do not hold opens on an empty choice.
- */
-function Pair({
-  labelledBy,
-  first,
-  second,
-}: {
-  labelledBy: string;
-  first: { value: string; groups: readonly { label?: string; items: readonly Choice[] }[]; onChange: (value: string) => void };
-  second: { value: string; hidden: string; items: readonly Choice[]; onChange: (value: string) => void };
-}) {
-  const hiddenId = useId();
-  const empty = (value: string, items: readonly Choice[]) => value === "" || !items.some((one) => one.value === value);
-  const all = first.groups.flatMap((group) => group.items);
-  return (
-    <div className="armada-wm-pair">
-      <span id={hiddenId} className="armada-wm-hidden">
-        {second.hidden}
-      </span>
-      <Select aria-labelledby={labelledBy} value={empty(first.value, all) ? "" : first.value} onChange={(event) => first.onChange(event.target.value)}>
-        {empty(first.value, all) ? <option value="" /> : null}
-        {first.groups.map((group) =>
-          group.label === undefined ? (
-            group.items.map((one) => (
-              <option key={one.value} value={one.value}>
-                {one.label}
-              </option>
-            ))
-          ) : (
-            <optgroup key={group.label} label={group.label}>
-              {group.items.map((one) => (
-                <option key={one.value} value={one.value}>
-                  {one.label}
-                </option>
-              ))}
-            </optgroup>
-          ),
-        )}
-      </Select>
-      <Select aria-labelledby={`${labelledBy} ${hiddenId}`} value={empty(second.value, second.items) ? "" : second.value} disabled={second.items.length === 0} onChange={(event) => second.onChange(event.target.value)}>
-        {empty(second.value, second.items) ? <option value="" /> : null}
-        {second.items.map((one) => (
-          <option key={one.value} value={one.value}>
-            {one.label}
-          </option>
-        ))}
-      </Select>
     </div>
   );
 }

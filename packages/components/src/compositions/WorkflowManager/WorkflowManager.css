@@ -722,6 +722,30 @@
   grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
   gap: var(--space-2);
 }
+/* A rule's condition or act: its controls side by side, wrapping as the panel narrows, and the way to remove it at the end. */
+.armada-wm-clauses {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.armada-wm-clauses:empty { display: none; }
+.armada-wm-clause {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.armada-wm-clause > .armada-select-field,
+.armada-wm-clause > .armada-input-field,
+.armada-wm-clause > .armada-textarea-field { flex: 1 1 calc(var(--space-12) * 3); min-width: 0; }
+.armada-wm-clause__word {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
 /* Text a screen reader reads and nothing draws: the second dropdown of a pair is told from the first by it. */
 .armada-wm-hidden {
   position: absolute;

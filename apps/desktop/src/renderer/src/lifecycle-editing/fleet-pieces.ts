@@ -39,11 +39,8 @@ export async function readPieces(api: PiecesApi, current: string, served: readon
   return { ok: true, read: { ...(workspace === undefined ? {} : { workspace }), repositories } };
 }
 
-/** What a run of acts came to: done, with a word for what is not done yet, or the words that stopped it. `old` is a Fleet that does not serve the route, which is no error to say. */
-export type Ran = { ok: true; said?: string } | { ok: false; said: string; old?: true };
-
-/** A piece a repository holds goes when the pull request that removes it merges, so a read still shows it until then. */
-export const REMOVAL_WAITS = "Removed from the repository when its pull request merges";
+/** What a run of acts came to: done, with the pieces a repository holds that a pull request is removing, or the words that stopped it. `old` is a Fleet that does not serve the route, which is no error to say. */
+export type Ran = { ok: true; removing: PieceId[] } | { ok: false; said: string; old?: true };
 
 /** A route this Fleet does not serve answers 404 with no refusal in it. */
 const missing = (outcome: Outcome): boolean => !outcome.ok && outcome.why === "transport" && outcome.fault.why === "unanswerable" && outcome.fault.status === 404;
@@ -55,21 +52,19 @@ export const rootOf = (path: string, served: readonly Served[]): string | undefi
 
 /** Does the saves and deletes of `ops`, in order, stopping at the first Fleet refuses. */
 export async function runOps(api: PiecesApi, ops: readonly Op[], served: readonly Served[]): Promise<Ran> {
-  let removing = false;
+  const removing: PieceId[] = [];
   for (const op of ops) {
     let answer: { ok: true } | { ok: false; outcome: Outcome };
     if (op.op === "save") answer = await api.saveLifecyclePiece({ piece: op.piece, ...(op.overwrite ? { overwrite: true } : {}) });
     else if (op.op === "delete") answer = await api.deleteLifecyclePiece({ kind: op.id.kind, id: op.id.id, scope: op.id.scope });
-    else if (op.op === "remove") {
+    else {
       const repository = rootOf(op.path, served);
       if (repository === undefined) return { ok: false, said: "The repository that holds it is not open here" };
       answer = await api.commitToRepository({ repository, piece: toCommit(op.id), remove: true });
-      removing = true;
-    } else continue;
+      // A piece a repository holds goes when the pull request that removes it merges, so a read still shows it until then.
+      removing.push(op.id);
+    }
     if (!answer.ok) return missing(answer.outcome) ? { ok: false, said: "", old: true } : { ok: false, said: refusalWords(answer.outcome) };
   }
-  return removing ? { ok: true, said: REMOVAL_WAITS } : { ok: true };
+  return { ok: true, removing };
 }
-
-/** The acts that reach Fleet: the rest of an `Op` list is said and not sent. */
-export const sent = (ops: readonly Op[]): Op[] => ops.filter((one) => one.op === "save" || one.op === "delete" || one.op === "remove");

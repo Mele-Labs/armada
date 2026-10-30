@@ -31,6 +31,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
 import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, withToolbar, type Placement, type Rect } from "./layout";
+import { REMOVAL_WAITS } from "./model";
 import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
 
 /**
@@ -60,7 +61,7 @@ import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
  * inside React Flow's viewport is scaled with the zoom, and is shown only while its node or chip is hovered or reached by key, held to it as the canvas moves.
  */
 
-export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string };
+export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string } | { kind: "lane"; id: string };
 
 /** What the person may do by hand to the lanes. Every act takes what is picked; a connector takes the two nodes it joins. */
 export type LaneEditing = {
@@ -68,6 +69,10 @@ export type LaneEditing = {
   canDelete?: (pick: LanePick) => boolean;
   /** Whether the pick can be told to an agent. Absent, anything can. */
   canTell?: (pick: LanePick) => boolean;
+  /** Whether a node can have another added after it. Absent, any can. */
+  canAdd?: (pick: LanePick) => boolean;
+  /** Whether a connector can join the two nodes, each by its id. A pair that cannot is offered no landing. Absent, any two can. */
+  canConnect?: (from: string, to: string) => boolean;
   /** Takes the person to the picked thing's fields, which the side panel draws live. */
   onEdit: (pick: LanePick) => void;
   onTell: (pick: LanePick) => void;
@@ -159,7 +164,7 @@ function Toolbar({ pick, name, rule }: { pick: LanePick; name: string; rule: boo
           Edit
         </Button>
       </Tooltip>
-      {ACTS.filter((one) => !(rule && one.id === "add") && !(one.id === "delete" && editing.canDelete?.(pick) === false) && !(one.id === "tell" && editing.canTell?.(pick) === false)).map((one) => (
+      {ACTS.filter((one) => !(rule && one.id === "add") && !(one.id === "add" && editing.canAdd?.(pick) === false) && !(one.id === "delete" && editing.canDelete?.(pick) === false) && !(one.id === "tell" && editing.canTell?.(pick) === false)).map((one) => (
         <Tooltip key={one.id} label={one.said} shortcut={one.key}>
           <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`${one.said} ${name}`} onClick={() => run[one.id](pick)}>
             <one.Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -185,17 +190,41 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
     <div className="armada-lane-heads">
       {lanes.map((lane) => {
         const band = placement.bands.get(lane.id)!;
+        // A lifecycle's head is picked where the lanes are edited: its fields are the lifecycle's name and its deleting.
+        const pickable = hold.editing !== undefined && lane.kind === "lifecycle";
+        const picked = hold.picked?.kind === "lane" && hold.picked.id === lane.id;
+        const words = (
+          <>
+            <span className="armada-lane__title">{lane.title}</span>
+            <span className="armada-lane__source">{lane.source}</span>
+          </>
+        );
         return (
           <div
             key={lane.id}
             className="armada-lane__head"
             data-kind={lane.kind}
+            data-picked={picked || undefined}
             style={{ top: ty + band.y * zoom, height: band.h * zoom, width: GEO.head }}
             onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], event.currentTarget)}
             onMouseLeave={() => hold.tip(undefined)}
           >
-            <span className="armada-lane__title">{lane.title}</span>
-            <span className="armada-lane__source">{lane.source}</span>
+            {pickable ? (
+              <button type="button" className="armada-lane__pick nodrag nopan" aria-pressed={picked} onClick={() => hold.pick(picked ? undefined : { kind: "lane", id: lane.id })}>
+                {words}
+              </button>
+            ) : (
+              words
+            )}
+            {lane.pending === true ? (
+              <span className="armada-lane__pending">
+                <Tooltip label={REMOVAL_WAITS}>
+                  <span role="img" aria-label={REMOVAL_WAITS}>
+                    <Clock size={14} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              </span>
+            ) : null}
           </div>
         );
       })}
@@ -370,6 +399,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
 
 /** The mark on a rule's chip: how it ended on a Job, or how much it may do alone in the editor. Acts alone carries none. */
 function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefined {
+  if (rule.pending === true) return { Glyph: Clock, said: REMOVAL_WAITS };
   if (rule.proposed === true) return { Glyph: ListPlus, said: "Proposed" };
   if (rule.needs !== undefined) return { Glyph: MessageCircleQuestion, said: "Waiting on you" };
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };
@@ -631,6 +661,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   // What is picked is brought into view with its toolbar: a rule with its chips and the nodes it joins. It is a pan, so the canvas keeps its width and the panel covers only what is past it.
   const revealPick = () => {
     if (picked === undefined) return;
+    if (picked.kind === "lane") return;
     if (picked.kind === "node") return reveal([picked.id], false, [picked.id]);
     const edges = rules.filter((rule) => rule.rule === picked.id);
     reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]), false, edges.map((rule) => rule.id));
@@ -685,7 +716,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       topLane: lanes[0]?.id,
       connecting,
       connect: (to) => {
-        if (connecting !== undefined) editing?.onConnect(connecting, to);
+        if (connecting !== undefined && editing?.canConnect?.(connecting, to) !== false) editing?.onConnect(connecting, to);
         setConnecting(undefined);
       },
       reveal,
@@ -694,7 +725,8 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   );
 
   // A connector dragged from one node's handle to another's.
-  const connect = useCallback((joined: Connection) => editing?.onConnect(joined.source, joined.target), [editing]);
+  const connect = useCallback((joined: Connection) => editing?.canConnect?.(joined.source, joined.target) !== false && editing?.onConnect(joined.source, joined.target), [editing]);
+  const joinable = useCallback((joined: Connection) => editing?.canConnect?.(joined.source, joined.target) !== false, [editing]);
   const connectable = editing !== undefined;
 
   const nodes = useMemo<CanvasNode[]>(() => {
@@ -788,7 +820,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     // pressed ends.
     if (editing !== undefined && picked !== undefined) {
       const removable = editing.canDelete?.(picked) !== false ? editing.onDelete : undefined;
-      const act = { e: editing.onEdit, t: editing.canTell?.(picked) === false ? undefined : editing.onTell, a: picked.kind === "node" ? editing.onAddAfter : undefined, Backspace: removable, Delete: removable }[event.key] as ((pick: LanePick) => void) | undefined;
+      const act = { e: editing.onEdit, t: editing.canTell?.(picked) === false ? undefined : editing.onTell, a: picked.kind === "node" && editing.canAdd?.(picked) !== false ? editing.onAddAfter : undefined, Backspace: removable, Delete: removable }[event.key] as ((pick: LanePick) => void) | undefined;
       if (act !== undefined) {
         event.preventDefault();
         act(picked);
@@ -838,7 +870,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
           minZoom={MIN_ZOOM}
           home={HOME}
           panOnScroll
-          {...(connectable ? { onConnect: connect } : {})}
+          {...(connectable ? { onConnect: connect, isValidConnection: joinable } : {})}
         >
           <Pans pan={pan} covered={covered} content={{ width: placement.width, height: placement.height }} />
           <Heads lanes={lanes} placement={placement} />

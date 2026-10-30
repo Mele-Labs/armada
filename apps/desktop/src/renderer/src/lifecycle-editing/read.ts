@@ -5,7 +5,7 @@
 // **What the wire does not carry stays out of the model.** Where a lifecycle's states sit in columns beside the workflow's steps is laid out here (`placesOf`) and not kept;
 // a rule that fires on a Job event, or that lands on no node, is not drawn and is left as it is.
 
-import { DEFAULT } from "@armada/components";
+import { DEFAULT, autonomyOfWire, existsAt } from "@armada/components";
 import type { Kept, LifecycleDef, LifecycleKind, Ref, Rule, RuleOverride, StateDef, Workspace, WorkflowPlace } from "@armada/components";
 import type { LifecycleDefinition, LifecycleRule, RuleAct } from "@armada/protocol";
 import { columnsOf } from "@armada/screens/src/session-lanes";
@@ -13,6 +13,7 @@ import { columnsOf } from "@armada/screens/src/session-lanes";
 import { effective, levelsOfRead, lifecycleLayers, parentOf, ruleLayers } from "./levels";
 import type { Layers, PiecesRead } from "./levels";
 import { kindOf, laneOf, sayAct, sayCondition } from "./words";
+import type { Named } from "./words";
 
 /** Where a lifecycle's states are read from, in the word the lane carries and the shape its nodes are drawn in. */
 export const SOURCE: Readonly<Record<string, { kind: LifecycleKind; said: string }>> = {
@@ -65,12 +66,18 @@ function lifecycleOf(id: string, layers: Layers<LifecycleDefinition>, levels: re
       const wordsAbove = wordsOf(above);
       if (words !== undefined && words.length > 0 && !same(words, wordsAbove)) reads.push({ source: source.said, values: words, scope: level });
     }
+    // Fleet runs a tab's piece whole: a tab whose piece lacks the state does not have it, whatever a level above says.
+    const absent = levels.filter((level) => {
+      const found = effective(layers, level);
+      return existsAt(at, level) && found !== undefined && !found.layer.piece.states.some((one) => one.id === stateId);
+    });
     return {
       id: stateId,
       label: homeState.label,
       ...(at === DEFAULT ? {} : { scope: at }),
       ...(names.length === 0 ? {} : { names }),
       reads,
+      ...(absent.length === 0 ? {} : { absent }),
       ...(pieceAt(at)!.ends.includes(stateId) ? { end: true as const } : {}),
     };
   });
@@ -81,20 +88,14 @@ function lifecycleOf(id: string, layers: Layers<LifecycleDefinition>, levels: re
       if (known.has(move.from) && known.has(move.to) && !next.some(([from, to]) => from === move.from && to === move.to)) next.push([move.from, move.to]);
     }
   }
-  return { id, label: first.name, from: source.said, kind: source.kind, states, next };
+  const widest = own[0]!;
+  return { id, label: first.name, from: source.said, kind: source.kind, states, next, ...(widest === DEFAULT ? {} : { scope: widest }), kept: KEPT[layers.get(widest)!.kept.rank.source] ?? "repository" };
 }
 
 // ---- Rules ---------------------------------------------------------------------------------------------------------------
 
-/** The strongest word among a rule's acts: any that asks makes it Asks, and all of them off make it Off. */
-function autonomyOf(rule: LifecycleRule): Rule["autonomy"] {
-  const words = rule.autonomy === undefined ? rule.does.map((one) => one.autonomy) : [rule.autonomy];
-  if (words.includes("asks")) return "asks";
-  return words.length > 0 && words.every((one) => one === "off") ? "off" : "acts";
-}
-
 /** The node an act lands on, where it lands on one: the state a ticket is moved to, the state a pull request is brought to, the deploy a watch takes on. */
-function landing(rule: LifecycleRule, defs: ReadonlyMap<string, LifecycleDefinition>): Ref | undefined {
+export function landing(rule: LifecycleRule, defs: ReadonlyMap<string, Named>): Ref | undefined {
   for (const one of rule.does) {
     const act: RuleAct = one.what;
     if (act.act === "tracker_move") {
@@ -120,7 +121,7 @@ function landing(rule: LifecycleRule, defs: ReadonlyMap<string, LifecycleDefinit
 }
 
 /** What the lanes draw of one rule: its two ends and the words of it. Absent where a Job event sets it off or it lands on no node. */
-export function drawnRule(rule: LifecycleRule, defs: ReadonlyMap<string, LifecycleDefinition>): Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "workflow"> | undefined {
+export function drawnRule(rule: LifecycleRule, defs: ReadonlyMap<string, Named>): Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "workflow"> | undefined {
   const when = rule.when;
   if (when.kind === "job") return undefined;
   const to = landing(rule, defs);
@@ -134,36 +135,45 @@ export function drawnRule(rule: LifecycleRule, defs: ReadonlyMap<string, Lifecyc
     to,
     ifs: rule.conditions.filter((one) => one.kind !== "workflow").map((one) => sayCondition(one, rule, lifecycles)),
     does: rule.does.map((one) => ({ act: kindOf(one.what), text: sayAct(one.what, rule, lifecycles) })),
-    autonomy: autonomyOf(rule),
+    autonomy: autonomyOfWire(rule),
     ...(workflow?.kind === "workflow" ? { workflow: workflow.workflow } : {}),
   };
 }
 
-function ruleOf(id: string, layers: Layers<LifecycleRule>, defs: ReadonlyMap<string, LifecycleDefinition>, levels: readonly string[]): Rule | undefined {
+/** What a piece says apart from the scope it is kept at. */
+const sans = (piece: LifecycleRule) => ({ ...piece, scope: undefined });
+
+function ruleOf(id: string, layers: Layers<LifecycleRule>, defs: ReadonlyMap<string, Named>, levels: readonly string[]): Rule | undefined {
   const own = ownLevels(layers, levels);
   const at = own[0]!;
   const base = layers.get(at)!;
   const drawn = drawnRule(base.piece, defs);
   if (drawn === undefined) return undefined;
+  // **A level that keeps a piece of its own has that piece whole**: Fleet runs it in place of the one above, and nothing of the one above reaches it.
   const overrides: RuleOverride[] = [];
   for (const level of own.slice(1)) {
-    const mine = drawnRule(layers.get(level)!.piece, defs);
-    const aboveLayer = effective(layers, parentOf(level) ?? DEFAULT)!.layer;
-    const above = drawnRule(aboveLayer.piece, defs) ?? drawn;
-    if (mine === undefined) continue;
-    const fields: Partial<RuleOverride> = {};
-    if (mine.label !== above.label) fields.label = mine.label;
-    if (!same(mine.from, above.from) || mine.at !== above.at) {
-      fields.from = mine.from;
-      fields.at = mine.at;
-    }
-    if (!same(mine.ifs, above.ifs)) fields.ifs = mine.ifs;
-    if (!same(mine.does, above.does)) fields.does = mine.does;
-    if (mine.autonomy !== above.autonomy) fields.autonomy = mine.autonomy;
-    if (Object.keys(fields).length > 0) overrides.push({ scope: level, ...fields });
+    const piece = layers.get(level)!.piece;
+    const mine = drawnRule(piece, defs);
+    const above = effective(layers, parentOf(level) ?? DEFAULT)!.layer.piece;
+    if (mine === undefined || same(sans(piece), sans(above))) continue;
+    overrides.push({ scope: level, ...mine, workflow: mine.workflow, wire: piece });
   }
   const { workflow, ...fields } = drawn;
-  return { id, ...fields, kept: KEPT[base.kept.rank.source] ?? "repository", scope: at, ...(overrides.length === 0 ? {} : { overrides }), ...(workflow === undefined ? {} : { workflow }) };
+  return { id, ...fields, kept: KEPT[base.kept.rank.source] ?? "repository", scope: at, wire: base.piece, ...(overrides.length === 0 ? {} : { overrides }), ...(workflow === undefined ? {} : { workflow }) };
+}
+
+/** The lifecycles a rule is worded by: each one's name, states and the states that end it. */
+export const namedOf = (lifecycles: readonly LifecycleDef[]): Map<string, Named> =>
+  new Map(lifecycles.map((one) => [one.id, { id: one.id, name: one.label, states: one.states.map((state) => ({ id: state.id, label: state.label })), ends: one.states.filter((state) => state.end === true).map((state) => state.id) }] as const));
+
+/** A Workspace with every rule's fields drawn again from its piece, so a change to the piece is what the lanes show. A rule whose piece lands on nothing keeps the fields it had. */
+export function withDrawn(workspace: Workspace): Workspace {
+  const defs = namedOf(workspace.lifecycles);
+  const from = <T extends Rule | RuleOverride>(one: T): T => {
+    const drawn = one.wire === undefined ? undefined : drawnRule(one.wire, defs);
+    return drawn === undefined ? one : { ...one, ...drawn, workflow: drawn.workflow };
+  };
+  return { ...workspace, rules: workspace.rules.map((rule): Rule => ({ ...from(rule), ...(rule.overrides === undefined ? {} : { overrides: rule.overrides.map(from) }) })) };
 }
 
 // ---- The Workspace -------------------------------------------------------------------------------------------------------
@@ -187,10 +197,6 @@ export function withPlaces(workspace: Workspace, workflows: readonly string[]): 
   return missing.length === 0 ? workspace : { ...workspace, workflows: { ...workspace.workflows, ...placesOf(workspace.lifecycles, missing) } };
 }
 
-/** The definition each lifecycle runs by on the default's tab, for the labels and landings a rule is worded with. */
-export const definitionsOf = (all: readonly (readonly [string, Layers<LifecycleDefinition>])[]): Map<string, LifecycleDefinition> =>
-  new Map(all.map(([id, layers]) => [id, (effective(layers, DEFAULT) ?? { layer: [...layers.values()][0]! }).layer.piece] as const));
-
 /** The Workspace the page draws, or none where Fleet served no lifecycle. */
 export function workspaceOf(read: PiecesRead): Workspace | undefined {
   const levels = levelsOfRead(read);
@@ -200,7 +206,7 @@ export function workspaceOf(read: PiecesRead): Workspace | undefined {
   const readLifecycles = readable(lifecycleLayered);
   if (readLifecycles.length === 0) return undefined;
   const lifecycles = readLifecycles.map(([id, layers]) => lifecycleOf(id, layers, levels));
-  const defs = definitionsOf(readLifecycles);
+  const defs = namedOf(lifecycles);
   const rules = readable(ruleLayers(read)).flatMap(([id, layers]) => ruleOf(id, layers, defs, levels) ?? []);
   const primary = read.repositories[0];
   return {
