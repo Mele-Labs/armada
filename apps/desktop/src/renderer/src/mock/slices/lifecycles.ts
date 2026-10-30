@@ -67,6 +67,10 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
         ok: true,
         value: { manifest_id: manifestId, rules: answered(kept.rules.map((one) => ({ piece: one.rule, kept: one.kept })), manifestId, kept.workspaces).map(({ piece, kept: at }): AppliedRule => ({ rule: piece, kept: at })), left_out: [] },
       }),
+      listKeepDrafts: async (manifestId) => ({
+        ok: true,
+        value: { manifest_id: manifestId, drafts: (seed.keeps ?? []).filter((one) => one.manifestId === manifestId).map(({ kind, id, text }) => ({ kind, id, text })) },
+      }),
       saveLifecyclePiece: async ({ piece, overwrite }) => {
         const file = (id: string) => `${KIT}/${FOLDER[piece.kind]}/${id}.toml`;
         const at = (id: string, scope: PieceScope): PieceKept => ({ rank: { reach: scope.kind === "everywhere" ? "everywhere" : "repository", source: "kit" }, path: file(id) });

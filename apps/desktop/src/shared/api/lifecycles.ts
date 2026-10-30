@@ -23,6 +23,12 @@ import type {
 /** What a read came to: what Fleet answered with, or the refusal to word. */
 export type LifecyclesActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
 
+/** A Keep for every Job still waiting on the owner's Approve: the rule or lifecycle, and the text of the file its approval would save. */
+export type KeepDraft = { kind: "rule" | "lifecycle"; id: string; text: string };
+
+/** The open Keep drafts of one repository. */
+export type KeepDrafts = { manifest_id: string; drafts: KeepDraft[] };
+
 export type LifecyclesApi = {
   /** The Workspaces (sets of repositories) that hold one repository, and the files Fleet set aside. `GET /workspaces`. */
   listRepositoryWorkspaces: (manifestId: string) => Promise<LifecyclesActed<RepositoryWorkspaces>>;
@@ -34,6 +40,8 @@ export type LifecyclesApi = {
   saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
   /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
   deleteLifecyclePiece: (body: DeleteLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceDeleted>>;
+  /** The Keep for every Job drafts of one repository that wait on the owner's Approve. Absent on a Fleet or a host that does not serve them. */
+  listKeepDrafts?: (manifestId: string) => Promise<LifecyclesActed<KeepDrafts>>;
   /** What one Job holds and where it stands, with its moves oldest first. A Job that holds nothing answers three empty lists. */
   getJobLifecycles: (sessionId: string) => Promise<LifecyclesActed<JobLifecycles>>;
   /** `job_lifecycles.changed`: one Job's lifecycles, whole, after an instance was taken on or moved. */
