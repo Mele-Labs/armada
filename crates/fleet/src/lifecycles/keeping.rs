@@ -62,11 +62,23 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     let (tell, mut heard) = mpsc::unbounded_channel::<SessionRecord>();
-    fleet.events().tap(move |event| {
-        if let Event::SessionChanged(record) = event {
+    let (clear, mut cleared) = mpsc::unbounded_channel::<String>();
+    fleet.events().tap(move |event| match event {
+        Event::SessionChanged(record) => {
             if record.manifest_id.is_some() && !fingerprint(record).rows.is_empty() {
                 let _ = tell.send(record.clone());
             }
+        }
+        // What a Job holds moved: whether that was the last thing holding it open is asked of the store.
+        Event::JobLifecyclesChanged(held) => {
+            let _ = clear.send(held.session_id.as_str().to_string());
+        }
+        _ => {}
+    });
+    let telling = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        while let Some(job) = cleared.recv().await {
+            telling.lifecycles_clear_told(&job).await;
         }
     });
     tokio::spawn(async move {
@@ -180,7 +192,12 @@ where
         let mut store = self.store().lock().await;
         let manifest = store.session(session).ok().flatten()?.manifest_id?;
         let lifecycles = self.lifecycles_of_job(&store, session, &manifest);
-        let mut held = rebuilt(&lifecycles, &store.lifecycle_instances_of(session).ok()?);
+        let kept = store.lifecycle_instances_of(session).ok()?;
+        // Ending the Job ended it: what its source says of it now moves nothing.
+        if kept.iter().any(|one| one.lifecycle == lifecycle && one.key == key && !one.ended_at.is_empty()) {
+            return None;
+        }
+        let mut held = rebuilt(&lifecycles, &kept);
         let subject = subject_of(&held, lifecycle, key)?;
         let transition = read_instance(&mut held, &lifecycles, &subject, &seen, &at)?;
         let (from, to) = (transition.moved.from.as_wire(), transition.moved.to.as_wire());

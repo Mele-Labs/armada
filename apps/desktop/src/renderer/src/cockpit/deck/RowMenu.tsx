@@ -4,6 +4,7 @@
 import { CirclePause, Flag, GraduationCap, Play, Plane, Puzzle, WandSparkles, X } from "lucide-react";
 import { DropdownMenu, type DropdownMenuEntry } from "@armada/components";
 
+import { askToEnd } from "../../end-job";
 import { startModJob } from "../../mod-job";
 import { askToReport, canReport } from "../../report";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
@@ -52,7 +53,7 @@ export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | 
         if (chosen === "report" && at.row !== null) askToReport(at.row);
         if (chosen === "name") void draft?.nameForMe?.(at.id);
         if (chosen === "teach") teach?.("row", at.title);
-        if (chosen === "close") draft?.close?.(at.id);
+        if (chosen === "close" && draft !== undefined) askToEnd(draft, at.id);
       }}
     />
   );

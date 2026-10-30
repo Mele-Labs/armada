@@ -43,6 +43,7 @@ fn crossing(lifecycles: &[Lifecycle], held: &HeldInstances) -> JobLifecycles {
                     .iter()
                     .map(|link| InstanceLink { lifecycle: link.lifecycle().as_str().to_string(), key: link.key().to_string() })
                     .collect(),
+                ended_at: None,
             })
             .collect(),
         moves: Vec::new(),

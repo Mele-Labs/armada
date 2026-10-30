@@ -133,6 +133,7 @@ fn a_job() -> JobLifecycles {
                 label: "PR #812".to_string(),
                 standing: in_review.clone(),
                 links: vec![InstanceLink { lifecycle: "ticket".to_string(), key: "ARM-41".to_string() }],
+                ended_at: None,
             },
             HeldInstance {
                 lifecycle: "ticket".to_string(),
@@ -140,6 +141,7 @@ fn a_job() -> JobLifecycles {
                 label: "ARM-41".to_string(),
                 standing: InstanceStanding::Unmapped { said: "Code Review".to_string() },
                 links: Vec::new(),
+                ended_at: None,
             },
             HeldInstance {
                 lifecycle: "deploy".to_string(),
@@ -147,6 +149,7 @@ fn a_job() -> JobLifecycles {
                 label: "web".to_string(),
                 standing: InstanceStanding::Unread,
                 links: Vec::new(),
+                ended_at: Some(Instant::carried("2026-10-30T09:30:00.000Z")),
             },
         ],
         moves: vec![InstanceMove {
@@ -259,6 +262,17 @@ fn what_is_absent_leaves_no_key() {
         entered: None,
     };
     assert_eq!(encode(&planned).expect("plain data"), r#"{"rule":"r","text":"t","course":"acts","standing":"planned","at":"2026-10-30T09:00:00.000Z"}"#);
+}
+
+/// An instance the Job's end did not end leaves no `ended_at`, and one read from a Fleet older than the field has none.
+#[test]
+fn an_instance_the_job_did_not_end_has_no_ended_at() {
+    let live = a_job().instances.remove(0);
+    assert!(!encode(&live).expect("plain data").contains("ended_at"));
+    let back: HeldInstance = decode("an instance", br#"{"lifecycle":"pr","key":"812","label":"PR #812","standing":{"kind":"unread"},"links":[]}"#).expect("reads");
+    assert_eq!(back.ended_at, None);
+    let ended = a_job().instances.remove(2);
+    assert!(encode(&ended).expect("plain data").contains(r#""ended_at":"2026-10-30T09:30:00.000Z""#));
 }
 
 /// A Fleet older than `acts` answers without it, and a Bridge reads that as none.

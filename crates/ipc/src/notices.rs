@@ -77,6 +77,8 @@ pub enum Notice {
     TaskMarked,
     /// A lifecycle rule of the Job told its agent something, or woke it.
     LifecycleRule,
+    /// The last instance the Job held open reached an end state.
+    LifecyclesClear,
 }
 
 impl Notice {
@@ -117,6 +119,7 @@ impl Notice {
             Notice::DocumentSketch => "document_sketch",
             Notice::TaskMarked => "task_marked",
             Notice::LifecycleRule => "lifecycle_rule",
+            Notice::LifecyclesClear => "lifecycles_clear",
         }
     }
 }

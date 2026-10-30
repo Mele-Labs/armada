@@ -15,6 +15,7 @@ import type { AnswerWaiting } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { restartOf } from "../build-change";
+import { askToEnd } from "../end-job";
 import { useDispatching } from "../dispatch-panel/dispatching";
 import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
@@ -309,7 +310,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
       if (given.source === "done") {
         return [
-          oneTap("End job", () => (draft?.close?.(waiting.sessionId), finish())),
+          oneTap("End job", () => (draft?.close === undefined ? finish() : askToEnd(draft, waiting.sessionId, finish))),
           oneTap("Keep going", () =>
             wait("Keep going", async (): Promise<Told> => {
               const kept = await dismissWaiting(waiting.sessionId, given.id);
