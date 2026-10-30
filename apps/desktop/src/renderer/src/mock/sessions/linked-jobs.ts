@@ -21,7 +21,7 @@ const groups: WorkGroup[] = NAMES.map((title, at) => ({
   agent: at === 3 || at === 4 ? "bridge-engineer" : "rust-engineer",
   title,
   paths: [at === 3 || at === 4 ? "apps/desktop" : "crates/store"],
-  tasks: [task(`T${at * 2 + 1}`, `${title}, first`, "open"), task(`T${at * 2 + 2}`, `${title}, second`, "open")],
+  tasks: [task(`T${at * 2 + 1}`, `${title}, first`, at === 5 ? "done" : "open"), task(`T${at * 2 + 2}`, `${title}, second`, at === 5 ? "done" : "open")],
 }));
 
 const BEFORE = "jobs-2";

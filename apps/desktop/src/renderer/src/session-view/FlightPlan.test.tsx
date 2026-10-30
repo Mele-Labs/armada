@@ -8,7 +8,9 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { openInPanel } from "../shared-panel/store";
 import { FlightRows } from "./FlightPlan";
-import { TaskLine } from "./PlanGroup";
+import type { PlanEditing } from "./PlanEdit";
+import { Group, TaskLine } from "./PlanGroup";
+import { DoneGroup } from "./StoryParts";
 import type { ViewGroup } from "./plan-marks";
 
 // The Jobs the window holds: a group handed to one draws it, found by the parent's ledger.
@@ -124,7 +126,8 @@ test("a group handed to a Job is the Job's card, titled with the Job and the gro
   const card = row.querySelector<HTMLElement>("button.armada-job-card")!;
   expect(card.getAttribute("aria-label")).toBe("Job Migrations get names");
   expect(card.querySelector(".armada-job-card__says")?.textContent).toBe("Group one");
-  expect(card.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Working");
+  expect(card.querySelector('.armada-job-card__mark [role="img"]')?.getAttribute("aria-label")).toBe("Working");
+  expect(card.querySelector(".armada-job-card__kind")?.getAttribute("aria-label")).toBe("Job");
   act(() => card.click());
   expect(opened).toEqual(["c1"]);
   act(() => row.querySelector<HTMLElement>("button.armada-pull-chip")!.click());
@@ -145,4 +148,37 @@ test("a group handed to no Job keeps its toggle and its track, and draws no card
   expect(none.querySelector(".armada-job-card, .armada-pull-chip")).toBeNull();
   expect(none.querySelector('button.sv-flight__row[aria-expanded="false"]')).not.toBeNull();
   expect(none.querySelectorAll(TRACK)).toHaveLength(1);
+});
+
+const ed: PlanEditing = { id: "s1", plan: { scope: [], approved: true, groups: [] }, marks: [], set: () => undefined, send: () => undefined };
+
+test("in the Blueprint a handed group is the Job's card with its pull request, and has no toggle", () => {
+  held.sessions = [handed, child];
+  const opened: string[] = [];
+  const host = show(<Group group={group("one", "open")} ed={ed} parent={handed} manifestId="armada" onOpenSession={(id) => opened.push(id)} />);
+  const row = rowOf(host, "one");
+  expect(row.querySelector(".sv-group__row")).toBeNull();
+  const card = row.querySelector<HTMLElement>("button.armada-job-card")!;
+  expect(card.getAttribute("aria-label")).toBe("Job Migrations get names");
+  expect(card.querySelector(".armada-job-card__says")?.textContent).toBe("Group one");
+  expect(row.querySelector("button.armada-pull-chip")).not.toBeNull();
+  act(() => card.click());
+  expect(opened).toEqual(["c1"]);
+});
+
+test("a finished handed group under Done is the Job's card with no tick track and no task list", () => {
+  held.sessions = [handed, child];
+  const opened: string[] = [];
+  const host = show(
+    <ul>
+      <DoneGroup group={group("one", "done", "done")} open session={handed} onOpenSession={(id) => opened.push(id)} />
+    </ul>,
+  );
+  const row = rowOf(host, "one");
+  expect(row.querySelector("button.armada-job-card")?.getAttribute("aria-label")).toBe("Job Migrations get names");
+  expect(row.querySelector(TRACK)).toBeNull();
+  expect(row.querySelector(".sv-group__tasks")).toBeNull();
+  expect(row.querySelector("button.armada-pull-chip")).not.toBeNull();
+  act(() => row.querySelector<HTMLElement>("button.armada-job-card")!.click());
+  expect(opened).toEqual(["c1"]);
 });
