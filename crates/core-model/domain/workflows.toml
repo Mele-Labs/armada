@@ -253,6 +253,22 @@ Two readings, and the right one is not settled. If it produces a document, it is
 Neither reading needs new workflow machinery: Job already carries `depends_on`/`blocks` for sequencing peer Jobs and `dispatched_by` for provenance.
 
 Open: Is Project Plan a workflow at all, or a meta-Job pointing at a DAG?
+
+**The second reading is Orchestrate, 29 Oct 2026**: a Job that plans other Jobs and follows them is a workflow, and the DAG is its plan's groups started with `after`.
+"""
+
+[workflows.orchestrate]
+name = "Orchestrate"
+workflow_id = "orchestrate"
+version = 1
+status = "Designed"
+steps = 5
+gate_profile = "The plan is approved by a person, Oversee holds until every Job it started has landed or ended, and the report stops for a person. Nothing merges."
+what_it_exercises = "A Job whose work is other Jobs: a step that ends on what Jobs it started did, and a report as the Landing."
+notes = """
+**The owner's, 29 Oct 2026**: Assess, Plan, Dispatch, Oversee, Summarise. It may start more Jobs while it oversees, and the report ends with follow-up work, each item filed or dispatched as he picks.
+
+No sample under workflow-samples/: the definition was written straight to `.armada/workflows/orchestrate.json`, which is what Armada carries, with no designed form before it. `epic`, deleted in 06ef7552e6, was the shape this replaces.
 """
 
 [workflows.prototype]
