@@ -48,6 +48,7 @@ where
         served: &Served,
     ) -> Result<WorkflowSaved, Refusal> {
         let scope = asked.scope;
+        self.lifecycle_ends_unnamed(served.manifest().id().as_str(), &asked.definition).map_err(|why| self.not_saved(why))?;
         let saved = self
             .locating()
             .save_workflow(Path::new(served.root()), served.manifest(), &asked)
@@ -68,6 +69,7 @@ where
 
     /// Check without writing: what [`Self::save_workflow_file`] would refuse.
     pub(crate) fn check_workflow_file(&self, asked: &SaveWorkflow, served: &Served) -> Result<(), Refusal> {
+        self.lifecycle_ends_unnamed(served.manifest().id().as_str(), &asked.definition).map_err(|why| self.not_saved(why))?;
         self.locating()
             .check_workflow(Path::new(served.root()), served.manifest(), asked)
             .map_err(|why| self.not_saved(why))
@@ -94,7 +96,7 @@ where
             served.manifest(),
             &served.workspaces(),
         );
-        served.catalogued(read);
+        served.catalogued(self.lifecycle_ends_checked(served.manifest().id().as_str(), read));
     }
 
     fn not_saved(&self, why: WorkflowNotSaved) -> Refusal {
@@ -192,6 +194,14 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::WorkflowChange, Refusal> {
         self.new_workflow_proposed(proposed, manifest_id).await
+    }
+
+    async fn propose_workflow_change(
+        &self,
+        proposed: ipc::ProposeWorkflowChange,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowChange, Refusal> {
+        self.workflow_change_proposed(proposed, manifest_id).await
     }
 
     async fn suggest_workflow_change(

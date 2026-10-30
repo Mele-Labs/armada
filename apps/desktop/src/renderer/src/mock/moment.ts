@@ -36,6 +36,10 @@ export { unanswered };
  */
 export type MockDraft = {
   sessions?: (board: BayControl, more?: readonly Session[]) => SessionsStore;
+  /** The Workspace the Workflows page draws as lanes, and the changes an agent comes back with for it. The page's own mock: with it the page does not read what Fleet keeps (`pieces`). */
+  workspace?: import("../workspace-draft").WorkspaceSeed;
+  /** The Workspaces, lifecycles and rules the mock Fleet keeps, which the lifecycle reads answer and a save changes. The page draws them as Fleet's, and a scenario with `workspace` as well is drawn from that. */
+  pieces?: import("./pieces-seed").PiecesSeed;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then, or time passing over those held (`events-later.ts`). Mock only. */
@@ -58,6 +62,8 @@ export type MockDraft = {
   prReview?: ReviewSeed;
   /** Each repository's tracker for the Issues tab, its issues and what the model writes, built into a store per window. Mock only: no route serves the tab yet. */
   issuesTab?: IssuesSeed;
+  /** The bugs agents reported in Armada itself, which the Issues tab's band and the Cockpit's marks read. The mock Fleet answers the bug report routes from it (`slices/bug-reports.ts`). */
+  reportedBugs?: readonly import("../issues-tab/model").ReportedBug[];
   /** Each repository's projects as Fleet lists them, which the mock Fleet answers the Projects routes from. A window with none has no Projects tab. */
   projectsTab?: ProjectsSeed;
   /** The pull requests, issues, tasks and commands the palette lists, and what it starts with pinned and opened. Mock only: Fleet serves the palette none of them yet. */

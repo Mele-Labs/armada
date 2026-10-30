@@ -4,7 +4,7 @@
 
 Since 16 Oct 2026. A Job that follows a workflow has a **current step**, and it is **read off what Fleet observed, never off the agent's word**.
 `SessionRecord.workflow_step` is its index in the workflow's steps; it is derived each time the row is drawn (`rail.rs`, `Fleet::rail_drawn`), so nothing stores it beside the facts it comes from.
-It is absent for a custom Job, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off.
+It is absent for a custom Job, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off or `workflows.off` names its workflow for its repository.
 
 **Three anchors are exact.** A `records_plan` step is current until a plan is approved.
 A `follows_plan` step is current from approval, and stays until a later step is entered.
@@ -22,6 +22,27 @@ It is passed over only when the plan was approved with no walk expected and the 
 Until it pushes, the step stays current, because the mock is still being built.
 A `follows_plan` step after it, or any step that fits a fact, is entered only once it is passed.
 Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
+
+**A step that ends on a lifecycle state** (29 Oct 2026, "Workspaces, lifecycles and rules") is entered once the Job holds an instance of that lifecycle and left when the state is reached.
+`pr: approved` needs every pull request the Job holds, `any pr: approved` the first; `job: landed` needs every Job it started.
+Fleet reads the moves it already keeps for the Job's instances, so nothing polls: a kept move redraws the row of a Job whose step waits, the rail moves it, and `rail_acted_on` sends the agent one message, what got there and then the next step's words.
+**Reached stays reached**: a reviewer taking an approval back does not drag the Job to the step it left, and an instance that is over has reached every state of its lifecycle.
+The agent is told to end its turn, the step is neither the Job's nor the owner's to end, and so it is never nudged as stalled and raises no Needs-you item.
+A Job holding none of the lifecycle is not on the step, and nothing after it is entered, the delivering step included; the owner writing on the step or skipping it moves the Job on, and no line says a state was reached.
+**On a delivering step the state gates the merge and does not end the step** ("How Land behaves"): Land is entered on the push as always, the agent is told to open the pull request and hold the merge, and Fleet wakes it where it stands, with one line, once the state comes, unless the thread already holds that line or the owner wrote on the step.
+Only landing passes it.
+The step after one is entered when it ends, whatever fact would have entered it, and the rail ends when the last step does; orchestrate's Oversee is one, and Summarise is entered the moment the last Job has landed or ended.
+
+**A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
+A ticket, pull request, deploy or Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
+**An unread instance, and one in a status no state lists, holds nothing**: the built-in Ticket lifecycle lists no tracker words, so a Job holding a ticket under it would be refused with nothing the agent could do to clear it.
+End lists them all the same.
+Fleet keeps that the agent was told to wait, and when the last instance holding it is over sends it one `lifecycles_clear` notice; an agent never refused is not told.
+**Ending a Job ends its instances.** Each one no end state has taken, the unplaced too, is kept as ended, standing where it was, no reader moves it again, and the watches the Job's rules started are stopped with the Job's others.
+Before it ends, End lists what is in flight as `Deploy: Rolling out` and `ARM-42: In review`; End job goes on, and Keep going leaves the Job as it is.
+**Every End asks the same way**: the Job's menu and done band, the Cockpit's End job on a done call and the Deck row's Close all list first, and a Job holding nothing ends at once from each.
+A Job started before lifecycles holds none, and is finished and ended as it was.
+The code is `crates/fleet/src/lifecycles/ending.rs`.
 
 **The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:
 
@@ -75,6 +96,6 @@ A step the owner ends, by a reply or an approval, and a delivering step, which e
 The one message names the step and what ends it, and says to do it or ask the owner what is still open, and to carry on where the Job waits on work it started or he said to wait.
 It is told once for each step in a Job's life (`session_rail.stalled`), and is not kept against the workflow, since it is no drift.
 
-**With `features.workflows` off** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
+**With `features.workflows` off, or a Job's workflow in `workflows.off`** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
 The Job keeps the workflow it has.
 The proposer is shown none and never picks one, and `set_session_workflow` refuses to set one (`fleet.session_workflows_off`) but still clears one.

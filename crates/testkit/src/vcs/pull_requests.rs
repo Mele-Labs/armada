@@ -201,6 +201,15 @@ impl FakeVcs {
         answered
     }
 
+    /// `Forge::request_reviewers`: recorded, then taken.
+    pub(super) fn reviewers_asked(&self, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+        self.delivered.lock().expect("not poisoned").push(Delivered::RequestedReviewers {
+            pull_request: pull_request.to_string(),
+            reviewers: reviewers.iter().map(|one| one.to_string()).collect(),
+        });
+        Ok(())
+    }
+
     /// `Forge::pull_request_page`: recorded, then answered as scripted.
     pub(super) fn page_read(&self, pull_request: &str) -> Option<PullRequestPageFacts> {
         self.delivered

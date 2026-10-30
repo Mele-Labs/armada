@@ -15,7 +15,7 @@ repository. The owner, as admin, bypasses the ruleset.
 
 | Trigger | For | Runs |
 |---|---|---|
-| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build` |
+| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`, and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
 | `push` to `main` | Seeing a red `main` | Every Check in CI, and `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
@@ -24,6 +24,16 @@ repository. The owner, as admin, bypasses the ruleset.
 The queue's run is the one that decides, so a pull request that also ran the whole suite paid for it twice, back to back: 8 to 20 minutes on the pull request, then 6 to 16 in the queue, measured over the 60 runs before 17 Oct 2026. A branch that breaks a test is now caught in the queue and dropped from it, and Fleet tells its holder (`docs/concepts/fleet.md`, *Telling the owner of a pull request*); the other entries of its group wait one run more.
 Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
 `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
+
+**A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
+The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
+When that run failed, its failed jobs are turned back into Check keys (`test 2/4` is `test`, `desktop_unit` is `apps/desktop/unit:desktop_test`) and `plan.py --rerun` keeps them past `--quick`.
+The job summary names each one.
+They run on every push until the queue runs the pull request again.
+The whole Check runs, not the one test that failed: a shard's build is most of its six minutes, and the tests in it took under a second on 29 Oct 2026.
+A read of the runs that fails warns and leaves the quick plan, so the forge's API never blocks a pull request.
+The plan job holds `actions: read` for it.
+Decided by the owner, 29 Oct 2026, after a fix went back into the queue twice untested on its own run.
 
 **A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Choosing what reruns*).
 The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`, and joins the diff from there to the branch with the diff from there to `main`.

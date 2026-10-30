@@ -34,7 +34,7 @@ export type ActsHost = {
   ownerDriving(sessionId: string): boolean;
   /**
    * **An agent's `open` on a Job with no Job browser opens one in that Job's side panel**, on the address, as the owner
-   * chose on 28 Oct 2026 over refusing the agent until he opens it.
+   * chose on 28 Oct 2026 over refusing the agent until he opens it. Bridge draws the panel only for a Job he has open (29 Oct 2026).
    */
   openClosedInPanel(sessionId: string, url: string): JobPage;
   answer(body: AnswerBrowserRequest): Promise<unknown>;

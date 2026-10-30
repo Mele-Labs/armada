@@ -1,0 +1,14 @@
+[operations.list_lifecycle_rules]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The lifecycle rules that apply to one repository, each with its When, If, Do, autonomy and what it does on failure, and the files set aside"
+notes = """
+`GET /lifecycles/rules?manifest_id=`, the repository Fleet started in where absent. Answers 200 with `RepositoryLifecycleRules`: `manifest_id`, `rules` and `left_out`. Each is an `AppliedRule` `{ rule, kept }`, with `kept` as on `list_lifecycles`.
+
+**A lifecycle rule is not a `FleetRule`**, the notice rule `fleet.toml` carries and Teach proposes. `rule` is a `LifecycleRule` `{ id, name, scope, when, conditions[], does[], autonomy?, on_failure }`. `when` is `kind` `enters` `{ lifecycle, state }`, `step_starts` `{ step }`, `step_ends` `{ step }` or `job` `{ event }`. `conditions` are all required to hold: `instances` `{ among, quantity, in_state }`, `workflow` `{ workflow }`, `at_step` `{ step }` or `pull_request_opened`; `among` is `entered`, `linked_from`, `linking_to` or `held`, the last three with a `lifecycle`.
+
+**`does`** is a list of `RuleDoing` `{ what, kind, autonomy }`. `what` is the act, tagged by `act`: `tracker_assign`, `tracker_move`, `tracker_close`, `forge_request_reviewers`, `forge_mark_ready`, `forge_merge`, `forge_auto_merge`, `draft`, `start_job`, `start_watch`, `tell`, `wake`, `run_command`, `run_skill` or `run_drone`. `kind` is the kind of act an autonomy default is set for, and `autonomy` is what the rule does with it: the rule's own word, else the kind's default (a write to the tracker or forge, a draft and a started Job ask; the rest act). The rule's own word is `autonomy` on the rule, absent where it took the default. `on_failure` is `{ retries, then }`, `then` being `tell_agent` or `ask_owner`.
+
+**Armada carries no rule**, so with no file anywhere `rules` is empty. A rule naming a lifecycle or a state the repository's lifecycles lack is in `left_out` with the sentence. Reading a rule runs nothing. 422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id, the sentence naming the ones it does.
+"""

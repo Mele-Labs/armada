@@ -4,11 +4,14 @@
 use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::{header, StatusCode};
+use axum::Extension;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::HostedSessions;
+use crate::door::DoorCalled;
+use crate::receipts::Receipt;
 use crate::served::Served;
 
 pub(crate) async fn start_session<D: HostedSessions>(
@@ -159,6 +162,22 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().dismiss_waiting(dismiss).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person lets an item he closed wait again. 200 with the row; 409 where no closed item has the id;
+/// 422 where it would not wait again.
+pub(crate) async fn reopen_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let reopen: ipc::ReopenWaiting = match ipc::decode_body("a reopening of what a job waited on", &body) {
+        Ok(reopen) => reopen,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().reopen_waiting(reopen).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -441,6 +460,20 @@ pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn mend_session_tools<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::MendSessionTools = match ipc::decode_body("a job's tools to mend", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mend_session_tools(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn start_again<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
@@ -469,8 +502,11 @@ pub(crate) async fn resume_session<D: HostedSessions>(
     }
 }
 
+/// A Job's workflow set, by the person or by the Job itself. **Through the door the answer is a
+/// [`Receipt`]**, since the row is the agent's to keep for good.
 pub(crate) async fn set_session_workflow<D: HostedSessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
     let set: ipc::SetSessionWorkflow = match ipc::decode_body("a workflow for a job", &body) {
@@ -478,13 +514,16 @@ pub(crate) async fn set_session_workflow<D: HostedSessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().set_session_workflow(set).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::workflow(&record), served.run_id()),
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
+/// A Job's step skipped, by the person or by the Job itself.
 pub(crate) async fn skip_session_step<D: HostedSessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
     let skip: ipc::SkipSessionStep = match ipc::decode_body("a step to skip", &body) {
@@ -492,7 +531,87 @@ pub(crate) async fn skip_session_step<D: HostedSessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().skip_session_step(skip).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::workflow(&record), served.run_id()),
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A step added, moved, reworded or dropped in a Job's own copy of its workflow. 200 with the `JobCopy`,
+/// or a [`Receipt`] through the door.
+pub(crate) async fn change_session_steps<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let change: ipc::ChangeSessionSteps = match ipc::decode_body("a change to a job's steps", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().change_session_steps(change).await {
+        Ok(copy) if door.is_some() => answer(StatusCode::OK, &Receipt::copy(&copy), served.run_id()),
+        Ok(copy) => answer(StatusCode::OK, &copy, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A lifecycle or a rule put in a Job's own copy, or taken out of it. 200 with the `JobCopy`, or a
+/// [`Receipt`] through the door.
+pub(crate) async fn change_job_copy<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let change: ipc::ChangeJobCopy = match ipc::decode_body("a change to a job's copy", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().change_job_copy(change).await {
+        Ok(copy) if door.is_some() => answer(StatusCode::OK, &Receipt::copy(&copy), served.run_id()),
+        Ok(copy) => answer(StatusCode::OK, &copy, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, read only where the connection places no Job.
+#[derive(Deserialize)]
+pub(crate) struct ForJobCopy {
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+/// What a Job holds of its workflow, lifecycles and rules. **The Job is placed by the connection**, as a
+/// watch's is.
+pub(crate) async fn get_job_copy<D: HostedSessions>(State(served): State<Served<D>>, Query(asked): Query<ForJobCopy>) -> Response {
+    let named = asked.session_id.filter(|id| !id.trim().is_empty()).map(|id| ipc::SessionId::carried(id.trim()));
+    match served.shared().get_job_copy(named).await {
+        Ok(copy) => answer(StatusCode::OK, &copy, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner presses Keep for every Job: the Job's workflow proposed as a change. 200 with the
+/// `WorkflowChange` kept.
+pub(crate) async fn keep_job_workflow<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let keep: ipc::KeepJobWorkflow = match ipc::decode_body("a job's workflow to keep", &body) {
+        Ok(keep) => keep,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().keep_job_workflow(keep).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner presses Keep on a rule or a lifecycle the Job changed: it is proposed as a file in Kit. 200 with
+/// the `JobPieceProposed` kept.
+pub(crate) async fn keep_job_piece<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let keep: ipc::KeepJobPiece = match ipc::decode_body("a job's piece to keep", &body) {
+        Ok(keep) => keep,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().keep_job_piece(keep).await {
+        Ok(proposed) => answer(StatusCode::OK, &proposed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

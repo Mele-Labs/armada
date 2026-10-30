@@ -367,6 +367,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::rail_following::keep_the_rail(Arc::clone(&fleet));
             // The parent of a Session its agent started is told when that one needs the owner, ends or merges.
             fleet::linked_following::keep_the_linked(Arc::clone(&fleet));
+            // What a Job holds, standing in its lifecycles' states, read from the events Fleet hears.
+            fleet::lifecycles::keep_the_lifecycles(Arc::clone(&fleet));
+            // What happens to a Job, handed to the rules it started with.
+            fleet::lifecycles::keep_the_rules(Arc::clone(&fleet));
             // A run's state, told to Bridge after each of its servers' own facts.
             fleet::app_runs::keep_the_runs(Arc::clone(&fleet));
             // A Session dispatched to wait on another starts when the condition it named is met.

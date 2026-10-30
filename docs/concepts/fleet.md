@@ -27,6 +27,11 @@ Doctor stays readable when Fleet dies through `armada doctor --json`, a short-li
 - **Startup.** Bridge bootstraps a **launchd job**, plist kept at `~/Library/Application Support/Armada/` — deliberately **outside** `~/Library/LaunchAgents`. launchd only auto-loads from the LaunchAgents directories, so a plist elsewhere is never seen at login: **"does not start at boot" becomes structural rather than configured off**.
   `KeepAlive={SuccessfulExit:false}`, `ThrottleInterval` 2, mode 644. launchd parents Fleet to PID 1 at spawn.
 - **Quitting the app.** Does **not** kill Fleet. Jobs keep running, independent of Bridge, because Fleet is not Electron's descendant.
+- **Bridge stops without a quit, by a crash or a kill.** launchd reopens it.
+  `scripts/restart` runs it through `scripts/bridge-launch`, under `KeepAlive={SuccessfulExit:false}` and `ThrottleInterval` 10.
+  The launcher exits 1 unless Bridge left the mark it writes on `will-quit` for a quit the person meant, because `electron-vite preview` exits 0 however Electron ended.
+  A `SIGTERM` is a kill: Electron quits on one through `will-quit` as on ⌘Q, so Bridge takes the signal itself once ready and leaves no mark (measured 29 Oct, Electron 40).
+  Three exits within a minute of opening, in a row, and it stays down.
 - **Reopening Bridge.** **Reconnects** to the running Fleet rather than spawning a duplicate.
   Bootstrapping is per-login-session, so Bridge bootstraps every login, idempotently — with a `launchctl print` pre-check, because bootstrapping an already-loaded job and bootstrapping a world-writable plist fail with the **identical** error, `Bootstrap failed: 5: Input/output error`.
 - **Fleet crashes — signal or non-zero exit.** launchd restarts it automatically.
@@ -397,6 +402,7 @@ A new commit that fails is news; the same one read again is not.
 **A drop is news each time it happens (#2649, 20 Oct 2026).** A pull request queued again clears what was told of its last drop, so a second drop at the same commit is told.
 The queue tests a commit of its own, and a pull request's run can skip what the queue runs, so its own checks read green while the queue fails it.
 The drop names the queue run's failed checks and the end of a log, read from the newest queue run for that pull request.
+The next push to it runs those Checks on the pull request itself, so a fix is answered before it waits in the queue again (`docs/practices/ci.md`, *What runs when*).
 **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Job whose mod is not asking.
 
 **An owner is the Job whose `pr` row holds the pull request's number, else the Job holding its branch.** `docs/concepts/session.md`, *What Fleet tells a Job*, says what it receives.

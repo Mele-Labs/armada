@@ -42,6 +42,8 @@ import { ACCOUNTS_CHANNELS } from "./api/accounts";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
 import { PROJECTS_CHANNELS } from "./api/projects";
+import { BUG_REPORTS_CHANNELS } from "./api/bug-reports";
+import { LIFECYCLES_CHANNELS } from "./api/lifecycles";
 import { AGENT_SIGN_IN_CHANNELS } from "./api/agent-sign-in";
 import { CLASHES_CHANNELS } from "./api/clashes";
 import { REVIEWS_CHANNELS } from "./api/reviews";
@@ -49,6 +51,7 @@ import { TERRITORY_CHANNELS } from "./api/territory";
 import { TIMELINE_CHANNELS } from "./api/timeline";
 import { ACT_FAILED_CHANNELS } from "./api/act-failed";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
+import { SESSION_SYSTEM_CHANNELS } from "./api/session-system";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
 import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
@@ -169,6 +172,8 @@ export const CHANNELS = {
   ...PLAN_USAGE_CHANNELS,
   ...MODEL_DOWNSHIFT_CHANNELS,
   ...PROJECTS_CHANNELS,
+  ...BUG_REPORTS_CHANNELS,
+  ...LIFECYCLES_CHANNELS,
   ...AGENT_SIGN_IN_CHANNELS,
   ...CLASHES_CHANNELS,
   ...REVIEWS_CHANNELS,
@@ -176,6 +181,7 @@ export const CHANNELS = {
   ...TIMELINE_CHANNELS,
   ...ACT_FAILED_CHANNELS,
   ...BAY_HISTORY_CHANNELS,
+  ...SESSION_SYSTEM_CHANNELS,
   ...USAGE_SUMMARY_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,

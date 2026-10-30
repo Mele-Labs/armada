@@ -28,6 +28,8 @@
  * `the default`). `session.step` is the Session moving from one step of its workflow to another as Fleet
  * observed: `says` is `step: old → new`, a step by its label, none before the first as `start` and past the last as
  * `done`. The model and effort entries are dated at the start of the turn that ran on the change. Since 23.91.
+ * `session.copy` is a step, a lifecycle or a rule changed in a Job's own copy (`step added: Dispatch`, `rule dropped: deploy_watch`), with
+ * `detail` `by the Job` or `by you`.
  */
 export type TimelineKind =
   | "session.started"
@@ -48,6 +50,7 @@ export type TimelineKind =
   | "session.called"
   | "session.workflow"
   | "session.step"
+  | "session.copy"
   | "session.model"
   | "session.effort"
   | "session.ended"

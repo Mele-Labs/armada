@@ -628,7 +628,7 @@ if $dry_run; then
   fi
   echo "would write $plist: [$armada_bin, serve, $root]"
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
-  echo "would write $bridge_plist: [$src/apps/desktop/node_modules/.bin/electron-vite, preview] in $src/apps/desktop"
+  echo "would write $bridge_plist: [$src/scripts/bridge-launch, $src/apps/desktop/node_modules/.bin/electron-vite, preview] in $src/apps/desktop, reopened by launchd when it stops without a quit"
   if bridge_electron=$(armada_electron); then
     echo "would run Bridge from $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing"
   else
@@ -932,6 +932,15 @@ if $bridge_rebuilt; then
   bridge_pattern="^${root}/node_modules/.*/Electron\\.app/Contents/MacOS/Electron \\.\$"
   # With `--from`, the window already open may be either tree's.
   [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/Electron\\.app/Contents/MacOS/Electron \\.\$"
+  # **Out of launchd before any pid is quit**: a Bridge launchd holds and is
+  # killed is reopened (`scripts/bridge-launch`), so it would come back old.
+  if launchctl print "$bridge_service" >/dev/null 2>&1; then
+    launchctl bootout "$bridge_service" 2>/dev/null || true
+    for _ in $(seq 40); do
+      launchctl print "$bridge_service" >/dev/null 2>&1 || break
+      sleep 0.25
+    done
+  fi
   existing=$(pgrep -f "$bridge_pattern" 2>/dev/null || true)
   existing_count=0
   [[ -n "$existing" ]] && existing_count=$(printf '%s\n' "$existing" | grep -c .)
@@ -960,21 +969,26 @@ if $bridge_rebuilt; then
     bridge_dir="$src/apps/desktop"
     bridge_bin="$bridge_dir/node_modules/.bin/electron-vite"
     [[ -x "$bridge_bin" ]] || fail "$bridge_bin is missing — run pnpm install in $src"
+    [[ -x "$src/scripts/bridge-launch" ]] || fail "$src/scripts/bridge-launch is missing or not executable"
     # Falls back to Electron's own bundle, which says "Electron" in the menu bar but runs.
     bridge_electron=$(armada_electron) || { bridge_electron=""; echo "restart: could not make the Armada-named Electron copy — Bridge will say Electron" >&2; }
-    python3 - "$bridge_plist" "$bridge_label" "$bridge_bin" "$bridge_dir" "$home" "$PATH" "$bridge_electron" <<'PY'
+    # **Reopened by launchd when it stops without a quit**: `scripts/bridge-launch`
+    # turns a crash or a kill into exit 1, and a quit the person meant into exit 0.
+    python3 - "$bridge_plist" "$bridge_label" "$bridge_bin" "$bridge_dir" "$home" "$PATH" "$bridge_electron" "$src/scripts/bridge-launch" "$support/bridge-quit" <<'PY'
 import plistlib, sys
 
-path, label, bridge_bin, root, home, path_env, electron = sys.argv[1:8]
-env = {"HOME": home, "PATH": path_env}
+path, label, bridge_bin, root, home, path_env, electron, launch, quit_mark = sys.argv[1:10]
+env = {"HOME": home, "PATH": path_env, "ARMADA_BRIDGE_QUIT_MARK": quit_mark}
 if electron:
     env["ELECTRON_EXEC_PATH"] = electron
 plistlib.dump(
     {
         "Label": label,
-        "ProgramArguments": [bridge_bin, "preview"],
+        "ProgramArguments": [launch, bridge_bin, "preview"],
         "WorkingDirectory": root,
         "RunAtLoad": True,
+        "KeepAlive": {"SuccessfulExit": False},
+        "ThrottleInterval": 10,
         "ProcessType": "Interactive",
         "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
         "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",

@@ -222,6 +222,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/usage",
     },
     Route {
+        operation: "get_session_system",
+        method: "GET",
+        path: "/sessions/system",
+    },
+    Route {
+        operation: "stop_process",
+        method: "POST",
+        path: "/sessions/stop_process",
+    },
+    Route {
         operation: "get_usage_summary",
         method: "GET",
         path: "/usage/summary",
@@ -509,6 +519,26 @@ const ROUTES: &[Route] = &[
         path: "/sessions/dispute_fleet",
     },
     Route {
+        operation: "report_bug",
+        method: "POST",
+        path: "/sessions/report_bug",
+    },
+    Route {
+        operation: "list_bug_reports",
+        method: "GET",
+        path: "/bug_reports",
+    },
+    Route {
+        operation: "keep_bug_report",
+        method: "POST",
+        path: "/bug_reports/:report_id/keep",
+    },
+    Route {
+        operation: "drop_bug_report",
+        method: "POST",
+        path: "/bug_reports/:report_id/drop",
+    },
+    Route {
         operation: "finish_up",
         method: "POST",
         path: "/sessions/finish_up",
@@ -532,6 +562,16 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
+    },
+    Route {
+        operation: "reopen_waiting",
+        method: "POST",
+        path: "/sessions/waiting/reopen",
+    },
+    Route {
+        operation: "list_closed_waiting",
+        method: "GET",
+        path: "/sessions/waiting/closed",
     },
     Route {
         operation: "confirm_waiting",

@@ -80,6 +80,40 @@ pub(crate) fn working_directories(listing: &str) -> Vec<(u32, String, PathBuf)> 
     found
 }
 
+/// `(pid, port)` for each TCP listener in `lsof -Fpn` output: a `p` line opens a process and an
+/// `n` line names an address such as `*:3000` or `[::1]:3000`. A process's first port stands.
+pub(crate) fn listening(listing: &str) -> Vec<(u32, u16)> {
+    let mut found: Vec<(u32, u16)> = Vec::new();
+    let mut pid = None;
+    for line in listing.lines() {
+        let (tag, rest) = line.split_at(line.chars().next().map_or(0, char::len_utf8));
+        match tag {
+            "p" => pid = rest.parse::<u32>().ok(),
+            "n" => {
+                let port = rest.rsplit_once(':').and_then(|(_, port)| port.parse::<u16>().ok());
+                if let (Some(pid), Some(port)) = (pid, port) {
+                    if !found.iter().any(|(held, _)| *held == pid) {
+                        found.push((pid, port));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    found
+}
+
+/// Every process listening on a TCP port, with the port. A failing `lsof` is no ports.
+pub fn listening_ports() -> Vec<(u32, u16)> {
+    let said = Command::new("lsof")
+        .args(["-b", "-w", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"])
+        .output();
+    match said {
+        Ok(said) => listening(&String::from_utf8_lossy(&said.stdout)),
+        Err(_) => Vec::new(),
+    }
+}
+
 fn cwd_listing() -> Option<String> {
     // `-b` and `-w`: no kernel calls that can block on a stale mount, and no warnings.
     let said = Command::new("lsof")
@@ -124,4 +158,30 @@ fn running(pid: u32) -> bool {
         }
         Err(_) => false,
     }
+}
+
+/// End `pids`: `TERM`, then `KILL` for any still running after `grace`. Never this process or an
+/// ancestor of it.
+pub fn end_pids(pids: &[u32], grace: Duration) {
+    let spared = spared();
+    let pids: Vec<u32> = pids.iter().copied().filter(|pid| !spared.contains(pid)).collect();
+    if pids.is_empty() {
+        return;
+    }
+    signal("-TERM", &pids);
+    let until = Instant::now() + grace;
+    while pids.iter().any(|pid| running(*pid)) && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let left: Vec<u32> = pids.into_iter().filter(|pid| running(*pid)).collect();
+    if !left.is_empty() {
+        signal("-KILL", &left);
+    }
+}
+
+fn signal(which: &str, pids: &[u32]) {
+    let mut kill = Command::new("kill");
+    kill.arg(which);
+    kill.args(pids.iter().map(u32::to_string));
+    let _ = kill.output();
 }

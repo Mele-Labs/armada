@@ -64,11 +64,12 @@ function waitingRead(session: Session): WaitingItem[] {
  * judge's concern call too while the turn goes on: the plan is the agent's to start from, and a judge never blocks.
  * A full pool (`slot_choice`) holds the agent's first write until he answers, and the delivery question (`delivery`)
  * holds the agent at its start. A `fleet_call` is a notice a taught rule made a call: it holds nothing, and it calls while the
- * turn goes on because calling him is all it is for. A `draft` waits on his OK however the turn goes, as a question does. The done
+ * turn goes on because calling him is all it is for. A `draft` and a `sketch` wait on his OK however the turn goes, as a question does. The done
  * ask on his project tasks (`task_done`) calls too: a Job that opened a pull request, or said it was done, may still be at work,
- * and the tasks it holds are waiting on him either way.
+ * and the tasks it holds are waiting on him either way. A `rule_act` is an act a lifecycle rule would do that he has not said yes to: it waits on his
+ * word as a draft does, however the turn goes.
  */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft", "task_done"]);
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft", "sketch", "task_done", "rule_act"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {
@@ -104,7 +105,7 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
 }
 
 /** What a Session's call is called, whichever builder raises it: the item's source decides, so a call keeps its label after the Session has been viewed. */
-export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Job question" : source === "walk" ? "Job walk" : "Job");
+export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Job question" : source === "walk" ? "Job walk" : source === "sketch" ? "Job sketch" : "Job");
 
 /** The Session a key names, whether it is the Session's own tile (`session:<id>`) or one of its calls (`session:<id>:<item>`). */
 export const sessionIdOf = (key: string): string | undefined => (key.startsWith("session:") ? key.split(":")[1] : undefined);

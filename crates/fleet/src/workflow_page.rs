@@ -125,8 +125,8 @@ where
             id: StepId::carried(step.id.clone()),
             label: step.label.clone(),
             instructions: step.instructions.clone(),
-            ends_when: ends_when(steps, at).map(str::to_string),
-            ends_any: ends_any(steps, at).into_iter().map(str::to_string).collect(),
+            ends_when: ends_when(steps, at),
+            ends_any: ends_any(steps, at),
             passed_over_when: passed_over_when(step).map(str::to_string),
             nudges,
         }

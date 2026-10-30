@@ -13,8 +13,8 @@
 //! (`stale_of`). `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`.
 
 use ipc::{
-    Instant, PlanChanges, PlanGroupInput, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, TaskStale,
+    Instant, PlanChanges, PlanGroupInput, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
+    FIRST_PULL_REQUEST, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo, TaskStale,
 };
 use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 
@@ -173,6 +173,7 @@ pub(crate) fn recorded(
             agent: group.agent.clone(),
             title: group.title.clone(),
             gives: group.gives.clone(),
+            lands_in: group.lands_in.clone(),
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
@@ -229,9 +230,8 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
     let recorded = plan.recorded_at.clone();
     let calls = plan.calls;
     let mut moved = false;
-    let texts: Vec<String> = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| cut_norm(&task.text)).collect();
     let items: Vec<String> = list.iter().map(|item| cut_norm(&item.text)).collect();
-    let mut claims = claimed(&texts, &items).into_iter();
+    let mut claims = claims_of(plan, &items).into_iter();
     for group in &mut plan.groups {
         let start = group
             .tasks
@@ -276,10 +276,31 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
     moved
 }
 
+/// For each plan task in order, the index of the item that says it, as `listed` takes them. `items`
+/// are `cut_norm`ed.
+fn claims_of(plan: &KeptPlan, items: &[String]) -> Vec<Option<usize>> {
+    let texts: Vec<String> = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| cut_norm(&task.text)).collect();
+    claimed(&texts, items)
+}
+
+/// Mark each item of the agent's list with the plan task `listed` takes it for, so Bridge draws that
+/// work once. Read off the same claims, never kept, so a re-recorded plan or a changed list is right
+/// at the next reading.
+pub(crate) fn mark_listed(plan: &KeptPlan, todos: &mut [SessionTodo]) {
+    let items: Vec<String> = todos.iter().map(|todo| cut_norm(&todo.text)).collect();
+    let ids = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| &task.id);
+    for (id, claim) in ids.zip(claims_of(plan, &items)) {
+        if let Some(at) = claim {
+            todos[at].task = Some(id.clone());
+        }
+    }
+}
+
 /// The plan as the record carries it, with each task in progress that looks left behind read as stale
 /// from `touches`, the Job's recent file touches.
-pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch]) -> SessionPlan {
+pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch], pulls: &[PlanPull]) -> SessionPlan {
     let mut wired = wire(plan);
+    bind_lands_in(&mut wired, plan, pulls);
     for (g, group) in wired.groups.iter_mut().enumerate() {
         for (t, task) in group.tasks.iter_mut().enumerate() {
             task.stale = stale_of(plan, (g, t), touches)
@@ -287,6 +308,57 @@ pub(crate) fn wire_read(plan: &KeptPlan, touches: &[KeptTouch]) -> SessionPlan {
         }
     }
     wired
+}
+
+/// A pull request the plan may land in, as the ledger holds it. Oldest first where several are given.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PlanPull {
+    pub number: u64,
+    pub title: String,
+    pub state: PlanLandsInState,
+    /// The plan task in progress when the Session's ledger first kept it.
+    pub from_task: Option<String>,
+    /// The group whose Job opened it, where it is the pull request of a Job the group was handed to.
+    pub handed: Option<String>,
+}
+
+/// Bind each pull request to the label it lands in, so every group sharing that label reads it.
+///
+/// In three passes, each binding only labels the pass before left bare, a later pull request replacing an
+/// earlier one within its pass: a group's own Job's, then those that followed a task of the plan, then
+/// those that followed none, each taking the first label in plan order nothing has bound.
+pub(crate) fn bind_lands_in(wired: &mut SessionPlan, plan: &KeptPlan, pulls: &[PlanPull]) {
+    let labels: Vec<String> = wired.groups.iter().map(|group| group.lands_in.label.clone()).collect();
+    let label_of_group = |id: &str| wired.groups.iter().find(|group| group.id == id).map(|group| group.lands_in.label.clone());
+    let label_of_task = |task: &str| {
+        let at = plan.groups.iter().position(|group| group.tasks.iter().any(|one| one.id == task))?;
+        labels.get(at).cloned()
+    };
+    let pr = |one: &PlanPull| PlanLandsInPr { number: one.number, title: one.title.clone(), state: one.state };
+    let mut bound: Vec<(String, PlanLandsInPr)> = Vec::new();
+    let pass = |found: Vec<(String, &PlanPull)>, bound: &mut Vec<(String, PlanLandsInPr)>| {
+        let before = bound.len();
+        for (label, one) in found {
+            match bound.iter().position(|(held, _)| *held == label) {
+                Some(at) if at >= before => bound[at].1 = pr(one),
+                Some(_) => {}
+                None => bound.push((label, pr(one))),
+            }
+        }
+    };
+    pass(pulls.iter().filter_map(|one| Some((label_of_group(one.handed.as_deref()?)?, one))).collect(), &mut bound);
+    pass(
+        pulls.iter().filter(|one| one.handed.is_none()).filter_map(|one| Some((label_of_task(one.from_task.as_deref()?)?, one))).collect(),
+        &mut bound,
+    );
+    for one in pulls.iter().filter(|one| one.handed.is_none() && one.from_task.as_deref().and_then(label_of_task).is_none()) {
+        if let Some(label) = labels.iter().find(|label| !bound.iter().any(|(held, _)| held == *label)) {
+            bound.push((label.clone(), pr(one)));
+        }
+    }
+    for group in &mut wired.groups {
+        group.lands_in.pull_request = bound.iter().find(|(label, _)| *label == group.lands_in.label).map(|(_, one)| one.clone());
+    }
 }
 
 /// Words too common to say which task a line is.
@@ -614,6 +686,10 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                 gives: group.gives.clone(),
                 paths: group.paths.clone(),
                 issue: group.issue.clone(),
+                lands_in: PlanLandsIn {
+                    label: group.lands_in.clone().unwrap_or_else(|| FIRST_PULL_REQUEST.to_string()),
+                    pull_request: None,
+                },
                 tasks: group
                     .tasks
                     .iter()

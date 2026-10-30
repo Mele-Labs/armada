@@ -47,12 +47,15 @@ import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ProjectsHost } from "./projects";
+import { BugReportsHost } from "./bug-reports";
+import { LifecyclesHost } from "./lifecycles";
 import { AgentSignInHost } from "./agent-sign-in";
 import { ClashesHost } from "./clashes";
 import { TeachingHost } from "./teaching";
 import { ReviewsHost } from "./reviews";
 import { TerritoryHost } from "./territory";
 import { BayHistoryHost } from "./bay-history";
+import { SessionSystemHost } from "./session-system";
 import { LogbookHost } from "./logbook";
 import { UsageSummaryHost } from "./usage-summary";
 import { FlightControlsHost } from "./flight-controls";
@@ -166,6 +169,10 @@ export class FleetConnection {
   readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(() => this.connected()?.port ?? null);
   /** A repository's projects — `projects.ts`. */
   readonly projects: ProjectsHost = new ProjectsHost(() => this.connected()?.port ?? null);
+  /** Bugs agents reported in Armada — `bug-reports.ts`. */
+  readonly bugReports: BugReportsHost = new BugReportsHost(() => this.connected()?.port ?? null);
+  /** Workspaces, lifecycles and rules, and where a Job's instances stand — `lifecycles.ts`. */
+  readonly lifecycles: LifecyclesHost = new LifecyclesHost(() => this.connected()?.port ?? null);
   /** The agents' sign-in — `agent-sign-in.ts`. */
   readonly agentSignIn: AgentSignInHost = new AgentSignInHost(() => this.connected()?.port ?? null);
   /** What happened across the Fleet — `timeline.ts`. */
@@ -188,6 +195,8 @@ export class FleetConnection {
   readonly territory: TerritoryHost = new TerritoryHost(() => this.connected()?.port ?? null);
   /** Who held one slot and what was checked out in it — `bay-history.ts`. */
   readonly bayHistory: BayHistoryHost = new BayHistoryHost(() => this.connected()?.port ?? null);
+  /** A Job's processes, load, worktrees and logs, and ending a process of it — `session-system.ts`. */
+  readonly sessionSystem: SessionSystemHost = new SessionSystemHost(() => this.connected()?.port ?? null);
   /** What agents learned, and the owner's acts on an entry — `logbook.ts`. */
   readonly logbook: LogbookHost = new LogbookHost(() => this.connected()?.port ?? null);
   /** What the last seven days cost, for the Usage page — `usage-summary.ts`. */
@@ -296,6 +305,8 @@ export class FleetConnection {
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
       projects: this.projects,
+      bugReports: this.bugReports,
+      lifecycles: this.lifecycles,
       agentSignIn: this.agentSignIn,
       timeline: this.timeline,
       acts: this.acts,

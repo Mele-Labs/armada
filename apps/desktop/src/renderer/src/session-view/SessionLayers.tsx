@@ -1,11 +1,11 @@
-// The layers over a Session's stage, opened from Flight control's keys: Artifacts, Subagents, Checks and Bays. Each covers the thread and
+// The layers over a Session's stage, opened from Flight control's keys: Artifacts, Subagents, Checks and Bays, and Lanes on a wide window. Each covers the thread and
 // composer, which stay mounted under it, so Back leaves them exactly as they were. Esc is Back. The first thing in a layer holds focus: the
 // search field in Artifacts, the first row elsewhere; the arrows walk the rows. A layer is drawn from what the ledger and the thread already
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, ReopenAct, Stamp, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
@@ -17,8 +17,10 @@ import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
+import { SystemSections } from "./SystemLayer";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
+import { LanesBody } from "../shared-panel/lanes";
 import { openClashFile } from "./ClashFileSheet";
 import type { HeldBay, SessionBays } from "./slot-trouble";
 
@@ -122,9 +124,11 @@ function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; session
       label={row.title}
       onOpen={row.open}
       {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
+      {...(row.closed === undefined ? {} : { act: <ReopenAct name={row.title} onPress={row.closed.onReopen} /> })}
       meta={
         <>
           {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
+          {row.closed === undefined ? null : <Stamp at={row.closed.at} className="sv-ledger__word" />}
           {row.words?.map((word) => (
             <span key={word} className="sv-ledger__said">
               {word}
@@ -384,10 +388,36 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
   );
 }
 
+/** The Job's Lanes as a layer in the spine, on a window wide enough to hold them there (`lanes-width.ts`). The same body the side panel draws. */
+function LanesLayer({ session }: { session: Session }) {
+  const root = useRef<HTMLDivElement>(null);
+  // Focus goes to the canvas, as it does in the panel, so its keys work at once.
+  useEffect(() => root.current?.querySelector<HTMLElement>("[data-node]")?.focus({ preventScroll: true }), []);
+  return (
+    <Shell label="Workflow" owns="[ ]">
+      <div ref={root} className="sv-lanes__layer">
+        <LanesBody sessionId={session.id} />
+      </div>
+    </Shell>
+  );
+}
+
+/** What the Job costs the machine, and the bays it holds, drawn as the Bays layer draws them. */
+export function SystemLayer({ session, bays }: { session: Session; bays: SessionBays | undefined }) {
+  const held = bays?.bays ?? [];
+  return (
+    <Shell label="System">
+      <SystemSections sessionId={session.id} worktrees={held.length === 0 ? null : held.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)} />
+    </Shell>
+  );
+}
+
 /** The layer that is open. */
 export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession, onOpenSketch }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; bays: SessionBays | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
   if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />;
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
+  if (id === "lanes") return <LanesLayer session={session} />;
+  if (id === "system") return <SystemLayer session={session} bays={bays} />;
   return <BaysLayer session={session} bays={bays} />;
 }

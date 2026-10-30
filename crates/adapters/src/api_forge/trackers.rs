@@ -52,6 +52,10 @@ impl Trackers for ApiTrackers {
         crate::tracker_providers::backlog_over(choice)
     }
 
+    fn writer(&self, choice: &TrackerChoice) -> Arc<dyn adapter_traits::TrackerWrites + Send + Sync> {
+        crate::tracker_providers::writer_over(choice, self.taught.as_ref())
+    }
+
     fn install(&self, tool: adapter_traits::Tool, in_repo: &str) -> adapter_traits::ToolInstalled {
         crate::tool_install::installed(&crate::jira_tracker::Process, tool, std::path::Path::new(in_repo))
     }

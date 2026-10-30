@@ -147,6 +147,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::propose_new_workflow::<D>),
         )
         .route(
+            "/workflows/changes/propose",
+            post(crate::repositories::propose_workflow_change::<D>),
+        )
+        .route(
             "/workflows/changes/suggest",
             post(crate::repositories::suggest_workflow_change::<D>),
         )
@@ -258,6 +262,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/loadout", get(crate::sessions::get_session_loadout::<D>))
         .route("/sessions/attachment_history", get(crate::sessions::get_attachment_history::<D>))
         .route("/sessions/usage", get(crate::sessions::get_session_usage::<D>))
+        .route("/sessions/system", get(crate::sessions::get_session_system::<D>))
+        .route("/sessions/stop_process", post(crate::sessions::stop_process::<D>))
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
         .route("/usage/rules", get(crate::sessions::get_usage_rules::<D>))
         .route("/sessions/loadout/item", get(crate::sessions::read_loadout_item::<D>))
@@ -356,6 +362,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/defer_later", post(crate::sessions::defer_later::<D>))
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
+        .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
+        .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
+        .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
+        .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))
         .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))
         .route("/sessions/annotation_done", post(crate::sessions::mark_annotation_done::<D>))
         .route(
@@ -369,6 +379,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
+        )
+        .route(
+            "/sessions/waiting/reopen",
+            post(crate::hosted_sessions::reopen_waiting::<D>),
+        )
+        .route(
+            "/sessions/waiting/closed",
+            get(crate::sessions::list_closed_waiting::<D>),
         )
         .route(
             "/sessions/waiting/confirm",
@@ -511,6 +529,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )
         .route(
+            "/sessions/tools/mend",
+            post(crate::hosted_sessions::mend_session_tools::<D>),
+        )
+        .route(
             "/sessions/start_again",
             post(crate::hosted_sessions::start_again::<D>),
         )
@@ -525,6 +547,22 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/step-skip",
             post(crate::hosted_sessions::skip_session_step::<D>),
+        )
+        .route(
+            "/sessions/workflow/steps",
+            post(crate::hosted_sessions::change_session_steps::<D>),
+        )
+        .route(
+            "/sessions/copy",
+            get(crate::hosted_sessions::get_job_copy::<D>).post(crate::hosted_sessions::change_job_copy::<D>),
+        )
+        .route(
+            "/sessions/copy/keep",
+            post(crate::hosted_sessions::keep_job_workflow::<D>),
+        )
+        .route(
+            "/sessions/copy/keep_piece",
+            post(crate::hosted_sessions::keep_job_piece::<D>),
         )
         .route(
             "/sessions/begin",
@@ -691,6 +729,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/watches/try", post(crate::watches::try_watch::<D>))
         .route("/watches/recipes", get(crate::watches::list_watch_recipes::<D>))
         .route("/watches/recipes/save", post(crate::watches::save_watch_recipe::<D>))
+        .route("/workspaces", get(crate::lifecycles::list_repository_workspaces::<D>))
+        .route("/lifecycles", get(crate::lifecycles::list_lifecycles::<D>))
+        .route("/lifecycles/rules", get(crate::lifecycles::list_lifecycle_rules::<D>))
+        .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
+        .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
+        .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))
         .route("/app_runs/draft", get(crate::app_runs::get_app_run_draft::<D>))
         .route("/app_runs/start", post(crate::app_runs::start_app_run::<D>))

@@ -188,6 +188,11 @@ where
                     .and_then(|plan| crate::session_host::after::plan_part_title(&crate::plan_record::wire(&plan), &one.part));
                 (one, title, part)
             });
+        let plan = store.session_plan(&session.id).map_err(fault)?;
+        let pulls = match &plan {
+            Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
+            None => Vec::new(),
+        };
         Ok(LedgerReads {
             wait,
             rail,
@@ -198,9 +203,10 @@ where
             limited: store.session_limit(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
-            plan: store.session_plan(&session.id).map_err(fault)?,
+            plan,
             adversarial: store.latest_adversarial_review(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
+            pulls,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.first_live_watch_name(&session.id).map_err(fault)?,
             start,
@@ -209,14 +215,14 @@ where
     }
 
     /// What the session waits on, off what [`ledger_reads`](Self::ledger_reads) took, for a caller that
-    /// wants no more of the row than that.
+    /// wants no more of the row than that. **The row's own list**, drawn whole, so the wait a step
+    /// raises is answered and dismissed as any other item is.
     pub(crate) fn ledger_waiting(
         &self,
         session: &KeptSession,
         reads: LedgerReads,
     ) -> Vec<ipc::WaitingItem> {
-        let attachments: Vec<ipc::Attachment> = reads.held.iter().map(attachment_wire).collect();
-        self.waiting_from(reads.waiting, session, &attachments).items
+        self.ledger_built(session, reads).waiting_for
     }
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
@@ -255,6 +261,7 @@ where
         record.r#mod = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_job);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
+            record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
         }
         if let Some(hosting) = &reads.hosting {
             record.workflow = hosting.workflow.clone();
@@ -263,6 +270,7 @@ where
             record.proposal = (reading || !picked.is_empty())
                 .then_some(ipc::SessionProposal { reading, picked });
         }
+        let picks = reads.hosting.as_ref().map(|hosting| (hosting.workflow.clone(), hosting.model.clone(), hosting.effort.clone()));
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting, reads.start));
@@ -275,8 +283,10 @@ where
             .as_deref()
             .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
+        let reply_owed_since = reads.waiting.reply_owed_since();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        record.closed = waited.closed;
         let settled = waited.settled;
         let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
@@ -285,7 +295,10 @@ where
         record.plan = reads
             .plan
             .as_ref()
-            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire_read(kept, &reads.touches) });
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire_read(kept, &reads.touches, &reads.pulls) });
+        if let (Some(kept), Some(activity)) = (&reads.plan, &mut record.activity) {
+            crate::plan_record::mark_listed(kept, &mut activity.todos);
+        }
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
         record.later = reads
@@ -294,8 +307,19 @@ where
             .filter(|_| session.state == store::SessionState::Live)
             .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at), confirmed: one.confirmed })
             .collect();
-        // Held open only when the watch is all that is left: a turn running, an item owed or a command
-        // the agent backgrounded each says more than the watch does.
+        // A Session still waiting on another carries the wait until it starts.
+        record.waits = reads
+            .wait
+            .filter(|_| session.state == store::SessionState::Live)
+            .map(|(wait, title, part)| {
+                let mut wire = crate::session_host::after::wait_wire(&wait, title, part);
+                (wire.workflow, wire.model, wire.effort) = picks.unwrap_or_default();
+                wire
+            });
+        record.started = reads.started;
+        self.rail_drawn(session, &reads.rail, reply_owed_since.as_deref(), &mut record);
+        // Held open only when the watch is all that is left, read once the rail has drawn its wait: a
+        // turn running, an item owed or a command the agent backgrounded each says more than the watch does.
         record.held_open_by = reads.watching.filter(|_| {
             session.state == store::SessionState::Live
                 && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
@@ -305,13 +329,6 @@ where
                     .iter()
                     .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing)
         });
-        // A Session still waiting on another carries the wait until it starts.
-        record.waits = reads
-            .wait
-            .filter(|_| session.state == store::SessionState::Live)
-            .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
-        record.started = reads.started;
-        self.rail_drawn(session, &reads.rail, &mut record);
         record
     }
 

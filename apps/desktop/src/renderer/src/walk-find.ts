@@ -20,6 +20,8 @@ export type Seeking = {
   exact?: boolean;
   /** Looked for only inside this one. */
   within?: Seeking;
+  /** What to look for instead where this is not on the page, in this order: a place that is drawn two ways. */
+  or?: Seeking[];
 };
 
 const squeezed = (words: string) => words.replace(/\s+/g, " ").trim();
@@ -70,6 +72,16 @@ function every(target: Seeking, root: ParentNode): Element[] {
  * `Close` is the one on top.
  */
 export function find(target: Seeking, root: ParentNode = document): HTMLElement | null {
+  const first = findOne(target, root);
+  if (first !== null) return first;
+  for (const other of target.or ?? []) {
+    const found = find(other, root);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+function findOne(target: Seeking, root: ParentNode): HTMLElement | null {
   let scope: ParentNode = root;
   if (target.within !== undefined) {
     const found = find(target.within, root);

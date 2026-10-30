@@ -46,6 +46,7 @@ use existing::Onto;
 use git::{count, git, git_ok};
 pub use history::{checkouts_in, checkouts_of, turns_of, Checkout, Turn, KEPT_DAYS};
 pub use record::Holder;
+pub use strays::{end_pids, listening_ports};
 use record::Record;
 pub use shape::Unshaped;
 pub(crate) use watching::acted;

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, nativeImage, Notification } from "electron";
 import { randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -40,6 +41,8 @@ import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { handleProjects } from "./projects-channels";
+import { handleBugReports } from "./bug-reports-channels";
+import { handleLifecycles } from "./lifecycles-channels";
 import { showHeld } from "./banners";
 import { DownshiftNotice } from "./downshift-notice";
 import { handleAgentSignIn } from "./agent-sign-in-channels";
@@ -55,6 +58,7 @@ import { handleTeaching } from "./teaching-channels";
 import { handleReviews } from "./reviews-channels";
 import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
+import { handleSessionSystem } from "./session-system-channels";
 import { handleLogbook } from "./logbook-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
 import { handleFlightControls } from "./flight-controls-channels";
@@ -497,6 +501,12 @@ const sessionAttention = new SessionAttention({
 
 void app.whenReady().then(() => {
   wearTheMark();
+  // **Here and not before ready**: a handler set earlier loses to Electron's own, which quits
+  // through `will-quit` as a person's quit does (measured 29 Oct, Electron 40).
+  process.on("SIGTERM", () => {
+    signalled = true;
+    app.quit();
+  });
   if (!app.isPackaged) {
     // A note's screenshot, #1250: the layer asks for the whole window, and its note's box is ringed on it as it is sent.
     handleAnnotations(ipcMain, app.getAppPath(), async (event, box) => {
@@ -577,6 +587,8 @@ void app.whenReady().then(() => {
   });
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.projects.onChanged((projects) => everyWindow(CHANNELS.projectsChanged, projects));
+  connection.bugReports.onChanged((reports) => everyWindow(CHANNELS.bugReportsChanged, reports));
+  connection.lifecycles.onChanged((held) => everyWindow(CHANNELS.jobLifecyclesChanged, held));
   connection.agentSignIn.onChanged((state) => {
     agentSignInNotice.read(state);
     everyWindow(CHANNELS.agentSignInChanged, state);
@@ -783,6 +795,8 @@ void app.whenReady().then(() => {
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleProjects({ ipc: ipcMain, connection: () => connection });
+  handleBugReports({ ipc: ipcMain, connection: () => connection });
+  handleLifecycles({ ipc: ipcMain, connection: () => connection });
   handleAgentSignIn({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
@@ -790,6 +804,7 @@ void app.whenReady().then(() => {
   handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });
+  handleSessionSystem({ ipc: ipcMain, connection: () => connection });
   handleLogbook({ ipc: ipcMain, connection: () => connection });
   handleUsageSummary({ ipc: ipcMain, connection: () => connection });
   handleFlightControls({ ipc: ipcMain, connection: () => connection });
@@ -845,4 +860,12 @@ app.on("window-all-closed", () => {
   connection?.stop();
   sessionAttention.close();
   app.quit();
+});
+
+// A quit the person meant leaves this mark, so `scripts/bridge-launch` can tell it from a crash or
+// a kill and have launchd reopen Bridge only then. Written in step, since the process ends right after.
+let signalled = false;
+app.on("will-quit", () => {
+  const mark = process.env.ARMADA_BRIDGE_QUIT_MARK;
+  if (mark && !signalled) writeFileSync(mark, "");
 });

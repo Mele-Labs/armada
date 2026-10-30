@@ -41,6 +41,7 @@ mod usage_summary;
 mod usage_rule_trips;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
+mod bug_reports;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -67,6 +68,12 @@ mod word_asks;
 /// The Jobs a person renamed, which the proposer names later Jobs from.
 mod job_renames;
 mod job_issues;
+/// What a Job holds standing in the states of its lifecycles, and the moves between them.
+mod lifecycle_instances;
+/// The lifecycles and rules a Job started with, and the acts those rules planned for it.
+mod job_copies;
+mod job_copy_edits;
+mod rule_acts;
 mod plan_beads;
 /// A Job's adversarial reviews of its plan, one a version.
 mod adversarial_reviews;
@@ -170,6 +177,7 @@ pub use session_turn_usage::KeptTurnUsage;
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
 pub use usage_rule_trips::KeptTrip;
 pub use fleet_disputes::{KeptDispute, KeptNotice};
+pub use bug_reports::KeptBugReport;
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, KeptStarted, SETTLED_KEPT};
@@ -187,13 +195,17 @@ pub use job_renames::KeptRename;
 pub use home_kinds::KeptHomeItem;
 pub use home_repositories::KeptHomeRepository;
 pub use job_issues::KeptJobIssue;
+pub use lifecycle_instances::{KeptInstance, KeptMove, KeptRead};
+pub use job_copies::{KeptCopy, KeptPiece, PieceKind};
+pub use job_copy_edits::{KeptCopyMark, KeptWorkflowCopy};
+pub use rule_acts::{standing as rule_act_standing, KeptRuleAct, KeptSeen, NewRuleAct};
 pub use plan_beads::KeptBead;
 pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, LOOSE as LOOSE_PROJECT};
-pub use session_waiting::KeptWaiting;
+pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;

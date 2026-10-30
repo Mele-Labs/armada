@@ -12,3 +12,10 @@
   size = "16px"
   status = "Specified"
   notes = "Approved 26 Oct 2026 by the owner on the walk `flight-control`, knowingly against the rename-only reservation above: the Flight control's band is a glyph and a tooltip, `Edit`, in place of the word, and the control is the panel's arrangement being rewritten in place, the same act as a name in a box. `pencil` stays the sketch pad's."
+
+[[icons.square-pen.usage]]
+  means = "Edit what is picked on a workflow's lanes: its name and fields open to type in"
+  group = "Workspace lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Edit`. The nearest the registry has to an edit: a name in a box being rewritten, which is what Edit opens first. The reservation above says never a general edit; this is the canvas toolbar's one Edit, flagged for the owner's ruling."

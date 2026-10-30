@@ -1,0 +1,89 @@
+# Orchestrate, as the owner chose it on 29 Oct 2026: Assess, Plan, Dispatch, Oversee, Summarise. A Job
+# that takes a pile of work, splits it into Jobs, runs them and reports what they landed. It writes no code
+# of its own. `epic`, deleted in 06ef7552e6 with `may_dispatch_jobs` and `approve_wave`, did this before
+# `start_another_job` existed; this is it again on the tools there are now.
+#
+# Where the reasoning lives: `crates/core-model/domain/workflowdef-fields.toml` is the schema,
+# `docs/concepts/workflow.md` the concept. YAML under a `.json` name, as `bug.json` says.
+#
+# **`plan` records one group per Job**, and the person's approval is what starts any Job. `dispatch`
+# follows that plan, and the agent marks a group's tasks done once its Job is started, so Dispatch passes
+# when every Job is started. Marked done on the merge instead, Dispatch would pass in the same reading as
+# Oversee and Oversee would never show.
+#
+# **`oversee` holds until every Job this one started has merged or been ended**, ones it started late
+# included. Fleet reads that off the Jobs' lifecycle instances, never the agent's word. #3037.
+#
+# **`summarise` lands a report**: a Document the person approves or sends back with notes, and no pull
+# request, as `design_plan`'s `present` does. `lands: report`, as `code_review` does.
+{
+  "version": 1,
+  "workflow_id": "orchestrate",
+  "name": "orchestrate",
+  "for_requests": "A pile of work to split up and hand out: a batch of feedback, a list of issues or a milestone, where what is wanted is several Jobs run to land it and a report of what each landed. One change, however large, that one Job can land is a feature; working out how to build something before anybody builds it is a design plan.",
+  "lands": "report",
+  "steps": [
+    {
+      "id": "assess",
+      "label": "Assess",
+      "about": "Reads the pile of work and checks each item against main: done, partial or missing. Nothing is changed.",
+      "instructions": "Read the work you were handed and every link in it: the feedback, the issues, the milestone.\nCheck each item against main. Say done, partial or missing, with a path; say which half is missing when it is partial. Leave out what main already does, and say so.\nGroup what is left into pieces one Job can land as one pull request. Put pieces that touch the same files in one group, or order them.\nEdit nothing.",
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "plan",
+      "label": "Plan",
+      "about": "Proposes one Job per group as a plan. You approve it before any Job starts.",
+      "instructions": "Record the plan with record_plan: one group per Job, each with the subagent type that does its work, the paths it works under, its tasks and a gives line.\nOrder the groups so one that needs another's work comes after it, and say which run together and which wait.\nWait for the person to approve the plan. Start no Job before then.",
+      "records_plan": true,
+      "evidence": {
+        "submitted": {
+          "type": "plan"
+        }
+      },
+      "mechanical_checks": [
+        {
+          "type": "plan_recorded",
+          "min_tasks": 1
+        }
+      ],
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "dispatch",
+      "label": "Dispatch",
+      "about": "Starts a Job for each group, two at a time, with the rest queued behind them.",
+      "instructions": "Start a Job for each group with start_another_job, naming the group.\nAt most two run at once. Start the first two, and start each of the rest with `after` on an earlier one: `pr_lands` where it builds on that Job's work, `ends` otherwise.\nYour task list is the plan. Mark a group's tasks done as soon as start_another_job returns for it: waiting for the merges is Oversee's.\nEdit nothing and open no pull request yourself.",
+      "follows_plan": true,
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "oversee",
+      "label": "Oversee",
+      "about": "Follows the Jobs it started and steps in when one is stuck or fails. It may start more. It moves on once every one has merged or been ended.",
+      "instructions": "Fleet tells you when a Job you started ends or has its pull request merged. End your turn between notices; never poll.\nWhen a Job is stuck, failing, or has asked you something, read its thread and message it. End it and start another only when it cannot recover.\nStart another Job whenever the work shows one is needed, such as a group that split or a fix a landed Job exposed. Tell the person why in a line.\nA Job that needs the person shows on its own row. Do not repeat its question.\nThis step ends when every Job you started has merged or been ended.",
+      "ends_on": [
+        "job: landed"
+      ],
+      "delivers": false,
+      "advance_gate": "auto"
+    },
+    {
+      "id": "summarise",
+      "label": "Summarise",
+      "about": "Writes a report of what each Job landed, with its pull request, and the follow-up work. You approve it or send it back with notes. No pull request is opened.",
+      "instructions": "Load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html.\nConclusion first. Then a table with one row per Job you started: what it landed, its pull request as a link, and whether it merged or was ended, and why.\nThen a Follow-up work section: one row for each thing a Job left, deferred or exposed, saying what it is and where.\nAsk the person, one item at a time, whether to file each follow-up item as an issue or dispatch it as a Job, then do what he picks.\nAnswer every note on the page by changing the page where the note points. Open no pull request.",
+      "phase": "delivery",
+      "evidence": {
+        "submitted": {
+          "type": "document"
+        }
+      },
+      "delivers": false,
+      "advance_gate": "human_always"
+    }
+  ]
+}

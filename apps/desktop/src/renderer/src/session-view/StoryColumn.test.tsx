@@ -84,12 +84,21 @@ test("Whole plan opens every group where it stands, and keeps a finished one out
   const whole = { plan: three } as unknown as SessionWork;
   const host = mount({ ...session("working"), work: whole } as unknown as Session, { work: whole, ed: { ...ed, plan: three } });
   const zone = (label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`)?.textContent ?? "";
-  // Folded, a finished group is a title and a bar in Completed, its tasks not listed.
-  expect(zone("Completed")).toContain("Read the lease");
-  expect(zone("Completed")).not.toContain("Find where it drops");
+  // Folded, a finished group is a title and a bar in Done, its tasks not listed.
+  expect(zone("Done")).toContain("Read the lease");
+  expect(zone("Done")).not.toContain("Find where it drops");
   act(() => host.querySelector<HTMLButtonElement>('button[aria-label="Whole plan"]')!.click());
-  expect(zone("Completed")).toContain("Find where it drops");
+  expect(zone("Done")).toContain("Find where it drops");
   expect(zone("Now")).not.toContain("Read the lease");
   expect(zone("Now")).toContain("Retry once");
-  expect(zone("Next")).toContain("Say when it retries");
+  expect(zone("Open")).toContain("Say when it retries");
+});
+
+test("a walk shown again at one address is one beat in Now, the newest showing", () => {
+  const url = "http://localhost:5511/?walk=processes";
+  const again = session("idle");
+  const shown = { ...again, rows: [...again.rows, { id: "w1", at: "2026-10-27T10:02:00Z", kind: "window", title: "Processes", url }, { id: "w2", at: "2026-10-27T10:03:00Z", kind: "window", title: "Processes, take 2", url }] } as unknown as Session;
+  const host = mount(shown);
+  const walks = [...host.querySelectorAll('ul[aria-label="Now"] > li[data-walk]')].map((one) => one.querySelector(".sv-beat__label")?.textContent);
+  expect(walks).toEqual(["Processes, take 2"]);
 });

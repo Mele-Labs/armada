@@ -88,6 +88,9 @@ type Sent = {
 /** What the panel is handed by an entry, short of where the entry puts it. */
 export type EntryProps = Omit<PanelProps, "onDismiss" | "fieldRef" | "autoFocus">;
 
+/** The words, repository root, tags and project rows of one `openSheet`. */
+export type SheetRequest = { words: string; root?: string | undefined; tags?: readonly ComposerTag[]; rows?: readonly ProjectRowRef[] };
+
 export type Dispatching = {
   kind: DispatchKind;
   /** The kinds Tab steps through, in order. */
@@ -101,6 +104,8 @@ export type Dispatching = {
    * `projectRows` are the rows of his projects the words came from: the Job starts with them, and holds each written task.
    */
   openSheet: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[]) => void;
+  /** Cards picked in several repositories: one request each, the first opened now and each next once the one before has started or been put away. The queue lives here, so it outlasts the page that filled it. */
+  openSheets: (requests: readonly SheetRequest[]) => void;
   /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
   /** New workflow, from the Workflows page: the sheet for a Job that makes one, with the scope chosen on it. */
@@ -507,6 +512,41 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     setSheet(true);
   }
 
+  function openSheet(next: string, at?: string, tags?: readonly ComposerTag[], rows?: readonly ProjectRowRef[]) {
+    stamp.current += 1;
+    setWorkflow(null);
+    writeKept(REQUEST, next);
+    if (tags !== undefined) tagged.current = [...tags];
+    rowed.current = rows === undefined ? [] : [...rows];
+    setSnippets([]);
+    if (at !== undefined) pick(at);
+    setLatest(undefined);
+    setAsking(false);
+    setRead(undefined);
+    setRefused(undefined);
+    setSheet(true);
+  }
+
+  /** One request for each repository: the first opens now, and each next opens when the one before starts or is put away, on whatever page the window is then. */
+  function openSheets(all: readonly SheetRequest[]) {
+    const [first, ...rest] = all;
+    later.current = rest;
+    if (first !== undefined) openRequest(first);
+  }
+  function openRequest(one: SheetRequest) {
+    choose("session");
+    openSheet(one.words, one.root, one.tags, one.rows);
+  }
+  const later = useRef<SheetRequest[]>([]);
+  const wasUp = useRef(false);
+  useEffect(() => {
+    if (wasUp.current && !sheet) {
+      const next = later.current.shift();
+      if (next !== undefined) openRequest(next);
+    }
+    wasUp.current = sheet;
+  });
+
   return {
     kind,
     kinds,
@@ -515,20 +555,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     openNew,
     openWorkflow,
     ...(draft?.readsWait === undefined || !kinds.includes("session") ? {} : { openAfter }),
-    openSheet: (next, at, tags, rows) => {
-      stamp.current += 1;
-      setWorkflow(null);
-      writeKept(REQUEST, next);
-      if (tags !== undefined) tagged.current = [...tags];
-      rowed.current = rows === undefined ? [] : [...rows];
-      setSnippets([]);
-      if (at !== undefined) pick(at);
-      setLatest(undefined);
-      setAsking(false);
-      setRead(undefined);
-      setRefused(undefined);
-      setSheet(true);
-    },
+    openSheet,
+    openSheets,
     closeSheet: collapse,
     usePanel,
     sent: sentView,

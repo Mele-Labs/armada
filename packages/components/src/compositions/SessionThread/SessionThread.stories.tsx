@@ -933,6 +933,60 @@ export const WorkingMarkBelowTheWaitingCard: Story = {
   },
 };
 
+const PAIRING_PR = { number: 2814, title: "Pairing route in Fleet", state: "open" as const };
+
+/** A Job that keeps its work local opened no pull request, so its plan draws no chip. */
+export const KeepLocalPlanDrawsNoChip: Story = {
+  args: { rows: LIVE_ROWS, approval: LIVE_PLAN },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Keep the queue in the store")).toBeVisible();
+    await expect(canvas.queryByRole("group", { name: /not opened yet/ })).toBeNull();
+    await expect(canvas.queryByRole("region", { name: /^Lands in/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Pull request #/ })).toBeNull();
+  },
+};
+
+/** An Auto land Job with a one-PR plan draws one placeholder, PR 1, over every group. */
+export const AutoLandPlanDrawsOnePlaceholder: Story = {
+  args: { rows: LIVE_ROWS, approval: { ...LIVE_PLAN, opensPullRequests: true } },
+  play: async ({ canvas }) => {
+    const chips = canvas.getAllByRole("group", { name: "PR 1, not opened yet" });
+    await expect(chips).toHaveLength(1);
+    const landing = canvas.getByRole("region", { name: "Lands in PR 1" });
+    await expect(within(landing).getByText("Keep the queue in the store")).toBeVisible();
+    await expect(within(landing).getByText("Document the queue")).toBeVisible();
+  },
+};
+
+/** Groups sharing a label stand under one chip: the placeholder takes the real pull request once one of them has it, and a group with no landsIn is PR 1. */
+export const GroupsSharingALabelStandUnderOneChip: Story = {
+  args: {
+    rows: LIVE_ROWS,
+    approval: {
+      ...LIVE_PLAN,
+      opensPullRequests: true,
+      onOpenPullRequest: fn(),
+      groups: [
+        { ...LIVE_PLAN.groups[0]!, landsIn: { label: "PR 1" } },
+        { ...LIVE_PLAN.groups[1]!, landsIn: { label: "PR 1", pullRequest: PAIRING_PR } },
+        LIVE_PLAN.groups[2]!,
+        { ...LIVE_PLAN.groups[3]!, landsIn: { label: "PR 2" } },
+      ],
+    },
+  },
+  play: async ({ canvas, args }) => {
+    const first = canvas.getByRole("region", { name: "Lands in #2814" });
+    for (const title of ["Keep the queue in the store", "Queue operation on the wire", "Queue from the dispatch panel"]) await expect(within(first).getByText(title)).toBeVisible();
+    await expect(within(first).queryByText("Document the queue")).toBeNull();
+    await expect(canvas.queryByRole("group", { name: "PR 1, not opened yet" })).toBeNull();
+    const second = canvas.getByRole("region", { name: "Lands in PR 2" });
+    await expect(within(second).getByText("Document the queue")).toBeVisible();
+    await expect(within(second).getByRole("group", { name: "PR 2, not opened yet" })).toBeVisible();
+    await userEvent.click(within(first).getByRole("button", { name: "Pull request #2814 Pairing route in Fleet" }));
+    await expect(args.approval!.onOpenPullRequest).toHaveBeenCalledWith(2814);
+  },
+};
+
 /** The plan card folds on its band to one line: Plan, its version and its state, with Approve still on it. */
 export const PlanFoldsToOneLine: Story = {
   args: { rows: LIVE_ROWS, approval: LIVE_PLAN },

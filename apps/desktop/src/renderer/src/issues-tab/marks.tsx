@@ -1,7 +1,8 @@
 // A Job working an issue: as its live state's glyph, the one the Cockpit's list draws, named by a tooltip that says which
 // Job; or as the shared Job card, where there is room for one.
 
-import { JobCard, SessionMark, jobToneOf, type JobTone } from "@armada/components";
+import { Bug, CircleDot, Save } from "lucide-react";
+import { JobCard, SessionMark, Tooltip, jobToneOf, type JobTone } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { peekOfSession } from "../cockpit/deck/ship";
@@ -34,4 +35,37 @@ const LOUD: readonly JobTone[] = ["bad", "ask", "live", "calm"];
 export function toneOfHolders(holders: readonly Session[]): JobTone | undefined {
   const tones = holders.map((one) => jobToneOf(stateOf(one).state));
   return LOUD.find((tone) => tones.includes(tone));
+}
+
+/** A report not yet opened: a quiet ring, drawn in the muted ink. */
+export function UnreadMark() {
+  return (
+    <Tooltip label="Unread">
+      <span className="issues-mark" role="img" aria-label="Unread">
+        <CircleDot size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A report he kept. */
+export function KeptMark() {
+  return (
+    <Tooltip label="Kept">
+      <span className="issues-mark" role="img" aria-label="Kept">
+        <Save size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** On a Job's row in the Cockpit: this Job reported a bug. A press opens the report on the Issues tab. */
+export function ReportedMark({ onOpen }: { onOpen: () => void }) {
+  return (
+    <Tooltip label="Reported a bug" asChild>
+      <button type="button" className="deck-row__reported-mark" aria-label="Reported a bug" onClick={onOpen}>
+        <Bug size={12} strokeWidth={2} aria-hidden />
+      </button>
+    </Tooltip>
+  );
 }

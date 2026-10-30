@@ -502,6 +502,29 @@ pub(crate) async fn waiting_for<D: Sessions>(
     }
 }
 
+/// `?session_id=`, read only where the connection places no session.
+#[derive(Deserialize)]
+pub(crate) struct ForClosedWaiting {
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+/// What the person closed from a session's list, newest first. 200; 422 for a call that places no session.
+/// **The session is placed by the connection**, as `waiting_for`'s is.
+pub(crate) async fn list_closed_waiting<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ForClosedWaiting>,
+) -> Response {
+    let named = asked
+        .session_id
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.trim()));
+    match served.daemon().list_closed_waiting(crate::acting::asking(), named).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
 pub(crate) async fn all_done<D: Sessions>(
@@ -560,6 +583,55 @@ pub(crate) async fn dispute_fleet<D: Sessions>(
     };
     match served.shared().dispute_fleet(crate::acting::asking(), dispute).await {
         Ok(disputed) => answer(StatusCode::OK, &disputed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The agent says Armada itself got something wrong. 200 with the id of the report Fleet kept; 422 for a call that places
+/// no session or leaves out the title or what went wrong. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn report_bug<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let report: ipc::ReportBug = match ipc::decode_body("a bug report", &body) {
+        Ok(report) => report,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().report_bug(crate::acting::asking(), report).await {
+        Ok(reported) => answer(StatusCode::OK, &reported, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The bug reports on this Mac, newest first.
+pub(crate) async fn list_bug_reports<D: Sessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_bug_reports().await {
+        Ok(reports) => answer(StatusCode::OK, &reports, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The report an act names.
+#[derive(Deserialize)]
+pub(crate) struct NamedReport {
+    report_id: String,
+}
+
+/// The owner keeps a bug report. 200 with it; 404 for an id that names none.
+pub(crate) async fn keep_bug_report<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(NamedReport { report_id }): axum::extract::Path<NamedReport>,
+) -> Response {
+    match served.daemon().keep_bug_report(report_id).await {
+        Ok(report) => answer(StatusCode::OK, &report, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner drops a bug report. 200 with its id; 404 for an id that names none.
+pub(crate) async fn drop_bug_report<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(NamedReport { report_id }): axum::extract::Path<NamedReport>,
+) -> Response {
+    match served.daemon().drop_bug_report(report_id).await {
+        Ok(dropped) => answer(StatusCode::OK, &dropped, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -696,6 +768,32 @@ pub(crate) async fn get_session_usage<D: Sessions>(
         .await
     {
         Ok(usage) => answer(StatusCode::OK, &usage, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=` on `get_session_system`.
+#[derive(Deserialize)]
+pub(crate) struct SystemAsk {
+    session_id: String,
+}
+
+pub(crate) async fn get_session_system<D: Sessions>(State(served): State<Served<D>>, Query(ask): Query<SystemAsk>) -> Response {
+    match served.shared().get_session_system(ipc::SessionId::carried(ask.session_id)).await {
+        Ok(system) => answer(StatusCode::OK, &system, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One process the job started is ended. 200 with the pid and command; 422 for neither or both of pid and port, a
+/// process the job did not start, or a call that places no session; 409 for a session that has ended.
+pub(crate) async fn stop_process<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let stop: ipc::StopProcess = match ipc::decode("a process to stop", &body) {
+        Ok(stop) => stop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().stop_process(crate::acting::asking(), stop).await {
+        Ok(stopped) => answer(StatusCode::OK, &stopped, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

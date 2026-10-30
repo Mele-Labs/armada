@@ -67,3 +67,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `child-job-start`, tooltip `Starting`, beside the word `Starting…`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
+
+[[icons.loader-circle.usage]]
+  means = "An act on the tools mark's menu under way: Restart the agent, Reconnect or Update Claude Code, in front of the button's label until it settles"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `job-tools-missing-fix`, tooltip `Working`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."

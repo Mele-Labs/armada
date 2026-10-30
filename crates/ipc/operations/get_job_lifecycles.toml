@@ -1,0 +1,18 @@
+[operations.get_job_lifecycles]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What this Job holds and where it stands: its tickets, pull requests, deploys and the Jobs it started, each with its state, what it is linked to, and every move it has made, oldest first"
+notes = """
+`GET /sessions/lifecycles?session_id=`. Answers 200 with `JobLifecycles` `{ session_id, lifecycles[], instances[], moves[] }`.
+
+**`instances`** are what the Job has taken on, in the order it did: each a `HeldInstance` `{ lifecycle, key, label, standing, links[], ended_at? }`. `key` is what its source calls it (`ARM-41`, `812`, a Job's id) and `label` what a person reads (the ticket's key, `PR #812`, the Job's title). `standing` is `{ kind: "unread" }` for one not yet read, `{ kind: "in", state }`, or `{ kind: "unmapped", said }` for a status no state lists, kept as the source said it. **Fleet reads where an instance stands from the tracker, the forge, a watch and its own events, and never from what an agent says.** `links` are `{ lifecycle, key }`: a pull request is linked to its tickets, and a Job another Job started to that Job.
+
+**`ended_at` is when ending the Job ended an instance still in flight**, which then stands where it was and is moved by no reader. It is absent for a live one and for one that reached an end state of its own.
+
+**`lifecycles`** are the definitions the instances are of, as `list_lifecycles` gives them without `kept`: their states, expected moves and the `ends` that finish an instance. **`moves`** are every change of standing, oldest first: `{ lifecycle, key, from, to, source, at }`, `source` being `tracker`, `forge`, `watch` or `fleet`. A read that found an instance where it already stood is not a move.
+
+A Job that holds nothing, which is every Job that began before lifecycles existed, answers the three lists empty. **The Job is the one the connection places** when Fleet hosts it, else `session_id`; 422 `fleet.job_lifecycles_unplaced` where nothing places one, 404 `fleet.no_such_session` where Fleet holds no such Job. `job_lifecycles.changed` carries the same answer whole.
+
+`agent_access` is `Yes`: an agent that waits on a pull request's approval reads where its pull request and tickets stand here.
+"""

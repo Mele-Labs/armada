@@ -1,12 +1,14 @@
 [operations.set_session_workflow]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Set the workflow a hosted job follows, or clear it so the job is a custom one"
+agent_access = "Yes"
+description = "Switch the workflow this job follows to another one the repository holds, or to none so the job is a custom one. Body: {session_id, workflow?}. session_id is your job id; workflow is a workflow id, and leaving it out clears it. It applies to this job only, at once, and drops any steps you changed in your copy of the old workflow"
 notes = """
 `POST /sessions/workflow`, body `SetSessionWorkflow`: `session_id` and `workflow`, an id the Job's repository holds. Since 23.91. Answers the `SessionRecord` with `workflow` set, or absent when cleared.
 
-**The change reaches the agent at once.** A Job that has run is sent a message from Fleet naming the new workflow and its step labels, or saying it is now a custom Job. Mid-turn it arrives at the next tool call, as any message to a busy Job does; idle, it starts a turn. A Job that has not run is told with its first turn instead. Fleet enters `session.workflow` on the timeline with `says` `workflow: <old> → <new>`, naming a workflow by its name and none as `custom`. A workflow the proposer picked stops being listed in `proposal.picked` once the person sets it.
+**The change reaches the agent at once, unless the agent made it.** A Job that has run is sent a message from Fleet naming the new workflow and its step labels, or saying it is now a custom Job. Mid-turn it arrives at the next tool call, as any message to a busy Job does; idle, it starts a turn. A Job that has not run is told with its first turn instead. Fleet enters `session.workflow` on the timeline with `says` `workflow: <old> → <new>`, naming a workflow by its name and none as `custom`. A workflow the proposer picked stops being listed in `proposal.picked` once the person sets it.
+
+**The agent may call it on its own Job.** Through the agent door the Job is the one whose process holds the connection, whatever `session_id` says, and the answer is a receipt: `session_id`, `workflow` (absent for a custom Job), `workflow_step` and `skipped_steps`. Fleet enters the change on the timeline with the same `says`, and `detail` `by the Job` where the agent made it and `by you` where the person did. A Job that changes its workflow gives up its own copy of the old one (`change_session_steps`), and the marks on its steps with it. The Job is not sent a message about a change it made itself.
 
 Setting the workflow the Job already has changes nothing and answers the row. 422 `fleet.session_workflows_off` for a workflow to set while `features.workflows` is off in Settings (clearing one still works), 422 `fleet.session_workflow_not_held` for an id the repository does not hold, 422 `fleet.session_command_refused` for a terminal job, and 409 `fleet.session_closed` for one that ended.
 """

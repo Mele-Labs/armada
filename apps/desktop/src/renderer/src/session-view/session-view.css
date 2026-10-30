@@ -165,6 +165,9 @@
 .sv-review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-4); height: 100%; min-height: 0; padding: var(--space-4); }
 .sv-review:not(:has(.sv-review__sketch)) { grid-template-columns: minmax(0, 1fr); }
 .sv-review__groups { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; overflow-y: auto; }
+/* A pull request's chip, and under it, hung off a hairline, the groups that land in it. */
+.sv-review__landing { display: flex; flex-direction: column; gap: var(--space-2); }
+.sv-review__landing > .sv-review__group { margin-inline-start: var(--space-3); padding-inline-start: var(--space-3); border-inline-start: var(--border-width) solid var(--border-subtle); }
 .sv-review__group .sv-group__row { cursor: default; }
 .sv-review__group .sv-group__row:hover { background: none; }
 /* A task's findings hang under its words: past the state glyph and its gap, which is the indent the card draws them at. */
@@ -292,6 +295,21 @@ button.sv-group__head:focus-visible { outline: var(--focus-ring); outline-offset
 .sv-layer__group-label { margin: 0; padding: 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
 .sv-layer__note { margin: 0; padding: 0 var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .sv-layer__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+/* Command, port, pid, state and action stand in fixed columns, so a row with no port leaves its column empty. */
+.sv-process { display: grid; grid-template-columns: minmax(0, 1fr) 5ch 7ch var(--space-6) var(--space-8); align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sv-process__command { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.sv-process__port, .sv-process__pid { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sv-process__state { justify-content: center; }
+.sv-process__act { display: flex; justify-content: flex-end; }
+/* Name, value and bar stand in fixed columns, so the three readings line up. */
+.sv-reading { display: grid; grid-template-columns: 14ch minmax(0, 1fr); align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sv-reading__value { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sv-reading__bar { width: 100%; }
+.sv-log { width: 100%; border: 0; background: none; text-align: start; cursor: pointer; border-radius: var(--radius-md); display: grid; grid-template-columns: minmax(0, 1fr) 10ch; align-items: center; gap: var(--space-3); min-height: var(--h-row); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sv-log__name { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.sv-log:hover { background: var(--bg-hover); }
+.sv-log:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-log__size { color: var(--fg-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: end; }
 .sv-layer__row {
   display: grid;
   grid-template-columns: var(--space-6) minmax(0, 1fr) minmax(0, auto) auto;
@@ -343,13 +361,10 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .armada-card.armada-session-frame { --pad-card: calc(var(--space-6) / 2); gap: calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-frame__centre,
 .armada-session-frame .armada-session-thread,
-.armada-session-frame .armada-session-thread__stage,
-.armada-session-frame .armada-session-thread__footer { gap: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-thread__stage { gap: calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__band { padding: calc(var(--space-1) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__body { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-needs-panel__body,
-.armada-session-frame .armada-session-working__band,
-.armada-session-frame .armada-session-working__rows,
 .armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-question-deck__band { padding: calc(var(--space-2) / 2) calc(var(--space-4) / 2); }
 .armada-session-frame .armada-question-deck__body { padding: calc(var(--space-4) / 2); }
@@ -365,6 +380,9 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 /* The box the composer sits in. The Needs you trigger sits on its top edge, so with anything waiting it keeps the trigger's height and a gap clear of the thread's foot.
    The band and the box meet square, folded or open, and opened the box takes the panel's hue, so the two read as one outline. */
 .sv-dock { position: relative; flex: none; }
+/* The bands on the box's top edge, stacked in one flow with the tools band uppermost, so two shown together do not overlap. */
+.sv-bands { position: absolute; inset-block-end: 100%; inset-inline: 0; z-index: 2; display: flex; flex-direction: column; pointer-events: none; }
+.sv-bands > .armada-needs-panel { position: static; }
 .sv-dock[data-needs] { margin-block-start: calc(var(--h-badge) + var(--space-3)); }
 .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 /* A held Job's Workflow and Delivery: a strip on the composer's top edge, the width of the composer, the two drawn as one block. The composer's own top edge is the line between them, and the accent tint is what sets the strip apart. */

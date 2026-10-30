@@ -24,6 +24,7 @@ import type {
   McpSignIn,
   SessionMcpActed,
   SessionMcpServer,
+  SessionRunMessage,
   AttachmentState,
   HelmCallInFlight,
   HubPullRequest,
@@ -63,6 +64,7 @@ import { onTimePassing } from "./time-passes";
 import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
 import { skipStep } from "./skip-step";
+import { AGENT } from "./slices/onboarding";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
@@ -301,6 +303,12 @@ export class FakeSessionsFleet {
    */
   private async actingOnMcp(sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> {
     this.mcpActs.push({ session: sessionId, server, act });
+    // A Job that came up without Fleet's door connects it on Reconnect, and the mark loses that piece.
+    if (server === "armada-fleet" && act === "reconnect" && this.records.find((one) => one.id === sessionId)?.tools_missing?.missing.includes("door") === true) {
+      await new Promise((done) => setTimeout(done, 1200));
+      this.mend(sessionId, "door");
+      return { ok: true, value: { servers: this.mcpServers[sessionId] ?? [] } };
+    }
     const servers = this.mcpServers[sessionId];
     if (servers?.some((one) => one.name === server) !== true) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     const refused = this.mcpRefuses[server];
@@ -316,6 +324,37 @@ export class FakeSessionsFleet {
     this.mcpServers = { ...this.mcpServers, [sessionId]: servers.map(next) };
     const signIn = act === "sign_in" ? this.mcpSignIns[server] : undefined;
     return { ok: true, value: { servers: this.mcpServers[sessionId]!, ...(signIn === undefined ? {} : { sign_in: signIn }) } };
+  }
+
+  /** A piece of what the agent came up without, now present: the record loses it, and the mark with the last one. */
+  private mend(sessionId: string, piece: "mod" | "door" | "task_tools"): void {
+    this.change(sessionId, ({ tools_missing: tools, ...one }) => {
+      const missing = (tools?.missing ?? []).filter((each) => each !== piece);
+      return tools === undefined || missing.length === 0 ? one : { ...one, tools_missing: { ...tools, missing } };
+    });
+  }
+
+  /** `mend_session_tools`: the agent is restarted with its mod, after a pause that shows the working state. */
+  private async mending(sessionId: string): Promise<SessionActed<void>> {
+    await new Promise((done) => setTimeout(done, 1200));
+    this.mend(sessionId, "mod");
+    return { ok: true, value: undefined };
+  }
+
+  private readonly runListeners = new Set<(runId: string, message: SessionRunMessage) => void>();
+
+  /** `start_session_run`: the agent's update command prints a line and exits clean, and any other command exits clean. */
+  private startingRun(sessionId: string, command: string): SessionActed<{ run_id: string }> {
+    const runId = `run-${(this.minted += 1)}`;
+    const send = (message: SessionRunMessage) => this.runListeners.forEach((on) => on(runId, message));
+    const updating = command.trim() === AGENT.update;
+    setTimeout(() => {
+      if (updating) send({ kind: "output", text: `Updated ${AGENT.name} to 2.1.340\r\n` });
+      send({ kind: "exited", code: 0, stopped: false });
+      // Exit 0 clears the piece here; in the real build it leaves at the Job's next init line.
+      if (updating) this.mend(sessionId, "task_tools");
+    }, 1200);
+    return { ok: true, value: { run_id: runId } };
   }
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
@@ -340,7 +379,7 @@ export class FakeSessionsFleet {
             const waits =
               after === undefined
                 ? undefined
-                : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, ...(after.needs === undefined ? {} : { needs: after.needs }) };
+                : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, held: false, ...(after.needs === undefined ? {} : { needs: after.needs }) };
             const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }), ...(waits === undefined ? {} : { waits }) });
             // Held: it waits on its start card, with no choice standing, and nothing runs until `beginSession`. The words he dispatched
             // are the first message, held on the card and not yet in the thread; the title is their first words, as the proposer would write it.
@@ -599,6 +638,12 @@ export class FakeSessionsFleet {
             return servers === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { servers } };
           },
           actOnSessionMcp: async (sessionId, server, act) => this.actingOnMcp(sessionId, server, act),
+          mendSessionTools: async (sessionId) => this.mending(sessionId),
+          startSessionRun: async (sessionId, command) => this.startingRun(sessionId, command),
+          onSessionRunMessage: (on) => {
+            this.runListeners.add(on);
+            return () => void this.runListeners.delete(on);
+          },
           readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),
           readSessionArtifact: async () => ({ ok: true, bytes: new TextEncoder().encode("# Store clock"), type: "text/markdown" }),

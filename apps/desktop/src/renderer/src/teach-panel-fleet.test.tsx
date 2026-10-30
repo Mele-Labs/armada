@@ -23,6 +23,7 @@ const shown = (fleet: NonNullable<TeachReading["fleet"]>) =>
       stage="shown"
       reading={{ fleet }}
       onTeach={() => undefined}
+      onRule={() => undefined}
       onChange={() => undefined}
       onSave={() => undefined}
     />,

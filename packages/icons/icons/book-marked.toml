@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A standing Logbook entry, handed to every new Job. Never Guides, which is `book-open`, and never a bookmark."
   notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Standing`."
+
+[[icons.book-marked.usage]]
+  means = "A change to this Job's own copy, kept for every Job: the workflow it holds proposed to the others"
+  group = "Workspace lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `workspaces-lanes-copy`. Tooltip `Keep for every Job`, in the head of Changed on this Job. It is saved only on Approve on the Workflows page. Once it is proposed the glyph gives way to `check`, tooltip `Proposed for every Job`. A standing entry handed to every Job is this glyph's meaning in the Logbook, and this is the same act on a workflow."

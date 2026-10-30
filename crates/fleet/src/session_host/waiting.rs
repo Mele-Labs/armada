@@ -12,6 +12,13 @@
 //! closing the window settles nothing: that is his call. A page changed after it was shown waits
 //! again only once it is shown again.
 //!
+//! **So does every sketch he has not answered**, `sketch:<title>`, until he approves it, sends it back
+//! or dismisses it; drawing it again lifts a dismissal. `sketching::sketch_items` reads it.
+//!
+//! **Every end a step waits on him for has its item**, named in `rail_ends::End::waits_on`, where an
+//! end with no wait does not build. A step that ends on his reply waits at every turn end, a reply that
+//! only reports included: `rail_drawn` adds [`step_reply_item`] where nothing else waits.
+//!
 //! **An agent item that asks him to walk is refused, and one kept is dropped.** The window is the
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
 //! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
@@ -43,11 +50,11 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
+    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, ReopenWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     DraftHow, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
-use store::{KeptSession, KeptWaiting, Store};
+use store::{KeptClosed, KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
@@ -59,8 +66,9 @@ use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
-const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
+pub(super) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
+const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
@@ -79,10 +87,13 @@ pub(crate) struct Window {
 }
 
 /// What [`Fleet::waiting_from`] needs from the store: SQL only, taken under the lock.
+#[derive(Clone)]
 pub(crate) struct WaitingReads {
     kept: Vec<KeptWaiting>,
     rows: Vec<String>,
     dismissed: Vec<String>,
+    /// The items the person closed, kept whole, newest first.
+    closed: Vec<store::KeptClosed>,
     /// When the agent said it was done, if that still stands.
     pub(crate) done: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
@@ -115,11 +126,15 @@ pub(crate) struct WaitingReads {
     ready_changes: Vec<i64>,
     /// The Jobs its agent started that wait on their start cards.
     held_children: Vec<super::agent_starting::HeldChild>,
+    /// The acts its rules planned that wait on the owner.
+    rule_acts: Vec<store::KeptRuleAct>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
 pub(crate) struct Waited {
     pub items: Vec<WaitingItem>,
+    /// The items the person closed, newest first, and whether each would wait again.
+    pub closed: Vec<ipc::ClosedWaiting>,
     /// The concerns the person has settled, which wait on nothing.
     pub settled: Vec<WaitingItem>,
     pub standing: ipc::SessionStanding,
@@ -135,6 +150,7 @@ pub(crate) fn waiting_reads(
         kept: store.waiting_for(&session.id)?,
         rows: store.session_rows(&session.id)?,
         dismissed: store.dismissed_waiting(&session.id)?,
+        closed: store.closed_waiting(&session.id)?,
         done: store.done_since(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
         tell: store.tell_of(&session.id)?,
@@ -154,7 +170,61 @@ pub(crate) fn waiting_reads(
         not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
         ready_changes: store.ready_workflow_change_ids()?,
         held_children: super::agent_starting::held_children(store, &session.id)?,
+        rule_acts: store.rule_acts_asking(&session.id)?,
     })
+}
+
+impl WaitingReads {
+    /// These reads with every closed item's id no longer dismissed and the Job not paused: what the
+    /// list would be if the person reopened them all.
+    fn lifted(&self) -> WaitingReads {
+        let mut lifted = self.clone();
+        lifted.dismissed.retain(|id| !self.closed.iter().any(|one| &one.item_id == id));
+        lifted.closed = Vec::new();
+        lifted.paused = false;
+        lifted
+    }
+
+    /// When the last turn ended, while nothing has followed it, the Job is not paused and he has not
+    /// dismissed what that turn raised: what a step that ends on his reply waits from.
+    pub(crate) fn reply_owed_since(&self) -> Option<String> {
+        let (at, _) = self.turn_end.as_ref().filter(|_| !self.paused && self.done.is_none())?;
+        let id = format!("replied:{at}");
+        let dismissed = self.dismissed.iter().any(|one| one == &id || one.starts_with(&format!("{id}:")));
+        (!dismissed).then(|| at.clone())
+    }
+}
+
+/// The item a step that ends on his reply raises once a turn ends, a reply that only reports
+/// included: the step waits on him whatever the reply said. Its id is the one a reply that asks takes,
+/// so dismissing either settles both.
+pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
+    WaitingItem {
+        id: format!("replied:{ended}"),
+        text: format!("{step}: {}", crate::rail_ends::End::Replied.for_person()),
+        since: Instant::carried(ended),
+        source: WaitingSource::Replied,
+        act: None,
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        concern: None,
+        cites: Vec::new(),
+        confirmed: false,
+    }
+}
+
+/// The source `WaitingSource::Agent` is kept under.
+const AGENT_SOURCE: &str = "agent";
+
+/// The name a source is kept under: its wire name.
+fn source_name(source: WaitingSource) -> String {
+    ipc::encode(&source).map(|name| name.trim_matches('"').to_string()).unwrap_or_default()
+}
+
+/// The source a kept name stands for. None for a name this build does not know.
+fn source_of(name: &str) -> Option<WaitingSource> {
+    ipc::decode("a waiting source", format!("\"{name}\"").as_bytes()).ok()
 }
 
 fn offer_label(offer: &HelmCallAnswer) -> &'static str {
@@ -339,7 +409,46 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children } = reads;
+        let closed = reads.closed.clone();
+        // What would wait again: the same read with every closed item's dismissal lifted. The agent's own
+        // are put back from what was kept, so only the rest need it.
+        let lifted = closed.iter().any(|one| one.source != AGENT_SOURCE).then(|| reads.lifted());
+        let mut waited = self.waiting_read(reads, session, attachments);
+        let again: std::collections::HashSet<String> = lifted
+            .map(|lifted| self.waiting_read(lifted, session, attachments).items.into_iter().map(|one| one.id).collect())
+            .unwrap_or_default();
+        let live = session.state == store::SessionState::Live;
+        waited.closed = closed
+            .into_iter()
+            .filter_map(|one| {
+                let source = source_of(&one.source)?;
+                let ended = !(live && (source == WaitingSource::Agent || again.contains(&one.item_id)));
+                let item = WaitingItem {
+                    id: one.item_id,
+                    text: one.text,
+                    since: Instant::carried(&one.since),
+                    source,
+                    act: one.act.and_then(|(kind, target)| act_kind_of(&kind).map(|kind| WaitingAct { kind, target })),
+                    options: one.options.into_iter().map(|label| WaitingOption { label, description: None }).collect(),
+                    steps: one.steps,
+                    place: None,
+                    concern: None,
+                    cites: Vec::new(),
+                    confirmed: false,
+                };
+                Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
+            })
+            .collect();
+        waited
+    }
+
+    fn waiting_read(
+        &self,
+        reads: WaitingReads,
+        session: &KeptSession,
+        attachments: &[ipc::Attachment],
+    ) -> Waited {
+        let WaitingReads { kept, rows, dismissed, closed: _, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -512,10 +621,16 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
+            items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
+            // An act a lifecycle rule planned that is his to say first, while the Job is live.
+            if !ended {
+                items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
+            }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
@@ -584,6 +699,7 @@ where
                         | WaitingSource::Permission
                         | WaitingSource::WindowAsk
                         | WaitingSource::Draft
+                        | WaitingSource::Sketch
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
@@ -618,7 +734,7 @@ where
             .collect();
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -741,6 +857,7 @@ where
                 return Err(self.closed(&id));
             }
             self.later_holds_done(&store, &id)?;
+            self.lifecycles_hold(&mut store, &id, "all_done")?;
             store
                 .keep_done(&id, &now)
                 .map_err(|why| self.ledger_fault(why))?;
@@ -927,7 +1044,7 @@ where
                 body.push_str(TAKEN_OFF);
                 Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
                 // Delivered, so the item goes now: a failed send above leaves it standing.
-                self.drop_answered(&id, &item.id).await
+                self.drop_answered(&id, &item.id, None).await
             }
             // Derived from the turn and `done_since`, never kept: the person's words are a message to
             // the Session, which is what makes either stop standing, so there is nothing to drop.
@@ -955,11 +1072,17 @@ where
                 SESSION_WAITING_EMPTY,
                 "a plan is approved, or sent changes, from its own card",
             )),
+            WaitingSource::Sketch => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a sketch is approved, or sent back, from its own card",
+            )),
             WaitingSource::Judge => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a concern is sent to the agent, or dismissed, from its own card",
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
+            // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
+            WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
             WaitingSource::WatchNotOurs => {
@@ -981,7 +1104,7 @@ where
                 if let Some(body) = body {
                     Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
                 }
-                self.drop_answered(&id, &item.id).await
+                self.drop_answered(&id, &item.id, None).await
             }
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
@@ -992,10 +1115,10 @@ where
                 if let (Some(change), Some(choice)) = (self.draft_change(&id, row).await, said.choice) {
                     let change = ipc::WorkflowChangeRef { change };
                     let (body, how) = if choice == 0 {
-                        self.workflow_change_approved(change).await?;
+                        self.proposal_approved(change).await?;
                         (drafting::approved(&item.text, None), DraftHow::Approved)
                     } else {
-                        self.workflow_change_dismissed(change).await?;
+                        self.proposal_dismissed(change).await?;
                         (drafting::withdrawn(&item.text, None), DraftHow::Withdrawn)
                     };
                     Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
@@ -1100,7 +1223,7 @@ where
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
-            WaitingSource::Walk | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
+            WaitingSource::Walk | WaitingSource::Sketch | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
             _ => None,
         };
         if let Some(text) = told {
@@ -1115,14 +1238,29 @@ where
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
         }
+        let closed = KeptClosed {
+            item_id: item.id.clone(),
+            text: item.text.clone(),
+            source: source_name(item.source),
+            act: item.act.as_ref().map(|act| (act_kind_text(act.kind).to_string(), act.target.clone())),
+            options: item.options.iter().map(|option| option.label.clone()).collect(),
+            steps: item.steps.clone(),
+            since: item.since.as_str().to_string(),
+            closed_at: self.clock().now().as_str().to_string(),
+        };
+        // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
+        if item.source == WaitingSource::RuleAct {
+            self.rule_act_skipped(&id, &item.id).await?;
+        }
         // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
         if item.source == WaitingSource::Draft {
             let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
             if let Some(change) = self.draft_change(&id, row).await {
                 // Already settled elsewhere is the same end, so that refusal is not the person's.
-                let _ = self.workflow_change_dismissed(ipc::WorkflowChangeRef { change }).await;
+                let _ = self.proposal_dismissed(ipc::WorkflowChangeRef { change }).await;
             }
             let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
+            self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;
             return self.draft_settled(&id, row, DraftHow::Withdrawn, reason.map(str::to_string)).await;
         }
         // Not a question: the sentence is kept for good, so a near one is not raised again and the
@@ -1131,7 +1269,94 @@ where
             let now = self.clock().now().as_str().to_string();
             self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
-        self.drop_answered(&id, &item.id).await
+        self.drop_answered(&id, &item.id, Some(&closed)).await
+    }
+
+    /// `reopen_waiting`: let an item the person closed wait again. **The agent's own item goes back on
+    /// its list as it was stated**, and the agent is told, so its next `waiting_for` keeps it. An item whose subject has ended is
+    /// refused, as the record's `closed` says of it.
+    pub(crate) async fn waiting_reopened(self: Arc<Self>, reopen: ReopenWaiting) -> Result<SessionRecord, Refusal> {
+        let id = reopen.session_id.as_str().to_string();
+        let terminal = self.terminal_session(&id).await?;
+        if terminal.is_some() {
+            self.terminal_ask_standing(&id).await;
+        }
+        let _settling = self.hosts().settling(&id, &reopen.item_id).ok_or_else(|| self.settled_already())?;
+        let restore = {
+            let store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            let listed = self.ledger_row(&store, &session)?.closed;
+            let Some(closed) = listed.iter().find(|one| one.item.id == reopen.item_id) else {
+                return Err(Refusal::IllegalMove(WireError::raised(
+                    SESSION_WAITING_UNHELD,
+                    "nothing closed is kept under that item. It was reopened already, or never closed",
+                    self.run_id(),
+                )));
+            };
+            if closed.ended {
+                return Err(self.hosted_refusal(
+                    SESSION_WAITING_UNREOPENABLE,
+                    "it would not wait again: what it stood for has ended",
+                ));
+            }
+            let kept = store
+                .closed_waiting(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .into_iter()
+                .find(|one| one.item_id == reopen.item_id)
+                .ok_or_else(|| self.settled_already())?;
+            (closed.item.source == WaitingSource::Agent).then(|| KeptWaiting {
+                item_id: kept.item_id.clone(),
+                text: kept.text,
+                since: kept.since,
+                act: kept.act,
+                options: kept.options,
+                steps: kept.steps,
+            })
+        };
+        // The agent's next `waiting_for` replaces its whole list, so it is told, or the reopening is undone.
+        // The message goes first, so a send that fails leaves the item closed to try again.
+        if let Some(item) = &restore {
+            let sent = SendSessionMessage {
+                session_id: reopen.session_id.clone(),
+                text: reopened(&item.text),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            };
+            Arc::clone(&self).send_known(terminal, sent).await?;
+        }
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            store
+                .reopen_waiting(&id, &reopen.item_id, restore.as_ref())
+                .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// `list_closed_waiting`: what the person closed from the Job's list, newest first.
+    pub(crate) async fn closed_waiting_listed(
+        &self,
+        caller: Option<api::Caller>,
+        named: Option<ipc::SessionId>,
+    ) -> Result<ipc::ClosedWaitingList, Refusal> {
+        let id = self.waiting_session(caller, named.as_ref())?;
+        let store = self.store().lock().await;
+        let session = store
+            .session(&id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+        let closed = self.ledger_row(&store, &session)?.closed;
+        Ok(ipc::ClosedWaitingList { session_id: ipc::SessionId::carried(&id), closed })
     }
 
     /// `confirm_waiting`: thumbs up on a question read from a reply. Its sentence is kept for good as one
@@ -1192,13 +1417,16 @@ where
 
     /// Take an agent item off the list for good and tell Bridge, once the person's word on it has been
     /// delivered. It does not refuse an item the agent has since restated away.
-    async fn drop_answered(&self, id: &str, item_id: &str) -> Result<SessionRecord, Refusal> {
+    async fn drop_answered(&self, id: &str, item_id: &str, closed: Option<&KeptClosed>) -> Result<SessionRecord, Refusal> {
         let record = {
             let mut store = self.store().lock().await;
             let session = store
                 .session(id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            if let Some(closed) = closed {
+                store.keep_closed_waiting(id, closed).map_err(|why| self.ledger_fault(why))?;
+            }
             store
                 .dismiss_waiting(id, item_id)
                 .map_err(|why| self.ledger_fault(why))?;
@@ -1268,6 +1496,11 @@ fn removed(item: &str, reason: Option<&str>) -> String {
         Some(why) => format!("Owner removed \"{item}\": {why}"),
         None => format!("Owner removed \"{item}\""),
     }
+}
+
+/// What the agent is told when the person reopens an item it stated, so its next `waiting_for` keeps it.
+fn reopened(item: &str) -> String {
+    format!("The owner reopened \"{item}\"; it is in your waiting_for list again, so keep it when you next call waiting_for.")
 }
 
 /// What the agent is told when the person puts away a walk or a question read from its reply.

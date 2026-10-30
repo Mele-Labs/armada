@@ -1,0 +1,67 @@
+/* The Job's Lanes in the side panel (`shared-panel/lanes.tsx`) and what End lists first (`InFlightDialog.tsx`). The canvas takes what the comments leave, and the comments are a framed
+   monitor under it, as a lane is: a mono-caps head on a raised ground over an open body. Weight is in the frame and the read's glyph, never a fill. */
+
+.sv-lanes__body { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.sv-lanes__body > .armada-lane-canvas { flex: none; height: calc(var(--space-12) * 12); }
+.sv-lanes__ask { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+
+/* ---- Adding to this Job's own copy (`shared-panel/lanes-copy.tsx`) ---------------------------------------------------- */
+
+.sv-lanes__add { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.sv-lanes__bar { display: flex; align-items: center; gap: var(--space-2); }
+.sv-lanes__form { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.sv-lanes__form[data-file] textarea { font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-lanes__form-acts { display: flex; align-items: center; gap: var(--space-2); }
+.sv-lanes__refused { margin: 0; padding: var(--space-1) var(--space-3); color: var(--status-completed-failed); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-lanes__form .sv-lanes__refused { padding: 0; }
+.sv-lanes__triage-head[data-acts="true"] { display: flex; align-items: center; justify-content: space-between; padding-block: 0; }
+.sv-lanes__kept { display: inline-flex; align-items: center; justify-content: center; height: var(--h-control-sm); color: var(--step-advanced); }
+.sv-lanes__change { display: grid; grid-template-columns: var(--space-4) auto minmax(0, 1fr) var(--h-control-sm); column-gap: var(--space-2); align-items: center; min-height: var(--h-control-sm); padding: 0 var(--space-2) 0 var(--space-3); }
+.sv-lanes__change-mark { color: var(--status-awaiting-review); }
+.sv-lanes__change .sv-lanes__text { margin: 0; }
+
+/* ---- The comments on the pull request ---------------------------------------------------------------------------- */
+
+.sv-lanes__triage { display: flex; flex: none; flex-direction: column; min-height: 0; max-height: calc(var(--space-12) * 6); overflow: hidden; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.sv-lanes__triage-head { flex: none; margin: 0; padding: var(--space-1) var(--space-3); border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-lanes__comments { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; }
+
+/* A row is a grid: the read (its glyph and its words, in a column that is one width on every row), the words, then a column each for the sent mark and the two acts, kept whether a row carries them or not. The acts share the centre line of the first line. */
+.sv-lanes__item { margin: 0; }
+.sv-lanes__item + .sv-lanes__item { border-top: var(--border-width) solid var(--border-subtle); }
+.sv-lanes__comment { display: grid; grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) var(--h-control-sm); column-gap: var(--space-2); align-items: start; box-sizing: border-box; width: 100%; padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sv-lanes__comment:hover { background: var(--bg-hover); }
+.sv-lanes__comment:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-lanes__read, .sv-lanes__sent { display: inline-flex; align-items: center; justify-content: center; height: var(--h-control-sm); }
+.sv-lanes__read { justify-content: flex-start; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
+.sv-lanes__comment[data-read="change"] .sv-lanes__read { color: var(--fg-default); }
+.sv-lanes__comment[data-read="skip"] .sv-lanes__read { color: var(--fg-subtle); }
+.sv-lanes__sent { color: var(--step-advanced); }
+
+.sv-lanes__words { display: flex; flex-direction: column; min-width: 0; }
+.sv-lanes__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: var(--h-control-sm); }
+.sv-lanes__author { flex: none; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
+.sv-lanes__where { min-width: 0; padding-inline: var(--space-1); overflow: hidden; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.sv-lanes__text { display: block; margin: 0 0 var(--space-1); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-lanes__comment[data-read="skip"] .sv-lanes__text { color: var(--fg-subtle); }
+
+/* ---- What a rule did, from what the Job's rules kept (`shared-panel/rule.tsx`) ---------------------------------------- */
+
+/* A framed monitor for each instance, as the comments are. A row is a grid: where the act stands (a column of one width on every row), its line and why, how far it goes alone, and when. */
+.sv-lanes__acts { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.sv-lanes__acts > .sv-lanes__triage { max-height: none; }
+.sv-lanes__act { display: grid; grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) auto auto; column-gap: var(--space-2); align-items: start; box-sizing: border-box; padding: var(--space-1) var(--space-3); }
+.sv-lanes__act .sv-lanes__text { display: flex; align-items: center; min-height: var(--h-control-sm); margin: 0; }
+.sv-lanes__act[data-standing="skipped"] .sv-lanes__text, .sv-lanes__act[data-standing="not_carried"] .sv-lanes__text { color: var(--fg-subtle); }
+.sv-lanes__why { display: block; margin: 0 0 var(--space-1); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-lanes__course, .sv-lanes__at { display: inline-flex; align-items: center; height: var(--h-control-sm); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
+
+/* ---- What End lists first ---------------------------------------------------------------------------------------- */
+
+.sv-inflight { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.sv-inflight__row { min-width: 0; overflow-wrap: anywhere; }
+
+/* In the spine (`LanesLayer`) the canvas takes the height the comments leave, and the layer's own scroll is for a short window. */
+.sv-lanes__layer { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.sv-lanes__layer > .sv-lanes__body { flex: 1 1 auto; min-height: 0; }
+.sv-lanes__layer > .sv-lanes__body > .armada-lane-canvas { flex: 1 1 auto; height: auto; min-height: calc(var(--space-12) * 8); }

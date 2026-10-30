@@ -19,6 +19,8 @@ import { accounts } from "./slices/accounts";
 import { planUsage } from "./slices/plan-usage";
 import { modelDownshift } from "./slices/model-downshift";
 import { projects } from "./slices/projects";
+import { bugReports } from "./slices/bug-reports";
+import { lifecycles } from "./slices/lifecycles";
 import { agentSignIn } from "./slices/agent-sign-in";
 import { clashes } from "./slices/clashes";
 import { reviews } from "./slices/reviews";
@@ -26,6 +28,7 @@ import { territory } from "./slices/territory";
 import { timeline } from "./slices/timeline";
 import { actFailed } from "./slices/act-failed";
 import { bayHistory } from "./slices/bay-history";
+import { sessionSystem } from "./slices/session-system";
 import { usageSummary } from "./slices/usage-summary";
 import { issues } from "./slices/issues";
 import { autopilot } from "./slices/autopilot";
@@ -47,7 +50,7 @@ import { pullRequestNotes } from "./slices/pull-request-notes";
 export type AnySlice = Slice<Partial<BridgeApi>, Partial<BridgeState>>;
 
 /** **A `Record` over every name**, so a surface with no entry here fails typecheck. */
-const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
+const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, bugReports, lifecycles, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, sessionSystem, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
   SliceName,
   AnySlice
 >;

@@ -17,6 +17,8 @@ use super::session_host::{eventually, rig_fitted, rig_placing, Rig};
 use crate::committing::{EXISTS, NOT_YOURS};
 use crate::flight_controls::repository::IN_REPOSITORY;
 
+mod pieces;
+
 fn own(id: &str, key: Option<&str>) -> FlightControl {
     FlightControl {
         id: id.into(),
@@ -61,7 +63,7 @@ async fn yours(rig: &Rig, job: Vec<FlightControl>) -> (PathBuf, Vec<u8>) {
 }
 
 fn asking(rig: &Rig, piece: PieceToCommit, overwrite: bool) -> CommitToRepository {
-    CommitToRepository { repository: rig.root.clone(), piece, overwrite }
+    CommitToRepository { repository: rig.root.clone(), piece, overwrite, remove: false }
 }
 
 /// The tree of the Job a commit made: its slot, as its hosting holds it.

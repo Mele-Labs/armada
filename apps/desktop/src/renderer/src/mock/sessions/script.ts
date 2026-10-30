@@ -513,6 +513,25 @@ export function sessionsStore(
       addTo(was.on.id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "changed", from: conditionSaid(was), to: conditionSaid(next), by: "you" }))]);
     },
     startNow: (id) => store.starts(id, "Started by you"),
+    startThen(id, held) {
+      edit(id, (one) => (one.waits === undefined ? one : { ...one, waits: { ...one.waits, held } }));
+    },
+    startTuning(id, tuning) {
+      edit(id, (one) => {
+        if (one.waits === undefined) return one;
+        const { workflow, model, effort, ...rest } = one.waits;
+        const next = { workflow, model, effort, ...tuning };
+        return {
+          ...one,
+          waits: {
+            ...rest,
+            ...(next.workflow == null ? {} : { workflow: next.workflow }),
+            ...(next.model == null ? {} : { model: next.model }),
+            ...(next.effort == null ? {} : { effort: next.effort }),
+          },
+        };
+      });
+    },
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
     confirmLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).map((it) => (it.id === later ? { ...it, confirmed: true } : it)) })),
     dropLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).filter((it) => it.id !== later) })),
@@ -671,6 +690,14 @@ export function sessionsStore(
     },
     // Fleet answers End at once and parks the Job in the background: it reads as ended a moment later.
     close: (id) => after(END_MS, () => void edit(id, (one) => ({ ...one, dead: "ended" as const }))),
+    // The comment reads as sent. Nothing reaches an agent here.
+    sendComment: (id, comment) =>
+      edit(id, (one) => {
+        const lanes = one.lanes;
+        if (lanes?.job.triage === undefined) return one;
+        const triage = { ...lanes.job.triage, comments: lanes.job.triage.comments.map((it) => (it.id === comment ? { ...it, sent: true as const } : it)) };
+        return { ...one, lanes: { ...lanes, job: { ...lanes.job, triage } } };
+      }),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;

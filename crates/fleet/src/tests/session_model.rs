@@ -7,7 +7,7 @@ use adapter_traits::DroneEvent;
 use api::HostedSessions;
 use ipc::{SessionId, StopSession};
 
-use super::session_host::{eventually, rig_placing, Rig};
+use super::session_host::{eventually, rig_placing, whole, Rig};
 
 async fn resolved(rig: &Rig, id: &SessionId) -> Option<String> {
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
@@ -19,6 +19,7 @@ fn init(model: &str) -> Vec<DroneEvent> {
         session: String::new(),
         model: model.into(),
         mcp_servers: 1,
+        harness: whole(),
     }]
 }
 

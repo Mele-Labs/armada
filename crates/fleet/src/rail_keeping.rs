@@ -12,6 +12,8 @@ use store::{KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, Wri
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
+use crate::rail_ends::{self, Waiter};
+use crate::rail_lifecycle::{self, Held, StepBits};
 use crate::session_host::asking::{answers_said, ask_answered};
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::sketching::sketch_approved;
@@ -32,12 +34,29 @@ pub(crate) struct RailReads {
     pub visits: Vec<(u32, String)>,
     /// The steps the person skipped.
     pub skipped: Vec<u32>,
+    /// What the Job holds of its lifecycles, for a Job that follows a workflow and holds any.
+    pub held: Held,
+    /// The title of each Job it holds, by id, which `rail_lifecycle::named` calls one by.
+    pub titles: std::collections::HashMap<String, String>,
+    /// The lifecycles the Job froze when it started, for a Job that holds any. A Job that froze none
+    /// is read against the ones that apply now.
+    pub lifecycles: Option<Vec<core_model::Lifecycle>>,
+    /// The Job's own copy of its workflow, once it changed a step of it. The rail reads this in place of the
+    /// repository's.
+    pub own: Option<store::KeptWorkflowCopy>,
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
 /// walk are looked for only where the Session follows a workflow**, since nothing else reads them.
 pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
+    let rail = store.session_rail(&session.id)?;
+    let mut held = Held::default();
+    let mut lifecycles = None;
     let extra = if follows {
+        if store.is_lifecycle_job(&session.id)? {
+            lifecycles = crate::lifecycles::copying::frozen_lifecycles(store, &session.id);
+            held = Held { instances: store.lifecycle_instances_of(&session.id)?, moves: store.lifecycle_moves_of(&session.id)? };
+        }
         let rows: Vec<SessionRow> = store
             .session_rows(&session.id)?
             .iter()
@@ -49,13 +68,27 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
             plan_expects_walk: plan.is_some_and(|plan| plan.seen || plan.walk.is_some()),
+            messaged: messaged_on(&rows, &rail.visits),
             ..thread_facts(&rows, plan_approved_at.as_ref())
         }
     } else {
         Extra::default()
     };
-    let rail = store.session_rail(&session.id)?;
-    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped })
+    let titles = crate::lifecycles::waking::titles_of(store, &held);
+    let own = if follows { store.job_workflow_copy(&session.id)? } else { None };
+    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles, own })
+}
+
+/// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
+/// notices and other Jobs' words are not his.
+pub(crate) fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> StepBits {
+    let wrote = |since: &str| {
+        rows.iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, at, .. } if at.as_str() >= since))
+    };
+    StepBits::of(visits.iter().enumerate().filter_map(|(n, (step, since))| {
+        let latest = !visits[n + 1..].iter().any(|(later, _)| later == step);
+        (latest && wrote(since)).then_some(*step as usize)
+    }))
 }
 
 /// What the thread shows: the person wrote after the agent's first turn (a message or a tool call),
@@ -230,8 +263,15 @@ where
     }
 
     /// Draw what the rail and the judges add to a hosted Session's row: the step it is on, whether a
-    /// judge is reading, and the last reading. **A Session that ended has no step.**
-    pub(crate) fn rail_drawn(&self, session: &KeptSession, reads: &RailReads, record: &mut ipc::SessionRecord) {
+    /// judge is reading, and the last reading. **A Session that ended has no step.** A step that ends
+    /// on his reply waits on him from `reply_owed_since`, the turn's end, where nothing else does.
+    pub(crate) fn rail_drawn(
+        &self,
+        session: &KeptSession,
+        reads: &RailReads,
+        reply_owed_since: Option<&str>,
+        record: &mut ipc::SessionRecord,
+    ) {
         if record.hosted.is_none() {
             return;
         }
@@ -239,20 +279,49 @@ where
         record.workflow_visits =
             reads.visits.iter().map(|(step, since)| ipc::StepVisit { step: *step, since: Instant::carried(since) }).collect();
         record.skipped_steps = reads.skipped.clone();
+        let own = match (session.manifest_id.as_deref(), record.workflow.as_deref(), reads.own.as_ref()) {
+            (Some(manifest), Some(workflow), Some(own)) if own.workflow_id == workflow => {
+                self.own_resolved(manifest, own).map(|found| (manifest.to_string(), found))
+            }
+            _ => None,
+        };
+        record.workflow_copy = own.as_ref().and_then(|(manifest, found)| {
+            let served = self.repositories().serving(manifest)?;
+            Some(crate::wire::workflow_summary(found, served.manifest().id(), &served.files()))
+        });
         if session.state != store::SessionState::Live {
             return;
         }
         record.judging = self.hosts().of(&session.id).state().judging > 0;
-        if !self.workflows_on() {
-            return;
-        }
         let (Some(manifest), Some(workflow)) = (session.manifest_id.as_deref(), record.workflow.as_deref()) else {
             return;
         };
-        let Some(steps) = self.rail_steps(manifest, workflow) else {
+        if !self.workflow_on(manifest, workflow) {
             return;
+        }
+        let steps = match &own {
+            Some((_, found)) => rail::steps_of(found),
+            None => match self.rail_steps(manifest, workflow) {
+                Some(steps) => steps,
+                None => return,
+            },
         };
-        let facts = Facts::of(record, reads.extra);
-        record.workflow_step = rail::current(&steps, &facts).map(|at| at as u32);
+        let mut facts = Facts::of(record, reads.extra);
+        let mut lifecycles = Vec::new();
+        if steps.iter().any(RailStep::has_lifecycle_end) {
+            lifecycles = reads.lifecycles.clone().unwrap_or_else(|| self.lifecycles_that_apply(manifest));
+            (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
+        }
+        let at = rail::current(&steps, &facts);
+        record.workflow_step = at.map(|at| at as u32);
+        let name = |one: &store::KeptInstance| rail_lifecycle::named(one, reads.titles.get(&one.key).map(String::as_str));
+        record.workflow_waiting_on = at.map(|at| rail_lifecycle::waiting(&steps[at], &lifecycles, &reads.held, &name)).unwrap_or_default();
+        let waits_on_reply = at.is_some_and(|at| {
+            rail_ends::ends_of(&steps, at).into_iter().any(|end| end.waits_on() == Waiter::ThePerson(WaitingSource::Replied))
+        });
+        let turn_over = matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
+        if let (true, true, true, Some(ended), Some(at)) = (waits_on_reply, turn_over, record.waiting_for.is_empty(), reply_owed_since, at) {
+            record.waiting_for.push(crate::session_host::waiting::step_reply_item(&steps[at].label, ended));
+        }
     }
 }

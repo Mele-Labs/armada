@@ -59,6 +59,7 @@ import { seedTaught } from "./teach";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
+import { WorkspaceFrom } from "../workspace-draft";
 import { PrOwnersFrom } from "./pr-owners";
 import { KEPT_LISTS, ReviewsFrom, createReviewStore } from "../pr-review/store";
 import { keptReading } from "./review-forge";
@@ -67,6 +68,7 @@ import { SharedPanelHost } from "../shared-panel/host";
 import { SharedPanelOver } from "../shared-panel/wired";
 import { reviewSourceOf } from "../pr-review/source";
 import { IssuesFrom, createIssuesStore } from "../issues-tab/store";
+import { reportsSourceOf } from "../issues-tab/source";
 import { issuesTabSource } from "./slices/issues";
 import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
@@ -151,7 +153,7 @@ export function mountApp(
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
-    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods");
+    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule");
   }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);
@@ -187,7 +189,7 @@ export function mountApp(
   // The Issues tab starts as a window does, with no query chosen and no draft kept from an earlier pass.
   const tracked = chosen.draft?.issuesTab;
   if (tracked !== undefined && seed === undefined) forgetAllKept();
-  const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked));
+  const issues = tracked === undefined ? undefined : createIssuesStore({ ...issuesTabSource(tracked), reports: reportsSourceOf(api) });
   // The Projects tab starts with nothing open, over the mock Fleet's projects routes, whose done asks join the Jobs that carry the same ask (`slices/projects.ts`).
   const listed = chosen.draft?.projectsTab;
   if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();
@@ -220,6 +222,7 @@ export function mountApp(
                         <DownshiftSourceProvider value={downshift}>
                           <EventsHere timeline={timeline} events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
+                              <WorkspaceFrom seed={chosen.draft?.workspace}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                   <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
@@ -256,6 +259,7 @@ export function mountApp(
                                   </PaletteFixturesFrom>
                                   </AreasFrom>
                               </ClashesFrom>
+                              </WorkspaceFrom>
                             </SessionsHere>
                           </EventsHere>
                         </DownshiftSourceProvider>

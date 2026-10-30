@@ -77,6 +77,7 @@ fn long_lived() -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        tools_missing: None,
         waiting_for: vec![
             WaitingItem {
                 act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into() }),
@@ -121,12 +122,15 @@ fn long_lived() -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        closed: Vec::new(),
         waits: None,
         later: Vec::new(),
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
+        workflow_waiting_on: Vec::new(),
+        workflow_copy: None,
     }
 }
 
@@ -250,6 +254,7 @@ fn pending_plan() -> ipc::SessionPlan {
             gives: None,
             paths: vec!["crates/store".to_string()],
             issue: None,
+            lands_in: ipc::PlanLandsIn::default(),
             tasks: vec![ipc::SessionPlanTask {
                 id: "t1".to_string(),
                 text: "Rotate at midnight".to_string(),
@@ -390,6 +395,32 @@ async fn off_the_door_each_act_answers_the_whole_row_as_it_did() {
     ] {
         assert_eq!(on_the_route(&app, path, body).await, whole, "{path}");
     }
+}
+
+const STEPS: &str = r#"{"session_id":"session-1","change":{"kind":"add","label":"Dispatch","after":"plan"}}"#;
+const WORKFLOW: &str = r#"{"session_id":"session-1","workflow":"bug"}"#;
+
+#[tokio::test]
+async fn change_session_steps_answers_the_ids_and_a_line_for_each_change_and_never_the_text_of_a_piece() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "change_session_steps", STEPS).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(
+        said,
+        r#"{"session_id":"session-1","workflow":"bug","own":true,"steps":["plan","dispatch","handoff"],"lifecycles":[],"rules":["deploy_watch"],"changes":["Added after plan by the Job"]}"#
+    );
+}
+
+#[tokio::test]
+async fn set_session_workflow_answers_the_workflow_through_the_door_and_the_row_off_it() {
+    let row = SessionRecord { workflow: Some("bug".into()), workflow_step: Some(1), skipped_steps: vec![2], ..long_lived() };
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    *daemon.session_row.lock().expect("session row") = Some(row.clone());
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "set_session_workflow", WORKFLOW).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","workflow":"bug","workflow_step":1,"skipped_steps":[2]}"#);
+    assert_eq!(on_the_route(&app, "/sessions/workflow", WORKFLOW).await, ipc::encode(&row).expect("a row encodes"));
 }
 
 /// A body missing two fields is refused once, naming the whole body, rather than once a field.

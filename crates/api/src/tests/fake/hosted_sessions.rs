@@ -80,6 +80,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn reopen_waiting(
+        self: Arc<Self>,
+        _reopen: ipc::ReopenWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         _confirm: ipc::ConfirmWaiting,
@@ -179,6 +186,16 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 
+    /// Refused as Fleet refuses a job it does not host, so a route test reads a refusal; the job named
+    /// `closed` is refused as a closed one, any other restarts.
+    async fn mend_session_tools(self: std::sync::Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
+        match asked.session_id.as_str() {
+            "closed" => Err(Refusal::IllegalMove(ipc::WireError::raised("fleet.session_closed", "job closed was closed", run_id()))),
+            "terminal" => Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_tools_unmendable", "job terminal runs in a terminal", run_id()))),
+            _ => Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake")))),
+        }
+    }
+
     async fn start_again(self: std::sync::Arc<Self>, _asked: ipc::StartAgain) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
@@ -196,10 +213,47 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn set_session_workflow(self: Arc<Self>, _set: SetSessionWorkflow) -> Result<SessionRecord, Refusal> {
-        Err(nothing_hosted())
+        self.session_row.lock().expect("session row").clone().ok_or_else(nothing_hosted)
     }
 
     async fn skip_session_step(self: Arc<Self>, _skip: ipc::SkipSessionStep) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    /// A Job's copy with a rule long enough to show whether a door's answer carries the text of a piece.
+    async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
+        let step = |id: &str| ipc::JobCopyStep { id: id.into(), label: id.into(), about: None, instructions: None, ends_on: Vec::new(), skipped: false };
+        Ok(ipc::JobCopy {
+            session_id: change.session_id,
+            workflow: Some(ipc::WorkflowId::carried("bug")),
+            own: true,
+            steps: vec![step("plan"), step("dispatch"), step("handoff")],
+            lifecycles: Vec::new(),
+            rules: vec![ipc::JobCopyPiece { id: "deploy_watch".into(), text: "version: 1\n".repeat(200) }],
+            changes: vec![ipc::JobCopyChange {
+                lane: "workflow".into(),
+                item: "dispatch".into(),
+                text: "Added after plan by the Job".into(),
+                by: ipc::ChangedBy::Job,
+                at: ipc::Instant::carried("2026-10-30T09:00:00.000Z"),
+                dropped: false,
+            }],
+        })
+    }
+
+    async fn change_job_copy(self: Arc<Self>, _change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn get_job_copy(self: Arc<Self>, _session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn keep_job_workflow(self: Arc<Self>, _keep: ipc::KeepJobWorkflow) -> Result<ipc::WorkflowChange, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn keep_job_piece(self: Arc<Self>, _keep: ipc::KeepJobPiece) -> Result<ipc::JobPieceProposed, Refusal> {
         Err(nothing_hosted())
     }
 

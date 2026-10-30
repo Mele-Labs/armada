@@ -27,6 +27,13 @@ export const ISSUES_KEYS = {
   get start() {
     return capOfSlot("issues_start", 0);
   },
+  /** The two acts on a reported bug, `issues_keep` and `issues_drop` (scope `report`). `D` is also `issues_describe`, which a report holding focus does not get. */
+  get keep() {
+    return capOfSlot("issues_keep", 0);
+  },
+  get drop() {
+    return capOfSlot("issues_drop", 0);
+  },
 };
 
 export { capOf } from "../pr-review/key-table";

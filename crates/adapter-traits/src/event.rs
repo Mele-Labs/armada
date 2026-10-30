@@ -194,6 +194,27 @@ impl TaskStatus {
     }
 }
 
+/// What a session's opening line says it came up holding, as facts and not as a vendor's keys.
+///
+/// **A reading of one `init`, not a verdict.** The harness says it before every turn, so the same
+/// process can be read again; a field that is `false` means that line did not list it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HarnessReading {
+    /// The harness's own name, as a person reads it.
+    pub name: String,
+    /// The command that updates the CLI, as typed in a terminal.
+    pub update: String,
+    /// The CLI's own version. Empty when the line carried none.
+    pub version: String,
+    /// Armada's mod is among the plugins the session loaded.
+    pub mod_loaded: bool,
+    /// Fleet's door is among the MCP servers and says it is connected.
+    pub door_connected: bool,
+    /// The session can keep a task list: the harness serves its task tools, or the older one that
+    /// did the same.
+    pub task_tools: bool,
+}
+
 /// One line of a Drone's output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DroneEvent {
@@ -207,6 +228,9 @@ pub enum DroneEvent {
         /// exactly one**, so any other number is the confinement having failed
         /// and is worth seeing rather than inferring.
         mcp_servers: usize,
+        /// What the session came up with of Armada's own: the CLI's version and which of the
+        /// pieces a hosted Job is launched with are there.
+        harness: HarnessReading,
     },
     /// The Drone reached for a tool, and what it reached for it with.
     ///

@@ -106,7 +106,7 @@ impl Tracking {
 
 /// What a Manifest chose, as the seam takes it. **No `tracker:` is the forge's own**, which is
 /// what every repository had before the key existed.
-fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
+pub(crate) fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
     match manifest.tracker() {
         Some(block) => TrackerChoice::named(block.provider(), block.keys()),
         None => TrackerChoice::of_the_forge(),

@@ -37,6 +37,7 @@ At the delivering step the agent delivers by the answer it was told.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.
 [The rail](session/the-rail.md) owns how a step is placed; [The judges](judge.md) owns the judge.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.
+**One workflow can be switched off** too, for the machine or for one repository (`workflows.off`, Settings, Workflows): it is not offered, a Job cannot be given it, and a Job already on it runs plain until it is switched back on.
 
 ### `feature` and `bug`
 
@@ -68,15 +69,36 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 
 `short_walk` is passed over when nothing would be seen.
 
+### `orchestrate`
+
+A Job whose work is other Jobs: a batch of feedback, a list of issues or a milestone, split up and handed out.
+It writes no code and opens no pull request of its own; it lands a report.
+The order is the owner's, 29 Oct 2026.
+
+| Step | The agent | Ends when |
+|---|---|---|
+| `assess` | Reads the pile of work and checks each item against main: done, partial or missing | a plan is recorded |
+| `plan` | Records one group per Job | you approve the plan |
+| `dispatch` | Starts a Job per group with `start_another_job`, two at a time, the rest queued with `after` | every group's Job is started |
+| `oversee` | Follows the Jobs it started, steps in when one is stuck or fails, and may start more | every Job it started has merged or been ended |
+| `summarise` | Writes a Document of what each Job landed, with its pull request, then follow-up work, each item filed or dispatched as you pick | you approve the report |
+
 ### Walks and replies
 
 Three step keys place a Job around the owner.
 `crates/core-model/domain/workflowdef-fields.toml` carries them.
 
-**`ends_on`** lists what the owner does that ends the step, any one of them: `replied`, `walk_approved`, `sketch_approved`, `draft_approved` and `idea_picked`.
+**`ends_on`** lists what ends the step, any one of them: what the owner does (`replied`, `walk_approved`, `sketch_approved`, `draft_approved` and `idea_picked`) or a lifecycle reaching a state.
 The agent stops until one holds.
 `feature` sets it on `propose`, without `replied`: Propose ends on an approval, never on prose.
 `idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
+
+**A lifecycle state** is written `pr: approved`, `ticket: closed` or `job: landed`, and `any ticket: closed` for the first of several (29 Oct 2026).
+Every instance of the lifecycle the Job holds must have reached the state, so `job: landed` waits for every Job this one started.
+Fleet moves the Job on when a move it kept for an instance satisfies the end, and wakes the agent with one line.
+It is the world's to bring about, so the step raises no wait for the owner; if he writes on the step or skips it, the Job moves on without the line.
+A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `walks`, `follows_plan` or `records_plan` takes none: put the wait on the step before or after it.
+On a step that `delivers` the state gates the merge instead (Land waits on `pr: approved`): the agent opens the pull request, ends its turn and does not merge, and Fleet wakes it with one line when the state comes.
 
 **`awaits_reply: true`** is `ends_on: ["replied"]`.
 
@@ -99,10 +121,33 @@ Fleet then counts the step as passed, so the Job's current step moves past it.
 The step shows as skipped, and the timeline enters `skipped: <step label>`.
 
 The agent is sent one message saying the step is not wanted, so it neither does the step nor asks about it, and another when the skip is undone.
+**The agent can skip a step of its own Job too** (`skip_session_step`); it is not sent a message about a skip it made, and the timeline says `by the Job`.
 **The delivering step cannot be skipped**; Fleet refuses it with `fleet.session_step_not_skippable`.
 
 **This is not the skipped-step nudge.** That nudge is Fleet noticing from what it observed that the agent skipped a step on its own.
 A step the person skipped is the person's call and never draws it.
+
+### Changing one Job
+
+**A Job's agent can change its own Job's workflow, lifecycles and rules with tools**, and the owner can do the same from the Job's lanes.
+It adds, moves, rewords or drops a step, adds or changes or drops a rule or a lifecycle, skips a step, and switches to another workflow or to none.
+The change applies at once, to that Job only, and what the repository and Kit keep, and every other Job, stay as they were.
+
+The Job that needs other steps, such as one whose work is to dispatch other Jobs and oversee them, says so with a tool instead of being switched to no workflow by hand.
+An agent that finds another workflow fits better switches to it; one that finds a workflow it read would serve the next Job better proposes a change to it (`propose_workflow_change`), and one that finds none fits proposes a new one (`propose_new_workflow`).
+A proposal waits on the owner's Approve on the Workflows page, as a drafted change does.
+
+| To | He |
+|---|---|
+| Add a step, a lifecycle or a rule to this Job | Presses `+` above the Job's lanes and chooses which |
+| See what changed | The lanes mark the step, the rule's chip and the lifecycle's head, and *Changed on this Job* under them lists each change with who made it, the Job or him |
+| Keep a change for the others | Presses *Keep for every Job* on a changed workflow, which proposes the Job's workflow as a change, or on a changed rule or lifecycle, which proposes that one piece for Kit within the repository; nothing saves until he approves it |
+
+**A workflow is copied at the Job's first change to its steps**, as the file it followed then, so the Job keeps following that text while the repository's changes.
+A rule or a lifecycle is changed in the copy the Job froze when it started.
+A rule or a lifecycle is kept one piece at a time, from its own row under the lanes, and a piece the Job dropped is not offered.
+The proposal waits on the Job's draft, since the Workflows page holds a workflow's change and not a piece's.
+The timeline enters each change as `session.copy`, naming what changed and who.
 
 ### Where a definition comes from
 
@@ -188,7 +233,7 @@ The page carries none of the gate boxes, retries or passes the old editor offere
 |---|---|
 | Change a step's words | Edits them where they stand, and the page saves them in the place that copy is |
 | Change a workflow's shape | Types the change under *Tell an agent what to change*; an agent drafts the whole definition, the page shows it beside what it was, and he approves it, sends it back with notes, or dismisses it. Nothing saves without his Approve |
-| Change one Armada carries | Presses Make my copy, which writes it to Kit under the same id for every repository on this Mac; or Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install. Armada's rows are read-only |
+| Change one Armada carries | In the Workspace's lanes, changes it where it stands: the first change makes his own copy, written to Kit under the same id for every repository on this Mac, and nothing says copy. In the column of steps Armada's rows are read-only, and he presses Make my copy, which writes the same file. Or he presses Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install |
 | See how a copy differs | Presses Compare with Armada's, and each step's words show beside Armada's |
 | Go back to Armada's | Presses Reset to Armada's on a copy, which replaces the file with Armada's definition |
 | Remove a copy | Presses Delete, which removes that one file. A copy that was left out is deleted by its file, since it may declare no id Fleet can read |
@@ -201,7 +246,7 @@ Not a drift stops one counting and leaves it listed.
 An agent drafts new words for that step and nothing else.
 The step shows a card with the words before and after, and Approve and Dismiss.
 A step with drift and no suggestion has *Suggest a change*, which asks for one sooner.
-Armada's own rows get none; a change to one is Make my copy or Propose to Armada.
+Armada's own rows get none; a change to one is made in the lanes, which makes a copy, or is Make my copy or Propose to Armada.
 Approve saves the drafted definition, as it does for a typed change.
 
 ## What is not a workflow

@@ -13,9 +13,11 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
+import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
 import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
+import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
 export type SessionTrail = {
@@ -161,7 +163,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean; /** When the agent last changed this task's mark, RFC 3339. A mark the agent has not touched in a long while reads its age and dims. */ changedAt?: string; /** Fleet set the state itself, and this is its proof ("commit 1a2b3c4 names it"). */ marked?: string; /** In progress, and Fleet reads the work as elsewhere: why, and since when (RFC 3339). */ stale?: { why: string; since: string } };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */ landsIn?: PlanLandsIn; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
@@ -210,7 +212,7 @@ export type SessionWork = {
   workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase; /** When each step began, in order, as an RFC 3339 time. A step the Job went back to appears again. */ visits?: readonly { step: number; since: string }[]; /** The steps the person skipped, by index; the Job passes over each. Absent where none is. */ skipped?: readonly number[] };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
-  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
+  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. The spine draws `activity.todos` and not this. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
   /** The files the Field draws as bars on its plots. */
@@ -252,6 +254,21 @@ export type SessionWorkActs = {
   adversarial?: { run: (id: string) => void; send: (id: string, finding: string) => void; dismiss: (id: string, finding: string) => void };
   /** Sends a judge to read the Session's work so far against its plan. Fleet answers at once; the reading lands as `judging`, then `judged` and `concerns`. */
   judge?: (id: string) => Promise<void>;
+};
+
+/**
+ * The acts on a Job's own copy of its workflow, lifecycles and rules, from the Job's lanes. A change applies to that Job at once and the lanes mark it. **Each answers
+ * Fleet's words where it refused, and nothing where it took it**, so the form that asked can say why it did not close.
+ */
+export type JobCopyActs = {
+  /** Adds, moves, rewords or drops a step of the Job's workflow. */
+  step: (id: string, change: StepChange) => Promise<string | undefined>;
+  /** Puts a lifecycle or a rule in the copy from the whole file, which names its own id; with no text, takes the one named out. */
+  piece: (id: string, kind: "lifecycle" | "rule", piece: string, text: string | undefined) => Promise<string | undefined>;
+  /** Proposes the Job's workflow for every Job. It waits on Approve on the Workflows page. */
+  keep: (id: string) => Promise<string | undefined>;
+  /** Proposes one rule or lifecycle the Job changed for every Job, as a file in Kit within the Job's repository. It waits on Approve on the Job's draft. */
+  keepPiece: (id: string, kind: "lifecycle" | "rule", piece: string) => Promise<string | undefined>;
 };
 
 /** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */
@@ -375,7 +392,7 @@ type SessionRowKinds =
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
   | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string; /** How many takes of the change the page shows. **A mock's field**: nothing in Fleet carries it yet. */ takes?: number }
   /** A draft the agent put to the person with `propose_draft`, whole as Fleet wrote it; `settled` once he answered it. */
-  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" }; /** **A mock's field**: a draft that is a rule's own act, whose card is the rule and says where it goes and to whom. */ rule?: { where: string; to: string } }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -392,7 +409,7 @@ type SessionRowKinds =
 export type SessionRow = SessionRowKinds;
 
 /** One item of the agent's own TodoWrite list. The agent's report of itself; `SessionActivity.now` is what Fleet detected. */
-export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
+export type SessionTodo = { text: string; state: "done" | "doing" | "todo"; /** The id of the plan task Fleet matched this item to. Its plan row already shows it. */ task?: string };
 
 /**
  * What a Session is doing, from Fleet's PreToolUse gate: `now` is the last tool call as a short
@@ -446,6 +463,13 @@ export type SessionWait = {
   needs: string;
   /** The words it was dispatched with, which it starts on. */
   brief: string;
+  /** What happens once the condition is met: absent or true opens it as a draft (held); false is Approved, which starts it at once. */
+  held?: boolean;
+  /** The workflow it starts under, by id; absent is the proposer's. */
+  workflow?: string;
+  /** The model and effort it starts on; absent is the default. */
+  model?: string;
+  effort?: string;
   /** Who last set the condition. */
   by: "you" | "agent";
 };
@@ -467,6 +491,21 @@ export type WaitReading = {
   /** The brief tags the Session and names no condition: the new Session does not wait on it, and the tag is a reference. */
   plain?: boolean;
 };
+
+/** What the agent's init line showed it lacks: `mod` did not load, `door` (Fleet's MCP door) did not connect, `task_tools` were not served. */
+export type ToolsMissing = { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+
+const MISSING_SAID = { mod: "No armada mod.", door: "No armada tools.", task_tools: "No task tools." } as const;
+
+/** One thing the agent came up without. */
+export type ToolsPiece = ToolsMissing["missing"][number];
+
+/** The sentence for one piece, as the mark's menu lists it. */
+export const toolsPieceSaid = (piece: ToolsPiece): string => MISSING_SAID[piece];
+
+/** The tooltip of the mark: the harness and its version, then a sentence for each thing missing. An init line that names no version says only what is missing. */
+export const toolsMissingSaid = (tools: ToolsMissing): string =>
+  [...(tools.harness_version === "" ? [] : [`${tools.harness} ${tools.harness_version}.`]), ...tools.missing.map((one) => MISSING_SAID[one])].join(" ");
 
 export type Session = {
   id: string;
@@ -505,6 +544,8 @@ export type Session = {
   terminal?: true;
   /** Its mod is older than the repository's, or reported no version. */
   modOutOfDate?: true;
+  /** The agent came up without some of its Armada tools. Absent when nothing is missing. */
+  toolsMissing?: ToolsMissing;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
@@ -568,6 +609,8 @@ export type Session = {
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
+  /** What he closed from Needs you, kept to be found again. `ended` is an item whose thing is over (its call finished, its walk withdrawn), which no Reopen brings back. */
+  closed?: readonly { item: WaitingItem; at: string; ended?: true }[];
   /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
   later?: readonly { id: string; text: string; at: string; /** The person marked it Deferred: Fleet was right to keep it, and its thumbs are gone. */ confirmed?: boolean }[];
   /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
@@ -603,6 +646,8 @@ export type Session = {
   work?: SessionWork;
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
+  /** The Workspace's lanes as this Job holds them: its tickets, pull request and deploy, and the rules that fired. Mock-only: no Fleet serves a Workspace yet. Absent draws no Lanes view. */
+  lanes?: SessionLanes;
 };
 
 /**
@@ -824,6 +869,10 @@ export type SessionsDraft = {
   startWhen?: (id: string, when: StartWhen, part?: { id: string; title: string }) => void;
   /** Starts a waiting Session now, whatever its condition. The Session it waits on is told. Absent with `startWhen`. */
   startNow?: (id: string) => void;
+  /** Sets whether a waiting Session opens as a draft (`held`) when its condition is met; not held is Approved, which starts it at once. Absent where nothing serves it. */
+  startThen?: (id: string, held: boolean) => void;
+  /** Sets the workflow, model and effort a waiting Session starts on; a key left out is unchanged and `null` clears it. Absent with `startThen`. */
+  startTuning?: (id: string, tuning: { workflow?: string | null; model?: string | null; effort?: string | null }) => void;
   /** Ideas saved to start later, oldest first. Absent where nothing serves them, and Dispatch offers no Queue for later. */
   queued?: () => readonly QueuedIdea[];
   /** Saves an idea without starting it. Absent with `queued`. */
@@ -852,6 +901,8 @@ export type SessionsDraft = {
   mcp?: (id: string) => Promise<McpRead>;
   /** Acts on one MCP server of a hosted Session. A Reconnect or a Turn on answers once the CLI has tried to connect, up to 90s. Absent with `mcp`. */
   actOnMcp?: (id: string, server: string, act: McpServerAct) => Promise<McpActed>;
+  /** Restarts the Job's agent with its mod: `mend_session_tools`. Absent where nothing serves it, and the mark's menu then lists the piece with no act. */
+  mendTools?: (id: string) => Promise<{ ok: true } | { ok: false; said: string }>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.
@@ -859,6 +910,8 @@ export type SessionsDraft = {
   retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
+  /** The person sends a triaged comment on the Job's pull request (`comment` is its id in `Session.lanes`) to the Job's agent, and it reads as sent. Mock-only: no Fleet reads a pull request's comments yet. Absent draws no Send to Job. */
+  sendComment?: (id: string, comment: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */
@@ -976,6 +1029,8 @@ export type SessionsDraft = {
    * reasonable path). `fixed` approves a draft with his own text. Absent where nothing serves it.
    */
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick"; fixed?: string }) => void | Promise<unknown>;
+  /** Puts an item he closed back in Needs you. Absent where nothing serves it, and the Closed rows draw no Reopen. */
+  reopenWaiting?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */
   answerSketch?: (answer: AnswerSketch) => void | Promise<unknown>;
   /**
@@ -1043,6 +1098,8 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
+  /** The acts on a Job's own copy of its workflow, lifecycles and rules. Absent where nothing serves them, and the lanes offer none. */
+  copy?: JobCopyActs;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => void;
 };
@@ -1069,6 +1126,10 @@ export function linkedOf(sessions: readonly Session[], parent: Session): { sessi
 
 /** An issue as a person reads it: a forge number with its `#` (`#7`), a tracker's key as it is (`ABC-12`). */
 export const issueLabel = (issue: string): string => (/^[0-9]+$/.test(issue) ? `#${issue}` : issue);
+
+/** Whether the Job lands its work in pull requests: its delivery opens or lands one, or it already has one. Keep local with none opened does not. */
+export const opensPullRequests = (session: Session): boolean =>
+  session.started?.delivery === "open_pr" || session.started?.delivery === "auto_land" || attachmentsOf(session, "pull_request").length > 0;
 
 export function attachmentsOf<K extends SessionAttachmentKind>(
   session: Session,

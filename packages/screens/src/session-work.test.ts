@@ -35,7 +35,7 @@ const PLAN: SessionPlan = {
   recorded_at: AT,
   approved: false,
   scope: ["crates/fleet"],
-  groups: [{ id: "g1", agent: "rust-engineer", title: "Retry the lease", paths: ["crates/fleet"], tasks: [{ id: "t1", text: "Back off", state: "working", seen: true }, { id: "t2", text: "Cap it", state: "open" }] }],
+  groups: [{ id: "g1", agent: "rust-engineer", title: "Retry the lease", paths: ["crates/fleet"], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Back off", state: "working", seen: true }, { id: "t2", text: "Cap it", state: "open" }] }],
   changes: { added: ["t2"], renamed: [{ id: "t1", from: "Wait" }], moved: [], removed: [{ group: "g1", text: "Sleep" }] },
   sketch: { id: "sketch:Plan", title: "Plan" },
 };
@@ -80,6 +80,12 @@ describe("the workflow", () => {
     expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 });
     expect(workOf(record({ workflow: "feature", workflow_step: 0 }), beside())?.workflow?.at).toBe(0);
     expect(workOf(record({ workflow: "feature", workflow_step: 9 }), beside())?.workflow?.at).toBeUndefined();
+  });
+
+  it("reads the steps of the Job's own copy once it changed one, and the repository's again when it follows another workflow", () => {
+    const own = { ...FEATURE, steps: [step("plan", "Plan"), step("dispatch", "Dispatch"), step("build", "Build"), step("pr", "Pull request")] } as WorkflowSummary;
+    expect(workOf(record({ workflow: "feature", workflow_step: 1, workflow_copy: own }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Dispatch", "Build", "Pull request"], at: 1 });
+    expect(workOf(record({ workflow: "bug", workflow_copy: own }), beside({ workflows: [{ ...FEATURE, id: "bug", name: "Bug" }] }))?.workflow?.steps).toEqual(["Plan", "Build", "Pull request"]);
   });
 
   it("carries the phase Fleet resolved for the step the Session is at", () => {
@@ -136,14 +142,29 @@ describe("the plan", () => {
   });
 
   it("keeps the issue a group names, and names none where it names none", () => {
-    const named: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, issue: "2214" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], tasks: [] }] };
+    const named: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, issue: "2214" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] }] };
     const groups = planOf(named, { attachments: [], rows: undefined, drawn: [] }).groups;
     expect(groups[0]?.issue).toBe("2214");
     expect(groups[1]).not.toHaveProperty("issue");
   });
 
+  it("maps the lands_in of each group onto landsIn, with the pull request once it is bound and without one before", () => {
+    const pull = { number: 2814, title: "Pair a phone", state: "open" as const };
+    const wire: SessionPlan = {
+      ...PLAN,
+      groups: [
+        { ...PLAN.groups[0]!, lands_in: { label: "PR 1", pull_request: pull } },
+        { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 2" }, tasks: [] },
+      ],
+    };
+    const groups = planOf(wire, { attachments: [], rows: undefined, drawn: [] }).groups;
+    expect(groups[0]?.landsIn).toEqual({ label: "PR 1", pullRequest: pull });
+    expect(groups[1]?.landsIn).toEqual({ label: "PR 2" });
+    expect(groups[1]?.landsIn).not.toHaveProperty("pullRequest");
+  });
+
   it("carries the summary, what each group gives and when he set it aside, and leaves each off where Fleet has none", () => {
-    const plain = planOf({ ...PLAN, summary: "He can queue a Session for later.", set_aside_at: AT, groups: [{ ...PLAN.groups[0]!, gives: "A queue that survives a restart" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], tasks: [] }] }, { attachments: [], rows: undefined, drawn: [] });
+    const plain = planOf({ ...PLAN, summary: "He can queue a Session for later.", set_aside_at: AT, groups: [{ ...PLAN.groups[0]!, gives: "A queue that survives a restart" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] }] }, { attachments: [], rows: undefined, drawn: [] });
     expect(plain.summary).toBe("He can queue a Session for later.");
     expect(plain.setAside).toBe(true);
     expect(plain.groups[0]?.gives).toBe("A queue that survives a restart");

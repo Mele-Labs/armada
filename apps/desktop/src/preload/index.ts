@@ -36,7 +36,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, BugReport, ChangeJobCopy, ChangeSessionSteps, JobCopy, JobPieceProposed, KeepJobPiece, WorkflowChange, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -45,7 +45,7 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { ModSessionStarted, StartModSession } from "@armada/protocol";
 import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, ReopenWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
@@ -54,9 +54,12 @@ import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { ProjectsActed } from "../shared/api/projects";
+import type { BugReportActed } from "../shared/api/bug-reports";
+import type { LifecyclesActed } from "../shared/api/lifecycles";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
+import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "../shared/api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
 import type { PullRequestNoteAnswer, PullRequestNotesAnswer } from "../shared/api/pull-request-notes";
 import type { SavePullRequestNote, SendPullRequestNotes } from "@armada/protocol";
@@ -413,6 +416,34 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.modelDownshiftChanged, handler);
     };
   },
+  listBugReports: (): Promise<BugReportActed<BugReports>> => ipcRenderer.invoke(CHANNELS.listBugReports),
+  keepBugReport: (id: string): Promise<BugReportActed<BugReport>> => ipcRenderer.invoke(CHANNELS.keepBugReport, id),
+  dropBugReport: (id: string): Promise<BugReportActed<BugReportDropped>> => ipcRenderer.invoke(CHANNELS.dropBugReport, id),
+  onBugReportsChanged: (onChanged: (reports: BugReports) => void): (() => void) => {
+    const handler = (_event: unknown, reports: BugReports): void => onChanged(reports);
+    ipcRenderer.on(CHANNELS.bugReportsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.bugReportsChanged, handler);
+    };
+  },
+  listRepositoryWorkspaces: (manifestId: string): Promise<LifecyclesActed<RepositoryWorkspaces>> => ipcRenderer.invoke(CHANNELS.listRepositoryWorkspaces, manifestId),
+  listLifecycles: (manifestId: string): Promise<LifecyclesActed<RepositoryLifecycles>> => ipcRenderer.invoke(CHANNELS.listLifecycles, manifestId),
+  listLifecycleRules: (manifestId: string): Promise<LifecyclesActed<RepositoryLifecycleRules>> => ipcRenderer.invoke(CHANNELS.listLifecycleRules, manifestId),
+  saveLifecyclePiece: (body: SaveLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceSaved>> => ipcRenderer.invoke(CHANNELS.saveLifecyclePiece, body),
+  deleteLifecyclePiece: (body: DeleteLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceDeleted>> => ipcRenderer.invoke(CHANNELS.deleteLifecyclePiece, body),
+  getJobLifecycles: (sessionId: string): Promise<LifecyclesActed<JobLifecycles>> => ipcRenderer.invoke(CHANNELS.getJobLifecycles, sessionId),
+  getJobCopy: (sessionId: string): Promise<LifecyclesActed<JobCopy>> => ipcRenderer.invoke(CHANNELS.getJobCopy, sessionId),
+  changeSessionSteps: (change: ChangeSessionSteps): Promise<LifecyclesActed<JobCopy>> => ipcRenderer.invoke(CHANNELS.changeSessionSteps, change),
+  changeJobCopy: (change: ChangeJobCopy): Promise<LifecyclesActed<JobCopy>> => ipcRenderer.invoke(CHANNELS.changeJobCopy, change),
+  keepJobWorkflow: (sessionId: string): Promise<LifecyclesActed<WorkflowChange>> => ipcRenderer.invoke(CHANNELS.keepJobWorkflow, sessionId),
+  keepJobPiece: (body: KeepJobPiece): Promise<LifecyclesActed<JobPieceProposed>> => ipcRenderer.invoke(CHANNELS.keepJobPiece, body),
+  onJobLifecyclesChanged: (onChanged: (held: JobLifecycles) => void): (() => void) => {
+    const handler = (_event: unknown, held: JobLifecycles): void => onChanged(held);
+    ipcRenderer.on(CHANNELS.jobLifecyclesChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.jobLifecyclesChanged, handler);
+    };
+  },
   listProjects: (): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.listProjects),
   addProject: (body: NameProject): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.addProject, body),
   renameProject: (project: string, body: NameProject): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.renameProject, project, body),
@@ -449,6 +480,8 @@ const api: BridgeApi = {
   },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
   getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
+  getSessionSystem: (sessionId: string): Promise<SessionSystemRead> => ipcRenderer.invoke(CHANNELS.getSessionSystem, sessionId),
+  stopProcess: (sessionId: string, target: ProcessTarget): Promise<ProcessStopRead> => ipcRenderer.invoke(CHANNELS.stopProcess, sessionId, target),
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> => ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
@@ -588,6 +621,7 @@ const api: BridgeApi = {
   readWatchLog: (read: ReadWatchLog): Promise<SessionActed<WatchLog>> => ipcRenderer.invoke(CHANNELS.readWatchLog, read),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   confirmLater: (confirm: ConfirmLater): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmLater, confirm),
+  reopenWaiting: (reopen: ReopenWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.reopenWaiting, reopen),
   confirmWaiting: (confirm: ConfirmWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmWaiting, confirm),
   answerSketch: (answer: AnswerSketch): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerSketch, answer),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),
@@ -632,6 +666,7 @@ const api: BridgeApi = {
   readSessionMcp: (sessionId: string): Promise<SessionActed<SessionMcp>> => ipcRenderer.invoke(CHANNELS.readSessionMcp, sessionId),
   actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> =>
     ipcRenderer.invoke(CHANNELS.actOnSessionMcp, sessionId, server, act),
+  mendSessionTools: (sessionId: string): Promise<SessionActed<void>> => ipcRenderer.invoke(CHANNELS.mendSessionTools, sessionId),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>

@@ -13,6 +13,7 @@ import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
+import type { WorkflowSummary } from "./setup";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
 import type { SessionWait, StartAfter } from "./session-waits";
@@ -107,6 +108,11 @@ export type SessionRecord = {
   /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
   mod_out_of_date?: true;
   /**
+   * A hosted session whose agent came up without some of its Armada tools, as Fleet read the CLI's init line. `mod`: the mod did not load; `door`: Fleet's MCP door did not
+   * connect; `task_tools`: the CLI served no task list tools. Absent when nothing is missing.
+   */
+  tools_missing?: { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+  /**
    * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
    * agent's first. Absent is nothing, and always absent for an ended session.
    */
@@ -173,6 +179,11 @@ export type SessionRecord = {
    */
   settled?: WaitingItem[];
   /**
+   * The items the person closed from `waiting_for`, newest first, a bounded window: each kept whole at the moment he closed it.
+   * `reopen_waiting` lets one wait again. Absent when none. Since 29 Oct 2026.
+   */
+  closed?: ClosedWaiting[];
+  /**
    * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
    * met. Absent once it has started. Since 16 Oct 2026.
    */
@@ -196,6 +207,16 @@ export type SessionRecord = {
   workflow_visits?: StepVisit[];
   /** The steps the person skipped, by the same index as `workflow_step`. The Job passes over each one. Absent where none is. */
   skipped_steps?: number[];
+  /**
+   * What the step the Job is on waits for, as the rail words it: `Waiting on PR #812: Approved`. One sentence for each lifecycle end
+   * the step lists that has not come, in the order the step lists them. Absent where the step waits on no lifecycle, and once an end has come.
+   */
+  workflow_waiting_on?: string[];
+  /**
+   * The Job's own copy of its workflow, once it changed a step of it (`change_session_steps`): what the rail and the lanes read
+   * in place of the repository's. Absent until then. Since 30 Oct 2026.
+   */
+  workflow_copy?: WorkflowSummary;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
@@ -295,8 +316,15 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `preview_offer` (text `<branch> moved since the preview left it out: <why>`, act `run` whose `target` is `scripts/preview --restart`)
  * is Fleet offering a refresh on the Job holding a branch the preview left out, once that branch moves past the tip it was left out at.
  * Dismissing it is Skip, and tells the agent nothing.
+ * `rule_act` (id `rule_act:<row>`, text the act in his words, such as `Move ARM-41 to In progress`, act `answer` whose `target` is the id) is
+ * an act a lifecycle rule of the Job planned that he is asked about first, or one that failed past the rule's retries where the rule says to
+ * ask, when the text says what failed. Exactly two options: `Do it` (choice 0, `Try again` on a failed act) carries the act out and `Skip`
+ * (choice 1) records it skipped. Neither sends the agent a word, and dismissing it is Skip. It is listed while the Job is live.
+ * A draft act is never one: it is proposed at once and the `draft` item it raises is the ask.
+ * `sketch` (id `sketch:<title>`, the sketch attachment's id, text the title, act `message` whose `target` is the Job's own id) is a sketch the
+ * agent showed with `show_sketch` that he has not approved or sent back on its card. Its press opens the sketch. Dismissing it settles it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -473,6 +501,24 @@ export type DismissWaiting = { session_id: string; item_id: string; reason?: str
  * that asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
  */
 export type ConfirmWaiting = { session_id: string; item_id: string };
+
+/**
+ * `POST /sessions/waiting/reopen`: the person lets an item he closed wait again, by the `id` in `SessionRecord.closed`. An agent's own item
+ * goes back on its list as it was stated, and the agent is told so (`The owner reopened "<text>"; ...`); any other item tells it nothing. Fleet refuses 409 `fleet.session_waiting_unheld` for an id nothing
+ * closed holds, and 422 `fleet.session_waiting_unreopenable` where `ended` is true.
+ */
+export type ReopenWaiting = { session_id: string; item_id: string };
+
+/**
+ * An item the person closed, as `SessionRecord.closed` lists it: `item` is the `WaitingItem` as Needs you drew it when he closed it
+ * (`id`, `text`, `since`, `source`, `act`, `options`, `steps`; `reopen_waiting` takes `item.id`), and `at` when he closed it. `ended` is sent
+ * only as `true`: what the item stood for has ended, so it cannot be reopened (a permission whose call ended, a walk that was withdrawn, any
+ * item of a Job that has ended). The agent's own items and those whose subject still stands are reopenable.
+ */
+export type ClosedWaiting = { item: WaitingItem; at: string; ended?: true };
+
+/** `GET /sessions/waiting/closed`, an agent's read: the Job's `closed` items, newest first. */
+export type ClosedWaitingList = { session_id: string; closed: ClosedWaiting[] };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };

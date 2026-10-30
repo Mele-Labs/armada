@@ -80,11 +80,16 @@ function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]
   };
 }
 
-/** The workflow Fleet holds that the Session follows: the one of its repository, else any of that id. */
+/** The workflow the Session follows: its own copy once it changed a step, else the one Fleet holds for its repository, else any of that id. */
 function heldOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkflowSummary | undefined {
   if (record.workflow === undefined) return undefined;
+  if (record.workflow_copy?.id === record.workflow) return record.workflow_copy;
   return workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
 }
+
+/** The steps of the workflow the Session follows, each with the id a rule names it by. Empty where Fleet does not hold the workflow. */
+export const stepsWithIds = (record: SessionRecord, workflows: readonly WorkflowSummary[]): { id: string; label: string }[] =>
+  heldOf(record, workflows)?.steps.map((step) => ({ id: step.step_id, label: step.label })) ?? [];
 
 /** What the Session's workflow lands in, as Fleet resolves it. Absent where Fleet does not say. */
 const landsOf = (record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkLanding | undefined => heldOf(record, workflows)?.lands;
@@ -119,6 +124,7 @@ export function planOf(plan: SessionPlan, beside: Pick<WorkBeside, "attachments"
       paths: group.paths,
       ...(group.gives === undefined || group.gives === "" ? {} : { gives: group.gives }),
       ...(group.issue === undefined ? {} : { issue: group.issue }),
+      landsIn: { label: group.lands_in.label, ...(group.lands_in.pull_request === undefined ? {} : { pullRequest: { number: group.lands_in.pull_request.number, title: group.lands_in.pull_request.title, state: group.lands_in.pull_request.state } }) },
       tasks: group.tasks.map((task) => ({
         id: task.id,
         text: task.text,

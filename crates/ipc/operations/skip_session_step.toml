@@ -1,14 +1,16 @@
 [operations.skip_session_step]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
-description = "Skip a step of a hosted job's workflow, or undo the skip"
+agent_access = "Yes"
+description = "Skip a step of this job's workflow, or undo the skip. Body: {session_id, step, skipped}. session_id is your job id; step is the index from zero, as workflow_step counts, in the steps of your copy; skipped is false to undo. It applies to this job only, at once. The step that delivers cannot be skipped"
 notes = """
 `POST /sessions/step-skip`, body `SkipSessionStep`: `session_id`, `step` (the index, from zero as `workflow_step`) and `skipped`, false to undo. Answers the `SessionRecord`, whose `skipped_steps` lists the steps skipped.
 
-**The rail counts a skipped step passed.** Skipping the current step moves `workflow_step` on to the next step the facts place, and a step still to come is passed over when the Job reaches it. Undoing it puts the step back on the rail, so a Job past it may return to it. Fleet's own nudge for a step the agent skipped is never sent for a step the person skipped.
+**The rail counts a skipped step passed.** Skipping the current step moves `workflow_step` on to the next step the facts place, with `workflow_waiting_on` (the sentences the step waits on, one for each lifecycle end it lists) read for that step, and a step still to come is passed over when the Job reaches it. Undoing it puts the step back on the rail, so a Job past it may return to it. Fleet's own nudge for a step the agent skipped is never sent for a step the person skipped.
 
-**The skip reaches the agent at once.** A Job that has run is sent one message from Fleet naming the step and saying not to do it or ask about it, and one saying it is wanted again on an undo, at the next tool call mid-turn or as a new turn when idle. A Job that has not run is told with its first turn instead. A walk window or draft the agent opened on the step it is on is withdrawn when that step is skipped. Fleet enters `session.step` on the timeline with `says` `skipped: <step label>`, or `skip undone: <step label>`.
+**The skip reaches the agent at once, unless the agent made it.** A Job that has run is sent one message from Fleet naming the step and saying not to do it or ask about it, and one saying it is wanted again on an undo, at the next tool call mid-turn or as a new turn when idle. A Job that has not run is told with its first turn instead. A walk window or draft the agent opened on the step it is on is withdrawn when that step is skipped. Fleet enters `session.step` on the timeline with `says` `skipped: <step label>`, or `skip undone: <step label>`.
+
+**The agent may call it on its own Job.** Through the agent door the Job is the one whose process holds the connection, and the answer is a receipt: `session_id`, `workflow_step` and `skipped_steps`. The timeline entry's `detail` is `by the Job` where the agent skipped it and `by you` where the person did, and the step is marked on the Job's lanes as skipped by whoever did. The Job is not sent a message about a skip it made itself, and a walk window or draft it opened on the step is still withdrawn.
 
 Skipping a step already skipped, or undoing a skip that is not there, changes nothing and answers the row. 422 `fleet.session_step_not_skippable` for the delivering step and for an index past the last step, 422 `fleet.session_command_refused` for a job with no workflow or a terminal job, 422 `fleet.session_workflows_off` while `features.workflows` is off in Settings, 422 `fleet.session_workflow_not_held` where the repository no longer holds the job's workflow, and 409 `fleet.session_closed` for one that ended.
 """

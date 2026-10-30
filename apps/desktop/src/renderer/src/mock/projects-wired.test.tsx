@@ -80,6 +80,28 @@ test("Dispatch starts the Job with the rows that were selected, and Fleet then s
   await expect.element(card().getByRole("button", { name: /^Open / })).toBeVisible();
 });
 
+test("cards selected in two repositories open a sheet for each, and the second opens on the Cockpit after the first is started", async () => {
+  await open();
+  const armada = pocket().getByRole("group", { name: "Test on a small phone" });
+  const site = pocket().getByRole("group", { name: "Write the pairing page" });
+
+  await userEvent.keyboard("{Meta>}");
+  await userEvent.click(armada);
+  await userEvent.click(site);
+  await userEvent.keyboard("{/Meta}");
+  await userEvent.click(pocket().getByRole("button", { name: "Dispatch", exact: true }));
+  const request = page.getByRole("textbox", { name: "Request" });
+  const sheet = () => page.getByRole("region", { name: "Dispatch", exact: true });
+  await expect.element(request).toBeVisible();
+  await expect.poll(() => (request.element() as HTMLTextAreaElement).value).toContain("Test on a small phone");
+
+  // Starting opens the Job in the Cockpit, which takes the Projects tab down with the queue it held.
+  await userEvent.click(sheet().getByRole("button", { name: "Start", exact: true }));
+  await expect.element(page.getByRole("region", { name: "Projects", exact: true })).not.toBeInTheDocument();
+
+  await expect.poll(() => (page.getByRole("textbox", { name: "Request" }).element() as HTMLTextAreaElement).value).toContain("Write the pairing page");
+});
+
 test("a task filed from the palette on another page is written through Fleet and the page stays", async () => {
   const app = mount(SCENARIO);
   await onScreen();

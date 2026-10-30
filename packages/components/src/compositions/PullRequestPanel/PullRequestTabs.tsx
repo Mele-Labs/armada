@@ -1,6 +1,6 @@
-import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Ban, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerUpRight, ExternalLink, FileText, FilePenLine, Folder, FolderOpen, LoaderCircle, ScrollText, ShieldCheck, ShieldOff, ShieldX, SquarePlus, Trash2 } from "lucide-react";
+import { Ban, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerUpRight, ExternalLink, FileText, FilePenLine, Folder, FolderOpen, LoaderCircle, MessageSquareDiff, MessageSquareOff, MessageSquareReply, ScrollText, Send, ShieldCheck, ShieldOff, ShieldX, SquarePlus, Trash2 } from "lucide-react";
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
@@ -8,6 +8,7 @@ import { Prose } from "../../primitives/Prose/Prose";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import type { CommentRead } from "../LaneCanvas/model";
 import { ranFor } from "./pull-request-format";
 import { ReachTests, ReachToggle, type FilesReach, type ReachTest } from "./PullRequestReach";
 
@@ -33,6 +34,28 @@ export type PullRequestTabsProps = {
   /** The tab shown, where the host holds it. Absent leaves the tabs to choose for themselves. */
   tab?: string;
   onTab?: (id: string) => void;
+  /** What Fleet's agent made of an entry, where it read it as a human comment on the pull request: its mark, and the acts on it. */
+  triage?: (entry: PullRequestEntry) => EntryTriage | undefined;
+  /** The entry the panel was opened at: scrolled to and marked. */
+  focused?: (entry: PullRequestEntry) => boolean;
+};
+
+/** What the agent made of one human comment, and what may be done with it. */
+export type EntryTriage = {
+  read: CommentRead;
+  /** Where in the code it was left. */
+  where?: string;
+  /** It was sent to the Job. */
+  sent?: boolean;
+  /** Hands it to the Job's agent. Absent, the comment has no act. */
+  onSend?: () => void;
+};
+
+/** What the agent made of a comment, as a glyph and the words its tooltip reads. */
+export const COMMENT_READ: Readonly<Record<CommentRead, { Glyph: LucideIcon; said: string }>> = {
+  change: { Glyph: MessageSquareDiff, said: "Needs a change" },
+  answer: { Glyph: MessageSquareReply, said: "Answer only" },
+  skip: { Glyph: MessageSquareOff, said: "Not worth acting on" },
 };
 
 const TABS = [
@@ -42,7 +65,7 @@ const TABS = [
   { id: "commits", label: "Commits" },
 ];
 
-export function PullRequestTabs({ page, description, onOpenLink, files, more, reach, onTest, tab: held, onTab }: PullRequestTabsProps) {
+export function PullRequestTabs({ page, description, onOpenLink, files, more, reach, onTest, tab: held, onTab, triage, focused }: PullRequestTabsProps) {
   const [own, setOwn] = useState("conversation");
   const tab = held ?? own;
   const setTab = onTab ?? setOwn;
@@ -51,7 +74,7 @@ export function PullRequestTabs({ page, description, onOpenLink, files, more, re
     <div className="armada-pr-tabs">
       <Tabs items={items} value={tab} onChange={setTab} />
       <TabPanel tab={tab} role="tabpanel" aria-label={items.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
-        {tab === "conversation" ? <Conversation page={page} description={description ?? ""} /> : null}
+        {tab === "conversation" ? <Conversation page={page} description={description ?? ""} {...(triage === undefined ? {} : { triage })} {...(focused === undefined ? {} : { focused })} /> : null}
         {tab === "checks" ? <Checks rows={page.checks} onOpenLink={onOpenLink} /> : null}
         {tab === "files" ? (files ?? <FileRows rows={page.files} reach={reach} onTest={onTest} />) : null}
         {tab === "commits" ? <Commits rows={page.commits} /> : null}
@@ -105,14 +128,39 @@ export function Mark({ Glyph, said, tone }: { Glyph: LucideIcon; said: string; t
   );
 }
 
-function Entry({ title, who, at, mark, body }: { title?: string; who: string | undefined; at: string | undefined; mark?: ReactNode; body: string }) {
+/** The agent's read of a human comment, on the comment: its glyph, where in the code it was left, and the act that hands it to the Job, or the mark that it was handed. */
+function Triaged({ triage, who }: { triage: EntryTriage; who: string }) {
+  const { Glyph, said } = COMMENT_READ[triage.read];
+  return (
+    <span className="armada-pr-card__triage" data-read={triage.read}>
+      <Mark Glyph={Glyph} said={said} />
+      {triage.where === undefined ? null : <code className="armada-pr-card__where">{triage.where}</code>}
+      {triage.sent === true ? (
+        <Mark Glyph={Check} said="Sent to the Job" tone="success" />
+      ) : triage.onSend === undefined ? null : (
+        <Tooltip label="Send to Job">
+          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`Send to Job: ${who}${triage.where === undefined ? "" : ` on ${triage.where}`}`} onClick={triage.onSend}>
+            <Send size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
+    </span>
+  );
+}
+
+function Entry({ title, who, at, mark, body, triage, focus }: { title?: string; who: string | undefined; at: string | undefined; mark?: ReactNode; body: string; triage?: EntryTriage | undefined; focus?: boolean }) {
+  const card = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (focus === true) card.current?.scrollIntoView({ block: "nearest" });
+  }, [focus]);
   return (
     <li className="armada-pr-entry">
-      <article className="armada-pr-card" aria-label={title ?? who}>
+      <article ref={card} className="armada-pr-card" aria-label={title ?? who} data-focus={focus || undefined}>
         <header className="armada-pr-card__head">
           {mark}
           {who === undefined ? null : <b className="armada-pr-card__who">{who}</b>}
           {at === undefined ? null : <Stamp first="age" at={at} className="armada-pr-card__ago" />}
+          {triage === undefined ? null : <Triaged triage={triage} who={who ?? ""} />}
         </header>
         {body.trim() === "" ? null : (
           <div className="armada-pr-card__body">
@@ -124,7 +172,7 @@ function Entry({ title, who, at, mark, body }: { title?: string; who: string | u
   );
 }
 
-export function Conversation({ page, description }: { page: PullRequestTabsProps["page"]; description: string }) {
+export function Conversation({ page, description, triage, focused }: { page: PullRequestTabsProps["page"]; description: string; triage?: PullRequestTabsProps["triage"]; focused?: PullRequestTabsProps["focused"] }) {
   const first = description.trim() !== "";
   if (!first && page.conversation.length === 0) return null;
   return (
@@ -148,6 +196,8 @@ export function Conversation({ page, description }: { page: PullRequestTabsProps
               at={entry.at}
               mark={verdict === undefined ? undefined : <Mark Glyph={verdict.Glyph} said={verdict.said} tone={verdict.tone} />}
               body={entry.body}
+              triage={triage?.(entry)}
+              focus={focused?.(entry)}
             />
           );
         })}

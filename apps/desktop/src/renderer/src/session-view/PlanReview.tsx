@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, FindingNotes, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type PlanRevision } from "@armada/components";
+import { Button, FindingNotes, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type PlanRevision } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -13,7 +13,7 @@ import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing 
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, revision, ed, findings, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({ open, plan, revision, ed, findings, pullRequests, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
   const unchanged = useUnchanged(revision);
@@ -57,11 +57,21 @@ export function PlanReview({ open, plan, revision, ed, findings, onApprove, onCl
           ) : (
             <>
               {pins === undefined ? null : <FindingNotes findings={pins.anchors.whole} label="Findings on the plan" onSend={pins.onSend} onDismiss={pins.onDismiss} />}
-              {groups.map((group) => (
-                <section key={group.id} className="sv-group sv-review__group" data-open aria-label={group.title}>
-                  <GroupEditor group={group} ed={ed} {...(pins === undefined ? {} : { pins })} />
-                </section>
-              ))}
+              {landingsOf(groups, pullRequests !== undefined).map((run) => {
+                const editors = run.groups.map((group) => (
+                  <section key={group.id} className="sv-group sv-review__group" data-open aria-label={group.title}>
+                    <GroupEditor group={group} ed={ed} {...(pins === undefined ? {} : { pins })} />
+                  </section>
+                ));
+                return run.landsIn === undefined ? (
+                  editors
+                ) : (
+                  <div key={run.key} className="sv-review__landing" role="group" aria-label={`Lands in ${run.landsIn.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+                    <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
+                    {editors}
+                  </div>
+                );
+              })}
               <AddGroup ed={ed} />
             </>
           )}

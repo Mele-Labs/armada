@@ -28,6 +28,8 @@ import type { TimelineAppended } from "./timeline";
 import type { ActFailed } from "./act-failed";
 import type { Autopilot } from "./autopilot";
 import type { WatchesChanged } from "./watches";
+import type { BugReportsChanged } from "./bug-reports";
+import type { JobLifecyclesChanged } from "./lifecycles";
 import type { BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -98,6 +100,10 @@ export type Event =
   | ({ kind: "autopilot.changed" } & Autopilot)
   /** A Job's watches after any change to one, whole, as `list_watches` answers. */
   | ({ kind: "watches.changed" } & WatchesChanged)
+  /** Every bug report agents made of Armada, whole, after one was made, kept or dropped. */
+  | ({ kind: "bug_reports.changed" } & BugReportsChanged)
+  /** What a Job holds and where it stands, whole, after an instance was taken on or moved. */
+  | ({ kind: "job_lifecycles.changed" } & JobLifecyclesChanged)
   /** The plan's windows after a session read them moving, whole. */
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */

@@ -10,7 +10,10 @@
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{Backlog, BeadState, CopyMark, FromOutside, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
+use adapter_traits::{
+    Backlog, BeadState, CopyMark, FromOutside, IssueField, IssueWrite, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
+    TrackerWrites,
+};
 
 use crate::delivery::{last_line, said};
 use crate::jira_tracker::{missing, Process, Run};
@@ -218,6 +221,47 @@ impl<R: Run> Backlog for BeadsTracker<R> {
         }
         args.extend(["--reason", reason, "--force"]);
         self.written(in_repo, &args, doing)
+    }
+}
+
+impl<R: Run> TrackerWrites for BeadsTracker<R> {
+    fn can(&self, write: &IssueWrite<'_>) -> Result<(), String> {
+        bd_arguments("armada-1", write).map(drop)
+    }
+
+    fn write(&self, in_repo: &str, reference: &str, write: &IssueWrite<'_>) -> Result<(), NotTracked> {
+        let doing = write.doing();
+        let reference = reference.trim();
+        if reference.is_empty() || reference.starts_with('-') {
+            return Err(NotTracked::of(doing, format!("`{reference}` is not an issue id")));
+        }
+        let args = bd_arguments(reference, write).map_err(|why| NotTracked::of(doing, why))?;
+        self.written(in_repo, &args.iter().map(String::as_str).collect::<Vec<_>>(), doing)
+    }
+}
+
+/// What a close says it was for, since `bd` keeps one.
+const CLOSED_BY_A_RULE: &str = "Closed by a rule";
+
+/// The statuses `bd update --status` takes, beside `closed`, which is `bd close`.
+const BD_STATUSES: [&str; 3] = ["open", "in_progress", "blocked"];
+
+/// The `bd` arguments that make `write` to the issue `reference`, or why `bd` cannot.
+///
+/// **A close is forced past a blocker or an open child**, as [`Backlog::put_state`]'s is: the rule
+/// is the owner's say that the thing is done.
+pub(crate) fn bd_arguments(reference: &str, write: &IssueWrite<'_>) -> Result<Vec<String>, String> {
+    let close = || ["close", reference, "--reason", CLOSED_BY_A_RULE, "--force"].map(String::from).to_vec();
+    match write {
+        IssueWrite::Move { status: "closed" } | IssueWrite::Close { .. } => Ok(close()),
+        IssueWrite::Move { status } if BD_STATUSES.contains(status) => {
+            Ok(["update", reference, "--status", status].map(String::from).to_vec())
+        }
+        IssueWrite::Move { status } => Err(format!("bd has no status called `{status}`; it has open, in_progress, blocked and closed")),
+        IssueWrite::Assign { to } => match to.trim() {
+            name if name.is_empty() || name.starts_with('-') => Err(format!("`{to}` is not a name bd takes for an assignee")),
+            name => Ok(["update", reference, "--assignee", name].map(String::from).to_vec()),
+        },
     }
 }
 

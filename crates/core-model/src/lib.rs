@@ -26,10 +26,18 @@ mod credentials;
 mod envelope;
 /// Kit's MCP servers and the two tiers that reach a Drone. `docs/concepts/kit.md`.
 mod kit;
+/// The state machines a Job's tickets, pull requests, deploys and Jobs move through.
+mod lifecycle;
+/// Where a piece of configuration is kept: Armada's, the repository's or yours in Kit.
+mod piece;
 mod policy;
 /// Which door an act came through, and whom friction got in the way of.
 /// `docs/concepts/retro.md`.
 mod retro;
+/// A lifecycle rule: When, If and Do with an autonomy setting, and the engine that plans from them.
+/// Public as a module and not flattened into the crate root, since `Condition`, `Target` and
+/// `Words` would be read there as the nouns of everything else.
+pub mod rule;
 /// A Studio, its nodes and its edges. `docs/concepts/studio.md`.
 mod studio;
 /// Which tests reach each file in a repository. `docs/concepts/test-map.md`.
@@ -38,6 +46,8 @@ mod test_map;
 mod watch;
 /// The workflow a Session or a Job follows, and the ids it is spelled in.
 mod workflow;
+/// A Workspace means a set of repositories, and not the Manifest's monorepo unit.
+mod workspace;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
@@ -54,8 +64,17 @@ pub use workflow::{
     Title, WorkflowId,
     WorkflowSource, under,
 };
+pub use piece::PieceSource;
+pub use workspace::{MalformedWorkspace, Workspace};
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
+};
+pub use lifecycle::{
+    AlreadyHeld, BlankKey, BlankScope, FleetFact, ForgeFact, HeldInstances, InstanceRef, Lifecycle,
+    LifecycleId, LifecycleInstance, LifecycleScope, LifecycleState, LifecycleTransition,
+    MalformedLifecycle, Moved, NotAnId, NotOfThisLifecycle, Observed, ScopeId, StateId, StateRead, StateSource, Standing,
+    TrackerWords,
+    LifecycleEnd, NotALifecycleEnd, Waits,
 };
 pub use retro::{Change, LandsIn, LessonState, Via, Whose};
 pub use test_map::{EdgeGrain, EdgeSource, TestMapEdge};

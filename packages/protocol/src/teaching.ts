@@ -6,21 +6,23 @@
 // `TeachingRead`, `TeachingSaved` and `WordRulesRead` are Bridge's own envelopes over them, an outcome in
 // place of a body.
 
+import type { LifecycleRule } from "./lifecycles";
 import type { LogbookKind, LogbookSection } from "./logbook";
+import type { LifecyclePieceSaved } from "./piece-saving";
 import type { Outcome } from "./reads";
 
 /** How far a teaching reaches: the Session's repository, or all of them. */
 export type TeachingReach = "repository" | "everywhere";
 
 /** What Teach was pressed on. `panel`, `row` and `title_bar` are Bridge's own interface, where no agent was in the room. */
-export type TeachingSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "panel" | "row" | "title_bar";
+export type TeachingSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "ticket" | "panel" | "row" | "title_bar";
 
 /** The thing Teach was pressed on, as a short text and the ids that name it. */
 export type TeachingSource = {
   kind: TeachingSourceKind;
   /** What it shows, in a few words. A mod made from this records it as `taught_on`. */
   text: string;
-  /** A `notice` source holds the notice's word first; a `panel` source holds the panel's id. */
+  /** A `notice` source holds the notice's word first; a `ticket` source its key; a `panel` source the panel's id. */
   ids?: string[];
 };
 
@@ -139,6 +141,15 @@ export type TeachingLayout = {
   layout: string;
 };
 
+/**
+ * The rule part of a proposal: a lifecycle rule as the Workflows page edits it, and what the person said that Fleet cannot
+ * test. Only the rule is ever kept in a file; a rule saved with `untestable` is saved without it.
+ */
+export type ProposedRule = LifecycleRule & {
+  /** The person's own words for each condition they named that a rule's `if` cannot hold. Fleet invents none in its place. */
+  untestable?: string[];
+};
+
 /** `read_teaching`' answer: at least one part is present. Nothing is kept. */
 export type TeachingProposal = {
   note?: TeachingNote;
@@ -146,6 +157,8 @@ export type TeachingProposal = {
   fleet?: ProposedFleet;
   tweak?: TweakChange[];
   layout?: TeachingLayout;
+  /** Its `scope` is the reach the person chose, which a save puts it at whatever this carries. */
+  rule?: ProposedRule;
 };
 
 /**
@@ -170,6 +183,8 @@ export type SavedTeaching = {
   entry?: string;
   /** The mods written or added to, by name. Absent when none was. */
   mods?: string[];
+  /** The rule piece written in Kit. A rule is not a mod. */
+  rule?: LifecyclePieceSaved;
 };
 
 /** One pattern Bridge links, with where it opens for the repository asked about. */

@@ -18,6 +18,9 @@ store = { path = "../store" }
 # struct — see `yaml.rs` for why a `#[derive(Deserialize)]` could not carry the
 # refusals this crate has to produce.
 serde_yaml_ng = "0.10"
+# Only the `Serialize` bound of `writing::piece_text`, which hands a caller's document to the
+# YAML crate above without the caller depending on it. Already in the lockfile through that crate.
+serde = "1"
 
 [dev-dependencies]
 # `tests/shipped.rs` only, and only for the model roster. Its subject is the

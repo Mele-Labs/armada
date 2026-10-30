@@ -1,7 +1,9 @@
 //! The issue tracker a repository keeps: what is open there, and one issue by
 //! its reference. **Read only**: Fleet never comments on, labels or edits an
-//! issue on the owner's behalf. The one tracker Fleet writes to is a [`Backlog`](crate::Backlog)
-//! as well, and the writes are that trait's.
+//! issue on the owner's behalf. The one tracker Fleet writes to unasked is a [`Backlog`](crate::Backlog)
+//! as well, and the writes are that trait's. The writes of a rule the owner saved, to move, assign
+//! or close an issue, are [`TrackerWrites`](crate::TrackerWrites)', which only
+//! [`Trackers::writer`] answers.
 //!
 //! **Its own trait, not more of [`Delivery`](crate::Delivery) or
 //! [`LinkLookup`](crate::LinkLookup).** Delivery publishes a Job's branch and is
@@ -15,7 +17,7 @@ use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::{FromOutside, LinkLookup};
+use crate::{FromOutside, LinkLookup, ReadOnly, TrackerWrites};
 
 /// One issue, as the tracker listed it: open where [`Tracker::open_issues`] listed it, either
 /// where [`Tracker::search_issues`] did.
@@ -334,6 +336,15 @@ pub trait Trackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn crate::Backlog + Send + Sync>> {
         let _ = choice;
         None
+    }
+
+    /// What makes the writes a saved rule plans to the issues of the tracker `choice` names.
+    /// **Total, and never the reader**: a tracker with no call for a write answers with one that says
+    /// so, and a caller holding [`tracker`](Trackers::tracker) cannot reach it. Read only by
+    /// default.
+    fn writer(&self, choice: &TrackerChoice) -> Arc<dyn TrackerWrites + Send + Sync> {
+        let _ = choice;
+        Arc::new(ReadOnly)
     }
 
     /// Install `tool` where it is absent, and set it up for the repository checked out at

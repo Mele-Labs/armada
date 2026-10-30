@@ -6,7 +6,7 @@ use crate::{
     SessionRecord, SessionState, SessionTodo, SessionTodoState, SessionUsage,
 };
 
-fn row(activity: Option<SessionActivity>) -> SessionRecord {
+pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
     SessionRecord {
         id: SessionId::carried("s1"),
         harness: "a-harness".to_string(),
@@ -25,6 +25,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        tools_missing: None,
         waiting_for: Vec::new(),
         done_since: None,
         held_until: None,
@@ -44,12 +45,15 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        closed: Vec::new(),
         waits: None,
         later: Vec::new(),
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
+        workflow_waiting_on: Vec::new(),
+        workflow_copy: None,
     }
 }
 
@@ -60,9 +64,9 @@ fn activity_round_trips_under_the_names_the_wire_gives_it() {
     let activity = SessionActivity {
         now: Some("Editing gate.rs".to_string()),
         todos: vec![
-            SessionTodo { text: "Add the field".to_string(), state: SessionTodoState::Done },
-            SessionTodo { text: "Detect in the gate".to_string(), state: SessionTodoState::Doing },
-            SessionTodo { text: "Write the docs".to_string(), state: SessionTodoState::Todo },
+            SessionTodo { text: "Add the field".to_string(), state: SessionTodoState::Done, task: None },
+            SessionTodo { text: "Detect in the gate".to_string(), state: SessionTodoState::Doing, task: None },
+            SessionTodo { text: "Write the docs".to_string(), state: SessionTodoState::Todo, task: None },
         ],
         said: Some("Reading the gate first".to_string()),
         subagents: Vec::new(),

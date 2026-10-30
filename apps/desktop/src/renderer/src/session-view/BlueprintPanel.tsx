@@ -33,7 +33,7 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
   const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done" || task.state === "handed_in"));
   const broke = plan !== undefined && plan.approved && plan.groups.some((group) => group.tasks.some((task) => task.state === "failed"));
   const state: PanelState | undefined = plan === undefined ? undefined : !plan.approved ? "draft" : broke ? "failed" : finished ? "done" : "live";
-  const tasks = planned ? [] : (work.tasks ?? []);
+  const todos = (session.activity?.todos ?? []).filter((one) => one.task === undefined);
   const atWork = planned ? [] : subagentsAtWork(session);
   const workingGroup = accountGroupOf(session)?.id;
   const now = accountNowOf(session);
@@ -72,7 +72,7 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
     <SvPanel label="Blueprint" area="blueprint" place={place} state={state} acts={bar} fold={fold} keycap={bandKeyFor("blueprint")}>
       <FlightHead session={session} work={work} id={id} manifestId={manifestId} acts={acts} />
       {drafting && plan.summary !== undefined ? <p className="sv-blueprint__summary">{plan.summary}</p> : null}
-      {tasks.length === 0 ? null : <AgentTasks tasks={tasks} />}
+      {todos.length === 0 ? null : <AgentTasks todos={todos} working={session.turn.state === "working"} />}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
       {!planned || !nowView ? null : <FlightRows groups={groups} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
       {!planned || nowView ? null : (

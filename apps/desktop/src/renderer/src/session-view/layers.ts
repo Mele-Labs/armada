@@ -1,10 +1,10 @@
-// The layer open over a Session's stage: Artifacts, Subagents, Checks, Slot, the Field or the Job's document (which floats over the whole Job). One at a time, for one Session. Flight control's keys open
+// The layer open over a Session's stage: Artifacts, Subagents, Checks, Slot, System, Lanes (on a wide window), the Field or the Job's document (which floats over the whole Job). One at a time, for one Session. Flight control's keys open
 // them and the layer's Back closes it, so the thread under it is never unmounted and is where he left it. The element that had focus
 // when a layer opened gets it back on Back.
 
 import { useSyncExternalStore } from "react";
 
-export type LayerId = "artifacts" | "subagents" | "checks" | "slot" | "field" | "document";
+export type LayerId = "artifacts" | "subagents" | "checks" | "slot" | "system" | "lanes" | "field" | "document";
 
 // `page` is which of the Job's documents the document layer reads: the `id` of its artifact. Absent, the layer takes the first.
 type Open = { session: string; layer: LayerId; from: HTMLElement | null; page?: string };
@@ -41,6 +41,9 @@ export function closeLayer(): void {
 export function dropLayer(session: string): void {
   if (open?.session === session) set(undefined);
 }
+
+/** The layer over this Session now, read once and not subscribed to. */
+export const layerOver = (session: string): LayerId | undefined => (open?.session === session ? open.layer : undefined);
 
 /** The layer over this Session, if one is. */
 export function useLayer(session: string): LayerId | undefined {

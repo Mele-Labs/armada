@@ -15,6 +15,7 @@ import type { AnswerWaiting } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { restartOf } from "../build-change";
+import { askToEnd } from "../end-job";
 import { useDispatching } from "../dispatch-panel/dispatching";
 import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
@@ -309,7 +310,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
       if (given.source === "done") {
         return [
-          oneTap("End job", () => (draft?.close?.(waiting.sessionId), finish())),
+          oneTap("End job", () => (draft?.close === undefined ? finish() : askToEnd(draft, waiting.sessionId, finish))),
           oneTap("Keep going", () =>
             wait("Keep going", async (): Promise<Told> => {
               const kept = await dismissWaiting(waiting.sessionId, given.id);
@@ -360,6 +361,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : void openInPanel({ kind: "pr", number: Number(number), address })))];
       }
       if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
+      // A sketch is approved on its card in the Job's thread, so the key goes there.
+      if (given.source === "sketch") return [oneTap("Open the Job", () => hosts.onOpenSession(waiting.sessionId))];
       return [];
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.

@@ -47,6 +47,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        tools_missing: None,
         waiting_for: Vec::new(),
         done_since: None,
         standing: None,
@@ -66,12 +67,15 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        closed: Vec::new(),
         waits: None,
         later: Vec::new(),
         held_open_by: None,
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
+        workflow_waiting_on: Vec::new(),
+        workflow_copy: None,
     }
 }
 

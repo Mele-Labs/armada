@@ -49,6 +49,8 @@ pub(crate) struct LedgerReads {
     /// The latest adversarial review of the plan, whatever version it read.
     adversarial: Option<store::KeptAdversarialReview>,
     touches: Vec<store::KeptTouch>,
+    /// The pull requests the plan may land in: the Session's own and those of the Jobs its groups were handed to.
+    pulls: Vec<crate::plan_record::PlanPull>,
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,
     /// How the Job was started, and the Job that started it.
@@ -81,7 +83,7 @@ pub(crate) use shown::steps_shown;
 pub(crate) use wire::mod_is_older;
 use shown::{origins_named, shows_a_page, sign_in_named, takes_shown, ONE_AT_A_TIME};
 use wire::{
-    attachment_state, attachment_wire, held_wire, mod_version_in, origin_text, session_state, session_wire,
+    attachment_state, held_wire, mod_version_in, origin_text, session_state, session_wire,
     wire_instant,
 };
 
@@ -419,6 +421,11 @@ where
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
             fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
+                // A hosted session's working band reads its activity, which only `TodoWrite` fills
+                // at the gate. Current CLIs serve the task tools instead, which only the mod hears.
+                if let (false, SessionFact::Tasks { tasks }) = (terminal, &fact) {
+                    changed |= self.hosts().of(&id).state().activity.tasks_told(tasks);
+                }
                 changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
             }
             // A hosted session's own calls are counted from its process, so its mod's count is not read.
@@ -839,6 +846,14 @@ where
         self.set_waiting(caller, set).await
     }
 
+    async fn list_closed_waiting(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::ClosedWaitingList, Refusal> {
+        self.closed_waiting_listed(caller, session_id).await
+    }
+
     async fn all_done(
         &self,
         caller: Option<api::Caller>,
@@ -869,6 +884,26 @@ where
         dispute: ipc::DisputeFleet,
     ) -> Result<ipc::FleetDisputed, Refusal> {
         self.fleet_disputed(caller, dispute).await
+    }
+
+    async fn report_bug(
+        &self,
+        caller: Option<api::Caller>,
+        report: ipc::ReportBug,
+    ) -> Result<ipc::BugReported, Refusal> {
+        self.bug_reported(caller, report).await
+    }
+
+    async fn list_bug_reports(&self) -> Result<ipc::BugReports, Refusal> {
+        self.bug_reports_listed().await
+    }
+
+    async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
+        self.bug_report_kept(report_id).await
+    }
+
+    async fn drop_bug_report(&self, report_id: String) -> Result<ipc::BugReportDropped, Refusal> {
+        self.bug_report_dropped(report_id).await
     }
 
     async fn finish_up(
@@ -1124,6 +1159,18 @@ where
             holders.push(held_wire(row, title));
         }
         Ok(Owners { holders })
+    }
+
+    async fn get_session_system(self: Arc<Self>, session_id: ipc::SessionId) -> Result<ipc::SessionSystem, Refusal> {
+        self.system_of(session_id).await
+    }
+
+    async fn stop_process(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        stop: ipc::StopProcess,
+    ) -> Result<ipc::ProcessStopped, Refusal> {
+        self.process_stopped(caller, stop).await
     }
 
     async fn get_session_usage(

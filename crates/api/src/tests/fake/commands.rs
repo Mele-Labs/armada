@@ -402,6 +402,10 @@ impl Commands for FakeDaemon {
             ipc::PieceToCommit::ReviewTool { id } => format!(".armada/review-tools/{id}.md"),
             ipc::PieceToCommit::Manifest => "armada.yml".to_string(),
             ipc::PieceToCommit::Requests { .. } => ".armada/requests.toml".to_string(),
+            ipc::PieceToCommit::Lifecycle { id, .. } => format!(".armada/lifecycles/{id}.yml"),
+            ipc::PieceToCommit::LifecycleRule { id, .. } => format!(".armada/rules/{id}.yml"),
+            ipc::PieceToCommit::Workspace { id } => format!(".armada/workspaces/{id}.yml"),
+            ipc::PieceToCommit::Autonomy { id, .. } => format!(".armada/autonomy/{id}.yml"),
         };
         Ok(ipc::CommittedToRepository {
             repository: asked.repository,

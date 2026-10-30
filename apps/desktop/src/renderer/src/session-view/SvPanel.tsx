@@ -38,7 +38,7 @@ function StateMark({ state, said }: { state: PanelState; said: string }) {
 }
 
 /** A panel with nothing to show stays open: it is never folded for being empty, only by a press (`story.ts`). */
-/** The layout entry each kind of step zone answers to: finished steps to Completed, the current one to Now, the ones to come to Next. */
+/** The layout entry each kind of step zone answers to: finished steps to Done, the current one to Now, the ones to come to Open. */
 const STEP_ZONE: Readonly<Record<string, string>> = { "step-done": "done", "step-now": "now", "step-next": "next" };
 
 /** What the band's own menu offers, on a right press or the ContextMenu key or Shift+F10 on the band. Teach joins it where the window offers Teach. */

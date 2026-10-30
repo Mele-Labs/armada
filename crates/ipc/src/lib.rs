@@ -40,6 +40,12 @@ mod capturing;
 mod checks;
 /// An agent's word that a Fleet notice was wrong, and the review that settles it.
 mod disputes;
+/// An agent's report that Armada itself got something wrong, kept on this Mac.
+mod bug_reports;
+/// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
+mod lifecycles;
+/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+mod piece_saving;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
 pub mod shape;
@@ -62,6 +68,8 @@ pub mod door;
 mod drift;
 /// What the Workflows page reads beside a definition's text, and its acts on a copy.
 mod workflow_page;
+/// A Job's own copy of its workflow, lifecycles and rules, and what was changed in it.
+mod job_copy;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
 /// The Manifest file itself, read and written — the half of Journey 9's
@@ -87,6 +95,8 @@ mod thought;
 mod timeline;
 /// Who held a slot and what was checked out in it, for the side panel's Bay.
 mod bay_history;
+/// A Job's processes, their load, its worktrees and logs, and ending one process.
+mod session_system;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
@@ -124,6 +134,8 @@ pub mod key_bindings;
 pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
+/// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
+pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
 /// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.
@@ -267,6 +279,17 @@ pub use annotations::{
     AnnotationMarked, MarkAnnotationDone,
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
+pub use bug_reports::{BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use piece_saving::{
+    AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
+    LifecyclePieceSaved, SaveLifecyclePiece, WorkspaceToSave,
+};
+pub use lifecycles::{
+    AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
+    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
+    RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
+};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft,
@@ -290,6 +313,10 @@ pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
 };
 pub use configured::ManifestConfig;
+pub use job_copy::{
+    ChangeJobCopy, ChangeSessionSteps, ChangedBy, CopyPieceKind, JobCopy, JobCopyChange, JobCopyPiece, JobCopyStep, JobPieceProposed,
+    KeepJobPiece, KeepJobWorkflow, ProposeWorkflowChange, StepChange,
+};
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
     SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
@@ -327,6 +354,9 @@ pub use thought::{
     HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent,
     ThoughtTarget,
 };
+pub use session_system::{
+    ProcessStopped, SessionSystem, StopProcess, SystemLog, SystemProcess, SystemProcessState, SystemWorktree,
+};
 pub use bay_history::{
     BayHistory, BayHistoryAsk, BayHistoryEntry, BayHolder, BayHolderKind, MOST_BAY_HISTORY,
 };
@@ -354,7 +384,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use session_mcp::{
@@ -491,7 +521,7 @@ pub use logbook::{
     LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LockLogbookEntry, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
-    ProposedAddress, ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
     TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
 pub use taught_mods::{AddressFound, CommandsFile, Condition, Does, FleetFile, FleetRule, Instead, PaletteCommand, RuleScope, WordsAddress, WordsFile};
@@ -581,11 +611,11 @@ pub use session_summary::{
 };
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
-    AttachmentVersion, ConfirmWaiting, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
@@ -622,9 +652,9 @@ pub use session_activity::{
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
-    PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
+    PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
-    TaskStale, TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
+    TaskStale, TouchAct, TouchBy, FIRST_PULL_REQUEST, MOST_LANDS_IN_CHARS, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };
 pub use session_rail::{
     ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading,

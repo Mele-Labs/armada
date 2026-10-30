@@ -3,7 +3,7 @@
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
 import { ExternalLink, GitCommitHorizontal, GitPullRequest, Link, MessageSquareText, PencilRuler, Presentation, Split, SquareTerminal, Ticket, type LucideIcon } from "lucide-react";
-import { ARTIFACT, BACKGROUND, FILE_SHOWN, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
+import { ARTIFACT, BACKGROUND, FILE_SHOWN, closedMark, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
 import { attachmentsOf, issueLabel, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { openLink } from "../commands";
@@ -30,6 +30,8 @@ export type ArtifactRow = {
   prNumber?: number;
   /** Absent for a row that has nowhere to go. */
   open?: () => void;
+  /** An item he closed from Needs you: when, and Reopen where its thing still stands. */
+  closed?: { at: string; onReopen?: () => void };
 };
 
 export type ArtifactGroup = { id: string; label: string; rows: ArtifactRow[] };
@@ -80,6 +82,18 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   const open = (entry: LedgerEntry | undefined) => (entry === undefined ? {} : { open: entry.onOpen });
   const newest = <T,>(rows: readonly T[]) => [...rows].reverse();
 
+  // First section: the Jobs this one handed plan groups to.
+  add(
+    "session",
+    "Jobs",
+    beside === undefined
+      ? []
+      : childrenOf(beside.sessions, session).map(({ session: child, title }) => {
+          const props = linkedPropsOf(child, beside.open);
+          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Job", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
+        }),
+  );
+
   add(
     "pull_request",
     "Pull requests",
@@ -87,6 +101,13 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
       const entry = entryOf(entries, "pull_request", String(one.number));
       return { key: `pr:${one.number}`, Glyph: GitPullRequest, said: "Pull request", title: `#${one.number} ${one.title}`, sub: one.branch, prNumber: one.number, ...(entry?.pr === undefined ? {} : { pr: entry.pr }), ...open(entry) };
     }),
+  );
+
+  // What he closed from Needs you, as the ledger holds it, newest first.
+  add(
+    "closed",
+    "Closed",
+    entries.flatMap((entry) => (entry.kind !== "closed" || entry.closed === undefined ? [] : [{ key: entry.key, ...closedMark(entry), title: entry.name, closed: entry.closed }])),
   );
 
   add(
@@ -165,17 +186,6 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   });
   const ran = newest(session.rows.flatMap((row) => commandOf(row) ?? []));
   add("command", "Commands", [...background, ...ran]);
-
-  add(
-    "session",
-    "Jobs",
-    beside === undefined
-      ? []
-      : childrenOf(beside.sessions, session).map(({ session: child, title }) => {
-          const props = linkedPropsOf(child, beside.open);
-          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Job", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
-        }),
-  );
 
   add(
     "studio",

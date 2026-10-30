@@ -15,6 +15,8 @@ pub enum Delivered {
     ReadPullRequest { pull_request: String },
     /// A pull request was taken out of draft.
     MarkedReady { pull_request: String },
+    /// These people were asked to review a pull request.
+    RequestedReviewers { pull_request: String, reviewers: Vec<String> },
     /// The forge was asked for a pull request's page.
     ReadPullRequestPage { pull_request: String },
     /// The forge was asked for one file's patch on a pull request.

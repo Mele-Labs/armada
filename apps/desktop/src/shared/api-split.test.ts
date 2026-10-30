@@ -144,7 +144,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, ReopenWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -155,6 +155,7 @@ import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { AgentSignInRead } from "./api/agent-sign-in";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
+import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "./api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
@@ -175,6 +176,8 @@ import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
 import { JOB_BROWSER_CHANNELS, type JobBrowserApi } from "./api/job-browser";
 import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
+import { BUG_REPORTS_CHANNELS, type BugReportsApi } from "./api/bug-reports";
+import { LIFECYCLES_CHANNELS, type LifecyclesApi } from "./api/lifecycles";
 import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -392,6 +395,7 @@ type OldBridgeApi = {
     changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
     startWaitingNow: (sessionId: string) => Promise<SessionActed>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+    reopenWaiting: (reopen: ReopenWaiting) => Promise<SessionActed>;
     confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
     confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
     answerSketch: (answer: AnswerSketch) => Promise<SessionActed>;
@@ -414,6 +418,8 @@ type OldBridgeApi = {
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onActFailed: (onFailed: (failed: ActFailed) => void) => () => void;
     getSlotHistory: (manifestId: string, slot: number) => Promise<BayHistoryRead>;
+    getSessionSystem: (sessionId: string) => Promise<SessionSystemRead>;
+    stopProcess: (sessionId: string, target: ProcessTarget) => Promise<ProcessStopRead>;
     getUsageSummary: (tzOffsetMinutes: number) => Promise<UsageSummaryRead>;
     getUsageRules: () => Promise<UsageRulesRead>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
@@ -481,6 +487,7 @@ type OldBridgeApi = {
     readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
     actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
+    mendSessionTools: (sessionId: string) => Promise<SessionActed<void>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
     getSessionWindows: () => Promise<readonly string[]>;
@@ -515,7 +522,7 @@ type OldBridgeApi = {
     readTerminalSoFar: (runId: string) => Promise<string | null>;
     moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
     onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & AttachmentsApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & ProjectsApi & PullRequestNotesApi;
+} & AutopilotApi & SketchShareApi & FilesApi & AttachmentsApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & ProjectsApi & BugReportsApi & LifecyclesApi & PullRequestNotesApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -723,6 +730,7 @@ const OLD_CHANNELS = {
     changeWaiting: "bridge:change-waiting",
     startWaitingNow: "bridge:start-waiting-now",
     dismissWaiting: "bridge:dismiss-waiting",
+    reopenWaiting: "bridge:reopen-waiting",
     confirmLater: "bridge:confirm-later",
     confirmWaiting: "bridge:confirm-waiting",
     answerSketch: "bridge:answer-sketch",
@@ -745,6 +753,8 @@ const OLD_CHANNELS = {
     timelineAppended: "bridge:timeline-appended",
     actFailed: "bridge:act-failed",
     getSlotHistory: "bridge:get-slot-history",
+    getSessionSystem: "bridge:get-session-system",
+    stopProcess: "bridge:stop-process",
     getUsageSummary: "bridge:get-usage-summary",
     getUsageRules: "bridge:get-usage-rules",
     planUsageChanged: "bridge:plan-usage-changed",
@@ -810,6 +820,7 @@ const OLD_CHANNELS = {
     readLoadoutItem: "bridge:read-loadout-item",
     readSessionMcp: "bridge:read-session-mcp",
     actOnSessionMcp: "bridge:act-on-session-mcp",
+    mendSessionTools: "bridge:mend-session-tools",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
     getSessionWindows: "bridge:get-session-windows",
@@ -857,6 +868,8 @@ const OLD_CHANNELS = {
     ...TEACHING_CHANNELS,
     ...JOB_BROWSER_CHANNELS,
     ...PROJECTS_CHANNELS,
+    ...BUG_REPORTS_CHANNELS,
+    ...LIFECYCLES_CHANNELS,
     ...PULL_REQUEST_NOTES_CHANNELS,
 } as const;
 

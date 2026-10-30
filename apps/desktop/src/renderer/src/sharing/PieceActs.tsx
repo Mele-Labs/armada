@@ -7,7 +7,8 @@
 // not a refusal, such as a route this Fleet does not serve yet, is the window's toast, which names the pull request that builds it.
 
 import { useState } from "react";
-import { Button } from "@armada/components";
+import { Copy, GitCommitHorizontal, Share } from "lucide-react";
+import { Button, Tooltip } from "@armada/components";
 import type { CommittedToRepository, Outcome, PieceToCommit } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
@@ -48,8 +49,10 @@ export async function sharePiece(repository: string, piece: PieceToCommit, how: 
   return saved.saved ? { said: `Saved ${saved.name}` } : saved.why === "cancelled" ? undefined : { said: "Not saved" };
 }
 
-/** The three acts on one piece. */
-export function PieceActs({ repository, piece }: { repository: string; piece: PieceToCommit }) {
+/**
+ * The three acts on one piece, or Commit alone where Share does not carry the piece yet (`commitOnly`). **With `icons` each is a glyph with its tooltip**, in one group a toolbar draws beside its others; the sentence they leave drops to a line of its own under the toolbar.
+ */
+export function PieceActs({ repository, piece, icons = false, commitOnly = false }: { repository: string; piece: PieceToCommit; icons?: boolean; commitOnly?: boolean }) {
   const [said, setSaid] = useState<ActSaid>();
   const [busy, setBusy] = useState(false);
   const act = (run: () => Promise<ActSaid>) => async () => {
@@ -63,18 +66,27 @@ export function PieceActs({ repository, piece }: { repository: string; piece: Pi
     }
   };
   const job = said?.job;
+  const acts = [
+    { label: "Commit to repository", Glyph: GitCommitHorizontal, run: () => commitPiece(repository, piece) },
+    { label: "Share", Glyph: Share, run: () => sharePiece(repository, piece, "share") },
+    { label: "Copy", Glyph: Copy, run: () => sharePiece(repository, piece, "copy") },
+  ].filter((one) => !commitOnly || one.label === "Commit to repository");
   return (
-    <div className="piece-acts">
-      <div className="piece-acts__row">
-        <Button variant="secondary" size="sm" disabled={busy} onClick={act(() => commitPiece(repository, piece))}>
-          Commit to repository
-        </Button>
-        <Button variant="secondary" size="sm" disabled={busy} onClick={act(() => sharePiece(repository, piece, "share"))}>
-          Share
-        </Button>
-        <Button variant="secondary" size="sm" disabled={busy} onClick={act(() => sharePiece(repository, piece, "copy"))}>
-          Copy
-        </Button>
+    <div className="piece-acts" data-icons={icons || undefined}>
+      <div className="piece-acts__row" {...(icons ? { role: "group", "aria-label": "Where it is kept" } : {})}>
+        {acts.map(({ label, Glyph, run }) =>
+          icons ? (
+            <Tooltip key={label} label={label}>
+              <Button variant="secondary" size="sm" iconOnly aria-label={label} disabled={busy} onClick={act(run)}>
+                <Glyph size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          ) : (
+            <Button key={label} variant="secondary" size="sm" disabled={busy} onClick={act(run)}>
+              {label}
+            </Button>
+          ),
+        )}
       </div>
       {said === undefined ? null : (
         <p className="piece-acts__said" role="status">

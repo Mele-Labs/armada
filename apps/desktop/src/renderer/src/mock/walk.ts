@@ -26,6 +26,8 @@ export type Target = {
   exact?: boolean;
   /** Looked for only inside this one. */
   within?: Target;
+  /** What to look for instead where this is not on the page, in this order. */
+  or?: Target[];
   /** How a stop names it. */
   said: string;
 };
@@ -91,6 +93,14 @@ export function text(words: Name): Target {
 export function card(label: string): Target {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return { role: "button", name: new RegExp(`^${escaped}, `), said: `a card named “${label}”` };
+}
+
+/**
+ * `first`, or else the next of `others` that is on the page: a place that is drawn two ways, as Back is a button where a panel opened over another and
+ * Close is the one where it opened over the page.
+ */
+export function either(first: Target, ...others: Target[]): Target {
+  return { ...first, or: others, said: [first, ...others].map((one) => one.said).join(" or ") };
 }
 
 /** `target`, looked for only inside `scope`. */
@@ -275,9 +285,10 @@ function fill(element: HTMLElement, words: string): void {
 
 /**
  * A drag as a mouse makes one: down on the element's middle, a few moves on
- * the window, and up where it ends. **On the window and not the element**,
+ * the page, and up where it ends. **On the document and not the element**,
  * which is where a canvas listens once a drag has started — React Flow's drag
- * follows the pointer off the node it picked up.
+ * follows the pointer off the node it picked up, and its connector listens on
+ * the document. What is sent to the document reaches the window too.
  */
 function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = false): void {
   const box = element.getBoundingClientRect();
@@ -300,10 +311,10 @@ function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = fal
   element.dispatchEvent(new MouseEvent("mousedown", at(from.x, from.y, 1)));
   for (const part of [0.25, 0.5, 0.75, 1]) {
     element.dispatchEvent(new PointerEvent("pointermove", pointer(from.x + by.x * part, from.y + by.y * part, 1)));
-    window.dispatchEvent(new MouseEvent("mousemove", at(from.x + by.x * part, from.y + by.y * part, 1)));
+    document.dispatchEvent(new MouseEvent("mousemove", at(from.x + by.x * part, from.y + by.y * part, 1)));
   }
   element.dispatchEvent(new PointerEvent("pointerup", pointer(from.x + by.x, from.y + by.y, 0)));
-  window.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
+  document.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
 }
 
 /**

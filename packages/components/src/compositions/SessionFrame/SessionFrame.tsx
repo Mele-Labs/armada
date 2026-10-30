@@ -1,10 +1,11 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { BatteryLow, LoaderCircle, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
+import { Popover } from "../../primitives/Popover/Popover";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -99,6 +100,91 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
   );
 }
 
+/**
+ * One thing the agent came up without, as the mark's menu lists it. `act` is the press that puts it right and is absent where nothing in this
+ * build can; `running` shows the act's button as working, and `error` is the CLI's own words under a row whose act failed.
+ * `closes` puts the menu away on the press, for an act that goes on in the Job's terminal.
+ */
+export type ToolsFix = { piece: string; said: string; act?: string; running?: boolean; error?: string; closes?: boolean };
+
+/** Arrow keys move among the menu's acts, as a menu's do. */
+function arrowAmong(event: ReactKeyboardEvent<HTMLElement>): void {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  const acts = [...event.currentTarget.querySelectorAll<HTMLElement>("button")];
+  if (acts.length === 0) return;
+  event.preventDefault();
+  const at = acts.indexOf(document.activeElement as HTMLElement);
+  const next = event.key === "ArrowDown" ? (at + 1) % acts.length : (at <= 0 ? acts.length : at) - 1;
+  acts[next]?.focus();
+}
+
+/** The menu's body: what the mark's sentence says beyond its pieces (the CLI and its version), then a row for each piece, its act at the row's end. */
+export function ToolsMenu({ said, fixes, onFix, close, focusFirst = true }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void; close: () => void; focusFirst?: boolean }) {
+  const body = useRef<HTMLDivElement>(null);
+  const head = fixes.reduce((left, one) => left.replace(one.said, ""), said).trim();
+  // Opened, it takes focus on the first act, so the arrow keys have somewhere to start.
+  useEffect(() => {
+    if (focusFirst) body.current?.querySelector<HTMLElement>("button")?.focus();
+  }, [focusFirst]);
+  return (
+    <div ref={body} className="armada-tools-menu" onKeyDown={arrowAmong}>
+      {head === "" ? null : <p className="armada-tools-menu__head">{head}</p>}
+      <ul className="armada-tools-menu__rows">
+        {fixes.map((one) => (
+          <li key={one.piece} className="armada-tools-menu__row">
+            <span className="armada-tools-menu__said">{one.said}</span>
+            {one.act === undefined ? null : (
+              <Button size="sm" ground="sunken" pending={one.running === true} onClick={() => {
+                  onFix(one.piece);
+                  if (one.closes === true) close();
+                }}>
+                {one.running === true ? (
+                  <span className="armada-tools-menu__working" role="img" aria-label="Working">
+                    <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                ) : null}
+                {one.act}
+              </Button>
+            )}
+            {one.error === undefined ? null : <p className="armada-tools-menu__error">{one.error}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * The agent came up without some of its Armada tools: the mark, and its tooltip is the label. Given `fixes` it is a button, and a press opens
+ * a menu of the pieces, each with the act that puts it right (the owner, 29 Oct 2026: "I hate leaving users in a state of error with no way out").
+ */
+export function ToolsMark({ said, size = 16, fixes, onFix, apparent }: { said: string; size?: 12 | 16; fixes?: readonly ToolsFix[]; onFix?: (piece: string) => void; apparent?: boolean }) {
+  if (fixes === undefined || fixes.length === 0 || onFix === undefined) {
+    return (
+      <Tooltip label={said}>
+        <span className="armada-session-mark" role="img" aria-label={said} data-apparent={apparent === true ? "" : undefined}>
+          <Unplug size={size} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    );
+  }
+  return (
+    <Popover
+      align="end"
+      label={said}
+      trigger={
+        <Tooltip label={said}>
+          <button type="button" className="armada-session-mark armada-tools-mark" aria-label={said} aria-haspopup="dialog" data-apparent={apparent === true ? "" : undefined}>
+            <Unplug size={size} strokeWidth={2} aria-hidden />
+          </button>
+        </Tooltip>
+      }
+    >
+      {(close) => <ToolsMenu said={said} fixes={fixes} onFix={onFix} close={close} />}
+    </Popover>
+  );
+}
+
 export { ContextFigure } from "./ContextFigure";
 export type { ContextCompact, ContextFill } from "./ContextFigure";
 
@@ -162,6 +248,12 @@ export type SessionFrameProps = {
   onNameForMe?: () => Promise<unknown>;
   /** The Session's mod is older than the repository's: marked beside the state. */
   modOutOfDate?: boolean;
+  /** What the agent came up without, said as the mark's tooltip: marked beside the state. Absent draws no mark. */
+  toolsMissing?: string;
+  /** What the mark's menu lists, one row for each piece, and the press on a row's act. Absent draws the mark with no menu. */
+  toolsFixes?: { fixes: readonly ToolsFix[]; onFix: (piece: string) => void };
+  /** The tools mark pulses in the needs-you hue, as a lamp of a Job that needs the person does. */
+  toolsApparent?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
   /** Compact, offered at the foot of the context tank's card or popover. Absent offers none. */
@@ -285,7 +377,7 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -304,6 +396,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, onName
         {loadout === undefined ? null : <LoadoutMark {...loadout} />}
         <span className="armada-session-frame__marks">
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+          {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} {...(toolsApparent === true ? { apparent: true } : {})} />}
         </span>
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}

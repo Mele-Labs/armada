@@ -108,7 +108,7 @@ async fn a_todo_write_replaces_the_list_and_leaves_now_alone() {
     .await;
     let seen = activity(&rig, &id).await.expect("a call was made");
     assert_eq!(seen.now.as_deref(), Some("Reading a.rs"), "a TodoWrite is not what it is doing");
-    let todo = |text: &str, state| SessionTodo { text: text.into(), state };
+    let todo = |text: &str, state| SessionTodo { text: text.into(), state, task: None };
     assert_eq!(
         seen.todos,
         [
@@ -290,4 +290,102 @@ async fn a_turns_text_sets_said_to_its_first_line_and_the_next_turn_clears_it() 
     rig.send(&id, "again").await;
     rig.stand_in.init(0);
     eventually(|| async { activity(&rig, &id).await.and_then(|seen| seen.said).is_none() }).await;
+}
+
+/// A task the mod heard the agent write, as the mod reports it.
+fn told(text: &str, status: ipc::ReportedTaskStatus) -> ipc::ReportedTask {
+    ipc::ReportedTask { id: text.chars().take(8).collect(), text: text.into(), status, by: None }
+}
+
+fn mod_reports(id: &SessionId, tasks: Vec<ipc::ReportedTask>) -> ipc::SessionReport {
+    ipc::SessionReport { harness: String::from(adapters::HOSTED_HARNESS), session_id: id.clone(), fact: ipc::SessionFact::Tasks { tasks } }
+}
+
+/// A CLI that serves `TaskCreate` and `TaskUpdate` never writes `TodoWrite`, so the gate sees no list
+/// and the working band would be empty: the mod's report is what fills it.
+#[tokio::test]
+async fn the_task_list_a_hosted_jobs_mod_reports_is_its_activity_list() {
+    use ipc::ReportedTaskStatus::{Completed, InProgress, Pending};
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    assert_eq!(activity(&rig, &id).await, None);
+
+    let record = rig
+        .fleet
+        .report_session(mod_reports(&id, vec![told("Add the field", Completed), told("Detect it", InProgress), told("Write the docs", Pending)]))
+        .await
+        .expect("kept");
+
+    let todo = |text: &str, state| SessionTodo { text: text.into(), state, task: None };
+    let expected = [
+        todo("Add the field", SessionTodoState::Done),
+        todo("Detect it", SessionTodoState::Doing),
+        todo("Write the docs", SessionTodoState::Todo),
+    ];
+    assert_eq!(record.activity.expect("the report's own row carries it").todos, expected);
+    assert_eq!(activity(&rig, &id).await.expect("kept").todos, expected);
+
+    rig.fleet.report_session(mod_reports(&id, vec![told("Write the docs", InProgress)])).await.expect("kept");
+    assert_eq!(activity(&rig, &id).await.expect("kept").todos, [todo("Write the docs", SessionTodoState::Doing)], "the whole list is replaced");
+
+    rig.fleet.report_session(mod_reports(&id, Vec::new())).await.expect("kept");
+    assert_eq!(activity(&rig, &id).await, None, "an empty list clears it");
+}
+
+#[tokio::test]
+async fn a_task_with_no_text_is_dropped_and_a_long_one_is_cut() {
+    use ipc::ReportedTaskStatus::Pending;
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    rig.fleet
+        .report_session(mod_reports(&id, vec![told("   ", Pending), told("  Padded  ", Pending), told(&"x".repeat(500), Pending)]))
+        .await
+        .expect("kept");
+
+    let todos = activity(&rig, &id).await.expect("kept").todos;
+    assert_eq!(todos.len(), 2, "the blank one is not a task: {todos:?}");
+    assert_eq!(todos[0].text, "Padded", "trimmed");
+    assert_eq!(todos[1].text.chars().count(), 200, "cut at two hundred characters");
+}
+
+/// Only a change publishes a row, so the report says whether the list moved.
+#[test]
+fn telling_the_same_list_again_is_no_change() {
+    use crate::session_host::activity::Activity;
+    use ipc::ReportedTaskStatus::{Completed, Pending};
+    let mut held = Activity::default();
+    let list = [told("One", Pending), told("Two", Pending)];
+
+    assert!(held.tasks_told(&list), "a first list is a change");
+    assert!(!held.tasks_told(&list), "the same list again is not");
+    assert!(held.tasks_told(&[told("One", Completed), told("Two", Pending)]), "a status moved");
+    assert!(held.tasks_told(&[]), "an empty list clears the one held");
+    assert!(!held.tasks_told(&[]), "and clearing nothing is not a change");
+    assert!(!held.tasks_told(&[told("  ", Pending)]), "a list of blanks is an empty one");
+}
+
+/// A terminal Job's list is its mod's alone, read for the build record and nothing else: its row has
+/// no working band for it to fill.
+#[tokio::test]
+async fn a_terminal_jobs_task_report_does_not_set_activity() {
+    let rig = rig_placing(None);
+    let id = SessionId::carried("terminal-1");
+    let report = |fact| ipc::SessionReport { harness: String::from("a-harness"), session_id: id.clone(), fact };
+    rig.fleet
+        .report_session(report(ipc::SessionFact::Started {
+            cwd: rig.root.clone(),
+            title: None,
+            origin: ipc::SessionOrigin::Terminal,
+            mod_version: None,
+        }))
+        .await
+        .expect("kept");
+
+    rig.fleet
+        .report_session(report(ipc::SessionFact::Tasks { tasks: vec![told("Write the docs", ipc::ReportedTaskStatus::InProgress)] }))
+        .await
+        .expect("kept");
+
+    assert_eq!(rig.fleet.activity_of(id.as_str()), None);
 }

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { Dispatch } from "./Dispatch";
+import { Draft } from "./Draft";
 import { start, useFleet } from "./fleet";
 import { Home } from "./Home";
 import { Job } from "./Job";
@@ -23,6 +24,8 @@ function Screen({ route }: { route: Route }) {
       return <Dispatch />;
     case "job":
       return <Job key={`${route.origin ?? "_"} ${route.id}`} origin={route.origin} id={route.id} />;
+    case "draft":
+      return <Draft key={`${route.origin} ${route.id}`} origin={route.origin} id={route.id} />;
     case "file":
       return <FileView origin={route.origin} id={route.id} path={route.path} />;
     case "sketch":

@@ -36,6 +36,7 @@ impl Sessions for FakeDaemon {
             hosted: None,
             terminal: None,
             mod_out_of_date: false,
+            tools_missing: None,
             waiting_for: Vec::new(),
             done_since: None,
             standing: None,
@@ -55,12 +56,15 @@ impl Sessions for FakeDaemon {
             judging: false,
             judge: None,
             settled: Vec::new(),
+            closed: Vec::new(),
             waits: None,
             later: Vec::new(),
             held_open_by: None,
             started: None,
             workflow_visits: Vec::new(),
             skipped_steps: Vec::new(),
+            workflow_waiting_on: Vec::new(),
+            workflow_copy: None,
         })
     }
 
@@ -238,6 +242,10 @@ impl Sessions for FakeDaemon {
             pull: None,
             part_title: None,
             by: ipc::WaitBy::You,
+            held: change.held.unwrap_or(true),
+            workflow: None,
+            model: None,
+            effort: None,
         })
     }
 
@@ -542,6 +550,37 @@ impl Sessions for FakeDaemon {
         Ok(ipc::FleetDisputed { dispute_id: String::from("dispute"), review_session_id: None, joined: false })
     }
 
+    async fn report_bug(
+        &self,
+        _caller: Option<crate::Caller>,
+        _report: ipc::ReportBug,
+    ) -> Result<ipc::BugReported, Refusal> {
+        Ok(ipc::BugReported { report_id: String::from("report") })
+    }
+
+    async fn list_bug_reports(&self) -> Result<ipc::BugReports, Refusal> {
+        Ok(ipc::BugReports { reports: Vec::new() })
+    }
+
+    async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
+        Ok(ipc::BugReport {
+            id: report_id,
+            session_id: String::from("session"),
+            job_title: String::new(),
+            title: String::from("Title"),
+            what: String::from("What"),
+            steps: Vec::new(),
+            errors: Vec::new(),
+            logs: Vec::new(),
+            at: ipc::Instant::carried("2026-10-29T09:00:00Z"),
+            kept: None,
+        })
+    }
+
+    async fn drop_bug_report(&self, report_id: String) -> Result<ipc::BugReportDropped, Refusal> {
+        Ok(ipc::BugReportDropped { id: report_id })
+    }
+
     async fn defer_later(
         &self,
         _caller: Option<crate::Caller>,
@@ -556,6 +595,17 @@ impl Sessions for FakeDaemon {
         settle: ipc::SettleLater,
     ) -> Result<ipc::LaterSettled, Refusal> {
         Ok(ipc::LaterSettled { id: settle.id, sentence: String::new(), open: Vec::new() })
+    }
+
+    async fn list_closed_waiting(
+        &self,
+        _caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::ClosedWaitingList, Refusal> {
+        Ok(ipc::ClosedWaitingList {
+            session_id: session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            closed: Vec::new(),
+        })
     }
 
     async fn all_done(
@@ -610,6 +660,28 @@ impl Sessions for FakeDaemon {
         Ok(Owners {
             holders: Vec::new(),
         })
+    }
+
+    async fn get_session_system(self: std::sync::Arc<Self>, session_id: ipc::SessionId) -> Result<ipc::SessionSystem, Refusal> {
+        Ok(ipc::SessionSystem {
+            session_id,
+            processes: Vec::new(),
+            cpu_percent: None,
+            memory_bytes: None,
+            memory_of_bytes: None,
+            disk_bytes: None,
+            disk_of_bytes: None,
+            worktrees: Vec::new(),
+            logs: Vec::new(),
+        })
+    }
+
+    async fn stop_process(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        stop: ipc::StopProcess,
+    ) -> Result<ipc::ProcessStopped, Refusal> {
+        Ok(ipc::ProcessStopped { pid: stop.pid.unwrap_or(0), command: String::new() })
     }
 
     async fn get_session_usage(

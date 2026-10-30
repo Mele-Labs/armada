@@ -426,6 +426,7 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
         paths: vec!["crates/store".into()],
         issue: None,
         gives: None,
+        lands_in: None,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: (*one).into() }).collect(),
     };
     RecordPlan {
@@ -590,6 +591,49 @@ async fn the_parent_is_told_once_when_a_linked_sessions_pull_request_merges() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(rig.linked_rows(&agent, 1).await.len(), 1);
     assert_eq!(rig.told("pull request #2412 merged"), 1);
+}
+
+/// A `pr` row of `state` as the forge describes it, then settled spent, as the mod tells one.
+async fn pull_spent(rig: &Rig, child: &SessionId, state: &str) {
+    let detail = [("state".to_string(), state.to_string())].into();
+    rig.report(child, SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "3042".into(), detail } }).await;
+    rig.report(child, SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: "3042".into() }, state: ipc::AttachmentState::Spent }).await;
+}
+
+#[tokio::test]
+async fn the_parent_is_not_told_of_a_spent_pull_request_the_forge_reads_open_and_is_told_once_when_it_merges() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+
+    // `gh pr merge 3042 --disable-auto` read as a merge: spent, while the forge still says open.
+    pull_spent(&rig, &held.session_id, "open").await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(rig.told("pull request #3042 merged"), 0, "an open pull request is not merged");
+
+    pull_spent(&rig, &held.session_id, "merged").await;
+    assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Merged)]);
+    pull_spent(&rig, &held.session_id, "merged").await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(rig.told("pull request #3042 merged"), 1);
+}
+
+#[tokio::test]
+async fn a_merge_kept_off_a_pull_request_the_forge_reads_open_is_forgotten_so_the_real_one_is_told() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    pull_spent(&rig, &held.session_id, "open").await;
+    // What a Fleet before the fix kept for that row, and a restart that follows the linked again.
+    let now = rig.fleet.now();
+    rig.fleet.store().lock().await.keep_linked_told(held.session_id.as_str(), "merged", "3042", &now).expect("kept");
+    crate::linked_following::keep_the_linked(Arc::clone(&rig.fleet));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    pull_spent(&rig, &held.session_id, "merged").await;
+    assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Merged)]);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(rig.told("pull request #3042 merged"), 1, "told once, though two follow the linked");
 }
 
 const READING: &str = "workflow: none\ntitle: Why the reader drops lines\nsettings: model=another-model, effort=high";

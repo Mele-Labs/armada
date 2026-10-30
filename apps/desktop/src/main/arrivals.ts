@@ -32,6 +32,8 @@ import type { SleepHost } from "./sleep";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
 import type { ProjectsHost } from "./projects";
+import type { BugReportsHost } from "./bug-reports";
+import type { LifecyclesHost } from "./lifecycles";
 import type { AgentSignInHost } from "./agent-sign-in";
 import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
@@ -65,6 +67,10 @@ export interface ArrivalHost {
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
   /** His projects, told whole after any write to one — `projects.ts`. */
   readonly projects: Pick<ProjectsHost, "changed">;
+  /** The bugs agents reported, told whole after one is made, kept or dropped — `bug-reports.ts`. */
+  readonly bugReports: Pick<BugReportsHost, "changed">;
+  /** One Job's lifecycles, told whole after an instance is taken on or moves — `lifecycles.ts`. */
+  readonly lifecycles: Pick<LifecyclesHost, "changed">;
   /** The agents' sign-in, told when Fleet moves it and read once per connection — `agent-sign-in.ts`. */
   readonly agentSignIn: Pick<AgentSignInHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
@@ -311,6 +317,20 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...projects } = event;
     host.projects.changed(projects);
+    return;
+  }
+  if (event.kind === "bug_reports.changed") {
+    // Above the tail for `model_downshift.changed`'s reason: no Job to find, and the reports travel whole.
+    host.publish({ connection });
+    const { kind: _kind, ...reports } = event;
+    host.bugReports.changed(reports);
+    return;
+  }
+  if (event.kind === "job_lifecycles.changed") {
+    // Above the tail for `model_downshift.changed`'s reason: it carries a `session_id` the tail would take for a Job's row, and it travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...held } = event;
+    host.lifecycles.changed(held);
     return;
   }
   if (event.kind === "agent_sign_in.changed") {

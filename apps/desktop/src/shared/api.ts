@@ -28,6 +28,8 @@ import type { AccountsApi } from "./api/accounts";
 import type { PlanUsageApi } from "./api/plan-usage";
 import type { ModelDownshiftApi } from "./api/model-downshift";
 import type { ProjectsApi } from "./api/projects";
+import type { BugReportsApi } from "./api/bug-reports";
+import type { LifecyclesApi } from "./api/lifecycles";
 import type { AgentSignInApi } from "./api/agent-sign-in";
 import type { ClashesApi } from "./api/clashes";
 import type { ReviewsApi } from "./api/reviews";
@@ -35,6 +37,7 @@ import type { TerritoryApi } from "./api/territory";
 import type { TimelineApi } from "./api/timeline";
 import type { ActFailedApi } from "./api/act-failed";
 import type { BayHistoryApi } from "./api/bay-history";
+import type { SessionSystemApi } from "./api/session-system";
 import type { UsageSummaryApi } from "./api/usage-summary";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
@@ -70,6 +73,8 @@ export type BridgeApi = CoreApi<BridgeState> &
   PlanUsageApi &
   ModelDownshiftApi &
   ProjectsApi &
+  BugReportsApi &
+  LifecyclesApi &
   AgentSignInApi &
   ClashesApi &
   ReviewsApi &
@@ -77,6 +82,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   TimelineApi &
   ActFailedApi &
   BayHistoryApi &
+  SessionSystemApi &
   UsageSummaryApi &
   IssuesApi &
   AutopilotApi &

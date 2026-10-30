@@ -2,15 +2,16 @@
 // a step of the workflow, and a beat the Job is on. A state is a glyph or a lamp with a tooltip and no row prints a state word.
 
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { Circle, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
-import { Button, LinkedSession, Readout, Stamp, Tooltip } from "@armada/components";
+import { Circle, Clock, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
+import { Button, Readout, Stamp, Tooltip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
 import { Mark } from "./DeliveryRoute";
 import { TaskTrack } from "./FlightPlan";
 import { IssueRow, issueOfGroup } from "./IssuesBlock";
-import { childrenOf, linkedPropsOf } from "./linked";
+import { ChildJob } from "./ChildJob";
+import { childrenOf } from "./linked";
 import type { Made } from "./ledger";
 import { PullRow } from "./LedgerRow";
 import { Report } from "./LandingPanel";
@@ -77,11 +78,27 @@ export function RouteBeat({ step }: { step: RouteStep }) {
   );
 }
 
-/** Something the person is owed: a lamp that pulses, and what it is. */
-export function AskBeat({ said, text }: { said: string; text: string }) {
+/** Something the person is owed: a lamp that pulses, and what it is. Where it is a rule's own ask, pressing it opens the rule in the side panel, as the rule on the Workflow canvas does. */
+export function AskBeat({ said, text, onOpen }: { said: string; text: string; onOpen?: () => void }) {
   return (
     <li className="sv-beat" data-lamp="needs">
       <Lead Glyph={Megaphone} said={said} pulse />
+      {onOpen === undefined ? (
+        <span className="sv-beat__label" data-wraps="">{text}</span>
+      ) : (
+        <button type="button" className="sv-beat__label sv-beat__open" data-nav="" data-wraps="" onClick={onOpen}>
+          {text}
+        </button>
+      )}
+    </li>
+  );
+}
+
+/** A step held on a state an instance has yet to reach, such as a pull request being approved. It is a fact and no call: the agent rests and nothing is owed, so the clock does not pulse. */
+export function WaitBeat({ text }: { text: string }) {
+  return (
+    <li className="sv-beat" data-wait="">
+      <Lead Glyph={Clock} said="Waiting" />
       <span className="sv-beat__label" data-wraps="">{text}</span>
     </li>
   );
@@ -146,7 +163,7 @@ const VIEWS: readonly { id: LedgerView; label: string; Glyph: LucideIcon }[] = [
   { id: "kind", label: "By kind", Glyph: Tags },
 ];
 
-/** How Completed is read, as two icon toggles of one radio group. ← → and ↑ ↓ move between them and choose; the key (`story.ts`) flips them. */
+/** How Done is read, as two icon toggles of one radio group. ← → and ↑ ↓ move between them and choose; the key (`story.ts`) flips them. */
 export function LedgerToggle({ view, onChange }: { view: LedgerView; onChange: (next: LedgerView) => void }) {
   const move = (event: KeyboardEvent<HTMLElement>) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
@@ -244,13 +261,33 @@ export function MadeList({ session, list, label, newest }: { session: Session; l
   );
 }
 
-/** A finished group: its mark, its title and its tasks as one track, with what it produced beneath it (the issue it worked, its pull requests, the Job it was handed to). */
+/** A finished group: its mark, its title and its tasks as one track, with what it produced beneath it (the issue it worked, its pull requests). A group handed to a Job is that Job's card instead.. */
 export function DoneGroup({ group, open = false, session, onOpenSession }: { group: ViewGroup; /** Whole plan: its tasks listed under it. */ open?: boolean; session: Session; onOpenSession: (id: string) => void }) {
   const sessions = useSessions();
   // What is still open stands in the current step and the Open group (`StoryColumn.tsx`), never under a finished step.
   const found = issueOfGroup(session, group.issue);
   const named = found === undefined ? undefined : { issue: found.issue, prs: found.prs.filter((pr) => pr.state === "merged") };
   const child = childrenOf(sessions, session).find((one) => one.group === group.id)?.session;
+  // The Job takes the group's row, with no ticks: its tasks are the Job's work, which opening the Job shows.
+  if (child !== undefined) {
+    return (
+      <li className="sv-beat sv-beat--group" data-state="done" data-group={group.id} data-handed="">
+        <ChildJob child={child} group={group.title} manifestId={session.manifestId} onOpen={onOpenSession} />
+        {named === undefined ? null : (
+          <div className="sv-beat__made">
+            {named.issue.state === "open" ? null : <GroupIssue issue={named.issue} manifestId={session.manifestId} />}
+            {named.prs.length === 0 ? null : (
+              <ul className="sv-landing__prs" aria-label="Pull requests">
+                {named.prs.map((pr) => (
+                  <PullRow key={pr.number} session={session} pr={pr} />
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </li>
+    );
+  }
   return (
     <li className="sv-beat sv-beat--group" data-state="done" data-group={group.id}>
       <StepMark step="done" />
@@ -265,7 +302,7 @@ export function DoneGroup({ group, open = false, session, onOpenSession }: { gro
           </ul>
         </div>
       )}
-      {named === undefined && child === undefined ? null : (
+      {named === undefined ? null : (
         <div className="sv-beat__made">
           {named === undefined || named.issue.state === "open" ? null : <GroupIssue issue={named.issue} manifestId={session.manifestId} />}
           {named === undefined || named.prs.length === 0 ? null : (
@@ -275,7 +312,6 @@ export function DoneGroup({ group, open = false, session, onOpenSession }: { gro
               ))}
             </ul>
           )}
-          {child === undefined ? null : <LinkedSession {...linkedPropsOf(child, onOpenSession)} />}
         </div>
       )}
     </li>

@@ -43,6 +43,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("mark_annotation_done", shape::of::<crate::MarkAnnotationDone>()),
         ("move_session", shape::of::<crate::MoveSession>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),
+        ("report_bug", shape::of::<crate::ReportBug>()),
         ("save_kit_manifest", shape::of::<crate::SaveKitManifest>()),
         ("save_request_to_collection", shape::of::<crate::SaveRequestToCollection>()),
         ("scaffold_mod", shape::of::<crate::ScaffoldMod>()),
@@ -53,6 +54,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("show_window", shape::of::<crate::ShowWindow>()),
         ("start_another_session", shape::of::<crate::StartAnotherSession>()),
         ("start_watch", shape::of::<crate::StartWatch>()),
+        ("stop_process", shape::of::<crate::StopProcess>()),
         ("stop_watch", shape::of::<crate::StopWatch>()),
         ("take_main_red", shape::of::<crate::TakeMainRed>()),
         ("try_tracker_mod", shape::of::<crate::TryTrackerMod>()),
@@ -77,6 +79,14 @@ fn a_struct_inside_itself_ends_and_one_met_again_is_named_by_its_first_field() {
 fn an_internally_tagged_enum_names_its_tag_and_each_value() {
     assert_eq!(
         shape::of::<crate::ChangeWaiting>(),
-        "{waiting_session: string, condition?: {kind: ends|group_done|task_done|pr_pushed|pr_lands, ...}, base?: main|branch}"
+        "{waiting_session: string, condition?: {kind: ends|group_done|task_done|pr_pushed|pr_lands, ...}, base?: main|branch, held?: boolean, workflow?: string, model?: string, effort?: string}"
+    );
+}
+
+#[test]
+fn report_bug_asks_for_a_title_and_what_and_leaves_the_lines_and_the_job_out() {
+    assert_eq!(
+        shape::of::<crate::ReportBug>(),
+        "{title: string, what: string, steps?: [string], errors?: [string], logs?: [string], session_id?: string}"
     );
 }

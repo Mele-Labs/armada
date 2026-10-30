@@ -11,3 +11,24 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `workflows`. Tooltip `Changed`. Drawn at 14px, stroke 2. The same comparison the step's `Differs from Armada's` mark draws, between a step before and after the change. `list-plus` and `list-minus` mark an added and a removed step's card, tooltips `Added` and `Removed`."
+
+[[icons.git-compare.usage]]
+  means = "A state of a lane changed on this Job"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. Typing `skip the deploy watch` to the agent changes the Job's copy of the Deploy lane; the mark sits on the corner of the state it changes, which is drawn with a dashed frame, tooltip `Changed on this Job` and the change. The same comparison as the Workflows page's Differs from Armada's."
+
+[[icons.git-compare.usage]]
+  means = "Compare with Armada's, a toggle in the Workflows page's header toolbar"
+  group = "Workflows"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Compare with Armada's`. Pressed, each step of the copy that differs from Armada's says so on its card, as the Differs from Armada's mark does."
+
+[[icons.git-compare.usage]]
+  means = "A rule or a lifecycle changed on this Job, on the rule's chip, on the lane's head and on a row of Changed on this Job"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `workspaces-lanes-copy`. Tooltip `Changed on this Job` and the change. The same comparison a changed state or step already wears."

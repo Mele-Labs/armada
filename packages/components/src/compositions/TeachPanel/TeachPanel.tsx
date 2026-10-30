@@ -1,17 +1,20 @@
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { LoaderCircle } from "lucide-react";
+import type { LifecycleRule } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { KbdChord } from "../../primitives/Kbd/Kbd";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { RuleForm } from "../WorkflowManager/RuleForm";
+import type { RuleFormLifecycle } from "../WorkflowManager/RuleForm";
 
 /** Where a lesson applies: the repository the Session is in, or all of them. */
 export type TeachReach = "repository" | "all";
 
 /** What Teach was pressed on. */
-export type TeachSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "panel" | "row" | "title_bar";
+export type TeachSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "ticket" | "panel" | "row" | "title_bar";
 
 /** What Teach is pressed on in Bridge itself, rather than in a Job: nothing to tell agents, and no repository to reach. */
 export const isBridgeSource = (kind: TeachSourceKind): boolean => kind === "panel" || kind === "row" || kind === "title_bar";
@@ -24,15 +27,16 @@ export const TEACH_SOURCE: Record<TeachSourceKind, string> = {
   task: "Task",
   check: "Check",
   pull_request: "Pull request",
+  ticket: "Ticket",
   panel: "Panel",
   row: "Row",
   title_bar: "Title bar",
 };
 
 /**
- * What Fleet understood of the person's words. **Any of the three, and only those that apply**: `agents` is the note
- * agents are handed, `bridge` is how Bridge draws words that match a pattern, `fleet` is what Fleet does with a notice.
- * Every string is drawn as it is given. Teach on Bridge itself reads as `tweak`, a change to a shared colour, or `layout`, a panel
+ * What Fleet understood of the person's words. **Any of these, and only those that apply**: `agents` is the note
+ * agents are handed, `bridge` is how Bridge draws words that match a pattern, `fleet` is what Fleet does with a notice,
+ * `rule` is a lifecycle rule. Every string is drawn as it is given. Teach on Bridge itself reads as `tweak`, a change to a shared colour, or `layout`, a panel
  * hidden, and neither has a note for agents.
  */
 export type TeachReading = {
@@ -54,6 +58,16 @@ export type TeachReading = {
     /** What it does, with each condition worded after it. */
     does: string;
     scope: string;
+    /** The one line for what the person named that Fleet cannot test. Absent when there is none. */
+    untestable?: string;
+  };
+  /** A lifecycle rule, which When, If and Do change in place before it is kept. */
+  rule?: {
+    rule: LifecycleRule;
+    /** What its pickers offer: the lifecycles that apply, and the steps and workflows the rule can name. */
+    lifecycles: readonly RuleFormLifecycle[];
+    steps: readonly { id: string; label: string }[];
+    workflows: readonly string[];
     /** The one line for what the person named that Fleet cannot test. Absent when there is none. */
     untestable?: string;
   };
@@ -88,6 +102,8 @@ export type TeachPanelProps = {
   /** What Fleet understood. Drawn in `shown`. */
   reading?: TeachReading | undefined;
   onTeach: () => void;
+  /** The rule, changed. Only a rule Fleet keeps is handed back. */
+  onRule: (rule: LifecycleRule) => void;
   /** Back to the box, with the source kept. */
   onChange: () => void;
   onSave: () => void;
@@ -95,10 +111,10 @@ export type TeachPanelProps = {
 
 /**
  * The body of the panel Teach opens: what it was pressed on, a box for what to do about it, and the reach. **Armada shows
- * back what it understood before it keeps anything**, in a section for each of Agents, Bridge and Fleet that the teaching
+ * back what it understood before it keeps anything**, in a section for each of Agents, Bridge, Fleet and Rule that the teaching
  * changes, then Change or Save. ⌘↵ is the forward key in both steps; the stage's one primary button wears it.
  */
-export function TeachPanel({ source, say, onSay, keep, repository, reach, onReach, stage, reading, onTeach, onChange, onSave }: TeachPanelProps) {
+export function TeachPanel({ source, say, onSay, keep, repository, reach, onReach, stage, reading, onTeach, onRule, onChange, onSave }: TeachPanelProps) {
   const body = useRef<HTMLDivElement>(null);
   // A sheet puts focus on its close as it opens. The box, or the stage's forward button, takes it a beat later.
   useEffect(() => {
@@ -201,6 +217,17 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
                 <dd>{reading.fleet.scope}</dd>
               </dl>
               {reading.fleet.untestable === undefined ? null : <p className="armada-teach-panel__untestable">{reading.fleet.untestable}</p>}
+            </section>
+          )}
+          {reading?.rule === undefined ? null : (
+            <section className="armada-teach-panel__section" aria-label="Rule">
+              <h4 className="armada-teach-panel__caption">Rule</h4>
+              <div className="armada-wm-step">
+                <dl className="armada-wm-step__facts">
+                  <RuleForm rule={reading.rule.rule} lifecycles={reading.rule.lifecycles} steps={reading.rule.steps} workflows={reading.rule.workflows} lands={() => true} onChange={onRule} />
+                </dl>
+              </div>
+              {reading.rule.untestable === undefined ? null : <p className="armada-teach-panel__untestable">{reading.rule.untestable}</p>}
             </section>
           )}
           {reading?.tweak === undefined ? null : (

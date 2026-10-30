@@ -32,3 +32,17 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. Nobody has acted yet, which is the clock's claim. Draws muted, tooltip `Waiting`. The Conversation tab has no row for it, since a review that was not given is not in the thread."
+
+[[icons.clock.usage]]
+  means = "A step waiting on a lifecycle state, and a rule still waiting, on a lane"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. Nothing has happened yet, which is the clock claim. A step reads `Waiting on PR #812: Approved` and a rule `Waiting`, each in the waiting hue; the edge of a waiting rule is dashed."
+
+  [[icons.clock.usage]]
+    means = "A step held on a state an instance has yet to reach, as a beat in the Job's Now zone: Waiting on PR #812: Approved"
+    group = "Job lanes"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, a Job's Lanes view. The agent rests and Fleet's watch wakes the Job on the change, so nobody is acting, which is the clock's claim. It is a fact and no call: the lamp does not pulse and nothing joins Needs you. It is a beat and not a step's activity mark, so it sits outside `step_activity_borrowing`; a step waiting on a person keeps `eye`. Tooltip `Waiting`."

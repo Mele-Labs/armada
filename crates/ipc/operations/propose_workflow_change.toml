@@ -1,0 +1,16 @@
+[operations.propose_workflow_change]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Propose new text for a workflow that already exists, in the repository or in Kit, so it serves the next Job better, for the owner to approve; nothing is written until he does. Body: {workflow_id, source, definition}. source is repository or kit; definition is the whole new definition as JSON text. To propose a workflow nothing holds yet use propose_new_workflow"
+notes = """
+`POST /workflows/changes/propose?manifest_id=`, since 30 Oct 2026. The body is `ProposeWorkflowChange`: `workflow_id`, `source` (`repository` or `kit`) and `definition`. The answer is the `WorkflowChange` kept: `origin` `{ "kind": "job" }`, `before` the file's text in that place now, `after` the definition and `state` `ready` at once, since no model is asked to draft it.
+
+**Nothing is written.** The definition is checked as `save_workflow` checks one, with `overwrite` true since it replaces: the parse and the resolve against the repository's Manifest and this machine's models. It is then a change `list_workflow_changes` shows under `workflow_id` and `source` until `approve_workflow_change` saves it and `dismiss_workflow_change` drops it. Approve is refused, and the change stays ready, if the file has changed since it was proposed.
+
+**Fleet raises the call itself.** Where the connection places a Job, Fleet keeps a `draft` row on it that names the change, with the file's text as `before`, and the Job's Needs-you list shows a `draft:<row>` item `Workflow <id>` with an `answer` act and the options `Approve` (choice 0, saves it) and `Dismiss` (choice 1, drops it). The item leaves the list once the change is no longer ready, whoever settled it. The autonomy is Asks, as a drafted change always is, so it waits for the owner's Approve on the Workflows page.
+
+422 `fleet.workflow_change_empty` where the definition is blank or its `workflow_id` is not the one named, 422 `fleet.workflow_change_unchanged` where it reads as the file does, `fleet.workflow_unfit` and `fleet.workflow_id_not_a_name` as `save_workflow`'s, `fleet.workflow_is_armadas` where `source` is `armada`, and 422 `fleet.no_such_workflow_definition` where that place holds no definition of the id, which `propose_new_workflow` is for.
+
+`agent_access` is `Yes`: it writes nothing, and the owner's Approve is what saves.
+"""

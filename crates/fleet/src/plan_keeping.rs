@@ -2,11 +2,12 @@
 //! into it, and what the record carries is read back, under the lock the caller already holds.
 //! `docs/concepts/session.md`, *The plan*. The rules are `plan_record`'s.
 
-use ipc::{FileTouch, Instant, ReportedTask, TouchAct, TouchBy};
-use store::{Holder, KeptTouch, Store, WriteError};
+use ipc::{FileTouch, Instant, PlanLandsInState, ReportedTask, TouchAct, TouchBy};
+use store::{AttachmentState, Holder, KeptAttachment, KeptTouch, Store, WriteError};
 
 use crate::file_touching::WINDOW;
-use crate::plan_record::{commit_named, edit_seen, listed, merge_marked, untold};
+use crate::plan_record::{commit_named, edit_seen, listed, merge_marked, untold, PlanPull};
+use crate::session_host::linking::GROUP;
 
 /// The agent's task list, heard. Whether a task of the plan moved, so the row is worth publishing.
 /// A Session with no plan moves no task here: its list is kept beside, as the build's pieces, and
@@ -81,6 +82,55 @@ pub(crate) fn merge_heard(store: &mut Store, id: &str, number: u64, now: &str) -
     store.keep_session_plan_progress(id, &plan)?;
     let named: Vec<String> = moved.iter().map(|text| format!("\"{text}\"")).collect();
     Ok(format!("\nFleet marked these tasks of your plan completed, as #{number} merged: {}.", named.join(", ")))
+}
+
+/// The pull requests a plan may land in, oldest first: the Session's own `pr` rows, each with the task in
+/// progress when its first version was kept, then those of every Job a group was handed to, each with that
+/// group. A row given back is none. Read beside the Session's ledger, under the lock the caller holds.
+pub(crate) fn pulls_read(store: &Store, id: &str, held: &[KeptAttachment]) -> Result<Vec<PlanPull>, WriteError> {
+    let own = pull_rows(held);
+    let versions = if own.is_empty() { Vec::new() } else { store.attachment_versions(&Holder::session(id))? };
+    let mut read: Vec<PlanPull> = own
+        .into_iter()
+        .filter_map(|row| {
+            let from_task = versions.iter().find(|one| one.kind == "pr" && one.target == row.target).and_then(|one| one.from_task.clone());
+            pull_of(row, from_task, None)
+        })
+        .collect();
+    for link in held.iter().filter(|one| one.kind == "started_to") {
+        let Some(group) = link.detail.get(GROUP) else { continue };
+        let theirs = store.attachments_of(&Holder::session(&link.target))?;
+        read.extend(pull_rows(&theirs).into_iter().filter_map(|row| pull_of(row, None, Some(group.clone()))));
+    }
+    Ok(read)
+}
+
+/// The `pr` rows not given back, oldest first.
+fn pull_rows(rows: &[KeptAttachment]) -> Vec<&KeptAttachment> {
+    let mut rows: Vec<&KeptAttachment> =
+        rows.iter().filter(|one| one.kind == "pr" && one.state != AttachmentState::GivenBack).collect();
+    rows.sort_by(|a, b| a.since.cmp(&b.since));
+    rows
+}
+
+/// A `pr` row as a plan reads it: its number, and the title and standing the forge last gave it. A row
+/// the forge has not described is open, or merged where it is spent.
+fn pull_of(row: &KeptAttachment, from_task: Option<String>, handed: Option<String>) -> Option<PlanPull> {
+    let state = match row.detail.get("state").map(String::as_str) {
+        Some("open") => PlanLandsInState::Open,
+        Some("draft") => PlanLandsInState::Draft,
+        Some("merged") => PlanLandsInState::Merged,
+        Some("closed") => PlanLandsInState::Closed,
+        _ if row.state == AttachmentState::Spent => PlanLandsInState::Merged,
+        _ => PlanLandsInState::Open,
+    };
+    Some(PlanPull {
+        number: row.target.parse().ok()?,
+        title: row.detail.get("title").cloned().unwrap_or_default(),
+        state,
+        from_task,
+        handed,
+    })
 }
 
 /// `calls` more of the agent's own tool calls. Whether the Session has a plan, which is all that counts them.

@@ -1,10 +1,10 @@
 // A reply's close, read sentence by sentence: each ask is its own Needs you item, the approval the agent also stated is shown once, and the
-// follow-ups it kept for itself are listed in Next, folded under Deferred. Over the `needs-you-extracted` scenario.
+// follow-ups it kept for itself are listed in Open, folded under Deferred. Over the `needs-you-extracted` scenario.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const needs = region("Needs you");
-const landing = region("Next", { exact: true });
+const landing = region("Open", { exact: true });
 const later = inside(landing, button("Deferred"));
 
 const needsYouExtracted = walk("needs-you-extracted", [

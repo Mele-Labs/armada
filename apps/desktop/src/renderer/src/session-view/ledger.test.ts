@@ -1,4 +1,4 @@
-// What Completed lists as made: a walk shown again stands once, where it was shown last, and the pictures a test run or a look in a browser leave
+// What Done lists as made: a walk shown again stands once, where it was shown last, and the pictures a test run or a look in a browser leave
 // behind are scratch, not things made for him.
 
 import { expect, test } from "vitest";

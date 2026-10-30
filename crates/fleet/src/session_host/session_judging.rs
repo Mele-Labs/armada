@@ -162,11 +162,10 @@ where
             let store = self.store().lock().await;
             self.ledger_row(&store, &session)?
         };
-        let steps = record
-            .workflow
-            .as_deref()
-            .zip(session.manifest_id.as_deref())
-            .and_then(|(workflow, manifest)| self.rail_steps(manifest, workflow));
+        let steps = match record.workflow.as_deref().zip(session.manifest_id.as_deref()) {
+            Some((workflow, manifest)) => self.job_rail_steps(&id, manifest, workflow).await,
+            None => None,
+        };
         let (label, criteria) = match (&steps, record.workflow_step) {
             (Some(steps), Some(at)) => steps
                 .get(at as usize)

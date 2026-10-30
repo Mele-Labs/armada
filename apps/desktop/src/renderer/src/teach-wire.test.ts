@@ -2,11 +2,11 @@
 // the wire carries.
 
 import { describe, expect, it } from "vitest";
-import type { TeachingProposal } from "@armada/protocol";
+import type { AppliedLifecycle, LifecycleRule, TeachingProposal } from "@armada/protocol";
 
 import type { PanelItem } from "./shared-panel/store";
 import { BRIDGE } from "./teach";
-import { previewOf, readBody, readingOf, saveBody, sourceOf } from "./teach-wire";
+import { formLifecycles, previewOf, readBody, readingOf, saveBody, sourceOf } from "./teach-wire";
 
 type Pressed = Extract<PanelItem, { kind: "teach" }>;
 
@@ -21,6 +21,10 @@ describe("what Teach was pressed on", () => {
 
   it("is named by what it is where it has no text of its own, as the title bar has none", () => {
     expect(sourceOf(press({ source: "title_bar", text: "" }))).toEqual({ kind: "title_bar", text: "Title bar" });
+  });
+
+  it("is a ticket by its key, with the key and its title as the text", () => {
+    expect(sourceOf(press({ source: "ticket", text: "ARM-41 Add a retry", ids: ["ARM-41"] }))).toEqual({ kind: "ticket", text: "ARM-41 Add a retry", ids: ["ARM-41"] });
   });
 
   it("is cut at the 200 characters Fleet takes", () => {
@@ -128,5 +132,81 @@ describe("what a proposal draws behind the panel before it is kept", () => {
 
   it("is nothing where the proposal changes neither", () => {
     expect(previewOf({ note: { section: "repo", kind: "convention", text: "x" } }, "repository", "armada")).toBeUndefined();
+  });
+});
+
+const RULE: LifecycleRule = {
+  id: "move_its_tickets_to_done",
+  name: "Move its tickets to Done",
+  scope: { kind: "within", id: "armada" },
+  when: { kind: "enters", lifecycle: "pull_request", state: "approved" },
+  conditions: [],
+  does: [{ what: { act: "tracker_move", to: "closed", target: { among: { kind: "linked_from", lifecycle: "ticket" } } }, kind: "tracker_write", autonomy: "asks" }],
+  autonomy: "asks",
+  on_failure: { retries: 2, then: "ask_owner" },
+};
+
+describe("a rule in a proposal", () => {
+  it("is drawn as the rule alone, with the lifecycles its pickers offer, and what Fleet cannot test in one line", () => {
+    const lifecycles = [{ id: "ticket", name: "Ticket", kind: "tracker" as const, states: [{ id: "closed", label: "Closed" }] }];
+    const { rule } = readingOf({ rule: { ...RULE, untestable: ["the build is green"] } }, "armada", lifecycles);
+    expect(rule?.rule).toEqual(RULE);
+    expect(rule?.lifecycles).toBe(lifecycles);
+    expect(rule?.untestable).toBe("Fleet cannot test: the build is green");
+  });
+
+  it("says nothing of what Fleet cannot test where there is none, and offers the steps and workflow the rule names and no others", () => {
+    const named: LifecycleRule = {
+      ...RULE,
+      when: { kind: "step_ends", step: "build" },
+      conditions: [
+        { kind: "at_step", step: "review" },
+        { kind: "workflow", workflow: "ship" },
+      ],
+    };
+    const { rule } = readingOf({ rule: named }, "armada");
+    expect(rule).not.toHaveProperty("untestable");
+    expect(rule?.steps).toEqual([
+      { id: "build", label: "build" },
+      { id: "review", label: "review" },
+    ]);
+    expect(rule?.workflows).toEqual(["ship"]);
+  });
+
+  it("is kept as the person changed it, with the same word for what could not be tested", () => {
+    const body = saveBody(press({ source: "pull_request", text: "#2712 Pin the clock" }), { rule: { ...RULE, autonomy: "acts", untestable: ["it is Friday"] } }, "repository");
+    expect(body.rule).toMatchObject({ id: "move_its_tickets_to_done", autonomy: "acts", untestable: ["it is Friday"] });
+    expect(body.source).toEqual({ kind: "pull_request", text: "#2712 Pin the clock" });
+  });
+
+  it("draws behind the panel nothing of its own", () => {
+    expect(previewOf({ rule: RULE }, "repository", "armada")).toBeUndefined();
+  });
+});
+
+describe("the lifecycles a rule's pickers offer", () => {
+  const applied = (id: string, name: string, reach: string, source: "tracker" | "forge", extra: Partial<AppliedLifecycle["kept"]> = {}): AppliedLifecycle => ({
+    lifecycle: {
+      id,
+      name,
+      scope: reach === "everywhere" ? { kind: "everywhere" } : { kind: "within", id: "armada" },
+      states: [{ id: "a", label: `${name} A`, read: source === "tracker" ? { source, words: ["A"] } : { source, fact: "draft" } }],
+      transitions: [],
+      ends: [],
+    },
+    kept: { rank: { reach, source: "kit" }, ...extra },
+  });
+
+  it("are one for each id, the narrowest that was not replaced, each of the kind its first state is read by", () => {
+    const got = formLifecycles([
+      applied("ticket", "Ticket", "everywhere", "tracker"),
+      applied("ticket", "Ticket in QA", "repository", "tracker"),
+      applied("pull_request", "Pull request", "everywhere", "forge"),
+      applied("pull_request", "Replaced", "repository", "forge", { overridden_by: { reach: "repository", source: "repository" } }),
+    ]);
+    expect(got).toEqual([
+      { id: "ticket", name: "Ticket in QA", kind: "tracker", states: [{ id: "a", label: "Ticket in QA A" }] },
+      { id: "pull_request", name: "Pull request", kind: "forge", states: [{ id: "a", label: "Pull request A" }] },
+    ]);
   });
 });

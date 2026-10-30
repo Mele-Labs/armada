@@ -101,6 +101,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/mcp/act",
     },
     Route {
+        operation: "mend_session_tools",
+        method: "POST",
+        path: "/sessions/tools/mend",
+    },
+    Route {
         operation: "start_again",
         method: "POST",
         path: "/sessions/start_again",
@@ -119,6 +124,31 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "skip_session_step",
         method: "POST",
         path: "/sessions/step-skip",
+    },
+    Route {
+        operation: "change_session_steps",
+        method: "POST",
+        path: "/sessions/workflow/steps",
+    },
+    Route {
+        operation: "change_job_copy",
+        method: "POST",
+        path: "/sessions/copy",
+    },
+    Route {
+        operation: "get_job_copy",
+        method: "GET",
+        path: "/sessions/copy",
+    },
+    Route {
+        operation: "keep_job_workflow",
+        method: "POST",
+        path: "/sessions/copy/keep",
+    },
+    Route {
+        operation: "keep_job_piece",
+        method: "POST",
+        path: "/sessions/copy/keep_piece",
     },
     Route {
         operation: "begin_session",
@@ -204,6 +234,12 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "fork_this_session",
         method: "POST",
         path: "/sessions/fork_this",
+    },
+    // What a Job holds, tickets, pull requests, deploys and the Jobs it started, and where each stands.
+    Route {
+        operation: "get_job_lifecycles",
+        method: "GET",
+        path: "/sessions/lifecycles",
     },
     // A command Fleet runs on a cadence for one Job, and the agent's weighing of what it reads.
     Route {

@@ -273,6 +273,13 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn reopen_waiting(
+        self: Arc<Self>,
+        reopen: ipc::ReopenWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.waiting_reopened(reopen).await
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         confirm: ipc::ConfirmWaiting,
@@ -463,6 +470,10 @@ where
         })
     }
 
+    async fn mend_session_tools(self: Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
+        self.tools_mended(asked).await
+    }
+
     async fn start_again(self: Arc<Self>, asked: ipc::StartAgain) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str().to_string();
         self.session_and_hosting(&id).await?;
@@ -482,6 +493,26 @@ where
 
     async fn skip_session_step(self: Arc<Self>, skip: ipc::SkipSessionStep) -> Result<SessionRecord, Refusal> {
         self.step_skipped(skip).await
+    }
+
+    async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
+        self.steps_changed(change).await
+    }
+
+    async fn change_job_copy(self: Arc<Self>, change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
+        self.piece_changed(change).await
+    }
+
+    async fn get_job_copy(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {
+        self.job_copy_asked(session_id).await
+    }
+
+    async fn keep_job_workflow(self: Arc<Self>, keep: ipc::KeepJobWorkflow) -> Result<ipc::WorkflowChange, Refusal> {
+        self.job_workflow_kept(keep).await
+    }
+
+    async fn keep_job_piece(self: Arc<Self>, keep: ipc::KeepJobPiece) -> Result<ipc::JobPieceProposed, Refusal> {
+        self.job_piece_kept(keep).await
     }
 
     async fn begin_session(self: Arc<Self>, begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {

@@ -71,7 +71,7 @@ const press = (init: KeyboardEventInit) => act(() => void window.dispatchEvent(n
 const layer = (side: HTMLElement) => side.querySelector('section.sv-layer[aria-label="Artifacts"]');
 const panels = (side: HTMLElement) => [...side.querySelectorAll("section.sv-panel")].map((one) => one.getAttribute("data-area"));
 
-test("the story is the right column's Completed, Now and Next in order on one timeline, with no layer over it", () => {
+test("the story is the right column's Done, Now and Open in order on one timeline, with no layer over it", () => {
   const { side } = mount();
   expect(panels(side)).toEqual(["done", "now", "next"]);
   expect(side.querySelector(".sv-spine")).not.toBeNull();
@@ -141,11 +141,11 @@ test("the keys other than ⇧⌘A open nothing: ⌘A alone and ⇧A alone leave 
   expect(layer(side)).toBeNull();
 });
 
-test("the four views are a strip above the story, and a press opens a view in the spine under it, and a view with nothing in it stays off", () => {
+test("the five views are a strip above the story, and a press opens a view in the spine under it, and a view with nothing in it stays off", () => {
   const { side, thread } = mount();
   const strip = side.querySelector('[role="toolbar"][aria-label="Views"]');
   expect(strip).not.toBeNull();
-  expect([...strip!.querySelectorAll("button[data-view]")].map((one) => one.getAttribute("data-view"))).toEqual(["artifacts", "checks", "subagents", "slot"]);
+  expect([...strip!.querySelectorAll("button[data-view]")].map((one) => one.getAttribute("data-view"))).toEqual(["artifacts", "system", "checks", "subagents", "slot"]);
   // This Job has run no Checks, so its button is in its place and off.
   expect(strip!.querySelector<HTMLButtonElement>('button[data-view="checks"]')!.disabled).toBe(true);
   act(() => strip!.querySelector<HTMLButtonElement>('button[data-view="artifacts"]')!.click());

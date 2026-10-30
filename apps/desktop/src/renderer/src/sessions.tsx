@@ -19,6 +19,7 @@ import {
   askLabel,
   askText,
   HandoffBand,
+  ToolsBand,
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
@@ -94,7 +95,8 @@ import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
-import { attachmentsOf, ownerOf, owesOf, planAsked } from "@armada/screens/src/draft/sessions";
+import { useToolsBand, useToolsFixes } from "./tools-fixes";
+import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
 import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
@@ -115,7 +117,7 @@ import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
-import { TeachHereContext, batchNotices, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
+import { TeachHereContext, batchNotices, teachHereOf, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
 import type { TeachHere } from "./teach";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
@@ -134,7 +136,6 @@ import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft
 import { restartOf } from "./build-change";
 import { bangOf, dockRunKey, hostedCommands, opensMcp, runnerOf, waitingRunKey } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
-import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
@@ -145,6 +146,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
+import { askToEnd } from "./end-job";
 import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -439,6 +441,11 @@ export function ReadingSheet({
               : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   // The agent's sketch is a scene, which wants the width.
+  // A sketch put to him and not yet answered carries the thread card's Approve and Send back.
+  const answer =
+    one?.kind === "sketch" && one.asked === true && one.settled === undefined && draft?.answerSketch !== undefined
+      ? { sketch: one.id, keep: `sketch:${sessionId}:${one.id}`, onAnswer: (sketch: string, given: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf({ id: sessionId, attachments: [one] }, sketch, given)) }
+      : undefined;
   const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
   const background = one?.kind === "background" ? one : undefined;
   const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
@@ -475,7 +482,7 @@ export function ReadingSheet({
         <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
-          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} {...(marked?.parts === undefined ? {} : { marked: marked.parts })} />
+          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} {...(marked?.parts === undefined ? {} : { marked: marked.parts })} {...(answer === undefined ? {} : { answer })} />
         ) : (
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )
@@ -559,8 +566,8 @@ export function entriesOf(
   begin?: (id: string, delivery: DeliveryChoice | undefined) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan, a judge's concern and a draft are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  // A recorded plan, a judge's concern, a draft and a sketch put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "sketch" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -721,6 +728,21 @@ export function entriesOf(
   }
 }
 
+/** What he closed from Needs you, newest first: its words, when, and Reopen while its thing still stands. The row is read; Reopen is its one act. */
+export function closedOf(session: Session, reopen: ((itemId: string) => void) | undefined): LedgerEntry[] {
+  return [...(session.closed ?? [])]
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+    .map(({ item, at, ended }): LedgerEntry => ({
+      key: `closed${item.id}`,
+      kind: "closed",
+      name: item.text,
+      text: item.text,
+      ...(item.act === undefined ? {} : { act: item.act.kind }),
+      closed: { at, ...(ended === true || reopen === undefined ? {} : { onReopen: () => reopen(item.id) }) },
+      onOpen: () => undefined,
+    }));
+}
+
 /** What Cleanup holds, read here for a slot's panel. */
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
@@ -869,16 +891,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
   // A request in the thread opens in Requests for this Job, to edit and send again.
   // Teach is offered where the window can read what is taught. It opens in the side panel, over this Session.
-  const teachHere = useMemo((): TeachHere => {
-    const at = rootOfSession(session, repositories);
-    return {
-      sessionId: session.id,
-      jobTitle: session.title ?? session.id,
-      ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }),
-      ...(at === undefined ? {} : { root: at }),
-      repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!,
-    };
-  }, [session, repositories]);
+  const teachHere = useMemo((): TeachHere => teachHereOf(session, repositories), [session, repositories]);
   const teachOpen = useTeachFrom(teachHere);
   const noticeRules = useNoticeRules(session.id, session.manifestId);
   const scopes = useProposedScopes(session);
@@ -985,6 +998,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     scopes,
     draft.begin === undefined ? undefined : (childId, delivery) => void draft.begin?.(childId, delivery),
     ),
+    ...closedOf(session, draft.reopenWaiting === undefined ? undefined : (itemId) => void draft.reopenWaiting?.(id, itemId)),
   ];
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -993,7 +1007,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // What waits on the person sits at the foot of the thread in every state, done included, and is not in the ledger. A question or permission whose own
   // card shows it is left out, unless the Session is done and no card is left. A terminal's own permission prompt has no card in the thread, so it stays at the foot.
   const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || (one.source === "permission" && one.act?.kind !== "message")).map((one) => `waiting${one.id}`));
-  const todos = todosOf(session);
   const needs = entries.filter((one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)));
   const ledger = entries.filter((one) => one.kind !== "waiting");
   // What the agent is held on, or asked and was not answered, is the first thing in the Needs you panel on the composer, not the thread's last card.
@@ -1065,17 +1078,27 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     if (!planDrawn) setReviewing(false);
   }, [planDrawn]);
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
-  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
+  // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
+  const opensPrs = opensPullRequests(session);
+  // A sketch put to him and not yet answered is pinned after the plan, where the plan waits.
+  const put = draft.answerSketch === undefined ? undefined : [...attachmentsOf(session, "sketch")].reverse().find((one) => one.asked === true && one.settled === undefined);
+  const sketching =
+    put === undefined
+      ? undefined
+      : { ...readingOfSketch(put), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
+  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined || one.onDismiss !== undefined) || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
   const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
+  // Ending a Job ends its instances too, so what is still in flight is listed first and the end waits for the press (`end-job.tsx`, the same from every view of the Job).
+  const end = () => askToEnd(draft, session.id);
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined
     : {
-        onEnd: () => draft.close?.(session.id),
+        onEnd: end,
         made,
         onKeep: () => {
           setKept(session.done?.since);
@@ -1115,6 +1138,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)];
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
+  const toolsFixing = useToolsFixes(session, terminal?.dock);
+  const toolsAway = useToolsBand(session);
+  const toolsBand = toolsFixing !== undefined && toolsAway.shown;
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1129,6 +1155,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(draft.nameForMe === undefined ? {} : { onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve() })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        {...(session.toolsMissing === undefined ? {} : { toolsMissing: toolsMissingSaid(session.toolsMissing) })}
+        {...(toolsFixing === undefined ? {} : { toolsFixes: toolsFixing })}
+        {...(toolsBand ? {} : { toolsApparent: true })}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
@@ -1143,7 +1172,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           onSelect: (id) => {
             if (id === "fork") opening(draft.fork!(session.id), onOpen);
             else if (id === "retro") retro.press?.(session, true);
-            else if (id === "end") draft.close?.(session.id);
+            else if (id === "end") end();
             else deck?.acts.find((one) => one.id === id)?.run();
           },
         }}
@@ -1224,6 +1253,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               setFocusFor({ key: session.id, at: Date.now() });
             } })}
             {...(approval === undefined ? {} : { approval })}
+            {...(sketching === undefined ? {} : { sketching })}
             {...(session.asked === undefined ? {} : { waitingOnYou: true })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
@@ -1236,7 +1266,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenSubagent={(subagent) => read({ kind: "subagent", id: subagent })}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
-            {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}
             {...(trailing === undefined ? {} : { trailing })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
@@ -1247,7 +1276,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           </RequestOpen.Provider>
           {docked.pane}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown || toolsBand ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
+          <div className="sv-bands">
+          {toolsBand && session.toolsMissing !== undefined && toolsFixing !== undefined ? <ToolsBand said={toolsMissingSaid(session.toolsMissing)} {...toolsFixing} onDismiss={toolsAway.dismiss} /> : null}
           <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} cards={notOurs} />
           {failedShown ? (
             <HandoffBand
@@ -1258,6 +1289,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
+          </div>
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {session.dead !== undefined ? null : (
             <SessionComposer
@@ -1328,7 +1360,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       </SessionWorkspace>
       {pausedSend.layer}
       {session.work?.plan === undefined || !planDrawn ? null : (
-        <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} {...(adversarial !== undefined && adversary !== undefined ? { findings: { review: adversarial, onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding) } } : {})} onApprove={approvePlan} onClose={() => setReviewing(false)} />
+        <PlanReview open={reviewing} plan={session.work.plan} {...(opensPrs ? { pullRequests: { onOpen: (number: number) => read({ kind: "pull_request", number }) } } : {})} {...planRevision(session.work.plan)} ed={planEditing!} {...(adversarial !== undefined && adversary !== undefined ? { findings: { review: adversarial, onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding) } } : {})} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}

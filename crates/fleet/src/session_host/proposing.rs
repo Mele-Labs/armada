@@ -44,7 +44,8 @@ use crate::timeline::{Fact, Subject};
 /// A workflow id the Session's repository does not hold. A 422.
 pub(super) const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
 
-/// A workflow set while `features.workflows` is off. A 422.
+/// A workflow set while `features.workflows` is off, or while `workflows.off` names it for the
+/// Job's repository. A 422.
 pub(super) const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
 
 /// A Session whose proposal call is out. In memory: a Fleet that restarts reads nothing.
@@ -82,8 +83,6 @@ pub(crate) struct ProposalState {
     pub start_synced: bool,
     /// The held Job's default workflow has been weighed, so it is not weighed again.
     pub defaulted: bool,
-    /// The person set the workflow, custom too: no default goes over it.
-    pub workflow_chosen: bool,
     /// The title the agent that started the Job gave it. The question carries it as a hint, and the
     /// answer's title replaces it as it fills one nothing gave.
     pub hint: Option<String>,
@@ -348,8 +347,8 @@ where
         let served = self
             .served_named(Some(&ManifestId::carried(manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
-        // With workflows off the proposer is shown none, so it never picks one.
-        let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
+        // The proposer is shown no workflow that is off, so it never picks one.
+        let workflows = self.workflows_offered(manifest_id, &served.workflows());
         // His renames teach the title. One that will not read leaves the question as it was.
         let renames = self
             .store()
@@ -463,7 +462,7 @@ where
             (kept_back, state.proposal.queued.take())
         };
         if kept_back {
-            // What the reading left blank is filled now, so the card is never without a workflow.
+            // What the reading left blank is filled now, with the first workflow that is on.
             self.held_defaulted(id).await;
             match queued {
                 Some(begin) => self.queued_begun(begin).await,
@@ -539,6 +538,11 @@ where
 
     /// An entry on the Session's timeline, for the thread to draw.
     pub(crate) fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
+        self.session_noted_with(session, kind, says, None);
+    }
+
+    /// [`Self::session_noted`] with a `detail`, which for a change to the Job's own copy says who made it.
+    pub(crate) fn session_noted_with(&self, session: &KeptSession, kind: TimelineKind, says: String, detail: Option<String>) {
         self.timeline().note(
             Fact::new(
                 self.timeline().now(),
@@ -547,6 +551,7 @@ where
                 TimelineTone::Idle,
                 says,
             )
+            .detail(detail)
             .titled(session.title.clone())
             .in_repository(session.manifest_id.clone()),
         );
@@ -561,7 +566,8 @@ where
     /// on it, and the turn that starts then tells.
     pub(crate) async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
         let mut said: Vec<String> = Vec::new();
-        if !hosting.ran && self.workflows_on() {
+        let followed = hosting.workflow.as_deref().is_some_and(|workflow| self.workflow_on(&hosting.manifest_id, workflow));
+        if !hosting.ran && followed {
             if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
                 said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false));
             }
@@ -622,7 +628,7 @@ where
         self: &Arc<Self>,
         set: SetSessionWorkflow,
     ) -> Result<SessionRecord, Refusal> {
-        let id = set.session_id.as_str().to_string();
+        let (id, by) = self.copy_placed(Some(&set.session_id))?;
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
@@ -641,10 +647,10 @@ where
             .workflow
             .map(|named| named.trim().to_string())
             .filter(|named| !named.is_empty());
-        if workflow.is_some() && !self.workflows_on() {
+        if let Some(named) = workflow.as_deref().filter(|named| !self.workflow_on(&hosting.manifest_id, named)) {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
-                "workflows are switched off in Settings, so every Job is a plain one",
+                &format!("workflow `{named}` is switched off in Settings for this repository, so no Job can follow it"),
             ));
         }
         if let Some(named) = &workflow {
@@ -655,30 +661,35 @@ where
                 ));
             }
         }
-        // Chosen, even where it is what the Job holds: a held Job's default does not go over it.
-        self.hosts().of(&id).state().proposal.workflow_chosen = true;
-        if hosting.workflow == workflow {
-            return self.published_hosted(&id).await;
-        }
         {
             let mut store = self.store().lock().await;
             let mut fresh = store
                 .hosting(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .unwrap_or_else(|| hosting.clone());
+            // Chosen, even where it is what the Job holds and even as none: a held Job's default does
+            // not go over it, and this is kept with the hosting so a restart does not forget it.
+            fresh.workflow_chosen = true;
+            let unchanged = fresh.workflow == workflow;
             fresh.workflow = workflow.clone();
             store
                 .keep_hosting(&fresh)
                 .map_err(|why| self.ledger_fault(why))?;
-            // A skip names a step by its index, which means another step in another workflow.
+            if unchanged {
+                drop(store);
+                return self.published_hosted(&id).await;
+            }
+            // A skip names a step by its index, which means another step in another workflow. So does the
+            // Job's own copy of the old one, and the marks on it.
             let mut rail = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
             if !rail.skipped.is_empty() {
                 rail.skipped.clear();
                 store.keep_session_rail(&id, &rail).map_err(|why| self.ledger_fault(why))?;
             }
+            store.drop_job_workflow_copy(&id).map_err(|why| self.ledger_fault(why))?;
             self.person_changed(&mut store, &id, ProposedField::Workflow);
         }
-        self.session_noted(
+        self.copy_noted(
             &session,
             TimelineKind::SessionWorkflow,
             format!(
@@ -686,9 +697,11 @@ where
                 named(&held, hosting.workflow.as_deref()),
                 named(&held, workflow.as_deref())
             ),
+            by,
         );
-        // A Session that has not run is told with its first turn, which is when it starts.
-        if hosting.ran {
+        // A Session that has not run is told with its first turn, which is when it starts. A Job that made
+        // the change itself is not told what it did.
+        if hosting.ran && by == ipc::ChangedBy::You {
             if let Some(words) = workflow_words(&held, workflow.as_deref(), true) {
                 if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
                     eprintln!("job {id}: the workflow change was not sent to the agent: {why:?}");

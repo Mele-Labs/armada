@@ -24,7 +24,7 @@ import { notedOf } from "../ViewerNotes/compose";
 import { NotedMessage, NotedOpens, type NotedOpen } from "../ViewerNotes/NotedMessage";
 import { splitDebugInfo } from "./debug-info";
 import { SessionStop } from "./SessionStop";
-import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
+import { TaskMark } from "../TaskMark/TaskMark";
 import { artifactOf, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
@@ -40,6 +40,8 @@ import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialRev
 import { LinkedRow } from "./LinkedRow";
 import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
+import { landingsOf, type PlanLandsIn } from "./lands-in";
+import { LandsInChip } from "./LandsInChip";
 import { FleetTurn, noticeEntries } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
@@ -47,7 +49,7 @@ import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { SubagentRow } from "./SubagentRow";
 import { WaiterRow } from "./WaiterRow";
-import { SketchRow } from "./SketchRow";
+import { SketchPin, SketchRow, type SketchPinProps } from "./SketchRow";
 import type { SketchAnswer, SketchSettled } from "./sketch-answer";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
@@ -111,7 +113,9 @@ export type SessionNotice =
   | "taught"
   | "issue_lost"
   | "document_sketch"
-  | "task_marked";
+  | "task_marked"
+  | "lifecycle_rule"
+  | "lifecycles_clear";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, or a Check. `at` is when the row was written. */
@@ -219,7 +223,7 @@ type SessionThreadKinds =
   /** The agent showed a file with `show_file`: a quiet row, a press that opens it in the side panel. */
   | { id: string; at: string; kind: "file"; path: string; name: string }
   /** A draft the agent put to the person with `propose_draft`: a card answered in place, and how it ended once `settled`. */
-  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" }; /** **A mock's field**: a draft that is a rule's own act, whose card is the rule and says where it goes and to whom. */ rule?: { where: string; to: string } }
   /**
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
@@ -251,7 +255,7 @@ function RowStamp({ row, className }: { row: { at: string }; className: string }
   return <Stamp at={row.at} className={className} />;
 }
 
-/** One todo of the agent's list, in the order the band draws it. */
+/** One todo of the agent's list, as a Cockpit tile reads it. */
 export type WorkingTodo = { key: string; text: string; state: "done" | "doing" | "todo" };
 
 /** Where a Check the agent ran stands. */
@@ -282,7 +286,11 @@ export type PlanApproval = {
   version?: number;
   /** The plan in his words, read first. Present, the groups fold under Details; absent, the card draws the groups as it always did. */
   summary?: string;
-  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; tasks: readonly { id: string; text: string }[] }[];
+  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; tasks: readonly { id: string; text: string }[] }[];
+  /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
+  opensPullRequests?: true;
+  /** Opens a pull request a chip names. */
+  onOpenPullRequest?: (number: number) => void;
   approved: boolean;
   /** He said Not yet: the card is a chip, `Plan set aside`, that unfolds on press, and nothing waits on him for it. */
   setAside?: true;
@@ -348,6 +356,8 @@ export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
+  /** A sketch waiting on the person, pinned as the thread's last card after the plan to approve. Absent draws none. */
+  sketching?: SketchPinProps;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
   onRetry?: (rowId: string) => void;
   /** Start again on a Job whose agent did not start: absent where the host serves none. */
@@ -371,11 +381,6 @@ export type SessionThreadProps = {
    * Skip only puts the deck away, and a live `asked` takes its place.
    */
   lapsed?: { id: string; questions: readonly AskedQuestion[]; onAnswer: (answers: QuestionAnswer[]) => void; onSkip: () => void };
-  /**
-   * What the agent reports it is working on, from its own todo list: a band of one glyph per todo over
-   * the box, the one being done first, which a press opens to the rows. Empty or absent draws none.
-   */
-  workingOn?: { todos: readonly WorkingTodo[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -1370,9 +1375,24 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           },
         },
   );
-  const groups = (
+  // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
+  const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
+  const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
+    runs.length === 1 && runs[0]!.landsIn === undefined ? (
+      list(runs[0]!.groups)
+    ) : (
+      <div className="armada-session-thread__landings">
+        {runs.map((run) => (
+          <section key={run.key} className="armada-session-thread__landing" aria-label={`Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+            {run.landsIn === undefined ? null : <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />}
+            {list(run.groups)}
+          </section>
+        ))}
+      </div>
+    );
+  const groups = landed((some) => (
     <ul className="armada-session-thread__groups">
-      {approval.groups.map((group) => (
+      {some.map((group) => (
         <li key={group.id} className="armada-session-thread__group">
           <span className="armada-session-thread__group-title">{group.title}</span>
           {approved ? null : (
@@ -1399,7 +1419,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         </li>
       ))}
     </ul>
-  );
+  ));
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
     <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
@@ -1448,9 +1468,11 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           <div className="armada-session-thread__plain">
             <p className="armada-session-thread__plan-summary">{approval.summary}</p>
             {anchors === undefined ? null : <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />}
-            <ul className="armada-session-thread__gives" aria-label="What each group gives">
-              {approval.groups.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
-            </ul>
+            {landed((some) => (
+              <ul className="armada-session-thread__gives" aria-label="What each group gives">
+                {some.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
+              </ul>
+            ))}
             <Button size="sm" variant="ghost" aria-expanded={detailed} onClick={() => setDetailed(!detailed)}>
               {detailed ? "Show less" : "Details"}
             </Button>
@@ -1713,7 +1735,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1739,7 +1761,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? ""]);
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, sketching?.sketch ?? "", asked?.command ?? ""]);
   // The trailing entry grows with what is written in it, which no row of the thread's announces.
   const tail = useRef<HTMLLIElement>(null);
   const hasTrailing = trailing !== undefined;
@@ -1757,7 +1779,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
     return () => watch.disconnect();
   }, [hasTrailing, sessionId]);
   const disputes = useMemo(() => new Set(rows.flatMap((row) => (row.kind === "disputed" ? [row.notice] : []))), [rows]);
-  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
+  const asking = (approval !== undefined && !approval.approved) || sketching !== undefined || asked !== undefined || lapsed !== undefined;
   // A turn that ends in a question for the person stays open in the thread.
   const all = useMemo(() => {
     const folded = itemsOf(rows, disputes);
@@ -1777,6 +1799,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
   const cards = (
     <>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
+      {sketching === undefined ? null : <SketchPin {...sketching} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />}
       <AskCards {...(asked === undefined ? {} : { asked })} {...(askRef === undefined ? {} : { askRef })} onAnswer={onAnswer} {...(lapsed === undefined ? {} : { lapsed })} />
     </>
   );
@@ -1831,7 +1854,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined ? {} : { onAnswerSketch })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || (item.row.kind === "sketch" && item.row.sketch === sketching?.sketch) ? {} : { onAnswerSketch })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
             ...cardsAfter(at).map((card) => (
@@ -1873,56 +1896,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
         </StampSurface>
       </div>
       </div>
-      <div className="armada-session-thread__footer">
-      {workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
-      </div>
     </div>
   );
 }
 
-const TASK_OF: Record<WorkingTodo["state"], TaskMarkState> = { done: "done", doing: "working", todo: "open" };
-
-/** A todo's state as `TaskMark` draws a task's, named with its words on hover. Only the one being done breathes. */
-function TodoMark({ todo, tone }: { todo: WorkingTodo; tone?: true }) {
-  const task = TASK_OF[todo.state];
-  const Glyph = TASK_GLYPH[task];
-  const said = `${taskMarkSaid(task)}: ${todo.text}`;
-  return (
-    <Tooltip label={said}>
-      <span className={tone === undefined ? "armada-session-mark" : "armada-session-mark armada-task-mark"} data-state={task} data-pulsing={todo.state === "doing" || undefined} role="img" aria-label={said}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
-
-/** Folded, the band shows a glyph per todo, named on hover; a press on the band opens the rows. Nothing is drawn for a list that is empty. */
-function WorkingOn({ todos }: { todos: readonly WorkingTodo[] }) {
-  const [open, setOpen] = useState(false);
-  const Fold = open ? ChevronDown : ChevronUp;
-  return (
-    <section className="armada-session-working" aria-label="Working on">
-      <button type="button" className="armada-session-working__band" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="armada-session-working__label">Working on</span>
-        {open ? null : (
-          <span className="armada-session-working__glyphs">
-            {todos.map((todo) => (
-              <TodoMark key={todo.key} todo={todo} />
-            ))}
-          </span>
-        )}
-        <Fold className="armada-session-working__fold" size={12} strokeWidth={2} aria-hidden />
-      </button>
-      {open ? (
-        <ul className="armada-session-working__rows">
-          {todos.map((todo) => (
-            <li key={todo.key} className="armada-session-working__row" data-state={todo.state}>
-              <TodoMark todo={todo} tone />
-              <span className="armada-session-working__text">{todo.text}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
-  );
-}
