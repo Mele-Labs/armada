@@ -3,7 +3,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, TickProjectTask } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -40,6 +40,9 @@ export function handleProjects({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.removeProjectRow, (_event, row: unknown) => (named(row) ? (host()?.removeRow(row) ?? unsent) : unsent));
   ipc.handle(CHANNELS.moveProjectRow, (_event, row: unknown, one: unknown) =>
     named(row) && body(one) ? (host()?.moveRow(row, one as MoveProjectRow) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.moveProjectTaskRepository, (_event, row: unknown, one: unknown) =>
+    named(row) && body(one) ? (host()?.moveTaskRepository(row, one as MoveProjectTaskRepository) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.tickProjectTask, (_event, row: unknown, one: unknown) =>
     named(row) && body(one) ? (host()?.tickTask(row, one as TickProjectTask) ?? unsent) : unsent,

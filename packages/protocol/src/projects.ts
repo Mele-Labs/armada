@@ -56,6 +56,8 @@ export type ProjectRow =
  */
 export type TaskIssue = {
   issue: string;
+  /** The repository it was linked in, by Manifest id: the task's own unless the task moved since. Absent reads as the task's own. */
+  manifest_id?: string;
   title?: string;
   state?: "open" | "closed";
 };
@@ -66,6 +68,8 @@ export type TaskIssue = {
  */
 export type TaskPull = {
   number: number;
+  /** The repository it was linked in, by Manifest id: the task's own unless the task moved since. Absent reads as the task's own. */
+  manifest_id?: string;
   title?: string;
   state?: "open" | "merged" | "closed";
 };
@@ -130,6 +134,14 @@ export type MoveProjectRow = {
   project?: string;
   position: number;
   parent?: string;
+};
+
+/**
+ * `POST /projects/rows/:row/repository`: a top-level task, and its subtasks, to the repository `manifest_id`. It keeps its project
+ * and its place. Its issues and pull requests stay with the repository each was linked in.
+ */
+export type MoveProjectTaskRepository = {
+  manifest_id: string;
 };
 
 /** `POST /projects/rows/:row/tick`: done, or open again. */

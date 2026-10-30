@@ -134,13 +134,28 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Keep that the agent said it was done at `since`. **A second call keeps the first**, so the
-    /// callout does not move under the person.
-    pub fn keep_done(&mut self, session_id: &str, since: &str) -> Result<(), WriteError> {
+    /// What the agent said the Job achieved with `all_done`, if it gave a summary and the done stands.
+    pub fn done_summary(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT summary FROM session_done WHERE session_id = ?1",
+                [session_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map(Option::flatten)
+            .map_err(fault("reading what a job said it achieved"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep that the agent said it was done at `since`. **A second call keeps the first** `since`, so
+    /// the callout does not move under the person; a later non-empty `summary` replaces the kept one.
+    pub fn keep_done(&mut self, session_id: &str, since: &str, summary: Option<&str>) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT OR IGNORE INTO session_done (session_id, since) VALUES (?1, ?2)",
-                params![session_id, since],
+                "INSERT INTO session_done (session_id, since, summary) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(session_id) DO UPDATE SET summary = COALESCE(excluded.summary, summary)",
+                params![session_id, since, summary],
             )
             .map(|_| ())
             .map_err(fault("keeping that a job said it was done"))

@@ -74,6 +74,9 @@ pub enum ProjectRow {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskIssue {
     pub issue: String,
+    /// The repository it was linked in: the task's own unless the task moved since. Absent reads as the task's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -85,6 +88,9 @@ pub struct TaskIssue {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskPull {
     pub number: u64,
+    /// The repository it was linked in: the task's own unless the task moved since. Absent reads as the task's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -174,7 +180,7 @@ pub struct LinkProjectIssue {
 /// under. Past the end is the end. `project` is the project it goes to, `""` for none, and absent to
 /// leave it in the one it is in. `parent` is the task to make it a subtask of, `""` to take it to
 /// the top level, and absent to leave it under the parent it has, or at the top level where the
-/// project changes. The row keeps its repository.
+/// project changes. The row keeps its repository: `move_project_task_repository` is what changes it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MoveProjectRow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -182,6 +188,13 @@ pub struct MoveProjectRow {
     pub position: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent: Option<String>,
+}
+
+/// `move_project_task_repository`: the repository `manifest_id`, which Fleet serves, that a top-level task goes to with its
+/// subtasks. It keeps its project and its place, and its issues and pull requests keep the repository each was linked in.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveProjectTaskRepository {
+    pub manifest_id: ManifestId,
 }
 
 /// `tick_project_task`: done, or open again.

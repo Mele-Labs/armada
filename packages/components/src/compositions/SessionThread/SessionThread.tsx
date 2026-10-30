@@ -1546,7 +1546,7 @@ const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.of
  * The agent says it has nothing left, and the two ways on. `made` are ledger entries (pull requests, or artifacts), listed as presses; none draws no list.
  * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
  */
-export type ThreadDone = { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
+export type ThreadDone = { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[]; summary?: string };
 
 /** What the agent made, and the two ways on: End session and Keep going. The body of the Session end panel. */
 export function DoneBody({ done }: { done: ThreadDone }) {
@@ -1554,6 +1554,7 @@ export function DoneBody({ done }: { done: ThreadDone }) {
   const { target, bind } = useThreadCard({ id: "done", kind: "Done", title: "Nothing left to do", acts: { yes: { verb: "End job", run: done.onEnd }, no: { verb: "Keep going", run: done.onKeep } } });
   return (
     <>
+          {done.summary === undefined || done.summary === "" ? null : <p className="armada-session-done__summary">{done.summary}</p>}
           {done.made === undefined || done.made.length === 0 ? null : (
             <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
               {done.made.map((row) => {

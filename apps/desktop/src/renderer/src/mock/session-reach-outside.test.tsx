@@ -14,7 +14,7 @@ unmountAfterEach();
 test("Reach outside: the card's folder picker, Always allow, and the list in Settings", async () => {
   mount("session-reach-outside");
   await onScreen();
-  await toSession(/Custom margins/);
+  await toSession(/Retry budget/);
 
   // The question is the only thing waiting, so the panel opens on its card by itself.
   const card = page.getByRole("article", { name: "Waiting on you" });

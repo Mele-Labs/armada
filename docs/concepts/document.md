@@ -62,6 +62,13 @@ A page kept before this has no `asked` and asks nothing.
 The Job is told as his message: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note and to revise the page at its path.
 `detail` then keeps `settled`, `settled_at` and his `words`.
 
+**Rule.** Approving a revision approves the plan the Job recorded behind it, and the plan is not asked while a page waits ([The plan](session/the-plan.md)).
+Why: a design plan's page is its plan's evidence, and asking for both put two approvals to him at once.
+A page sent back leaves the plan held.
+
+**Rule.** A page's title in a Job's sentence is a link that opens the page, ahead of a Job of the same name; a path in a sentence stays words.
+Why: a design plan's page takes its Job's name, and the name opened the Job it was already in.
+
 **Rule.** A new revision writes the detail afresh, so it drops `settled` and asks again, and lifts a dismissal; the same bytes written again ask nothing.
 
 **Rule.** A step can end on it: `document_approved` in a workflow's `ends_on` holds once he approves the newest revision of any page the Job wrote.
