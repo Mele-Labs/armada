@@ -13,7 +13,7 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 
 const TITLE = "Pause on the row";
 const SKETCH = `sketch:${TITLE}`;
-const KEPT = "/armada/home/sketches/s48/pause-on-the-row";
+const KEPT = "/Users/user/.armada/machine/attachments/sketches/s48/pause-on-the-row-0f3a9c2e41b7";
 
 const row = box("row", 0, 60, "Job row", "a Pause press at its end", { icon: "layers", step: 1 });
 const fleet = box("fleet", 320, 60, "Fleet", "holds the Drone's next turn", { icon: "server", step: 2 });
