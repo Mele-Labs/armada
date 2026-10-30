@@ -40,6 +40,9 @@ export type LaneInput = {
 /** The id an instance is drawn under: its lifecycle's, and its key as its source calls it. A key can hold a slash, which a node id cannot. */
 export const instanceId = (lifecycle: string, key: string): string => `${lifecycle}:${encodeURIComponent(key)}`;
 
+/** The key an instance's id was made of: `ARM-41` for `ticket:ARM-41`. */
+export const instanceKey = (id: string): string => decodeURIComponent(id.slice(id.indexOf(":") + 1));
+
 /** Where a lifecycle's states are read from, in a word under the lane's title. */
 const SOURCE: Readonly<Record<string, { kind: LifecycleKind; said: string }>> = {
   tracker: { kind: "tracker", said: "Tracker" },

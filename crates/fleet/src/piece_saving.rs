@@ -22,13 +22,15 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
+use core_model::Lifecycle;
 use ipc::{
-    DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved,
+    DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, LifecycleRule,
     SaveLifecyclePiece, WireError, WireValue,
 };
 
 use self::identity::{declaring, folder_of, read, Identity};
 use crate::daemon::Fleet;
+use crate::lifecycles::wire;
 
 /// The piece does not parse. **A 422 carrying the parser's own sentence**, and nothing is written.
 pub(crate) const PIECE_UNFIT: &str = "fleet.piece_unfit";
@@ -61,6 +63,21 @@ fn free_name(folder: &Path, declared: &Identity) -> PathBuf {
         named = folder.join(format!("{stem}-{n}.yml"));
     }
     named
+}
+
+/// A rule held to what a read of the rule's file holds it to: the file parses, and it names no
+/// lifecycle or state that `lifecycles` lack. **The rule as that read would answer it**, with each
+/// act's kind and autonomy worked out, so what a person is shown is what a save would keep. The
+/// sentence is the parser's own, or the read's for a name that does not apply.
+pub(crate) fn rule_as_read(rule: &LifecycleRule, lifecycles: &[Lifecycle]) -> Result<LifecycleRule, String> {
+    let text = text::rule(rule).map_err(|why| format!("The rule could not be written as a file: {why}"))?;
+    let parsed = config::parse_rule(Path::new("(rule)"), &text).map_err(|why| why.to_string())?;
+    let held: Vec<&Lifecycle> = lifecycles.iter().collect();
+    let unknown: Vec<String> = parsed.unknown_in(&held).iter().map(ToString::to_string).collect();
+    match unknown.is_empty() {
+        true => Ok(wire::rule(&parsed)),
+        false => Err(format!("The rule {}", unknown.join("; it "))),
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>

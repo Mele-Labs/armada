@@ -117,7 +117,7 @@ import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
-import { TeachHereContext, batchNotices, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
+import { TeachHereContext, batchNotices, teachHereOf, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
 import type { TeachHere } from "./teach";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
@@ -891,16 +891,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
   // A request in the thread opens in Requests for this Job, to edit and send again.
   // Teach is offered where the window can read what is taught. It opens in the side panel, over this Session.
-  const teachHere = useMemo((): TeachHere => {
-    const at = rootOfSession(session, repositories);
-    return {
-      sessionId: session.id,
-      jobTitle: session.title ?? session.id,
-      ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }),
-      ...(at === undefined ? {} : { root: at }),
-      repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!,
-    };
-  }, [session, repositories]);
+  const teachHere = useMemo((): TeachHere => teachHereOf(session, repositories), [session, repositories]);
   const teachOpen = useTeachFrom(teachHere);
   const noticeRules = useNoticeRules(session.id, session.manifestId);
   const scopes = useProposedScopes(session);

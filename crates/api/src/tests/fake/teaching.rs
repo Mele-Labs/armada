@@ -19,7 +19,7 @@ impl Teaching for FakeDaemon {
     }
 
     async fn save_teaching(self: Arc<Self>, save: SaveTeaching) -> Result<SavedTeaching, Refusal> {
-        Ok(SavedTeaching { entry: save.proposal.note.map(|_| "7".to_string()), mods: vec!["key".to_string()] })
+        Ok(SavedTeaching { entry: save.proposal.note.map(|_| "7".to_string()), mods: vec!["key".to_string()], rule: None })
     }
 
     async fn list_word_rules(self: Arc<Self>, _repository: Option<String>, _session_id: Option<String>) -> Result<WordRules, Refusal> {
