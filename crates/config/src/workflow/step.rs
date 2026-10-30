@@ -602,8 +602,9 @@ pub(super) fn read(
             },
         ));
     }
-    // A lifecycle end on a step that something else places would be read by nothing.
-    let placed = ends::Placed { delivers: delivers == Some(true), walks: walks == Some(true), follows_plan: follows_plan == Some(true), records_plan: is_plan_step };
+    // A lifecycle end on a step that something else places would be read by nothing. **A delivering step is
+    // not one**: the end gates its merge.
+    let placed = ends::Placed { walks: walks == Some(true), follows_plan: follows_plan == Some(true), records_plan: is_plan_step };
     out.extend(ends::placed(&ends_key, ends_on.as_deref().unwrap_or_default(), placed));
     table.close(STEP_KEYS, out);
     if disagrees

@@ -29,6 +29,8 @@ Fleet reads the moves it already keeps for the Job's instances, so nothing polls
 **Reached stays reached**: a reviewer taking an approval back does not drag the Job to the step it left, and an instance that is over has reached every state of its lifecycle.
 The agent is told to end its turn, the step is neither the Job's nor the owner's to end, and so it is never nudged as stalled and raises no Needs-you item.
 A Job holding none of the lifecycle is not on the step, and nothing after it is entered, the delivering step included; the owner writing on the step or skipping it moves the Job on, and no line says a state was reached.
+**On a delivering step the state gates the merge and does not end the step** ("How Land behaves"): Land is entered on the push as always, the agent is told to open the pull request and hold the merge, and Fleet wakes it where it stands, with one line, once the state comes, unless the thread already holds that line or the owner wrote on the step.
+Only landing passes it.
 The step after one is entered when it ends, whatever fact would have entered it, and the rail ends when the last step does; orchestrate's Oversee is one, and Summarise is entered the moment the last Job has landed or ended.
 
 **The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:

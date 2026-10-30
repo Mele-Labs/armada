@@ -97,7 +97,8 @@ The agent stops until one holds.
 Every instance of the lifecycle the Job holds must have reached the state, so `job: landed` waits for every Job this one started.
 Fleet moves the Job on when a move it kept for an instance satisfies the end, and wakes the agent with one line.
 It is the world's to bring about, so the step raises no wait for the owner; if he writes on the step or skips it, the Job moves on without the line.
-A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `delivers`, `walks`, `follows_plan` or `records_plan` takes none: put the wait on the step before it.
+A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `walks`, `follows_plan` or `records_plan` takes none: put the wait on the step before or after it.
+On a step that `delivers` the state gates the merge instead (Land waits on `pr: approved`): the agent opens the pull request, ends its turn and does not merge, and Fleet wakes it with one line when the state comes.
 
 **`awaits_reply: true`** is `ends_on: ["replied"]`.
 

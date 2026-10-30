@@ -55,6 +55,16 @@ fn a_lifecycle_end_on_a_step_something_else_places_is_refused_rather_than_ignore
 }
 
 #[test]
+fn a_delivering_step_takes_a_lifecycle_end_as_a_gate_on_its_merge() {
+    // The worked example's last step delivers.
+    let text = format!("{}\n    ends_on:\n      - pr: approved\n", super::BUG.trim_end());
+    let def = super::parse(&text).unwrap_or_else(|refused| panic!("a delivering step gated by a state is read: {refused:?}"));
+    let land = def.steps().last().expect("a step");
+    assert!(land.delivers());
+    assert_eq!(land.ends_on(), [end("pr: approved")]);
+}
+
+#[test]
 fn a_lifecycle_or_state_the_repository_does_not_have_is_named_in_the_sentence() {
     let def = bug_with(&format!(
         "{REVIEW}    ends_on:\n      - pr: approved\n      - pull: approved\n      - pr: accepted\n"

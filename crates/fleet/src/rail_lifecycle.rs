@@ -125,9 +125,11 @@ pub(crate) fn waiting_on(end: &LifecycleEnd, lifecycle: &Lifecycle, reading: &Re
     }
 }
 
-/// The one line that wakes the agent: what got there, and which step that ended.
+/// The one line that wakes the agent: what got there, and which step that ended, or, for a delivering
+/// step (`lifts`), which wait it lifted. **The merge ends a delivering step**, so the state only gates it.
 pub(crate) fn woke(
     step: &str,
+    lifts: bool,
     workflow: &str,
     end: &LifecycleEnd,
     lifecycle: &Lifecycle,
@@ -141,7 +143,10 @@ pub(crate) fn woke(
         [one] => format!("{one} is {state}"),
         [rest @ .., last] => format!("{} and {last} are {state}", rest.join(", ")),
     };
-    format!("Fleet: {what}. That ends the \"{step}\" step of this Job's {workflow} workflow.")
+    match lifts {
+        true => format!("Fleet: {what}. That lifts the wait on the \"{step}\" step of this Job's {workflow} workflow: land it now."),
+        false => format!("Fleet: {what}. That ends the \"{step}\" step of this Job's {workflow} workflow."),
+    }
 }
 
 /// The line that wakes the agent on leaving `step`, where one of the step's ends has come. **`None` where
@@ -156,6 +161,6 @@ pub(crate) fn woken(
     step.lifecycle_ends().find_map(|end| {
         let lifecycle = lifecycles.iter().find(|one| one.id() == end.lifecycle())?;
         let reading = read(end, lifecycle, held);
-        reading.met(end.waits()).then(|| woke(&step.label, workflow, end, lifecycle, &reading, name))
+        reading.met(end.waits()).then(|| woke(&step.label, step.delivers, workflow, end, lifecycle, &reading, name))
     })
 }

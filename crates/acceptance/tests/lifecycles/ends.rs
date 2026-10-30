@@ -3,7 +3,7 @@
 //! the readers keep are values, and `fleet::lifecycles::ends` hands them to the rules the rail draws.
 
 use core_model::{FleetFact, ForgeFact, HeldInstances, Lifecycle, Observed};
-use fleet::lifecycles::ends;
+use fleet::lifecycles::ends::{self, Progress};
 use fleet::lifecycles::holding::{read_instance, Transition};
 
 use crate::bench::lifecycles::{at, taken_on, the_jobs_copy};
@@ -24,6 +24,21 @@ fn feature(ends: &str) -> config::ResolvedWorkflow {
     config::ResolvedWorkflow::resolve(&def, &manifest).unwrap_or_else(|refused| panic!("the workflow did not resolve: {refused}"))
 }
 
+/// Plan, Land (delivers, and `ends` gates its merge).
+fn landing(ends: &str) -> config::ResolvedWorkflow {
+    let text = format!(
+        "version: 1\nworkflow_id: feature\nname: Feature\nsteps:\n  \
+        - id: plan\n    label: \"Plan the change\"\n    evidence: {{submitted: {{type: plan}}}}\n    \
+        mechanical_checks:\n      - {{ type: plan_recorded, min_tasks: 1 }}\n    delivers: false\n    advance_gate: auto\n  \
+        - id: land\n    label: \"Land\"\n    instructions: \"Open the pull request and merge it.\"\n    ends_on:\n      - \"{ends}\"\n    \
+        delivers: true\n    advance_gate: auto\n"
+    );
+    let def = config::WorkflowDef::parse(std::path::Path::new("feature.yml"), &text, &config::Roster::offering_nothing())
+        .unwrap_or_else(|refused| panic!("the workflow did not parse: {refused}"));
+    let manifest = config::Manifest::parse(std::path::Path::new("armada.yml"), "version: 1\nid: 01FIXTUREMANIFEST\n").expect("a manifest");
+    config::ResolvedWorkflow::resolve(&def, &manifest).unwrap_or_else(|refused| panic!("the workflow did not resolve: {refused}"))
+}
+
 fn seen(held: &mut HeldInstances, moves: &mut Vec<Transition>, copy: &[Lifecycle], of: usize, key: &str, fact: Observed<'_>, when: &str) {
     moves.extend(read_instance(held, copy, &at(&copy[of], key), &fact, when));
 }
@@ -31,6 +46,7 @@ fn seen(held: &mut HeldInstances, moves: &mut Vec<Transition>, copy: &[Lifecycle
 const PULL_REQUESTS: usize = 1;
 const JOBS: usize = 3;
 const REVIEW: usize = 1;
+const LAND: usize = 1;
 
 #[test]
 fn a_step_ends_on_a_pull_request_being_approved_the_agent_is_stopped_while_it_waits_and_fleet_wakes_it_on_the_transition() {
@@ -39,7 +55,7 @@ fn a_step_ends_on_a_pull_request_being_approved_the_agent_is_stopped_while_it_wa
     held.take_on(taken_on(&copy[PULL_REQUESTS], "812")).expect("held");
     let mut moves = Vec::new();
 
-    let waiting = ends::place(&workflow, &copy, &held, &moves);
+    let waiting = ends::place(&workflow, &copy, &held, &moves, Progress::default());
     assert_eq!(waiting.step, Some(REVIEW), "the Job holds a pull request, so it is on the step that waits for it");
     let told = waiting.told.expect("the agent is told on entering");
     assert!(told.contains("This step ends when every pr is approved, which Fleet watches for."), "{told}");
@@ -48,10 +64,10 @@ fn a_step_ends_on_a_pull_request_being_approved_the_agent_is_stopped_while_it_wa
     assert_eq!(ends::woken(&workflow, &copy, &held, &moves, REVIEW), None, "nothing to wake it with");
 
     seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::ReviewersOn), "t1");
-    assert_eq!(ends::place(&workflow, &copy, &held, &moves).step, Some(REVIEW), "reviewers asked is not approval");
+    assert_eq!(ends::place(&workflow, &copy, &held, &moves, Progress::default()).step, Some(REVIEW), "reviewers asked is not approval");
 
     seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::Approved), "t2");
-    let moved_on = ends::place(&workflow, &copy, &held, &moves);
+    let moved_on = ends::place(&workflow, &copy, &held, &moves, Progress::default());
     assert_eq!(moved_on.step, Some(2), "the transition moves the Job on");
     assert!(moved_on.told.is_some_and(|words| words.contains("Write the summary.")), "and the agent is told the next step");
     assert_eq!(
@@ -61,7 +77,7 @@ fn a_step_ends_on_a_pull_request_being_approved_the_agent_is_stopped_while_it_wa
     );
 
     seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::InReview), "t3");
-    assert_eq!(ends::place(&workflow, &copy, &held, &moves).step, Some(2), "a reviewer taking it back does not drag the Job back");
+    assert_eq!(ends::place(&workflow, &copy, &held, &moves, Progress::default()).step, Some(2), "a reviewer taking it back does not drag the Job back");
 }
 
 #[test]
@@ -76,16 +92,48 @@ fn a_step_that_ends_on_a_job_landing_waits_for_every_job_started_and_any_takes_t
 
     let (every, any) = (feature("job: landed"), feature("any job: landed"));
     let mut moves = Vec::new();
-    assert_eq!(ends::place(&every, &copy, &held, &moves).step, Some(REVIEW));
+    assert_eq!(ends::place(&every, &copy, &held, &moves, Progress::default()).step, Some(REVIEW));
     seen(&mut held, &mut moves, &copy, JOBS, first, landed(), "t1");
-    assert_eq!(ends::place(&every, &copy, &held, &moves).step, Some(REVIEW), "one of two has landed");
-    assert_eq!(ends::place(&any, &copy, &held, &moves).step, Some(2), "and that is enough for any");
+    assert_eq!(ends::place(&every, &copy, &held, &moves, Progress::default()).step, Some(REVIEW), "one of two has landed");
+    assert_eq!(ends::place(&any, &copy, &held, &moves, Progress::default()).step, Some(2), "and that is enough for any");
     assert_eq!(ends::woken(&every, &copy, &held, &moves, REVIEW), None);
 
     seen(&mut held, &mut moves, &copy, JOBS, second, landed(), "t2");
-    assert_eq!(ends::place(&every, &copy, &held, &moves).step, Some(2), "both have");
+    assert_eq!(ends::place(&every, &copy, &held, &moves, Progress::default()).step, Some(2), "both have");
     assert_eq!(
         ends::woken(&every, &copy, &held, &moves, REVIEW).as_deref(),
         Some("Fleet: Job 98632ca8 and Job a41f09d3 are Landed. That ends the \"Review\" step of this Job's Feature workflow.")
     );
+}
+
+#[test]
+fn land_waits_on_pr_approved_before_it_merges_and_stays_the_step_until_it_lands() {
+    let (workflow, copy) = (landing("pr: approved"), the_jobs_copy());
+    let mut held = HeldInstances::new();
+    held.take_on(taken_on(&copy[PULL_REQUESTS], "812")).expect("held");
+    let (mut moves, pushed) = (Vec::new(), Progress { pushed: true, landed: false });
+
+    let waiting = ends::place(&workflow, &copy, &held, &moves, pushed);
+    assert_eq!(waiting.step, Some(LAND), "Land is entered when the work is pushed, as it always was");
+    let told = waiting.told.expect("the agent is told on entering");
+    assert!(told.contains("Open the pull request and merge it."), "{told}");
+    assert!(told.contains("Do not merge until every pr is approved."), "{told}");
+    assert!(told.contains("then end your turn: Fleet watches for it and wakes you with a message, and then you land it."), "{told}");
+    assert!(!waiting.waits_on_the_person, "a state is the world's to reach");
+    assert_eq!(ends::woken(&workflow, &copy, &held, &moves, LAND), None, "nothing to wake it with");
+
+    seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::ReviewersOn), "t1");
+    assert_eq!(ends::woken(&workflow, &copy, &held, &moves, LAND), None, "reviewers asked is not approval");
+
+    seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::Approved), "t2");
+    assert_eq!(ends::place(&workflow, &copy, &held, &moves, pushed).step, Some(LAND), "the approval lifts the wait and does not end the step");
+    assert_eq!(
+        ends::woken(&workflow, &copy, &held, &moves, LAND).as_deref(),
+        Some("Fleet: PR #812 is Approved. That lifts the wait on the \"Land\" step of this Job's Feature workflow: land it now."),
+        "one line wakes the agent to land"
+    );
+
+    seen(&mut held, &mut moves, &copy, PULL_REQUESTS, "812", Observed::Forge(ForgeFact::Merged), "t3");
+    let landed = Progress { pushed: true, landed: true };
+    assert_eq!(ends::place(&workflow, &copy, &held, &moves, landed).step, None, "it merged: the step passes, as it does with no gate");
 }

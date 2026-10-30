@@ -557,8 +557,15 @@ pub(crate) fn stall_nudge(workflow: &str, step: &RailStep, end: rail_ends::End) 
 /// left to wait for the move waits for good. `None` where the step wrote none, and nothing is sent.
 pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Option<String> {
     let step = steps.get(at)?;
-    let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty())?;
-    let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label);
+    let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty());
+    let gate = rail_ends::gate_said(step);
+    if words.is_none() && gate.is_none() {
+        return None;
+    }
+    let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.", step.label);
+    if let Some(words) = words {
+        said.push_str(&format!("\n\n{words}"));
+    }
     let ends = rail_ends::ends_of(steps, at);
     if !ends.is_empty() {
         let each: Vec<_> = ends.iter().map(|end| end.for_agent()).collect();
@@ -575,6 +582,10 @@ pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Optio
                 next.label
             ));
         }
+    }
+    // A delivering step gated by a lifecycle: it is entered as always, and the agent holds the merge.
+    if let Some(gate) = gate {
+        said.push_str(&format!(" {gate}"));
     }
     Some(said)
 }

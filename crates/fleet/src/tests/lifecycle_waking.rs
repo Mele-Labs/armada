@@ -7,9 +7,9 @@
 
 use std::sync::Arc;
 
-use api::HostedSessions;
+use api::{HostedSessions, Sessions};
 use core_model::{ForgeFact, Observed};
-use ipc::{SessionId, SessionStanding, SkipSessionStep};
+use ipc::{SessionFact, SessionId, SessionReport, SessionStanding, SkipSessionStep};
 use store::AttachmentState;
 use testkit::FakeJudge;
 
@@ -28,6 +28,17 @@ pub(super) fn reviewing(ends: &str) -> String {
         - id: review\n    label: \"Review\"\n    instructions: \"Answer the review.\"\n    ends_on:\n      - \"{ends}\"\n    \
         delivers: false\n    advance_gate: auto\n  \
         - id: close\n    label: \"Close out\"\n    instructions: \"Write the summary.\"\n    delivers: false\n    advance_gate: auto\n"
+    )
+}
+
+/// Plan, Land (delivers; `ends` gates its merge).
+fn landing(ends: &str) -> String {
+    format!(
+        "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
+        - id: plan\n    label: \"Plan the change\"\n    evidence: {{submitted: {{type: plan}}}}\n    \
+        mechanical_checks:\n      - {{ type: plan_recorded, min_tasks: 1 }}\n    delivers: false\n    advance_gate: auto\n  \
+        - id: land\n    label: \"Land\"\n    instructions: \"Open the pull request and merge it.\"\n    ends_on:\n      - \"{ends}\"\n    \
+        delivers: true\n    advance_gate: auto\n"
     )
 }
 
@@ -120,4 +131,53 @@ async fn a_job_that_holds_no_pull_request_is_not_on_the_step_until_it_does() {
     rig.fleet.timeline().settled().await;
     assert_eq!(record(&rig, &id).await.workflow_step, Some(0), "plan approved, nothing to wait on: the rail holds where it was");
     assert_eq!(told(&rig, "Answer the review."), 0);
+}
+
+/// A Job holding pull request 812, past its plan, and pushed: on Land.
+async fn on_land() -> (Rig, SessionId) {
+    let rig = ruled_on(Arc::new(FakeJudge::with_no_objection()), resolved(&landing("pr: approved")));
+    let id = on_the_rail(&rig).await;
+    holds(&rig, &id, "pr", "812", AttachmentState::Standing, &[("state", "open")]).await;
+    rig.fleet.lifecycles_moved(record(&rig, &id).await).await;
+    approved_plan(&rig, &id).await;
+    let harness = record(&rig, &id).await.harness;
+    let pushed = SessionReport { harness, session_id: id.clone(), fact: SessionFact::Pushed { branch: Some("armada/reader".into()) } };
+    rig.fleet.report_session(pushed).await.expect("kept");
+    eventually(|| async { record(&rig, &id).await.workflow_step == Some(1) }).await;
+    (rig, id)
+}
+
+const LIFTED: &str = "That lifts the wait on the \"Land\" step";
+
+#[tokio::test]
+async fn land_is_told_to_hold_the_merge_and_woken_once_to_land_when_the_pull_request_is_approved() {
+    let (rig, id) = on_land().await;
+    eventually(|| async { told(&rig, "Do not merge until every pr is approved.") == 1 }).await;
+
+    seen(&rig, &id, ForgeFact::ReviewersOn).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!((told(&rig, "lifts the wait"), record(&rig, &id).await.workflow_step), (0, Some(1)), "reviewers asked is not approval");
+
+    seen(&rig, &id, ForgeFact::Approved).await;
+    eventually(|| async { told(&rig, "lifts the wait") == 1 }).await;
+    let woken = sent(&rig, "lifts the wait");
+    assert!(woken.contains(&format!("Fleet: PR #812 is Approved. {LIFTED} of this Job's Rail workflow: land it now.")), "{woken}");
+    assert_eq!(record(&rig, &id).await.workflow_step, Some(1), "the step is still Land: only the merge passes it");
+
+    rig.fleet.timeline().settled().await;
+    assert!(rig.fleet.lifecycle_seen(id.as_str(), "pr", "812", Observed::Forge(ForgeFact::Approved)).await.is_none());
+    seen(&rig, &id, ForgeFact::InReview).await;
+    seen(&rig, &id, ForgeFact::Approved).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, "lifts the wait"), 1, "an approval taken back and given again says nothing the thread does not hold");
+}
+
+#[tokio::test]
+async fn the_person_writing_on_land_lifts_the_wait_himself_and_no_line_follows() {
+    let (rig, id) = on_land().await;
+    eventually(|| async { told(&rig, "Do not merge until every pr is approved.") == 1 }).await;
+    rig.send(&id, "Merge it when you are ready.").await;
+    seen(&rig, &id, ForgeFact::Approved).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, "lifts the wait"), 0);
 }

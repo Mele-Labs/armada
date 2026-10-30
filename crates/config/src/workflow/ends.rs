@@ -92,7 +92,6 @@ pub(super) fn placed(key: &str, ends: &[StepEnd], step: Placed) -> Option<Refusa
 /// What already decides where a step is.
 #[derive(Clone, Copy)]
 pub(super) struct Placed {
-    pub delivers: bool,
     pub walks: bool,
     pub follows_plan: bool,
     pub records_plan: bool,
@@ -101,7 +100,6 @@ pub(super) struct Placed {
 impl Placed {
     fn by(self) -> Option<&'static str> {
         [
-            (self.delivers, "delivers the work"),
             (self.walks, "walks"),
             (self.follows_plan, "follows the plan"),
             (self.records_plan, "records the plan"),

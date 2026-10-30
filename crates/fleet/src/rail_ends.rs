@@ -124,6 +124,20 @@ impl End {
     }
 }
 
+/// What a **delivering** step that lists a lifecycle end tells the agent. The end does not end the step,
+/// which the merge does: it gates the merge. `None` for any other step.
+pub(crate) fn gate_said(step: &RailStep) -> Option<String> {
+    let gates: Vec<_> = step.lifecycle_ends().map(|end| End::Lifecycle(end.clone()).for_person()).collect();
+    if !step.delivers || gates.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "Do not merge until {}. Open the pull request if you have not, then end your turn: Fleet watches for it and \
+         wakes you with a message, and then you land it.",
+        gates.join(", or ")
+    ))
+}
+
 /// Everything that ends the step at `at`, any one of them, or none where nothing observable does. A
 /// step before the recording step that lists its ends is ended by those; the plan recorded is said
 /// only where it lists none.

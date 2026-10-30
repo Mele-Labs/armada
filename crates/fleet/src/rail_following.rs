@@ -33,6 +33,8 @@ struct Seen {
     step: Option<u32>,
     skipped: Vec<(usize, Skip)>,
     stalled: Option<usize>,
+    /// A delivering step's lifecycle end has come and the agent has not been told.
+    lifted: bool,
 }
 
 /// Start reacting to a hosted Session's published row. Production starts it beside the timeline's, and
@@ -91,7 +93,20 @@ where
         }
         let skips = rail::skipped(&steps, &facts);
         let stalled = rail::stalled(&steps, &record);
-        let now = Seen { step: record.workflow_step, skipped: skips.clone(), stalled: stalled.as_ref().map(|(at, _)| *at) };
+        // A delivering step gated by a lifecycle is not left when its end comes, so the agent is woken here.
+        let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {
+            Some((at, step)) if step.delivers && step.has_lifecycle_end() => {
+                let name = self.workflow_name(manifest.as_str(), workflow);
+                self.lifecycle_lifted(&id, at, step, &name, manifest.as_str()).await
+            }
+            _ => None,
+        };
+        let now = Seen {
+            step: record.workflow_step,
+            skipped: skips.clone(),
+            stalled: stalled.as_ref().map(|(at, _)| *at),
+            lifted: lifted.is_some(),
+        };
         if seen.get(&id) == Some(&now) {
             return;
         }
@@ -103,6 +118,9 @@ where
             return;
         }
         seen.insert(id.clone(), now);
+        if let Some(line) = lifted {
+            let _ = self.told_by_fleet(&id, &line, ipc::Notice::RailStep).await;
+        }
         // The nudges go after the rail is kept, one message for each step skipped and never twice.
         for (at, skip) in skips {
             if kept.nudged.contains(&(at as u32)) {

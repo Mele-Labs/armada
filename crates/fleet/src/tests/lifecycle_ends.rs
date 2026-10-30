@@ -23,6 +23,17 @@ pub(super) fn reviewed() -> Vec<RailStep> {
     vec![plan_step(), follows("Implement"), review, delivers("Land")]
 }
 
+/// Plan, Implement, Land (delivers, and `pr: approved` gates its merge).
+fn landing() -> Vec<RailStep> {
+    let land = RailStep {
+        delivers: true,
+        ends_on: vec![end("pr: approved")],
+        instructions: Some("Open the pull request and merge it.".into()),
+        ..step("Land")
+    };
+    vec![plan_step(), follows("Implement"), land]
+}
+
 fn holding(steps: &[usize], met: &[usize]) -> Facts {
     Facts { lifecycle_held: StepBits::of(steps.iter().copied()), lifecycle_met: StepBits::of(met.iter().copied()), ..approved() }
 }
@@ -136,4 +147,43 @@ fn only_what_the_person_wrote_after_a_step_began_counts_as_writing_on_it() {
     assert_eq!(messaged_on(&only_the_agent, &[visit(2, 3)]), StepBits::default(), "neither the agent's words nor Fleet's");
     let twice = [visit(2, 1), visit(3, 2), visit(2, 5)];
     assert!(!messaged_on(&[from_you(3, "earlier")], &twice).has(2), "only the latest visit to a step counts");
+}
+
+#[test]
+fn a_delivering_step_that_lists_a_lifecycle_end_is_entered_as_always_and_only_landing_passes_it() {
+    let steps = landing();
+    assert_eq!(at(&steps, approved()), Some(1), "not pushed yet");
+    let pushed = Facts { pushed: true, ..approved() };
+    assert_eq!(at(&steps, pushed), Some(2), "entered on the push with nothing held: the agent opens the pull request here");
+    let waiting = Facts { pushed: true, ..holding(&[2], &[]) };
+    assert_eq!(at(&steps, waiting), Some(2));
+    let met = Facts { pushed: true, ..holding(&[2], &[2]) };
+    assert_eq!(at(&steps, met), Some(2), "the state lifts the wait and does not end the step");
+    let written = Facts { messaged: StepBits::of([2]), ..waiting };
+    assert_eq!(at(&steps, written), Some(2), "nor does a message");
+    assert_eq!(at(&steps, Facts { landed: true, ..met }), None, "landing passes it, as it does with no gate");
+    assert_eq!(at(&steps, Facts { landed: true, ..waiting }), None, "and it passes without the state, since the merge is done");
+}
+
+#[test]
+fn a_delivering_step_that_waits_tells_the_agent_to_hold_the_merge_and_the_merge_still_ends_it() {
+    let steps = landing();
+    let said = rail::instructed("feature", &steps, 2).expect("instructions are sent");
+    assert!(said.contains("Open the pull request and merge it."), "{said}");
+    assert!(said.contains("This step ends when its pull request merges."), "{said}");
+    assert!(
+        said.ends_with(
+            "Do not merge until every pr is approved. Open the pull request if you have not, then end your turn: \
+             Fleet watches for it and wakes you with a message, and then you land it."
+        ),
+        "{said}"
+    );
+    assert_eq!(ends_when(&steps, 2).as_deref(), Some("it is merged"), "the merge is still what ends it");
+    let bare = [plan_step(), RailStep { instructions: None, ..steps[2].clone() }];
+    assert!(rail::instructed("feature", &bare, 1).is_some_and(|said| said.contains("Do not merge until")), "told though it wrote no words");
+    let plain = [plan_step(), delivers("Land")];
+    assert_eq!(rail::instructed("feature", &plain, 1), None, "no instructions and no gate: no message, as before");
+    let several = RailStep { ends_on: vec![end("pr: approved"), end("any ticket: closed")], ..steps[2].clone() };
+    let said = rail::instructed("feature", &[plan_step(), several], 1).expect("told");
+    assert!(said.contains("Do not merge until every pr is approved, or any ticket is closed."), "{said}");
 }

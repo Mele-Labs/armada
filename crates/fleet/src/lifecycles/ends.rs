@@ -9,7 +9,7 @@ use store::{KeptInstance, KeptMove};
 
 use super::holding::Transition;
 use crate::rail::{self, Facts};
-use crate::rail_ends;
+use crate::rail_ends::{self, End};
 use crate::rail_lifecycle::{self, Held};
 
 /// Where a Job stands, and what the step it is on does to it.
@@ -19,7 +19,8 @@ pub struct Place {
     pub step: Option<usize>,
     /// What the agent is told on entering the step.
     pub told: Option<String>,
-    /// Whether ending the step is something the person does. **A lifecycle state is not.**
+    /// Whether ending the step is something the person does, an approval or a reply. **A lifecycle
+    /// state is not, nor is a merge.**
     pub waits_on_the_person: bool,
 }
 
@@ -48,22 +49,38 @@ fn kept(held: &HeldInstances, moves: &[Transition]) -> Held {
     Held { instances: instances.collect(), moves: moves.collect() }
 }
 
+/// What the Job has done with its work, past the plan's approval.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Progress {
+    /// The branch was pushed: a delivering step is entered.
+    pub pushed: bool,
+    /// The pull request merged: a delivering step is passed.
+    pub landed: bool,
+}
+
 /// Where a Job whose plan is approved stands on `workflow`, holding `held` and having moved as
 /// `moves` say.
-pub fn place(workflow: &ResolvedWorkflow, lifecycles: &[Lifecycle], held: &HeldInstances, moves: &[Transition]) -> Place {
+pub fn place(
+    workflow: &ResolvedWorkflow,
+    lifecycles: &[Lifecycle],
+    held: &HeldInstances,
+    moves: &[Transition],
+    progress: Progress,
+) -> Place {
     let steps = rail::steps_of(workflow);
-    let mut facts = Facts { plan_approved: true, ..Facts::default() };
+    let mut facts = Facts { plan_approved: true, pushed: progress.pushed || progress.landed, landed: progress.landed, ..Facts::default() };
     (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, lifecycles, &kept(held, moves));
     let step = rail::current(&steps, &facts);
     Place {
         step,
         told: step.and_then(|at| rail::instructed(workflow.name(), &steps, at)),
         waits_on_the_person: step
-            .is_some_and(|at| rail_ends::ends_of(&steps, at).iter().any(|end| !end.by_the_world() && !end.by_the_job())),
+            .is_some_and(|at| rail_ends::ends_of(&steps, at).iter().any(|end| !end.by_the_world() && !end.by_the_job() && *end != End::Merged)),
     }
 }
 
-/// The line that wakes the agent on leaving `step`, where the moves satisfy one of its ends.
+/// The line that wakes the agent on leaving `step`, where the moves satisfy one of its ends; for a
+/// delivering step, the line that lifts its wait.
 pub fn woken(
     workflow: &ResolvedWorkflow,
     lifecycles: &[Lifecycle],

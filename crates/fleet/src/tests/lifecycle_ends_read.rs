@@ -159,7 +159,7 @@ fn the_line_that_wakes_the_agent_names_what_got_there_and_the_step_it_ended() {
     let said = |end: &str, held: &Held| {
         let end = written(end);
         let reading = rail_lifecycle::read(&end, &pull, held);
-        rail_lifecycle::woke("Review", "feature", &end, &pull, &reading, &called)
+        rail_lifecycle::woke("Review", false, "feature", &end, &pull, &reading, &called)
     };
     let one = Held { instances: vec![instance("pr", "812")], moves: vec![moved("pr", "812", "in:approved")] };
     assert_eq!(said("pr: approved", &one), "Fleet: PR #812 is Approved. That ends the \"Review\" step of this Job's feature workflow.");
@@ -169,6 +169,13 @@ fn the_line_that_wakes_the_agent_names_what_got_there_and_the_step_it_ended() {
         "Fleet: PR #812 and PR #813 are Approved. That ends the \"Review\" step of this Job's feature workflow."
     );
     assert_eq!(written("any pr: approved").waits(), Waits::Any);
+    let end = written("pr: approved");
+    let reading = rail_lifecycle::read(&end, &pull, &one);
+    assert_eq!(
+        rail_lifecycle::woke("Land", true, "feature", &end, &pull, &reading, &called),
+        "Fleet: PR #812 is Approved. That lifts the wait on the \"Land\" step of this Job's feature workflow: land it now.",
+        "a delivering step is gated by the state and ended by the merge"
+    );
 }
 
 /// The shipped orchestrate workflow's shape: Assess, Plan, Dispatch (follows the plan, its tasks marked
