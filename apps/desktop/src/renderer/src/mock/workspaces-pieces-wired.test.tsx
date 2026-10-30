@@ -163,7 +163,7 @@ test("a rule the repository committed that is deleted stays, marked with when it
   await expect.element(page.getByText("Removed from the repository when its pull request merges")).toBeVisible();
 });
 
-test("a Start a Job rule that names a workflow keeps it when its prompt is changed, and the workflow is not offered", async () => {
+test("a Start a Job rule offers the repository's workflows, keeps the one it names when its prompt is changed, and keeps a new pick", async () => {
   const seed = workspacesPieces.draft!.pieces!;
   const kick = {
     rule: {
@@ -183,9 +183,13 @@ test("a Start a Job rule that names a workflow keeps it when its prompt is chang
   await toSystemPage("Workflows");
   const saved = vi.spyOn(app.api, "saveLifecyclePiece");
   await region().getByRole("button", { name: "Kick it off", exact: true }).click();
-  expect(PANEL.getByRole("combobox", { name: /workflow/i }).elements()).toHaveLength(0);
+  const workflow = PANEL.getByRole("combobox", { name: "Start a Job 1 workflow", exact: true });
+  await expect.element(workflow).toHaveValue("feature");
   await PANEL.getByRole("textbox", { name: "Prompt" }).fill("Look again");
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => saved.mock.calls.length).toBe(1);
   expect(saved.mock.calls[0]![0]).toMatchObject({ piece: { rule: { id: "kick", does: [{ what: { act: "start_job", workflow: "feature", prompt: "Look again" } }] } } });
+  await workflow.selectOptions("planning");
+  await expect.poll(() => saved.mock.calls.length).toBe(2);
+  expect(saved.mock.calls[1]![0]).toMatchObject({ piece: { rule: { id: "kick", does: [{ what: { act: "start_job", workflow: "planning", prompt: "Look again" } }] } } });
 });
