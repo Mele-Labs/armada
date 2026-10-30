@@ -5,7 +5,8 @@
 import type { RepositorySummary } from "@armada/protocol";
 
 import type { Scenario } from "../moment";
-import { MY_STORE, PROPOSALS } from "../workspaces-lanes-data";
+import { workflowsServed } from "../workflows-fleet";
+import { MY_STORE, PROPOSALS, STORE_DEFINITIONS, STORE_ENDS } from "../workspaces-lanes-data";
 import { workspacesLanes } from "./workspaces-lanes";
 
 const [WEB, API] = workspacesLanes.state.holds.repositories ?? [];
@@ -24,6 +25,17 @@ export const workspacesAndAutonomy: Scenario = {
   name: "workspaces-and-autonomy",
   says: "System > Workflows with six repositories served: my-store kept on this Mac, platform committed in the repository, and scratch and store-mobile in none. A button makes a Workspace, the Workspace's tab has a pencil, and Autonomy sets how far Armada goes for each kind of act",
   state: { ...workspacesLanes.state, holds: { ...workspacesLanes.state.holds, repositories: REPOSITORIES } },
+  // Workflows are listed under every repository served, so the page draws the editor on whichever is picked.
+  behaves: (fleet) => ({
+    ...workspacesLanes.behaves!(fleet),
+    ...workflowsServed(() => fleet.state().holds.repositories?.find((one) => one.root === fleet.state().repository)?.manifest?.id ?? null, {
+      definitions: STORE_DEFINITIONS,
+      ends: STORE_ENDS,
+      nudges: [],
+      served: REPOSITORIES.map((one) => one.manifest!.id),
+    }),
+    readManifestFile: workspacesLanes.behaves!(fleet).readManifestFile!,
+  }),
   draft: {
     ...workspacesLanes.draft,
     workspace: {
