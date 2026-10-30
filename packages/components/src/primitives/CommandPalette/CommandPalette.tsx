@@ -4,7 +4,8 @@ import type { LucideIcon } from "lucide-react";
 import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
 import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction, type PaletteTaking } from "./actions-panel";
-import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import { ChoiceKeys, DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, previousKind, readsAsWork, type DrawnChip, type PaletteChip, type PaletteChipOption, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import { completing, readTokens, withoutTokens } from "./chips";
 import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
 import { usePlace } from "./place";
 import { ShortcutRevealProvider, useShortcutReveal } from "../../shortcut-reveal";
@@ -16,7 +17,7 @@ export { readsAsPath, type PalettePath } from "./path-row";
 export type { PaletteLink, PaletteLinkKind } from "./link-row";
 export type { PaletteAction } from "./actions-panel";
 export type { PaletteMeta } from "./row-meta";
-export { adds, readsAsWork, type AddKind, type BarKind, type DispatchKind, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+export { adds, readsAsWork, type AddKind, type BarKind, type DispatchKind, type PaletteChip, type PaletteChipOption, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 
 /**
  * The palette is a superset of the UI, never a substitute for it, and it is
@@ -226,6 +227,9 @@ export function CommandPalette({
   const input = useRef<HTMLInputElement>(null);
   const active = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // The chip whose list Tab put up, and the option under the cursor in it; and the cursor in a typed token's completions.
+  const [chipOpen, setChipOpen] = useState<{ id: string; at: number } | null>(null);
+  const [pickAt, setPickAt] = useState(0);
   // The words a kind is filing and the step listing where they can go, while that step is up.
   const [stepping, setStepping] = useState<{ words: string; step: PaletteStep } | null>(null);
   // The row whose acts are up, and the one of them under the cursor.
@@ -268,6 +272,23 @@ export function CommandPalette({
   const rest: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
   const typedKind = link === undefined || stepping !== null ? null : link.kindOf(query.trim());
   const flat: (Hit | "dispatch" | "path" | "link")[] = [...(typedKind === null ? [] : ["link" as const]), ...(typedPath === null ? [] : ["path" as const]), ...rest];
+  // The row's chips: each one's choice is a token typed in the words where there is one, else what its list holds.
+  const chips: readonly PaletteChip[] = offered ? (dispatch.chips ?? []) : [];
+  const tokens = chips.length === 0 ? undefined : readTokens(query, chips);
+  const choiceOf = (chip: PaletteChip): string => tokens?.chosen[chip.id] ?? chip.chosen;
+  const openChip = chipOpen === null ? undefined : chips.find((one) => one.id === chipOpen.id);
+  const completion = chips.length === 0 || openChip !== undefined ? undefined : completing(query, chips);
+  const drawn: DrawnChip[] = chips.map((chip) => ({ chip, label: chip.options.find((one) => one.id === choiceOf(chip))?.label ?? "", open: chip === openChip }));
+  /** The chips Tab steps through: those with a list. */
+  const tabbed = chips.filter((one) => one.options.length > 1);
+  // A chip's list, or a typed token's completions, stands in place of the results while it is up.
+  const picking: { chip: PaletteChip; options: readonly PaletteChipOption[]; at: number } | undefined =
+    openChip !== undefined && chipOpen !== null
+      ? { chip: openChip, options: openChip.options, at: chipOpen.at }
+      : completion === undefined
+        ? undefined
+        : { chip: completion.chip, options: completion.options, at: Math.min(pickAt, completion.options.length - 1) };
+  const pickId = (chip: PaletteChip, option: PaletteChipOption) => `chip-${chip.id}-${option.id}`;
   const place = usePlace(open, anchor, panel);
   // The row under the cursor and what ⌘K would open on it.
   const under = flat[at];
@@ -278,12 +299,13 @@ export function CommandPalette({
   // two-key act. Reset on every change to the query rather than clamped: a
   // cursor left at position four in a list that now has two is a cursor
   // somewhere the person did not put it.
-  useEffect(() => (setAt(0), setRefused(null)), [query]);
+  useEffect(() => (setAt(0), setRefused(null), setChipOpen(null), setPickAt(0)), [query]);
   // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
-  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null), setActing(null))), [open, defaultQuery]);
+  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null), setActing(null), setChipOpen(null))), [open, defaultQuery]);
   // Tab to a kind that adds makes its row the active one, so Enter adds.
   const kind = dispatch?.kind;
   useEffect(() => {
+    setChipOpen(null);
     if (kind !== undefined && adds(kind)) setAt(typedPath === null ? 0 : 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
@@ -320,6 +342,11 @@ export function CommandPalette({
         setActing(null);
         return;
       }
+      // A chip's list goes, and the chip keeps what it held.
+      if (chipOpen !== null) {
+        setChipOpen(null);
+        return;
+      }
       // A second step backs out to the words it was filing.
       if (stepping !== null) {
         setQuery(stepping.words);
@@ -330,7 +357,7 @@ export function CommandPalette({
     }
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [open, onClose, stepping, acting, taking]);
+  }, [open, onClose, stepping, acting, taking, chipOpen]);
 
   // ⌘K opens the acts of the row under the cursor, and closes them again. The press is marked handled so
   // the binding that toggles the palette leaves it up; on a row with no acts it is not, and closes it as ever.
@@ -382,7 +409,7 @@ export function CommandPalette({
   // ⌘1 to ⌘9 open the first nine results, as Raycast's do; the digit is drawn on each while ⌘ is held. Taken from the
   // window in the capture phase, so the title bar's tabs, which ⌘1 to ⌘8 reach elsewhere, stand down while it is up.
   useEffect(() => {
-    if (!open || acting !== null) return;
+    if (!open || acting !== null || picking !== undefined) return;
     function onDigit(event: KeyboardEvent) {
       if (event.defaultPrevented || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return;
       const digit = /^Digit([1-9])$/.exec(event.code)?.[1];
@@ -424,15 +451,34 @@ export function CommandPalette({
 
   function send() {
     if (dispatch === undefined || query.trim() === "" || stepping !== null) return;
-    const words = query.trim();
+    const words = tokens?.words ?? query.trim();
+    if (words === "") return;
     const step = dispatch.step?.(words, dispatch.kind);
     if (step !== undefined) {
       setStepping({ words, step });
       setQuery("");
       return;
     }
-    dispatch.onDispatch(words, dispatch.kind);
+    if (chips.length === 0) dispatch.onDispatch(words, dispatch.kind);
+    else dispatch.onDispatch(words, dispatch.kind, Object.fromEntries(chips.map((chip) => [chip.id, choiceOf(chip)])));
     onClose?.();
+  }
+
+  /** A chip's list up, on what the chip holds. */
+  function openOn(chip: PaletteChip) {
+    setChipOpen({ id: chip.id, at: Math.max(0, chip.options.findIndex((one) => one.id === choiceOf(chip))) });
+  }
+
+  /** An option taken: a chip's choice, which drops any token for it, or a token completed in the words. Either way, back to the words. */
+  function pick(option: PaletteChipOption | undefined) {
+    if (option === undefined || picking === undefined) return;
+    if (openChip !== undefined) {
+      openChip.onChoose(option.id);
+      setChipOpen(null);
+      setQuery(withoutTokens(query, openChip));
+      return;
+    }
+    if (completion !== undefined) setQuery(`${query.slice(0, completion.from)}${option.label} `);
   }
 
   function openPath() {
@@ -503,6 +549,34 @@ export function CommandPalette({
   // key belongs to the query, which is the suppression rule holding.
   function onKey(event: React.KeyboardEvent<HTMLInputElement>) {
     if (acting !== null) return;
+    const plainTab = event.key === "Tab" && !event.altKey && !event.ctrlKey && !event.metaKey;
+    if (picking !== undefined) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const next = (picking.at + (event.key === "ArrowDown" ? 1 : -1) + picking.options.length) % picking.options.length;
+        if (chipOpen !== null) setChipOpen({ ...chipOpen, at: next });
+        else setPickAt(next);
+        return;
+      }
+      if (event.key === "Enter" && !event.metaKey) {
+        event.preventDefault();
+        return pick(picking.options[picking.at]);
+      }
+      if (plainTab && openChip === undefined) {
+        event.preventDefault();
+        return pick(picking.options[picking.at]);
+      }
+      // From a chip's list, Tab goes on to the next chip and past the last to the next kind; Shift+Tab back, and past the first to the words.
+      if (plainTab && openChip !== undefined && dispatch !== undefined) {
+        event.preventDefault();
+        const here = tabbed.indexOf(openChip);
+        const to = tabbed[here + (event.shiftKey ? -1 : 1)];
+        if (to !== undefined) return openOn(to);
+        setChipOpen(null);
+        if (!event.shiftKey) dispatch.onKind?.(nextKind(dispatch));
+        return;
+      }
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setAt((n) => (flat.length === 0 ? 0 : (n + 1) % flat.length));
@@ -519,9 +593,14 @@ export function CommandPalette({
       choose(flat[at]);
       return;
     }
-    if (event.key === "Tab" && dispatch?.onKind !== undefined && stepping === null && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    // Tab opens the row's first chip with a list, where it carries one, and otherwise steps the kind; Shift+Tab steps it back.
+    if (plainTab && stepping === null && !event.shiftKey && tabbed[0] !== undefined) {
       event.preventDefault();
-      dispatch.onKind(nextKind(dispatch));
+      return openOn(tabbed[0]);
+    }
+    if (plainTab && dispatch?.onKind !== undefined && stepping === null) {
+      event.preventDefault();
+      dispatch.onKind(event.shiftKey ? previousKind(dispatch) : nextKind(dispatch));
     }
   }
 
@@ -558,7 +637,7 @@ export function CommandPalette({
   const current = flat[at];
   const actionList = acting === null ? [] : narrowed(actionsOf?.(acting.entry) ?? [], actionQuery);
   const sendRow = !offered ? null : (
-    <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
+    <DispatchRow words={tokens?.words ?? query.trim()} kind={dispatch.kind} chips={drawn} onChip={(id) => tabbed.filter((one) => one.id === id).forEach(openOn)} trailing={!leading} active={current === "dispatch" && picking === undefined} ref={current === "dispatch" && picking === undefined ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
   );
 
   return (
@@ -589,7 +668,7 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={acting !== null || current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
+          aria-activedescendant={acting !== null ? undefined : picking !== undefined ? rowId({ id: pickId(picking.chip, picking.options[picking.at]!), section: picking.chip.id, label: "" }) : current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={stepping?.step.title ?? placeholder}
           placeholder={stepping === null ? placeholder : stepping.step.of === undefined ? "" : stepping.step.title}
           value={query}
@@ -604,7 +683,24 @@ export function CommandPalette({
           {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
           {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
           {leading ? sendRow : null}
-          {hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
+          {picking === undefined ? null : (
+            <div className="armada-palette__group">
+              <div className="armada-palette__section">{picking.chip.name}</div>
+              {picking.options.map((option, index) => (
+                <Row
+                  key={option.id}
+                  quick={undefined}
+                  hit={{ entry: { id: pickId(picking.chip, option), section: picking.chip.id, label: option.label, ...(option.detail === undefined ? {} : { detail: option.detail }) }, at: null }}
+                  query=""
+                  active={index === picking.at}
+                  ref={index === picking.at ? active : undefined}
+                  onEnter={() => (chipOpen !== null ? setChipOpen({ ...chipOpen, at: index }) : setPickAt(index))}
+                  onChoose={() => pick(option)}
+                />
+              ))}
+            </div>
+          )}
+          {picking !== undefined ? null : hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
@@ -612,7 +708,7 @@ export function CommandPalette({
               {`Nothing matches “${query}”. Searched ${stepping?.step.searched ?? searched}.`}
             </p>
           ) : null}
-          {grouped.map((group) => (
+          {picking !== undefined ? null : grouped.map((group) => (
             <div key={group.section.id} className="armada-palette__group">
               {/* Section heads are what stop four kinds of result reading as
                   one list. Drawn only where the section has a hit. */}
@@ -657,6 +753,8 @@ export function CommandPalette({
         )}
         {acting !== null ? (
           <ResultKeys />
+        ) : picking !== undefined ? (
+          <ChoiceKeys open={openChip !== undefined} />
         ) : offered && dispatch !== undefined ? (
           <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
         ) : stepping !== null ? (

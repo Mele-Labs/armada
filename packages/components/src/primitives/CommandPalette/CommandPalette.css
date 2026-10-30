@@ -307,6 +307,54 @@
   font-weight: var(--weight-medium);
 }
 
+/* The dispatch row's chips, after its words: where the words go, in the repository chip's frame. */
+.armada-palette__chips {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: center;
+}
+
+.armada-palette__chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 20ch;
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  cursor: default;
+}
+
+button.armada-palette__chip {
+  cursor: pointer;
+}
+
+.armada-palette__chip > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-palette__chip[data-open] {
+  border-color: var(--accent);
+}
+
+.armada-palette__chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The keys the one bar answers, along its foot while there is something typed to send. */
 .armada-palette__keys-foot {
   flex: none;
