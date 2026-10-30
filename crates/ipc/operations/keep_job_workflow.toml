@@ -1,0 +1,14 @@
+[operations.keep_job_workflow]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Propose the Job's own copy of its workflow for every Job, as a change to the workflow it came from, kept ready for the owner to approve"
+notes = """
+`POST /sessions/copy/keep`, body `KeepJobWorkflow`: `session_id` and `source`, `repository` or `kit`, where the change would be saved; absent takes the place the Job's workflow came from, and `repository` for one Armada carries. Since 30 Oct 2026. Answers the `WorkflowChange` kept: `origin` `{ "kind": "job" }`, `before` the file's text now (empty where the place holds no file of that id, as for a workflow only Armada carries), `after` the Job's copy and `state` `ready` at once, since no model is asked to draft it. The owner's Approve on the Workflows page saves it, as for any drafted change.
+
+**Nothing is saved.** The change is the same `workflow_changes` row `ask_workflow_change` keeps, so `list_workflow_changes`, `approve_workflow_change` and `dismiss_workflow_change` act on it as they do on one he asked for; `send_back_workflow_change` refuses it (422 `fleet.workflow_change_not_sendable`), since no model drafted it. Approve saves through the same path `save_workflow` checks, to `source`, and replaces the file there; for a workflow Armada carries it makes the repository's own, which the repository's runs from then. Fleet also keeps a `draft` row on the Job, named `Workflow <id>` with the file's text as `before`, so the Job's Needs-you list asks him. Fleet writes nothing to a tracker or a forge. The autonomy is Asks, as a drafted change always is.
+
+422 `fleet.job_holds_no_copy` where the Job has changed none of its steps, 422 `fleet.session_command_refused` for a Job that follows no workflow, 422 `fleet.workflow_unfit` where the copy no longer fits the repository, 422 `fleet.workflow_change_unchanged` where the Job's copy reads as the file does, 422 `fleet.workflow_is_armadas` where `source` is `armada`, and 404 `fleet.no_such_session`.
+
+`agent_access` is `Bridge only`: the owner pressed Keep for every Job. An agent proposes a change for other Jobs with `propose_workflow_change`.
+"""

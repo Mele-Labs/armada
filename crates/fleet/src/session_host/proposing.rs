@@ -538,6 +538,11 @@ where
 
     /// An entry on the Session's timeline, for the thread to draw.
     pub(crate) fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
+        self.session_noted_with(session, kind, says, None);
+    }
+
+    /// [`Self::session_noted`] with a `detail`, which for a change to the Job's own copy says who made it.
+    pub(crate) fn session_noted_with(&self, session: &KeptSession, kind: TimelineKind, says: String, detail: Option<String>) {
         self.timeline().note(
             Fact::new(
                 self.timeline().now(),
@@ -546,6 +551,7 @@ where
                 TimelineTone::Idle,
                 says,
             )
+            .detail(detail)
             .titled(session.title.clone())
             .in_repository(session.manifest_id.clone()),
         );
@@ -622,7 +628,7 @@ where
         self: &Arc<Self>,
         set: SetSessionWorkflow,
     ) -> Result<SessionRecord, Refusal> {
-        let id = set.session_id.as_str().to_string();
+        let (id, by) = self.copy_placed(Some(&set.session_id))?;
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
@@ -673,15 +679,17 @@ where
                 drop(store);
                 return self.published_hosted(&id).await;
             }
-            // A skip names a step by its index, which means another step in another workflow.
+            // A skip names a step by its index, which means another step in another workflow. So does the
+            // Job's own copy of the old one, and the marks on it.
             let mut rail = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
             if !rail.skipped.is_empty() {
                 rail.skipped.clear();
                 store.keep_session_rail(&id, &rail).map_err(|why| self.ledger_fault(why))?;
             }
+            store.drop_job_workflow_copy(&id).map_err(|why| self.ledger_fault(why))?;
             self.person_changed(&mut store, &id, ProposedField::Workflow);
         }
-        self.session_noted(
+        self.copy_noted(
             &session,
             TimelineKind::SessionWorkflow,
             format!(
@@ -689,9 +697,11 @@ where
                 named(&held, hosting.workflow.as_deref()),
                 named(&held, workflow.as_deref())
             ),
+            by,
         );
-        // A Session that has not run is told with its first turn, which is when it starts.
-        if hosting.ran {
+        // A Session that has not run is told with its first turn, which is when it starts. A Job that made
+        // the change itself is not told what it did.
+        if hosting.ran && by == ipc::ChangedBy::You {
             if let Some(words) = workflow_words(&held, workflow.as_deref(), true) {
                 if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
                     eprintln!("job {id}: the workflow change was not sent to the agent: {why:?}");

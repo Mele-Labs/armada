@@ -253,5 +253,6 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
         workflow_waiting_on: Vec::new(),
+        workflow_copy: None,
     }
 }

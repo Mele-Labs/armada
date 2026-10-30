@@ -3,7 +3,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { DeleteLifecyclePiece, SaveLifecyclePiece } from "@armada/protocol";
+import type { ChangeJobCopy, ChangeSessionSteps, DeleteLifecyclePiece, SaveLifecyclePiece } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -51,4 +51,13 @@ export function handleLifecycles({ ipc, connection }: Hosts): void {
     return remove === null ? unsent : (host()?.remove(remove) ?? unsent);
   });
   ipc.handle(CHANNELS.getJobLifecycles, (_event, sessionId: unknown) => (named(sessionId) ? (host()?.job(sessionId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.getJobCopy, (_event, sessionId: unknown) => (named(sessionId) ? (host()?.copy(sessionId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.changeSessionSteps, (_event, change: ChangeSessionSteps | undefined) =>
+    named(change?.session_id) && change?.change !== undefined ? (host()?.steps(change) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.changeJobCopy, (_event, change: ChangeJobCopy | undefined) =>
+    // A piece given whole names its own id, so a blank `id` is taken with a `text`; a drop names its piece.
+    named(change?.session_id) && typeof change?.id === "string" && (named(change.id) || named(change.text)) ? (host()?.piece(change as ChangeJobCopy) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.keepJobWorkflow, (_event, sessionId: unknown) => (named(sessionId) ? (host()?.keep(sessionId) ?? unsent) : unsent));
 }

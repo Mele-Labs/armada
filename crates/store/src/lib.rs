@@ -72,6 +72,7 @@ mod job_issues;
 mod lifecycle_instances;
 /// The lifecycles and rules a Job started with, and the acts those rules planned for it.
 mod job_copies;
+mod job_copy_edits;
 mod rule_acts;
 mod plan_beads;
 /// A Job's adversarial reviews of its plan, one a version.
@@ -196,6 +197,7 @@ pub use home_repositories::KeptHomeRepository;
 pub use job_issues::KeptJobIssue;
 pub use lifecycle_instances::{KeptInstance, KeptMove, KeptRead};
 pub use job_copies::{KeptCopy, KeptPiece, PieceKind};
+pub use job_copy_edits::{KeptCopyMark, KeptWorkflowCopy};
 pub use rule_acts::{standing as rule_act_standing, KeptRuleAct, KeptSeen, NewRuleAct};
 pub use plan_beads::KeptBead;
 pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};

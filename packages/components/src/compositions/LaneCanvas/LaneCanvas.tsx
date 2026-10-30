@@ -229,6 +229,20 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
                 </Tooltip>
               </span>
             ) : null}
+            {lane.changed === undefined ? null : (
+              <span
+                className="armada-lane__changed"
+                role="img"
+                aria-label={`Changed on this Job: ${lane.changed}`}
+                onMouseEnter={(event) => {
+                  event.stopPropagation();
+                  hold.tip(["Changed on this Job", lane.changed!], event.currentTarget);
+                }}
+                onMouseLeave={() => hold.tip(undefined)}
+              >
+                <GitCompare size={14} strokeWidth={2} aria-hidden="true" />
+              </span>
+            )}
           </div>
         );
       })}
@@ -427,6 +441,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
     rule.label,
     ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did ?? [])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : rule.did),
     ...(rule.meta === undefined ? [] : [rule.meta]),
+    ...(rule.changed === undefined ? [] : ["Changed on this Job", rule.changed]),
     ...(rule.differs === undefined ? [] : [differsSaid(rule.differs)]),
   ];
   const name = `${rule.proposed === true ? "Proposed: " : ""}${rule.label}${rule.quiet === true ? `, ${target}` : ""}`;
@@ -479,6 +494,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
               {rule.meta === undefined ? null : <code className="armada-lane-chip__meta">{rule.meta}</code>}
             </>
           )}
+          {rule.changed === undefined ? null : <GitCompare className="armada-lane-chip__changed" size={14} strokeWidth={2} aria-hidden="true" />}
           {rule.differs === undefined ? null : <Split className="armada-lane-chip__differs" size={14} strokeWidth={2} aria-hidden="true" />}
         </button>
         {picked && hold.editing !== undefined && rule.quiet !== true && rule.proposed !== true ? (
@@ -606,7 +622,7 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
 
 /** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
 const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.changed, node.differs, node.sub].map(String).join("|");
-const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.differs].map(String).join("|");
+const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs].map(String).join("|");
 
 export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();
@@ -687,7 +703,13 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
         if (before === undefined ? standing.has(node.id) : was === undefined ? laneWas || standing.has(node.id) : was !== now.get(node.id)) ids.add(node.id);
       }
     }
-    if (ids.size > 0) reveal([...ids], true);
+    // **What the person added to this Job's copy while the lanes are open is shown where it stands**: the view moves only as far as it takes to bring it in, and stays where it was
+    // where it is already in view, so the step before it is not pushed out. What else changed puts the earliest of it at the left.
+    const copied = new Set([
+      ...lanes.flatMap((lane) => lane.nodes.filter((node) => node.changed !== undefined).map((node) => node.id)),
+      ...rules.filter((rule) => rule.changed !== undefined).flatMap((rule) => [rule.id, rule.from, rule.to]),
+    ]);
+    if (ids.size > 0) reveal([...ids], before === undefined || [...ids].some((id) => !copied.has(id)));
   }, [lanes, rules, reveal]);
 
   /** A lane that stands below or above the frame is brought into it, with the canvas left where it is across. */

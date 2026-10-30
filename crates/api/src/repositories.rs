@@ -283,6 +283,22 @@ pub(crate) async fn propose_new_workflow<D: Authoring>(
     }
 }
 
+/// Keep a Job's proposal of new text for a workflow that exists, ready for the owner to approve.
+pub(crate) async fn propose_workflow_change<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::ProposeWorkflowChange = match ipc::decode_body("a change to propose", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().propose_workflow_change(asked, scope.manifest()).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Ask for new words for one step.
 pub(crate) async fn suggest_workflow_change<D: Authoring>(
     State(served): State<Served<D>>,

@@ -280,6 +280,29 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         skip: ipc::SkipSessionStep,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+    /// `change_session_steps`: a step added, moved, reworded or dropped in the Job's own copy of its
+    /// workflow, by the Job through the door or by the person. Applies at once, to that Job only.
+    fn change_session_steps(
+        self: Arc<Self>,
+        change: ipc::ChangeSessionSteps,
+    ) -> impl Future<Output = Result<ipc::JobCopy, Refusal>> + Send;
+    /// `change_job_copy`: a lifecycle or a rule put in the Job's own copy, or taken out of it.
+    fn change_job_copy(
+        self: Arc<Self>,
+        change: ipc::ChangeJobCopy,
+    ) -> impl Future<Output = Result<ipc::JobCopy, Refusal>> + Send;
+    /// `get_job_copy`: what the Job holds of its workflow, lifecycles and rules, and what was changed in
+    /// it. The Job is the one the connection places, else `session_id`.
+    fn get_job_copy(
+        self: Arc<Self>,
+        session_id: Option<SessionId>,
+    ) -> impl Future<Output = Result<ipc::JobCopy, Refusal>> + Send;
+    /// `keep_job_workflow`: the Job's copy of its workflow proposed for every Job, as a change kept ready
+    /// for the owner to approve.
+    fn keep_job_workflow(
+        self: Arc<Self>,
+        keep: ipc::KeepJobWorkflow,
+    ) -> impl Future<Output = Result<ipc::WorkflowChange, Refusal>> + Send;
     /// `begin_session`: Start pressed on a held Job's start card.
     fn begin_session(
         self: Arc<Self>,

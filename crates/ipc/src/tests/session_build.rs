@@ -81,6 +81,7 @@ fn the_road_kinds_are_spelt_as_the_timeline_keeps_them() {
 fn the_changes_a_person_makes_in_a_panel_are_spelt_as_the_timeline_keeps_them() {
     for (kind, spelling) in [
         (TimelineKind::SessionWorkflow, "session.workflow"),
+        (TimelineKind::SessionCopy, "session.copy"),
         (TimelineKind::SessionModel, "session.model"),
         (TimelineKind::SessionEffort, "session.effort"),
     ] {

@@ -36,7 +36,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, BugReport, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, BugReport, ChangeJobCopy, ChangeSessionSteps, JobCopy, WorkflowChange, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -432,6 +432,10 @@ const api: BridgeApi = {
   saveLifecyclePiece: (body: SaveLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceSaved>> => ipcRenderer.invoke(CHANNELS.saveLifecyclePiece, body),
   deleteLifecyclePiece: (body: DeleteLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceDeleted>> => ipcRenderer.invoke(CHANNELS.deleteLifecyclePiece, body),
   getJobLifecycles: (sessionId: string): Promise<LifecyclesActed<JobLifecycles>> => ipcRenderer.invoke(CHANNELS.getJobLifecycles, sessionId),
+  getJobCopy: (sessionId: string): Promise<LifecyclesActed<JobCopy>> => ipcRenderer.invoke(CHANNELS.getJobCopy, sessionId),
+  changeSessionSteps: (change: ChangeSessionSteps): Promise<LifecyclesActed<JobCopy>> => ipcRenderer.invoke(CHANNELS.changeSessionSteps, change),
+  changeJobCopy: (change: ChangeJobCopy): Promise<LifecyclesActed<JobCopy>> => ipcRenderer.invoke(CHANNELS.changeJobCopy, change),
+  keepJobWorkflow: (sessionId: string): Promise<LifecyclesActed<WorkflowChange>> => ipcRenderer.invoke(CHANNELS.keepJobWorkflow, sessionId),
   onJobLifecyclesChanged: (onChanged: (held: JobLifecycles) => void): (() => void) => {
     const handler = (_event: unknown, held: JobLifecycles): void => onChanged(held);
     ipcRenderer.on(CHANNELS.jobLifecyclesChanged, handler);

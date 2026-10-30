@@ -44,6 +44,9 @@ pub struct KeptWorkflowChange {
     pub changed_at: String,
     /// A workflow nothing held before: `before_text` is empty and `after_text` is the definition proposed.
     pub is_new: bool,
+    /// A Job proposed `after_text`, by its own tool or at the owner's press: ready from the start, with
+    /// `before_text` the file's text then, or empty where the place held none.
+    pub from_job: bool,
 }
 
 /// What a change is begun with.
@@ -58,7 +61,7 @@ pub struct NewWorkflowChange<'a> {
 }
 
 const COLUMNS: &str = "id, manifest_id, workflow_id, source, step_id, asked, nudges, before_text, after_text, state, \
-                       failed_because, notes, created_at, changed_at, missing, is_new";
+                       failed_because, notes, created_at, changed_at, missing, is_new, from_job";
 
 fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
     let nudges: String = row.get(6)?;
@@ -79,6 +82,7 @@ fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
         changed_at: row.get(13)?,
         missing: row.get::<_, String>(14)?.lines().map(str::to_string).collect(),
         is_new: row.get::<_, i64>(15)? != 0,
+        from_job: row.get::<_, i64>(16)? != 0,
     })
 }
 
@@ -113,6 +117,29 @@ impl Store {
                 params![manifest_id, workflow_id, source, definition, READY, at],
             )
             .map_err(fault("beginning a new workflow change"))
+            .map_err(WriteError::Database)?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Keep a Job's proposal of new text for a workflow as a change that is ready at once. Its id. `before` is
+    /// the file's text now, or empty where the place holds no file of that id yet, and then the change is a new
+    /// workflow as far as the save is concerned.
+    pub fn begin_proposed_workflow_change(
+        &mut self,
+        manifest_id: &str,
+        workflow_id: &str,
+        source: &str,
+        before: &str,
+        after: &str,
+        at: &str,
+    ) -> Result<i64, WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, before_text, after_text, state, is_new, from_job, created_at, changed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?8)",
+                params![manifest_id, workflow_id, source, before, after, READY, i64::from(before.is_empty()), at],
+            )
+            .map_err(fault("beginning a workflow change a job proposed"))
             .map_err(WriteError::Database)?;
         Ok(self.conn.last_insert_rowid())
     }

@@ -68,6 +68,8 @@ pub mod door;
 mod drift;
 /// What the Workflows page reads beside a definition's text, and its acts on a copy.
 mod workflow_page;
+/// A Job's own copy of its workflow, lifecycles and rules, and what was changed in it.
+mod job_copy;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
 /// The Manifest file itself, read and written — the half of Journey 9's
@@ -311,6 +313,10 @@ pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
 };
 pub use configured::ManifestConfig;
+pub use job_copy::{
+    ChangeJobCopy, ChangeSessionSteps, ChangedBy, CopyPieceKind, JobCopy, JobCopyChange, JobCopyPiece, JobCopyStep, KeepJobWorkflow,
+    ProposeWorkflowChange, StepChange,
+};
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
     SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,

@@ -171,7 +171,7 @@ where
 
     /// A workflow a Job proposed waits on the owner as a draft that names its change. The item
     /// leaves the list when the change is no longer ready, whoever settled it.
-    pub(crate) async fn proposal_waits(&self, session: &str, change: i64, workflow: &str, definition: &str) {
+    pub(crate) async fn proposal_waits(&self, session: &str, change: i64, workflow: &str, definition: &str, before: Option<String>) {
         self.row_put(
             session,
             SessionRow::Draft {
@@ -179,7 +179,7 @@ where
                 at: self.instant(),
                 title: format!("Workflow {workflow}"),
                 text: definition.to_string(),
-                before: None,
+                before,
                 settled: None,
                 change: Some(change),
             },
