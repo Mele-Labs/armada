@@ -40,6 +40,8 @@ mod capturing;
 mod checks;
 /// An agent's word that a Fleet notice was wrong, and the review that settles it.
 mod disputes;
+/// An agent's report that Armada itself got something wrong, kept on this Mac.
+mod bug_reports;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
 pub mod shape;
@@ -271,6 +273,7 @@ pub use annotations::{
     AnnotationMarked, MarkAnnotationDone,
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
+pub use bug_reports::{BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft,
