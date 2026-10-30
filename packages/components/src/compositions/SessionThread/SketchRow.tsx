@@ -1,4 +1,4 @@
-import { BadgeCheck, BellRing, PencilRuler, Reply } from "lucide-react";
+import { BadgeCheck, BellRing, ChevronDown, ChevronRight, Maximize2, PencilRuler, Reply } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -169,15 +169,20 @@ export function SketchReading({ scene, title, against, notes, marked, answer }: 
 }
 
 /** A sketch waiting on the person, pinned as the plan to approve is. */
-export type SketchPinProps = { sketch: string; title: string; scene: Scene; against?: { title: string; scene: Scene }; /** Where his notes on it are held, and the key the note he types is kept under. */ notes?: ViewerNotesScope; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void };
+export type SketchPinProps = { sketch: string; title: string; scene: Scene; against?: { title: string; scene: Scene }; /** Where his notes on it are held, and the key the note he types is kept under. */ notes?: ViewerNotesScope; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void; /** Opens it in the side panel, bigger, as the thread card's press does. */ onOpen?: (sketch: string) => void };
 
 /**
  * A sketch put to the person, as the thread's last card where the plan to approve stands: the drawing with the canvas's own pan, zoom
  * and fit and his notes, and under it Approve and Send back, which are `SketchRow`'s. It is the thread's, so it goes when he answers.
+ * **A chevron folds it to its header line**, the glyph, the title and the bell with the keys at its end, as the plan folds to its band.
+ * Folded, Send back opens the note under that line, and the drawing stays folded.
  */
-export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer }: SketchPinProps) {
+export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer, onOpen }: SketchPinProps) {
+  const [folded, setFolded] = useState(false);
+  const Fold = folded ? ChevronRight : ChevronDown;
+  const said = folded ? "Unfold" : "Fold";
   return (
-    <Card flat className="armada-session-thread__ask armada-session-sketch-pin" role="article" aria-label={`Sketch to approve: ${title}`}>
+    <Card flat className="armada-session-thread__ask armada-session-sketch-pin" role="article" aria-label={`Sketch to approve: ${title}`} data-folded={folded || undefined}>
       <div className="armada-session-thread__plan-head">
         <span className="armada-session-sketch-pin__band">
           <PencilRuler size={12} strokeWidth={2} aria-hidden />
@@ -187,10 +192,29 @@ export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer
               <BellRing size={16} strokeWidth={2} aria-hidden />
             </span>
           </Tooltip>
+          <span className="armada-session-sketch-pin__tools">
+            {onOpen === undefined ? null : (
+              <Tooltip label="Open in the panel">
+                <Button className="armada-session-sketch-pin__open" variant="ghost" size="sm" iconOnly aria-label="Open in the panel" onClick={() => onOpen(sketch)}>
+                  <Maximize2 size={12} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            )}
+            <Tooltip label={said}>
+              <Button className="armada-session-sketch-pin__fold" variant="ghost" size="sm" iconOnly aria-label={said} aria-expanded={!folded} onClick={() => setFolded(!folded)}>
+                <Fold size={12} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </span>
         </span>
       </div>
-      <div className="armada-session-sketch-pin__read">
-        <SketchReading scene={scene} title={title} {...(against === undefined ? {} : { against })} {...(notes === undefined ? {} : { notes })} answer={{ sketch, keep, onAnswer }} />
+      {folded ? null : (
+        <div className="armada-session-sketch-pin__read">
+          <SketchReading scene={scene} title={title} {...(against === undefined ? {} : { against })} {...(notes === undefined ? {} : { notes })} />
+        </div>
+      )}
+      <div className="armada-session-sketch__answers">
+        <SketchAnswers sketch={sketch} keep={keep} open onAnswer={onAnswer} />
       </div>
     </Card>
   );

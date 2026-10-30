@@ -194,6 +194,7 @@
 .armada-session-sketch-pin__band {
   display: flex;
   flex: 1 1 auto;
+  inline-size: 100%;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -208,4 +209,41 @@
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+/* Open in the panel and the fold sit at the header's right edge, open or folded. */
+.armada-session-sketch-pin__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+/* Folded: the header line with the answers at its end, and a note, once Send back opens one, under it. */
+.armada-session-sketch-pin[data-folded] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.armada-session-sketch-pin[data-folded] > .armada-session-sketch__answers {
+  display: contents;
+}
+
+.armada-session-sketch-pin[data-folded] > .armada-session-thread__plan-head {
+  grid-row: 1;
+  grid-column: 1 / -1;
+}
+
+/* The answers lie over the header's end, left of the fold, which keeps the right edge. */
+.armada-session-sketch-pin[data-folded] > .armada-session-sketch__answers > [role="group"] {
+  grid-row: 1;
+  grid-column: 2;
+  margin-inline-end: calc(var(--space-8) * 2 + var(--space-2));
+}
+
+.armada-session-sketch-pin[data-folded] > .armada-session-sketch__answers > :not([role="group"]) {
+  grid-row: 2;
+  grid-column: 1 / -1;
 }

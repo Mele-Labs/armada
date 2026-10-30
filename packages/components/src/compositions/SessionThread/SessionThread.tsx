@@ -1797,7 +1797,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
   const cards = (
     <>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
-      {sketching === undefined ? null : <SketchPin {...sketching} />}
+      {sketching === undefined ? null : <SketchPin {...sketching} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />}
       <AskCards {...(asked === undefined ? {} : { asked })} {...(askRef === undefined ? {} : { askRef })} onAnswer={onAnswer} {...(lapsed === undefined ? {} : { lapsed })} />
     </>
   );
