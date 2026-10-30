@@ -2,7 +2,7 @@
 // Workspace, so the editor can draw what it makes and the host holds it. **A mock's edits**: no Fleet serves a Workspace yet.
 
 import { DEFAULT, levelsOf, nodeId, ruleAt, stateLabelAt } from "./model";
-import type { LaneStep, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";
+import type { AddedStep, LaneStep, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";
 import { momentOf } from "./waits";
 
 const slug = (label: string): string => label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "new";
@@ -49,13 +49,14 @@ export const withNewRule = (workspace: Workspace, rule: Rule): Workspace => (wor
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /**
- * A rule's fields set at a level. At the default they are the rule's own. At the Workspace or a repository each is an override of the level above, and one that says what that level
+ * A rule's fields set at a level. At the default, or at the level that added the rule, they are the rule's own. At the Workspace or a repository each is an override of the level above, and one that says what that level
  * already does is no override, so it is dropped. A moment left unnamed is the first its node has.
  */
 export function withRuleAt(workspace: Workspace, id: string, scope: string, patch: RuleFields): Workspace {
-  if (scope === DEFAULT) return withRule(workspace, id, patch);
   const rule = workspace.rules.find((one) => one.id === id);
   if (rule === undefined) return workspace;
+  // A rule added at a level is that level's own: there is no level above to differ from.
+  if (scope === DEFAULT || rule.scope === scope) return withRule(workspace, id, patch);
   const above = ruleAt(rule, levelsOf(scope)[1]!);
   const { scope: _level, ...own } = rule.overrides?.find((one) => one.scope === scope) ?? { scope };
   const next: Record<string, unknown> = { ...own };
@@ -80,6 +81,7 @@ export function ruleBetween(
   from: Ref,
   to: Ref,
   names: { from: string; to: string; lane: string },
+  scope: string = DEFAULT,
 ): Rule {
   const toStep = to.lane === "workflow";
   return {
@@ -92,7 +94,7 @@ export function ruleBetween(
     does: [toStep ? { act: "agent" as const, text: `Hand over to ${names.to}` } : { act: "tracker" as const, text: `Move the ${/^[A-Z0-9]+$/.test(names.lane) ? names.lane : names.lane.toLowerCase()} to ${names.to}` }],
     autonomy: "asks",
     kept: "yours",
-    scope: DEFAULT,
+    scope,
     workflow,
   };
 }
@@ -106,10 +108,11 @@ const mapState = (workspace: Workspace, lane: string, state: string, change: (on
 
 export const withStateLabel = (workspace: Workspace, lane: string, state: string, label: string): Workspace => mapState(workspace, lane, state, (one) => ({ ...one, label }));
 
-/** A state's name set at a level. At the default it is the state's own; below it, a name that is the level above's is no override. */
+/** A state's name set at a level. At the default, or at the level that added it, it is the state's own; below, a name that is the level above's is no override. */
 export function withStateLabelAt(workspace: Workspace, lane: string, state: string, scope: string, label: string): Workspace {
-  if (scope === DEFAULT) return withStateLabel(workspace, lane, state, label);
   return mapState(workspace, lane, state, (one) => {
+    // A state added at a level is that level's own.
+    if (scope === DEFAULT || one.scope === scope) return { ...one, label };
     const others = (one.names ?? []).filter((each) => each.scope !== scope);
     const names = label === stateLabelAt({ ...one, names: others }, levelsOf(scope)[1]!) ? others : [...others, { scope, label }];
     return { ...one, names };
@@ -120,7 +123,8 @@ export function withStateLabelAt(workspace: Workspace, lane: string, state: stri
 export function withReads(workspace: Workspace, lane: string, state: string, read: { source: string; scope: string; values: readonly string[] }): Workspace {
   return mapState(workspace, lane, state, (one) => {
     const others: readonly StateReads[] = one.reads.filter((each) => !(each.source === read.source && each.scope === read.scope));
-    return { ...one, reads: read.values.length === 0 && read.scope !== DEFAULT ? others : [...others, { source: read.source, scope: read.scope, values: read.values }] };
+    const own = read.scope === DEFAULT || read.scope === one.scope;
+    return { ...one, reads: read.values.length === 0 && !own ? others : [...others, { source: read.source, scope: read.scope, values: read.values }] };
   });
 }
 
@@ -130,14 +134,14 @@ export function withoutStateOverride(workspace: Workspace, lane: string, state: 
 }
 
 /** A new state after `after` in a lifecycle, placed one column on from it, with the later columns moved over. */
-export function withStateAfter(workspace: Workspace, workflow: string, lane: string, after: string, label: string): { workspace: Workspace; id: string } {
+export function withStateAfter(workspace: Workspace, workflow: string, lane: string, after: string, label: string, scope: string = DEFAULT): { workspace: Workspace; id: string } {
   const lifecycle = workspace.lifecycles.find((one) => one.id === lane);
   const place = workspace.workflows[workflow];
   if (lifecycle === undefined || place === undefined) return { workspace, id: after };
   const id = uniqueId(label, lifecycle.states.map((one) => one.id));
   const at = lifecycle.states.findIndex((one) => one.id === after);
   const source = lifecycle.states.find((one) => one.id === after)?.reads[0]?.source ?? lifecycle.from;
-  const state: StateDef = { id, label, reads: [{ source, values: [label], scope: DEFAULT }] };
+  const state: StateDef = { id, label, ...(scope === DEFAULT ? {} : { scope }), reads: [{ source, values: [label], scope }] };
   const states = [...lifecycle.states.slice(0, at + 1), state, ...lifecycle.states.slice(at + 1)];
   const leaves = lifecycle.next.filter(([from]) => from === after);
   const next = [...lifecycle.next.filter(([from]) => from !== after), [after, id] as const, ...leaves.map(([, to]) => [id, to] as const)];
@@ -168,17 +172,36 @@ export function withoutState(workspace: Workspace, lane: string, state: string):
 
 // ---- Steps ---------------------------------------------------------------------------------------------------------------
 
-/** A step placed one column on from `after`, with every step's column kept as it is drawn so the later ones move over. */
+/**
+ * A step placed one column on from `after`, with every step's column kept as it is drawn so the later ones move over. The places of steps that are not drawn here, ones added at another
+ * level, are kept and move with the rest.
+ */
 export function withStepAfter(workspace: Workspace, workflow: string, current: readonly LaneStep[], after: string, id: string): Workspace {
   const here = current.find((one) => one.id === after);
   const was = workspace.workflows[workflow] ?? { steps: {}, states: {} };
-  const kept: WorkflowPlace = { ...was, steps: Object.fromEntries(current.map((one) => [one.id, placed(one)])) };
+  const kept: WorkflowPlace = { ...was, steps: { ...was.steps, ...Object.fromEntries(current.map((one) => [one.id, placed(one)])) } };
   const col = (here?.col ?? current.length - 1) + 1;
   const moved = shiftedFrom(kept, col);
   return replaceWorkflow(workspace, workflow, { ...moved, steps: { ...moved.steps, [id]: { col } } });
 }
 
-/** A step taken off the workflow, and the rules that named it. */
+/**
+ * A step added at a level below the default: it is placed like any other, and runs there and below. The definition does not hold it, so it is not written to the workflow, and a tab that
+ * is not that level or under it does not draw it.
+ */
+export function withStepAddedAt(workspace: Workspace, workflow: string, current: readonly LaneStep[], after: string, id: string, label: string, scope: string): Workspace {
+  const made = withStepAfter(workspace, workflow, current, after, id);
+  const place = made.workflows[workflow]!;
+  return replaceWorkflow(made, workflow, { ...place, added: [...(place.added ?? []), { id, label, after, scope }] });
+}
+
+/** The name or the words of a step that was added at a level, set at that level. */
+export function withAddedStep(workspace: Workspace, workflow: string, id: string, patch: Partial<Pick<AddedStep, "label" | "words">>): Workspace {
+  const place = workspace.workflows[workflow];
+  return place === undefined ? workspace : replaceWorkflow(workspace, workflow, { ...place, added: (place.added ?? []).map((one) => (one.id === id ? { ...one, ...patch } : one)) });
+}
+
+/** A step taken off the workflow, or a step added at a level, and the rules that named it. */
 export function withoutStep(workspace: Workspace, workflow: string, id: string): Workspace {
   const gone = nodeId("workflow", id);
   const place = workspace.workflows[workflow];
@@ -189,6 +212,7 @@ export function withoutStep(workspace: Workspace, workflow: string, id: string):
           ...place,
           steps: Object.fromEntries(Object.entries(place.steps).filter(([key]) => key !== id)),
           ...(place.layers === undefined ? {} : { layers: place.layers.filter((one) => one.step !== id) }),
+          ...(place.added === undefined ? {} : { added: place.added.filter((one) => one.id !== id) }),
         })),
     rules: workspace.rules.filter((rule) => !((rule.workflow === undefined || rule.workflow === workflow) && (nodeId(rule.from.lane, rule.from.item) === gone || nodeId(rule.to.lane, rule.to.item) === gone))),
   };
@@ -199,7 +223,7 @@ export function withStepsOrder(workspace: Workspace, workflow: string, current: 
   const cols = current.map((one) => one.col).sort((a, b) => a - b);
   const was = new Map(current.map((one) => [one.id, one] as const));
   const place = workspace.workflows[workflow] ?? { steps: {}, states: {} };
-  const steps: Record<string, Omit<LaneStep, "id" | "label">> = {};
+  const steps: Record<string, Omit<LaneStep, "id" | "label">> = { ...place.steps };
   order.forEach((id, at) => {
     const one = was.get(id);
     steps[id] = { ...(one === undefined ? {} : placed(one)), col: cols[at] ?? at };
@@ -221,7 +245,7 @@ export function withStepWhen(
   endsOn: { lane: string; state: string } | undefined,
 ): Workspace {
   const place = workspace.workflows[workflow] ?? { steps: {}, states: {} };
-  const steps: Record<string, Omit<LaneStep, "id" | "label">> = Object.fromEntries(current.map((one) => [one.id, placed(one)]));
+  const steps: Record<string, Omit<LaneStep, "id" | "label">> = { ...place.steps, ...Object.fromEntries(current.map((one) => [one.id, placed(one)])) };
   const was = steps[id] ?? { col: current.length };
   const { endsOn: _gone, ...rest } = was;
   steps[id] = { ...(which === "ends" ? rest : was), [which]: value, ...(which === "ends" && endsOn !== undefined ? { endsOn } : {}) };

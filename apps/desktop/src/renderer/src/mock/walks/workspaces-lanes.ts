@@ -10,7 +10,7 @@ import { toSessions } from "../sessions/walk-kit";
 
 const group = (name: string) => role("group", name, { exact: true });
 const YOURS = group("Yours");
-const LANES = region("Lanes", { exact: true });
+const LANES = region("Workflow", { exact: true });
 // The first change on Armada's workflow makes the person's own copy; the settings in the panel are fields, saved as they are changed.
 const statuses = () => role("textbox", "Jira statuses", { exact: true });
 const PANEL = role("dialog");
@@ -49,7 +49,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { look: inside(PANEL, statuses()), say: "Code Review and In Review count as In review for my-store" },
   { press: inside(LANES, button("Move to In review", { exact: true })), say: "Another node switches the panel: a rule, the edge from the PR lane to the Ticket lane" },
   { look: inside(PANEL, role("radio", "Acts")), say: "When the PR enters Draft, move the ticket to In review. Autonomy is Acts" },
-  { key: "]", on: role("group", "Lanes of feature"), say: "] goes to the next rule, and [ to the one before" },
+  { key: "]", on: role("group", "feature workflow"), say: "] goes to the next rule, and [ to the one before" },
   { look: inside(PANEL, role("radio", "Asks")), say: "The panel follows to Ask for review: when the PR has reviewers on, draft the ask. Autonomy is Asks" },
   { press: inside(PANEL, button("Close")), say: "Close the panel" },
   { press: inside(YOURS, button("feature", { exact: true })), say: "Yours, where a change is kept" },

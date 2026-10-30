@@ -23,6 +23,10 @@ export const GEO = {
   dotGap: 16,
   /** Room before the first column, for the circle that starts the workflow. */
   lead: 48,
+  /** The toolbar that stands over what is picked: its widest, with Edit and three acts, its height, and the gap between it and what it stands over. */
+  toolbarW: 208,
+  toolbarH: 44,
+  toolbarGap: 10,
 } as const;
 
 /** Where the canvas opens and Fit returns to: the top left, at the scale the lanes are drawn at. */
@@ -32,6 +36,14 @@ export const HOME = { x: 0, y: 0, zoom: 1 } as const;
 export const MIN_ZOOM = 0.8;
 
 export type Rect = { x: number; y: number; w: number; h: number };
+
+/** A node or a chip with the room its toolbar takes, centred on it and above or below, so a pan that brings the one into view brings the other. */
+export function withToolbar(rect: Rect, side: "above" | "below"): Rect {
+  const w = Math.max(rect.w, GEO.toolbarW);
+  const x = rect.x - (w - rect.w) / 2;
+  const room = GEO.toolbarH + GEO.toolbarGap;
+  return side === "above" ? { x, y: rect.y - room, w, h: rect.h + room } : { x, y: rect.y, w, h: rect.h + room };
+}
 
 export type Placement = {
   /** Each lane's band, full width. */

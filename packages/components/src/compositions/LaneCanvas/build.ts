@@ -64,19 +64,20 @@ export function stepsOf(workspace: Workspace, workflow: string, steps: readonly 
 
 /** The rules a workflow draws as they read at a level: its own, and the Workspace's wherever both ends are on its lanes. */
 export function rulesFor(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string = DEFAULT): Rule[] {
-  const drawn = new Set<string>([...steps.map((step) => nodeId("workflow", step.id)), ...lifecyclesFor(workspace, workflow).flatMap((lifecycle) => lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)))]);
+  const drawn = new Set<string>([...steps.map((step) => nodeId("workflow", step.id)), ...lifecyclesFor(workspace, workflow, scope).flatMap((lifecycle) => lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)))]);
   return workspace.rules
     .map((rule) => ruleAt(rule, scope))
     .filter((rule) => (rule.workflow === undefined || rule.workflow === workflow) && drawn.has(nodeId(rule.from.lane, rule.from.item)) && drawn.has(nodeId(rule.to.lane, rule.to.item)));
 }
 
-/** Whether a tab changes anything in this workflow of what it takes from the level above. The default has no level above. */
+/** Whether a tab changes anything in this workflow of what it takes from the level above, or adds to it. The default has no level above. */
 export function changedAt(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string): boolean {
   if (scope === DEFAULT) return false;
   return (
     lifecyclesFor(workspace, workflow).some((lifecycle) => lifecycle.states.some((state) => stateDiffers(state).includes(scope))) ||
     rulesFor(workspace, workflow, steps).some((rule) => ruleDiffers(rule).includes(scope)) ||
-    steps.some((step) => stepDiffers(workspace.workflows[workflow], step.id).includes(scope))
+    steps.some((step) => stepDiffers(workspace.workflows[workflow], step.id).includes(scope)) ||
+    (workspace.workflows[workflow]?.added ?? []).some((one) => one.scope === scope)
   );
 }
 

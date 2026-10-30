@@ -30,7 +30,7 @@ import { createPortal } from "react-dom";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
-import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, type Placement, type Rect } from "./layout";
+import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, withToolbar, type Placement, type Rect } from "./layout";
 import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
 
 /**
@@ -64,8 +64,8 @@ export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string
 
 /** What the person may do by hand to the lanes. Every act takes what is picked; a connector takes the two nodes it joins. */
 export type LaneEditing = {
-  /** A tab below the default is drawn: its fields are edited as an override for that level, so there is no Add after, no Delete and no connector. Those are the workflow's own. */
-  scoped?: boolean;
+  /** Whether the pick can be deleted where the canvas is drawn: a tab deletes only what it added. Absent, anything can. */
+  canDelete?: (pick: LanePick) => boolean;
   /** Takes the person to the picked thing's fields, which the side panel draws live. */
   onEdit: (pick: LanePick) => void;
   onTell: (pick: LanePick) => void;
@@ -157,7 +157,7 @@ function Toolbar({ pick, name, rule }: { pick: LanePick; name: string; rule: boo
           Edit
         </Button>
       </Tooltip>
-      {ACTS.filter((one) => !(rule && one.id === "add") && !(editing.scoped === true && (one.id === "add" || one.id === "delete"))).map((one) => (
+      {ACTS.filter((one) => !(rule && one.id === "add") && !(one.id === "delete" && editing.canDelete?.(pick) === false)).map((one) => (
         <Tooltip key={one.id} label={one.said} shortcut={one.key}>
           <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`${one.said} ${name}`} onClick={() => run[one.id](pick)}>
             <one.Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -237,7 +237,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const picked = hold.picked?.kind === "node" && hold.picked.id === node.id;
   const mark = markOf(node);
   const shape = SHAPE[node.kind];
-  const connectable = hold.editing !== undefined && hold.editing.scoped !== true && shape !== "dot";
+  const connectable = hold.editing !== undefined && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
   const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}`;
   const lines = [
@@ -568,16 +568,21 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   // **The canvas follows what it is asked to show.** A request names nodes and chips, and the pan brings them into view at the zoom the person has (`Pans`).
   const [pan, setPan] = useState<Pan | undefined>();
   const asked = useRef(0);
-  const geometry = useRef({ placement, chips });
-  geometry.current = { placement, chips };
-  const reveal = useCallback((ids: readonly string[], follow = false) => {
-    const { placement: laid, chips: placed } = geometry.current;
+  const geometry = useRef({ placement, chips, toolbar: editing !== undefined, top: lanes[0]?.id });
+  geometry.current = { placement, chips, toolbar: editing !== undefined, top: lanes[0]?.id };
+  /** `toolbar` names the ones that stand under a toolbar, which is brought into view with them. */
+  const reveal = useCallback((ids: readonly string[], follow = false, toolbar: readonly string[] = []) => {
+    const { placement: laid, chips: placed, toolbar: editable, top } = geometry.current;
     const rects: Rect[] = [];
     for (const id of ids) {
       const item = laid.items.get(id);
       const chip = placed.get(id);
-      if (item !== undefined) rects.push(item);
-      else if (chip !== undefined) rects.push({ x: chip.x - chip.w / 2, y: chip.y - chip.h / 2, w: chip.w, h: chip.h });
+      const room = editable && toolbar.includes(id);
+      if (item !== undefined) rects.push(room ? withToolbar(item, id.startsWith(`${top}/`) ? "below" : "above") : item);
+      else if (chip !== undefined) {
+        const rect = { x: chip.x - chip.w / 2, y: chip.y - chip.h / 2, w: chip.w, h: chip.h };
+        rects.push(room ? withToolbar(rect, "above") : rect);
+      }
     }
     if (rects.length === 0) return;
     asked.current += 1;
@@ -612,12 +617,12 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     if (ids.size > 0) reveal([...ids], true);
   }, [lanes, rules, reveal]);
 
-  // A rule picked is brought into view with its chips and the nodes it joins.
+  // What is picked is brought into view with its toolbar: a rule with its chips and the nodes it joins. It is a pan, so the canvas keeps its width and the panel covers only what is past it.
   const revealPick = () => {
     if (picked === undefined) return;
-    if (picked.kind === "node") return reveal([picked.id]);
+    if (picked.kind === "node") return reveal([picked.id], false, [picked.id]);
     const edges = rules.filter((rule) => rule.rule === picked.id);
-    reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]));
+    reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]), false, edges.map((rule) => rule.id));
   };
   useEffect(() => {
     revealPick();
@@ -679,7 +684,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   // A connector dragged from one node's handle to another's.
   const connect = useCallback((joined: Connection) => editing?.onConnect(joined.source, joined.target), [editing]);
-  const connectable = editing !== undefined && editing.scoped !== true;
+  const connectable = editing !== undefined;
 
   const nodes = useMemo<CanvasNode[]>(() => {
     const out: CanvasNode[] = [];
@@ -771,14 +776,14 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     // What is picked is edited by key too: `E` edits it, `T` tells an agent, `A` adds after it, `Backspace` deletes it, and `C` starts a connector from a node, which the next node
     // pressed ends.
     if (editing !== undefined && picked !== undefined) {
-      const structure = editing.scoped !== true;
-      const act = { e: editing.onEdit, t: editing.onTell, a: picked.kind === "node" && structure ? editing.onAddAfter : undefined, Backspace: structure ? editing.onDelete : undefined, Delete: structure ? editing.onDelete : undefined }[event.key] as ((pick: LanePick) => void) | undefined;
+      const removable = editing.canDelete?.(picked) !== false ? editing.onDelete : undefined;
+      const act = { e: editing.onEdit, t: editing.onTell, a: picked.kind === "node" ? editing.onAddAfter : undefined, Backspace: removable, Delete: removable }[event.key] as ((pick: LanePick) => void) | undefined;
       if (act !== undefined) {
         event.preventDefault();
         act(picked);
         return;
       }
-      if (event.key === "c" && picked.kind === "node" && structure) {
+      if (event.key === "c" && picked.kind === "node") {
         event.preventDefault();
         setConnecting(picked.id);
         return;

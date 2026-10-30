@@ -8,7 +8,7 @@ import { button, deckRow, inside, region, role, text, toSystemPage, walk } from 
 import { toSessions } from "../sessions/walk-kit";
 
 const group = (name: string) => role("group", name, { exact: true });
-const LANES = region("Lanes", { exact: true });
+const LANES = region("Workflow", { exact: true });
 const PANEL = role("dialog");
 const YOURS = group("Yours");
 const RUNS_IN = group("Runs in");
@@ -53,7 +53,11 @@ const notes = walk("workspaces-lanes", [
   { press: inside(PANEL, button("Use my-store's", { exact: true })), say: "Use my-store's drops store-api's own value. Edits on a repository's tab change that repository only" },
   { look: inside(PANEL, statuses()), say: "store-api reads my-store's again" },
   closePanel,
-  { press: tab("Default"), say: "Back to Default, where steps, states and rules are added" },
+  { press: inside(LANES, button("Step: Open PR", { exact: true })), say: "Adding, deleting and connecting work on every tab. Open PR, on store-api" },
+  { press: button("Add after step Open PR"), say: "A step added on store-api runs in store-api only" },
+  { look: tab("store-api"), say: "store-api carries the changed mark again: it has a step my-store does not" },
+  closePanel,
+  { press: tab("Default"), say: "Default does not draw that step. What is added on Default belongs to the workflow, for every Workspace and repository" },
   { drag: role("button", "Connect from step Build"), by: { x: 112, y: 263 }, say: "A connector dragged from one node to another draws a rule. A step to a state is a rule that asks" },
   { look: inside(PANEL, role("radio", "Asks")), say: "Its fields open in the panel" },
   { look: inside(PANEL, dropdown("When")), say: "When is two dropdowns, the step or state and then the moment: Build starts" },

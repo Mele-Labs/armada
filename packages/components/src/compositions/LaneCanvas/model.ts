@@ -32,6 +32,8 @@ export type StateReads = { source: string; values: readonly string[]; scope: str
 export type StateDef = {
   id: string;
   label: string;
+  /** The level it was added at, so it exists there and below. Absent, it is the default's. */
+  scope?: string;
   /** Another name for it at a level below the default. */
   names?: readonly { scope: string; label: string }[];
   reads: readonly StateReads[];
@@ -114,6 +116,9 @@ export type LaneStep = {
 /** What a level below the default changes of a step: its name, its words, what ends it and what passes it over. `endsOn` goes with `ends`. */
 export type StepLayer = { step: string; scope: string; label?: string; words?: string; ends?: Waits; endsOn?: { lane: string; state: string }; passedOver?: Waits };
 
+/** A step added at a level below the default: it runs there and below, after the step it follows, and the definition does not hold it. */
+export type AddedStep = { id: string; label: string; after: string; scope: string; words?: string };
+
 export type Repository = { id: string; name: string };
 
 /** What one workflow draws of the Workspace: where its steps sit, and which states of which lifecycles it has a lane for, and where. */
@@ -124,6 +129,8 @@ export type WorkflowPlace = {
   states: Readonly<Record<string, number>>;
   /** What the Workspace and its repositories change of the steps. */
   layers?: readonly StepLayer[];
+  /** The steps they add. */
+  added?: readonly AddedStep[];
 };
 
 /**
@@ -151,32 +158,64 @@ export type Workspace = {
   rules: readonly Rule[];
 };
 
-/** The lifecycles a workflow draws, each with the states it places, in the Workspace's order. */
-export function lifecyclesFor(workspace: Workspace, workflow: string): Lifecycle[] {
+/** Whether something added at `own` exists on the tab for `scope`: at that level or below it. What the default holds has no level of its own and exists everywhere. */
+export const existsAt = (own: string | undefined, scope: string): boolean => own === undefined || own === DEFAULT || levelsOf(scope).includes(own);
+
+/**
+ * The lifecycles a workflow draws, each with the states it places, in the Workspace's order. Given a `scope`, a state added at another level is left out and the ways in and out of it are
+ * joined, so the lane reads as it runs there.
+ */
+export function lifecyclesFor(workspace: Workspace, workflow: string, scope?: string): Lifecycle[] {
   const place = workspace.workflows[workflow]?.states ?? {};
   return workspace.lifecycles.flatMap((lifecycle): Lifecycle[] => {
     const states = lifecycle.states.flatMap((state): LifecycleState[] => {
       const col = place[`${lifecycle.id}/${state.id}`];
-      return col === undefined ? [] : [{ ...state, col }];
+      return col === undefined || (scope !== undefined && !existsAt(state.scope, scope)) ? [] : [{ ...state, col }];
     });
     const drawn = new Set(states.map((state) => state.id));
-    return states.length === 0 ? [] : [{ ...lifecycle, states, next: lifecycle.next.filter(([from, to]) => drawn.has(from) && drawn.has(to)) }];
+    // A state left out is stepped over: whatever led into it now leads to whatever it led to.
+    let next = lifecycle.next;
+    for (const gone of lifecycle.states.filter((state) => !drawn.has(state.id) && scope !== undefined && !existsAt(state.scope, scope))) {
+      const into = next.filter(([, to]) => to === gone.id).map(([from]) => from);
+      const out = next.filter(([from]) => from === gone.id).map(([, to]) => to);
+      next = [...next.filter(([from, to]) => from !== gone.id && to !== gone.id), ...into.flatMap((from) => out.map((to) => [from, to] as const))];
+    }
+    return states.length === 0 ? [] : [{ ...lifecycle, states, next: next.filter(([from, to]) => drawn.has(from) && drawn.has(to)) }];
   });
 }
 
 /** The lifecycles a workflow draws with each state named as it is at a level. */
 export function lifecyclesAt(workspace: Workspace, workflow: string, scope: string): Lifecycle[] {
-  return lifecyclesFor(workspace, workflow).map((lifecycle) => ({ ...lifecycle, states: lifecycle.states.map((state) => ({ ...state, label: stateLabelAt(state, scope) })) }));
+  return lifecyclesFor(workspace, workflow, scope).map((lifecycle) => ({ ...lifecycle, states: lifecycle.states.map((state) => ({ ...state, label: stateLabelAt(state, scope) })) }));
 }
 
 /** The levels below the default that name a state another way or read it as other words, as the ids of the Workspace and the repositories. */
-export const stateDiffers = (state: StateDef): string[] => [...new Set([...state.reads.map((one) => one.scope), ...(state.names ?? []).map((one) => one.scope)].filter((one) => one !== DEFAULT))];
+export const stateDiffers = (state: StateDef): string[] => [...new Set([...state.reads.map((one) => one.scope), ...(state.names ?? []).map((one) => one.scope), ...(state.scope === undefined ? [] : [state.scope])].filter((one) => one !== DEFAULT))];
 
 /** The levels a rule differs at: where it applies alone, and where a level below changes it. */
 export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope === DEFAULT ? [] : [rule.scope]), ...(rule.overrides ?? []).map((one) => one.scope)])];
 
 /** The levels that change a step. */
-export const stepDiffers = (place: WorkflowPlace | undefined, step: string): string[] => [...new Set((place?.layers ?? []).filter((one) => one.step === step).map((one) => one.scope))];
+export const stepDiffers = (place: WorkflowPlace | undefined, step: string): string[] => [
+  ...new Set([...(place?.layers ?? []).filter((one) => one.step === step).map((one) => one.scope), ...(place?.added ?? []).filter((one) => one.id === step).map((one) => one.scope)]),
+];
+
+/**
+ * The steps at a level: the definition's, with each step added at it or above placed after the step it follows. A step the default added since sits between them where the columns put it,
+ * so the order the steps run in is the order they are drawn in.
+ */
+export function stepsAt<T extends { id: string; label: string }>(steps: readonly T[], place: WorkflowPlace | undefined, scope: string, make: (added: AddedStep) => T): T[] {
+  const out = [...steps];
+  for (const one of place?.added ?? []) {
+    if (!existsAt(one.scope, scope)) continue;
+    const after = out.findIndex((each) => each.id === one.after);
+    let at = after < 0 ? out.length : after + 1;
+    const col = place?.steps[one.id]?.col;
+    while (col !== undefined && at < out.length && (place?.steps[out[at]!.id]?.col ?? col) < col) at++;
+    out.splice(at, 0, make(one));
+  }
+  return out;
+}
 
 /** A rule as it reads at a level: the default's own, then each level down changing what it changes. */
 export function ruleAt(rule: Rule, scope: string): Rule {
