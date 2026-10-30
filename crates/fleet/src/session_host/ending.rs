@@ -139,7 +139,7 @@ where
         }
         // Before the agent goes: its tree is what says whose a process is.
         match self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) {
-            Ok(served) => self.processes_ended(&id, &self.held_directories(&id, &served, &hosting)),
+            Ok(served) => self.processes_ended(&id, &self.process_directories(&id, &served, &hosting)),
             Err(_) => {}
         }
         {
