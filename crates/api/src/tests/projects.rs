@@ -146,6 +146,26 @@ async fn move_project_row_takes_the_row_and_its_position_and_a_bad_body_is_a_400
 }
 
 #[tokio::test]
+async fn move_project_task_repository_takes_the_row_and_the_repository_and_each_refusal_is_its_status() {
+    assert_eq!(
+        reached("POST", "/projects/rows/r1/repository", r#"{"manifest_id":"site"}"#).await.0,
+        "move_project_task_repository r1 site"
+    );
+    let body = r#"{"manifest_id":"site"}"#;
+    let (status, text) = refused("POST", "/projects/rows/r2/repository", body).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text.contains("fleet.project_row_not_a_task"), "{text}");
+    let (status, text) = refused("POST", "/projects/rows/r3/repository", body).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text.contains("fleet.project_subtask_too_deep"), "{text}");
+    let (status, text) = refused("POST", "/projects/rows/nope/repository", body).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project_row"), "{text}");
+    let (status, _) = refused("POST", "/projects/rows/r1/repository", "{}").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a repository is named");
+}
+
+#[tokio::test]
 async fn tick_project_task_takes_done_and_an_issue_row_is_a_422() {
     assert_eq!(reached("POST", "/projects/rows/r1/tick", r#"{"done":true}"#).await.0, "tick_project_task r1 true");
     let (status, text) = refused("POST", "/projects/rows/r2/tick", r#"{"done":true}"#).await;

@@ -8,8 +8,8 @@
 use std::future::Future;
 
 use ipc::{
-    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask,
-    TickProjectTask,
+    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue,
+    NewProjectTask, ProjectTask, TickProjectTask,
 };
 
 use crate::daemon::Refusal;
@@ -67,6 +67,15 @@ pub trait Projects: Send + Sync + 'static {
 
     /// `move_project_row` — to a position among the rows of one parent of one project, either of which it may change.
     fn move_project_row(&self, row: String, to: MoveProjectRow) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `move_project_task_repository` — a top-level task and its subtasks to another repository Fleet serves; its links keep
+    /// the repository each was linked in. [`Refusal::Unacceptable`] for a subtask, an issue row or a repository not served;
+    /// [`Refusal::NotFound`] for a row nobody knows.
+    fn move_project_task_repository(
+        &self,
+        row: String,
+        to: MoveProjectTaskRepository,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
     /// `tick_project_task` — done, or open again. [`Refusal::Unacceptable`] for an issue row, whose
     /// state is the tracker's.

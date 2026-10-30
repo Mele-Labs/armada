@@ -156,7 +156,7 @@ async fn a_defer_with_nothing_to_keep_or_no_job_to_keep_it_on_is_refused() {
 }
 
 fn done(id: &SessionId) -> AllDone {
-    AllDone { session_id: Some(id.clone()) }
+    AllDone { session_id: Some(id.clone()), summary: None }
 }
 
 #[tokio::test]

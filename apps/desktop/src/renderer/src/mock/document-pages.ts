@@ -140,6 +140,46 @@ export const LEASE_DOC_1 = page(FIRST, false);
 /** The document after the notes, which the walk sends. */
 export const LEASE_DOC_2 = page(SECOND, true);
 
+export const ROLLOUT_DOC_TITLE = "Retry budget rollout plan";
+export const ROLLOUT_DOC_PATH = "docs/plans/retry-budget-rollout.html";
+
+/** A page with no sketch: four launch phases, as a design plan Job writes a rollout. */
+export const ROLLOUT_DOC = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${ROLLOUT_DOC_TITLE}</title>
+<link rel="stylesheet" href="armada-kit.css">
+</head>
+<body>
+<header>
+  <h1>${ROLLOUT_DOC_TITLE}</h1>
+  <p>The retry budget reaches Drones in four phases, each one gated on the last holding for a week.</p>
+</header>
+
+<section>
+  <h2>Phase 1: Internal</h2>
+  <p>Internal Jobs only. The goal is to see every kind of failure retried end to end against the old limits.</p>
+</section>
+
+<section>
+  <h2>Phase 2: Pilot repositories</h2>
+  <p>Five repositories that asked for it. Their budgets are set by hand, and each retry is compared with the one the old path would have made.</p>
+</section>
+
+<section>
+  <h2>Phase 3: Half of repositories</h2>
+  <p>A random half, chosen by repository id. The flag can be turned off per repository, and one that turns it off keeps the retries already made.</p>
+</section>
+
+<section>
+  <h2>Phase 4: Everyone</h2>
+  <p>The flag is removed and the old path is deleted in the following release, not this one.</p>
+</section>
+</body>
+</html>
+`;
+
 // ---- The video script a Job writes for a product demo (`document-waits-in-needs-you`) ------------------------------------
 
 export const VIDEO_SCRIPT_TITLE = "Video script";

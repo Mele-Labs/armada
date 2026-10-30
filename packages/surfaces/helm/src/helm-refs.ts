@@ -82,6 +82,13 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
   });
   const files = new Set(world.files);
   const documents = world.documents ?? [];
+  // A page's title in a sentence names the page. Pages come before Sessions so a Job named as its page was is not what the title opens.
+  const titled = [
+    ...documents.flatMap((page) =>
+      page.title.length < 4 ? [] : [{ ref: { kind: "document", id: page.id, title: page.title } satisfies ProseReference, needles: [{ needle: page.title, pattern: wholeWord(page.title) }] }],
+    ),
+    ...sessions,
+  ];
   // A page is named by its absolute path, or by the path from its checkout, which starts at `.armada/documents/`.
   const documentOf = (text: string) => documents.find((one) => one.id === text || (text.startsWith(".armada/documents/") && one.id.endsWith(`/${text}`)));
   const links = (world.links ?? []).flatMap((rule) => {
@@ -104,7 +111,7 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
         ? [{ from: 0, to: text.length, ref: { kind: "document", id: page.id, title: page.title } satisfies ProseReference }]
         : files.has(text)
           ? [{ from: 0, to: text.length, ref: { kind: "file", id: text, title: text } satisfies ProseReference }]
-          : scan(text, world, sessions, links);
+          : scan(text, world, titled, links);
     kept.set(text, spans);
     return spans;
   };

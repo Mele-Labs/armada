@@ -653,7 +653,7 @@ async fn removing_an_agent_item_without_a_reason_tells_the_agent_only_what() {
 async fn removing_a_done_fleet_derived_tells_the_agent_nothing() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let since = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()) }).await.unwrap().done_since.expect("when");
+    let since = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap().done_since.expect("when");
     let item = format!("done:{}", since.as_str());
     let before = said_by_the_person(&rig, &id).await;
     let gone = Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, &item, Some("not yet"))).await.unwrap();

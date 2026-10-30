@@ -162,7 +162,7 @@ fn a_card_says_whether_the_call_reads_or_writes() {
 #[test]
 fn a_script_it_runs_is_read_and_not_written() {
     // The owner's own line: a script named by a variable, run, with its output kept in scratch.
-    let qa = r#"SHAS=\"57509e29127 $(git log --reverse --format=%h origin/master..origin/nm/spike-custom-margins-terms-service-inputs | tr '\\n' ' ')\"; echo \"$SHAS\" > /tmp/qa9-shas.txt; echo $SHAS; S=/Users/user/develop/fleet-marketplace/plugins/fleet/skills/deploy-qa/scripts/merge-to-qa.sh; $S --cherry-pick 9 nm/spike-custom-margins-terms-service-inputs --dry-run -- ${=SHAS} 2>&1 | tail -25"#;
+    let qa = r#"SHAS=\"57509e29127 $(git log --reverse --format=%h origin/master..origin/nm/spike-retry-budget-limits | tr '\\n' ' ')\"; echo \"$SHAS\" > /tmp/qa9-shas.txt; echo $SHAS; S=/Users/user/develop/fleet-marketplace/plugins/fleet/skills/deploy-qa/scripts/merge-to-qa.sh; $S --cherry-pick 9 nm/spike-retry-budget-limits --dry-run -- ${=SHAS} 2>&1 | tail -25"#;
     assert_eq!(listed(&bash(qa), &[], &[]), None);
     assert_eq!(listed(&bash("bash ~/bin/x.sh"), &[], &[]), None);
     assert_eq!(listed(&bash(". ~/bin/env.sh && source ~/.zshrc"), &[], &[]), None);

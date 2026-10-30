@@ -304,17 +304,16 @@ export const CmdNumbersTheResults: Story = {
 };
 
 /**
- * **Matching nothing.** Names the query and says what was searched. No
- * suggestions and no did-you-mean: the palette is the discovery surface, so
- * the honest answer to a miss is the extent of the index rather than a guess
- * at what was meant.
+ * **Matching nothing.** Names the words alone, in one short line (the owner, 30 Oct 2026): the list of what
+ * was searched read as a paragraph under the add row. No suggestions and no did-you-mean. The host still
+ * passes `searched`, and it is not drawn.
  */
 export const MatchingNothing: Story = {
   args: { ...board, defaultQuery: "zzz" },
   play: async ({ canvas }) => {
     await expect(canvas.queryAllByRole("option")).toHaveLength(0);
-    await expect(canvas.getByText(/Nothing matches “zzz”/)).toBeVisible();
-    await expect(canvas.getByText(/every session on this Manifest at every status/)).toBeVisible();
+    await expect(canvas.getByText("Nothing matches “zzz”.")).toBeVisible();
+    await expect(canvas.queryByText(/every session on this Manifest at every status/)).toBeNull();
   },
 };
 

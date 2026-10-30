@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Say you have nothing left to work on and it is safe to end this job, so Bridge offers to end it. Clear waiting_for first, and call it only when nothing is running or owed"
+description = "Say you have nothing left to work on and it is safe to end this job, so Bridge offers to end it. Clear waiting_for first, and call it only when nothing is running or owed. Give a summary: one or two plain sentences on what the job achieved for its brief, not how, bare facts"
 notes = """
-`POST /sessions/done`, body `AllDone`: an optional `session_id`. Answered with the `SessionRecord`, whose `done_since` is the instant Fleet stamped; **through the agent's door, a receipt** of `session_id`, `done` and `done_since`, because the row grows with every attachment and an agent keeps each answer.
+`POST /sessions/done`, body `AllDone`: an optional `session_id` and an optional `summary`, one or two plain sentences on what the Job achieved for its brief, not how. Fleet trims it, drops an empty one, and keeps it with the done mark as `SessionRecord.done_summary`; a later non-empty summary on a standing done replaces it. Answered with the `SessionRecord`, whose `done_since` is the instant Fleet stamped; **through the agent's door, a receipt** of `session_id`, `done` and `done_since`, because the row grows with every attachment and an agent keeps each answer.
 
 **The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `waiting_for`'s is. Calling it again while it stands keeps the first `done_since`. An ended job is refused: there is nothing to end.
 

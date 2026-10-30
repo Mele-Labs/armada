@@ -2,7 +2,7 @@
 //! test reads what arrived. What Fleet keeps and reads is `fleet::projects`', against a real store.
 
 use ipc::{
-    IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask,
+    IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask,
     Project, ProjectRow, ProjectTask, ProjectTaskState, TickProjectTask, WireError,
 };
 
@@ -143,6 +143,16 @@ impl Projects for FakeDaemon {
                 to.parent.as_deref().unwrap_or("-")
             ),
         ))
+    }
+
+    /// `r2` is the fake's issue row, `r3` a subtask and `nope` no row, each refused as Fleet refuses it.
+    async fn move_project_task_repository(&self, row: String, to: MoveProjectTaskRepository) -> Result<ipc::Projects, Refusal> {
+        match row.as_str() {
+            "r2" => Err(Refusal::Unacceptable(raised("fleet.project_row_not_a_task", "an issue row keeps its tracker's repository"))),
+            "r3" => Err(Refusal::Unacceptable(raised("fleet.project_subtask_too_deep", "a subtask moves with its task"))),
+            "nope" => Err(Refusal::NotFound(raised("fleet.no_such_project_row", "there is no row nope"))),
+            _ => Ok(echoed("p1", format!("move_project_task_repository {row} {}", to.manifest_id.as_str()))),
+        }
     }
 
     /// `r2` is the fake's issue row, and ticking it is refused as Fleet refuses it.
