@@ -38,8 +38,8 @@ import {
 import type { RuleFields, StepFields } from "../LaneCanvas/edit";
 import { LaneCanvas } from "../LaneCanvas/LaneCanvas";
 import type { LaneEditing, LanePick } from "../LaneCanvas/LaneCanvas";
-import { DEFAULT, END_ITEM, REMOVAL_WAITS, START_ITEM, existsAt, layersAt, levelsOf, lifecyclesAt, nodeId, readsAt, ruleAt, stateDiffers, stateExistsAt, stateLabelAt, stepDiffers, stepsAt, whenSaid } from "../LaneCanvas/model";
-import type { Autonomy, LifecycleDef, Ref, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
+import { DEFAULT, END_ITEM, PENDING_SAID, START_ITEM, existsAt, layersAt, levelsOf, lifecyclesAt, nodeId, readsAt, ruleAt, stateDiffers, stateExistsAt, stateLabelAt, stepDiffers, stepsAt, whenSaid } from "../LaneCanvas/model";
+import type { Autonomy, LifecycleDef, PendingKind, Ref, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
 import { MOMENTS, endsOnOf, fireGroupsOf, momentOf, subjectsOf, waitsOf } from "../LaneCanvas/waits";
 import type { WaitSubject } from "../LaneCanvas/waits";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
@@ -81,8 +81,10 @@ export type WorkspaceEditing = {
   lands?: (rule: LifecycleRule) => boolean;
   /** Whether a connector from one node to another makes a rule Fleet can run. A pair that does not is offered no landing. Absent, any pair does. */
   canConnect?: (from: Ref, to: Ref) => boolean;
-  /** The rules and lifecycles whose removal waits on a pull request, as `rule:<id>` and `lifecycle:<id>`. */
-  pending?: ReadonlySet<string>;
+  /** The rules and lifecycles that wait on a pull request removing them or on a draft keeping them, as `rule:<id>` and `lifecycle:<id>`, with which wait each is. */
+  pending?: ReadonlyMap<string, PendingKind>;
+  /** The rules a draft that keeps them for every Job would add: drawn as a proposed rule, marked as waiting on the draft, and not the Workspace's yet. */
+  drafted?: readonly Rule[];
 };
 
 /** The app's side panel as the editor asks for it: opened for what is picked, and its body given back as a slot to draw into. */
@@ -187,7 +189,9 @@ export function WorkspaceEditor({
   const place = workspace.workflows[workflow.id];
   /** The steps as they run on this tab: the definition's, and the ones added at this level or above. */
   const steps = useMemo(() => stepsAt(defined, place, scope, (one): ManagedStep => ({ id: one.id, label: one.label, ends: "", words: one.words ?? "" })), [defined, place, scope]);
-  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed, scope, ...(editing.pending === undefined ? {} : { pending: editing.pending }) }), [workspace, workflow.id, steps, proposed, scope, editing.pending]);
+  /** The rules drawn as added: a change's, and those a draft would keep. */
+  const adding = useMemo(() => (editing.drafted === undefined ? proposed : [...proposed, ...editing.drafted]), [proposed, editing.drafted]);
+  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed: adding, scope, ...(editing.pending === undefined ? {} : { pending: editing.pending }) }), [workspace, workflow.id, steps, adding, scope, editing.pending]);
 
   // **The first change on Armada's workflow makes the person's own copy**, without a word: the change is made on the Workspace as it is, and the host makes the copy behind it.
   const change = (next: Workspace) => {
@@ -206,7 +210,7 @@ export function WorkspaceEditor({
 
   const nameOfPick = (at: LanePick): { title: string; heading: string; crumb: string } => {
     if (at.kind === "rule") {
-      const found = [...workspace.rules, ...proposed].find((one) => one.id === at.id);
+      const found = [...workspace.rules, ...adding].find((one) => one.id === at.id);
       const rule = found === undefined ? undefined : ruleAt(found, scope);
       return { title: `Rule: ${rule?.label ?? at.id}`, heading: rule?.label ?? at.id, crumb: "Rule" };
     }
@@ -310,7 +314,11 @@ export function WorkspaceEditor({
 
   /** A tab deletes what it added, and the default what the workflow holds. */
   const canDelete = (at: LanePick): boolean => {
-    if (at.kind === "rule") return (workspace.rules.find((one) => one.id === at.id)?.scope ?? DEFAULT) === scope;
+    // A rule the Workspace does not hold, one a change proposes or a draft would keep, has nothing to delete.
+    if (at.kind === "rule") {
+      const found = workspace.rules.find((one) => one.id === at.id);
+      return found !== undefined && (found.scope ?? DEFAULT) === scope;
+    }
     if (at.kind === "lane") return lifecycleDeletable(at.id);
     const { lane, item } = refOf(at.id);
     if (lane === "workflow") return ((place?.added ?? []).find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
@@ -356,19 +364,21 @@ export function WorkspaceEditor({
     onConnect: connect,
   };
 
+  /** What a rule or lifecycle waits on, where it waits on something. */
+  const pendingOf = (key: string): PendingKind | undefined => editing.pending?.get(key);
   const inspected = (() => {
     if (picked === undefined) return null;
     if (picked.kind === "rule") {
-      const rule = [...workspace.rules, ...proposed].find((one) => one.id === picked.id);
+      const rule = [...workspace.rules, ...adding].find((one) => one.id === picked.id);
       if (rule === undefined) return null;
-      const added = proposed.includes(rule);
+      const added = adding.includes(rule);
       const wire = ruleAt(rule, scope).wire;
       // Where rules are pieces, a rule is its piece: pickers over what Fleet can run, each change a piece kept whole at this tab.
       if (pieces && wire !== undefined && !added) {
         const here = lifecyclesOf(workspace, scope);
         return (
           <div className="armada-wm-step">
-            {editing.pending?.has(`rule:${rule.id}`) === true ? <Pending /> : null}
+            {pendingOf(`rule:${rule.id}`) === undefined ? null : <Pending kind={pendingOf(`rule:${rule.id}`)!} />}
             <dl className="armada-wm-step__facts">
               <RuleForm
                 key={`${rule.id}/${scope}`}
@@ -392,6 +402,7 @@ export function WorkspaceEditor({
           steps={stepsOf(workspace, workflow.id, steps, scope)}
           level={level}
           added={added}
+          waits={pendingOf(`rule:${rule.id}`)}
           onChange={(patch) => change(withRuleAt(workspace, rule.id, scope, patch))}
           onUseAbove={() => change(withoutRuleOverride(workspace, rule.id, scope))}
         />
@@ -404,8 +415,8 @@ export function WorkspaceEditor({
         <LifecycleFacts
           key={lifecycle.id}
           lifecycle={lifecycle}
-          pending={editing.pending?.has(`lifecycle:${lifecycle.id}`) === true}
-          named={(lifecycle.scope ?? DEFAULT) === scope}
+          pending={pendingOf(`lifecycle:${lifecycle.id}`)}
+          named={(lifecycle.scope ?? DEFAULT) === scope && !(pieces && lifecycle.kept === undefined)}
           onName={(label) => change(withLifecycleLabel(workspace, lifecycle.id, label))}
           onDelete={lifecycleDeletable(lifecycle.id) ? () => remove({ kind: "lane", id: lifecycle.id }) : undefined}
         />
@@ -554,13 +565,13 @@ const lifecyclesOf = (workspace: Workspace, scope: string): RuleFormLifecycle[] 
     .filter((one) => existsAt(one.scope, scope))
     .map((one) => ({ id: one.id, name: one.label, kind: one.kind, states: one.states.filter((state) => stateExistsAt(state, scope)).map((state) => ({ id: state.id, label: stateLabelAt(state, scope) })) }));
 
-/** The mark on a piece whose removal waits on a pull request: a glyph, with the sentence in its tooltip. */
-function Pending() {
+/** The mark on a piece that waits on a pull request removing it or a draft keeping it: a glyph, with the sentence in its tooltip. */
+function Pending({ kind }: { kind: PendingKind }) {
   return (
     <div className="armada-wm-step__band">
       <span className="armada-wm-step__marks">
-        <Tooltip label={REMOVAL_WAITS}>
-          <span role="img" aria-label={REMOVAL_WAITS}>
+        <Tooltip label={PENDING_SAID[kind]}>
+          <span role="img" aria-label={PENDING_SAID[kind]}>
             <Clock size={14} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -569,12 +580,12 @@ function Pending() {
   );
 }
 
-/** A lifecycle: its name, where Fleet reads its states from, and deleting it. A tab that did not add it reads the name and cannot delete it. */
-function LifecycleFacts({ lifecycle, pending, named, onName, onDelete }: { lifecycle: LifecycleDef; pending: boolean; named: boolean; onName: (label: string) => void; onDelete: (() => void) | undefined }) {
+/** A lifecycle: its name, where Fleet reads its states from, and deleting it. A tab that did not add it reads the name and cannot delete it, and neither can one that no file keeps yet, which only a draft holds. */
+function LifecycleFacts({ lifecycle, pending, named, onName, onDelete }: { lifecycle: LifecycleDef; pending: PendingKind | undefined; named: boolean; onName: (label: string) => void; onDelete: (() => void) | undefined }) {
   const id = useId();
   return (
     <div className="armada-wm-step">
-      {pending ? <Pending /> : null}
+      {pending === undefined ? null : <Pending kind={pending} />}
       <dl className="armada-wm-step__facts">
         <dt id={`${id}-name`}>Name</dt>
         <dd>{named ? <Field labelledBy={`${id}-name`} value={lifecycle.label} onCommit={(label) => label !== "" && onName(label)} /> : lifecycle.label}</dd>
@@ -752,6 +763,7 @@ function RuleFacts({
   steps,
   level,
   added,
+  waits,
   onChange,
   onUseAbove,
 }: {
@@ -763,6 +775,8 @@ function RuleFacts({
   level: Level | undefined;
   /** A rule the proposed change would add is not the Workspace's yet: it is shown, and Approve makes it. */
   added: boolean;
+  /** What a draft that keeps this rule waits on, which takes the place of the mark for an added one. */
+  waits: PendingKind | undefined;
   onChange: (patch: RuleFields) => void;
   onUseAbove: () => void;
 }) {
@@ -779,7 +793,9 @@ function RuleFacts({
   const moments = here.from.lane === "workflow" ? MOMENTS.step : MOMENTS.state;
   return (
     <div className="armada-wm-step" data-added={added || undefined}>
-      {added ? (
+      {waits !== undefined ? (
+        <Pending kind={waits} />
+      ) : added ? (
         <div className="armada-wm-step__band">
           <span className="armada-wm-step__marks">
             <Tooltip label="Added by the proposed change">

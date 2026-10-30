@@ -30,6 +30,7 @@ import type { Autopilot } from "./autopilot";
 import type { WatchesChanged } from "./watches";
 import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
+import type { KeepDraftsChanged } from "./job-copy";
 import type { BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -104,6 +105,8 @@ export type Event =
   | ({ kind: "bug_reports.changed" } & BugReportsChanged)
   /** What a Job holds and where it stands, whole, after an instance was taken on or moved. */
   | ({ kind: "job_lifecycles.changed" } & JobLifecyclesChanged)
+  /** A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed in a repository: read `list_keep_drafts` again. */
+  | ({ kind: "keep_drafts.changed" } & KeepDraftsChanged)
   /** The plan's windows after a session read them moving, whole. */
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */

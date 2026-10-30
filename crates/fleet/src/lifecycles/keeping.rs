@@ -153,6 +153,7 @@ where
         if taken {
             self.job_lifecycles_published(parent).await;
         }
+        self.ticket_handed(parent, child).await;
         let Some(manifest) = self.store().lock().await.session(parent).ok().flatten().and_then(|one| one.manifest_id) else {
             return;
         };

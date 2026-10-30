@@ -74,12 +74,24 @@ pub struct LifecycleInstance {
     subject: InstanceRef,
     standing: Standing,
     links: Vec<InstanceRef>,
+    handed: bool,
 }
 
 impl LifecycleInstance {
     /// A thing just taken on, standing nowhere until it is read.
     pub fn taken_on(subject: InstanceRef) -> LifecycleInstance {
-        LifecycleInstance { subject, standing: Standing::Unread, links: Vec::new() }
+        LifecycleInstance { subject, standing: Standing::Unread, links: Vec::new(), handed: false }
+    }
+
+    /// Given to another Job, which holds it now. The Job still holds the record, so a link from a
+    /// Job it started finds it, and `Among::Held` no longer does.
+    pub fn handed_on(mut self) -> LifecycleInstance {
+        self.handed = true;
+        self
+    }
+
+    pub fn is_handed(&self) -> bool {
+        self.handed
     }
 
     /// Linked to an instance it came from. A link to itself, or to one already linked, adds

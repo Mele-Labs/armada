@@ -89,6 +89,10 @@ impl Lifecycles for FakeDaemon {
         Ok(RepositoryLifecycleRules { manifest_id: self.repository(manifest_id).await?, rules: Vec::new(), left_out: Vec::new() })
     }
 
+    async fn list_keep_drafts(&self, manifest_id: Option<ManifestId>) -> Result<ipc::KeepDrafts, Refusal> {
+        Ok(ipc::KeepDrafts { manifest_id: self.repository(manifest_id).await?, drafts: Vec::new() })
+    }
+
     async fn get_job_lifecycles(&self, _caller: Option<Caller>, session_id: Option<SessionId>) -> Result<JobLifecycles, Refusal> {
         let Some(job) = session_id else {
             return Err(Refusal::Unacceptable(ipc::WireError::raised(

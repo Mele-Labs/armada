@@ -5,8 +5,9 @@
 //! `finish_up` are refused while the Job holds one standing in a state its lifecycle knows and does
 //! not end on, each named as `Deploy is Rolling out`, and Fleet tells the agent when the last one
 //! reaches an end state. **One unread, or in a status nobody could place, holds nothing**: the
-//! built-in Ticket lifecycle lists no tracker words but `closed`, so a Job holding a ticket under it would be
-//! refused with nothing the agent could do to clear it. **Ending the Job ends its instances**, the
+//! built-in Ticket lifecycle lists no tracker words but `closed` where its tracker declares none, so a Job
+//! holding a ticket under it would be refused with nothing the agent could do to clear it. **A status the
+//! tracker declares a word for is placed**, and holds. **Ending the Job ends its instances**, the
 //! unplaced too: each one no end state has taken is kept as ended, standing where it was, and no
 //! reader moves it again. Bridge lists the same instances before the person ends the Job. A Job
 //! that holds none, which is every Job started before lifecycles, is held by nothing and ends as it
