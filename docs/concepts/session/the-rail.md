@@ -23,6 +23,14 @@ Until it pushes, the step stays current, because the mock is still being built.
 A `follows_plan` step after it, or any step that fits a fact, is entered only once it is passed.
 Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
 
+**A step that ends on a lifecycle state** (29 Oct 2026, "Workspaces, lifecycles and rules") is entered once the Job holds an instance of that lifecycle and left when the state is reached.
+`pr: approved` needs every pull request the Job holds, `any pr: approved` the first; `job: landed` needs every Job it started.
+Fleet reads the moves it already keeps for the Job's instances, so nothing polls: a kept move redraws the row of a Job whose step waits, the rail moves it, and `rail_acted_on` sends the agent one message, what got there and then the next step's words.
+**Reached stays reached**: a reviewer taking an approval back does not drag the Job to the step it left, and an instance that is over has reached every state of its lifecycle.
+The agent is told to end its turn, the step is neither the Job's nor the owner's to end, and so it is never nudged as stalled and raises no Needs-you item.
+A Job holding none of the lifecycle is not on the step, and nothing after it is entered, the delivering step included; the owner writing on the step or skipping it moves the Job on, and no line says a state was reached.
+A step with no fact of its own that follows one of these is entered when it ends, and the rail ends when the last step does.
+
 **The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:
 
 | Step declares | Entered on |
