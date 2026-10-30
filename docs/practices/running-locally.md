@@ -126,9 +126,12 @@ changes.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
-`Armada/` touched). Jobs load the mod from there, so after a restart the
-owner runs `/reload-plugins` in an open job and pulls nothing. The one-time
-install is in `docs/concepts/session.md`, "Installing the Claude Code mod".
+`Armada/` touched), then runs `claude plugin marketplace update armada-local`
+and `claude plugin update armada@armada-local`, which fail soft with one
+warning. Hosted jobs load the mod from the copy, and Fleet lets each process go
+once its turn ends so its next message starts it on the copy. A terminal job loads the updated plugin when the owner runs
+`/reload-plugins` in it, and he pulls nothing. The one-time install is in
+`docs/concepts/session.md`, "Installing the Claude Code mod".
 
 **It refuses while a Drone is working**, naming the Job. Read off the live
 roster and each Drone's Job rather than a status count — an escalated Job

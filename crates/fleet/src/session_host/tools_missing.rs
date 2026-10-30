@@ -23,6 +23,15 @@ pub(crate) const SESSION_MOD_NOT_FILLED: &str = "fleet.session_mod_not_filled";
 /// What a process with nothing unfinished to send again is told, so the restart has a turn to carry it.
 const MENDED: &str = "Fleet restarted your process with the armada mod. Nothing is asked of you.";
 
+/// Who asked for a restart onto Fleet's copy of the mod.
+pub(super) enum Restart<'a> {
+    /// The person pressed Restart the agent, and the process is let go whatever it is doing.
+    Pressed,
+    /// Fleet, because the mod the process reported is older than the copy `to`: only between turns,
+    /// and with no replacement started, since the Job's next line starts one.
+    Moved { to: &'a str },
+}
+
 /// What `reading` lacks, in the wire's order. Empty is nothing missing.
 pub(crate) fn missing_of(reading: &HarnessReading) -> Vec<ToolMissing> {
     [
@@ -110,9 +119,20 @@ where
             self.hosted_refusal(SESSION_MOD_NOT_FILLED, &format!("the armada mod's copy could not be filled: {said}"))
         })?;
         let runtime = self.hosts().of(id);
+        self.restarted_onto_mod(id, &runtime, hosting.paused_at.is_some(), Restart::Pressed).await;
+        self.published_hosted(id).await
+    }
+
+    /// Let the process go so its replacement loads the copy of the mod as it is now. **The one restart
+    /// onto the copy**, whoever asks for it. A press starts the replacement at once. Fleet's own move
+    /// starts none: the Job's next line does, as after a quiet spell, so an idle Job spends no turn on
+    /// it. Whether it let the process go: a Job waiting to be moved into a slot or paused is left as it
+    /// is, and so is one a turn has begun in when Fleet itself asked, since that turn is not Fleet's to cut.
+    pub(super) async fn restarted_onto_mod(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, paused: bool, why: Restart<'_>) -> bool {
         let lines = {
             let mut state = runtime.state();
-            if state.moving.is_some() || hosting.paused_at.is_some() {
+            let waits = state.moving.is_some() || paused || (matches!(why, Restart::Moved { .. }) && !state.between_turns());
+            if waits {
                 None
             } else {
                 if let Some(asked) = state.asked.take() {
@@ -120,21 +140,26 @@ where
                 }
                 let lines = std::mem::take(&mut state.unstarted);
                 Self::let_go(&mut state);
-                // The replacement is the person's own, so a piece it still lacks is marked and not restarted for again.
+                // The replacement is Fleet's own, so a piece it still lacks is marked and not restarted for again.
                 state.healed_into = Some(state.generation);
+                if let Restart::Moved { to } = &why {
+                    state.moved_onto = Some((*to).to_string());
+                }
                 state.turn = SessionTurn::Idle;
                 state.restart_after_turn = false;
                 state.reattached_busy = false;
                 Some(lines)
             }
         };
-        let Some(lines) = lines else { return self.published_hosted(id).await };
+        let Some(lines) = lines else { return false };
         self.calls_let_go(id).await;
-        if lines.is_empty() {
-            let _ = self.told_of_a_mend(id, MENDED).await;
-        } else {
-            self.send_again(id, &runtime, lines).await;
+        match why {
+            Restart::Moved { .. } => {}
+            Restart::Pressed if lines.is_empty() => {
+                let _ = self.told_of_a_mend(id, MENDED).await;
+            }
+            Restart::Pressed => self.send_again(id, runtime, lines).await,
         }
-        self.published_hosted(id).await
+        true
     }
 }
