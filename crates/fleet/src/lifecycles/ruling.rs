@@ -195,11 +195,14 @@ where
     /// The row changed: find what happened to the Job since the last look, and hand it to its rules.
     pub(crate) async fn rules_looked_at(&self, record: &SessionRecord) {
         let session = record.id.as_str();
-        let step = record.manifest_id.as_ref().zip(record.workflow.as_deref()).zip(record.workflow_step).and_then(
-            |((manifest, workflow), at)| {
-                self.rail_steps(manifest.as_str(), workflow)?.get(at as usize).map(|one| one.id.clone())
-            },
-        );
+        // The Job's own steps, so a step it added or moved is the one its rules read.
+        let step = match (record.manifest_id.as_ref(), record.workflow.as_deref(), record.workflow_step) {
+            (Some(manifest), Some(workflow), Some(at)) => self
+                .job_rail_steps(session, manifest.as_str(), workflow)
+                .await
+                .and_then(|steps| steps.get(at as usize).map(|one| one.id.clone())),
+            _ => None,
+        };
         let now = KeptSeen {
             step,
             pull_request_opened: opened_pull_request(&record.attachments),
