@@ -15,8 +15,8 @@ use adapter_traits::{AgentHarness, Delivery, NotTracked, PullRequestStanding, Vc
 use api::{Projects, Refusal};
 use core_model::Timestamp;
 use ipc::{
-    IssueReference, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, NameProject,
-    NewProjectIssue, NewProjectTask, Project, ProjectRow, ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue,
+    IssueReference, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, MoveProjectTaskRepository,
+    NameProject, NewProjectIssue, NewProjectTask, Project, ProjectRow, ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue,
     TaskPull, TaskPullState, TickProjectTask, WireError,
 };
 use store::{KeptHolder, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, Store, LOOSE_PROJECT};
@@ -105,11 +105,18 @@ fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) 
     match row.item {
         KeptRowItem::Task { title, notes, state, parent, issues, pulls } => {
             let (state, held_by) = task_state(state);
+            // A link kept before links named their repository reads as its task's.
+            let linked_in = |linked: &str| Some(ManifestId::carried(if linked.is_empty() { row.manifest_id.clone() } else { linked.to_string() }));
             let issues = issues
                 .into_iter()
                 .map(|link| {
                     let read = said_by.get(&link.manifest_id).and_then(|said| said.get(&link.reference));
-                    TaskIssue { title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state), issue: link.reference }
+                    TaskIssue {
+                        manifest_id: linked_in(&link.manifest_id),
+                        title: read.map(|(_, title)| title.clone()),
+                        state: read.map(|(state, _)| *state),
+                        issue: link.reference,
+                    }
                 })
                 .collect();
             let pulls = pulls
@@ -117,7 +124,12 @@ fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) 
                 .map(|link| {
                     let read = pulled_by.get(&link.manifest_id).and_then(|pulled| pulled.get(&link.number));
                     let number = link.number;
-                    TaskPull { number, title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state) }
+                    TaskPull {
+                        number,
+                        manifest_id: linked_in(&link.manifest_id),
+                        title: read.map(|(_, title)| title.clone()),
+                        state: read.map(|(state, _)| *state),
+                    }
                 })
                 .collect();
             ProjectRow::Task { id: row.id, manifest_id, title, notes, state, held_by, parent, issues, pulls }
@@ -615,6 +627,10 @@ where
                 .map_err(|why| self.ledger_fault(why))
         })
         .await
+    }
+
+    async fn move_project_task_repository(&self, row: String, to: MoveProjectTaskRepository) -> Result<ipc::Projects, Refusal> {
+        Fleet::move_project_task_repository(self, row, to.manifest_id).await
     }
 
     async fn tick_project_task(&self, row: String, tick: TickProjectTask) -> Result<ipc::Projects, Refusal> {

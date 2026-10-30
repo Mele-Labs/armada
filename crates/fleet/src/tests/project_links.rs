@@ -7,7 +7,7 @@ use std::sync::Arc;
 use adapter_traits::{FromOutside, PullRequestFacts, PullRequestStanding, RecentlyMerged};
 use api::{HostedSessions, Projects, Sessions};
 use ipc::{
-    AllDone, CloseSession, LinkTaskJob, LinkTaskPull, ProjectHolder, ProjectRow, ProjectTask,
+    AllDone, CloseSession, LinkTaskJob, LinkTaskPull, ManifestId, ProjectHolder, ProjectRow, ProjectTask,
     ProjectTaskState, SessionId, TaskPull, TaskPullState, TickProjectTask, WaitingItem, WaitingSource,
 };
 use store::{KeptSession, SessionState};
@@ -15,6 +15,11 @@ use store::{KeptSession, SessionState};
 use super::project_holds::{a_project, held, id_of, rows_of, start};
 use super::projects::{a_second_repository, code_of};
 use super::pull_notices::{a_rig, Rig};
+
+/// The repository `rig`'s links were linked in.
+fn at(rig: &Rig) -> Option<ManifestId> {
+    Some(ManifestId::carried(rig.manifest()))
+}
 
 fn job_link(job: &SessionId) -> LinkTaskJob {
     LinkTaskJob { session_id: job.clone() }
@@ -183,8 +188,8 @@ async fn a_linked_pull_request_reads_its_title_and_state_from_the_forge_and_keep
     assert_eq!(
         pulls,
         [
-            TaskPull { number: 5, title: Some("Sign it".into()), state: Some(TaskPullState::Open) },
-            TaskPull { number: 9, title: Some("Sign it".into()), state: Some(TaskPullState::Open) }
+            TaskPull { number: 5, manifest_id: at(&rig), title: Some("Sign it".into()), state: Some(TaskPullState::Open) },
+            TaskPull { number: 9, manifest_id: at(&rig), title: Some("Sign it".into()), state: Some(TaskPullState::Open) }
         ],
         "in the order linked, a draft read as open"
     );
@@ -214,7 +219,7 @@ async fn a_pull_request_the_forge_cannot_read_is_listed_without_a_title_or_state
 
     let listed = rig.fleet.link_task_pull(rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
 
-    assert_eq!(pulls_of(&rows_of(&listed, 0)[0]), [TaskPull { number: 5, title: None, state: None }]);
+    assert_eq!(pulls_of(&rows_of(&listed, 0)[0]), [TaskPull { number: 5, manifest_id: at(&rig), title: None, state: None }]);
 }
 
 async fn merged(rig: &Rig, number: u64, author: Option<&str>) {
@@ -251,7 +256,7 @@ async fn a_linked_pull_request_merging_asks_about_an_open_task_on_the_rows_and_a
     assert_eq!(held(&rows_of(&listed, 0)[1]), (ProjectTaskState::Done, None), "a task already done is left alone");
     assert_eq!(
         pulls_of(&rows_of(&listed, 0)[0]),
-        [TaskPull { number: 5, title: Some("Sign it".into()), state: Some(TaskPullState::Merged) }],
+        [TaskPull { number: 5, manifest_id: at(&rig), title: Some("Sign it".into()), state: Some(TaskPullState::Merged) }],
         "and the pull request reads merged at once, whoever opened it"
     );
 
@@ -304,7 +309,7 @@ async fn linking_a_pull_request_that_already_merged_asks_about_an_open_or_held_t
     assert_eq!(held(&rows_of(&linked, 0)[0]), (ProjectTaskState::Asked, None), "asked in the answer itself, with no Job to name");
     assert_eq!(
         pulls_of(&rows_of(&linked, 0)[0])[1],
-        TaskPull { number: 5, title: Some("Sign it".into()), state: Some(TaskPullState::Merged) }
+        TaskPull { number: 5, manifest_id: at(&rig), title: Some("Sign it".into()), state: Some(TaskPullState::Merged) }
     );
 
     let held_task = rig.fleet.link_task_pull(rows[1].clone(), LinkTaskPull { number: 5 }).await.expect("linked");

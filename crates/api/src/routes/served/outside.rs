@@ -215,6 +215,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/rows/:row/move",
     },
     Route {
+        operation: "move_project_task_repository",
+        method: "POST",
+        path: "/projects/rows/:row/repository",
+    },
+    Route {
         operation: "tick_project_task",
         method: "POST",
         path: "/projects/rows/:row/tick",

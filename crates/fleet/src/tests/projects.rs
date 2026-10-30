@@ -396,6 +396,34 @@ async fn moving_a_task_to_another_repository_takes_its_subtasks_and_leaves_its_l
 }
 
 #[tokio::test]
+async fn a_linked_issue_and_pull_request_say_the_repository_they_were_linked_in_on_the_wire_after_their_task_moved() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &Arc::new(FakeTracker::empty()));
+    let (first, second) = (manifest(&fleet), a_second_repository(&fleet, &home));
+    let project = launched(&fleet).await;
+    let travels = row_ids(&fleet.add_project_task(new_task(first.clone(), Some(project), "Travels")).await.expect("added"))[0].clone();
+    fleet.link_task_issue(travels.clone(), link("7")).await.expect("linked");
+    let linked = fleet.link_task_pull(travels.clone(), LinkTaskPull { number: 5 }).await.expect("linked");
+    let links_of = |projects: &ipc::Projects| match &projects.projects[0].rows[0] {
+        ProjectRow::Task { manifest_id, issues, pulls, .. } => (
+            manifest_id.as_str().to_string(),
+            issues.iter().map(|one| one.manifest_id.as_ref().map(|id| id.as_str().to_string())).collect::<Vec<_>>(),
+            pulls.iter().map(|one| one.manifest_id.as_ref().map(|id| id.as_str().to_string())).collect::<Vec<_>>(),
+        ),
+        ProjectRow::Issue { .. } => panic!("a task"),
+    };
+    let first_only = vec![Some(first.as_str().to_string())];
+    assert_eq!((links_of(&linked).1, links_of(&linked).2), (first_only.clone(), first_only.clone()), "a link says where it was linked, in the task's own repository too");
+
+    let moved = fleet.move_project_task_repository(travels, second.clone()).await.expect("moved");
+    assert_eq!(
+        links_of(&moved),
+        (second.as_str().to_string(), first_only.clone(), first_only),
+        "the task is the second's, and each link still the first's"
+    );
+}
+
+#[tokio::test]
 async fn moving_a_subtask_an_issue_row_or_a_row_there_is_not_or_to_a_repository_not_served_is_refused() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, &Arc::new(FakeTracker::empty()));
