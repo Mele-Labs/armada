@@ -44,7 +44,6 @@ const GLYPH_OF_STEP: Readonly<Record<string, StepGlyph>> = {
   discuss: "discuss",
   approve_plan: "approve",
   walk: "walk",
-  short_walk: "walk",
   show: "walk",
   fix: "fix",
   build: "fix",

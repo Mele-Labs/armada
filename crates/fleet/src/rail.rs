@@ -22,8 +22,8 @@
 //! is recorded, or until any end its `ends_on` lists holds (`awaits_reply` is `replied`); the
 //! recording step is then entered when a plan is recorded. A `walks` step is current from the plan's
 //! approval until he approves a window the Job showed, at or after that approval, and is passed over
-//! when the plan named no walk and no window was shown. A `follows_plan` step after it is entered only
-//! once it is passed.
+//! when the plan named no walk and no window was shown. The step after it is entered once it is passed,
+//! whatever fact would have entered it.
 //!
 //! **A step the person skipped is passed and never entered**, so the Job moves on past it. A skipped
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
@@ -365,10 +365,13 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return facts.lifecycle_held.has(at) && !facts.any_ended(at, &step.ends_on) && before(at);
     }
     let after_a_wait = at > 0 && steps[at - 1].has_lifecycle_end() && before(at);
+    // **The step after a walk is entered once the walk is passed**, as after a wait: else the Job falls
+    // back behind the walk he approved, is told to show it again, and the new window voids his approval.
+    let after_a_walk = at > 0 && steps[at - 1].walks && passed(steps, at - 1, facts);
     let Some(fit) = step.fit else {
-        return after_a_wait;
+        return after_a_wait || after_a_walk;
     };
-    after_a_wait || (facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit)))
+    after_a_wait || after_a_walk || (facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit)))
 }
 
 /// The step the Session is on: the last one entered, else the first standing. **Absent** once the
