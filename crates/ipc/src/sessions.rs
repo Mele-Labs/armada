@@ -645,6 +645,11 @@ pub enum WaitingSource {
     /// that opens the Session. Settled by `answer_sketch` on its card, or by dismissing it; answering it
     /// here is refused. Showing it again lifts a dismissal.
     Sketch,
+    /// Fleet: the newest revision of a page the Job wrote under `.armada/documents/` is not answered.
+    /// Derived on every read off the document, never kept: id `document:<page path>`, text its title, a
+    /// `message` act that opens the Job. Settled by `answer_document`, or by dismissing it; answering
+    /// it here is refused. A new revision asks again and lifts a dismissal.
+    Document,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
     FirstMessage,

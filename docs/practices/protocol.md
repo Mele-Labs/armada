@@ -1260,6 +1260,29 @@ Any other kind, or a piece main does not hold, is a 422 `fleet.commit_refused`.
 Were a pair to meet anyway, a Fleet without the routes answers 404, and one without `remove` refuses a commit body that carries it, since `CommitToRepository` denies unknown fields, so a removal is never read as a copy.
 **No event.** Nothing is published: a save is read by the next read.
 
+## A document asks for his approval: `answer_document`, `document` on `WaitingSource`, and `asked`, `revision`, `kept_at` and `settled` on a document
+
+Since 30 Oct 2026. `crates/ipc/operations/answer_document.toml`, `crates/fleet/src/session_host/document_answers.rs`.
+**One operation, one enum value and keys of a document's `detail`**: a new route, its body and one enum; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `packages/protocol/src` for Bridge's half.
+Bridge's half is `AnswerDocument` and `DocumentHow` in `packages/protocol/src/sessions.ts`, written by hand, and `document` on its `WaitingSource`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `answer_document` (`POST /sessions/document/answer`, `agent_access = "No"`) | Bridge writes | `AnswerDocument` `{ session_id, document, revision, how, words? }`: `document` the item id `document:<path>`, `revision` the `detail.revision` he read, `how` `approved` or `sent_back`; answers the `SessionRecord`. 409 `fleet.document_revised` for a revision that is not the newest; 422 `fleet.document_not_open`, `fleet.document_answer_empty` and `fleet.document_answer_unnamed`, with nothing written or sent |
+| `detail.asked`, `detail.revision`, `detail.kept_at` on an artifact of form `document` | Fleet writes, Bridge reads | `asked` `"true"`, `revision` the newest revision's number as text, `"1"` and on, and `kept_at` when it was kept, as `settled_at` is written; all three on every newly kept revision only. Bridge places the card by `kept_at`, since `changed_at` moves on an answer. A document kept before this has none and asks nothing |
+| `detail.settled`, `detail.settled_at`, `detail.words` | Fleet writes, Bridge reads | How he answered, `approved` or `sent_back`, when, and his words. Gone when a new revision is kept, since the store replaces a row's detail whole |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `document`: id `document:<path>`, text the page's title, act `message` on the Job. Derived on every read for each document with `detail.asked` and no `detail.settled`; never kept |
+| `dismiss_waiting` on it | Bridge writes | No new field. The Job is sent `Owner dismissed "<title>"`, and a new revision lifts the dismissal |
+| `answer_waiting` on it | Bridge writes | Refused 422 `fleet.session_waiting_empty`, and the item stands: `answer_document` answers it |
+| `ends_on` | A workflow's file | Gains `document_approved`: he approved the newest revision of a page the Job wrote, read off the kept artifact and never off the thread |
+
+**The Job is told as his message**, as a sketch's answer is: `Approved document: <title>, revision <n>` and `Go on from it as written.`, his words on the line after, or `Sent back document: <title>, revision <n>`, his note, and `Revise the page at <path> and write it again.`
+The revision is settled only once the message is sent.
+
+**Skew.** As for `answer_sketch`: the IDs differ and the lifeboat serves.
+**The event stream.** No new event: an answer publishes `session.changed`.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
