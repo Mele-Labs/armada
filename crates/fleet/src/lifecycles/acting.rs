@@ -148,12 +148,15 @@ where
             Act::StartWatch { recipe, values, deploy } => self.rule_watch_started(row, recipe, values, deploy.as_ref()).await,
             Act::Tell { message } => self.rule_told(job, message.as_str()).await,
             Act::Wake => self.rule_told(job, &format!("The rule {} woke you. Carry on.", found.rule)).await,
-            Act::StartJob { prompt, .. } => {
+            Act::StartJob { workflow, prompt } => {
                 let manifest = {
                     let store = self.store().lock().await;
                     store.session(job).map_err(|why| why.to_string())?.and_then(|one| one.manifest_id)
                 };
                 let manifest = manifest.ok_or("the Job is in no repository")?;
+                // Checked before the Job is made, so a workflow the repository cannot run starts nothing.
+                let named = workflow.as_ref().map(|one| one.as_str().to_string());
+                let (workflow, _) = self.workflow_checked(&manifest, named).map_err(|why| why.error().message.clone())?;
                 let start = StartAnotherSession {
                     manifest_id: ManifestId::carried(&manifest),
                     title: titled(prompt),
@@ -162,7 +165,15 @@ where
                     after: None,
                 };
                 let held = self.another_session_started_by(job.to_string(), start).await.map_err(|why| why.error().message.clone())?;
-                Ok(format!("Started {}", held.session_id.as_str()))
+                let started = held.session_id.as_str();
+                // The rule the owner saved chose it, as his pick on the start card would. Not an error once
+                // the Job is made: a retry would start another.
+                if workflow.is_some() {
+                    if let Err(why) = self.workflow_put(started, workflow, ipc::ChangedBy::You).await {
+                        return Ok(format!("Started {started} with no workflow: {}", why.error().message));
+                    }
+                }
+                Ok(format!("Started {started}"))
             }
             // Done once proposed: the draft's own wait is the ask, and Skip is withdrawing it.
             Act::Draft { template, .. } => {
