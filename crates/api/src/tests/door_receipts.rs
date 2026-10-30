@@ -205,8 +205,19 @@ async fn waiting_for_answers_each_item_as_it_was_kept_with_its_act_steps_and_opt
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(
         said,
-        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}]}"#
+        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}],"fleet":[{"id":"walk:http://localhost:5173/","kind":"walk","text":"Walk the page"},{"id":"window_ask:7","kind":"window_ask","text":"Is this the right label?"},{"id":"draft:9","kind":"draft","text":"Pull request description for the label"}]}"#
     );
+}
+
+#[tokio::test]
+async fn waiting_for_lists_fleets_items_apart_from_the_agents_own() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "waiting_for", WAIT).await;
+    let (own, fleet) = said.split_once(r#""fleet":"#).expect("the receipt lists Fleet's items");
+    assert!(own.contains(r#""id":"merge""#) && own.contains(r#""id":"pick""#), "{said}");
+    assert!(!own.contains("walk:"), "{said}");
+    assert!(fleet.contains(r#"{"id":"walk:http://localhost:5173/","kind":"walk","text":"Walk the page"}"#), "{said}");
+    assert!(!fleet.contains(r#""id":"merge""#), "{said}");
 }
 
 #[tokio::test]
