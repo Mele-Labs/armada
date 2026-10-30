@@ -12,6 +12,13 @@
 //! closing the window settles nothing: that is his call. A page changed after it was shown waits
 //! again only once it is shown again.
 //!
+//! **So does every sketch he has not answered**, `sketch:<title>`, until he approves it, sends it back
+//! or dismisses it; drawing it again lifts a dismissal. `sketching::sketch_items` reads it.
+//!
+//! **Every end a step waits on him for has its item**, named in `rail_ends::End::waits_on`, where an
+//! end with no wait does not build. A step that ends on his reply waits at every turn end, a reply that
+//! only reports included: `rail_drawn` adds [`step_reply_item`] where nothing else waits.
+//!
 //! **An agent item that asks him to walk is refused, and one kept is dropped.** The window is the
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
 //! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
@@ -173,6 +180,34 @@ impl WaitingReads {
         lifted.closed = Vec::new();
         lifted.paused = false;
         lifted
+    }
+
+    /// When the last turn ended, while nothing has followed it, the Job is not paused and he has not
+    /// dismissed what that turn raised: what a step that ends on his reply waits from.
+    pub(crate) fn reply_owed_since(&self) -> Option<String> {
+        let (at, _) = self.turn_end.as_ref().filter(|_| !self.paused && self.done.is_none())?;
+        let id = format!("replied:{at}");
+        let dismissed = self.dismissed.iter().any(|one| one == &id || one.starts_with(&format!("{id}:")));
+        (!dismissed).then(|| at.clone())
+    }
+}
+
+/// The item a step that ends on his reply raises once a turn ends, a reply that only reports
+/// included: the step waits on him whatever the reply said. Its id is the one a reply that asks takes,
+/// so dismissing either settles both.
+pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
+    WaitingItem {
+        id: format!("replied:{ended}"),
+        text: format!("{step}: {}", crate::rail_ends::End::Replied.for_person()),
+        since: Instant::carried(ended),
+        source: WaitingSource::Replied,
+        act: None,
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        concern: None,
+        cites: Vec::new(),
+        confirmed: false,
     }
 }
 
@@ -583,6 +618,8 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
+            items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -655,6 +692,7 @@ where
                         | WaitingSource::Permission
                         | WaitingSource::WindowAsk
                         | WaitingSource::Draft
+                        | WaitingSource::Sketch
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
@@ -1026,6 +1064,10 @@ where
                 SESSION_WAITING_EMPTY,
                 "a plan is approved, or sent changes, from its own card",
             )),
+            WaitingSource::Sketch => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a sketch is approved, or sent back, from its own card",
+            )),
             WaitingSource::Judge => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a concern is sent to the agent, or dismissed, from its own card",
@@ -1171,7 +1213,7 @@ where
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
-            WaitingSource::Walk | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
+            WaitingSource::Walk | WaitingSource::Sketch | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
             _ => None,
         };
         if let Some(text) = told {

@@ -1,3 +1,5 @@
+import type { ButtonHTMLAttributes } from "react";
+
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { RepositoryChip } from "../RepositoryChip/RepositoryChip";
 import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
@@ -12,7 +14,7 @@ export type JobTone = "ask" | "bad" | "live" | "calm";
 export const jobToneOf = (state: SessionState): JobTone =>
   state === "waiting" || state === "done" || state === "draft" || state === "unstarted" ? "ask" : state === "stuck" || state === "failing" ? "bad" : state === "working" ? "live" : "calm";
 
-export type JobCardProps = {
+export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type" | "title"> & {
   title: string;
   /** The Job's state, drawn as its registry glyph. */
   state: SessionState;
@@ -20,12 +22,14 @@ export type JobCardProps = {
   said: string;
   /** The last line the Job said. Absent, the line is left empty. */
   says?: string;
+  /** The plan group it was handed from, which takes the line under the title where the last line said would be. A surface that names the Job in the group's place passes it. */
+  handedFrom?: string;
   /** When it last moved, as an RFC 3339 instant or epoch milliseconds. Absent, no age is drawn. */
   at?: string | number;
   /** The repository it works in. Absent, no chip: a surface that already names the repository leaves it out. */
   repository?: string;
   selected?: boolean;
-  /** Opens the Job. */
+  /** Opens the Job. Other props, a roving tab stop's, go to the button. */
   onOpen: () => void;
 };
 
@@ -34,14 +38,14 @@ export type JobCardProps = {
  * and the left edge**, in the hue `jobToneOf` gives it, and its glyph with a tooltip; then the title, the last line it
  * said, its age and its repository. A press opens the Job.
  */
-export function JobCard({ title, state, said, says, at, repository, selected = false, onOpen }: JobCardProps) {
+export function JobCard({ title, state, said, says, handedFrom, at, repository, selected = false, onOpen, ...rest }: JobCardProps) {
   return (
-    <button type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
+    <button {...rest} type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
       <span className="armada-job-card__title">{title}</span>
       <span className="armada-job-card__mark">
         <SessionMark state={state} said={said} />
       </span>
-      <span className="armada-job-card__says">{says ?? ""}</span>
+      <span className="armada-job-card__says">{handedFrom ?? says ?? ""}</span>
       <span className="armada-job-card__at">{at === undefined ? null : <Stamp still first="age" at={at} />}</span>
       {repository === undefined ? null : (
         <span className="armada-job-card__repository">

@@ -684,6 +684,33 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** The row is published as any other `SessionRow`; no new event kind.
 
+## A fault in Armada reported: `report_bug`, `list_bug_reports`, `keep_bug_report`, `drop_bug_report` and `bug_reports.changed`
+
+Since 29 Oct 2026. `crates/ipc/src/bug_reports.rs`.
+**Additive only**: four operations, four routes, one event kind and the `bug_reports` table; no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/bug-reports.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `report_bug` (`POST /sessions/report_bug`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `ReportBug` `{ title, what, steps?, errors?, logs?, session_id? }`; answers `BugReported` `{ report_id }`. Refused with `fleet.bug_report_refused` for an empty `title` or `what`; a call that places no job is refused as `all_done` refuses it |
+| `list_bug_reports` (`GET /bug_reports`) | Bridge sends, Fleet answers 200 | `BugReports` `{ reports }`, newest first |
+| `keep_bug_report` (`POST /bug_reports/:report_id/keep`) | Bridge sends, Fleet answers 200 | No body; answers the `BugReport` with `kept` set. 404 `fleet.no_such_bug_report` for an id that names none |
+| `drop_bug_report` (`POST /bug_reports/:report_id/drop`) | Bridge sends, Fleet answers 200 | No body; answers `BugReportDropped` `{ id }`. 404 `fleet.no_such_bug_report` for an id that names none, a second drop too |
+| `bug_reports.changed` (`Event::BugReportsChanged`) | Bridge reads | `BugReports`: every report on this Mac, whole, after one was made, kept or dropped |
+
+**The report is kept in Fleet's store on this Mac and posted nowhere.** Fleet writes to no forge on the owner's behalf: no issue is opened and nothing is commented.
+**The job is the one whose process holds the connection**, as `all_done`'s is, and a terminal job is served.
+The job's title is kept with the report as it stood, so a report reads after its job is gone.
+**`steps`, `errors` and `logs` are each trimmed per line and a blank line is left out.** They may be empty.
+`title` and `what` may not.
+**`kept` is when the owner kept the report and is absent until then.** Keeping one again keeps the first time.
+Whether he has read one is Bridge's own and is not on the wire.
+**The store.** `bug_reports` is additive, `crates/store/migrations/20261029T1600Z-bug_reports.table.sql`, with no foreign key: a report outlives its job.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `bug_reports.changed` is a new kind; a Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
+
 ## Keep on this Mac is gone: `get_kept_on_this_mac`, `set_kept_on_this_mac`
 
 Since 21 Oct 2026. `docs/concepts/kit.md`, *A private repository*; `.claude/decisions/2026-10-21-the-place-rows-are-the-choice.md`.
@@ -1009,7 +1036,7 @@ Bridge's half is `AnswerSketch` and `SketchHow` in `packages/protocol/src/sessio
 | `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws, and `drawn` an id new on every draw. A plan's sketch has neither |
 | `detail.settled`, `detail.settled_at`, `detail.words` | Fleet writes, Bridge reads | How he answered, `approved` or `sent_back`, when, and his note. Gone when the title is drawn again |
 
-**Not a `waiting_for` item**: the owner answers a sketch on its card.
+**Not the agent's `waiting_for` item**: the owner answers a sketch on its card, and since 29 Oct Fleet raises it in his Needs you as `sketch` (below).
 The job is told as his message, as a draft's answer is, and the rail reads an approval back off that message.
 
 **Skew.** As above.
@@ -1051,6 +1078,22 @@ Bridge's half is `apps/desktop/src/shared/note-artifacts.ts`, which reads the de
 **The event stream.** No new event: keeping a note, marking it done and a close settling it each publish `session.changed` on its Job.
 Bridge's main reads a note file rewritten off that list (`NotesWatch`) and tells the dev-only annotation layer on `annotations:changed`, which is not Fleet's seam.
 The open risk below is neither better nor worse: a close settling notes publishes one more `session.changed` on its Job, once.
+
+## A sketch waits in Needs you: `sketch` on `WaitingSource`
+
+Since 29 Oct 2026. `crates/fleet/src/session_host/sketching.rs`, `sketch_items`.
+**One enum value**: no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `sketch`: id the sketch's target `sketch:<title>`, text its title, act `message` on the Job. Derived on every read for each sketch with `detail.asked` and no `detail.settled`; never kept |
+| `dismiss_waiting` on it | Bridge writes | No new field. The id is dismissed and the Job is sent `Owner dismissed "<title>"`. Drawing the title again lifts the dismissal |
+| `answer_waiting` on it | Bridge writes | Refused 422 `fleet.session_waiting_empty`, and the item stands: `answer_sketch` answers it |
+| `replied:<turn ended>` on a step that ends on his reply | Fleet writes, Bridge reads | No new value: a `replied` item, text `<step>: you reply`, raised at a turn end where nothing else waits, a reply that only reports included |
+
+**A Bridge that matches `WaitingSource` exhaustively** meets a value it did not know; the mirror gained it in the same change, and equal IDs hold the two together.
 
 ## Open questions
 

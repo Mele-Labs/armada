@@ -37,6 +37,7 @@ describe("a Session's line follows its act", () => {
     ["no act and no options", line("agent")],
     ["an empty list of options", line("agent", { options: [] })],
     ["a draft, which is his to OK and never the agent's", line("draft", { options: [{ label: "Approve" }] })],
+    ["a sketch, which is his to approve as a draft is", line("sketch", { act: { kind: "message", target: "s9" }, options: [{ label: "Approve" }] })],
   ])("carries no standing answers on %s", (_, item) => {
     expect(asksAnAgent(item)).toBe(false);
   });

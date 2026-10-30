@@ -640,6 +640,11 @@ pub enum WaitingSource {
     /// Fleet: a draft the session proposed with `propose_draft` waits on the person. Read off its
     /// row as `draft:<row>`; settled by `answer_waiting`.
     Draft,
+    /// Fleet: a sketch the session showed with `show_sketch` is not answered. Derived on every read off
+    /// the sketch, never kept: id the sketch's target `sketch:<title>`, text its title, a `message` act
+    /// that opens the Session. Settled by `answer_sketch` on its card, or by dismissing it; answering it
+    /// here is refused. Showing it again lifts a dismissal.
+    Sketch,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
     FirstMessage,

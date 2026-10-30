@@ -172,6 +172,19 @@ describe("a key a person rebound", () => {
     expect(conflictsOf("deck_timeline", slotsOf("deck_timeline")[0]!)).toEqual([]);
   });
 
+  it("lets Keep and Drop on a reported bug stand beside the Issues tab's own keys, where the report holds focus", () => {
+    // `D` is Describe on the tab and Drop on a report: the report's scope is its own place, so neither names the other.
+    expect(keyFor("issues_drop")).toBe(keyFor("issues_describe"));
+    expect(conflictsOf("issues_drop", slotsOf("issues_drop")[0]!)).toEqual([]);
+    expect(conflictsOf("issues_describe", slotsOf("issues_describe")[0]!)).toEqual([]);
+    expect(keyFor("issues_keep")).toBe("K");
+    // Pressed, each answers as its own act, and Settings → Keyboard lists them under Issues.
+    expect(isPressed("issues_drop", press("D"))).toBe(true);
+    expect(isPressed("issues_keep", press("K"))).toBe(true);
+    const issues = KEYMAP_GROUPS.find((group) => group.title === "Issues")!;
+    expect(actsInGroup(issues).map((one) => one.id)).toEqual(expect.arrayContaining(["issues_keep", "issues_drop", "issues_describe", "issues_start"]));
+  });
+
   it("hands every change to the saver as the text Fleet keeps, and empty once all are reset", () => {
     const saved: string[] = [];
     setKeyBindingSaver((text) => saved.push(text));

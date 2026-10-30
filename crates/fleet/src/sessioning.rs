@@ -83,7 +83,7 @@ pub(crate) use shown::steps_shown;
 pub(crate) use wire::mod_is_older;
 use shown::{origins_named, shows_a_page, sign_in_named, takes_shown, ONE_AT_A_TIME};
 use wire::{
-    attachment_state, attachment_wire, held_wire, mod_version_in, origin_text, session_state, session_wire,
+    attachment_state, held_wire, mod_version_in, origin_text, session_state, session_wire,
     wire_instant,
 };
 
@@ -884,6 +884,26 @@ where
         dispute: ipc::DisputeFleet,
     ) -> Result<ipc::FleetDisputed, Refusal> {
         self.fleet_disputed(caller, dispute).await
+    }
+
+    async fn report_bug(
+        &self,
+        caller: Option<api::Caller>,
+        report: ipc::ReportBug,
+    ) -> Result<ipc::BugReported, Refusal> {
+        self.bug_reported(caller, report).await
+    }
+
+    async fn list_bug_reports(&self) -> Result<ipc::BugReports, Refusal> {
+        self.bug_reports_listed().await
+    }
+
+    async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
+        self.bug_report_kept(report_id).await
+    }
+
+    async fn drop_bug_report(&self, report_id: String) -> Result<ipc::BugReportDropped, Refusal> {
+        self.bug_report_dropped(report_id).await
     }
 
     async fn finish_up(

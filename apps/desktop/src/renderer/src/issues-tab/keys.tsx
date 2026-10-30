@@ -91,7 +91,7 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
       take();
       return focusList();
     }
-    if (snap.open !== undefined) {
+    if (snap.open !== undefined || snap.openReport !== undefined) {
       take();
       return store.open(undefined);
     }
@@ -110,6 +110,19 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
     if (field === null) return;
     take();
     return field.focus();
+  }
+  // A reported bug: the one in the reader, or the row under focus in the list.
+  const reported = here === ".issues-reader" ? snap.openReport : here === ".issues-list" ? target.closest<HTMLElement>("[data-report]")?.dataset.report : undefined;
+  const report = snap.reports.find((one) => one.id === reported);
+  if (report !== undefined && isPressed("issues_drop", event)) {
+    take();
+    void store.dropReport(report.id).then(() => window.requestAnimationFrame(focusList));
+    return;
+  }
+  if (report !== undefined && !report.kept && isPressed("issues_keep", event)) {
+    take();
+    void store.keepReport(report.id).then(() => window.requestAnimationFrame(here === ".issues-reader" ? focusReader : focusList));
+    return;
   }
   if (isPressed("issues_describe", event)) {
     take();

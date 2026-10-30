@@ -108,7 +108,7 @@ const TERRITORY = createFleetTerritory(withState(window.armada));
 /** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens, and what an agent says of them, as runs. Natural Search and the Walk are runs too. */
 const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 /** A repository's issues and the queries saved for its tracker, read from the tracker by Fleet when the Issues tab opens. */
-const ISSUES = createIssuesStore(issuesSourceOf(window.armada));
+const ISSUES = createIssuesStore(issuesSourceOf(window.armada, window.armada));
 /** His projects, kept in Fleet and read when the window opens, then kept current by `projects.changed`. */
 const PROJECTS = createProjectsStore(window.armada);
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
