@@ -139,3 +139,43 @@ export const LEASE_DOC_1 = page(FIRST, false);
 
 /** The document after the notes, which the walk sends. */
 export const LEASE_DOC_2 = page(SECOND, true);
+
+export const ROLLOUT_DOC_TITLE = "Custom Margins rollout plan";
+export const ROLLOUT_DOC_PATH = "docs/plans/custom-margins-rollout.html";
+
+/** A page with no sketch: four launch phases, as a design plan Job writes a rollout. */
+export const ROLLOUT_DOC = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${ROLLOUT_DOC_TITLE}</title>
+<link rel="stylesheet" href="armada-kit.css">
+</head>
+<body>
+<header>
+  <h1>${ROLLOUT_DOC_TITLE}</h1>
+  <p>Custom Margins reaches borrowers in four phases, each one gated on the last holding for a week.</p>
+</header>
+
+<section>
+  <h2>Phase 1: Internal</h2>
+  <p>Staff accounts only. The goal is to see every margin type priced end to end against the old rates.</p>
+</section>
+
+<section>
+  <h2>Phase 2: Pilot lenders</h2>
+  <p>Five lenders who asked for it. Their margins are set by hand, and each quote is compared with the one the old path would have given.</p>
+</section>
+
+<section>
+  <h2>Phase 3: Half of lenders</h2>
+  <p>A random half, chosen by lender id. The flag can be turned off per lender, and a lender who turns it off keeps the quotes already issued.</p>
+</section>
+
+<section>
+  <h2>Phase 4: Everyone</h2>
+  <p>The flag is removed and the old path is deleted in the following release, not this one.</p>
+</section>
+</body>
+</html>
+`;
