@@ -159,13 +159,13 @@ export const ShiftTabGoesBackThroughTheChips: Story = {
   },
 };
 
-/** **In the words, ⇧⇥ steps the kind back** where ⇥ opens a chip. */
+/** **In the words, ⇧⇥ steps the kind back** where ⇥ opens a chip: to the one before Task, not round to the one after. */
 export const ShiftTabInTheWordsStepsTheKindBack: Story = {
-  args: task("Link the search box"),
+  args: task("Link the search box", { kinds: ["session", "autopilot", "task"] }),
   render: (args) => <Held {...args} />,
   play: async ({ args, userEvent }) => {
     await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
-    await expect(args.dispatch!.onKind).toHaveBeenCalledWith("session");
+    await expect(args.dispatch!.onKind).toHaveBeenCalledWith("autopilot");
     await expect(args.dispatch!.onKind).toHaveBeenCalledTimes(1);
   },
 };

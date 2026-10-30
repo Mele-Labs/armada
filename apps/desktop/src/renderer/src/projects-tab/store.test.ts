@@ -172,7 +172,7 @@ test("a task moved to another repository takes its subtasks with it, in the same
   expect(source.moveProjectTaskRepository).toHaveBeenCalledWith("a1", { manifest_id: "site" });
 });
 
-test("a subtask is not moved on its own, nor a task to the repository it is in", async () => {
+test("a subtask is not moved on its own, nor a task to the repository it is in: neither is written", async () => {
   const { source, store } = await movable();
 
   store.moveTaskToRepository("a1a", "site");
@@ -180,5 +180,8 @@ test("a subtask is not moved on its own, nor a task to the repository it is in",
 
   const parent = store.get().projects[0]!.rows[0] as TaskRow;
   expect([parent, ...parent.subtasks!].map((row) => row.manifestId)).toEqual(["armada", "armada", "armada"]);
-  expect(source.moveProjectTaskRepository).not.toHaveBeenCalled();
+  // Writes go one after another, so a real move after them is the last to arrive and anything refused would be before it.
+  store.moveTaskToRepository("a1", "site");
+  await vi.waitFor(() => expect(source.moveProjectTaskRepository).toHaveBeenCalledWith("a1", { manifest_id: "site" }));
+  expect(source.moveProjectTaskRepository).toHaveBeenCalledTimes(1);
 });

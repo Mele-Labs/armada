@@ -245,7 +245,7 @@ test("a subtask card has no repository menu: it moves with its task", async () =
   await mountMany();
 
   await expect.element(card("Draw the code")).toBeVisible();
-  expect(card("Draw the code").getByRole("button", { name: /^Repository/ }).query()).toBeNull();
+  expect(card("Draw the code").getByLabelText(/^Repository/).query()).toBeNull();
 });
 
 test("a link made in another repository draws muted with that repository's name, and opens in it", async () => {
