@@ -54,3 +54,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 28 Oct 2026 for the walk `job-browser`, for the owner to rule on. Actor=human, which the reservation names: the person is the one acting on the page. A press hands the page back. --accent; tooltip and aria-label: You're driving. Hand back to the agent."
+
+[[icons.user-check.usage]]
+  means = "Who a ticket is assigned to, on the ticket's node in a Job's lanes"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. Leads `you` under the state a ticket stands in once the rule that moves it to In progress has assigned it, tooltip `Assigned to you`. The glyph already means you; a ticket's assignee is the person who answers for it."

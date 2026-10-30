@@ -36,6 +36,8 @@ export { unanswered };
  */
 export type MockDraft = {
   sessions?: (board: BayControl, more?: readonly Session[]) => SessionsStore;
+  /** The Workspace the Workflows page draws as lanes, and the changes an agent comes back with for it. Mock only: no Fleet serves a Workspace yet. */
+  workspace?: import("../workspace-draft").WorkspaceSeed;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then, or time passing over those held (`events-later.ts`). Mock only. */

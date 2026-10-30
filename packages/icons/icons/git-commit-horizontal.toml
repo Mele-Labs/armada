@@ -24,3 +24,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 28 Oct 2026 for the walk `preview-offer-fleet-panel`. Tooltip `Moved since it was left out`. Drawn muted in a column of its own width, so an unmoved row lines up. Borrowed: a new commit on the branch is what moved it. Refused: `arrow-up`, reserved to ahead of main."
+
+[[icons.git-commit-horizontal.usage]]
+  means = "Commit to repository on a piece the person keeps, in a toolbar"
+  group = "Kit"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Commit to repository`. Starts a Job that commits the piece alone and opens a pull request for it."

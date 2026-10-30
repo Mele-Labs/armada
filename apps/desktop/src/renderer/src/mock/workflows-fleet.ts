@@ -25,6 +25,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { manifesting } from "./manifest-fake";
 import { connected, type Scenario } from "./moment";
 import { CANNOT_YET, MANAGED_DEFINITIONS, MANAGED_ENDS, MANAGED_NUDGES, SAY_WHY_SKIPPED, SUGGESTED_SENTENCE, WIRE_AND_TESTS } from "./workflows-managed";
+import type { MockNudge } from "./workflows-managed";
 
 type Served = Pick<
   BridgeApi,
@@ -84,6 +85,13 @@ export function proposeWorkflowChange(id: number, workflowId: string, scope: "ki
   PROPOSED.push({ id, workflow_id: workflowId, source: scope, origin: { kind: "new" }, before: "", after: text, state: "ready", at: new Date().toISOString() });
 }
 
+/** A Job offers a workflow and it is listed under its scope at once, as a draft with a change waiting on Approve: the page picks it and draws the proposed steps. A mock's route. */
+export function offerWorkflow(id: number, workflowId: string, scope: "kit" | "repository", text: string): void {
+  approveProposedWorkflow(workflowId, scope, text);
+  settleProposedChange(id);
+  proposeWorkflowChange(id, workflowId, scope, text);
+}
+
 /** The proposal settled, approved or dismissed: the reads stop listing it. */
 export function settleProposedChange(id: number): void {
   const at = PROPOSED.findIndex((one) => one.id === id);
@@ -126,18 +134,29 @@ const LEDGER_BUG = (): Held | undefined => {
  * A fresh Fleet's workflows. `current` is the Manifest the window is in, which a repository act with no Manifest named is
  * under; on All it is none, and the first repository stands in.
  */
-export function workflowsServed(current: () => string | null, options: { leftOut?: LeftOutWorkflow[]; started?: (record: SessionRecord) => void } = {}): Served {
+export function workflowsServed(
+  current: () => string | null,
+  options: {
+    leftOut?: LeftOutWorkflow[];
+    started?: (record: SessionRecord) => void;
+    /** Another Fleet's definitions, what ends their steps and the Jobs nudged at them, in place of `workflows-managed.ts`'s. */
+    definitions?: typeof MANAGED_DEFINITIONS;
+    ends?: typeof MANAGED_ENDS;
+    nudges?: readonly MockNudge[];
+  } = {},
+): Served {
   const started = Date.now();
-  let files: Held[] = MANAGED_DEFINITIONS.map(({ source, definition }) => ({
+  const ends = options.ends ?? MANAGED_ENDS;
+  let files: Held[] = (options.definitions ?? MANAGED_DEFINITIONS).map(({ source, definition }) => ({
     source,
     id: definition.workflow_id,
     file: fileOf(source, definition.workflow_id),
     text: JSON.stringify(definition, null, 2),
     ...(source === "repository" ? { manifest: FIRST } : {}),
   }));
-  const ledgerBug = LEDGER_BUG();
+  const ledgerBug = options.definitions === undefined ? LEDGER_BUG() : undefined;
   if (ledgerBug !== undefined) files = [...files, ledgerBug];
-  let nudges: KeptNudge[] = MANAGED_NUDGES.map((one, at) => ({
+  let nudges: KeptNudge[] = (options.nudges ?? MANAGED_NUDGES).map((one, at) => ({
     id: at + 1,
     source: one.source,
     workflow: one.workflow,
@@ -164,7 +183,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
   /** A definition's steps with what ends each, as Fleet works out both sides of a change. */
   const changeStepsOf = (workflowId: string, text: string): ChangeStep[] =>
     (stepsOfDefinition(text) ?? []).map((step) => {
-      const end = MANAGED_ENDS[`${workflowId}/${step.id}`] ?? MANAGED_ENDS[step.id];
+      const end = ends[`${workflowId}/${step.id}`] ?? ends[step.id];
       return {
         id: step.id,
         label: step.label,
@@ -213,7 +232,7 @@ export function workflowsServed(current: () => string | null, options: { leftOut
 
   const stepsOf = (one: Held): StepReading[] =>
     (stepsOfDefinition(one.text) ?? []).map((step) => {
-      const end = MANAGED_ENDS[`${one.id}/${step.id}`] ?? MANAGED_ENDS[step.id];
+      const end = ends[`${one.id}/${step.id}`] ?? ends[step.id];
       // The nudges are the first repository's Jobs.
       const here = nudges
         .filter((each) => each.source === one.source && each.workflow === one.id && each.step === step.id && (one.source !== "repository" || one.manifest === FIRST))
@@ -247,8 +266,8 @@ export function workflowsServed(current: () => string | null, options: { leftOut
 
   // The suggestion already drawn up at Walk in the repository's `feature`, from the two Jobs Fleet nudged there.
   const walked = held("feature", "repository", FIRST);
-  if (walked !== undefined) {
-    const from = nudges.filter((one) => one.source === "repository" && one.step === "walk").map((one) => one.id);
+  const from = nudges.filter((one) => one.source === "repository" && one.step === "walk").map((one) => one.id);
+  if (walked !== undefined && from.length > 0) {
     const change = begin("feature", "repository", FIRST, { kind: "drift", nudges: from }, "walk");
     changes = changes.map((one) => (one.change.id === change.id ? { ...one, readyAt: 0 } : one));
   }
@@ -369,6 +388,13 @@ export function workflowsServed(current: () => string | null, options: { leftOut
       changes: { changes: [...open(workflowId, source, under(manifestId)).map((kept) => settled(kept)), ...PROPOSED.filter((one) => one.workflow_id === workflowId && one.source === source)] },
     }),
     approveWorkflowChange: async (id) => {
+      // A workflow a Job offered is already held as a draft: approving it settles the change and keeps the draft as the copy.
+      const offered = PROPOSED.find((one) => one.id === id);
+      if (offered !== undefined) {
+        settleProposedChange(id);
+        const source = place(offered.source)!;
+        return { ok: true, approved: { change: { ...offered, state: "approved" }, saved: { workflow_id: offered.workflow_id, scope: source === "kit" ? "kit" : "repository", file: fileOf(source, offered.workflow_id), replaced: false, runs_from: source } } };
+      }
       const kept = outcomeOfChange(id);
       if (kept === undefined) return { ok: false, outcome: noChange };
       const change = settled(kept);
@@ -386,6 +412,13 @@ export function workflowsServed(current: () => string | null, options: { leftOut
       return { ok: true, approved: { change: approved, saved: { workflow_id: one.id, scope: source === "kit" ? "kit" : "repository", file: one.file, replaced: true, runs_from: source } } };
     },
     dismissWorkflowChange: async (id) => {
+      // A workflow a Job offered is dropped with the draft that held it.
+      const offered = PROPOSED.find((one) => one.id === id);
+      if (offered !== undefined) {
+        settleProposedChange(id);
+        files = [...files, ...APPROVED.splice(0)].filter((one) => !(one.id === offered.workflow_id && one.source === offered.source));
+        return { ok: true, change: { ...offered, state: "dismissed" } };
+      }
       const kept = outcomeOfChange(id);
       if (kept === undefined) return { ok: false, outcome: noChange };
       const dismissed: WorkflowChange = { ...settled(kept), state: "dismissed" };

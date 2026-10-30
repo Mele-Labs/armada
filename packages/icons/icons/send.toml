@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "Survives as: dispatched."
+
+[[icons.send.usage]]
+  means = "A triaged comment on a Job's pull request lane, handed to the Job's agent from its row"
+  group = "Job lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. The comment goes to the agent, which is dispatch one step down. Tooltip `Send to Job`. The row then wears `check` with the tooltip `Sent`."
