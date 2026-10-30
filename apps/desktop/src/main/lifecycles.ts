@@ -1,7 +1,17 @@
-// Workspaces, lifecycles and rules, as main asks Fleet for them: one request per read, and the stream's
+// Workspaces, lifecycles and rules, as main asks Fleet for them: one request per read or write, and the stream's
 // `job_lifecycles.changed`, passed on to every window. Nothing is kept here, since the event carries a Job's whole.
 
-import type { JobLifecycles, Outcome, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces } from "@armada/protocol";
+import type {
+  DeleteLifecyclePiece,
+  JobLifecycles,
+  LifecyclePieceDeleted,
+  LifecyclePieceSaved,
+  Outcome,
+  RepositoryLifecycleRules,
+  RepositoryLifecycles,
+  RepositoryWorkspaces,
+  SaveLifecyclePiece,
+} from "@armada/protocol";
 import type { LifecyclesActed } from "../shared/api/lifecycles";
 import { ask } from "./request";
 
@@ -40,15 +50,33 @@ export class LifecyclesHost {
     return this.read(`/lifecycles/rules?manifest_id=${encodeURIComponent(manifestId)}`);
   }
 
+  /** `POST /lifecycles/pieces/save`. */
+  save(body: SaveLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceSaved>> {
+    return this.send("/lifecycles/pieces/save", body);
+  }
+
+  /** `POST /lifecycles/pieces/delete`. */
+  remove(body: DeleteLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceDeleted>> {
+    return this.send("/lifecycles/pieces/delete", body);
+  }
+
   /** `GET /sessions/lifecycles?session_id=`. */
   job(sessionId: string): Promise<LifecyclesActed<JobLifecycles>> {
     return this.read(`/sessions/lifecycles?session_id=${encodeURIComponent(sessionId)}`);
   }
 
-  private async read<T>(path: string): Promise<LifecyclesActed<T>> {
+  private read<T>(path: string): Promise<LifecyclesActed<T>> {
+    return this.ask("GET", path);
+  }
+
+  private send<T>(path: string, body: unknown): Promise<LifecyclesActed<T>> {
+    return this.ask("POST", path, body);
+  }
+
+  private async ask<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<LifecyclesActed<T>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "GET", path);
+    const answer = await ask(port, method, path, body);
     return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
   }
 }

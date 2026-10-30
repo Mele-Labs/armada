@@ -145,6 +145,7 @@ mod workflow_proposal_waits;
 mod auto_land;
 mod lifecycle_keeping;
 mod lifecycle_serving;
+mod piece_saving;
 mod lifecycle_reading;
 mod rule_acting;
 mod rule_asking;

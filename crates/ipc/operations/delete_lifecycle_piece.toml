@@ -1,0 +1,12 @@
+[operations.delete_lifecycle_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Delete the file in Kit's folder that declares one Workspace, lifecycle, rule or autonomy default"
+notes = """
+`POST /lifecycles/pieces/delete`. The body is `DeleteLifecyclePiece` `{ kind, id, scope? }`: `kind` is `lifecycle`, `rule`, `workspace` or `autonomy`, and `scope` is `{ kind: "everywhere" }` where absent and `{ kind: "within", id }`. A Workspace has no scope and ignores it. The answer is a `LifecyclePieceDeleted` `{ kind, id, scope, file }`, the file deleted (absolute).
+
+**Found by what a file declares**, as `save_lifecycle_piece` finds it: the Kit file whose id and scope are the ones named, whatever it is called. `ticket` everywhere and `ticket` within a repository are different pieces, so deleting one leaves the other. A second file declaring the same piece goes too. 422 `fleet.piece_not_kept`, naming what was asked, where Kit holds none. 500 `fleet.piece_unwritable` where a file cannot be removed.
+
+**Nothing outside Kit's folder is ever touched.** A repository's copy of a piece is removed with `commit_to_repository` and `remove`, which goes by a Job and a pull request.
+"""

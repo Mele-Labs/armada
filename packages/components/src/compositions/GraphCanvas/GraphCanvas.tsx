@@ -73,6 +73,8 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
   panOnScroll?: boolean;
   /** A node's connectors may be dragged to another node, and the caller is told the two it joins. Absent, nothing is connected. */
   onConnect?: (connection: Connection) => void;
+  /** Whether a connector may end where it is dragged to: one that may not shows no landing. Absent, any node. */
+  isValidConnection?: (connection: Connection) => boolean;
   /**
    * The rail's own groups, above the view group this draws — what a person puts
    * on the canvas. `GraphCanvasRailGroup` is what goes here, one per group, and
@@ -263,6 +265,7 @@ function Surface<N extends Node, E extends Edge>({
   home,
   panOnScroll,
   onConnect,
+  isValidConnection,
   onPanePress,
   onNodePress,
   placing = false,
@@ -347,6 +350,7 @@ function Surface<N extends Node, E extends Edge>({
       {...(onNodePress === undefined ? {} : { onNodeClick })}
       nodesConnectable={onConnect !== undefined}
       {...(onConnect === undefined ? {} : { onConnect })}
+      {...(isValidConnection === undefined ? {} : { isValidConnection: (edge: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) => isValidConnection({ source: edge.source, target: edge.target, sourceHandle: edge.sourceHandle ?? null, targetHandle: edge.targetHandle ?? null }) })}
       nodesDraggable={nodesDraggable && !still}
       {...(still
         ? {

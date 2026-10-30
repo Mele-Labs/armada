@@ -42,7 +42,8 @@ const NOT_YOURS: &str = "fleet.share_not_yours";
 const MALFORMED: &str = "fleet.share_malformed";
 /// Kit already holds the id and `replace` was not asked for. A 422.
 const EXISTS: &str = "fleet.share_exists";
-/// A repository's tile file will not read, or the tiles together break a rule. A 422.
+/// A repository's tile file will not read, the tiles together break a rule, or a piece Share does
+/// not carry was chosen. A 422.
 const REFUSED: &str = "fleet.share_refused";
 /// Nothing is kept unbound under the id. A 404.
 const NO_UNBOUND: &str = "fleet.share_no_unbound_piece";
@@ -139,6 +140,15 @@ where
                 PieceToCommit::Manifest => made.push(self.manifest_kept(&root, remote).await?),
                 PieceToCommit::Requests { collections, environments } => {
                     made.push(self.requests_shared(&root, remote, &collections, &environments).await?)
+                }
+                PieceToCommit::Lifecycle { .. }
+                | PieceToCommit::LifecycleRule { .. }
+                | PieceToCommit::Workspace { .. }
+                | PieceToCommit::Autonomy { .. } => {
+                    return Err(self.share_refusal(
+                        REFUSED,
+                        String::from("Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet."),
+                    ))
                 }
             }
         }

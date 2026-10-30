@@ -36,7 +36,7 @@ mod watches;
 pub use accounts::profile;
 pub use app_runs::THE_RUN;
 pub use conversing::SERVED_MANIFEST;
-pub use lifecycles::THE_LIFECYCLE_JOB;
+pub use lifecycles::{THE_KEPT_PIECE, THE_LIFECYCLE_JOB};
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 pub use watches::THE_WATCH;
 

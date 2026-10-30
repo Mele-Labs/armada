@@ -1,8 +1,10 @@
 // What the lanes draw: a workflow's steps in a top lane, then a lane for each lifecycle the workflow uses, each a small state machine, with
 // rules as edges between them. **A lifecycle is any lifecycle**: a ticket, a pull request, a deploy, a document. Fleet reads each of its states from
-// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **The editor's model is a mock's**: no Fleet serves a Workspace or its
-// placement of states yet (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
+// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **The editor's model is layered and Fleet's pieces are whole**: the host reads
+// the pieces into this model and saves back only the pieces an edit changed. Fleet serves no placement of states, so the host lays them out (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
 // one lane for each instance and the rules that fired, read from what Fleet serves of the Job (`packages/screens/src/session-lanes.ts`).
+
+import type { LifecycleRule } from "@armada/protocol";
 
 /** The lane a node sits in: the workflow's own, or a lifecycle's id (in the editor) or an instance's (on a Job). */
 export type WorkflowLane = "workflow";
@@ -39,6 +41,8 @@ export type StateDef = {
   reads: readonly StateReads[];
   /** Nothing follows it. */
   end?: true;
+  /** The tabs whose own piece does not have it. Fleet runs a tab's piece whole, so a state the default added is not there on a tab that keeps its own. */
+  absent?: readonly string[];
 };
 
 /** What reads a lifecycle's states, which is the shape its nodes are drawn in: the tracker or the forge (a pill), a watch (a hexagon), an Armada document (a pill) or a Job Armada started (a card). */
@@ -55,6 +59,10 @@ export type LifecycleDef = {
   states: readonly StateDef[];
   /** The ways a state is left, as pairs of state ids. */
   next: readonly (readonly [string, string])[];
+  /** The level it was added at, so it exists there and below. Absent, it is the default's. */
+  scope?: string;
+  /** Who may change the piece that defines it, which decides whether it can be deleted: Armada's cannot. */
+  kept?: Kept;
 };
 
 /** A state as a workflow draws it: in a column shared with the workflow's steps, so time reads across the lanes. */
@@ -71,8 +79,11 @@ export type Autonomy = "acts" | "asks" | "off";
 /** Kinds of act a rule does. A write to the tracker or the forge and a message that speaks as the person default to Asks. */
 export type ActKind = "tracker" | "forge" | "message" | "job" | "watch" | "tell" | "command" | "agent";
 
-/** What a level below the default changes of a rule: any of its fields, and only those. */
-export type RuleOverride = { scope: string } & Partial<Pick<Rule, "label" | "from" | "at" | "ifs" | "does" | "autonomy">>;
+/**
+ * What a level below the default changes of a rule. **Where the host keeps rules as pieces, the override is the level's own piece whole** (`wire`, with every field drawn from it), since Fleet runs the
+ * narrower piece and merges nothing. Elsewhere it is any of the rule's fields, and only those.
+ */
+export type RuleOverride = { scope: string } & Partial<Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "workflow" | "wire">>;
 
 export type Rule = {
   id: string;
@@ -95,6 +106,8 @@ export type Rule = {
   overrides?: readonly RuleOverride[];
   /** The one workflow it belongs to. Absent, it applies in every workflow that has both ends. */
   workflow?: string;
+  /** The piece as Fleet keeps it at the rule's own level, which the rule's fields above are drawn from. Absent where the host keeps no pieces. */
+  wire?: LifecycleRule;
 };
 
 /** What a step is ended by, or passed over for: a thing Fleet watches (`Observed`) or a lifecycle, and the state of it. */
@@ -161,6 +174,9 @@ export type Workspace = {
 /** Whether something added at `own` exists on the tab for `scope`: at that level or below it. What the default holds has no level of its own and exists everywhere. */
 export const existsAt = (own: string | undefined, scope: string): boolean => own === undefined || own === DEFAULT || levelsOf(scope).includes(own);
 
+/** Whether a state is there on the tab for `scope`: added at that level or above, and not left out of the piece that tab runs. */
+export const stateExistsAt = (state: StateDef, scope: string): boolean => existsAt(state.scope, scope) && !(state.absent ?? []).includes(scope);
+
 /**
  * The lifecycles a workflow draws, each with the states it places, in the Workspace's order. Given a `scope`, a state added at another level is left out and the ways in and out of it are
  * joined, so the lane reads as it runs there.
@@ -168,14 +184,15 @@ export const existsAt = (own: string | undefined, scope: string): boolean => own
 export function lifecyclesFor(workspace: Workspace, workflow: string, scope?: string): Lifecycle[] {
   const place = workspace.workflows[workflow]?.states ?? {};
   return workspace.lifecycles.flatMap((lifecycle): Lifecycle[] => {
+    if (scope !== undefined && !existsAt(lifecycle.scope, scope)) return [];
     const states = lifecycle.states.flatMap((state): LifecycleState[] => {
       const col = place[`${lifecycle.id}/${state.id}`];
-      return col === undefined || (scope !== undefined && !existsAt(state.scope, scope)) ? [] : [{ ...state, col }];
+      return col === undefined || (scope !== undefined && !stateExistsAt(state, scope)) ? [] : [{ ...state, col }];
     });
     const drawn = new Set(states.map((state) => state.id));
     // A state left out is stepped over: whatever led into it now leads to whatever it led to.
     let next = lifecycle.next;
-    for (const gone of lifecycle.states.filter((state) => !drawn.has(state.id) && scope !== undefined && !existsAt(state.scope, scope))) {
+    for (const gone of lifecycle.states.filter((state) => !drawn.has(state.id) && scope !== undefined && !stateExistsAt(state, scope))) {
       const into = next.filter(([, to]) => to === gone.id).map(([from]) => from);
       const out = next.filter(([from]) => from === gone.id).map(([, to]) => to);
       next = [...next.filter(([from, to]) => from !== gone.id && to !== gone.id), ...into.flatMap((from) => out.map((to) => [from, to] as const))];
@@ -190,7 +207,9 @@ export function lifecyclesAt(workspace: Workspace, workflow: string, scope: stri
 }
 
 /** The levels below the default that name a state another way or read it as other words, as the ids of the Workspace and the repositories. */
-export const stateDiffers = (state: StateDef): string[] => [...new Set([...state.reads.map((one) => one.scope), ...(state.names ?? []).map((one) => one.scope), ...(state.scope === undefined ? [] : [state.scope])].filter((one) => one !== DEFAULT))];
+export const stateDiffers = (state: StateDef): string[] => [
+  ...new Set([...state.reads.map((one) => one.scope), ...(state.names ?? []).map((one) => one.scope), ...(state.absent ?? []), ...(state.scope === undefined ? [] : [state.scope])].filter((one) => one !== DEFAULT)),
+];
 
 /** The levels a rule differs at: where it applies alone, and where a level below changes it. */
 export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope === DEFAULT ? [] : [rule.scope]), ...(rule.overrides ?? []).map((one) => one.scope)])];
@@ -259,6 +278,9 @@ export const layersAt = (place: WorkflowPlace | undefined, step: string, scope: 
  */
 export type NodeKind = "step" | "wait" | "tracker" | "forge" | "document" | "watch" | "job" | "start" | "end";
 
+/** What the mark on a piece says while the pull request that removes it from the repository is open. */
+export const REMOVAL_WAITS = "Removed from the repository when its pull request merges";
+
 /** Where the workflow starts and ends, drawn as small circles at the ends of its lane: not steps, so nothing picks them. */
 export const START_ITEM = "$start";
 export const END_ITEM = "$end";
@@ -306,6 +328,8 @@ export type LaneView = {
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
   moves: readonly (readonly [string, string])[];
+  /** The repository's file that defines it is being removed by a pull request that has not merged. */
+  pending?: true;
 };
 
 export type RuleView = {
@@ -326,6 +350,8 @@ export type RuleView = {
   differs?: readonly string[];
   /** Added by a change waiting on Approve. */
   proposed?: true;
+  /** The repository's file that defines it is being removed by a pull request that has not merged. */
+  pending?: true;
   /** The same rule's second edge: drawn with its mark and no words. */
   quiet?: true;
   /** What the rule did, a line for each act, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */

@@ -1,7 +1,7 @@
 // The Workspace `my-store` and three Jobs in it: the Workflows page draws the `feature` workflow over the Ticket, PR and Deploy lanes, and a Job's Lanes view draws
 // the same lanes with one for each ticket, pull request and deploy it holds, moment by moment as a walk's `later` lets time pass. The third Job goes through app feedback:
-// it changes its own copy of the workflow, starts two Jobs that each get a lane, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. Mock only:
-// no Fleet serves a Workspace, a lifecycle or a rule yet. The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it.
+// it changes its own copy of the workflow, starts two Jobs that each get a lane, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. The Workspace is the page's own mock
+// (`workspaces-pieces` is the one a Fleet serves). The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";

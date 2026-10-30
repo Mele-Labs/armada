@@ -2,6 +2,7 @@
 //! repository holds none of any, and one Job holds a pull request in review.
 
 use ipc::{
+    DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
     HeldInstance, InstanceLink, InstanceMove, InstanceStanding, Instant, JobLifecycles, LifecycleDefinition,
     LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles,
     RepositoryWorkspaces, SessionId, StateReadFrom,
@@ -12,6 +13,14 @@ use crate::{Caller, Lifecycles, Refusal};
 
 /// The one Job the fake says holds something; any other holds nothing.
 pub const THE_LIFECYCLE_JOB: &str = "job-with-a-pull-request";
+
+/// The one piece id the fake says Kit already holds: a save of it needs `overwrite`, and a delete of
+/// any other finds nothing.
+pub const THE_KEPT_PIECE: &str = "kept";
+
+fn refused(code: &str, said: String) -> Refusal {
+    Refusal::Unacceptable(ipc::WireError::raised(code, said, super::run_id()))
+}
 
 fn state(id: &str, label: &str, fact: &str) -> LifecycleStateDefinition {
     LifecycleStateDefinition {
@@ -90,5 +99,28 @@ impl Lifecycles for FakeDaemon {
             true => Ok(the_job()),
             false => Ok(JobLifecycles { session_id: job, lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new() }),
         }
+    }
+
+    /// Writes nothing: answers the piece it was given, in a file named for it, and refuses
+    /// [`THE_KEPT_PIECE`] without `overwrite`, so a route test can tell the body arrived whole.
+    async fn save_lifecycle_piece(&self, save: SaveLifecyclePiece) -> Result<LifecyclePieceSaved, Refusal> {
+        let (kind, id, scope) = match save.piece {
+            LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, lifecycle.id, lifecycle.scope),
+            LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, rule.id, rule.scope),
+            LifecyclePiece::Workspace { workspace } => (LifecyclePieceKind::Workspace, workspace.id, PieceScope::Everywhere),
+            LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, autonomy.id, autonomy.scope),
+        };
+        let kept = id == THE_KEPT_PIECE;
+        if kept && !save.overwrite {
+            return Err(refused("fleet.piece_exists", format!("/kit/{id}.yml already declares `{id}` and nothing was written.")));
+        }
+        Ok(LifecyclePieceSaved { kind, file: format!("/kit/{id}.yml"), id, scope, replaced: kept })
+    }
+
+    async fn delete_lifecycle_piece(&self, delete: DeleteLifecyclePiece) -> Result<LifecyclePieceDeleted, Refusal> {
+        if delete.id != THE_KEPT_PIECE {
+            return Err(refused("fleet.piece_not_kept", format!("Kit holds no `{}` to delete.", delete.id)));
+        }
+        Ok(LifecyclePieceDeleted { file: format!("/kit/{}.yml", delete.id), kind: delete.kind, id: delete.id, scope: delete.scope })
     }
 }

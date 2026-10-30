@@ -92,6 +92,8 @@ export function editorLanes(input: {
   proposed?: readonly Rule[];
   /** `default`, `workspace`, or the id of one repository: the lanes as the workflow runs there, with that level's names, words and autonomy, and the marks for what differs from it down. */
   scope?: string;
+  /** The rules and lifecycles a pull request is removing from their repository, as `rule:<id>` and `lifecycle:<id>`. */
+  pending?: ReadonlySet<string>;
 }): { lanes: LaneView[]; rules: RuleView[] } {
   const { workspace, workflow } = input;
   const scope = input.scope ?? DEFAULT;
@@ -112,8 +114,8 @@ export function editorLanes(input: {
     steps.slice(1).map((step, at) => [nodeId("workflow", steps[at]!.id), nodeId("workflow", step.id)] as const),
   );
   const flow: LaneView = { id: "workflow", kind: "workflow", title: workflow, source: "Workflow", nodes: drawnSteps.nodes, moves: drawnSteps.moves };
-  const lanes = lifecycles.map((lifecycle) =>
-    laneOfLifecycle(
+  const lanes = lifecycles.map((lifecycle): LaneView => {
+    const lane = laneOfLifecycle(
       lifecycle,
       lifecycle.id,
       lifecycle.label,
@@ -122,8 +124,9 @@ export function editorLanes(input: {
         const differs = marked(stateDiffers(state));
         return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, kind: kindOfState(lifecycle), ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
       }),
-    ),
-  );
+    );
+    return input.pending?.has(`lifecycle:${lifecycle.id}`) === true ? { ...lane, pending: true as const } : lane;
+  });
   const drawn = (rule: Rule, proposed: boolean): RuleView => {
     const differs = marked(ruleDiffers(rule));
     return {
@@ -135,6 +138,7 @@ export function editorLanes(input: {
       autonomy: rule.autonomy,
       ...(differs.length === 0 ? {} : { differs }),
       ...(proposed ? { proposed: true as const } : {}),
+      ...(input.pending?.has(`rule:${rule.id}`) === true ? { pending: true as const } : {}),
     };
   };
   return {

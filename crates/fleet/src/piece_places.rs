@@ -38,7 +38,7 @@ const EXTENSIONS: &[&str] = &["json", "yml", "yaml"];
 /// Every piece file in `folder`, by name. A folder that is not there holds none, and a file that
 /// will not read is skipped: a person cannot be told what is not readable except as a file that
 /// did not fit, and that sentence needs text.
-fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
+pub(crate) fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };
@@ -69,7 +69,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Where Kit keeps a kind of piece on this Mac.
-    fn kit_pieces(&self, kind: &str) -> PathBuf {
+    pub(crate) fn kit_pieces(&self, kind: &str) -> PathBuf {
         PathBuf::from(&self.host().kit_home).join(kind)
     }
 

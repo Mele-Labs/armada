@@ -50,9 +50,9 @@ export async function sharePiece(repository: string, piece: PieceToCommit, how: 
 }
 
 /**
- * The three acts on one piece. **With `icons` each is a glyph with its tooltip**, in one group a toolbar draws beside its others; the sentence they leave drops to a line of its own under the toolbar.
+ * The three acts on one piece, or Commit alone where Share does not carry the piece yet (`commitOnly`). **With `icons` each is a glyph with its tooltip**, in one group a toolbar draws beside its others; the sentence they leave drops to a line of its own under the toolbar.
  */
-export function PieceActs({ repository, piece, icons = false }: { repository: string; piece: PieceToCommit; icons?: boolean }) {
+export function PieceActs({ repository, piece, icons = false, commitOnly = false }: { repository: string; piece: PieceToCommit; icons?: boolean; commitOnly?: boolean }) {
   const [said, setSaid] = useState<ActSaid>();
   const [busy, setBusy] = useState(false);
   const act = (run: () => Promise<ActSaid>) => async () => {
@@ -70,7 +70,7 @@ export function PieceActs({ repository, piece, icons = false }: { repository: st
     { label: "Commit to repository", Glyph: GitCommitHorizontal, run: () => commitPiece(repository, piece) },
     { label: "Share", Glyph: Share, run: () => sharePiece(repository, piece, "share") },
     { label: "Copy", Glyph: Copy, run: () => sharePiece(repository, piece, "copy") },
-  ];
+  ].filter((one) => !commitOnly || one.label === "Commit to repository");
   return (
     <div className="piece-acts" data-icons={icons || undefined}>
       <div className="piece-acts__row" {...(icons ? { role: "group", "aria-label": "Where it is kept" } : {})}>

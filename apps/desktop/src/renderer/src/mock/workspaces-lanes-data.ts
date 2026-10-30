@@ -1,6 +1,6 @@
 // The Workspace `my-store` as the mock holds it, and the Jobs that run in it: the lifecycles, the rules, the `feature` and `planning` workflows the lanes are drawn
-// under, and a Job's lanes at each moment of the walk `workspaces-lanes`. **A mock's model**: no Fleet serves a Workspace, a lifecycle or a rule yet
-// (`docs/design`, Workspaces, lifecycles and rules). Only `scenarios/workspaces-lanes.ts` reads this.
+// under, and a Job's lanes at each moment of the walk `workspaces-lanes`. **The page's own mock model**, layered as the editor is and with the placement and
+// the rows Fleet does not carry (`docs/design`, Workspaces, lifecycles and rules). `workspaces-pieces` is the same page over pieces a mock Fleet serves. Only `scenarios/workspaces-lanes.ts` reads this.
 
 import { lifecyclesFor } from "@armada/components";
 import type { CommentRead, Fired, Instance, JobChange, JobLanes, LaneStep, LifecycleDef, Observed, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";

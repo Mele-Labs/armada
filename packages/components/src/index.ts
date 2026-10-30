@@ -188,6 +188,7 @@ export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
 export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export { autonomyOfWire } from "./compositions/WorkflowManager/RuleForm";
 export { DraftRow } from "./compositions/SessionThread/DraftRow";
 export type { DraftAnswer, DraftThreadRow } from "./compositions/SessionThread/DraftRow";
 export { forRequestsOf, stepsOfDefinition, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "./compositions/WorkflowManager/definition";

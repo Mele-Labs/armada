@@ -674,8 +674,8 @@
 }
 .armada-wm-lanes > .armada-lane-canvas {
   flex: none;
-  /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
-  height: calc(var(--space-12) * 11);
+  /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it; a lane more makes it taller by that much, so every lane stands in it. */
+  height: max(calc(var(--space-12) * 11), calc(var(--lanes, 4) * var(--lane-min) + var(--border-width) * 2));
 }
 /* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
 .armada-wm-scope {
@@ -702,6 +702,14 @@
   font-size: var(--text-xs);
 }
 /* What is picked is drawn in the app's side panel. */
+/* A fieldset only to disable the fields inside it: it draws nothing of its own. */
+.armada-wm-inspector__fixed {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
 .armada-wm-inspector {
   display: flex;
   flex-direction: column;
@@ -713,6 +721,41 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
   gap: var(--space-2);
+}
+/* A rule's condition or act: its controls side by side, wrapping as the panel narrows, and the way to remove it at the end. */
+.armada-wm-clauses {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.armada-wm-clauses:empty { display: none; }
+.armada-wm-clause {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.armada-wm-clause > .armada-input-field,
+.armada-wm-clause > .armada-textarea-field { flex: 1 1 calc(var(--space-12) * 3); min-width: 0; }
+/* A picker is a word of the sentence: as wide as what it says, so the clause wraps between words and not inside one. */
+.armada-wm-clause > .armada-select-field,
+.armada-wm-clause__led > .armada-select-field { flex: 0 1 auto; min-width: 0; }
+/* A word and the picker it leads, which a line never breaks between. */
+.armada-wm-clause__led {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+}
+.armada-wm-clause__word {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
 }
 /* Text a screen reader reads and nothing draws: the second dropdown of a pair is told from the first by it. */
 .armada-wm-hidden {
