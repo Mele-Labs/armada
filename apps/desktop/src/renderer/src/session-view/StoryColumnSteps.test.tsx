@@ -4,7 +4,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
-import type { Session, SessionWork, SessionWorkActs, WorkGroup } from "@armada/screens/src/draft/sessions";
+import type { AgentTask, Session, SessionTodo, SessionWork, SessionWorkActs, WorkGroup } from "@armada/screens/src/draft/sessions";
 
 import { StoryColumn } from "./StoryColumn";
 import { pressBand, resetFolds } from "./story";
@@ -39,13 +39,14 @@ const VISITS = [
 const group = (id: string, title: string, changedAt: string | undefined, state: "done" | "open" = "done"): WorkGroup =>
   ({ id, title, agent: "rust-engineer", paths: [], tasks: [{ id: `${id}-t`, text: `Task of ${title}`, state, ...(changedAt === undefined ? {} : { changedAt }) }] }) as unknown as WorkGroup;
 
-type Own = { at?: number; visits?: typeof VISITS | undefined; groups?: WorkGroup[]; railOff?: true; workflow?: boolean; attachments?: unknown[]; trail?: unknown; started?: Session["started"]; extra?: Partial<Session>; acts?: SessionWorkActs; proposal?: SessionWork["proposal"] };
+type Own = { at?: number; visits?: typeof VISITS | undefined; groups?: WorkGroup[]; railOff?: true; workflow?: boolean; attachments?: unknown[]; trail?: unknown; started?: Session["started"]; extra?: Partial<Session>; acts?: SessionWorkActs; proposal?: SessionWork["proposal"]; bare?: true; tasks?: readonly AgentTask[] };
 
 function build(own: Own = {}): { session: Session; work: SessionWork } {
   const groups = own.groups ?? [group("g1", "Alpha", "2026-10-27T09:30:00Z"), group("g2", "Live work", undefined, "open")];
   const plan = { scope: [], approved: true, groups };
   const work = {
-    plan,
+    ...(own.bare === true ? {} : { plan }),
+    ...(own.tasks === undefined ? {} : { tasks: own.tasks }),
     ...(own.workflow === false ? {} : { workflow: { name: "Product", steps: STEPS, at: own.at ?? 3, ...("visits" in own ? (own.visits === undefined ? {} : { visits: own.visits }) : { visits: VISITS }) } }),
     ...(own.railOff === true ? { railOff: true } : {}),
     ...(own.proposal === undefined ? {} : { proposal: own.proposal }),
@@ -66,7 +67,7 @@ function build(own: Own = {}): { session: Session; work: SessionWork } {
 
 function mount(own: Own = {}, opened: (id: string) => void = () => undefined): HTMLElement {
   const { session, work } = build(own);
-  const ed = { id: ID, plan: work.plan!, marks: [], set: () => undefined, send: () => undefined };
+  const ed = work.plan === undefined ? undefined : { id: ID, plan: work.plan, marks: [], set: () => undefined, send: () => undefined };
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -316,4 +317,74 @@ test("a Job with no one it was started by draws no Started by row", () => {
   const host = mount({ started: { model: "opus" } });
   act(() => press(host).click());
   expect(rows(host)["Started by"]).toBeUndefined();
+});
+
+// The agent's own task list on the spine. Fleet sets `task` on an item it matched to a plan task, and that task's row already shows it. The plan's live group has
+// one task being worked, "gw-t", which is what makes it the group the list follows.
+const LIVE = { ...group("gw", "Live work", undefined, "open"), tasks: [{ id: "gw-t", text: "Name the live task", state: "working" }] } as unknown as WorkGroup;
+const PLAN = [group("g1", "Alpha", "2026-10-27T09:30:00Z"), LIVE];
+const REPORTED: SessionTodo[] = [
+  { text: "Read the retention setting", state: "done" },
+  { text: "Name the live task", state: "doing", task: "gw-t" },
+  { text: "Document the retention", state: "todo" },
+];
+const agentList = (host: HTMLElement) => host.querySelector<HTMLElement>("ul.sv-agent-tasks")!;
+const subjects = (host: HTMLElement) => [...agentList(host).querySelectorAll(".sv-agent-tasks__subject")].map((one) => one.textContent);
+
+test("with an approved plan, an item Fleet matched to a plan task draws no row of its own, and the rest follow the plan's tasks", () => {
+  const host = mount({ groups: PLAN, extra: { activity: { todos: REPORTED } } });
+  expect(subjects(host)).toEqual(["Read the retention setting", "Document the retention"]);
+  // The plan's own row says it, once.
+  expect(host.textContent!.split("Name the live task")).toHaveLength(2);
+  // It stands in the current step, after the working group's rows.
+  const walk = zone(host, "Walk");
+  expect(walk.contains(agentList(host))).toBe(true);
+  expect(walk.textContent!.indexOf("Live work")).toBeLessThan(walk.textContent!.indexOf("Read the retention setting"));
+  expect(host.querySelectorAll("ul.sv-agent-tasks")).toHaveLength(1);
+});
+
+test("a list whose every item Fleet matched to a plan task draws nothing, and does not fall back to the build record's tasks", () => {
+  const host = mount({ groups: PLAN, tasks: [{ id: "a", subject: "From the build record", state: "open" }], extra: { activity: { todos: [{ text: "Name the live task", state: "doing", task: "gw-t" }] } } });
+  expect(host.querySelector("ul.sv-agent-tasks")).toBeNull();
+  expect(host.textContent).not.toContain("From the build record");
+});
+
+test("with no plan, the whole list draws under the current step", () => {
+  const host = mount({ bare: true, at: 0, visits: VISITS.slice(0, 1), extra: { activity: { todos: REPORTED.map(({ text, state }) => ({ text, state })) } } });
+  expect(subjects(host)).toEqual(["Read the retention setting", "Name the live task", "Document the retention"]);
+  expect(zone(host, "Propose").contains(agentList(host))).toBe(true);
+});
+
+test("with no workflow, the list draws under the Agent row, ahead of the plan's groups", () => {
+  const host = mount({ workflow: false, groups: PLAN, extra: { activity: { todos: REPORTED } } });
+  expect(subjects(host)).toEqual(["Read the retention setting", "Document the retention"]);
+  const now = zone(host, "Now");
+  const beats = now.querySelector('ul[aria-label="Now"]')!;
+  expect(beats.querySelector(".sv-beat__label")?.textContent).toBe("Agent");
+  expect(beats.nextElementSibling).toBe(agentList(host));
+  expect(now.textContent!.indexOf("Read the retention setting")).toBeLessThan(now.textContent!.indexOf("Live work"));
+});
+
+test("with the turn idle the list still draws, and the task being done does not breathe; while the turn runs it does", () => {
+  const doing = (host: HTMLElement) => agentList(host).querySelector<HTMLElement>('.armada-task-mark[data-state="working"]');
+  const idle = mount({ workflow: false, extra: { turn: { state: "idle" }, activity: { todos: [{ text: "Rotate the file", state: "doing" }] } } as Own["extra"] });
+  expect(subjects(idle)).toEqual(["Rotate the file"]);
+  expect(doing(idle)).not.toBeNull();
+  expect(doing(idle)!.hasAttribute("data-pulsing")).toBe(false);
+
+  const running = mount({ workflow: false, extra: { turn: { state: "working" }, activity: { todos: [{ text: "Rotate the file", state: "doing" }] } } as Own["extra"] });
+  expect(doing(running)!.hasAttribute("data-pulsing")).toBe(true);
+});
+
+test("with no list reported, the build record's tasks draw in its place", () => {
+  const tasks: AgentTask[] = [
+    { id: "a", subject: "Read the runner", state: "done" },
+    { id: "b", subject: "Rename the files", state: "working" },
+    { id: "c", subject: "Update the tests", state: "open" },
+  ];
+  for (const activity of [undefined, { todos: [] }]) {
+    const host = mount({ workflow: false, tasks, extra: { ...(activity === undefined ? {} : { activity }) } });
+    expect(subjects(host)).toEqual(["Read the runner", "Rename the files", "Update the tests"]);
+    expect([...agentList(host).querySelectorAll(".armada-task-mark")].map((one) => one.getAttribute("data-state"))).toEqual(["done", "working", "open"]);
+  }
 });

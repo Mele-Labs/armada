@@ -108,7 +108,7 @@ async fn a_todo_write_replaces_the_list_and_leaves_now_alone() {
     .await;
     let seen = activity(&rig, &id).await.expect("a call was made");
     assert_eq!(seen.now.as_deref(), Some("Reading a.rs"), "a TodoWrite is not what it is doing");
-    let todo = |text: &str, state| SessionTodo { text: text.into(), state };
+    let todo = |text: &str, state| SessionTodo { text: text.into(), state, task: None };
     assert_eq!(
         seen.todos,
         [
@@ -316,7 +316,7 @@ async fn the_task_list_a_hosted_jobs_mod_reports_is_its_activity_list() {
         .await
         .expect("kept");
 
-    let todo = |text: &str, state| SessionTodo { text: text.into(), state };
+    let todo = |text: &str, state| SessionTodo { text: text.into(), state, task: None };
     let expected = [
         todo("Add the field", SessionTodoState::Done),
         todo("Detect it", SessionTodoState::Doing),

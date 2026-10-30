@@ -361,13 +361,10 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .armada-card.armada-session-frame { --pad-card: calc(var(--space-6) / 2); gap: calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-frame__centre,
 .armada-session-frame .armada-session-thread,
-.armada-session-frame .armada-session-thread__stage,
-.armada-session-frame .armada-session-thread__footer { gap: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-thread__stage { gap: calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__band { padding: calc(var(--space-1) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__body { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-needs-panel__body,
-.armada-session-frame .armada-session-working__band,
-.armada-session-frame .armada-session-working__rows,
 .armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-question-deck__band { padding: calc(var(--space-2) / 2) calc(var(--space-4) / 2); }
 .armada-session-frame .armada-question-deck__body { padding: calc(var(--space-4) / 2); }

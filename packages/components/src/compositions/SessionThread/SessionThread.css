@@ -28,20 +28,6 @@
   isolation: isolate;
 }
 
-/* Under the stage: what the agent is working on and the Session being done. It never takes more than two fifths of the thread
-   and scrolls past that, so his message and the agent's replies above it are always in view. */
-.armada-session-thread__footer {
-  display: flex;
-  flex: 0 1 auto;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  max-height: min(40%, 40vh);
-  overflow: auto;
-}
-.armada-session-thread__footer:empty { display: none; }
-.armada-session-thread__footer > * { flex-shrink: 0; }
-
 /* The first write: the one row that is not a message, filled in the slot's
    leased hue so it reads before anything around it. */
 .armada-session-lease {
@@ -261,88 +247,6 @@
 .armada-session-done__acts {
   display: flex;
   gap: var(--space-2);
-}
-
-/* What the agent reports it is working on, over the box: the Needs you band's mirror, in the running hue. */
-.armada-session-working {
-  display: flex;
-  flex-direction: column;
-  flex: 0 1 auto;
-  min-height: calc(var(--space-12) * 0.75);
-  max-height: 40vh;
-  border: var(--border-width) solid var(--step-running);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  overflow: hidden;
-}
-
-.armada-session-working__band {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  background: var(--step-running);
-  color: var(--fg-inverse);
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-}
-
-.armada-session-working__band:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--focus-ring-offset) * -1);
-}
-
-.armada-session-working__label {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-session-working__glyphs {
-  display: inline-flex;
-  flex: 1;
-  gap: var(--space-2);
-}
-
-.armada-session-working__fold {
-  margin-inline-start: auto;
-}
-
-.armada-session-working__rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  list-style: none;
-  overflow: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-.armada-session-working__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  color: var(--fg-muted);
-}
-
-.armada-session-working__row[data-state="doing"] {
-  color: var(--fg-default);
-  font-weight: var(--weight-heading);
-}
-
-.armada-session-working__text {
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 
 .armada-session-thread__eyebrow {
