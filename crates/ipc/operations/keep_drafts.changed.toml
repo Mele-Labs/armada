@@ -1,0 +1,8 @@
+[operations."keep_drafts.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A rule or lifecycle a Job kept for every Job was begun, approved or dismissed in a repository"
+notes = """
+Carries `KeepDraftsChanged` `{ manifest_id }` and no draft: a client holding that repository's drafts reads `list_keep_drafts` again. Published once `keep_job_piece` kept a proposal, once the owner's Approve on the Job's draft saved it and once his Dismiss dropped it. A refused Approve changes nothing and publishes nothing. Each is the owner's act or a Job's request, so a day brings a handful, and the event is a few bytes: it adds nothing to the sink that is unbounded from the application side. A Bridge that missed one reads `list_keep_drafts` on the resync that follows a `Missed`.
+"""

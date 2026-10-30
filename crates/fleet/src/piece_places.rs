@@ -94,7 +94,7 @@ where
         })?;
         let workspaces = self.workspaces_read();
         let written = self.pieces_written(&served, &workspaces, LIFECYCLES);
-        Ok(Lifecycles::applying_to(served.manifest().id(), &workspaces, written))
+        Ok(Lifecycles::applying_to(served.manifest().id(), &workspaces, self.built_in_lifecycles(Some(repository.as_str())), written))
     }
 
     /// The rules that apply to one repository: Kit's and the repository's own, narrowest scope
@@ -148,7 +148,7 @@ where
         let mut pieces = Vec::new();
 
         let written = self.pieces_written(&served, &workspaces, LIFECYCLES);
-        let lifecycles = Lifecycles::applying_to(id, &workspaces, written.clone());
+        let lifecycles = Lifecycles::applying_to(id, &workspaces, self.built_in_lifecycles(Some(repository)), written.clone());
         for file in lifecycles.files().iter().filter(|file| file.overridden_by().is_none()) {
             let Some(path) = file.path() else { continue };
             pieces.push(KeptPiece {

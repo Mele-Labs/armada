@@ -35,9 +35,11 @@ The step after one is entered when it ends, whatever fact would have entered it,
 
 **A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
 A ticket, pull request, deploy or Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
-**An unread instance, and one in a status no state lists, holds nothing**: the built-in Ticket lifecycle lists no tracker words but `closed`, so a Job holding a ticket under it would be refused with nothing the agent could do to clear it.
+**An unread instance, and one in a status no state lists, holds nothing**: a tracker that declares no words (Jira, a tracker mod) leaves the built-in Ticket lifecycle listing none but `closed`, so a Job holding a ticket under it would be refused with nothing the agent could do to clear it.
+**A tracker that declares them does not**: a beads ticket reading `open` or `in_progress` stands in To do or In progress, and holds its Job open until it closes.
 End lists them all the same.
 Fleet keeps that the agent was told to wait, and when the last instance holding it is over sends it one `lifecycles_clear` notice; an agent never refused is not told.
+**A ticket the Job hands to the Job it started for the ticket's plan group ends the same way, at once**, and the Job it went to holds it ([linked Jobs](linked-jobs.md)): the rail neither waits on it nor counts it reached.
 **Ending a Job ends its instances.** Each one no end state has taken, the unplaced too, is kept as ended, standing where it was, no reader moves it again, and the watches the Job's rules started are stopped with the Job's others.
 Before it ends, End lists what is in flight as `Deploy: Rolling out` and `ARM-42: In review`; End job goes on, and Keep going leaves the Job as it is.
 **Every End asks the same way**: the Job's menu and done band, the Cockpit's End job on a done call and the Deck row's Close all list first, and a Job holding nothing ends at once from each.
