@@ -2,7 +2,7 @@
 // a step of the workflow, and a beat the Job is on. A state is a glyph or a lamp with a tooltip and no row prints a state word.
 
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { Circle, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
+import { Circle, Clock, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
 import { Button, LinkedSession, Readout, Stamp, Tooltip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -77,11 +77,27 @@ export function RouteBeat({ step }: { step: RouteStep }) {
   );
 }
 
-/** Something the person is owed: a lamp that pulses, and what it is. */
-export function AskBeat({ said, text }: { said: string; text: string }) {
+/** Something the person is owed: a lamp that pulses, and what it is. Where it is a rule's own ask, pressing it opens the rule in the side panel, as the rule on the Workflow canvas does. */
+export function AskBeat({ said, text, onOpen }: { said: string; text: string; onOpen?: () => void }) {
   return (
     <li className="sv-beat" data-lamp="needs">
       <Lead Glyph={Megaphone} said={said} pulse />
+      {onOpen === undefined ? (
+        <span className="sv-beat__label" data-wraps="">{text}</span>
+      ) : (
+        <button type="button" className="sv-beat__label sv-beat__open" data-nav="" data-wraps="" onClick={onOpen}>
+          {text}
+        </button>
+      )}
+    </li>
+  );
+}
+
+/** A step held on a state an instance has yet to reach, such as a pull request being approved. It is a fact and no call: the agent rests and nothing is owed, so the clock does not pulse. */
+export function WaitBeat({ text }: { text: string }) {
+  return (
+    <li className="sv-beat" data-wait="">
+      <Lead Glyph={Clock} said="Waiting" />
       <span className="sv-beat__label" data-wraps="">{text}</span>
     </li>
   );
