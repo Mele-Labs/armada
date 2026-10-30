@@ -414,6 +414,25 @@ fn feature_and_bug_run_the_steps_the_owner_chose() {
     );
 }
 
+/// **Oversee holds until every Job the parent started has landed or ended** (29 Oct 2026), read off the
+/// Jobs' lifecycle instances and not off what the agent says; no other step of the workflow waits on one.
+#[test]
+fn orchestrate_holds_oversee_until_every_job_it_started_has_landed() {
+    let (path, text) = shipped()
+        .into_iter()
+        .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some("orchestrate"))
+        .expect("orchestrate is shipped");
+    let def = config::WorkflowDef::parse(&path, &text, &roster()).unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+    let ends: Vec<(&str, Vec<String>)> =
+        def.steps().iter().map(|step| (step.id().as_str(), step.ends_on().iter().map(|end| end.as_wire().into_owned()).collect())).collect();
+    let expected = ["assess", "plan", "dispatch", "oversee", "summarise"];
+    assert_eq!(ends.iter().map(|(id, _)| *id).collect::<Vec<_>>(), expected);
+    for (id, ends) in &ends {
+        let want: &[&str] = if *id == "oversee" { &["job: landed"] } else { &[] };
+        assert_eq!(ends, want, "{id}");
+    }
+}
+
 /// **Tests come after the walk**: no step before it, nor the walk itself, asks for a test, and the step
 /// after it does.
 #[test]

@@ -13,6 +13,7 @@
 //! where the issue ledger already reads it, a watch where its reading is kept, and Fleet's events
 //! from the tap that already hears every Job's row change.
 
+pub mod ends;
 pub mod holding;
 mod keeping;
 mod polling;
@@ -20,17 +21,34 @@ pub mod reading;
 mod serving;
 pub(crate) mod taking_on;
 pub mod wire;
+pub(crate) mod waking;
 
-use core_model::Lifecycle;
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use core_model::{Lifecycle, ManifestId, Ulid};
+
+use crate::daemon::Fleet;
 
 pub use keeping::keep_the_lifecycles;
 
-/// The lifecycles that apply to a Job in the repository `manifest_id`.
-///
-/// **The one place that says.** Today every Job gets the four Armada carries. The work that keeps
-/// lifecycles as pieces, scoped to a Workspace or a repository, replaces this body, and nothing
-/// else in this module changes.
-pub fn lifecycles_that_apply(manifest_id: &str) -> Vec<Lifecycle> {
-    let _ = manifest_id;
-    Lifecycle::built_in()
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// The lifecycles that apply to a Job in the repository `manifest_id`: the four Armada carries and
+    /// the pieces scoped to it (`lifecycles_applying_to`).
+    ///
+    /// **The one place that says.** A repository Fleet does not serve has no pieces to read, and
+    /// answers the four Armada carries, so a Job outside one holds what it always could.
+    pub fn lifecycles_that_apply(&self, manifest_id: &str) -> Vec<Lifecycle> {
+        match self.lifecycles_applying_to(&ManifestId::carried(Ulid::carried(manifest_id))) {
+            Ok(applying) => applying.running().cloned().collect(),
+            Err(_) => Lifecycle::built_in(),
+        }
+    }
 }

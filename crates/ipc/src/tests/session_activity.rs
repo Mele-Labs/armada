@@ -6,7 +6,7 @@ use crate::{
     SessionRecord, SessionState, SessionTodo, SessionTodoState, SessionUsage,
 };
 
-fn row(activity: Option<SessionActivity>) -> SessionRecord {
+pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
     SessionRecord {
         id: SessionId::carried("s1"),
         harness: "a-harness".to_string(),
@@ -52,6 +52,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
+        workflow_waiting_on: None,
     }
 }
 

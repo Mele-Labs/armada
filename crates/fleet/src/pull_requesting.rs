@@ -102,6 +102,18 @@ fn checks_of(ran: &WhatTheForgeRan) -> Option<ForgeChecks> {
     }
 }
 
+/// Whether a `pr` row says its pull request merged: the forge's `state` in its
+/// `detail` first, and `spent` only where the forge has not described it. **A
+/// row is spent by a `gh pr` command the mod read, which the forge may not
+/// bear out** (#2027, #3042), so spent alone is never a merge it contradicts.
+pub(crate) fn pull_merged(detail: &BTreeMap<String, String>, spent: bool) -> bool {
+    match detail.get("state").map(String::as_str) {
+        Some("merged") => true,
+        Some("open" | "draft" | "closed") => false,
+        _ => spent,
+    }
+}
+
 /// What a ledger row's `detail` says of the pull request, in the words the
 /// wire uses.
 fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {

@@ -10,7 +10,7 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Lifecycles, Refusal};
-use core_model::{InstanceRef, PieceSource, Standing};
+use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
 use ipc::{
     AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
     RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SessionId, WireError,
@@ -20,7 +20,7 @@ use store::Store;
 
 use super::holding::rebuilt;
 use super::keeping::{JOB, PULL_REQUEST};
-use super::{lifecycles_that_apply, wire};
+use super::wire;
 use crate::daemon::Fleet;
 use crate::piece_places::WORKSPACES;
 use crate::session_host::NO_SUCH_SESSION;
@@ -44,8 +44,9 @@ fn label_of(store: &Store, subject: &InstanceRef) -> String {
 }
 
 /// What `session` holds, as the wire spells it. **Empty** for a Job that holds nothing, which is every
-/// Job that began before lifecycles existed, and for one in no repository.
-pub(crate) fn job_lifecycles_of(store: &Store, session: &str) -> JobLifecycles {
+/// Job that began before lifecycles existed, and for one in no repository. **`applying` is
+/// `Fleet::lifecycles_that_apply`**, passed in because the pieces it reads are Fleet's and not the store's.
+pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(&str) -> Vec<Lifecycle>) -> JobLifecycles {
     let mut held = JobLifecycles {
         session_id: SessionId::carried(session),
         lifecycles: Vec::new(),
@@ -55,7 +56,7 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str) -> JobLifecycles {
     let Some(manifest) = store.session(session).ok().flatten().and_then(|kept| kept.manifest_id) else {
         return held;
     };
-    let lifecycles = lifecycles_that_apply(&manifest);
+    let lifecycles = applying(&manifest);
     let kept = store.lifecycle_instances_of(session).unwrap_or_default();
     let instances = rebuilt(&lifecycles, &kept);
     held.instances = instances
@@ -111,7 +112,7 @@ where
     pub(crate) async fn job_lifecycles_published(&self, session: &str) {
         let held = {
             let store = self.store().lock().await;
-            job_lifecycles_of(&store, session)
+            job_lifecycles_of(&store, session, &|manifest| self.lifecycles_that_apply(manifest))
         };
         if !held.instances.is_empty() {
             self.publish(ipc::Event::JobLifecyclesChanged(held));
@@ -231,6 +232,6 @@ where
     ) -> Result<JobLifecycles, Refusal> {
         let job = self.lifecycles_job(caller, session_id.as_ref()).await?;
         let store = self.store().lock().await;
-        Ok(job_lifecycles_of(&store, &job))
+        Ok(job_lifecycles_of(&store, &job, &|manifest| self.lifecycles_that_apply(manifest)))
     }
 }

@@ -19,7 +19,7 @@ fn manifest(rig: &Rig) -> ManifestId {
     ManifestId::carried(rig.fleet.repositories().first().expect("served").manifest().id().as_str())
 }
 
-async fn holds(rig: &Rig, id: &SessionId, kind: &str, target: &str, state: AttachmentState, detail: &[(&str, &str)]) {
+pub(super) async fn holds(rig: &Rig, id: &SessionId, kind: &str, target: &str, state: AttachmentState, detail: &[(&str, &str)]) {
     let at = rig.fleet.now().as_str().to_string();
     rig.fleet
         .store()

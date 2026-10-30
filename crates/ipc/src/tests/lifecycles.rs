@@ -288,3 +288,19 @@ fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
     let spelled = MIRROR.matches("{ act: \"").count();
     assert_eq!(sampled.len(), spelled, "{sampled:?}");
 }
+
+/// The step a Job is on says what it waits for on the Job's own row, and a row with nothing to say leaves the key out.
+#[test]
+fn a_rows_waiting_on_line_is_left_out_when_absent_and_read_back_when_there() {
+    use super::session_activity::row;
+    use crate::SessionRecord;
+
+    let mut record = row(None);
+    assert!(!encode(&record).expect("encodes").contains("workflow_waiting_on"));
+    record.workflow_waiting_on = Some("Waiting on PR #812: Approved".to_string());
+    let bytes = encode(&record).expect("encodes");
+    assert!(bytes.contains(r#""workflow_waiting_on":"Waiting on PR #812: Approved""#), "{bytes}");
+    let read: SessionRecord = decode("a row", bytes.as_bytes()).expect("reads back");
+    assert_eq!(read.workflow_waiting_on.as_deref(), Some("Waiting on PR #812: Approved"));
+    assert!(include_str!("../../../../packages/protocol/src/sessions.ts").contains("workflow_waiting_on?: string;"));
+}

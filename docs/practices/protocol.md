@@ -1109,6 +1109,8 @@ Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field f
 | `list_lifecycle_rules` (`GET /lifecycles/rules?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycleRules` `{ manifest_id, rules[], left_out[] }`; an `AppliedRule` is `{ rule, kept }`, a `LifecycleRule` `{ id, name, scope, when, conditions[], does[], autonomy?, on_failure }` |
 | `get_job_lifecycles` (`GET /sessions/lifecycles?session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `JobLifecycles` `{ session_id, lifecycles[], instances[], moves[] }`. 422 `fleet.job_lifecycles_unplaced`; 404 `fleet.no_such_session` |
 | `job_lifecycles.changed` (event, Bridge only) | Fleet publishes | `JobLifecycles`, whole, after an instance was taken on or moved |
+| `SessionRecord.workflow_waiting_on` | Fleet writes where the Job's step is served | `Waiting on PR #812: Approved`: one sentence for each lifecycle end the Job's current step lists that has not come, joined by `; `. Absent where the step waits on no lifecycle and once an end has come |
+| `StepReading.ends_any` (`get_workflow_steps`) | Fleet writes | A delivering step gated by a lifecycle now reads `every pr is approved, then it is merged`; `ends_when` still says only `it is merged` |
 
 **A Workspace here is a set of repositories**, and the wire type is `WorkspaceOfRepositories` so it is never read as the Manifest's monorepo `workspaces`, `WorkspaceCommands` or `ScannedWorkspace`.
 For the same reason a rule is `LifecycleRule`, and `FleetRule` stays the notice rule `fleet.toml` carries.
@@ -1124,6 +1126,7 @@ When a Job's copy is frozen on start, that function changes and this follows.
 **The Job is the one the connection places** where Fleet hosts it, else `session_id`, as a watch's is.
 A Job that holds nothing, which is every Job that began before lifecycles existed, answers three empty lists.
 A `label` is what a person reads for an instance: the ticket's key, `PR #812`, the Job's title or its id when it has none.
+**The waiting line rides the Job's row and has no event of its own.** `workflow_waiting_on` is derived each time the row is drawn, as `workflow_step` is, and the row is drawn again when an instance moves under a step that waits on a lifecycle.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `job_lifecycles.changed` is a new kind.

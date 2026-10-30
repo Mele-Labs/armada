@@ -16,7 +16,6 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use super::holding::{read_instance, rebuilt, subject_of, Transition};
-use super::lifecycles_that_apply;
 use super::reading::{fleet_fact, JobSeen};
 use super::taking_on::{holds, landed, opened_pull_request, started_by};
 use crate::daemon::Fleet;
@@ -157,7 +156,7 @@ where
             landed: landed(&child.attachments),
             ended: child.state == SessionState::Ended,
         };
-        let lifecycles = lifecycles_that_apply(&manifest);
+        let lifecycles = self.lifecycles_that_apply(&manifest);
         let Some(job) = lifecycles.iter().find(|one| one.id().as_str() == JOB) else { return };
         if let Some(fact) = fleet_fact(job, &seen) {
             self.lifecycle_seen(parent, JOB, child_id, Observed::Fleet(fact)).await;
@@ -178,7 +177,7 @@ where
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let manifest = store.session(session).ok().flatten()?.manifest_id?;
-        let lifecycles = lifecycles_that_apply(&manifest);
+        let lifecycles = self.lifecycles_that_apply(&manifest);
         let mut held = rebuilt(&lifecycles, &store.lifecycle_instances_of(session).ok()?);
         let subject = subject_of(&held, lifecycle, key)?;
         let transition = read_instance(&mut held, &lifecycles, &subject, &seen, &at)?;
@@ -196,6 +195,7 @@ where
             .ok()?;
         drop(store);
         self.job_lifecycles_published(session).await;
+        self.lifecycle_wakes(session).await;
         Some(transition)
     }
 }

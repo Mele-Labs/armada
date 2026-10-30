@@ -468,7 +468,7 @@ fn the_step_before_delivering_says_to_carry_straight_on_with_it() {
 fn a_step_stalls_only_where_the_jobs_own_act_ends_it() {
     let propose = RailStep { ends_on: vec![StepEnd::Replied], ..step("Propose") };
     let steps = [propose, step("Discuss"), plan_step(), follows("Refine"), delivers("Deliver")];
-    let ends = (0..steps.len()).map(|at| rail_ends::end_of(&steps, at).map(rail_ends::End::by_the_job)).collect::<Vec<_>>();
+    let ends = (0..steps.len()).map(|at| rail_ends::end_of(&steps, at).map(|end| end.by_the_job())).collect::<Vec<_>>();
     assert_eq!(ends, [Some(false), Some(true), Some(false), Some(true), Some(false)], "reply, record, approve, push, merge");
 }
 
