@@ -42,7 +42,7 @@ const SOURCE: Readonly<Record<string, { kind: LifecycleKind; said: string }>> = 
   tracker: { kind: "tracker", said: "Tracker" },
   forge: { kind: "forge", said: "Forge" },
   watch: { kind: "watch", said: "Watch" },
-  fleet: { kind: "job", said: "Armada" },
+  fleet: { kind: "job", said: "Fleet" },
 };
 
 /**
@@ -113,32 +113,50 @@ function autonomyOf(rule: LifecycleRule): Autonomy {
   return words.length > 0 && words.every((one) => one === "off") ? "off" : "acts";
 }
 
+/** The lifecycle a watch's `deploy` names an instance of. */
+const DEPLOY = "deploy";
+
 /**
- * A rule as a Job's lanes draw it: an edge from where it fired to where it lands. **A rule that moves a state lands on that state**; one a state sets off that does anything else lands
- * on the step the Job was on when it fired, so the edge stays where it was drawn. A rule a Job event sets off (`started`, `landed`, `ended`) has no node to leave from, and one a step sets
- * off that moves no state has none to land on, so neither is drawn.
+ * A rule as a Job's lanes draw it: an edge from where it fired to where it lands. **Where it lands is what the rule already says**, in this order: the state a `tracker_move`
+ * moves a ticket to; the first state of the deploy a `start_watch` takes on, `landsOn` being that deploy; the step an `at_step` condition names, before and after it fires;
+ * and where none of these names a place, the step the Job was on when it fired. A rule a step sets off leaves from that step. A rule a Job event sets off (`started`,
+ * `landed`, `ended`) has no node to leave from, and is not drawn.
  */
-export function ruleOfWire(applied: AppliedRule): Rule | undefined {
+function readRule(applied: AppliedRule, lifecycles: readonly LifecycleDefinition[]): { rule: Rule; landsOn?: string } | undefined {
   const { rule, kept } = applied;
   const when = rule.when;
   if (when.kind === "job") return undefined;
   const from = when.kind === "enters" ? { lane: when.lifecycle, item: when.state } : { lane: "workflow", item: when.step };
   const move = rule.does.flatMap((one) => (one.what.act === "tracker_move" ? [{ lane: laneOfTarget(one.what.target, rule), item: one.what.to }] : []))[0];
-  if (move?.lane === undefined && when.kind !== "enters") return undefined;
-  const to = move?.lane === undefined ? { lane: "workflow", item: CURRENT_STEP } : { lane: move.lane, item: move.item };
+  const deploy = rule.does.flatMap((one) => (one.what.act === "start_watch" && one.what.deploy !== undefined && one.what.deploy !== "" ? [one.what.deploy] : []))[0];
+  const atStep = rule.conditions.flatMap((one) => (one.kind === "at_step" ? [one.step] : []))[0];
+  const first = lifecycles.find((one) => one.id === DEPLOY)?.states[0]?.id;
+  // A deploy's lane has no state to land on until the deploy is held, so the edge waits for it.
+  const to =
+    move?.lane !== undefined
+      ? { lane: move.lane, item: move.item }
+      : deploy !== undefined
+        ? { lane: DEPLOY, item: first ?? "" }
+        : { lane: "workflow", item: atStep ?? CURRENT_STEP };
   return {
-    id: rule.id,
-    label: rule.name,
-    from,
-    ...(when.kind === "enters" ? { at: "enters" as const } : { at: when.kind === "step_ends" ? ("ends" as const) : ("starts" as const) }),
-    to,
-    ifs: [],
-    does: [],
-    autonomy: autonomyOf(rule),
-    kept: KEPT[kept.rank.source] ?? "repository",
-    scope: "default",
+    rule: {
+      id: rule.id,
+      label: rule.name,
+      from,
+      ...(when.kind === "enters" ? { at: "enters" as const } : { at: when.kind === "step_ends" ? ("ends" as const) : ("starts" as const) }),
+      to,
+      ifs: [],
+      does: [],
+      autonomy: autonomyOf(rule),
+      kept: KEPT[kept.rank.source] ?? "repository",
+      scope: "default",
+    },
+    ...(deploy === undefined || move?.lane !== undefined ? {} : { landsOn: instanceId(DEPLOY, deploy) }),
   };
 }
+
+/** A rule as a Job's lanes draw it, or none where it has no node to leave from. `lifecycles` are the Job's, which say where a deploy's lane begins. */
+export const ruleOfWire = (applied: AppliedRule, lifecycles: readonly LifecycleDefinition[] = []): Rule | undefined => readRule(applied, lifecycles)?.rule;
 
 /** How an act stands, in the words a person reads. Done reads as the act itself. */
 const STANDING: Readonly<Record<string, string>> = { planned: "Planned", asked: "Asked", stuck: "Stuck", skipped: "Skipped", told: "Told the agent", not_carried: "Not carried" };
@@ -166,14 +184,20 @@ function stepWhen(at: string, visits: readonly { step: number; since: string }[]
 }
 
 /** What the Job's rules did, a line for each rule and instance it did it to. Only the rules that are drawn have one. */
-function firedOf(acts: readonly RuleActReading[], rules: readonly Rule[], steps: readonly LaneStep[], visits: readonly { step: number; since: string }[]): Fired[] {
+function firedOf(
+  acts: readonly RuleActReading[],
+  rules: readonly Rule[],
+  landsOn: ReadonlyMap<string, string>,
+  steps: readonly LaneStep[],
+  visits: readonly { step: number; since: string }[],
+): Fired[] {
   const groups = new Map<string, { rule: Rule; acts: RuleActReading[]; instance: string }>();
   for (const act of acts) {
     const rule = rules.find((one) => one.id === act.rule);
     if (rule === undefined) continue;
-    // An edge that lands on a state is keyed by the instance it was done to; one that hands to a step, by the instance that set it off, or by none where a step set it off.
+    // An edge that lands on a state is keyed by the instance it was done to, or the deploy a watch takes on; one that hands to a step, by the instance that set it off, or by none where a step set it off.
     const link = rule.to.lane === "workflow" ? (rule.from.lane === "workflow" ? undefined : (act.entered ?? act.on)) : (act.on ?? act.entered);
-    const instance = link === undefined ? "" : instanceId(link.lifecycle, link.key);
+    const instance = rule.to.lane !== "workflow" && act.on === undefined && landsOn.has(rule.id) ? landsOn.get(rule.id)! : link === undefined ? "" : instanceId(link.lifecycle, link.key);
     const group = groups.get(`${act.rule}\n${instance}`);
     if (group === undefined) groups.set(`${act.rule}\n${instance}`, { rule, acts: [act], instance });
     else group.acts.push(act);
@@ -187,7 +211,7 @@ function firedOf(acts: readonly RuleActReading[], rules: readonly Rule[], steps:
       instance,
       outcome: outcomeOf(mine),
       at: clock(last.settled_at ?? last.at),
-      did: mine.map(sayAct).join("; "),
+      did: mine.map(sayAct),
       ...(step === undefined ? {} : { step }),
       acts: mine.map((one): FiredAct => ({ text: one.text, course: one.course === "asks" ? "asks" : "acts", standing: one.standing, at: clock(one.settled_at ?? one.at), ...(one.said === undefined || one.said === "" ? {} : { said: one.said }) })),
     };
@@ -200,12 +224,14 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
   if (held.instances.length === 0) return undefined;
   const steps = (workflow?.steps ?? []).map((step, col): LaneStep => ({ id: step.id, label: step.label, col }));
   const waiting = input.waiting === undefined || input.waiting.length === 0 ? undefined : input.waiting;
-  const rules = (input.rules ?? []).flatMap((one) => ruleOfWire(one) ?? []);
+  const read = (input.rules ?? []).flatMap((one) => readRule(one, held.lifecycles) ?? []);
+  const rules = read.map((one) => one.rule);
+  const landsOn = new Map(read.flatMap((one) => (one.landsOn === undefined ? [] : [[one.rule.id, one.landsOn] as const])));
   const job: JobLanes = {
     workspace: "",
     copy: { steps, lifecycles: held.lifecycles.map(lifecycleOf), rules },
     instances: held.instances.map((one) => instanceOf(one, held.moves)),
-    fired: firedOf(held.acts ?? [], rules, steps, workflow?.visits ?? []),
+    fired: firedOf(held.acts ?? [], rules, landsOn, steps, workflow?.visits ?? []),
     changes: [],
     ...(waiting === undefined ? {} : { waiting }),
   };

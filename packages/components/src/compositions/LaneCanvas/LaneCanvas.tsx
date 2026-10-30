@@ -388,7 +388,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
   const tone = rule.proposed === true ? "proposed" : rule.status ?? "defined";
   const lines = [
     rule.label,
-    ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did === undefined ? [] : [rule.did])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : [rule.did]),
+    ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did ?? [])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : rule.did),
     ...(rule.meta === undefined ? [] : [rule.meta]),
     ...(rule.differs === undefined ? [] : [differsSaid(rule.differs)]),
   ];

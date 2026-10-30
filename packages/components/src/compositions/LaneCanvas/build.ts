@@ -240,7 +240,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         const landing = rule.to.item === CURRENT_STEP ? (fired?.step ?? copy.steps[Math.min(Math.max(standing.at, 0), copy.steps.length - 1)]?.id ?? rule.to.item) : rule.to.item;
         const from = nodeId(source?.id ?? "workflow", rule.from.item);
         const to = nodeId(target?.id ?? "workflow", landing);
-        if (!drawn.has(from) || !drawn.has(to)) continue;
+        // A rule that leaves a node and lands on the same one moves nothing on the lanes.
+        if (from === to || !drawn.has(from) || !drawn.has(to)) continue;
         const name = source === undefined ? copy.steps.find((one) => one.id === rule.from.item)?.label ?? rule.from.item : label(rule.from.lane, rule.from.item);
         const waits = source === undefined ? `${name} ${rule.at === "ends" ? "ends" : "starts"}` : `${source.label}: ${name}`;
         rules.push({

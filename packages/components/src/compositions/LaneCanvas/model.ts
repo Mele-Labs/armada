@@ -324,8 +324,8 @@ export type RuleView = {
   proposed?: true;
   /** The same rule's second edge: drawn with its mark and no words. */
   quiet?: true;
-  /** What the rule did, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
-  did?: string;
+  /** What the rule did, a line for each act, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
+  did?: readonly string[];
 };
 
 // ---- A Job's lanes -------------------------------------------------------------------------------------------------------
@@ -359,8 +359,8 @@ export type Fired = {
   instance: string;
   outcome: "acted" | "asked" | "waiting" | "skipped";
   at: string;
-  /** What it did, for the chip's tooltip. */
-  did?: string;
+  /** What it did, a line for each act, for the chip's tooltip. */
+  did?: readonly string[];
   /** The id of the card an asked rule left in the thread, while it waits to be answered. */
   needs?: string;
   /** The step the Job was on when it fired, which an edge that hands to the current step lands on. */
