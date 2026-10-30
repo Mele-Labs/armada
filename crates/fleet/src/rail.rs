@@ -29,10 +29,11 @@
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
 
 use config::ResolvedWorkflow;
-use core_model::{EvidenceType, JudgeCriterion, ResolvedCheck, ResolvedStep, StepEnd, StepPhase};
+use core_model::{EvidenceType, JudgeCriterion, LifecycleEnd, ResolvedCheck, ResolvedStep, StepEnd, StepPhase};
 use ipc::{BuildPhase, BuildStopId, PlanTaskState, SessionRecord, SessionStanding, TouchAct};
 
 use crate::rail_ends;
+use crate::rail_lifecycle::StepBits;
 
 /// The observable fact a step between anchors fits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -72,6 +73,16 @@ pub(crate) struct RailStep {
 impl RailStep {
     pub(crate) fn judges(&self) -> bool {
         !self.criteria.is_empty()
+    }
+
+    /// The lifecycle states that end the step. A step that lists one waits on the world, and is
+    /// placed by what it holds rather than by a fact that fits it.
+    pub(crate) fn lifecycle_ends(&self) -> impl Iterator<Item = &LifecycleEnd> {
+        self.ends_on.iter().filter_map(StepEnd::lifecycle)
+    }
+
+    pub(crate) fn has_lifecycle_end(&self) -> bool {
+        self.lifecycle_ends().next().is_some()
     }
 }
 
@@ -134,6 +145,8 @@ pub(crate) struct Extra {
     pub idea_picked: bool,
     /// The recorded plan names a walk or says the person would see the change.
     pub plan_expects_walk: bool,
+    /// The steps the person wrote on after they began: a message passes a step that waits on a lifecycle.
+    pub messaged: StepBits,
 }
 
 /// The most steps the person can skip: the bits of [`Skipped`].
@@ -182,6 +195,13 @@ pub(crate) struct Facts {
     pub test_edited: bool,
     /// The steps the person skipped.
     pub skipped: Skipped,
+    /// The steps he wrote on after they began. [`Extra::messaged`].
+    pub messaged: StepBits,
+    /// The steps that list a lifecycle end of which the Job holds an instance. Set where the row is
+    /// drawn, from the instances and their moves (`rail_lifecycle::bits`).
+    pub lifecycle_held: StepBits,
+    /// The steps whose lifecycle end has come.
+    pub lifecycle_met: StepBits,
 }
 
 impl Facts {
@@ -220,6 +240,8 @@ impl Facts {
                 .iter()
                 .any(|touch| touch.act != TouchAct::Remove && crate::test_paths::is_test_path(&touch.path)),
             skipped: Skipped::of(&record.skipped_steps),
+            messaged: extra.messaged,
+            ..Facts::default()
         }
     }
 
@@ -247,9 +269,11 @@ impl Facts {
         self.walk_approved || (self.plan_approved && !self.walk_expected() && self.pushed)
     }
 
-    /// Whether the person did what `end` names.
-    pub(crate) fn ended(&self, end: StepEnd) -> bool {
+    /// Whether `end`, listed by the step at `at`, holds. **A lifecycle end holds when it has come, or
+    /// when the person wrote on the step**: a Job parked on one he cannot see the end of is his to move.
+    pub(crate) fn ended(&self, at: usize, end: &StepEnd) -> bool {
         match end {
+            StepEnd::Lifecycle(_) => self.lifecycle_met.has(at) || self.messaged.has(at),
             StepEnd::Replied => self.replied,
             StepEnd::WalkApproved => self.any_walk_approved,
             StepEnd::SketchApproved => self.sketch_approved,
@@ -258,8 +282,8 @@ impl Facts {
         }
     }
 
-    fn any_ended(&self, ends: &[StepEnd]) -> bool {
-        ends.iter().any(|end| self.ended(*end))
+    fn any_ended(&self, at: usize, ends: &[StepEnd]) -> bool {
+        ends.iter().any(|end| self.ended(at, end))
     }
 
     fn has(&self, fit: Fit) -> bool {
@@ -296,9 +320,10 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return facts.landed;
     }
     if recorder(steps).is_some_and(|recording| at < recording) {
-        return facts.plan_recorded || facts.any_ended(&step.ends_on);
+        return facts.plan_recorded || facts.any_ended(at, &step.ends_on);
     }
-    true
+    // A step that lists a lifecycle end holds the Job until it comes.
+    !step.has_lifecycle_end() || facts.any_ended(at, &step.ends_on)
 }
 
 fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
@@ -324,9 +349,16 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
-        return !facts.any_ended(&step.ends_on) && !facts.plan_recorded && before(at);
+        return !facts.any_ended(at, &step.ends_on) && !facts.plan_recorded && before(at);
     }
-    let Some(fit) = step.fit else { return false };
+    // **A step that waits on a lifecycle is entered once the Job holds one**, and left when its end
+    // comes. The step after it, which nothing observable enters, is entered at that moment.
+    if step.has_lifecycle_end() {
+        return facts.lifecycle_held.has(at) && !facts.any_ended(at, &step.ends_on) && before(at);
+    }
+    let Some(fit) = step.fit else {
+        return at > 0 && steps[at - 1].has_lifecycle_end() && before(at);
+    };
     facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit))
 }
 
@@ -339,6 +371,11 @@ pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
     let facts = &facts.waived(steps);
     if let Some(delivering) = steps.iter().position(|step| step.delivers).filter(|_| facts.landed) {
         return (delivering + 1..steps.len()).find(|at| !facts.skipped.has(*at));
+    }
+    // The last step waited on a lifecycle and its end has come: nothing follows it.
+    let last = steps.len() - 1;
+    if steps[last].has_lifecycle_end() && (0..=last).all(|at| passed(steps, at, facts)) && facts.any_ended(last, &steps[last].ends_on) {
+        return None;
     }
     Some((0..steps.len()).rev().find(|at| entered(steps, *at, facts)).unwrap_or_else(|| standing(steps, facts)))
 }
@@ -518,8 +555,12 @@ pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Optio
     let mut said = format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label);
     let ends = rail_ends::ends_of(steps, at);
     if !ends.is_empty() {
-        let each: Vec<&str> = ends.iter().map(|end| end.for_agent()).collect();
+        let each: Vec<_> = ends.iter().map(|end| end.for_agent()).collect();
         said.push_str(&format!("\n\nThis step ends when {}.", each.join(", or ")));
+        // Fleet moves the Job on by itself, so the agent has nothing to do but stop.
+        if ends.iter().any(rail_ends::End::by_the_world) {
+            said.push_str(" End your turn now: Fleet wakes you with a message when it comes, so do not poll for it.");
+        }
         // A Job that pushed and stopped, waiting to be told to deliver, sat idle (28 Oct 2026).
         if let Some(next) = steps.get(at + 1).filter(|next| next.delivers && ends.iter().all(|end| end.by_the_job())) {
             said.push_str(&format!(

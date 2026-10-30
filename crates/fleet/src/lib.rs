@@ -61,6 +61,7 @@ mod loadout_reading;
 mod rail;
 /// What ends each step of a workflow, derived from its anchor, for the workflow's page.
 mod rail_ends;
+mod rail_lifecycle;
 /// The repository's test paths by convention, which the rail asks about a file the agent wrote.
 mod test_paths;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.

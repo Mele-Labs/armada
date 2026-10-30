@@ -1,13 +1,15 @@
 //! What ends a step, as a short fact, read off the step's anchor. **Pure**, and beside `rail`, whose
 //! rules it restates for a person and for the agent; nothing here is a second way to place a step.
 
-use core_model::StepEnd;
+use std::borrow::Cow;
+
+use core_model::{LifecycleEnd, StepEnd, Waits};
 
 use crate::rail::{Fit, RailStep};
 
 /// The fact that ends a step. One reading, said two ways: to the person on the workflow's page and to
 /// the agent standing on the step.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum End {
     Merged,
     PlanApproved,
@@ -28,59 +30,73 @@ pub(crate) enum End {
     /// A delivering step the Job has not delivered on yet: no pull request is open. Only `rail::stalled`
     /// reads it, as `end_of` names a delivering step's end as its merge.
     Undelivered,
+    /// Instances of a lifecycle the Job holds reach a state. The world's to bring about, and Fleet
+    /// reads it: neither the Job's act nor the person's.
+    Lifecycle(LifecycleEnd),
+}
+
+/// `in_review` as `in review`, the way a state reads in a sentence.
+fn spoken(id: impl std::fmt::Display) -> String {
+    id.to_string().replace('_', " ")
 }
 
 impl End {
     /// As the workflow's page says it, to the person.
-    pub(crate) fn for_person(self) -> &'static str {
+    pub(crate) fn for_person(&self) -> Cow<'static, str> {
         match self {
-            End::Merged => "it is merged",
-            End::PlanApproved => "you approve the plan",
-            End::WalkApproved => "you approve the walk",
-            End::Replied => "you reply",
-            End::AnyWalkApproved => "you approve a walk",
-            End::SketchApproved => "you approve a sketch",
-            End::DraftApproved => "you approve a draft",
-            End::IdeaPicked => "you pick one of the ideas shown",
-            End::PlanRecorded => "a plan is recorded",
-            End::Pushed => "it is pushed",
-            End::WalkShown => "a walk is shown",
-            End::Edited => "a file is edited",
-            End::Checked => "a Check is run",
-            End::Committed => "a commit is made",
-            End::PrOpened => "a pull request is opened",
-            End::Undelivered => "it is delivered",
+            End::Lifecycle(end) => {
+                let which = if end.waits() == Waits::Any { "any" } else { "every" };
+                format!("{which} {} is {}", spoken(end.lifecycle()), spoken(end.state())).into()
+            }
+            End::Merged => "it is merged".into(),
+            End::PlanApproved => "you approve the plan".into(),
+            End::WalkApproved => "you approve the walk".into(),
+            End::Replied => "you reply".into(),
+            End::AnyWalkApproved => "you approve a walk".into(),
+            End::SketchApproved => "you approve a sketch".into(),
+            End::DraftApproved => "you approve a draft".into(),
+            End::IdeaPicked => "you pick one of the ideas shown".into(),
+            End::PlanRecorded => "a plan is recorded".into(),
+            End::Pushed => "it is pushed".into(),
+            End::WalkShown => "a walk is shown".into(),
+            End::Edited => "a file is edited".into(),
+            End::Checked => "a Check is run".into(),
+            End::Committed => "a commit is made".into(),
+            End::PrOpened => "a pull request is opened".into(),
+            End::Undelivered => "it is delivered".into(),
         }
     }
 
     /// As the agent on the step is told it, naming the tool where one does it.
-    pub(crate) fn for_agent(self) -> &'static str {
+    pub(crate) fn for_agent(&self) -> Cow<'static, str> {
         match self {
-            End::Merged => "its pull request merges",
-            End::PlanApproved => "the person approves the plan",
-            End::WalkApproved => "the person approves the walk",
-            End::Replied => "the person replies",
-            End::AnyWalkApproved => "the person approves a walk you showed with show_window",
-            End::SketchApproved => "the person approves a sketch you showed with show_sketch",
-            End::DraftApproved => "the person approves a draft you proposed with propose_draft",
-            End::IdeaPicked => "the person picks an option you gave a preview in AskUserQuestion",
-            End::PlanRecorded => "you record a plan with record_plan",
-            End::Pushed => "you push the branch",
-            End::WalkShown => "you show a walk with show_window",
-            End::Edited => "you edit a file",
-            End::Checked => "you run a Check with armada check",
-            End::Committed => "you commit",
-            End::PrOpened => "you open a pull request",
-            End::Undelivered => "you deliver the way the person chose",
+            End::Lifecycle(_) => format!("{}, which Fleet watches for", self.for_person()).into(),
+            End::Merged => "its pull request merges".into(),
+            End::PlanApproved => "the person approves the plan".into(),
+            End::WalkApproved => "the person approves the walk".into(),
+            End::Replied => "the person replies".into(),
+            End::AnyWalkApproved => "the person approves a walk you showed with show_window".into(),
+            End::SketchApproved => "the person approves a sketch you showed with show_sketch".into(),
+            End::DraftApproved => "the person approves a draft you proposed with propose_draft".into(),
+            End::IdeaPicked => "the person picks an option you gave a preview in AskUserQuestion".into(),
+            End::PlanRecorded => "you record a plan with record_plan".into(),
+            End::Pushed => "you push the branch".into(),
+            End::WalkShown => "you show a walk with show_window".into(),
+            End::Edited => "you edit a file".into(),
+            End::Checked => "you run a Check with armada check".into(),
+            End::Committed => "you commit".into(),
+            End::PrOpened => "you open a pull request".into(),
+            End::Undelivered => "you deliver the way the person chose".into(),
         }
     }
 
     /// The Job's own act ends the step, so nobody else will: Fleet does not move it, and the person
     /// has nothing to answer.
-    pub(crate) fn by_the_job(self) -> bool {
+    pub(crate) fn by_the_job(&self) -> bool {
         !matches!(
             self,
-            End::Merged
+            End::Lifecycle(_)
+                | End::Merged
                 | End::PlanApproved
                 | End::WalkApproved
                 | End::Replied
@@ -91,13 +107,19 @@ impl End {
         )
     }
 
-    fn listed(end: StepEnd) -> End {
+    /// Fleet reads it off the world and moves the Job, so it raises no wait for the person.
+    pub(crate) fn by_the_world(&self) -> bool {
+        matches!(self, End::Lifecycle(_))
+    }
+
+    fn listed(end: &StepEnd) -> End {
         match end {
             StepEnd::Replied => End::Replied,
             StepEnd::WalkApproved => End::AnyWalkApproved,
             StepEnd::SketchApproved => End::SketchApproved,
             StepEnd::DraftApproved => End::DraftApproved,
             StepEnd::IdeaPicked => End::IdeaPicked,
+            StepEnd::Lifecycle(end) => End::Lifecycle(end.clone()),
         }
     }
 }
@@ -116,10 +138,13 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
     if step.walks {
         return vec![End::WalkApproved];
     }
+    if step.has_lifecycle_end() {
+        return step.ends_on.iter().map(End::listed).collect();
+    }
     if steps.iter().position(|one| one.records_plan).is_some_and(|recording| at < recording) {
         return match step.ends_on.is_empty() {
             true => vec![End::PlanRecorded],
-            false => step.ends_on.iter().copied().map(End::listed).collect(),
+            false => step.ends_on.iter().map(End::listed).collect(),
         };
     }
     steps.get(at + 1).and_then(entry).into_iter().collect()
@@ -128,21 +153,21 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
 /// What ends the step at `at` where one thing does, or `None` where several or nothing does.
 pub(crate) fn end_of(steps: &[RailStep], at: usize) -> Option<End> {
     match ends_of(steps, at).as_slice() {
-        [one] => Some(*one),
+        [one] => Some(one.clone()),
         _ => None,
     }
 }
 
 /// What ends the step at `at`, to the person, where one thing does. Served by the workflow's page.
-pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<&'static str> {
-    end_of(steps, at).map(End::for_person)
+pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<String> {
+    end_of(steps, at).map(|end| end.for_person().into_owned())
 }
 
 /// Everything that ends the step at `at`, to the person, any one of them. For the workflow's page,
 /// which serves it once `StepReading` carries `ends_any`.
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn ends_any(steps: &[RailStep], at: usize) -> Vec<&'static str> {
-    ends_of(steps, at).into_iter().map(End::for_person).collect()
+pub(crate) fn ends_any(steps: &[RailStep], at: usize) -> Vec<String> {
+    ends_of(steps, at).iter().map(|end| end.for_person().into_owned()).collect()
 }
 
 /// What a step is entered on, which is what ends the one before it.

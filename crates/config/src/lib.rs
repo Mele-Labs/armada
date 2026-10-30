@@ -57,7 +57,7 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRun, NewRunner, NotAmended, PortEdit, RunEdit, Unplaceable,
 };
 pub use catalogue::{
-    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
+    carried, fit, fit_naming, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
     CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
@@ -79,7 +79,7 @@ pub use watches::{
     Written as WatchRecipeWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{head_of, MechanicalCheck, Step, WorkflowDef, WorkflowHead};
+pub use workflow::{head_of, names_no_lifecycle, EndFault, MechanicalCheck, NamesNoLifecycle, Step, WorkflowDef, WorkflowHead};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that

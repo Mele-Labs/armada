@@ -22,13 +22,13 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use core_model::{WorkflowId, WorkflowSource};
+use core_model::{Lifecycle, WorkflowId, WorkflowSource};
 
 use crate::error::{LoadError, ResolveError};
 use crate::manifest::Manifest;
 use crate::resolve::ResolvedWorkflow;
 use crate::roster::Roster;
-use crate::workflow::WorkflowDef;
+use crate::workflow::{names_no_lifecycle, NamesNoLifecycle, WorkflowDef};
 
 /// Where a carried definition says it was read from. **Not a file** — a name
 /// for a refusal to cite, bracketed so it cannot be mistaken for a path
@@ -132,6 +132,9 @@ pub fn carried() -> Vec<Written> {
 pub struct Catalogue {
     held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource, String)>>,
     left_out: Vec<LeftOut>,
+    /// The lifecycles that apply to the repository, once the caller has said. **`None` checks no
+    /// lifecycle end**: a catalogue nobody told is not one that knows there are none.
+    lifecycles: Option<Vec<Lifecycle>>,
 }
 
 impl Catalogue {
@@ -180,7 +183,13 @@ impl Catalogue {
             let (def, text) = defs.remove(0);
             held.entry(id).or_default().push((def, source, text));
         }
-        Catalogue { held, left_out }
+        Catalogue { held, left_out, lifecycles: None }
+    }
+
+    /// Say which lifecycles apply to the repository, so a definition whose `ends_on` names one
+    /// that does not, or a state it lacks, is left out with a sentence naming it.
+    pub fn naming(self, lifecycles: Vec<Lifecycle>) -> Catalogue {
+        Catalogue { lifecycles: Some(lifecycles), ..self }
     }
 
     /// Resolve the most specific definition for each id against the
@@ -209,6 +218,12 @@ impl Catalogue {
                         files[at].hides = Some(source);
                     }
                     files.push(WorkflowFile::of(&id, source, &def, text, Some(by)));
+                    continue;
+                }
+                let unnamed = self.lifecycles.as_deref().map(|known| names_no_lifecycle(def.steps(), known));
+                if let Some(unnamed) = unnamed.filter(|unnamed| !unnamed.is_empty()) {
+                    let why = WhyLeftOut::NamesNoLifecycle(unnamed);
+                    left_out.push(LeftOut::of(Some(id.clone()), source, def.path().to_path_buf(), why));
                     continue;
                 }
                 match ResolvedWorkflow::resolve_gated(&def, manifest, gating) {
@@ -381,6 +396,8 @@ pub enum WhyLeftOut {
     /// Another file in the same place declares the same id, and nothing picks
     /// between them. `also` is every file after the first.
     Duplicated { also: Vec<PathBuf> },
+    /// A step ends on a lifecycle, or a state of one, that the repository's lifecycles do not have.
+    NamesNoLifecycle(Vec<NamesNoLifecycle>),
 }
 
 impl LeftOut {
@@ -443,6 +460,10 @@ impl fmt::Display for LeftOut {
         match &self.why {
             WhyLeftOut::Unparsed(why) => write!(f, "{why}")?,
             WhyLeftOut::Unresolved(why) => write!(f, "{why}")?,
+            WhyLeftOut::NamesNoLifecycle(unnamed) => {
+                let said: Vec<String> = unnamed.iter().map(ToString::to_string).collect();
+                write!(f, "{}", said.join("; "))?
+            }
             WhyLeftOut::Duplicated { also } => {
                 write!(f, "{}", self.path.display())?;
                 for path in also {
@@ -482,6 +503,8 @@ pub enum Unfit {
     /// It parses, and names what the repository does not declare, or says
     /// something else about what it does.
     Unresolved(ResolveError),
+    /// It ends a step on a lifecycle, or a state of one, the repository does not have.
+    NamesNoLifecycle(Vec<NamesNoLifecycle>),
 }
 
 impl fmt::Display for Unfit {
@@ -489,6 +512,10 @@ impl fmt::Display for Unfit {
         match self {
             Unfit::Unparsed(why) => write!(f, "{why}"),
             Unfit::Unresolved(why) => write!(f, "{why}"),
+            Unfit::NamesNoLifecycle(unnamed) => {
+                let said: Vec<String> = unnamed.iter().map(ToString::to_string).collect();
+                write!(f, "{}", said.join("; "))
+            }
         }
     }
 }
@@ -506,6 +533,25 @@ pub fn fit(
     manifest: &Manifest,
 ) -> Result<WorkflowId, Unfit> {
     let def = WorkflowDef::parse(path, text, roster).map_err(Unfit::Unparsed)?;
+    ResolvedWorkflow::resolve(&def, manifest).map_err(Unfit::Unresolved)?;
+    Ok(def.id().clone())
+}
+
+/// [`fit`], and the lifecycle ends the definition writes must be ones `lifecycles` has: what is
+/// saved is judged by what would load it, and a catalogue told the lifecycles leaves out a
+/// definition that names others.
+pub fn fit_naming(
+    path: &Path,
+    text: &str,
+    roster: &Roster,
+    manifest: &Manifest,
+    lifecycles: &[Lifecycle],
+) -> Result<WorkflowId, Unfit> {
+    let def = WorkflowDef::parse(path, text, roster).map_err(Unfit::Unparsed)?;
+    let unnamed = names_no_lifecycle(def.steps(), lifecycles);
+    if !unnamed.is_empty() {
+        return Err(Unfit::NamesNoLifecycle(unnamed));
+    }
     ResolvedWorkflow::resolve(&def, manifest).map_err(Unfit::Unresolved)?;
     Ok(def.id().clone())
 }

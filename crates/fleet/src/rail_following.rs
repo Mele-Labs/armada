@@ -91,7 +91,7 @@ where
         }
         let skips = rail::skipped(&steps, &facts);
         let stalled = rail::stalled(&steps, &record);
-        let now = Seen { step: record.workflow_step, skipped: skips.clone(), stalled: stalled.map(|(at, _)| at) };
+        let now = Seen { step: record.workflow_step, skipped: skips.clone(), stalled: stalled.as_ref().map(|(at, _)| *at) };
         if seen.get(&id) == Some(&now) {
             return;
         }

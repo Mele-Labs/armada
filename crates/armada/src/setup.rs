@@ -155,6 +155,7 @@ impl Setup {
         } = fleet::workspaces::load(root, &manifest);
         let gating: Vec<&Manifest> = std::iter::once(&manifest).chain(&workspaces).collect();
         let (workflows, left_out, files) = Catalogue::of(written, roster)
+            .naming(fleet::lifecycles::lifecycles_that_apply(manifest.id().as_str()))
             .resolve_gated(&manifest, &gating)
             .into_parts();
 
@@ -332,6 +333,7 @@ pub fn workflows_again(
     ));
     let gating: Vec<&Manifest> = std::iter::once(manifest).chain(workspaces).collect();
     Catalogue::of(written, roster)
+        .naming(fleet::lifecycles::lifecycles_that_apply(manifest.id().as_str()))
         .resolve_gated(manifest, &gating)
         .into_parts()
 }

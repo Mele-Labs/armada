@@ -64,6 +64,7 @@ pub use lifecycle::{
     LifecycleId, LifecycleInstance, LifecycleScope, LifecycleState, LifecycleTransition,
     MalformedLifecycle, Moved, NotAnId, NotOfThisLifecycle, Observed, ScopeId, StateId, StateRead, StateSource, Standing,
     TrackerWords,
+    LifecycleEnd, NotALifecycleEnd, Waits,
 };
 pub use retro::{Change, LandsIn, LessonState, Via, Whose};
 pub use test_map::{EdgeGrain, EdgeSource, TestMapEdge};

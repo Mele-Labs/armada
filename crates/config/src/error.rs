@@ -330,6 +330,7 @@ pub enum Fault {
     /// too, so a single step can plan and keep its own tasks current, which
     /// `revert` does.
     FollowsPlanWithNoPlanStep,
+    Ends(crate::workflow::EndFault),
 }
 
 /// Why a step's `artifact_exists` target cannot name the one file the next step
@@ -648,6 +649,7 @@ impl fmt::Display for Fault {
                  plan. A step that records the plan is not done until Fleet's \
                  own record of it says so"
             ),
+            Fault::Ends(why) => write!(f, "{why}"),
             Fault::FollowsPlanWithNoPlanStep => write!(
                 f,
                 "is `follows_plan: true`, and no step at or before this one \
