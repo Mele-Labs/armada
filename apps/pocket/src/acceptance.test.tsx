@@ -139,12 +139,18 @@ afterEach(async () => {
 describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
   it("lists Needs you from both Macs, oldest first, each row labelled with its Mac", async () => {
     await open("/");
-    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(2));
-    const [first, second] = rows("Needs you");
-    expect(first).toContain("Rename the slot pool");
-    expect(first).toContain("laptop");
-    expect(second).toContain("Trim the Drone pool");
-    expect(second).toContain("studio");
+    await vi.waitFor(() => expect(rows("Needs you")).toHaveLength(4));
+    const needs = rows("Needs you");
+    const waiting: [string, string][] = [
+      ["Rename the slot pool", "laptop"],
+      ["Trim the Drone pool", "studio"],
+      ["Open the push payload PR", "laptop"],
+      ["Move Fleet to the preview", "studio"],
+    ];
+    waiting.forEach(([title, mac], at) => {
+      expect(needs[at]).toContain(title);
+      expect(needs[at]).toContain(mac);
+    });
     await vi.waitFor(() => expect(rows("Running").join()).toContain("Read the push payload"));
     expect(rows("Running").join()).toContain("Redraw the Needs you band");
     expect(host.querySelector('[aria-label="Done"]')).toBeNull();
@@ -157,8 +163,10 @@ describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
     await vi.waitFor(() => expect(text()).toContain("Not paired"));
     expect(window.location.pathname).toBe("/");
     const needs = rows("Needs you");
-    expect(needs).toHaveLength(1);
+    expect(needs).toHaveLength(2);
     expect(needs[0]).toContain("Trim the Drone pool");
+    expect(needs[1]).toContain("Move Fleet to the preview");
+    expect(needs.join()).not.toContain("laptop");
     const unpaired = rows("Macs");
     expect(unpaired.join()).toContain("laptop");
     expect(button("Pair again")).toBeTruthy();
@@ -211,13 +219,13 @@ describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
 describe("the phone draws as Bridge does", { timeout: 30_000 }, () => {
   it("lists Home as the Cockpit's rows, Needs you in the ask tone above Running, each with its age", async () => {
     await open("/");
-    await vi.waitFor(() => expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(3));
+    await vi.waitFor(() => expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(5));
     const asking = Array.from(host.querySelectorAll<HTMLElement>('[aria-label="Needs you"] .deck-row'));
-    expect(asking.map((row) => row.getAttribute("aria-label"))).toEqual(["Rename the slot pool", "Trim the Drone pool"]);
+    expect(asking.map((row) => row.getAttribute("aria-label"))).toEqual(["Rename the slot pool", "Trim the Drone pool", "Open the push payload PR", "Move Fleet to the preview"]);
     expect(asking.every((row) => row.dataset["tone"] === "ask" && row.dataset["needs"] !== undefined)).toBe(true);
     expect(asking.every((row) => /ago$/.test(row.querySelector(".deck-row__said")?.textContent ?? ""))).toBe(true);
     const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
-    expect(headings).toEqual(["Needs you", "Running"]);
+    expect(headings).toEqual(["Drafts", "Needs you", "Running"]);
   });
 
   it("opens a Job with Bridge's composer under its thread", async () => {
@@ -225,6 +233,163 @@ describe("the phone draws as Bridge does", { timeout: 30_000 }, () => {
     await vi.waitFor(() => expect(text()).toContain("The pool holds eight slots"));
     expect(host.querySelector("form.armada-session-composer")).not.toBeNull();
     expect(button("Home")).toBeTruthy();
+  });
+});
+
+describe("a draft Job, and the acts on a Job", { timeout: 30_000 }, () => {
+  const DRAFT = `/drafts/${encodeURIComponent(STUDIO)}/d1`;
+  const BRIEF = "Split crates/pool into two crates: lease, which hands out slots, and sweep, which gives back the idle ones.\n\nKeep the public names. Move the tests with the code they cover.";
+  const field = (label: string) => host.querySelector<HTMLTextAreaElement>(`textarea[aria-label="${label}"]`);
+  const typeInto = async (element: HTMLTextAreaElement | null, value: string) => {
+    expect(element).toBeTruthy();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(element, value);
+      element!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+  const radio = (value: string) => host.querySelector<HTMLInputElement>(`input[type="radio"][value="${value}"]`);
+  const openMenu = () => press(button("More"));
+  const menuItem = (name: string) => Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((one) => one.textContent?.trim() === name);
+  const items = () => Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((one) => one.textContent?.trim());
+  const choose = async (name: string) => {
+    await openMenu();
+    await press(menuItem(name));
+  };
+
+  beforeEach(() => localStorage.clear());
+
+  it("lists a held Job under Drafts, and neither under Needs you nor under Running", async () => {
+    await open("/");
+    await vi.waitFor(() => expect(rows("Drafts")).toHaveLength(1));
+    expect(rows("Drafts")[0]).toContain("Split the pool crate");
+    expect(rows("Needs you").join()).not.toContain("Split the pool crate");
+    expect(rows("Running").join()).not.toContain("Split the pool crate");
+    await press(host.querySelector('[aria-label="Drafts"] .deck-row'));
+    expect(window.location.pathname).toBe(DRAFT);
+  });
+
+  it("opens a draft to its brief and Fleet's pick of how the work lands", async () => {
+    await open(DRAFT);
+    await vi.waitFor(() => expect(field("Brief")).toBeTruthy());
+    expect(field("Brief")!.value).toBe(BRIEF);
+    expect(radio("open_pr")!.checked).toBe(true);
+    expect(radio("auto_land")!.checked).toBe(false);
+    expect(radio("keep_local")!.checked).toBe(false);
+    expect(text()).toContain("Your usual");
+  });
+
+  it("sends a draft with the brief as edited and the landing picked, then opens it as a Job", async () => {
+    await open(DRAFT);
+    await vi.waitFor(() => expect(field("Brief")).toBeTruthy());
+    await typeInto(field("Brief"), "Split crates/pool in two. Keep the names.");
+    await press(radio("keep_local"));
+    await press(button("Send"));
+    await vi.waitFor(() => expect(posted[STUDIO]!.filter((one) => one.path === "/api/sessions/begin")).toHaveLength(1));
+    expect(posted[STUDIO]!.find((one) => one.path === "/api/sessions/begin")).toEqual({
+      path: "/api/sessions/begin",
+      body: { session_id: "d1", message: "Split crates/pool in two. Keep the names.", delivery: "keep_local" },
+    });
+    expect(posted[LAPTOP]).toEqual([]);
+    await vi.waitFor(() => expect(window.location.pathname).toBe(`/jobs/${encodeURIComponent(STUDIO)}/d1`));
+    await vi.waitFor(() => expect(text()).toContain("Split crates/pool in two. Keep the names."));
+  });
+
+  it("sends the landing Fleet picked when none was chosen, and the brief untouched", async () => {
+    await open(DRAFT);
+    await vi.waitFor(() => expect(field("Brief")).toBeTruthy());
+    await press(button("Send"));
+    await vi.waitFor(() => expect(posted[STUDIO]!.some((one) => one.path === "/api/sessions/begin")).toBe(true));
+    expect(posted[STUDIO]!.find((one) => one.path === "/api/sessions/begin")!.body).toEqual({ session_id: "d1", message: BRIEF, delivery: "open_pr" });
+  });
+
+  it("discards a draft by closing it, and goes home", async () => {
+    await open(DRAFT);
+    await vi.waitFor(() => expect(field("Brief")).toBeTruthy());
+    await press(button("Discard"));
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/close", body: { session_id: "d1" } }]));
+    await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
+    await vi.waitFor(() => expect(rows("Needs you").length).toBeGreaterThan(0));
+    expect(host.querySelector('[aria-label="Drafts"]')).toBeNull();
+  });
+
+  it("runs a command the Job asked for on its Mac, and then shows it ran with its exit code", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/r1`);
+    await vi.waitFor(() => expect(button("Run")).toBeTruthy());
+    expect(text()).toContain("scripts/preview --restart");
+    expect(text()).not.toContain("exit 0");
+    await press(button("Run"));
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/run/start", body: { session_id: "r1", command: "scripts/preview --restart" } }]));
+    await vi.waitFor(() => expect(text()).toContain("exit 0"));
+    expect(button("Run")).toBeUndefined();
+    expect(host.querySelector('[role="img"][aria-label="Ran"]')).not.toBeNull();
+    expect(posted[LAPTOP]).toEqual([]);
+  });
+
+  it("approves a proposed draft by answering its item `draft:<row id>` with the first choice", async () => {
+    await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
+    await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
+    await press(button("Approve"));
+    await vi.waitFor(() => expect(posted[LAPTOP]).toEqual([{ path: "/api/sessions/waiting/answer", body: { session_id: "b3", item_id: "draft:b3-3", choice: 0 } }]));
+    await vi.waitFor(() => expect(button("Approve")).toBeUndefined());
+    expect(posted[STUDIO]).toEqual([]);
+  });
+
+  it("sends a proposed draft back with the owner's note, on the same item", async () => {
+    await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
+    await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
+    await press(button("Send back"));
+    expect(button("Send back")!.hasAttribute("disabled")).toBe(true);
+    await typeInto(field("Note"), "Say which crate.");
+    await press(button("Send back"));
+    await vi.waitFor(() => expect(posted[LAPTOP]).toEqual([{ path: "/api/sessions/waiting/answer", body: { session_id: "b3", item_id: "draft:b3-3", text: "Say which crate." } }]));
+    await vi.waitFor(() => expect(button("Approve")).toBeUndefined());
+  });
+
+  it("stops a running turn from the menu", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await openMenu();
+    expect(items()).toEqual(expect.arrayContaining(["Stop", "Pause", "Fork", "End job"]));
+    await press(menuItem("Stop"));
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/stop", body: { session_id: "a2" } }]));
+  });
+
+  it("offers no Stop to a Job with no turn running", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a1`);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await openMenu();
+    expect(items()).not.toContain("Stop");
+    expect(items()).toContain("Pause");
+  });
+
+  it("pauses a Job from the menu, and then offers Resume in place of Pause, which resumes it", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await choose("Pause");
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/pause", body: { session_id: "a2" } }]));
+    await vi.waitFor(async () => {
+      if (items().length === 0) await openMenu();
+      expect(items()).toContain("Resume");
+    });
+    expect(items()).not.toContain("Pause");
+    await press(menuItem("Resume"));
+    await vi.waitFor(() => expect(posted[STUDIO]!.map((one) => one.path)).toEqual(["/api/sessions/pause", "/api/sessions/resume"]));
+    expect(posted[STUDIO]![1]!.body).toEqual({ session_id: "a2" });
+  });
+
+  it("ends a Job from the menu by closing it", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await choose("End job");
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/close", body: { session_id: "a2" } }]));
+  });
+
+  it("forks a Job from the menu and opens the new Job", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await choose("Fork");
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/fork", body: { session_id: "a2" } }]));
+    await vi.waitFor(() => expect(window.location.pathname).toMatch(new RegExp(`^/jobs/${encodeURIComponent(STUDIO)}/a2-fork-`)));
   });
 });
 
@@ -251,8 +416,9 @@ describe("the lists stay fresh", { timeout: 30_000 }, () => {
     await settle();
     expect(listReads(STUDIO)).toEqual(["/api/sessions"]);
     expect(listReads(LAPTOP)).toEqual(["/api/sessions"]);
-    expect(fleet.macOf(STUDIO)!.needs.map((one) => one.id)).toEqual(["a1"]);
-    expect(fleet.macOf(LAPTOP)!.needs.map((one) => one.id)).toEqual(["b1"]);
+    // The Mac's own list holds a draft too, which is waiting on its first message; Home sets it apart.
+    expect(fleet.macOf(STUDIO)!.needs.map((one) => one.id)).toEqual(["d1", "a1", "r1"]);
+    expect(fleet.macOf(LAPTOP)!.needs.map((one) => one.id)).toEqual(["b1", "b3"]);
   });
 
   it("aborts a stream that has gone 40 s without a byte, and a beat counts as a byte", async () => {

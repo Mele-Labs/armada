@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
+import { fixtureMacs } from "./fixture/wire";
+import { runsOf, sessionOfThread } from "./thread";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
@@ -91,6 +93,8 @@ describe("routeOf", () => {
     expect(routeOf(`/jobs/${mac}/s1/file?path=%2Fa%2Fb.md`)).toEqual({ screen: "file", origin: "https://studio.tail0.ts.net", id: "s1", path: "/a/b.md" });
     expect(routeOf(`/jobs/${mac}/s1/sketch?id=sketch%3AHome`)).toEqual({ screen: "sketch", origin: "https://studio.tail0.ts.net", id: "s1", sketch: "sketch:Home" });
     expect(routeOf("/pair?code=abc")).toEqual({ screen: "pair", code: "abc" });
+    expect(routeOf(`/drafts/${mac}/d1`)).toEqual({ screen: "draft", origin: "https://studio.tail0.ts.net", id: "d1" });
+    expect(routeOf("/drafts/_/d1")).toEqual({ screen: "draft", origin: "_", id: "d1" });
     expect(routeOf("/nowhere")).toEqual({ screen: "home" });
   });
 });
@@ -109,9 +113,36 @@ describe("homeOf", () => {
     expect(home.running.map((one) => one.session.id)).toEqual(["a2"]);
     expect(home.several).toBe(false);
   });
+  it("lists a held Job under drafts alone, whether or not it waits on its first message", () => {
+    const home = homeOf({ macs: [mac("https://a", { needs: [session("d1", { held: true, waiting: true })], live: [session("d1", { held: true, waiting: true }), session("d2", { held: true }), session("a1", { working: true })] })] });
+    expect(home.drafts.map((one) => one.session.id).sort()).toEqual(["d1", "d2"]);
+    expect(home.needs).toEqual([]);
+    expect(home.running.map((one) => one.session.id)).toEqual(["a1"]);
+  });
   it("lists an open Job with no turn running, which is neither waiting nor ended", () => {
     const home = homeOf({ macs: [mac("https://a", { live: [session("a1", { working: true }), session("a2", {}), session("a3", { waiting: true })] })] });
     expect(home.running.map((one) => one.session.id).sort()).toEqual(["a1", "a2"]);
+  });
+});
+
+describe("runsOf", () => {
+  const thread = () => fixtureMacs(Date.now(), { studio: "https://studio", laptop: "https://laptop" })["https://studio"]!.threads["r1"]!;
+  const runs = (wire: ReturnType<typeof thread>) => runsOf(sessionOfThread(wire), wire);
+  it("draws a command item as a card to run, with no ran mark before a run", () => {
+    expect(runs(thread())).toMatchObject([{ command: "scripts/preview --restart" }]);
+    expect(runs(thread())[0]!.ran).toBeUndefined();
+  });
+  it("marks it ran, with the exit code, once a newer ran row answers the same command", () => {
+    const wire = thread();
+    const at = new Date().toISOString();
+    wire.rows.push({ kind: "ran", id: "r1-ran", at, command: " scripts/preview --restart ", code: 2, tail: "" });
+    expect(runs(wire)[0]!.ran).toEqual({ code: 2 });
+  });
+  it("does not count a ran row older than the item, nor one for another command", () => {
+    const wire = thread();
+    wire.rows.push({ kind: "ran", id: "r1-old", at: new Date(Date.now() - 3_600_000).toISOString(), command: "scripts/preview --restart", code: 0, tail: "" });
+    wire.rows.push({ kind: "ran", id: "r1-other", at: new Date().toISOString(), command: "ls", code: 0, tail: "" });
+    expect(runs(wire)[0]!.ran).toBeUndefined();
   });
 });
 
