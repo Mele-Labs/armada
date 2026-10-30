@@ -189,6 +189,60 @@ function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Sub
             <dt>Starts from</dt>
             <dd data-mono>{startsFrom(wait)}</dd>
           </div>
+          {draft.startThen === undefined ? null : (
+            <div className="deck-facts__row">
+              <dt>Then</dt>
+              <dd>
+                <Select aria-label="Then" value={wait.held === false ? "start" : "draft"} onChange={(event) => draft.startThen?.(session.id, event.target.value === "draft")}>
+                  <option value="start">Start immediately</option>
+                  <option value="draft">Open as draft</option>
+                </Select>
+              </dd>
+            </div>
+          )}
+          {draft.startTuning === undefined ? null : (
+            <>
+              <div className="deck-facts__row">
+                <dt>Workflow</dt>
+                <dd>
+                  <Select aria-label="Workflow" value={wait.workflow ?? ""} onChange={(event) => draft.startTuning?.(session.id, { workflow: event.target.value === "" ? null : event.target.value })}>
+                    <option value="">Auto</option>
+                    {(draft.work?.workflows ?? []).map((one) => (
+                      <option key={one.id} value={one.id}>
+                        {one.name}
+                      </option>
+                    ))}
+                  </Select>
+                </dd>
+              </div>
+              <div className="deck-facts__row">
+                <dt>Model</dt>
+                <dd>
+                  <Select aria-label="Model" value={wait.model ?? ""} onChange={(event) => draft.startTuning?.(session.id, { model: event.target.value === "" ? null : event.target.value })}>
+                    <option value="">{draft.defaultModel ?? "Auto"}</option>
+                    {draft.models.map((one) => (
+                      <option key={one} value={one}>
+                        {one}
+                      </option>
+                    ))}
+                  </Select>
+                </dd>
+              </div>
+              <div className="deck-facts__row">
+                <dt>Effort</dt>
+                <dd>
+                  <Select aria-label="Effort" value={wait.effort ?? ""} onChange={(event) => draft.startTuning?.(session.id, { effort: event.target.value === "" ? null : event.target.value })}>
+                    <option value="">Auto</option>
+                    {draft.efforts.map((one) => (
+                      <option key={one} value={one}>
+                        {one}
+                      </option>
+                    ))}
+                  </Select>
+                </dd>
+              </div>
+            </>
+          )}
         </dl>
       </div>
     </section>
