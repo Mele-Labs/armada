@@ -1138,7 +1138,7 @@ Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field f
 
 **`HeldInstance.ended_at` is left out unless ending the Job ended the instance**, so a Fleet older than the field answers as it did and Bridge reads every instance as live.
 Ending a Job keeps each instance no end state had taken as ended, standing where it was, and raises `job_lifecycles.changed`; a Job that holds nothing raises nothing.
-`all_done` and `finish_up` are refused 409 `fleet.lifecycles_in_flight` while the Job holds one, and `lifecycles_clear` is the notice that tells the agent that was refused once the last is over (`crates/ipc/operations/all_done.toml`).
+`all_done` and `finish_up` are refused 409 `fleet.lifecycles_in_flight` while the Job holds one in a state its lifecycle does not end on (an unread or unmapped instance holds nothing), and `lifecycles_clear` is the notice that tells the agent that was refused once the last is over (`crates/ipc/operations/all_done.toml`).
 
 **`acts` are the acts the Job's rules planned, oldest first, and are left out when there are none**, so a Fleet older than the field answers as it did and Bridge draws no act.
 `course` is `acts` or `asks`; `standing` is `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`; `text` is the one line the owner reads, as it was kept, and `said` is what failed or why nothing here carries it.

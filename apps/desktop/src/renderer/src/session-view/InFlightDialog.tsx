@@ -1,5 +1,5 @@
 // What End lists first on a Job that still holds a ticket, a pull request or a deploy not in an end state, each as `Deploy: Rolling out`; one not read yet is its label alone. Ending a Job ends it and its instances, and
-// nothing here cancels anything: the list is the states as they stand. End job goes on as it does with nothing in flight, and Keep going leaves the Job as it is.
+// nothing here cancels anything: the list is the states as they stand. End job goes on as it does with nothing in flight, and Keep going leaves the Job as it is. Mounted once, by `end-job.tsx`, for every End.
 
 import { Dialog } from "@armada/components";
 

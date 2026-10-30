@@ -2,11 +2,15 @@
 //! `docs/concepts/session/the-rail.md`, *A live instance holds its Job open*.
 //!
 //! **A live instance holds its Job open, as an open pull request does.** The agent's `all_done` and
-//! `finish_up` are refused while the Job holds one, each named as `Deploy is Rolling out`, and Fleet
-//! tells the agent when the last one reaches an end state. **Ending the Job ends its instances**:
-//! each one still in flight is kept as ended, standing where it was, and no reader moves it again.
-//! Bridge lists the same instances before the person ends the Job. A Job that holds none, which is
-//! every Job started before lifecycles, is held by nothing and ends as it always did.
+//! `finish_up` are refused while the Job holds one standing in a state its lifecycle knows and does
+//! not end on, each named as `Deploy is Rolling out`, and Fleet tells the agent when the last one
+//! reaches an end state. **One unread, or in a status nobody could place, holds nothing**: the
+//! built-in Ticket lifecycle lists no tracker words, so a Job holding a ticket under it would be
+//! refused with nothing the agent could do to clear it. **Ending the Job ends its instances**, the
+//! unplaced too: each one no end state has taken is kept as ended, standing where it was, and no
+//! reader moves it again. Bridge lists the same instances before the person ends the Job. A Job
+//! that holds none, which is every Job started before lifecycles, is held by nothing and ends as it
+//! always did.
 
 use std::sync::Arc;
 
@@ -32,15 +36,15 @@ pub struct Flying {
     /// Where it stands, in the lifecycle's own label for the state or, for a status nobody could place,
     /// the word its source used. **Empty for one not read yet.**
     pub state: String,
+    /// It stands in a state its lifecycle knows and does not end on. **Only such an instance holds the
+    /// Job open**; one unread or unmapped is listed at End and refuses nothing.
+    pub holds: bool,
 }
 
 impl Flying {
-    /// `Deploy is Rolling out`; for one not read yet, `ARM-42 is not read`.
+    /// `Deploy is Rolling out`.
     pub fn held(&self) -> String {
-        match self.state.is_empty() {
-            true => format!("{} is not read", self.label),
-            false => format!("{} is {}", self.label, self.state),
-        }
+        format!("{} is {}", self.label, self.state)
     }
 }
 
@@ -59,18 +63,17 @@ pub fn state_said(lifecycles: &[Lifecycle], subject: &InstanceRef, standing: &St
 }
 
 /// What `held` still holds, in the order it was taken on. **An unread or unmapped instance is among
-/// them**: only a state ends one, because an instance nobody can place must not be let go.
+/// them**, since only a state ends one and an instance nobody can place must not be let go, and
+/// `holds` says which of them keep the Job open.
 pub fn flying(held: &HeldInstances, lifecycles: &[Lifecycle], label: &dyn Fn(&InstanceRef) -> String) -> Vec<Flying> {
     held.in_flight(lifecycles)
         .into_iter()
         .map(|one| {
             let subject = one.subject();
-            Flying {
-                lifecycle: subject.lifecycle().as_str().to_string(),
-                key: subject.key().to_string(),
-                label: label(subject),
-                state: state_said(lifecycles, subject, one.standing()),
-            }
+            let state = state_said(lifecycles, subject, one.standing());
+            // A state its lifecycle does not list has no label to say, and holds nothing either.
+            let holds = matches!(one.standing(), Standing::In(_)) && !state.is_empty();
+            Flying { lifecycle: subject.lifecycle().as_str().to_string(), key: subject.key().to_string(), label: label(subject), state, holds }
         })
         .collect()
 }
@@ -86,7 +89,7 @@ fn refused_text(call: &str, holding: &[Flying]) -> String {
 
 /// What the agent is told when `last`, the instance that held it, reached an end state.
 pub fn clear_text(last: &Flying) -> String {
-    format!("{}. Nothing of this Job is in flight.", last.held())
+    format!("{}. Nothing holds this Job open.", last.held())
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -111,11 +114,19 @@ where
         flying(&rebuilt(&lifecycles, &kept), &lifecycles, &|subject| label_of(store, subject))
     }
 
-    /// The agent's `call` (`all_done` or `finish_up`) is refused while the Job holds an instance no
-    /// end state has taken, and **kept as told to wait**, which is what lets the last instance's
-    /// end tell it so. Only the agent's call asks: the person's End job is `close_session`.
+    /// What of `lifecycles_flying` keeps `session` open: the instances standing in a state their
+    /// lifecycle knows and does not end on.
+    pub(crate) fn lifecycles_holding(&self, store: &Store, session: &str) -> Vec<Flying> {
+        let mut flying = self.lifecycles_flying(store, session);
+        flying.retain(|one| one.holds);
+        flying
+    }
+
+    /// The agent's `call` (`all_done` or `finish_up`) is refused while the Job holds an instance
+    /// standing in a state that is not an end, and **kept as told to wait**, which is what lets the
+    /// last instance's end tell it so. Only the agent's call asks: the person's End job is `close_session`.
     pub(crate) fn lifecycles_hold(&self, store: &mut Store, session: &str, call: &str) -> Result<(), Refusal> {
-        let holding = self.lifecycles_flying(store, session);
+        let holding = self.lifecycles_holding(store, session);
         if holding.is_empty() {
             return Ok(());
         }
@@ -132,7 +143,7 @@ where
             let refused = store.lifecycle_job_held(session).unwrap_or(false);
             let Some(last) = store.lifecycle_moves_of(session).ok().and_then(|mut moves| moves.pop()).filter(|_| refused) else { return };
             let Some(manifest) = store.session(session).ok().flatten().and_then(|one| one.manifest_id) else { return };
-            if !self.lifecycles_flying(&store, session).is_empty() {
+            if !self.lifecycles_holding(&store, session).is_empty() {
                 return;
             }
             let lifecycles = self.lifecycles_of_job(&store, session, &manifest);
@@ -142,7 +153,7 @@ where
             }) else {
                 return;
             };
-            clear_text(&Flying { lifecycle: last.lifecycle.clone(), key: last.key.clone(), label: subject.1, state: subject.0 })
+            clear_text(&Flying { lifecycle: last.lifecycle.clone(), key: last.key.clone(), label: subject.1, state: subject.0, holds: false })
         };
         if matches!(self.told_by_fleet(session, &text, ipc::Notice::LifecyclesClear).await, Ok(true)) {
             let _ = self.store().lock().await.release_lifecycle_job(session);

@@ -769,6 +769,23 @@ it("lists what End finds in flight on a real Job, as Fleet read it, and nothing 
   expect(store.draft.get()[0]?.lanes?.job.instances.filter((one) => one.ended === true)).toHaveLength(5);
 });
 
+it("lists a ticket nobody has read yet when End finds nothing else, and a status nobody mapped", async () => {
+  const { store, publish } = await holdingStore(async (id) => ({
+    ok: true,
+    value: {
+      ...flying(id),
+      instances: [
+        { lifecycle: "ticket", key: "ARM-44", label: "ARM-44", standing: { kind: "unread" }, links: [] },
+        { lifecycle: "ticket", key: "ARM-43", label: "ARM-43", standing: { kind: "unmapped", said: "Awaiting QA" }, links: [] },
+      ],
+    },
+  }));
+  await publish(record("a"));
+
+  const rows = inFlight(store.draft.get()[0]!.lanes!.job).map((one) => (one.state === "" ? one.label : `${one.label}: ${one.state}`));
+  expect(rows).toEqual(["ARM-44", "ARM-43: Awaiting QA"]);
+});
+
 const MOVES_TICKET: AppliedRule = {
   rule: {
     id: "move-ticket",

@@ -1,6 +1,7 @@
 //! A live instance holds its Job open, and ending the Job ends it. **The agent's `all_done` and
-//! `finish_up` are refused while the Job holds one no end state has taken**, each named as
-//! `Deploy is Rolling out`; the agent refused is told once when the last one is over; ending the
+//! `finish_up` are refused while the Job holds one standing in a state that is not an end**, each
+//! named as `Deploy is Rolling out`, and one unread or unmapped holds nothing though End lists it;
+//! the agent refused is told once when the last one is over; ending the
 //! Job keeps what it still held as ended, stops its watches and raises `job_lifecycles.changed`.
 //! A Job that holds nothing is finished and ended as it always was. **No forge, tracker or process
 //! is reached.**
@@ -68,16 +69,42 @@ async fn all_done_and_finish_up_are_refused_while_an_instance_is_in_flight_and_e
 }
 
 #[tokio::test]
-async fn a_status_nobody_could_place_and_an_instance_not_read_yet_hold_the_job_too() {
+async fn a_job_holding_only_an_unread_ticket_and_a_status_nobody_could_place_is_finished_though_end_lists_both() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    take_on(&rig, &id, "ticket", "ARM-42").await;
     take_on(&rig, &id, "ticket", "ARM-43").await;
+    take_on(&rig, &id, "ticket", "ARM-42").await;
     rig.fleet.lifecycle_seen(id.as_str(), "ticket", "ARM-42", Observed::Tracker("Awaiting QA")).await;
 
+    let listed: Vec<(String, String, bool)> = {
+        let store = rig.fleet.store().lock().await;
+        rig.fleet.lifecycles_flying(&store, id.as_str()).into_iter().map(|one| (one.label, one.state, one.holds)).collect()
+    };
+    let row = |label: &str, state: &str| (label.to_string(), state.to_string(), false);
+    assert_eq!(listed, [row("ARM-43", ""), row("ARM-42", "Awaiting QA")], "End lists both, and neither holds the Job");
+
+    assert!(rig.fleet.finish_up(None, finish(&id)).await.is_ok());
+    assert!(rig.fleet.all_done(None, done(&id)).await.expect("nothing it could clear holds it").done_since.is_some());
+
+    // Ending the Job ends them with it.
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.expect("ended");
+    assert_ne!(ended_at(&rig, &id, "ticket", "ARM-43").await, "");
+    assert_ne!(ended_at(&rig, &id, "ticket", "ARM-42").await, "");
+}
+
+#[tokio::test]
+async fn the_refusal_names_what_stands_in_a_state_and_leaves_out_what_is_unread_or_unmapped() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    take_on(&rig, &id, "ticket", "ARM-43").await;
+    take_on(&rig, &id, "ticket", "ARM-42").await;
+    take_on(&rig, &id, "deploy", "Deploy").await;
+    rig.fleet.lifecycle_seen(id.as_str(), "ticket", "ARM-42", Observed::Tracker("Awaiting QA")).await;
+    rig.fleet.lifecycle_seen(id.as_str(), "deploy", "Deploy", Observed::Watch(ReadingState::Running)).await;
+
     let said = rig.fleet.all_done(None, done(&id)).await.unwrap_err().error().message.clone();
-    assert!(said.contains("- ARM-42 is Awaiting QA\n"), "the word its tracker used: {said}");
-    assert!(said.contains("- ARM-43 is not read\n"), "{said}");
+    assert!(said.contains("- Deploy is Rolling out\n"), "{said}");
+    assert!(!said.contains("ARM-4"), "{said}");
 }
 
 #[tokio::test]
@@ -117,7 +144,7 @@ async fn the_agent_that_was_refused_is_told_once_when_the_last_instance_is_over_
     seen(&rig, &id, "deploy", "Deploy", Observed::Watch(ReadingState::Passed)).await;
     assert!(told(&rig, &id).await.is_empty(), "the pull request still holds it");
     seen(&rig, &id, "pr", "812", Observed::Forge(ForgeFact::Merged)).await;
-    assert_eq!(told(&rig, &id).await, ["PR #812 is Merged. Nothing of this Job is in flight."]);
+    assert_eq!(told(&rig, &id).await, ["PR #812 is Merged. Nothing holds this Job open."]);
 
     // Held again and cleared again, and no call was refused in between.
     take_on(&rig, &id, "deploy", "Staging").await;

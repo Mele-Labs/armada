@@ -1,8 +1,9 @@
 //! End lists what is still in flight before it ends the Job. **Each instance no end state has taken
 //! is listed by what a person calls it and the state it stands in** (`Deploy`, Rolling out), a status
 //! nobody could place by the word its tracker used, and one not read yet by its name alone. What a
-//! state has ended is not listed, and a Job that holds nothing lists nothing. Nothing here opens a
-//! store, a tracker or a forge.
+//! state has ended is not listed, and a Job that holds nothing lists nothing. **Only an instance in
+//! a state its lifecycle knows holds the Job open**: End lists an unread or unmapped one and the
+//! agent's `all_done` is not refused for it. Nothing here opens a store, a tracker or a forge.
 
 use core_model::{ForgeFact, HeldInstances, InstanceRef, Observed, ReadingState};
 use fleet::lifecycles::ending::{flying, Flying};
@@ -55,11 +56,20 @@ fn end_lists_each_instance_no_end_state_has_taken_by_its_name_and_its_state_and_
         ]
     );
 
-    // What the agent is refused with names the same instances.
-    let said: Vec<String> = flying(&held, &copy, &called).iter().map(Flying::held).collect();
-    assert_eq!(said, ["ARM-42 is In review", "ARM-43 is Awaiting QA", "ARM-44 is not read", "PR #812 is Approved", "Deploy is Rolling out"]);
+    // What the agent is refused with names the ones in a known state, and neither of the other two.
+    let all = flying(&held, &copy, &called);
+    let said: Vec<String> = all.iter().filter(|one| one.holds).map(Flying::held).collect();
+    assert_eq!(said, ["ARM-42 is In review", "PR #812 is Approved", "Deploy is Rolling out"]);
 
     see(&mut held, pull_request, "812", Observed::Forge(ForgeFact::Merged));
     see(&mut held, deploy, "Deploy", Observed::Watch(ReadingState::Passed));
     assert_eq!(listed(&held), [row("ARM-42", "In review"), row("ARM-43", "Awaiting QA"), row("ARM-44", "")], "a merged pull request and a deploy that passed are over");
+
+    // A Job holding only a ticket nobody has read, or one in a column nobody mapped, is listed and holds nothing.
+    let mut only = HeldInstances::new();
+    only.take_on(taken_on(tickets, "ARM-44")).expect("held");
+    only.take_on(taken_on(tickets, "ARM-43")).expect("held");
+    see(&mut only, tickets, "ARM-43", Observed::Tracker("Awaiting QA"));
+    assert_eq!(listed(&only), [row("ARM-44", ""), row("ARM-43", "Awaiting QA")]);
+    assert!(flying(&only, &copy, &called).iter().all(|one| !one.holds), "nothing the agent could clear holds the Job");
 }
