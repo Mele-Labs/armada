@@ -107,7 +107,7 @@ impl Activity {
                     ReportedTaskStatus::InProgress => SessionTodoState::Doing,
                     ReportedTaskStatus::Pending => SessionTodoState::Todo,
                 };
-                (!text.is_empty()).then(|| SessionTodo { text: text.chars().take(TODO_AT_MOST).collect(), state })
+                (!text.is_empty()).then(|| SessionTodo { text: text.chars().take(TODO_AT_MOST).collect(), state, task: None })
             })
             .collect();
         let changed = todos != self.todos;
@@ -241,7 +241,7 @@ fn todos_of(gate: &SessionGate) -> Option<Vec<SessionTodo>> {
                     Some("in_progress") => SessionTodoState::Doing,
                     _ => SessionTodoState::Todo,
                 };
-                Some(SessionTodo { text: text.chars().take(TODO_AT_MOST).collect(), state })
+                Some(SessionTodo { text: text.chars().take(TODO_AT_MOST).collect(), state, task: None })
             })
             .collect(),
     )

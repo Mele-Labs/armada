@@ -14,7 +14,7 @@
 
 use ipc::{
     Instant, PlanChanges, PlanGroupInput, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    FIRST_PULL_REQUEST, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, TaskStale,
+    FIRST_PULL_REQUEST, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo, TaskStale,
 };
 use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 
@@ -230,9 +230,8 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
     let recorded = plan.recorded_at.clone();
     let calls = plan.calls;
     let mut moved = false;
-    let texts: Vec<String> = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| cut_norm(&task.text)).collect();
     let items: Vec<String> = list.iter().map(|item| cut_norm(&item.text)).collect();
-    let mut claims = claimed(&texts, &items).into_iter();
+    let mut claims = claims_of(plan, &items).into_iter();
     for group in &mut plan.groups {
         let start = group
             .tasks
@@ -275,6 +274,26 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
         }
     }
     moved
+}
+
+/// For each plan task in order, the index of the item that says it, as `listed` takes them. `items`
+/// are `cut_norm`ed.
+fn claims_of(plan: &KeptPlan, items: &[String]) -> Vec<Option<usize>> {
+    let texts: Vec<String> = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| cut_norm(&task.text)).collect();
+    claimed(&texts, items)
+}
+
+/// Mark each item of the agent's list with the plan task `listed` takes it for, so Bridge draws that
+/// work once. Read off the same claims, never kept, so a re-recorded plan or a changed list is right
+/// at the next reading.
+pub(crate) fn mark_listed(plan: &KeptPlan, todos: &mut [SessionTodo]) {
+    let items: Vec<String> = todos.iter().map(|todo| cut_norm(&todo.text)).collect();
+    let ids = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| &task.id);
+    for (id, claim) in ids.zip(claims_of(plan, &items)) {
+        if let Some(at) = claim {
+            todos[at].task = Some(id.clone());
+        }
+    }
 }
 
 /// The plan as the record carries it, with each task in progress that looks left behind read as stale

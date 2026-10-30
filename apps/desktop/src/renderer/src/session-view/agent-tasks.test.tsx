@@ -4,7 +4,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test } from "vitest";
-import type { AgentTask, Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionTodo, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AgentTasks } from "./AgentTasks";
 import { BlueprintPanel } from "./BlueprintPanel";
@@ -21,10 +21,10 @@ afterEach(() => {
   localStorage.clear();
 });
 
-const TASKS: AgentTask[] = [
-  { id: "a", subject: "Read the runner", state: "done" },
-  { id: "b", subject: "Rename the files", state: "working" },
-  { id: "c", subject: "Update the tests", state: "open" },
+const TODOS: SessionTodo[] = [
+  { text: "Read the runner", state: "done" },
+  { text: "Rename the files", state: "doing" },
+  { text: "Update the tests", state: "todo" },
 ];
 
 function show(ui: React.ReactElement): HTMLElement {
@@ -40,15 +40,23 @@ const rows = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".sv-
 const press = (key: string) => act(() => void document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })));
 
 test("the tasks are listed in the order made, each its mark and its subject", () => {
-  const host = show(<AgentTasks tasks={TASKS} />);
+  const host = show(<AgentTasks todos={TODOS} working />);
   expect(host.querySelector('ul[aria-label="Tasks"]')).not.toBeNull();
   expect(rows(host).map((one) => one.querySelector(".sv-agent-tasks__subject")?.textContent)).toEqual(["Read the runner", "Rename the files", "Update the tests"]);
   expect(rows(host).map((one) => one.querySelector(".armada-task-mark")?.getAttribute("data-state"))).toEqual(["done", "working", "open"]);
   expect(rows(host)[1]!.querySelector('[role="img"][aria-label="Working"]')).not.toBeNull();
 });
 
+test("the task being done breathes while the turn runs and is still once it has ended", () => {
+  const breathing = (host: HTMLElement) => rows(host).map((one) => one.querySelector(".armada-task-mark")?.hasAttribute("data-pulsing"));
+  expect(breathing(show(<AgentTasks todos={TODOS} working />))).toEqual([false, true, false]);
+  const idle = show(<AgentTasks todos={TODOS} working={false} />);
+  expect(breathing(idle)).toEqual([false, false, false]);
+  expect(rows(idle)[1]!.querySelector('[role="img"][aria-label="Working"]')).not.toBeNull();
+});
+
 test("the list is one tab stop, and the arrows, Home and End move the focus through it", () => {
-  const host = show(<AgentTasks tasks={TASKS} />);
+  const host = show(<AgentTasks todos={TODOS} working />);
   expect(rows(host).map((one) => one.tabIndex)).toEqual([0, -1, -1]);
   const at = () => rows(host).findIndex((one) => one === document.activeElement);
   act(() => rows(host)[0]!.focus());
@@ -70,7 +78,7 @@ test("the list is one tab stop, and the arrows, Home and End move the focus thro
 });
 
 test("the list keeps its arrows from the deck, and a key it does not move is left alone", () => {
-  const host = show(<AgentTasks tasks={TASKS} />);
+  const host = show(<AgentTasks todos={TODOS} working />);
   expect(host.querySelector("ul")!.hasAttribute("data-own-arrows")).toBe(true);
   act(() => rows(host)[1]!.focus());
   const other = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true });
@@ -79,19 +87,20 @@ test("the list keeps its arrows from the deck, and a key it does not move is lef
   expect(rows(host).findIndex((one) => one === document.activeElement)).toBe(1);
 });
 
-const session = { id: "s1", attachments: [], rows: [], turn: { state: "idle" } } as unknown as Session;
+const sessionOf = (todos: readonly SessionTodo[], turn: "working" | "idle" = "idle") =>
+  ({ id: "s1", attachments: [], rows: [], turn: { state: turn }, activity: { todos } }) as unknown as Session;
 
-function panel(work: SessionWork, acts?: SessionWorkActs): HTMLElement {
+function panel(work: SessionWork, acts?: SessionWorkActs, session: Session = sessionOf([])): HTMLElement {
   return show(<BlueprintPanel work={work} place="side" id="s1" session={session} acts={acts} ed={undefined} onOpenSketch={() => undefined} onOpenSession={() => undefined} />);
 }
 
-test("Blueprint lists the tasks where there is no plan, and a Session with none stays open with nothing listed, since a panel is folded only by a press", () => {
+test("Blueprint lists the agent's own list where there is no plan, and a Session with none stays open with nothing listed, since a panel is folded only by a press", () => {
   const acts = { workflows: [], choose: () => undefined } as unknown as SessionWorkActs;
   const bare = panel({ proposal: { workflow: null } }, acts);
   expect(bare.querySelector<HTMLElement>('section[aria-label="Blueprint"]')!.dataset["collapsed"]).toBeUndefined();
   expect(bare.querySelector('ul[aria-label="Tasks"]')).toBeNull();
 
-  const busy = panel({ proposal: { workflow: null }, tasks: TASKS }, acts);
+  const busy = panel({ proposal: { workflow: null } }, acts, sessionOf(TODOS));
   expect(busy.querySelector<HTMLElement>('section[aria-label="Blueprint"]')!.dataset["collapsed"]).toBeUndefined();
   expect(rows(busy)).toHaveLength(3);
 });
