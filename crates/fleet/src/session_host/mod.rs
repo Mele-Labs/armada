@@ -37,6 +37,7 @@ mod fork_point;
 mod forking;
 mod gate;
 mod job_of_its_own;
+mod job_piece_keeping;
 mod handing;
 pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
@@ -100,6 +101,7 @@ pub(crate) mod readiness;
 pub(crate) mod walking;
 pub(crate) mod walk_asks;
 pub(crate) mod step_skipping;
+pub(crate) mod job_copying;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

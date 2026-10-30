@@ -1,0 +1,16 @@
+[operations.change_job_copy]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Add, change or drop a lifecycle or a rule in your own copy of this job's lifecycles and rules, for example to skip the deploy watch on this one. Body: {session_id, kind, id, text?}. session_id is your job id; kind is lifecycle or rule; id is the id the file declares and may be left out when text is given; text is the whole file as the loader reads one, and leaving it out drops the piece from your copy. A piece already there under that id is replaced. It applies to this job only, at once, and the piece is marked on its lanes. Read what you hold first with get_job_copy"
+notes = """
+`POST /sessions/copy`, body `ChangeJobCopy`: `session_id`, `kind` (`lifecycle` or `rule`), `id` and `text`, the whole file as JSON or YAML. Since 30 Oct 2026. Answers the Job's `JobCopy`.
+
+**It changes the copy the Job froze when it started** (`job_copies`), and nothing the repository or Kit keeps. The text is read as a piece file is: `fleet.job_copy_piece_refused` carries the loader's sentence for one that does not read, and the Job keeps what it had. Its `id` must be the one the file declares; left blank with a `text`, it is the one the file declares. A `text` puts the piece in the copy, replacing the one of that kind and id; absent takes it out. Dropping a lifecycle Armada carries is refused (it is not a file in the copy); a file in the copy that replaces one is dropped and the carried one runs again.
+
+**It applies at once, to this Job only.** The Job's rules read the copy on their next occurrence, an act already planned stands as it was planned, and `get_job_lifecycles` and `job_lifecycles.changed` carry the copy's rules and lifecycles. The piece is marked on the Job's lanes, a rule on its edge and a lifecycle on its lane (`JobLifecycles.changes`), and the timeline enters `session.copy` with `says` naming what changed (`rule added: ask-for-review`) and `detail` `by the Job` or `by you`.
+
+**The Job is the one whose process holds the connection** when Fleet hosts it, whatever `session_id` says. 422 `fleet.job_copy_unplaced` where a call through the door places no Job, 422 `fleet.job_holds_no_copy` for a Job started before copies were kept, 422 `fleet.job_copy_piece_refused` for a text that does not read, that declares another id, that is blank, or a drop of a piece the copy does not hold, 422 `fleet.session_command_refused` for a terminal Job, and 409 `fleet.session_closed` for one that ended.
+
+`agent_access` is `Yes`: the change is its own Job's. A rule that writes to the tracker or the forge takes the autonomy the copy froze, so a rule the agent adds asks the owner as any rule does.
+"""

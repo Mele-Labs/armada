@@ -455,7 +455,7 @@ export type NotADriftMarked = {
  * Where a workflow change came from: his words, the nudges a step drifted on, or a Job proposing a workflow
  * nothing held before (`new`: `before` is empty, `after` is the definition, `state` is `ready` at once).
  */
-export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] } | { kind: "new" };
+export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] } | { kind: "new" } | { kind: "job" };
 
 /**
  * Where a change stands. `approved` and `dismissed` are never listed. `cannot` is a request Armada has no way to

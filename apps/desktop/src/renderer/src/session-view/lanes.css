@@ -5,6 +5,21 @@
 .sv-lanes__body > .armada-lane-canvas { flex: none; height: calc(var(--space-12) * 12); }
 .sv-lanes__ask { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 
+/* ---- Adding to this Job's own copy (`shared-panel/lanes-copy.tsx`) ---------------------------------------------------- */
+
+.sv-lanes__add { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.sv-lanes__bar { display: flex; align-items: center; gap: var(--space-2); }
+.sv-lanes__form { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.sv-lanes__form[data-file] textarea { font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-lanes__form-acts { display: flex; align-items: center; gap: var(--space-2); }
+.sv-lanes__refused { margin: 0; padding: var(--space-1) var(--space-3); color: var(--status-completed-failed); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-lanes__form .sv-lanes__refused { padding: 0; }
+.sv-lanes__triage-head[data-acts="true"] { display: flex; align-items: center; justify-content: space-between; padding-block: 0; }
+.sv-lanes__kept { display: inline-flex; align-items: center; justify-content: center; height: var(--h-control-sm); color: var(--step-advanced); }
+.sv-lanes__change { display: grid; grid-template-columns: var(--space-4) auto minmax(0, 1fr) var(--h-control-sm); column-gap: var(--space-2); align-items: center; min-height: var(--h-control-sm); padding: 0 var(--space-2) 0 var(--space-3); }
+.sv-lanes__change-mark { color: var(--status-awaiting-review); }
+.sv-lanes__change .sv-lanes__text { margin: 0; }
+
 /* ---- The comments on the pull request ---------------------------------------------------------------------------- */
 
 .sv-lanes__triage { display: flex; flex: none; flex-direction: column; min-height: 0; max-height: calc(var(--space-12) * 6); overflow: hidden; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-sunken); }

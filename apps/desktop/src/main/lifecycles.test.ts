@@ -71,6 +71,13 @@ describe("Workspaces, lifecycles and rules", () => {
     ]);
   });
 
+  it("send a piece of a Job's copy to keep as a POST, and save nothing", async () => {
+    const fleet = await serving(200, { change: 7, kind: "rule", id: "ask_for_review", scope: { kind: "within", id: "01MF" }, replaces: false });
+    const host = new LifecyclesHost(() => fleet.port);
+    expect(await host.keepPiece({ session_id: "s1", kind: "rule", id: "ask_for_review" })).toMatchObject({ ok: true, value: { change: 7 } });
+    expect(fleet.asked).toEqual(["POST /sessions/copy/keep_piece"]);
+  });
+
   it("are refused in Fleet's own words where Fleet serves no such repository", async () => {
     const fleet = await serving(422, { code: "fleet.unacceptable_proposal", message: "This Fleet serves no such repository", run_id: "r", fields: {}, chain: [] });
     const done = await new LifecyclesHost(() => fleet.port).lifecycles("01NOWHERE");

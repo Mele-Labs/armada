@@ -30,6 +30,7 @@ const laneOfLifecycle = (lifecycle: Lifecycle, id: string, title: string, note: 
   title,
   source: lifecycle.from,
   ...(note === undefined ? {} : { note }),
+  ...(lifecycle.kind === "tracker" ? { ticket: true as const } : {}),
   nodes,
   moves: lifecycle.next.map(([from, to]) => [nodeId(id, from), nodeId(id, to)] as const),
 });
@@ -218,7 +219,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
           };
         }),
       );
-      return [instance.ended === true ? { ...lane, ended: true } : lane];
+      const changed = job.changes.find((one) => one.lane === instance.lifecycle && one.item === "")?.text;
+      return [{ ...lane, ...(instance.ended === true ? { ended: true as const } : {}), ...(changed === undefined ? {} : { changed }) }];
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);
@@ -229,6 +231,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
     if (rule.autonomy === "off") continue;
     const sources = rule.from.lane === "workflow" ? [undefined] : instancesOf(job, rule.from.lane);
     const targets = rule.to.lane === "workflow" ? [undefined] : instancesOf(job, rule.to.lane);
+    const changed = job.changes.find((one) => one.lane === "rule" && one.item === rule.id)?.text;
     let first = true;
     for (const source of sources) {
       for (const target of targets) {
@@ -259,6 +262,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
           status,
           ...(fired?.did === undefined ? {} : { did: fired.did }),
           ...(fired?.needs === undefined ? {} : { needs: fired.needs }),
+          ...(changed === undefined ? {} : { changed }),
           ...(first ? {} : { quiet: true as const }),
         });
         first = false;

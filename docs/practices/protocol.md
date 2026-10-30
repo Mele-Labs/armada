@@ -641,15 +641,16 @@ Since 22 Oct 2026. **Additive only**: three operations and routes and the types 
 Since 23 Oct 2026 the words part's `address` is `{ template, found }` and not a string (the one read of it is Bridge's, and the IDs differ), `WordRule` gains `found`, `ModSummary` gains `entry`, and `ModChecked` gains `words` and `fleet`.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Since 23 Oct 2026, again, a Fleet rule gains `matches` and `when` and the proposal's `fleet` part gains `untestable`, all optional and left out when absent.
+Since 30 Oct 2026 a proposal gains a sixth part, `rule`, a lifecycle rule with `untestable`, `TeachingSourceKind` gains `ticket`, and `SavedTeaching` gains `rule`, the rule piece written; all optional, and no number to take.
 Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in `packages/protocol/src/mods.ts`, written by hand, field for field.
 Its calls are `readTeaching`, `saveTeaching` and `listWordRules` (`apps/desktop/src/shared/api/teaching.ts`, served by `apps/desktop/src/main/teaching.ts`); `read_teaching` waits as a model call does.
-**A teaching is a Logbook entry for the agent note and mods by what it changes**; `save_teaching` makes both, so Bridge files nothing itself.
+**A teaching is a Logbook entry for the agent note, mods by what it changes and a rule piece for a rule**; `save_teaching` makes all three, so Bridge files nothing itself.
 `docs/concepts/mods.md` is the mod files.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words?, message?, said, repository?, reach, session_id?, source? }` (`reach` is `repository` or `everywhere`, `source` is `{ kind, text, ids? }` with `kind` one of `words`, `command`, `notice`, `task`, `check`, `pull_request`, `panel`, `row`, `title_bar`), Fleet answers `{ note?, words?, fleet?, tweak?, layout? }` | One model call, nothing kept. `note` is `{ section, kind, text }`, `words` is `{ name, pattern, example, address? }` with `address` `{ template, found }` (`found` is `settings`, `pull_request #N` or `person`) for the request's repository where the person wrote one or Fleet found one, `fleet` is `{ notice, does, where, matches?, when?, untestable? }` (`when` is a list of `{ if, does }` with `if` one of `blocks_merge`, `open_pull_request`, `working`, `owner_away`; `untestable` is the person's own words for a condition outside those), `tweak` is a list of `{ token, was, now, used_in?, note? }`, `layout` is `{ name, layout }`; at least one is present. 422 `fleet.teaching_words_refused`, `fleet.teaching_note_refused`, `fleet.teaching_rule_refused`, `fleet.teaching_tweak_refused`, `fleet.teaching_layout_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
-| `save_teaching` (`POST /teachings`) | Bridge sends the parts as left, then `{ reach, repository?, session_id?, cite?, source? }`, Fleet answers `{ entry?, mods }` | Held to what `read_teaching` holds a proposal to, all before any write. The note becomes a Logbook entry with `{ session_id, cite }` as its evidence; each other part becomes an enabled mod. With `session_id` and a note the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
+| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words?, message?, said, repository?, reach, session_id?, source? }` (`reach` is `repository` or `everywhere`, `source` is `{ kind, text, ids? }` with `kind` one of `words`, `command`, `notice`, `task`, `check`, `pull_request`, `ticket`, `panel`, `row`, `title_bar`), Fleet answers `{ note?, words?, fleet?, tweak?, layout?, rule? }` | One model call, nothing kept. `note` is `{ section, kind, text }`, `words` is `{ name, pattern, example, address? }` with `address` `{ template, found }` (`found` is `settings`, `pull_request #N` or `person`) for the request's repository where the person wrote one or Fleet found one, `fleet` is `{ notice, does, where, matches?, when?, untestable? }` (`when` is a list of `{ if, does }` with `if` one of `blocks_merge`, `open_pull_request`, `working`, `owner_away`; `untestable` is the person's own words for a condition outside those), `tweak` is a list of `{ token, was, now, used_in?, note? }`, `layout` is `{ name, layout }`, `rule` is a lifecycle rule as `list_lifecycle_rules` answers one with `untestable?` beside it (the person's own words for a condition a rule's `if` cannot hold; Fleet gives the `scope` from the reach and the `id` from the name, and holds the rule to what a rule piece is held to when it is read); at least one is present. 422 `fleet.teaching_words_refused`, `fleet.teaching_note_refused`, `fleet.teaching_rule_refused`, `fleet.teaching_tweak_refused`, `fleet.teaching_layout_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
+| `save_teaching` (`POST /teachings`) | Bridge sends the parts as left, then `{ reach, repository?, session_id?, cite?, source? }`, Fleet answers `{ entry?, mods, rule? }` | Held to what `read_teaching` holds a proposal to, all before any write. The note becomes a Logbook entry with `{ session_id, cite }` as its evidence; each other part becomes an enabled mod, except a `rule`, which is not a mod and becomes a rule piece in Kit (`rule` in the answer is the `save_lifecycle_piece` answer for it). With `session_id` and a note the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
 | `list_word_rules` (`GET /teachings/words?repository=&session_id=`, `agent_access = "Yes"`) | Bridge reads | `{ rules }` of `{ mod_name, name, pattern, example, address, found }`: one per enabled, valid Words mod with an address for the repository, its own before the one for every repository. 404 `fleet.run_memory_repository_not_served` |
 
 **`read_teaching` looks for the address first** when it proposes words and a repository is given: a Words mod with the same pattern that already has one, then the two sources below, the pull request search held to a ten second bound.
@@ -1171,6 +1172,52 @@ A `label` is what a person reads for an instance: the ticket's key, `PR #812`, t
 It is raised when a Job takes an instance on and when a read finds one somewhere else, and not for a repeat read or a Job that holds nothing.
 It carries the Job's definitions each time, a few KB at a handful per Job, so a Bridge that missed one needs only the next, or `get_job_lifecycles` on the resync that follows a `Missed`.
 **It makes the unbounded WebSocket sink a little worse and does nothing about it.** The load is small and rare next to a Drone's rows, and the bounded broadcast with drop-oldest is still the fix.
+
+## A Job's own copy: `get_job_copy`, `change_session_steps`, `change_job_copy`, `keep_job_workflow`, `keep_job_piece` and `propose_workflow_change`
+
+Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*, *Changing one Job*; `crates/ipc/src/job_copy.rs`, `crates/fleet/src/session_host/job_copying.rs`.
+**Additive**: six operations, six routes, `set_session_workflow` and `skip_session_step` opened to the agent, and four fields on existing types.
+The agent changes its own Job's copy of its workflow, lifecycles and rules with a tool, the owner does the same from the Job's lanes, and both go through the same operations.
+**A change applies to that Job at once and to no other**: the files in the repository and in Kit, and every other Job's copy, stay as they are.
+Only Keep for every Job proposes it for the others, and that waits on the owner's Approve.
+Bridge's half is `packages/protocol/src/job-copy.ts`, written by hand, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_job_copy` (`GET /sessions/copy?session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `JobCopy` `{ session_id, workflow?, own?, steps[], lifecycles[], rules[], changes[] }`; a `JobCopyStep` is `{ id, label, about?, instructions?, ends_on[], skipped? }`, a `JobCopyChange` `{ lane, item, text, by, at, dropped? }` |
+| `change_session_steps` (`POST /sessions/workflow/steps`, `Yes`) | Bridge or an agent sends | `ChangeSessionSteps` `{ session_id, change }`, a `StepChange` tagged by `kind`: `add`, `move`, `reword` or `drop`. Answers the `JobCopy` |
+| `change_job_copy` (`POST /sessions/copy`, `Yes`) | Bridge or an agent sends | `ChangeJobCopy` `{ session_id, kind, id, text? }`, `kind` `lifecycle` or `rule`; a blank `id` with a `text` takes the id the file declares, and no `text` drops the piece. Answers the `JobCopy` |
+| `keep_job_workflow` (`POST /sessions/copy/keep`, Bridge only) | Bridge sends | `KeepJobWorkflow` `{ session_id, source? }`. Answers the `WorkflowChange` kept, `origin` `{ kind: "job" }`, `state` `ready` |
+| `keep_job_piece` (`POST /sessions/copy/keep_piece`, Bridge only) | Bridge sends | `KeepJobPiece` `{ session_id, kind, id }`, `kind` `rule` or `lifecycle`. Answers a `JobPieceProposed` `{ change, kind, id, scope, replaces }` |
+| `propose_workflow_change` (`POST /workflows/changes/propose?manifest_id=`, `Yes`) | An agent sends | `ProposeWorkflowChange` `{ workflow_id, source, definition }`. Answers the `WorkflowChange` kept |
+| `set_session_workflow`, `skip_session_step` | `Yes` now | An agent calls them on its own Job; the answer is a receipt (`workflow`, `workflow_step`, `skipped_steps`) |
+| `JobLifecycles.rules`, `JobLifecycles.changes` | Fleet writes | The rules the Job's copy holds, which are the ones that run for it, and what was changed in the copy, for the lanes to mark. Both are left out when empty |
+| `SessionRecord.workflow_copy` | Fleet writes | The Job's own `WorkflowSummary` once it changed a step. The rail and the lanes read it in place of the repository's |
+| `TimelineKind` `session.copy` | Fleet writes | `says` names the change (`step added: Dispatch after Approve plan`, `rule dropped: deploy_watch`), `detail` is `by the Job` or `by you` |
+| `ChangeOrigin` `{ kind: "job" }` | Fleet writes | A drafted change a Job proposed, with no model behind it |
+
+**The Job is the one the connection places**, as a watch's is, and the person's request names it.
+A call through the agent door that places no Job is refused 422 `fleet.job_copy_unplaced`; every other caller is the owner and `session_id` names the Job.
+**A workflow is copied at the first change to its steps**, as the file the Job followed read then, so the Job keeps that text while the repository's changes; until then it follows the repository's.
+A lifecycle or a rule is changed in the copy the Job froze on start (`job_copies`); 422 `fleet.job_holds_no_copy` for a Job started before copies were kept.
+A step is edited as text and the result is read by the loader again, so an edit that does not fit is refused with the loader's own sentence (422 `fleet.job_workflow_unfit`, `fleet.job_copy_step_refused`, `fleet.job_copy_piece_refused`) and the Job keeps what it had.
+The rail keeps a step's state by its index, so an edit remaps what it kept by step id: a skip stays on its step when one is added before it, and a step taken out is forgotten.
+Switching the workflow gives up the copy and the marks with it.
+
+**A mark is kept with who made it**, `job` or `you`, on `job_copy_marks`: a step is marked as `workflow` with its id, a rule as `rule` with its id, and a lifecycle by its own id with no item.
+A step or a rule that was dropped has no node to draw, so its mark is listed under the lanes and drawn on nothing.
+`job_lifecycles.changed` is raised after each change, and `session.changed` carries `workflow_copy`, so a Bridge re-reads nothing of its own.
+
+**Keep for every Job is the workflow half.** `keep_job_workflow` and `propose_workflow_change` keep a `workflow_changes` row `ready` at once, with a `draft` row on the Job, and the owner's Approve saves it as any drafted change.
+`send_back_workflow_change` refuses it (422 `fleet.workflow_change_not_sendable`), since no model drafted it.
+**A rule or a lifecycle is kept one piece at a time**, from its own row under the lanes: `keep_job_piece` proposes the piece the copy holds as a file in Kit within the Job's repository, the repository's own level.
+`save_lifecycle_piece` writes at once and has no held form, so the proposal waits in the `workflow_changes` row a workflow's does: `piece` is `rule` or `lifecycle`, `source` is `kit`, `workflow_id` is the piece's id, and `before` and `after` are Kit's file now and the piece as a save would write it.
+A `draft` row on the Job carries it, named `Rule <id>` or `Lifecycle <id>`, and the owner's Approve on that draft is the save, through `save_lifecycle_piece`'s own: it replaces Kit's file only where the row began from it (409 `fleet.workflow_changed_since` where Kit's changed since), and his Dismiss drops the row.
+**It is on the Job's draft and not on the Workflows page**: `list_workflow_changes` never lists a piece, and `approve_workflow_change` and `dismiss_workflow_change` answer 404 for one.
+A piece the Job dropped is marked `dropped` on its `JobCopyChange` and is refused (422 `fleet.job_copy_piece_refused`), as is one as the Job froze it and one Kit already holds.
+Fleet writes nothing to a tracker or a forge for any of this.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 
 ## Workspaces, lifecycles and rules, saved: `save_lifecycle_piece`, `delete_lifecycle_piece`, and `commit_to_repository` for pieces
 

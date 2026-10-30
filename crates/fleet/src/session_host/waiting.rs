@@ -1115,10 +1115,10 @@ where
                 if let (Some(change), Some(choice)) = (self.draft_change(&id, row).await, said.choice) {
                     let change = ipc::WorkflowChangeRef { change };
                     let (body, how) = if choice == 0 {
-                        self.workflow_change_approved(change).await?;
+                        self.proposal_approved(change).await?;
                         (drafting::approved(&item.text, None), DraftHow::Approved)
                     } else {
-                        self.workflow_change_dismissed(change).await?;
+                        self.proposal_dismissed(change).await?;
                         (drafting::withdrawn(&item.text, None), DraftHow::Withdrawn)
                     };
                     Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
@@ -1257,7 +1257,7 @@ where
             let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
             if let Some(change) = self.draft_change(&id, row).await {
                 // Already settled elsewhere is the same end, so that refusal is not the person's.
-                let _ = self.workflow_change_dismissed(ipc::WorkflowChangeRef { change }).await;
+                let _ = self.proposal_dismissed(ipc::WorkflowChangeRef { change }).await;
             }
             let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
             self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;

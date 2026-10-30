@@ -121,10 +121,33 @@ Fleet then counts the step as passed, so the Job's current step moves past it.
 The step shows as skipped, and the timeline enters `skipped: <step label>`.
 
 The agent is sent one message saying the step is not wanted, so it neither does the step nor asks about it, and another when the skip is undone.
+**The agent can skip a step of its own Job too** (`skip_session_step`); it is not sent a message about a skip it made, and the timeline says `by the Job`.
 **The delivering step cannot be skipped**; Fleet refuses it with `fleet.session_step_not_skippable`.
 
 **This is not the skipped-step nudge.** That nudge is Fleet noticing from what it observed that the agent skipped a step on its own.
 A step the person skipped is the person's call and never draws it.
+
+### Changing one Job
+
+**A Job's agent can change its own Job's workflow, lifecycles and rules with tools**, and the owner can do the same from the Job's lanes.
+It adds, moves, rewords or drops a step, adds or changes or drops a rule or a lifecycle, skips a step, and switches to another workflow or to none.
+The change applies at once, to that Job only, and what the repository and Kit keep, and every other Job, stay as they were.
+
+The Job that needs other steps, such as one whose work is to dispatch other Jobs and oversee them, says so with a tool instead of being switched to no workflow by hand.
+An agent that finds another workflow fits better switches to it; one that finds a workflow it read would serve the next Job better proposes a change to it (`propose_workflow_change`), and one that finds none fits proposes a new one (`propose_new_workflow`).
+A proposal waits on the owner's Approve on the Workflows page, as a drafted change does.
+
+| To | He |
+|---|---|
+| Add a step, a lifecycle or a rule to this Job | Presses `+` above the Job's lanes and chooses which |
+| See what changed | The lanes mark the step, the rule's chip and the lifecycle's head, and *Changed on this Job* under them lists each change with who made it, the Job or him |
+| Keep a change for the others | Presses *Keep for every Job* on a changed workflow, which proposes the Job's workflow as a change, or on a changed rule or lifecycle, which proposes that one piece for Kit within the repository; nothing saves until he approves it |
+
+**A workflow is copied at the Job's first change to its steps**, as the file it followed then, so the Job keeps following that text while the repository's changes.
+A rule or a lifecycle is changed in the copy the Job froze when it started.
+A rule or a lifecycle is kept one piece at a time, from its own row under the lanes, and a piece the Job dropped is not offered.
+The proposal waits on the Job's draft, since the Workflows page holds a workflow's change and not a piece's.
+The timeline enters each change as `session.copy`, naming what changed and who.
 
 ### Where a definition comes from
 

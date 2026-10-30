@@ -14,13 +14,14 @@ use ipc::{
 use serde::de::value::StrDeserializer;
 use serde::{Deserialize, Serialize};
 
+use super::ruling::{self, Ground, SaidRule};
 use super::{link, tokens};
 use crate::mods::{fleet_rules, stylesheet};
 
 /// The most characters of a note, and its most lines: what the Logbook keeps an entry to.
 const MOST_CHARS: usize = 400;
 const MOST_LINES: usize = 2;
-const MOST_NAME: usize = 60;
+pub(super) const MOST_NAME: usize = 60;
 const MOST_TWEAKS: usize = 12;
 
 /// Why an answer is not a proposal.
@@ -50,6 +51,8 @@ pub(crate) struct Context<'a> {
     pub(crate) session: Option<&'a str>,
     /// The Manifest id of the repository the teaching is in.
     pub(crate) manifest: Option<&'a str>,
+    /// What a rule is read against. Absent where the source makes none.
+    pub(crate) rule: Option<&'a Ground>,
 }
 
 /// What a source may propose.
@@ -59,16 +62,18 @@ pub(crate) struct Allowed {
     pub(crate) fleet: bool,
     pub(crate) tweak: bool,
     pub(crate) layout: bool,
+    pub(crate) rule: bool,
 }
 
 pub(crate) fn allowed(kind: TeachingSourceKind) -> Allowed {
     let bridge = kind.is_bridge();
     Allowed {
         note: !bridge,
-        words: !bridge && kind != TeachingSourceKind::Notice,
+        words: !bridge && !matches!(kind, TeachingSourceKind::Notice | TeachingSourceKind::Ticket),
         fleet: kind == TeachingSourceKind::Notice,
         tweak: bridge,
         layout: bridge,
+        rule: matches!(kind, TeachingSourceKind::PullRequest | TeachingSourceKind::Notice | TeachingSourceKind::Ticket),
     }
 }
 
@@ -84,6 +89,8 @@ struct Said {
     tweak: Option<Vec<SaidTweak>>,
     #[serde(default)]
     layout: Option<SaidLayout>,
+    #[serde(default)]
+    rule: Option<SaidRule>,
 }
 
 #[derive(Deserialize)]
@@ -171,12 +178,14 @@ pub(crate) fn read(said: &str, at: &Context) -> Result<TeachingProposal, Unfit> 
         fleet: said.fleet.filter(|_| may.fleet).map(|one| rule(one, at)).transpose()?,
         tweak: said.tweak.filter(|_| may.tweak).map(|many| tweaks(many)).transpose()?.unwrap_or_default(),
         layout: said.layout.filter(|_| may.layout).map(layout).transpose()?,
+        rule: said.rule.filter(|_| may.rule).map(|one| ruling::read(one, at)).transpose()?,
     };
     let empty = proposal.note.is_none()
         && proposal.words.is_none()
         && proposal.fleet.is_none()
         && proposal.tweak.is_empty()
-        && proposal.layout.is_none();
+        && proposal.layout.is_none()
+        && proposal.rule.is_none();
     if empty {
         return Err(Unfit::Nothing);
     }

@@ -7,6 +7,8 @@
 // **A Workspace here is a set of repositories** (`WorkspaceOfRepositories`), not the Manifest's monorepo unit that
 // `WorkspaceCommands` and `ScannedWorkspace` speak of.
 
+import type { JobCopyChange } from "./job-copy";
+
 /** Where a lifecycle or a rule applies, as its file says it. Every repository, or one Workspace or repository by id. */
 export type PieceScope = { kind: "everywhere" } | { kind: "within"; id: string };
 
@@ -256,6 +258,10 @@ export type JobLifecycles = {
   moves: InstanceMove[];
   /** The acts the Job's rules planned, oldest first. Absent where none was, and from a Fleet older than the field. */
   acts?: RuleActReading[];
+  /** The rules the Job's copy holds, which are the ones that run for it. Absent for a Job that froze no copy, whose rules are the repository's. */
+  rules?: AppliedRule[];
+  /** What was changed in the Job's own copy, for the lanes to mark. Absent where nothing was. Since 30 Oct 2026. */
+  changes?: JobCopyChange[];
 };
 
 /** `job_lifecycles.changed`: what a Job holds, whole, after an instance was taken on or moved. */

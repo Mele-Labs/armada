@@ -80,9 +80,10 @@ function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]
   };
 }
 
-/** The workflow Fleet holds that the Session follows: the one of its repository, else any of that id. */
+/** The workflow the Session follows: its own copy once it changed a step, else the one Fleet holds for its repository, else any of that id. */
 function heldOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkflowSummary | undefined {
   if (record.workflow === undefined) return undefined;
+  if (record.workflow_copy?.id === record.workflow) return record.workflow_copy;
   return workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
 }
 

@@ -63,6 +63,13 @@ test("looks only inside what `within` names, and takes the last of several", () 
   expect(find({ role: "button", name: "Close", within: { role: "region", name: "Nowhere" } })).toBeNull();
 });
 
+test("takes the first of the places a thing is drawn in that is on the page, for a layout that differs", () => {
+  const back = { role: "button", name: "Back to Stock" };
+  expect(find({ ...back, or: [{ role: "tab", name: "Receiving" }] })?.id).toBe("t-receiving");
+  expect(find({ role: "button", name: "Add item", or: [{ role: "tab", name: "Receiving" }] })?.id).toBe("add");
+  expect(find({ ...back, or: [{ role: "tab", name: "Nowhere" }] })).toBeNull();
+});
+
 test("never finds what is hidden, or the walk's own ring and card", () => {
   expect(find({ role: "button", name: "Ghost" })).toBeNull();
   expect(find({ role: "button", name: "Next" })).toBeNull();

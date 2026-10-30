@@ -642,6 +642,13 @@ export class WiredStore {
     return done.ok;
   }
 
+  /** One call whose refusal the form that made it draws: Fleet's words where it refused, nothing where it took it. */
+  private async said(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await act;
+    return done.ok ? undefined : refusalWords(done.outcome);
+  }
+
   /** Runs the review of the plan as it is now: again where one was run, of whatever version. A refusal is drawn where the review fails. */
   private async reviewing(id: string): Promise<void> {
     const work = this.lookup(id)?.work;
@@ -938,6 +945,13 @@ export class WiredStore {
         const done = await this.api.judgeSession({ session_id: id });
         if (!done.ok) this.tell(done.outcome);
       },
+    },
+    // The Job's lanes re-read by Fleet's `job_lifecycles.changed` and the record's `workflow_copy`, so an act answers only whether it was taken.
+    copy: {
+      step: (id, change) => this.said(this.api.changeSessionSteps({ session_id: id, change })),
+      piece: (id, kind, piece, text) => this.said(this.api.changeJobCopy({ session_id: id, kind, id: piece, ...(text === undefined ? {} : { text }) })),
+      keep: (id) => this.said(this.api.keepJobWorkflow(id)),
+      keepPiece: (id, kind, piece) => this.said(this.api.keepJobPiece({ session_id: id, kind, id: piece })),
     },
     get commands() {
       return store.commandsRead();

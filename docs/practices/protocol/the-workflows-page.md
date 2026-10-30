@@ -62,6 +62,9 @@ He sees it beside what it was and approves it, dismisses it or sends it back wit
 | `ask_workflow_change` | `POST /workflows/changes/ask?manifest_id=` | Bridge sends `AskWorkflowChange` (`workflow_id`, `source`, `text`) | `WorkflowChange`, `drafting` |
 | `suggest_workflow_change` | `POST /workflows/changes/suggest?manifest_id=` | Bridge sends `SuggestWorkflowChange` (`workflow_id`, `source`, `step_id`) | `WorkflowChange`, `drafting` |
 | `propose_new_workflow` | `POST /workflows/changes/propose_new?manifest_id=` | A Job sends `ProposeNewWorkflow` (`workflow_id`, `definition`, `scope`) | `WorkflowChange`, `ready`, `origin` `new`, `before` empty |
+| `propose_workflow_change` | `POST /workflows/changes/propose?manifest_id=` | A Job sends `ProposeWorkflowChange` (`workflow_id`, `source`, `definition`) | `WorkflowChange`, `ready`, `origin` `job`, `before` the file as it reads now |
+| `keep_job_workflow` | `POST /sessions/copy/keep` | Bridge sends `KeepJobWorkflow` (`session_id`, `source?`) | `WorkflowChange`, `ready`, `origin` `job`, `after` the Job's own copy of its workflow (*A Job's own copy*, [protocol](../protocol.md)) |
+| `keep_job_piece` | `POST /sessions/copy/keep_piece` | Bridge sends `KeepJobPiece` (`session_id`, `kind`, `id`) | `JobPieceProposed`: a rule or a lifecycle for Kit within the Job's repository, waiting on Approve on the Job's draft and listed by none of the operations below |
 | `list_workflow_changes` | `GET /workflows/changes?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowChanges`: the open ones, oldest first |
 | `approve_workflow_change` | `POST /workflows/changes/approve` | Bridge sends `WorkflowChangeRef` (`change`) | `WorkflowChangeApproved`: the `change` and the `saved` |
 | `dismiss_workflow_change` | `POST /workflows/changes/dismiss` | Bridge sends `WorkflowChangeRef` | `WorkflowChange`, `dismissed` |

@@ -1,14 +1,15 @@
 // Mock-only: Fleet's reads and keeps of what the owner taught, answered from a few canned inputs, over the wire the real Fleet speaks
 // (`readTeaching`, `saveTeaching`, `listWordRules`, and the mod list). A Jira key becomes a Words mod and a note for agents; a notice
 // taught to batch becomes a Fleet mod and a note; a row taught to be louder becomes a theme tweak and a panel taught to go becomes a
-// layout change, neither with a note; any other words are read as a note alone. Fleet also finds each repository's Jira site: from its
+// layout change, neither with a note; a pull request, a ticket or a notice taught to move its tickets once it is approved becomes a rule;
+// any other words are read as a note alone. Fleet also finds each repository's Jira site: from its
 // settings, else from its recent pull requests, else it asks once, when the rules for that repository are listed.
 //
 // It answers as Fleet does and no more: a notice by its word, an address with where it was found, a mod with the entry it came from,
 // and what each mod holds in the file `validate_mod` checks. And the Logbook entries a lesson becomes, which the scenario's Logbook
 // serves beside its own.
 
-import type { FleetRule, LogbookEntry, ModChecked, ModSummary, Outcome, ReadTeaching, SaveTeaching, TeachingProposal, TeachingRead, TeachingSaved, WordRule, WordRulesRead } from "@armada/protocol";
+import type { FleetRule, LifecycleRule, LogbookEntry, ModChecked, ModSummary, Outcome, PieceScope, ProposedRule, ReadTeaching, SaveTeaching, TeachingProposal, TeachingRead, TeachingSaved, WordRule, WordRulesRead } from "@armada/protocol";
 import { TEACH_SOURCE } from "@armada/components";
 import { LAYOUT, parseLayout } from "@armada/shell";
 
@@ -19,6 +20,7 @@ import { fleetAlso } from "../taught-parts";
 import { mockLayout, TIDY_DASHBOARD } from "./layout";
 import { unanswered } from "./moment";
 import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT, LEDGER_JOB, LEDGER_TITLE, PAYMENTS_JOB, PAYMENTS_TITLE } from "./sessions/teach";
+import { RULE_JOB, RULE_TITLE } from "./sessions/teach-rule";
 import { LIGHTER, LOUDER } from "./teach-colours";
 import { DUSK_MOD, mockThemes } from "./themes";
 
@@ -39,6 +41,7 @@ const JOBS: Readonly<Record<string, { manifestId: string; title: string }>> = {
   [ARMADA_JOB]: { manifestId: "armada", title: ARMADA_TITLE },
   [PAYMENTS_JOB]: { manifestId: "payments", title: PAYMENTS_TITLE },
   [LEDGER_JOB]: { manifestId: "ledger", title: LEDGER_TITLE },
+  [RULE_JOB]: { manifestId: "armada", title: RULE_TITLE },
 };
 
 /** What the scenario's Fleet does when a lesson is kept or a site cannot be found. */
@@ -100,6 +103,24 @@ const sentence = (words: string): string => {
   return /[.!?]$/.test(first) ? first : `${first}.`;
 };
 
+/** The rule the words "when this is approved, move its tickets to Done" are read as. Fleet gives it the scope and the id when it is kept. */
+const movesTicketsToDone = (scope: PieceScope): LifecycleRule => ({
+  id: "move_its_tickets_to_done",
+  name: "Move its tickets to Done",
+  scope,
+  when: { kind: "enters", lifecycle: "pull_request", state: "approved" },
+  conditions: [],
+  does: [{ what: { act: "tracker_move", to: "done", target: { among: { kind: "linked_from", lifecycle: "ticket" } } }, kind: "tracker_write", autonomy: "asks" }],
+  autonomy: "asks",
+  on_failure: { retries: 2, then: "ask_owner" },
+});
+
+/** The id Fleet makes of a rule's name: lower case words joined by `_`, starting with a letter. */
+const ruleIdOf = (name: string): string => {
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return id === "" ? "rule" : /^[a-z]/.test(id) ? id : `rule_${id}`;
+};
+
 /** What Fleet makes of the words, by what they were said about. */
 export function understood({ teaching, say, reach }: { teaching: Teaching; say: string; reach: "repository" | "all" }): TeachAnswer {
   const said = say.toLowerCase();
@@ -118,6 +139,9 @@ export function understood({ teaching, say, reach }: { teaching: Teaching; say: 
       agents: "Slot behind main notices arrive batched. One that blocks a merge is called out on its own.",
       fleet: { mod: "slot-behind-batched", name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", when: [{ if: "blocks_merge", does: "tell" }], scope },
     };
+  }
+  if ((teaching.kind === "pull_request" || teaching.kind === "ticket" || teaching.kind === "notice") && /approved/.test(said) && /ticket/.test(said)) {
+    return { rule: { rule: movesTicketsToDone(reach === "all" ? { kind: "everywhere" } : { kind: "within", id: teaching.manifestId ?? "" }) } };
   }
   if (teaching.kind === "row" && /louder|bolder|brighter|stand out/.test(said)) return { tweak: LOUDER };
   if (teaching.kind === "panel" && /hide|remove|never look/.test(said)) return { layout: hiding(teaching.text) };
@@ -164,13 +188,14 @@ const noteKind = (kind: Teaching["kind"]): LogbookEntry["kind"] => (kind === "co
 
 /** The proposal Fleet reads a lesson into. The wire names a notice by its word and a layout by its file; the words stay in `understanding`. */
 function proposalOf(answer: TeachAnswer, teaching: Teaching, reach: "repository" | "everywhere"): TeachingProposal {
-  const { agents, bridge, fleet: rule, tweak, layout } = answer;
+  const { agents, bridge, fleet: rule, tweak, layout, rule: lifecycle } = answer;
   return {
     ...(agents === undefined ? {} : { note: { section: reach === "everywhere" ? ("habits" as const) : ("repo" as const), kind: noteKind(teaching.kind), text: agents } }),
     ...(bridge === undefined ? {} : { words: { name: bridge.name, pattern: bridge.pattern, example: bridge.example, ...(bridge.site === undefined ? {} : { address: { template: `${bridge.site.address}/browse/{match}`, found: foundOf(bridge.site.from) } }) } }),
     ...(rule === undefined ? {} : { fleet: ruleOf(rule, teaching) }),
     ...(tweak === undefined ? {} : { tweak: [{ token: tweak.token, was: tweak.was, now: tweak.now, used_in: [...tweak.places], note: tweak.colour }] }),
     ...(layout === undefined ? {} : { layout: { name: layout.mod, layout: layoutText(layout) } }),
+    ...(lifecycle === undefined ? {} : { rule: { ...lifecycle.rule, ...(lifecycle.untestable === undefined ? {} : { untestable: [...lifecycle.untestable] }) } }),
   };
 }
 
@@ -188,7 +213,7 @@ const foundOf = (from: SiteFrom): string => (from.kind === "settings" ? "setting
 
 const layoutText = (layout: LayoutChange): string => JSON.stringify({ version: 1, [layout.region]: { hidden: layout.hidden } });
 
-/** A proposal's identity: the same parts are the same understanding. */
+/** A proposal's identity: the same parts are the same understanding. **The rule is left out**, since the person changes it before it is kept. */
 const keyOf = ({ note, words, fleet: rule, tweak, layout }: TeachingProposal): string => JSON.stringify([note, words, rule, tweak, layout]);
 
 /** The teaching a wire body names. A Job is told by its id; Bridge's own screen has none. */
@@ -243,14 +268,28 @@ function keep(input: Omit<Lesson, "id" | "at">, live: boolean): Lesson {
   return lesson;
 }
 
+const KIT = "/Users/user/.armada";
+
+/** A rule as it is kept: in the scope the reach gives and under the id its name makes, whatever the person left in them. */
+function placed(rule: ProposedRule, reach: "repository" | "all", teaching: Teaching): LifecycleRule {
+  const { untestable: _untestable, ...bare } = rule;
+  return { ...bare, id: ruleIdOf(bare.name), scope: reach === "all" ? { kind: "everywhere" } : { kind: "within", id: teaching.manifestId ?? "" } };
+}
+
 /** `save_teaching`: the proposal as it was shown. */
 export function saveTeaching(body: SaveTeaching): Promise<TeachingSaved> {
   const answer = understanding.get(keyOf(body));
   if (handle === undefined || answer === undefined) return Promise.resolve({ ok: false, outcome: unanswered("/teachings") });
-  const lesson = keep({ reach: body.reach === "everywhere" ? "all" : "repository", teaching: teachingOf({ source: body.source, session_id: body.session_id, repository: body.repository }), say: "", answer }, true);
-  const mods = modsOf(answer);
-  const entry = answer.agents === undefined ? undefined : taughtId(lesson);
-  return Promise.resolve({ ok: true, value: { ...(entry === undefined ? {} : { entry }), ...(mods.length === 0 ? {} : { mods }) } });
+  // The rule is kept as the person left it, with the scope the reach gives and the id the name makes.
+  const reach = body.reach === "everywhere" ? "all" : "repository";
+  const teaching = teachingOf({ source: body.source, session_id: body.session_id, repository: body.repository });
+  const ruled = body.rule === undefined ? undefined : placed(body.rule, reach, teaching);
+  const kept = ruled === undefined ? answer : { ...answer, rule: { rule: ruled, ...(body.rule?.untestable === undefined ? {} : { untestable: body.rule.untestable }) } };
+  const lesson = keep({ reach, teaching, say: "", answer: kept }, true);
+  const mods = modsOf(kept);
+  const entry = kept.agents === undefined ? undefined : taughtId(lesson);
+  const rule = ruled === undefined ? undefined : { kind: "rule" as const, id: ruled.id, scope: ruled.scope, file: `${KIT}/rules/${ruled.id}.toml`, replaced: false };
+  return Promise.resolve({ ok: true, value: { ...(entry === undefined ? {} : { entry }), ...(mods.length === 0 ? {} : { mods }), ...(rule === undefined ? {} : { rule }) } });
 }
 
 /** Forget on a taught Logbook entry takes back everything the lesson changed: the note, the links and what Fleet does. */

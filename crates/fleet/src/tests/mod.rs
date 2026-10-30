@@ -138,6 +138,7 @@ mod start_card;
 mod session_rail;
 mod step_ends;
 mod step_skip;
+mod job_copy;
 mod walk_rail;
 mod workflow_page;
 mod workflow_changes;

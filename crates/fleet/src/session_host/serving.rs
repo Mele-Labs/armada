@@ -495,6 +495,26 @@ where
         self.step_skipped(skip).await
     }
 
+    async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
+        self.steps_changed(change).await
+    }
+
+    async fn change_job_copy(self: Arc<Self>, change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
+        self.piece_changed(change).await
+    }
+
+    async fn get_job_copy(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {
+        self.job_copy_asked(session_id).await
+    }
+
+    async fn keep_job_workflow(self: Arc<Self>, keep: ipc::KeepJobWorkflow) -> Result<ipc::WorkflowChange, Refusal> {
+        self.job_workflow_kept(keep).await
+    }
+
+    async fn keep_job_piece(self: Arc<Self>, keep: ipc::KeepJobPiece) -> Result<ipc::JobPieceProposed, Refusal> {
+        self.job_piece_kept(keep).await
+    }
+
     async fn begin_session(self: Arc<Self>, begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {
         self.session_begun(begin).await
     }
