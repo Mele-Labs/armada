@@ -21,6 +21,7 @@ pub(crate) enum End {
     SketchApproved,
     DraftApproved,
     IdeaPicked,
+    DocumentApproved,
     PlanRecorded,
     Pushed,
     WalkShown,
@@ -71,6 +72,7 @@ impl End {
             End::SketchApproved => "you approve a sketch".into(),
             End::DraftApproved => "you approve a draft".into(),
             End::IdeaPicked => "you pick one of the ideas shown".into(),
+            End::DocumentApproved => "you approve a document".into(),
             End::PlanRecorded => "a plan is recorded".into(),
             End::Pushed => "it is pushed".into(),
             End::WalkShown => "a walk is shown".into(),
@@ -94,6 +96,7 @@ impl End {
             End::SketchApproved => "the person approves a sketch you showed with show_sketch".into(),
             End::DraftApproved => "the person approves a draft you proposed with propose_draft".into(),
             End::IdeaPicked => "the person picks an option you gave a preview in AskUserQuestion".into(),
+            End::DocumentApproved => "the person approves a document you wrote under .armada/documents/".into(),
             End::PlanRecorded => "you record a plan with record_plan".into(),
             End::Pushed => "you push the branch".into(),
             End::WalkShown => "you show a walk with show_window".into(),
@@ -119,6 +122,7 @@ impl End {
             End::SketchApproved => Waiter::ThePerson(WaitingSource::Sketch),
             End::DraftApproved => Waiter::ThePerson(WaitingSource::Draft),
             End::IdeaPicked => Waiter::ThePerson(WaitingSource::AskCard),
+            End::DocumentApproved => Waiter::ThePerson(WaitingSource::Document),
             End::PlanRecorded
             | End::Pushed
             | End::WalkShown
@@ -148,6 +152,7 @@ impl End {
             StepEnd::SketchApproved => End::SketchApproved,
             StepEnd::DraftApproved => End::DraftApproved,
             StepEnd::IdeaPicked => End::IdeaPicked,
+            StepEnd::DocumentApproved => End::DocumentApproved,
             StepEnd::Lifecycle(end) => End::Lifecycle(end.clone()),
         }
     }

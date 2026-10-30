@@ -14,7 +14,7 @@ import type { SketchSettled } from "@armada/components/src/compositions/SessionT
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
-import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
@@ -108,6 +108,15 @@ export type SessionAttachment =
       written?: true;
       /** An HTML page the Job wrote as its document (form `document`): the path of each revision, oldest first. The newest is the one the Landing reads. `id` is the page's path in the worktree. */
       revisions?: readonly string[];
+      /**
+       * A document's newest revision put to him, `revision` its number as Fleet wrote it (`"2"`), which `answerDocument` names back, and
+       * `settled` how he answered it: `detail.asked`, `detail.revision` and `detail.settled` on the wire. A new revision drops `settled`.
+       */
+      asked?: true;
+      revision?: string;
+      settled?: SketchSettled;
+      /** When the newest revision was kept, as near as the record tells: its thread card stands at this time. */
+      kept?: string;
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -707,8 +716,8 @@ export type SessionAsk = {
   questions?: readonly SessionQuestion[];
   /** The absolute path past the session's slots it asked about, which the "always" answers name a folder of. */
   reaches?: string;
-  /** Whether the call reads that path or writes to it. */
-  reachesTo?: "read" | "write";
+  /** Whether the call reads that path, writes to it, or runs something the guard cannot class. */
+  reachesTo?: "read" | "write" | "run";
   /** The Bash call's program and script, which "Allow calls like this for this job" allows a width of. */
   kind?: CallKind;
 };
@@ -1033,6 +1042,8 @@ export type SessionsDraft = {
   reopenWaiting?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */
   answerSketch?: (answer: AnswerSketch) => void | Promise<unknown>;
+  /** Answers the newest revision of a document put to him: approved, or sent back with a note (`POST /sessions/document/answer`). Absent where nothing serves it. */
+  answerDocument?: (answer: AnswerDocument) => void | Promise<unknown>;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
    * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as

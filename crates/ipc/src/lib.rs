@@ -222,6 +222,8 @@ mod setup;
 mod phone;
 mod show_file;
 mod sketch;
+/// A Job's document put to the person, and his answer.
+mod document_answer;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
 mod test_map;
 /// A background act that failed after its reply.
@@ -595,6 +597,10 @@ pub use session_retro_row::{
 pub use phone::{PhoneGateway, SetPhoneGateway};
 pub use show_file::{ShowFile, ShownText};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
+pub use document_answer::{
+    AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
+    DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
+};
 pub use sketch::{
     page_scene_problems, AnswerSketch, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WORDS,

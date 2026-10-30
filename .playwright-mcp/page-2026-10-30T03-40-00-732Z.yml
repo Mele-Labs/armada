@@ -1,0 +1,173 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img "Armada" [ref=e7]
+      - generic [ref=e11]:
+        - button "Repository" [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: armada
+        - button "Open the Manifest" [ref=e18] [cursor=pointer]
+    - generic [ref=e31]:
+      - navigation "Places" [ref=e33]:
+        - tablist [ref=e34]:
+          - tab "Cockpit" [selected] [ref=e35] [cursor=pointer]
+          - tab "Studios" [ref=e42] [cursor=pointer]
+          - tab "Logbook" [ref=e47] [cursor=pointer]
+          - tab "System" [ref=e51] [cursor=pointer]
+      - button "Search, or describe work to dispatch (⌘K)" [ref=e54] [cursor=pointer]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: ⌘
+          - generic [ref=e60]: K
+    - generic [ref=e61]:
+      - button "Helm" [ref=e62] [cursor=pointer]
+      - button "Fleet — Running" [ref=e68] [cursor=pointer]
+      - button "Menu" [ref=e73] [cursor=pointer]
+  - generic [ref=e82]:
+    - generic [ref=e83]:
+      - region "Jobs" [ref=e84]:
+        - button "Jobs Filter" [expanded] [ref=e167] [cursor=pointer]:
+          - generic [ref=e168]: Jobs
+          - button "Filter" [ref=e172]
+        - list [ref=e85]:
+          - listitem [ref=e86]:
+            - button "Demo marketing video" [active] [ref=e87] [cursor=pointer]:
+              - img "Waiting on you" [ref=e91]
+          - listitem [ref=e95]:
+            - button "Release notes script" [ref=e96] [cursor=pointer]:
+              - img "Idle" [ref=e100]
+          - listitem [ref=e103]:
+            - button "Store migration spike" [ref=e104] [cursor=pointer]:
+              - img "Idle" [ref=e108]
+      - region "Field" [ref=e175]:
+        - button [expanded] [ref=e176] [cursor=pointer]:
+          - heading "Field" [level=3] [ref=e177]
+          - button "Expand" [ref=e180]
+        - generic [ref=e189]:
+          - generic [ref=e190]:
+            - listbox "Map":
+              - option "Demo marketing video, Job, Working" [ref=e191] [cursor=pointer]
+          - generic [ref=e192]:
+            - button "Zoom in" [ref=e193] [cursor=pointer]
+            - button "Zoom out" [ref=e195] [cursor=pointer]
+            - button "Back to this Job" [ref=e197] [cursor=pointer]
+      - separator "Resize the left column" [ref=e111]
+    - generic [ref=e112]:
+      - 'region "Job: Demo marketing video" [ref=e200]':
+        - region "Job s58" [ref=e202]:
+          - generic [ref=e203]:
+            - img "Waiting on you · s58" [ref=e206]
+            - button "Demo marketing video, rename" [ref=e212]: Demo marketing video
+            - button "More" [ref=e214] [cursor=pointer]
+            - button "Back" [ref=e220] [cursor=pointer]
+          - generic [ref=e225]:
+            - region "Thread" [ref=e228]:
+              - list [ref=e229]:
+                - region "Your message" [ref=e230]:
+                  - generic [ref=e231]:
+                    - generic [ref=e232]: You
+                    - generic [ref=e233]: 10:02:00
+                  - paragraph [ref=e236]: Write the script for a 60 second demo video of Armada for the landing page.
+                - listitem [ref=e237]:
+                  - group [ref=e238]:
+                    - 'generic "Tool calls: Read" [ref=e239] [cursor=pointer]': Read multiple files
+                - listitem [ref=e245]:
+                  - generic [ref=e246]:
+                    - generic [ref=e247]: Agent
+                    - generic [ref=e248]: 10:02:30
+                  - paragraph [ref=e251]: "Four shots: the Board, a plan card, a walk and the merge queue, with a line of voice over each."
+                - listitem [ref=e252]:
+                  - 'article "Document: Video script, Revision 1" [ref=e253]':
+                    - button "Open Video script, Revision 1" [ref=e254] [cursor=pointer]:
+                      - generic [ref=e255]:
+                        - generic [ref=e259]: Video script
+                        - generic [ref=e260]: r1
+                        - generic [ref=e262]: 10:03:10
+                    - group "Answers" [ref=e264]:
+                      - button "Approve" [ref=e265] [cursor=pointer]
+                      - button "Send back" [ref=e266] [cursor=pointer]
+            - generic [ref=e268]:
+              - textbox "Message" [ref=e270]
+              - generic [ref=e271]:
+                - combobox "Permission mode" [ref=e276] [cursor=pointer]:
+                  - option "Ask"
+                  - option "Auto" [selected]
+                  - option "Accept edits"
+                  - option "Plan"
+                - combobox "Model" [ref=e281] [cursor=pointer]:
+                  - option "sonnet · default" [selected]
+                  - option "haiku"
+                  - option "sonnet"
+                  - option "opus"
+                - combobox "Effort" [ref=e286] [cursor=pointer]:
+                  - option "Effort" [selected]
+                  - option "low"
+                  - option "medium"
+                  - option "high"
+                - button "Attach file" [ref=e288] [cursor=pointer]
+                - button "Draw sketch" [ref=e292] [cursor=pointer]
+                - group "Attached"
+                - button "Send" [disabled]
+      - region "Flight controls" [ref=e127]:
+        - button "Flight control Expand Edit" [expanded]:
+          - generic: Flight control
+          - generic:
+            - button "Expand"
+          - generic:
+            - button "Edit"
+        - generic [ref=e300]:
+          - button "Auto land" [ref=e301] [cursor=pointer]:
+            - img "Auto land off" [ref=e305]
+          - button "Pause" [disabled]:
+            - img "Not paused"
+          - button "Judge" [disabled]
+          - button "Report issue with job" [disabled]:
+            - generic: Report
+          - button "Release everything the Job holds" [disabled]:
+            - generic: Release
+          - button "Terminal" [disabled]
+          - button "Browser" [ref=e306] [cursor=pointer]
+          - button "Requests" [ref=e311] [cursor=pointer]
+    - generic [ref=e157]:
+      - separator "Resize the right column" [ref=e158]
+      - generic [ref=e316]:
+        - toolbar "Views" [ref=e317]:
+          - button "Artifacts" [ref=e319] [cursor=pointer]
+          - button "System" [ref=e323] [cursor=pointer]
+          - generic [ref=e327]:
+            - button "Checks" [disabled]
+          - generic [ref=e328]:
+            - button "Subagents" [disabled]
+          - generic [ref=e329]:
+            - button "Bays" [disabled]
+        - generic [ref=e331]:
+          - region "Brief" [ref=e332]:
+            - button "Brief" [ref=e334] [cursor=pointer]:
+              - generic [ref=e336]: Write the script for a 60 second demo video of Armada for the landing page.
+          - region "Done" [ref=e339]:
+            - button [ref=e340] [cursor=pointer]:
+              - heading "Done" [level=3] [ref=e341]
+              - radiogroup "View" [ref=e343]:
+                - radio "By step" [checked] [ref=e345]
+                - radio "By kind" [ref=e349]
+          - region "Now" [ref=e354]:
+            - button [expanded] [ref=e355] [cursor=pointer]:
+              - img "Waiting on you" [ref=e356]
+              - heading "Now" [level=3] [ref=e357]
+              - button "Ask for an update" [ref=e360]
+            - list "Now" [ref=e365]:
+              - listitem [ref=e366]:
+                - img "Waiting on you" [ref=e367]
+                - button "Video script" [ref=e371] [cursor=pointer]
+              - listitem [ref=e372]:
+                - img "Open" [ref=e373]
+                - generic [ref=e383]: Agent
+              - listitem [ref=e384]:
+                - img "Working" [ref=e385]
+                - generic [ref=e389]: Document
+          - region "Open" [ref=e390]:
+            - button [expanded] [ref=e391] [cursor=pointer]:
+              - heading "Open" [level=3] [ref=e392]
+            - list "Ahead" [ref=e395]:
+              - listitem [ref=e396]:
+                - img "Open" [ref=e397]
+                - generic [ref=e407]: Read
+    - separator "Resize Jobs and Field" [ref=e408]
