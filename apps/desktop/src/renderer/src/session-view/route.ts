@@ -5,6 +5,7 @@
 import type { TaskMarkState } from "@armada/components";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
 
+import { waitsOnHim } from "./document-state";
 import { checksOf } from "./IssuesBlock";
 
 export type RouteState = Extract<TaskMarkState, "open" | "working" | "done" | "failed">;
@@ -18,8 +19,11 @@ const SYSTEM = new Set(["ci", "main"]);
 const steps = (labels: readonly string[], states: readonly RouteState[]): RouteStep[] => labels.map((label, at) => ({ key: label, label, state: states[at] ?? "open", ...(SYSTEM.has(label) ? { system: true as const } : {}) }));
 
 export function routeOf(session: Session, kind: WorkLanding, made: Made): RouteStep[] {
-  if (kind === "spike") return steps(["Findings"], [made.doc ? "done" : "open"]);
-  if (kind === "document" || kind === "report") return steps(["Document", "Read"], [made.doc ? "done" : "open"]);
+  // A page written and waiting on his answer is not done until he approves it.
+  const waits = attachmentsOf(session, "artifact").some((one) => one.form === "document" && waitsOnHim(one));
+  const doc: RouteState = !made.doc ? "open" : waits ? "working" : "done";
+  if (kind === "spike") return steps(["Findings"], [doc]);
+  if (kind === "document" || kind === "report") return steps(["Document", "Read"], [doc]);
   if (kind === "mod") {
     const checks = session.rows.filter((row) => row.kind === "check");
     const last = checks[checks.length - 1];

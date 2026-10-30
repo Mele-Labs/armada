@@ -1,0 +1,77 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img "Armada" [ref=e7]
+      - generic [ref=e11]:
+        - button "Repository" [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: armada
+        - button "Open the Manifest" [ref=e18] [cursor=pointer]
+    - generic [ref=e31]:
+      - navigation "Places" [ref=e33]:
+        - tablist [ref=e34]:
+          - tab "Cockpit" [selected] [ref=e35] [cursor=pointer]
+          - tab "Studios" [ref=e42] [cursor=pointer]
+          - tab "Logbook" [ref=e47] [cursor=pointer]
+          - tab "System" [ref=e51] [cursor=pointer]
+      - button "Search, or describe work to dispatch (⌘K)" [ref=e54] [cursor=pointer]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: ⌘
+          - generic [ref=e60]: K
+    - generic [ref=e61]:
+      - button "Helm" [ref=e62] [cursor=pointer]
+      - button "Fleet — Running" [ref=e68] [cursor=pointer]
+      - button "Menu" [ref=e73] [cursor=pointer]
+  - generic [ref=e82]:
+    - generic [ref=e83]:
+      - region "Jobs" [ref=e84]:
+        - button "Jobs Filter" [expanded]:
+          - generic: Jobs
+          - generic:
+            - generic:
+              - generic:
+                - button "Filter"
+        - list [ref=e85]:
+          - listitem [ref=e86]:
+            - button "Demo marketing video" [ref=e87] [cursor=pointer]:
+              - img "Waiting on you" [ref=e91]
+          - listitem [ref=e95]:
+            - button "Release notes script" [ref=e96] [cursor=pointer]:
+              - img "Idle" [ref=e100]
+          - listitem [ref=e103]:
+            - button "Store migration spike" [ref=e104] [cursor=pointer]:
+              - img "Idle" [ref=e108]
+      - separator "Resize the left column" [ref=e111]
+    - generic [ref=e112]:
+      - region "Flight map" [ref=e114]:
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - listbox "Map"
+          - generic [ref=e118]:
+            - button "Zoom in" [ref=e119] [cursor=pointer]
+            - button "Zoom out" [ref=e121] [cursor=pointer]
+            - button "Back to the whole field" [ref=e123] [cursor=pointer]
+      - generic [ref=e126]:
+        - region "Flight controls" [ref=e127]:
+          - button "Flight control Edit" [expanded]:
+            - generic: Flight control
+            - generic:
+              - button "Edit"
+          - generic [ref=e128]:
+            - button "Checks" [ref=e129] [cursor=pointer]
+            - button "Needs me" [ref=e134] [cursor=pointer]:
+              - generic [ref=e138]: Calls
+            - button "Map" [pressed] [ref=e139] [cursor=pointer]
+            - button "Timeline" [ref=e147] [cursor=pointer]
+        - region "Dispatch controls" [ref=e150]:
+          - generic: Dispatch
+          - button "Dispatch" [ref=e152] [cursor=pointer]
+    - generic [ref=e157]:
+      - separator "Resize the right column" [ref=e158]
+      - region "Bays" [ref=e159]:
+        - generic:
+          - generic: Bays
+          - button "Worktree Slots"
+        - list [ref=e160]
+      - region "Activity" [ref=e161]:
+        - group "Last hour" [ref=e162]
+    - separator "Resize Bays and Activity" [ref=e166]

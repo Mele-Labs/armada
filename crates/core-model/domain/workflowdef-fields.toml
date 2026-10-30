@@ -307,6 +307,7 @@ walk_approved = "The person approves a window the Job showed with show_window"
 sketch_approved = "The person approves a sketch the Job showed with show_sketch"
 draft_approved = "The person approves a draft the Job proposed with propose_draft, as written or with his own text. Sent back or withdrawn does not count"
 idea_picked = "The person answers the Job's AskUserQuestion by picking an option it gave a preview. Typed words, an option without a preview and Fleet's own questions do not count"
+document_approved = "The person approves the newest revision of a page the Job wrote under .armada/documents/. An approval of an older revision is refused, and a new revision asks again"
 lifecycle_state = "A lifecycle and one of its states, such as `pr: approved`. Every instance of it the Job holds must have reached the state; `any pr: approved` needs one. Read from the moves Fleet keeps for the Job's instances, never from the agent"
 
 [fields.for_requests]

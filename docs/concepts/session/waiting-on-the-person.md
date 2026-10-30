@@ -62,6 +62,11 @@ His Approve or Send back on its card settles it, and so does `dismiss_waiting`, 
 Drawing the title again lifts the dismissal, so the redrawn sketch waits again.
 A plan's sketch raises none, since it is approved with the plan.
 A job moved into a slot keeps the same id, so its sketches and their items stay.
+**Every revision Fleet keeps of a page a job wrote under `.armada/documents/` waits until the person answers it.** One item per page, `document:<path>`, source `document`, its text the page's title and its act `message` on the job, while the newest revision's `detail.asked` is `true` and `detail.settled` is unset.
+It is read off the page Fleet kept, never off the tool call ([Document](../document.md)).
+His Approve or Send back (`answer_document`) settles that revision, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
+`answer_waiting` on it is refused.
+A new revision asks again and lifts the dismissal; the same bytes written again ask nothing.
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
@@ -71,6 +76,7 @@ A job moved into a slot keeps the same id, so its sketches and their items stay.
 | He approves the plan | `plan:<version>` |
 | He approves a walk | `walk:<url>` |
 | He approves a sketch | `sketch:<title>` |
+| He approves a document's newest revision | `document:<path>` |
 | He approves a draft | `draft:<row>` |
 | He picks an idea | the open question, `ask:<call>` |
 | He replies | `replied:<turn ended>` |
@@ -158,7 +164,7 @@ Both close paths do this, a hosted close and a terminal job's end, and each rewr
 That artifact's `session.changed` is Bridge's word that a note file changed: main tells the annotation layer, which reads its notes again.
 
 **An agent that calls `show_window`, `withdraw_window`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long job, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good.
-The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`), or `done` and `done_since`.
+The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`) with `fleet` beside it (Fleet's own items, `id`, `kind` and `text`, read-only to the agent and never counted as its own, so its count matches Bridge's), or `done` and `done_since`.
 It weighs the same on the first call and the thousandth.
 Bridge's routes and the mod's hook, which are not the door, are answered the row.
 Nothing reads these four answers today.
