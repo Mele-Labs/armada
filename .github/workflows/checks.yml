@@ -392,6 +392,22 @@ jobs:
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
           echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'
 
+  # Not chosen by `armada covers`, for the reason `foundations` is not: a root
+  # Check never sees the paths a workspace owns, and the formatter covers them
+  # all. It reads the whole tree in about a second. docs/practices/ci.md,
+  # *Formatting*.
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+      - uses: ./.github/actions/run-check
+        with:
+          name: format
+          cmd: pnpm format:check
+
   # Not chosen by `armada covers`: the foundations apply to every change, docs
   # included. Read as the merge line read it, docs/practices/ci.md, *Foundations*:
   # HEAD is the candidate, HEAD^1 is main's own tip, and only a failing line the
@@ -570,6 +586,7 @@ jobs:
       - preview_test
       - sync_mod_test
       - xtask_test
+      - format
       - foundations
     runs-on: ubuntu-latest
     timeout-minutes: 45

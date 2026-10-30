@@ -1,0 +1,42 @@
+// The formatter for the TypeScript half: apps/ and packages/, nothing else.
+// A fixed width breaks a long expression one item per line, so two features
+// stop sharing a line and stop conflicting on it. Formatting only: no lint, no
+// import sorting. docs/practices/bridge.md, *The formatter*.
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "apps/**",
+      "packages/**",
+      // Generated, and compared byte for byte with what the generator writes.
+      // The sources are parsed one line at a time by `xtask/src/tokens.rs`.
+      "!packages/tokens",
+      "!packages/components/src/generated",
+      // Read by its hand-written shape in `xtask/src/skill_regions.rs`.
+      "!packages/shell/layout-registry.json",
+      // Compiled into Fleet, and a test pins the CSS text.
+      "!packages/mods",
+      // `crates/ipc/src/tests/sketch.rs` splits these on their line layout.
+      "!packages/components/src/compositions/SketchScene/scene.ts",
+      "!packages/components/src/compositions/SketchScene/screen.ts"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 100
+  },
+  // Double quotes: several gate rules and tests split source on `"`.
+  "javascript": {
+    "formatter": { "quoteStyle": "double", "jsxQuoteStyle": "double" }
+  },
+  "json": {
+    "parser": { "allowComments": true, "allowTrailingCommas": true }
+  },
+  "linter": { "enabled": false },
+  "assist": { "enabled": false }
+}

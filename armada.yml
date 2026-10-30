@@ -367,6 +367,11 @@ commands:
   fmt:
     run: cargo fmt --all
 
+  # The TypeScript half's formatter, which CI's `format` job checks. A Drone is
+  # refused a bare `pnpm` (#1174), so it runs this as `armada run format`.
+  format:
+    run: pnpm format
+
   # **A Drone regenerating the generated TypeScript after a registry change.**
   # Not a Check — it writes, and what it writes lands in the diff — but a Drone
   # that changes `crates/core-model/domain` cannot make `typecheck` pass
