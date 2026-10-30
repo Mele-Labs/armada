@@ -4,10 +4,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
-import type { FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
+import type { EntryTriage, FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
-import type { PullReviewRow, PullRequestPage } from "@armada/protocol";
+import type { PullRequestEntry, PullReviewRow, PullRequestPage } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { openLink } from "../commands";
@@ -119,6 +119,17 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
   const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === item.number);
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
   const back = useBack();
+  // What the Job's agent made of each human comment, where this pull request is the one a Job triaged: drawn on the comment with the act that sends it to the Job.
+  const triage = owner?.lanes?.job.triage;
+  const sendComment = draft?.sendComment;
+  const triaged = (entry: PullRequestEntry): EntryTriage | undefined => {
+    if (entry.kind !== "comment" || triage === undefined || owner === undefined) return undefined;
+    const one = triage.comments.find((each) => each.author === entry.author && each.text === entry.body);
+    if (one === undefined) return undefined;
+    return { read: one.read, where: one.where, ...(one.sent === true ? { sent: true } : {}), ...(sendComment === undefined ? {} : { onSend: () => sendComment(owner.id, one.id) }) };
+  };
+  const opened = item.comment;
+  const focused = (entry: PullRequestEntry): boolean => opened !== undefined && entry.author === opened.author && entry.body === opened.body;
 
   const answer = reading.out ? undefined : reading.value;
   const refusal = answer !== undefined && "refused" in answer ? answer.refused : undefined;
@@ -307,6 +318,8 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
         {...(back === undefined ? {} : { back })}
         tab={tab}
         onTab={goTo}
+        {...(triage === undefined ? {} : { triage: triaged })}
+        {...(opened === undefined ? {} : { focused })}
         {...(shownPatches === undefined ? {} : { patches: shownPatches })}
         {...(marks === undefined ? {} : { reach: marks, onTest: (test: ReachTest) => void openInPanel({ kind: "file", path: read.root === undefined ? test.test : `${read.root}/${test.test}`, from: "session" }) })}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}

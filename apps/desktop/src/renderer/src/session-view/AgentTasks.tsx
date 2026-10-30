@@ -1,9 +1,9 @@
-// Progress with no plan: the agent's own task list in the order it made them, each its state mark (the plan task's own, with its tooltip) and its
-// subject. The list is one stop on Tab, and the arrows, Home and End move through it.
+// The agent's own task list in the order it made them, each its state mark (the plan task's own, with its tooltip) and its subject. The one being done
+// breathes while the turn runs and is still once it has ended. The list is one stop on Tab, and the arrows, Home and End move through it.
 
 import { useState, type KeyboardEvent } from "react";
-import { TaskMark } from "@armada/components";
-import type { AgentTask } from "@armada/screens/src/draft/sessions";
+import { TASK_GLYPH, TaskMark, Tooltip, taskMarkSaid, type TaskMarkState } from "@armada/components";
+import type { SessionTodo } from "@armada/screens/src/draft/sessions";
 
 import "./agent-tasks.css";
 
@@ -17,17 +17,34 @@ function move(event: KeyboardEvent<HTMLUListElement>) {
   event.preventDefault();
 }
 
-export function AgentTasks({ tasks }: { tasks: readonly AgentTask[] }) {
+const MARK_OF: Record<SessionTodo["state"], TaskMarkState> = { done: "done", doing: "working", todo: "open" };
+
+function Mark({ state, breathing }: { state: TaskMarkState; breathing: boolean }) {
+  if (state !== "working" || !breathing) return <TaskMark state={state} />;
+  const said = taskMarkSaid(state);
+  return (
+    <Tooltip asChild label={said}>
+      <span className="armada-session-mark armada-task-mark" data-state={state} data-pulsing role="img" aria-label={said}>
+        <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+export function AgentTasks({ todos, working }: { todos: readonly SessionTodo[]; working: boolean }) {
   // The row with the focus is the list's tab stop, so Tab leaves from where the arrows left it.
   const [stop, setStop] = useState(0);
   return (
     <ul className="sv-tasks sv-agent-tasks" aria-label="Tasks" data-own-arrows="" onKeyDown={move}>
-      {tasks.map((task, i) => (
-        <li key={task.id} className="sv-task sv-agent-tasks__row" data-state={task.state} tabIndex={i === Math.min(stop, tasks.length - 1) ? 0 : -1} onFocus={() => setStop(i)}>
-          <TaskMark state={task.state} />
-          <span className="sv-agent-tasks__subject">{task.subject}</span>
-        </li>
-      ))}
+      {todos.map((todo, i) => {
+        const state = MARK_OF[todo.state];
+        return (
+          <li key={`${i}-${todo.text}`} className="sv-task sv-agent-tasks__row" data-state={state} tabIndex={i === Math.min(stop, todos.length - 1) ? 0 : -1} onFocus={() => setStop(i)}>
+            <Mark state={state} breathing={working} />
+            <span className="sv-agent-tasks__subject">{todo.text}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

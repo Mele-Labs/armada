@@ -5,6 +5,13 @@
   status = "Specified"
   notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Marks the Propose step on a workflow step card. Propose says what the agent would do before it does it, which is a bubble with words in it. Drawn at 14px, stroke 2. Refused: `message-square-plus`, reserved to pinning a note to a plan row."
 
+[[icons.message-square-text.usage]]
+  means = "Tell an agent a change to what is picked on a workflow's lanes"
+  group = "Workspace lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Tell an agent`. The box answers with the diff the page draws."
+
   [[icons.message-square-text.usage]]
     means = "A note the person sent to a Job from the annotation layer, on its row in the Job's Artifacts layer"
     group = "Session"

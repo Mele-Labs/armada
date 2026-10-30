@@ -12,3 +12,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. A ghost button labelled `Pull request` beside the command in Your checkout, tooltip `Commit to a branch, open a pull request, auto-merge on`. A branch going to a pull request, the same meaning it has under Promote."
+
+[[icons.git-pull-request-arrow.usage]]
+  means = "Propose to Armada, in the Workflows page's header toolbar"
+  group = "Workflows"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Propose to Armada`. A Job on the Armada repository turns the workflow into a branch and a pull request, as Promote does for a mod."

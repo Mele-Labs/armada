@@ -11,3 +11,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."
+
+  [[icons.waypoints.usage]]
+    means = "A Job's Workflow view, a button in the Job's head"
+    group = "Job views"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`, after the owner named the view Workflow. The view draws the Job's steps and the tickets, pull requests and deploys it holds as lanes, with the rules between them. Tooltip `Workflow`, with ⌥⇧L. Refused: `workflow`, reserved to the Workflows surface and never a Job's own workflow; `git-branch`, which means a branch. The owner may rule it out."

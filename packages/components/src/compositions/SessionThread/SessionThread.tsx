@@ -24,7 +24,7 @@ import { notedOf } from "../ViewerNotes/compose";
 import { NotedMessage, NotedOpens, type NotedOpen } from "../ViewerNotes/NotedMessage";
 import { splitDebugInfo } from "./debug-info";
 import { SessionStop } from "./SessionStop";
-import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
+import { TaskMark } from "../TaskMark/TaskMark";
 import { artifactOf, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
@@ -221,7 +221,7 @@ type SessionThreadKinds =
   /** The agent showed a file with `show_file`: a quiet row, a press that opens it in the side panel. */
   | { id: string; at: string; kind: "file"; path: string; name: string }
   /** A draft the agent put to the person with `propose_draft`: a card answered in place, and how it ended once `settled`. */
-  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" }; /** **A mock's field**: a draft that is a rule's own act, whose card is the rule and says where it goes and to whom. */ rule?: { where: string; to: string } }
   /**
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
@@ -253,7 +253,7 @@ function RowStamp({ row, className }: { row: { at: string }; className: string }
   return <Stamp at={row.at} className={className} />;
 }
 
-/** One todo of the agent's list, in the order the band draws it. */
+/** One todo of the agent's list, as a Cockpit tile reads it. */
 export type WorkingTodo = { key: string; text: string; state: "done" | "doing" | "todo" };
 
 /** Where a Check the agent ran stands. */
@@ -377,11 +377,6 @@ export type SessionThreadProps = {
    * Skip only puts the deck away, and a live `asked` takes its place.
    */
   lapsed?: { id: string; questions: readonly AskedQuestion[]; onAnswer: (answers: QuestionAnswer[]) => void; onSkip: () => void };
-  /**
-   * What the agent reports it is working on, from its own todo list: a band of one glyph per todo over
-   * the box, the one being done first, which a press opens to the rows. Empty or absent draws none.
-   */
-  workingOn?: { todos: readonly WorkingTodo[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -1736,7 +1731,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1896,56 +1891,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
         </StampSurface>
       </div>
       </div>
-      <div className="armada-session-thread__footer">
-      {workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
-      </div>
     </div>
   );
 }
 
-const TASK_OF: Record<WorkingTodo["state"], TaskMarkState> = { done: "done", doing: "working", todo: "open" };
-
-/** A todo's state as `TaskMark` draws a task's, named with its words on hover. Only the one being done breathes. */
-function TodoMark({ todo, tone }: { todo: WorkingTodo; tone?: true }) {
-  const task = TASK_OF[todo.state];
-  const Glyph = TASK_GLYPH[task];
-  const said = `${taskMarkSaid(task)}: ${todo.text}`;
-  return (
-    <Tooltip label={said}>
-      <span className={tone === undefined ? "armada-session-mark" : "armada-session-mark armada-task-mark"} data-state={task} data-pulsing={todo.state === "doing" || undefined} role="img" aria-label={said}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
-
-/** Folded, the band shows a glyph per todo, named on hover; a press on the band opens the rows. Nothing is drawn for a list that is empty. */
-function WorkingOn({ todos }: { todos: readonly WorkingTodo[] }) {
-  const [open, setOpen] = useState(false);
-  const Fold = open ? ChevronDown : ChevronUp;
-  return (
-    <section className="armada-session-working" aria-label="Working on">
-      <button type="button" className="armada-session-working__band" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="armada-session-working__label">Working on</span>
-        {open ? null : (
-          <span className="armada-session-working__glyphs">
-            {todos.map((todo) => (
-              <TodoMark key={todo.key} todo={todo} />
-            ))}
-          </span>
-        )}
-        <Fold className="armada-session-working__fold" size={12} strokeWidth={2} aria-hidden />
-      </button>
-      {open ? (
-        <ul className="armada-session-working__rows">
-          {todos.map((todo) => (
-            <li key={todo.key} className="armada-session-working__row" data-state={todo.state}>
-              <TodoMark todo={todo} tone />
-              <span className="armada-session-working__text">{todo.text}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
-  );
-}

@@ -22,6 +22,9 @@ pub enum SessionTodoState {
 pub struct SessionTodo {
     pub text: String,
     pub state: SessionTodoState,
+    /// The id of the plan task Fleet matched this item to. Absent where the Session has no plan or no task says it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task: Option<String>,
 }
 
 /// What one subagent of a hosted Session is doing, by the gate's `agent_id` on its calls.

@@ -1,4 +1,4 @@
-// The layers over a Session's stage, opened from Flight control's keys: Artifacts, Subagents, Checks and Bays. Each covers the thread and
+// The layers over a Session's stage, opened from Flight control's keys: Artifacts, Subagents, Checks and Bays, and Lanes on a wide window. Each covers the thread and
 // composer, which stay mounted under it, so Back leaves them exactly as they were. Esc is Back. The first thing in a layer holds focus: the
 // search field in Artifacts, the first row elsewhere; the arrows walk the rows. A layer is drawn from what the ledger and the thread already
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
@@ -20,6 +20,7 @@ import { closeLayer, type LayerId } from "./layers";
 import { SystemSections } from "./SystemLayer";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
+import { LanesBody } from "../shared-panel/lanes";
 import { openClashFile } from "./ClashFileSheet";
 import type { HeldBay, SessionBays } from "./slot-trouble";
 
@@ -387,6 +388,20 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
   );
 }
 
+/** The Job's Lanes as a layer in the spine, on a window wide enough to hold them there (`lanes-width.ts`). The same body the side panel draws. */
+function LanesLayer({ session }: { session: Session }) {
+  const root = useRef<HTMLDivElement>(null);
+  // Focus goes to the canvas, as it does in the panel, so its keys work at once.
+  useEffect(() => root.current?.querySelector<HTMLElement>("[data-node]")?.focus({ preventScroll: true }), []);
+  return (
+    <Shell label="Workflow" owns="[ ]">
+      <div ref={root} className="sv-lanes__layer">
+        <LanesBody sessionId={session.id} />
+      </div>
+    </Shell>
+  );
+}
+
 /** What the Job costs the machine, and the bays it holds, drawn as the Bays layer draws them. */
 export function SystemLayer({ session, bays }: { session: Session; bays: SessionBays | undefined }) {
   const held = bays?.bays ?? [];
@@ -402,6 +417,7 @@ export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession, 
   if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />;
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
+  if (id === "lanes") return <LanesLayer session={session} />;
   if (id === "system") return <SystemLayer session={session} bays={bays} />;
   return <BaysLayer session={session} bays={bays} />;
 }

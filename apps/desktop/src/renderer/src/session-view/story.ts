@@ -183,6 +183,9 @@ export const LEDGER_KEY = { code: "KeyL", cap: "⌥L" } as const;
 /** Artifacts over the right column. */
 export const ARTIFACTS_KEY = { code: "KeyA", cap: "⇧⌘A" } as const;
 
+/** Lanes over the stage. */
+export const LANES_KEY = { code: "KeyL", cap: "⌥⇧L" } as const;
+
 export const bandOf = (event: KeyboardEvent): (typeof BAND_KEYS)[number] | undefined =>
   event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey ? BAND_KEYS.find((one) => one.code === event.code) : undefined;
 
@@ -191,3 +194,5 @@ export const isWholeKey = (event: KeyboardEvent): boolean => event.altKey && !ev
 export const isLedgerKey = (event: KeyboardEvent): boolean => event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === LEDGER_KEY.code;
 
 export const isArtifactsKey = (event: KeyboardEvent): boolean => event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === ARTIFACTS_KEY.code;
+
+export const isLanesKey = (event: KeyboardEvent): boolean => event.altKey && event.shiftKey && !event.metaKey && !event.ctrlKey && event.code === LANES_KEY.code;

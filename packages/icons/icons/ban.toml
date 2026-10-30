@@ -67,3 +67,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 27 Oct 2026 for the draft card's Withdraw (`propose_draft`), on the walk `draft-card`. Withdrawing is his decision that the draft will not go, which is what the circle and diagonal says; it is not a failure. Tooltip `Withdrawn`, with the same word beside it and his reason quoted under the draft where he gave one."
+
+[[icons.ban.usage]]
+  means = "A step skipped on a Job, and a rule turned off in the editor"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. A decision that it will not run, which is the circle and diagonal. Tooltips `Skipped` and `Off`; a rule that is off keeps its edge, dotted."
