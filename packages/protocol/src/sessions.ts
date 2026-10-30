@@ -309,6 +309,7 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * an act a lifecycle rule of the Job planned that he is asked about first, or one that failed past the rule's retries where the rule says to
  * ask, when the text says what failed. Exactly two options: `Do it` (choice 0, `Try again` on a failed act) carries the act out and `Skip`
  * (choice 1) records it skipped. Neither sends the agent a word, and dismissing it is Skip. It is listed while the Job is live.
+ * A draft act is never one: it is proposed at once and the `draft` item it raises is the ask.
  * `sketch` (id `sketch:<title>`, the sketch attachment's id, text the title, act `message` whose `target` is the Job's own id) is a sketch the
  * agent showed with `show_sketch` that he has not approved or sent back on its card. Its press opens the sketch. Dismissing it settles it.
  */

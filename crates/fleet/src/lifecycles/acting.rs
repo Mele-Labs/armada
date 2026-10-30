@@ -144,6 +144,7 @@ where
                 let held = self.another_session_started_by(job.to_string(), start).await.map_err(|why| why.error().message.clone())?;
                 Ok(format!("Started {}", held.session_id.as_str()))
             }
+            // Done once proposed: the draft's own wait is the ask, and Skip is withdrawing it.
             Act::Draft { template, .. } => {
                 let draft = ProposeDraft {
                     title: match &row.on {

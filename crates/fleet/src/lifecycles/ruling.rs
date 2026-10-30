@@ -94,6 +94,8 @@ pub(crate) fn plan_and_keep(
             course: course_wire(one.course()),
             state: match (carried_here(one.act().kind()), one.course()) {
                 (false, _) => standing::NOT_CARRIED,
+                // A draft waits for his press whatever the rule says, so proposing it is the ask.
+                (true, _) if matches!(one.act().kind(), ActKind::Draft) => standing::PLANNED,
                 (true, Course::Acts) => standing::PLANNED,
                 (true, Course::Asks) => standing::ASKED,
             },

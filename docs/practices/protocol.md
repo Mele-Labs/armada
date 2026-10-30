@@ -1073,7 +1073,7 @@ Bridge's half is `rule_act` on `WaitingSource` in `packages/protocol/src/session
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `rule_act`: id `rule_act:<row id>`, text the act in the owner's words (`Move ARM-41 to In progress`) or, once it failed past its retries, what failed, act `answer` whose `target` is the id, and exactly two options, `Do it` and `Skip`, labels only. On a failed act the first label is `Try again`. Read off the kept act on every read, so a restart keeps it; gone once the Job ends |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `rule_act`: id `rule_act:<row id>`, text the act in the owner's words (`Move ARM-41 to In progress`) or, once it failed past its retries, what failed, act `answer` whose `target` is the id, and exactly two options, `Do it` and `Skip`, labels only. On a failed act the first label is `Try again`. A draft act raises none: it is proposed at once and the `draft` item is the ask. Read off the kept act on every read, so a restart keeps it; gone once the Job ends |
 | `answer_waiting` on it | Bridge writes | No new field. Choice 0 hands the act to Fleet to carry out, and choice 1 records it skipped. Neither sends the agent anything. Words alone are a 422 `fleet.session_waiting_empty`; a second answer finds it settled and is a 409 |
 | `dismiss_waiting` on it | Bridge writes | No new field. It is Skip |
 | `Notice` (`SessionRow::Message.notice`, a mute's `notice`) | Fleet writes, Bridge reads | Gains `lifecycle_rule`: a rule of the Job told its agent something, or woke it, or told it what failed. It is muted, taught and given a Fleet rule as any other notice is |
