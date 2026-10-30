@@ -20,6 +20,9 @@ pub(crate) struct Receipt<'a> {
 enum Set<'a> {
     WaitingFor {
         waiting_for: Vec<Item<'a>>,
+        /// Fleet's own items on the same list, read-only to the agent. Left off when there are none.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        fleet: Vec<FleetItem<'a>>,
     },
     Window {
         window: &'a str,
@@ -134,9 +137,17 @@ struct Item<'a> {
     steps: &'a [String],
 }
 
+/// An item Fleet put on the list, as the agent reads it: what kind, and its one line. Never the agent's.
+#[derive(Serialize)]
+struct FleetItem<'a> {
+    id: &'a str,
+    kind: WaitingSource,
+    text: &'a str,
+}
+
 impl<'a> Receipt<'a> {
     /// The agent's own items as Fleet kept them: one of Fleet's that names the same target wins, and
-    /// the agent's is then not among them.
+    /// the agent's is then not among them. Fleet's items follow apart, so the count matches Bridge's.
     pub(crate) fn waiting_for(record: &'a SessionRecord) -> Self {
         let waiting_for = record
             .waiting_for
@@ -150,7 +161,13 @@ impl<'a> Receipt<'a> {
                 steps: &item.steps,
             })
             .collect();
-        Receipt::of(record, Set::WaitingFor { waiting_for })
+        let fleet = record
+            .waiting_for
+            .iter()
+            .filter(|item| item.source != WaitingSource::Agent)
+            .map(|item| FleetItem { id: &item.id, kind: item.source, text: &item.text })
+            .collect();
+        Receipt::of(record, Set::WaitingFor { waiting_for, fleet })
     }
 
     pub(crate) fn window(record: &'a SessionRecord, show: &'a ipc::ShowWindow) -> Self {
