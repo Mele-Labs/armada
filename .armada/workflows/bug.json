@@ -1,7 +1,8 @@
-# Bug, as the owner chose it on 27 Oct 2026: Find the cause, Fix, Short walk, Tests, Deliver. A bug he
-# would see gets a short walk straight to the place before any test; one he would not, skips it.
-# `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md` has why. This file is also what
-# Armada ships, and `feature.json` beside it is the other workflow that walks.
+# Bug, as the owner chose it on 27 Oct 2026 and folded on 30 Oct: Find the cause, Fix, Tests, Deliver.
+# Fix makes the fix and shows a bug he would see as a short walk straight to the place, and ends on his
+# approval, before any test; one he would not see skips the walk. A separate Short walk step after Fix
+# had him approve one walk twice. `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`
+# has why. This file is also what Armada ships, and `feature.json` beside it is the other workflow that walks.
 #
 # Where the reasoning lives: `crates/core-model/domain/workflowdef-fields.toml` is the schema,
 # `docs/concepts/workflow.md` the concept, `crates/config/src/workflow.rs` the parser. These files are
@@ -27,7 +28,7 @@
       "id": "find_the_cause",
       "label": "Find the cause",
       "about": "Reads the report and the code, reproduces the bug and names the cause, then writes down the fix as tasks. Nothing is changed yet.",
-      "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nSay `seen: true` in record_plan when the person would see any piece of the change.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet. The walk is the Short walk step's own work, so list no walk as a task.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
+      "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nSay `seen: true` in record_plan when the person would see any piece of the change.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet. The walk is the Fix step's own work, so list no walk as a task.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
       "evidence": {
         "submitted": {
           "type": "plan"
@@ -65,8 +66,9 @@
     {
       "id": "fix",
       "label": "Fix",
-      "about": "Makes the fix from the plan, with no tests yet. The change is held in the Job's branch.",
-      "instructions": "Make the smallest change that addresses the cause. Write no tests yet.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
+      "about": "Makes the fix from the plan, with no tests yet, and shows it to you as a short walk straight to the place. No tests until you approve it. The walk is passed over when nothing would be seen.",
+      "instructions": "Make the smallest change that addresses the cause. Write no tests yet.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.\nThen show the fix as a short walk straight to the place, with show_window, and wait for the person's approval. Notes come back as another take. A bug nobody would see in Bridge needs no walk.\nShow it once. If you already showed this walk and the person approved it, do not show it again.",
+      "walks": true,
       "evidence": {
         "submitted": {
           "type": "diff"
@@ -113,15 +115,6 @@
       ],
       "delivers": false,
       "advance_gate": "auto_if_judge_passes"
-    },
-    {
-      "id": "short_walk",
-      "label": "Short walk",
-      "about": "Shows you the fix as a short walk straight to the place. No tests until you approve it. Passed over when nothing would be seen.",
-      "instructions": "Show the fix as a short walk straight to the place. Notes come back as another take.\nShow it with show_window and wait for the person's approval. A bug nobody would see in Bridge needs no walk.\nShow it once. If you already showed this walk and the person approved it, do not show it again.",
-      "walks": true,
-      "delivers": false,
-      "advance_gate": "auto"
     },
     {
       "id": "tests",

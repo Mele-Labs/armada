@@ -462,3 +462,10 @@ export function seedTaught(root: string): void {
   // A layout mod written by hand and switched off, which the list keeps under those that are on.
   mockLayout.install({ name: "tidy", title: "Tidy", enabled: false, file: parseLayout(TIDY_DASHBOARD).file });
 }
+
+/** What `question-ticket-links` starts from: the Jira key taught for every repository, and the one repository's Jira site known. */
+export function seedJiraKey(root: string, manifestId: string, host: string): void {
+  const key = { teaching: { kind: "words" as const, text: "STORE-1234", sessionId: BRIDGE, jobTitle: "Bridge", manifestId, root, repository: manifestId }, say: "A Jira key. Link it to our Jira", reach: "all" as const };
+  keep({ ...key, answer: understood(key) }, false);
+  siteAnswered(manifestId, host);
+}

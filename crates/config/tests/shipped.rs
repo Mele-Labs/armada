@@ -371,8 +371,8 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
 }
 
 /// **The steps the owner chose on 27 Oct 2026**, in order, which of them walk, and what ends each before
-/// the plan: Propose ends on an approval, never a reply (28 Oct 2026). The decision record "A feature Job
-/// walks before it tests".
+/// the plan: Propose ends on an approval, never a reply (28 Oct 2026). Bug's Fix holds its walk, which was
+/// a step of its own until 30 Oct 2026. The decision record "A feature Job walks before it tests".
 #[test]
 fn feature_and_bug_run_the_steps_the_owner_chose() {
     use core_model::StepEnd::{DocumentApproved, DraftApproved, IdeaPicked, SketchApproved, WalkApproved};
@@ -406,8 +406,7 @@ fn feature_and_bug_run_the_steps_the_owner_chose() {
         steps_of("bug"),
         expect(&[
             ("find_the_cause", false, &[]),
-            ("fix", false, &[]),
-            ("short_walk", true, &[]),
+            ("fix", true, &[]),
             ("tests", false, &[]),
             ("deliver", false, &[]),
         ])
