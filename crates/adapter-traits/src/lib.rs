@@ -121,8 +121,8 @@ pub use shared_home::{
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
 pub use tracker::{
-    IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled, Tracker,
-    TrackerChoice, Trackers,
+    IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState, Tool, ToolInstalled,
+    Tracker, TrackerChoice, Trackers,
 };
 pub use tracker_writes::{not_able, IssueWrite, ReadOnly, TrackerWrites};
 pub use setup::{

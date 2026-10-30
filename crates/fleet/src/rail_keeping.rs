@@ -55,7 +55,8 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
     let mut lifecycles = None;
     let extra = if follows {
         if store.is_lifecycle_job(&session.id)? {
-            lifecycles = crate::lifecycles::copying::frozen_lifecycles(store, &session.id);
+            // The rail reads a state by its id and never by a tracker's word, so the carried four are enough.
+            lifecycles = crate::lifecycles::copying::frozen_lifecycles(store, &session.id, core_model::Lifecycle::built_in());
             held = Held { instances: store.lifecycle_instances_of(&session.id)?, moves: store.lifecycle_moves_of(&session.id)? };
         }
         let rows: Vec<SessionRow> = store

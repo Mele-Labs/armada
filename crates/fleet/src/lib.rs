@@ -41,6 +41,8 @@ mod build_keeping;
 mod file_touching;
 /// A Session's changes marked by the person, checked against its plan and worded for the agent.
 mod plan_marks;
+/// The ticket a plan's group works, where the agent left it blank.
+mod plan_issues;
 /// A Session's plan: versions, the diff between them, task progress and groups worked.
 mod plan_record;
 /// Where a Session's plan meets the store.

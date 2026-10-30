@@ -44,7 +44,7 @@ fn my_store() -> Workspaces {
 }
 
 fn applying(to: &str, written: Vec<Written>) -> Lifecycles {
-    Lifecycles::applying_to(&repository(to), &my_store(), written)
+    Lifecycles::applying_to(&repository(to), &my_store(), Lifecycle::built_in(), written)
 }
 
 #[test]

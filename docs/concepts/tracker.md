@@ -265,8 +265,13 @@ What each does:
 | Beads | `bd update --status` for `open`, `in_progress` and `blocked`; `bd close` for `closed` | `bd update --assignee` | `bd close --force`, as a close from the backlog is |
 | A tracker mod | Its `[move]`, if it has one | Its `[assign]` | Its `[close]`, else its `[move]` to that word. [Tracker mods](mods.md#tracker-mods) |
 
-**The status is the Workspace's word and not Armada's.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to, and the act is kept as not carried with `The ticket lifecycle names no tracker word for In progress`.
-Armada's own ticket lifecycle lists none, and no word is guessed for a tracker that may not have it.
+**The status is the tracker's word, and a Workspace's where it says otherwise.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to, and the act is kept as not carried with `The ticket lifecycle names no tracker word for In progress`.
+Armada's own ticket lifecycle lists `closed` for Closed and a word for no other state, except the words the repository's tracker declares for its states.
+Beads declares `open` for To do, `in_progress` for In progress and `closed` for Closed, so a repository on beads reads and moves its tickets from the first Job.
+`blocked` and `deferred` are no step of the ticket's way and stay unmapped, and beads has no status for In review.
+Every other tracker, Jira and a tracker mod included, declares none, so no word is guessed for one whose statuses are the project's own.
+A ticket lifecycle a Workspace or a repository writes replaces Armada's outright, its words and not the tracker's.
+This was changed on 30 Oct 2026: the ticket had listed no tracker's words, on the ground that two rarely share theirs.
 
 **The forge's half is the forge's own calls.** A rule may ask reviewers (`gh pr edit --add-reviewer`), mark a pull request ready, turn on auto-merge and merge it.
 A pull request is named by its number in this repository, and a key that names another repository's is refused before anything is asked.
