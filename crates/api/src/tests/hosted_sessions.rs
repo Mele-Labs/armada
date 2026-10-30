@@ -145,3 +145,71 @@ async fn naming_a_job_reaches_the_daemon_and_a_body_without_a_job_does_not() {
     let response = app.oneshot(post(r#"{}"#)).await.expect("an answer");
     assert_eq!(response.status(), StatusCode::BAD_REQUEST, "a body with no job is the transport's 400");
 }
+
+/// `body` sent to the route, from a hosted Job's connection where `placed`, and from none where not.
+async fn start_another(body: &str, placed: bool) -> (StatusCode, String) {
+    let events = Broadcaster::new();
+    let app = router(Served::by(FakeDaemon::new(events.clone()), run_id(), events));
+    let request = Request::builder()
+        .method("POST")
+        .uri("/sessions/start_another")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .expect("a well-formed request");
+    let caller = placed.then(|| crate::Caller::at("127.0.0.1:50999".parse().expect("an address")));
+    let response = crate::acting::asked_by(caller, app.oneshot(request)).await.expect("an answer");
+    let status = response.status();
+    let said = response.into_body().collect().await.expect("a body").to_bytes();
+    (status, String::from_utf8_lossy(&said).into_owned())
+}
+
+/// One call with `jobs` answers each Job in the order given, and a refused one stands alone.
+#[tokio::test]
+async fn several_jobs_started_in_one_call_answer_in_order_and_a_refused_one_alone() {
+    let (status, said) = start_another(
+        r#"{"jobs":[{"manifest_id":"armada","title":"one","message":"m"},
+                    {"manifest_id":"armada","title":" ","message":"m"},
+                    {"manifest_id":"armada","title":"three","message":"m"}]}"#,
+        true,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    let held: ipc::SessionsHeld = ipc::decode("several held", said.as_bytes()).expect("SessionsHeld");
+    let ids: Vec<Option<String>> =
+        held.jobs.iter().map(|job| job.held.as_ref().map(|held| held.session_id.as_str().to_string())).collect();
+    assert_eq!(ids, vec![Some("session-one".into()), None, Some("session-three".into())]);
+    assert_eq!(held.jobs[1].refused.as_ref().map(|refused| refused.code.as_str()), Some("fleet.agent_start_empty"));
+}
+
+/// The single form answers `SessionHeld` as it always did, and the two forms together are refused.
+#[tokio::test]
+async fn one_job_still_answers_held_and_one_job_beside_jobs_is_refused() {
+    let (status, said) = start_another(r#"{"manifest_id":"armada","title":"one","message":"m"}"#, true).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    let held: ipc::SessionHeld = ipc::decode("one held", said.as_bytes()).expect("SessionHeld");
+    assert_eq!(held.title, "one");
+
+    let (status, said) = start_another(r#"{"manifest_id":"armada","title":"one"}"#, true).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(said.contains("missing field `message`") && said.contains("jobs?: ["), "{said}");
+
+    let (status, said) =
+        start_another(r#"{"title":"one","jobs":[{"manifest_id":"armada","title":"two","message":"m"}]}"#, true).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{said}");
+}
+
+/// A batch from no hosted Job is refused whole, with the one 422 a one-Job call from it gets.
+#[tokio::test]
+async fn a_batch_from_no_hosted_job_is_refused_as_one_job_is() {
+    let (one_status, one) = start_another(r#"{"manifest_id":"armada","title":"one","message":"m"}"#, false).await;
+    let (status, said) = start_another(
+        r#"{"jobs":[{"manifest_id":"armada","title":"one","message":"m"},
+                    {"manifest_id":"armada","title":"two","message":"m"}]}"#,
+        false,
+    )
+    .await;
+    assert_eq!((one_status, status), (StatusCode::UNPROCESSABLE_ENTITY, StatusCode::UNPROCESSABLE_ENTITY), "{said}");
+    let refused: ipc::WireError = ipc::decode("a refusal", said.as_bytes()).expect("one WireError, not SessionsHeld");
+    let alone: ipc::WireError = ipc::decode("a refusal", one.as_bytes()).expect("a WireError");
+    assert_eq!((refused.code.as_str(), alone.code.as_str()), (ipc::AGENT_START_UNPLACED, ipc::AGENT_START_UNPLACED));
+}
