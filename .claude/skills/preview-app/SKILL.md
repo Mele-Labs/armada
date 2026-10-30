@@ -36,8 +36,10 @@ owner's real Fleet and reopen Bridge in front of him, so Claude Code's own
 permission prompt is his confirmation, the same reason an agent does not run
 `scripts/dev` (`armada-local`). Dry-run first and put what it printed in front
 of him. Say what it will do, not "restarting Fleet": whether a Drone is working
-now, and whether Bridge reopens (only if `apps/` or `packages/` changed since
-its last build).
+now, whether Bridge reopens (only if `apps/` or `packages/` changed since its
+last build), and that it updates his installed armada plugin, which leaves
+`/reload-plugins` as the one step in each open terminal job. A hosted job needs
+none: Fleet restarts its process onto the new mod once its turn ends.
 
 **A plain `scripts/restart` builds the latest `main`.** It fast-forwards to
 `origin/main` first and refuses if it cannot; on 17 Sep 2026 the checkout was
