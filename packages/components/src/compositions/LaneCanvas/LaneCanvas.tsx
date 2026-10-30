@@ -642,7 +642,13 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
         if (before === undefined ? standing.has(node.id) : was === undefined ? laneWas || standing.has(node.id) : was !== now.get(node.id)) ids.add(node.id);
       }
     }
-    if (ids.size > 0) reveal([...ids], true);
+    // **What the person added to this Job's copy while the lanes are open is shown where it stands**: the view moves only as far as it takes to bring it in, and stays where it was
+    // where it is already in view, so the step before it is not pushed out. What else changed puts the earliest of it at the left.
+    const copied = new Set([
+      ...lanes.flatMap((lane) => lane.nodes.filter((node) => node.changed !== undefined).map((node) => node.id)),
+      ...rules.filter((rule) => rule.changed !== undefined).flatMap((rule) => [rule.id, rule.from, rule.to]),
+    ]);
+    if (ids.size > 0) reveal([...ids], before === undefined || [...ids].some((id) => !copied.has(id)));
   }, [lanes, rules, reveal]);
 
   // What is picked is brought into view with its toolbar: a rule with its chips and the nodes it joins. It is a pan, so the canvas keeps its width and the panel covers only what is past it.
