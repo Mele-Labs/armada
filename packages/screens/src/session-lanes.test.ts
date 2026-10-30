@@ -425,3 +425,87 @@ it("marks a step, a rule and a lifecycle lane that the Job's copy changed, each 
   expect(drawn.lanes.find((lane) => lane.title.startsWith("PR"))?.changed).toBeUndefined();
   expect(drawn.rules.find((rule) => rule.rule === "ask-at-land")).toMatchObject({ changed: "Added by you" });
 });
+
+// ---- A ticket handed to the Job started for it ---------------------------------------------------------------------------------
+
+const JOB: LifecycleDefinition = {
+  id: "job",
+  name: "Job",
+  scope: { kind: "everywhere" },
+  states: [
+    { id: "started", label: "Started", read: { source: "fleet", fact: "started" } },
+    { id: "landed", label: "Landed", read: { source: "fleet", fact: "landed" } },
+  ],
+  transitions: [{ from: "started", to: "landed" }],
+  ends: ["landed"],
+};
+
+/** The Job that started `child` for ARM-52: the ticket ended on it and linked from its instance of the Job, as Fleet writes a hand-off. */
+const handing = (child: HeldInstance = { lifecycle: "job", key: "child", label: "Fix cart rounding", standing: { kind: "in", state: "started" }, links: [{ lifecycle: "ticket", key: "ARM-52" }] }): JobLifecycles => ({
+  session_id: "parent",
+  lifecycles: [JOB, ticket],
+  instances: [
+    child,
+    { lifecycle: "ticket", key: "ARM-52", label: "ARM-52", standing: { kind: "in", state: "todo" }, links: [], ended_at: AT },
+    held("ticket", "ARM-58", "ARM-58", "todo"),
+  ],
+  moves: [],
+});
+
+/** What the started Job holds of the same ticket, where it reads it. */
+const reading = (standing: HeldInstance["standing"]): JobLifecycles => ({
+  session_id: "child",
+  lifecycles: [ticket],
+  instances: [{ lifecycle: "ticket", key: "ARM-52", label: "ARM-52", standing, links: [] }],
+  moves: [],
+});
+
+const started = (child: JobLifecycles | undefined) => (child === undefined ? {} : { started: new Map([["child", child]]) });
+const card = (parent: JobLifecycles, child?: JobLifecycles) => lanesOfJob({ held: parent, ...started(child), working: false })!.job.instances.find((one) => one.id === instanceId("job", "child"))!;
+
+it("carries a handed ticket on the Job instance that links to it, in the state the started Job reads it in, named as that Job's lifecycle names it", () => {
+  expect(card(handing(), reading({ kind: "in", state: "in_progress" })).ticket).toEqual({ label: "ARM-52", state: "In progress", stateId: "in_progress" });
+});
+
+it("draws no lane for a handed ticket, and keeps the lane of a ticket the Job kept", () => {
+  const lanes = lanesOfJob({ held: handing(), ...started(reading({ kind: "in", state: "in_progress" })), working: false })!;
+  expect(lanes.job.instances.map((one) => one.id)).toEqual([instanceId("job", "child"), instanceId("ticket", "ARM-58")]);
+});
+
+it("keeps the lane of a ticket a Job links to while the ticket is still live: it is the Job's own", () => {
+  const parent = handing();
+  const live: JobLifecycles = { ...parent, instances: parent.instances.map((one) => (one.key === "ARM-52" ? { ...one, ended_at: undefined } : one)) };
+  const lanes = lanesOfJob({ held: live, ...started(reading({ kind: "in", state: "in_progress" })), working: false })!;
+  expect(lanes.job.instances.map((one) => one.id)).toContain(instanceId("ticket", "ARM-52"));
+  expect(lanes.job.instances.find((one) => one.id === instanceId("job", "child"))?.ticket).toBeUndefined();
+});
+
+it("keeps the lane of an ended ticket that no Job links to", () => {
+  const parent = handing({ lifecycle: "job", key: "child", label: "Fix cart rounding", standing: { kind: "in", state: "started" }, links: [] });
+  const lanes = lanesOfJob({ held: parent, working: false })!;
+  expect(lanes.job.instances.map((one) => one.id)).toContain(instanceId("ticket", "ARM-52"));
+  expect(lanes.job.instances.find((one) => one.id === instanceId("job", "child"))?.ticket).toBeUndefined();
+});
+
+it("follows the started Job: the state is the one it reads now", () => {
+  const parent = handing();
+  const states = ["todo", "in_progress", "done"].map((state) => card(parent, reading({ kind: "in", state })).ticket);
+  expect(states.map((one) => [one?.stateId, one?.state])).toEqual([["todo", "To do"], ["in_progress", "In progress"], ["done", "Done"]]);
+});
+
+it("keeps the word a source said for a status no state lists, and gives it no state id", () => {
+  expect(card(handing(), reading({ kind: "unmapped", said: "Awaiting QA" })).ticket).toEqual({ label: "ARM-52", state: "Awaiting QA", stateId: "" });
+});
+
+it("draws the key with no state while the started Job has not read it, or its lifecycles are not served", () => {
+  expect(card(handing(), reading({ kind: "unread" })).ticket).toEqual({ label: "ARM-52", state: "", stateId: "" });
+  expect(card(handing()).ticket).toEqual({ label: "ARM-52", state: "", stateId: "" });
+});
+
+it("hands the ticket to the lane of the Job, drawn on the node where that Job stands", () => {
+  const lanes = lanesOfJob({ held: handing(), ...started(reading({ kind: "in", state: "in_progress" })), working: false })!;
+  const drawn = jobLanes(lanes.job, lanes);
+  const lane = drawn.lanes.find((one) => one.id === instanceId("job", "child"))!;
+  expect(lane.nodes.find((node) => node.here === true)?.ticket).toEqual({ label: "ARM-52", state: "In progress", stateId: "in_progress" });
+  expect(drawn.lanes.some((one) => one.ticket === true && one.title === "ARM-52")).toBe(false);
+});

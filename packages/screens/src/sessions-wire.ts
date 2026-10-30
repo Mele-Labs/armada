@@ -47,6 +47,8 @@ export type Beside = {
   watches?: readonly WatchSummary[];
   /** What the Job holds: its tickets, pull requests, deploys and the Jobs it started, from `get_job_lifecycles` and `job_lifecycles.changed`. Absent is none read, which draws no lanes. */
   lifecycles?: JobLifecycles;
+  /** What the Jobs this one started hold, by the key of the instance it holds for each: where a ticket handed to one is read. Only those whose lifecycles are read are here. */
+  started?: ReadonlyMap<string, JobLifecycles>;
   /** The rules that apply to the Job's repository, which the acts its rules planned are drawn on. */
   lifecycleRules?: readonly AppliedRule[];
   /** Picks of the proposer the person has changed here, which the record has not yet said. */
@@ -660,6 +662,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
       ? undefined
       : lanesOfJob({
           held: beside.lifecycles,
+          ...(beside.started === undefined ? {} : { started: beside.started }),
           working: hosted?.turn.state === "working",
           ...(record.workflow_waiting_on === undefined ? {} : { waiting: record.workflow_waiting_on }),
           ...(beside.lifecycleRules === undefined ? {} : { rules: beside.lifecycleRules }),
@@ -843,5 +846,8 @@ export class SessionMemo {
   }
 }
 
+/** Whether two readings of what the started Jobs hold are the same Jobs read the same times: `beside` builds a map each time, and a Job is drawn again only when one of these changed. */
+const sameStarted = (a: Beside["started"], b: Beside["started"]): boolean => a === b || (a !== undefined && b !== undefined && a.size === b.size && [...a].every(([id, held]) => b.get(id) === held));
+
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;

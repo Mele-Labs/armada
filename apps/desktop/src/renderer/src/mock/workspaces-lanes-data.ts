@@ -6,6 +6,7 @@ import { lifecyclesFor } from "@armada/components";
 import type { CommentRead, Fired, Instance, JobChange, JobLanes, LaneStep, LifecycleDef, Observed, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
 
 import type { Definition } from "./workflows-managed";
+import type { StartedJob } from "./workspaces-lanes-wire";
 
 export const WEB = "store-web";
 export const API = "store-api";
@@ -582,15 +583,11 @@ const JOB_COPY = { ...JOB, states: JOB.states.map((state, at) => ({ ...state, co
 const JOB_SEEN: Record<string, readonly string[]> = { started: ["started"], pr_open: ["started", "pr_open"], landed: ["started", "pr_open", "landed"] };
 
 /**
- * The ticket `Fix cart rounding` was started for. That Job holds it and its rules move it, so the feedback Job has no lane for it and reads it from the Job: the name of the state it
- * stands in follows the Job's. `ARM-58` is one the feedback Job kept, with no Job started for it, so it keeps a lane of its own.
+ * The ticket `Fix cart rounding` was started for. That Job holds it and its rules move it, so the feedback Job has no lane for it and reads it from the Job, as the wire has it: the ticket
+ * ended on the feedback Job and linked from its instance of `Fix cart rounding`, standing where that Job reads it. `ARM-58` is one the feedback Job kept, with no Job started for it, so it
+ * keeps a lane of its own.
  */
-const CART_TICKET = { label: "ARM-52", title: "Cart totals are a cent off" } as const;
-const CART_TICKET_STATE: Readonly<Record<string, { stateId: string; state: string }>> = {
-  started: { stateId: "in_progress", state: "In progress" },
-  pr_open: { stateId: "in_review", state: "In review" },
-  landed: { stateId: "done", state: "Done" },
-};
+const CART_TICKET = { id: "arm-52", label: "ARM-52", title: "Cart totals are a cent off" } as const;
 const TICKET_COPY = COPY_LIFECYCLES.find((one) => one.id === "ticket")!;
 
 /**
@@ -606,13 +603,18 @@ export function cartAt(moment: number): SessionLanes {
     workspace: MY_STORE.id,
     copy: { steps: COPY_STEPS, lifecycles: COPY_LIFECYCLES, rules: [] },
     instances: [
-      instance("arm-52", "ticket", CART_TICKET.label, ticket, walked.slice(0, walked.indexOf(ticket) + 1), { title: CART_TICKET.title, assignee: "you" }),
+      instance(CART_TICKET.id, "ticket", CART_TICKET.label, ticket, walked.slice(0, walked.indexOf(ticket) + 1), { title: CART_TICKET.title, assignee: "you" }),
       instance("pr-815", "pull_request", "PR #815", pr, PR_SEEN[pr]!),
     ],
     fired: [],
     changes: [],
   };
   return { workflow: "feature", at: landed ? COPY_STEPS.length : 4, working: false, job };
+}
+
+/** The Jobs the feedback Job has started for a ticket at a moment, as the wire gives them: what each holds, the key its ticket has there, and the ticket's title. */
+export function startedAt(moment: number): Readonly<Record<string, StartedJob>> {
+  return moment >= 2 ? { [CART]: { lanes: cartAt(moment), ticket: CART_TICKET.id, title: CART_TICKET.title } } : {};
 }
 
 /** What the feedback Job's agent is doing at the moments it works. */
@@ -640,7 +642,7 @@ export function feedbackAt(moment: number): SessionLanes {
   const instances: Instance[] =
     moment >= 2
       ? [
-          instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!, { ticket: { ...CART_TICKET, ...CART_TICKET_STATE[cart]! } }),
+          instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!),
           instance(PANEL, "job", "Tidy the PR panel landing", panel, JOB_SEEN[panel]!),
           instance("arm-58", "ticket", "ARM-58", "todo", ["todo"], { title: "Empty wishlist link 404s" }),
         ]

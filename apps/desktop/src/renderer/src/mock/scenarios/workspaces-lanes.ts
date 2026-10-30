@@ -19,7 +19,7 @@ import type { PanelReads, PullRequestRead } from "../../shared-panel/reads";
 import { offerWorkflow, workflowsServed } from "../workflows-fleet";
 import { deckNow } from "../../cockpit/deck/store";
 import { forceWideWindow } from "../../session-view/lanes-width";
-import { API, ASK_DRAFT, CART, COMMENTS, FEEDBACK, FEEDBACK_SKIPPED, FEEDBACK_STEPS, FEEDBACK_STEPS_CHANGED, FEEDBACK_WORKING, MY_STORE, PROPOSALS, STORE_DEFINITIONS, STORE_ENDS, WEB, WORKING, cartAt, dispatchText, feedbackAt, jobAt, jobB } from "../workspaces-lanes-data";
+import { API, ASK_DRAFT, CART, COMMENTS, FEEDBACK, FEEDBACK_SKIPPED, FEEDBACK_STEPS, FEEDBACK_STEPS_CHANGED, FEEDBACK_WORKING, MY_STORE, PROPOSALS, STORE_DEFINITIONS, STORE_ENDS, WEB, WORKING, cartAt, dispatchText, feedbackAt, jobAt, jobB, startedAt } from "../workspaces-lanes-data";
 import { throughWire } from "../workspaces-lanes-wire";
 
 const JOB = "gift-cards";
@@ -43,7 +43,7 @@ const STEPS = ["Plan", "Build", "Open PR", "Get it ready", "Answer reviews", "La
 
 // A Job's lanes are drawn from what Fleet would serve of it (`workspaces-lanes-wire.ts`), as a real Job's are.
 const lanesOfA = (moment: number, sent: readonly string[] = []) => throughWire(JOB, jobAt(moment, sent));
-const lanesOfFeedback = (moment: number) => throughWire(FEEDBACK, feedbackAt(moment));
+const lanesOfFeedback = (moment: number) => throughWire(FEEDBACK, feedbackAt(moment), startedAt(moment));
 
 /** The mock's one clock: a time today, which the lanes' chips, the rail's steps and the thread's rows all read. The thread's own rows are stamped as `HH:MM:SS`. */
 const local = (time: string) => {

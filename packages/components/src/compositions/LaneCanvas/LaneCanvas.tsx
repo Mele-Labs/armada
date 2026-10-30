@@ -339,13 +339,13 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const State = node.ticket === undefined ? undefined : (TICKET_STATE[node.ticket.stateId] ?? CircleHelp);
   const connectable = hold.editing !== undefined && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
-  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ticket === undefined ? "" : `, ticket ${node.ticket.label}, ${node.ticket.state}`}${node.ended === true ? ", ended" : ""}`;
+  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ticket === undefined ? "" : `, ticket ${node.ticket.label}${node.ticket.state === "" ? "" : `, ${node.ticket.state}`}`}${node.ended === true ? ", ended" : ""}`;
   const lines = [
     node.label,
     ...(node.waiting ?? (mark === undefined ? [] : [mark.said])),
     ...(node.facts ?? []),
     ...(node.who === undefined ? [] : [`Assigned to ${node.who}`]),
-    ...(node.ticket === undefined ? [] : [`Ticket ${node.ticket.label}: ${node.ticket.title}`, `Ticket state: ${node.ticket.state}`, `Held by ${lane.title}`]),
+    ...(node.ticket === undefined ? [] : [node.ticket.title === undefined ? `Ticket ${node.ticket.label}` : `Ticket ${node.ticket.label}: ${node.ticket.title}`, ...(node.ticket.state === "" ? [] : [`Ticket state: ${node.ticket.state}`]), `Held by ${lane.title}`]),
     ...(node.differs === undefined ? [] : [differsSaid(node.differs)]),
     ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub]),
   ];

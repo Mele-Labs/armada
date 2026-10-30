@@ -264,6 +264,19 @@ export const TicketStateTooltip: StoryObj<typeof Carrying> = {
   },
 };
 
+/** A ticket not read yet by the Job that holds it has a key and no state: the glyph is the unknown one, the name and the tooltip say no state, and no title is made up. */
+export const TicketNotReadYet: StoryObj<typeof Carrying> = {
+  render: () => <Carrying tickets={{ "Fix cart rounding": { label: "ARM-8", state: "", stateId: "" } }} />,
+  play: async ({ canvasElement }) => {
+    const card = await within(canvasElement).findByRole("button", { name: "Fix cart rounding: State 0, ticket ARM-8" });
+    await expect(glyphs(card.querySelector<HTMLElement>(".armada-lane-item__ticket")!)).toEqual(["lucide-ticket", "lucide-circle-question-mark"]);
+    await userEvent.hover(card);
+    await waitFor(() => expect(document.querySelectorAll(".armada-lane-tip__line").length).toBeGreaterThan(0));
+    const lines = Array.from(document.querySelectorAll(".armada-lane-tip__line")).map((line) => line.textContent);
+    await expect(lines.slice(-2)).toEqual(["Ticket ARM-8", "Held by Fix cart rounding"]);
+  },
+};
+
 function Heads() {
   const { lanes, rules } = startedJobs([
     { id: "job:cart", lifecycle: "job", label: "Fix cart rounding", state: "s0", visited: ["s0"] },
