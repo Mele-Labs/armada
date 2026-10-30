@@ -180,6 +180,13 @@
   min-width: calc(var(--space-12) * 1.5);
 }
 
+/* In a thread too narrow for three menus beside the buttons, the menus give up their floor before Send does. The box measures
+   itself, so a thread beside the browser answers to its own width and not the window's. */
+.armada-session-composer { container-type: inline-size; }
+@container (max-width: 400px) {
+  .armada-session-composer__pick { min-width: 0; }
+}
+
 .armada-session-composer__bar .armada-select-field {
   flex: 1 1 auto;
   min-width: 0;

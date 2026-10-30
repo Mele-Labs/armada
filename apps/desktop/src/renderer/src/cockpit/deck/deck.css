@@ -144,8 +144,9 @@
       & > * { margin-inline-start: 0; }
     }
     &:is(:hover, :focus-within) > :is(.deck-band, .sv-panel__band) { opacity: 1; pointer-events: auto; }
-    /* A list that opens on a repository's filled head starts under the chip's lane, so the chip never lies across the head. */
-    & > .deck-list__rows:has(> .deck-list__band:first-child) { padding-top: calc(var(--space-1) * 2 + var(--h-control-sm)); }
+    /* A list starts under the chip's lane, so the chip never lies across a repository's head or a row's own buttons. The lane is the
+       scroller's margin rather than its padding, so rows scrolled up stop under it too. */
+    & > .deck-list__rows { margin-top: calc(var(--space-1) * 2 + var(--h-control-sm)); }
   }
 }
 
