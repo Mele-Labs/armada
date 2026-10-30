@@ -147,3 +147,28 @@ fn a_piece_a_job_proposes_is_ready_at_once_is_kept_across_reopens_and_is_no_work
     assert!(store.ready_workflow_change_ids().unwrap().contains(&new), "it waits on the owner as a proposal does");
     assert!(store.workflow_change_dismissed(new, LATER).unwrap());
 }
+
+#[test]
+fn a_repositorys_open_piece_changes_are_its_own_pieces_that_wait_with_the_newest_text_of_each() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let first = store.begin_proposed_piece_change("repo", "rule", "ticket_to_review", "", "id: ticket_to_review\nname: First\n", AT).unwrap();
+    let lifecycle = store.begin_proposed_piece_change("repo", "lifecycle", "ticket", "", "id: ticket\n", AT).unwrap();
+    let newest = store.begin_proposed_piece_change("repo", "rule", "ticket_to_review", "", "id: ticket_to_review\nname: Second\n", LATER).unwrap();
+    store.begin_proposed_piece_change("other", "rule", "elsewhere", "", "id: elsewhere\n", AT).unwrap();
+    store.begin_workflow_change(&asked("repo", "kit"), AT).unwrap();
+    let settled = store.begin_proposed_piece_change("repo", "rule", "approved_one", "", "id: approved_one\n", AT).unwrap();
+    let dropped = store.begin_proposed_piece_change("repo", "lifecycle", "dropped_one", "", "id: dropped_one\n", AT).unwrap();
+    store.workflow_change_approved(settled, LATER).unwrap();
+    store.workflow_change_dismissed(dropped, LATER).unwrap();
+
+    let open = store.open_piece_changes("repo").unwrap();
+    assert_eq!(open.iter().map(|one| one.id).collect::<Vec<_>>(), [lifecycle, newest], "oldest first, one per piece, none settled, none of another repository's, none of a workflow's");
+    assert_eq!(open[1].after_text.as_deref(), Some("id: ticket_to_review\nname: Second\n"), "the newest text of a piece stands");
+    assert_eq!(store.workflow_change(first).unwrap().unwrap().state, CHANGE_READY, "the older one is still open, only unread");
+
+    assert!(store.workflow_change_dismissed(newest, LATER).unwrap());
+    let open = store.open_piece_changes("repo").unwrap();
+    assert_eq!(open.iter().map(|one| one.id).collect::<Vec<_>>(), [first, lifecycle], "once the newest goes the one before it stands");
+    assert!(store.open_piece_changes("nobody").unwrap().is_empty());
+}

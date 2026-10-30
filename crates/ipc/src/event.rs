@@ -35,6 +35,7 @@ use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::watches::WatchList;
 use crate::bug_reports::BugReports;
+use crate::job_copy::KeepDraftsChanged;
 use crate::lifecycles::JobLifecycles;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
@@ -204,6 +205,9 @@ pub enum Event {
     // What a Job holds and where it stands, whole, after an instance was taken on or moved.
     #[serde(rename = "job_lifecycles.changed")]
     JobLifecyclesChanged(JobLifecycles),
+    // A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed in a repository, with the repository alone.
+    #[serde(rename = "keep_drafts.changed")]
+    KeepDraftsChanged(KeepDraftsChanged),
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),

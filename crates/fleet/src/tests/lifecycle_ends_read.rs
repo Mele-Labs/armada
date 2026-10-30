@@ -21,6 +21,7 @@ fn instance(lifecycle: &str, key: &str) -> KeptInstance {
         watch_id: String::new(),
         taken_on_at: "2026-10-29T09:00:00.000Z".into(),
         ended_at: String::new(),
+        handed_to: String::new(),
     }
 }
 
@@ -83,6 +84,21 @@ fn a_job_holding_none_of_the_lifecycle_has_met_nothing_even_where_every_is_vacuo
     let none = Held::default();
     assert_eq!(reached_of("pr: approved", &none), (Vec::new(), Vec::new(), false));
     assert_eq!(reached_of("any pr: approved", &none), (Vec::new(), Vec::new(), false));
+}
+
+#[test]
+fn a_ticket_handed_to_another_job_is_neither_reached_nor_pending_here_so_the_step_waits_on_the_rest() {
+    let mut handed = instance("ticket", "ARM-1");
+    handed.ended_at = "2026-10-30T09:00:00.000Z".into();
+    handed.handed_to = "child".into();
+    let mut held = Held { instances: vec![handed, instance("ticket", "ARM-2")], moves: vec![moved("ticket", "ARM-2", "in:todo")] };
+    assert_eq!(reached_of("ticket: closed", &held), (Vec::new(), vec!["ARM-2".into()], false), "what it handed is the other Job's to wait on");
+
+    held.moves.push(moved("ticket", "ARM-2", "in:closed"));
+    assert_eq!(reached_of("ticket: closed", &held), (vec!["ARM-2".into()], Vec::new(), true), "and the step is met by what it kept");
+
+    let only_handed = Held { instances: vec![held.instances[0].clone()], moves: Vec::new() };
+    assert_eq!(reached_of("ticket: closed", &only_handed), (Vec::new(), Vec::new(), false), "a Job that handed all of it holds none");
 }
 
 #[test]

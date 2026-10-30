@@ -18,10 +18,11 @@ import { openPullRequestInPanel } from "../../shared-panel/store";
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
 export type Sel = { kind: "session" | "call" | "autopilot"; key: string };
 export type DeckView = "map" | "timeline";
-/** What the list holds: the live Sessions, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
-export type Scope = "active" | "quiet" | "ended" | "all";
+/** What the list holds: the live Sessions, the ones he paused, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
+export type Scope = "active" | "paused" | "quiet" | "ended" | "all";
 export const SCOPES: readonly { id: Scope; label: string }[] = [
   { id: "active", label: "Active" },
+  { id: "paused", label: "Paused" },
   { id: "quiet", label: "Quiet" },
   { id: "ended", label: "Ended" },
   { id: "all", label: "All" },
@@ -383,30 +384,40 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 
 /**
  * The Sessions the list draws, narrowed by the three filters and by the search. The map and the timeline keep the same ones.
- * **Active is the live ones in the order he placed them, the new ones last; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
+ * **Active is the live ones in the order he placed them, the new ones last, without the paused; Paused is the ones he parked; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
  * before the week only where a search is. All is both. The Session open on the stage is in the list wherever it came from.
  */
 export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
   const scope = deck.scope ?? "active";
   const past = ship.subjects.filter((one) => one.past !== undefined).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
   const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined) && one.behind !== true);
-  const live = fixedOrderOf(ship, deck.order ?? []);
-  const base = scope === "quiet" || scope === "ended" ? held : scope === "all" ? [...live, ...held] : live;
+  const every = fixedOrderOf(ship, deck.order ?? []);
+  const parked = every.filter((one) => one.paused === true);
+  const live = every.filter((one) => one.paused !== true);
+  const base = scope === "quiet" || scope === "ended" ? held : scope === "paused" ? parked : scope === "all" ? [...every, ...held] : live;
   const kept = base.filter((one) => (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
-  const open = past.find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
-  const rows = linkedUnder(open === undefined ? kept : [...kept, open]);
-  // The one order the list draws and the cursor walks: grouped by repository where the list is.
-  return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
+  const open = [...past, ...parked].find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
+  const rows = open === undefined ? kept : [...kept, open];
+  // The one order the list draws and the cursor walks: grouped by repository where the list is, and nested inside each group, so a
+  // Job never hangs under a parent drawn in another group.
+  if (banding === undefined) return linkedUnder(rows);
+  const bands = bandsOf(rows, banding);
+  const away = new Map(bands.flatMap((band) => band.subjects.map((one) => [one.key, { title: one.title, repo: band.label }] as const)));
+  return bands.flatMap((band) => linkedUnder(band.subjects, away));
 }
 
-/** Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too, however deep the chain. */
-function linkedUnder(rows: readonly Subject[]): Subject[] {
+/**
+ * Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too, however deep the chain.
+ * One whose parent is listed in another repository's group (`away`) stands on its own, linked by its glyph alone.
+ */
+function linkedUnder(rows: readonly Subject[], away: ReadonlyMap<string, { title: string; repo: string }> = new Map()): Subject[] {
   const listed = new Set(rows.map((one) => one.key));
   const placed = new Set<string>();
   // A row whose parent is not listed is a plain top-level row: its link would hang off whatever row sits above it.
   const plain = (one: Subject): Subject => {
-    const { linked: _gone, ...rest } = one;
-    return rest;
+    const { linked, ...rest } = one;
+    const from = linked === undefined || listed.has(linked.parent) ? undefined : away.get(linked.parent);
+    return from === undefined || linked === undefined ? rest : { ...rest, linked: { parent: linked.parent, ...(linked.group === undefined ? {} : { group: linked.group }), from } };
   };
   // `rails` are the levels whose line runs on past this row: a parent's, down to its next Job, at each level above.
   const tree = (one: Subject, depth: number, rails: readonly number[]): Subject[] => {

@@ -222,6 +222,31 @@ impl Store {
         Ok(rows)
     }
 
+    /// The open proposals of a rule or a lifecycle a Job kept for Kit within one repository, oldest first. **One
+    /// per piece**: where several are open for the same piece the newest stands, since it is the file his Approve
+    /// would write last.
+    pub fn open_piece_changes(&self, manifest_id: &str) -> Result<Vec<KeptWorkflowChange>, WriteError> {
+        let doing = "reading a repository's open piece changes";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM workflow_changes
+                 WHERE piece <> '' AND from_job = 1 AND manifest_id = ?1 AND state IN (?2, ?3, ?4, ?5)
+                   AND id IN (SELECT MAX(id) FROM workflow_changes
+                              WHERE piece <> '' AND from_job = 1 AND manifest_id = ?1 AND state IN (?2, ?3, ?4, ?5)
+                              GROUP BY piece, workflow_id)
+                 ORDER BY id"
+            ))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map(params![manifest_id, DRAFTING, READY, FAILED, CANNOT], read)
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(rows)
+    }
+
     /// Move a change from one of the states `from` to `to` at `at`, with what the move carries. Whether
     /// it moved: a change that stands elsewhere is left alone.
     fn move_workflow_change(

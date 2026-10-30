@@ -6,6 +6,7 @@ import { lifecyclesFor } from "@armada/components";
 import type { CommentRead, Fired, Instance, JobChange, JobLanes, LaneStep, LifecycleDef, Observed, Rule, SessionLanes, TriagedComment, Workspace } from "@armada/components";
 
 import type { Definition } from "./workflows-managed";
+import type { StartedJob } from "./workspaces-lanes-wire";
 
 export const WEB = "store-web";
 export const API = "store-api";
@@ -547,7 +548,7 @@ export function jobB(): SessionLanes {
 
 /** The id of the Job that goes through the app feedback, and of the two Jobs it starts. */
 export const FEEDBACK = "app-feedback";
-const CART = "job-cart";
+export const CART = "job-cart";
 const PANEL = "job-pr-panel";
 
 /** The workflow the Job started on, and its steps as the rail names them. */
@@ -581,6 +582,41 @@ const JOB_COPY = { ...JOB, states: JOB.states.map((state, at) => ({ ...state, co
 
 const JOB_SEEN: Record<string, readonly string[]> = { started: ["started"], pr_open: ["started", "pr_open"], landed: ["started", "pr_open", "landed"] };
 
+/**
+ * The ticket `Fix cart rounding` was started for. That Job holds it and its rules move it, so the feedback Job has no lane for it and reads it from the Job, as the wire has it: the ticket
+ * ended on the feedback Job and linked from its instance of `Fix cart rounding`, standing where that Job reads it. `ARM-58` is one the feedback Job kept, with no Job started for it, so it
+ * keeps a lane of its own.
+ */
+const CART_TICKET = { id: "arm-52", label: "ARM-52", title: "Cart totals are a cent off" } as const;
+const TICKET_COPY = COPY_LIFECYCLES.find((one) => one.id === "ticket")!;
+
+/**
+ * `Fix cart rounding` as its own lanes read at the moment the feedback Job is at: the ticket the feedback Job reads from it, In review while its pull request is open and Done once it
+ * lands, and the pull request. Its workflow is the Workspace's `feature`, at Answer reviews and then done.
+ */
+export function cartAt(moment: number): SessionLanes {
+  const landed = moment >= 3;
+  const ticket = landed ? "done" : "in_review";
+  const pr = landed ? "merged" : "in_review";
+  const walked = ["todo", "in_progress", "in_review", "done"];
+  const job: JobLanes = {
+    workspace: MY_STORE.id,
+    copy: { steps: COPY_STEPS, lifecycles: COPY_LIFECYCLES, rules: [] },
+    instances: [
+      instance(CART_TICKET.id, "ticket", CART_TICKET.label, ticket, walked.slice(0, walked.indexOf(ticket) + 1), { title: CART_TICKET.title, assignee: "you" }),
+      instance("pr-815", "pull_request", "PR #815", pr, PR_SEEN[pr]!),
+    ],
+    fired: [],
+    changes: [],
+  };
+  return { workflow: "feature", at: landed ? COPY_STEPS.length : 4, working: false, job };
+}
+
+/** The Jobs the feedback Job has started for a ticket at a moment, as the wire gives them: what each holds, the key its ticket has there, and the ticket's title. */
+export function startedAt(moment: number): Readonly<Record<string, StartedJob>> {
+  return moment >= 2 ? { [CART]: { lanes: cartAt(moment), ticket: CART_TICKET.id, title: CART_TICKET.title } } : {};
+}
+
 /** What the feedback Job's agent is doing at the moments it works. */
 export const FEEDBACK_WORKING: Readonly<Record<number, { now: string; done: readonly string[] }>> = {
   0: { now: "Going through the feedback", done: [] },
@@ -597,17 +633,24 @@ const CHANGES: readonly JobChange[] = [
 
 /**
  * The Job that goes through the app feedback, at a moment: 0 it reads the feedback on the `feature` workflow as it started, 1 it has changed its own copy (Walk and Refine skipped,
- * Dispatch and Oversee added), 2 it has started two Jobs and Oversee waits on both, 3 one has landed, 4 both have landed and Oversee is done.
+ * Dispatch and Oversee added), 2 it has started two Jobs, one of them for a ticket, and keeps a ticket of its own, and Oversee waits on both Jobs, 3 one has landed, 4 both have landed and Oversee is done.
  */
 export function feedbackAt(moment: number): SessionLanes {
   const changed = moment >= 1;
   const cart = moment >= 3 ? "landed" : moment >= 2 ? "pr_open" : "started";
   const panel = moment >= 4 ? "landed" : moment >= 3 ? "pr_open" : "started";
-  const instances: Instance[] = moment >= 2 ? [instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!), instance(PANEL, "job", "Tidy the PR panel landing", panel, JOB_SEEN[panel]!)] : [];
+  const instances: Instance[] =
+    moment >= 2
+      ? [
+          instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!),
+          instance(PANEL, "job", "Tidy the PR panel landing", panel, JOB_SEEN[panel]!),
+          instance("arm-58", "ticket", "ARM-58", "todo", ["todo"], { title: "Empty wishlist link 404s" }),
+        ]
+      : [];
   const fired: Fired[] = moment >= 2 ? [CART, PANEL].map((one) => ({ rule: "start_job", instance: one, outcome: "acted" as const, at: "14:12", did: ["Started the Job"] })) : [];
   const job: JobLanes = {
     workspace: MY_STORE.id,
-    copy: changed ? { steps: FEEDBACK_COPY_CHANGED, lifecycles: [JOB_COPY], rules: [START_JOB] } : { steps: FEEDBACK_COPY_START, lifecycles: [], rules: [] },
+    copy: changed ? { steps: FEEDBACK_COPY_CHANGED, lifecycles: moment >= 2 ? [JOB_COPY, TICKET_COPY] : [JOB_COPY], rules: [START_JOB] } : { steps: FEEDBACK_COPY_START, lifecycles: [], rules: [] },
     instances,
     fired,
     changes: changed ? CHANGES : [],

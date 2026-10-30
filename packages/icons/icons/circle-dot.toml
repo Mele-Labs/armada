@@ -39,3 +39,10 @@
   size = "12px"
   status = "Specified"
   notes = "Specified 29 Oct 2026 on the walk `reported-bugs`, which the owner walked and approved. Tooltip `Unread`. It asks nothing of the owner, so it is neither a pulse nor the awaiting review hue, and it goes once the report is opened. Borrowed and not minted: `reply` is a reply the agent made, and `mail` is reserved to a stranded slot."
+
+[[icons.circle-dot.usage]]
+  means = "A ticket that is in progress, on the card of the Job started for it"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`, the owner's answer of a glyph for each state. It ends the ticket's line on the card of a Job that was started for it, after the key, at 14px stroke 2 as the `ticket` glyph is, and the tooltip names the state in words: `Ticket state: In progress`. It is the ticket's state and not a running Job or step, which the card's own marks say."

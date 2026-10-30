@@ -109,7 +109,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { look: inside(JOB_LANES, role("img", "Changed on this Job: Added after Dispatch")), say: "The agent changed its own copy: Dispatch and Oversee added after Approve plan, each marked with a dashed frame, as the deploy watch was" },
   { hover: node("Step: Refine"), say: "Walk and Refine are skipped on this Job only, struck through and marked. The workflow itself is unchanged" },
   { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee, after it, waits for them" },
-  { look: node("Fix cart rounding: PR open"), say: "Two Jobs started. Each is a card with the Drone on a lane of its own, linked to Dispatch" },
+  { look: node("Fix cart rounding: PR open, ticket ARM-52, In review"), say: "Two Jobs started. Each is a card with the Drone on a lane of its own, linked to Dispatch" },
   { look: inside(JOB_LANES, text('Waiting on Job "Fix cart rounding", Job "Tidy the PR panel landing": Landed')), say: "Oversee ends when every Job it started has landed, and names them" },
   { key: "Escape", on: JOB_LANES, say: "Esc shuts Workflow" },
   { later: inside(views, workflowView), say: "Both Jobs are out. From here the window plays wider than 1800px" },

@@ -82,7 +82,7 @@ where
             let (row, found, tries) = {
                 let mut store = self.store().lock().await;
                 let Some(row) = store.rule_act(id).ok().flatten().filter(|row| row.state == standing::PLANNED) else { return };
-                let found = copy_of(&store, &row.session_id).and_then(|copy| {
+                let found = copy_of(&store, &row.session_id, self.built_in_lifecycles_of_job(&store, &row.session_id)).and_then(|copy| {
                     let rule = copy.rules.iter().find(|rule| rule.id().as_str() == row.rule_id)?;
                     let act = rule.does().get(row.position as usize)?.clone();
                     Some(Found { act, on_failure: rule.on_failure(), rule: rule.name().as_str().to_string(), lifecycles: copy.lifecycles.clone() })

@@ -99,10 +99,25 @@ function actsOf(job: JobLanes): RuleActReading[] {
   });
 }
 
+/**
+ * A Job another Job started for a ticket: its own lanes at the moment, the key its ticket has there (`ticket`), and the ticket's title, which Bridge reads from the Job's issues. **That Job holds
+ * the ticket from then on**: on the Job that started it the ticket has ended, and its instance of this Job is linked to it.
+ */
+export type StartedJob = { lanes: SessionLanes; ticket: string; title: string };
+
 /** What a Job holds, as `get_job_lifecycles` answers it: the lifecycles its instances are of, the instances where they stand, and the moves that took them there. */
-export function wireOf(sessionId: string, job: JobLanes): JobLifecycles {
-  const used = job.copy.lifecycles.filter((lifecycle) => job.instances.some((one) => one.lifecycle === lifecycle.id));
-  const instances = job.instances.map((one): HeldInstance => ({ lifecycle: one.lifecycle, key: one.id, label: one.label, standing: { kind: "in", state: one.state }, links: [] }));
+export function wireOf(sessionId: string, job: JobLanes, started: Readonly<Record<string, StartedJob>> = {}): JobLifecycles {
+  const handing = Object.values(started);
+  const used = job.copy.lifecycles.filter((lifecycle) => job.instances.some((one) => one.lifecycle === lifecycle.id) || (handing.length > 0 && lifecycle.id === "ticket"));
+  const linked = (one: Instance): HeldInstance["links"] => (started[one.id] === undefined ? [] : [{ lifecycle: "ticket", key: started[one.id]!.ticket }]);
+  const handed = handing.flatMap((one): HeldInstance[] => {
+    const ticket = one.lanes.job.instances.find((each) => each.id === one.ticket);
+    return ticket === undefined ? [] : [{ lifecycle: ticket.lifecycle, key: ticket.id, label: ticket.label, standing: { kind: "in", state: ticket.visited[0] ?? ticket.state }, links: [], ended_at: new Date(FIRST_AT).toISOString() }];
+  });
+  const instances = [
+    ...job.instances.map((one): HeldInstance => ({ lifecycle: one.lifecycle, key: one.id, label: one.label, standing: { kind: "in", state: one.state }, links: linked(one) })),
+    ...handed,
+  ];
   let tick = 0;
   const moves = job.instances.flatMap((one) =>
     one.visited.map((state, at): InstanceMove => {
@@ -144,15 +159,17 @@ function serve(held: JobLifecycles): void {
  * A Job's lanes at a moment, drawn from what Fleet would serve of it. **A Job that holds nothing has no wire to speak of**, so it is drawn as the fixture has it: that is the Job
  * that changed its own copy before it held an instance, which no read serves yet.
  */
-export function throughWire(sessionId: string, fixture: SessionLanes): SessionLanes {
+export function throughWire(sessionId: string, fixture: SessionLanes, started: Readonly<Record<string, StartedJob>> = {}): SessionLanes {
   const { job } = fixture;
   if (job.instances.length === 0) return fixture;
-  const held = wireOf(sessionId, job);
+  const held = wireOf(sessionId, job, started);
   serve(held);
   const steps = job.copy.steps.map(({ id, label }) => ({ id, label }));
   const stands = fixture.at >= 0 && fixture.at < steps.length;
   const drawn = lanesOfJob({
     held,
+    started: new Map(Object.entries(started).map(([id, one]) => [id, wireOf(id, one.lanes.job)] as const)),
+    titles: new Map(Object.values(started).map((one) => [one.ticket, one.title] as const)),
     working: fixture.working === true,
     ...(job.waiting === undefined ? {} : { waiting: job.waiting }),
     rules: job.copy.rules.filter(carried).map((rule) => ruleWire(rule, job)),

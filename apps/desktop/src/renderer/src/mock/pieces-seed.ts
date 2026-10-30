@@ -3,11 +3,15 @@
 
 import type { AppliedLifecycle, AppliedRule, LifecycleDefinition, LifecycleRule, WorkspaceOfRepositories } from "@armada/protocol";
 
+import type { KeepDraft } from "../../../shared/api/lifecycles";
+
 /** Every piece the mock Fleet keeps, each with where it is kept. A read answers those that apply to the repository asked about. */
 export type PiecesSeed = {
   workspaces: readonly WorkspaceOfRepositories[];
   lifecycles: readonly AppliedLifecycle[];
   rules: readonly AppliedRule[];
+  /** The Keep for every Job drafts waiting on Approve, each for the repository it was proposed in. */
+  keeps?: readonly (KeepDraft & { manifestId: string })[];
 };
 
 /** A repository of the seed: the id its pieces are read under and the root its folder is in. */
