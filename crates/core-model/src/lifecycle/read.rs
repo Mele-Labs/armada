@@ -248,6 +248,19 @@ pub enum Observed<'a> {
     Fleet(FleetFact),
 }
 
+impl<'a> Observed<'a> {
+    /// What a source said, as [`spelled`](Observed::spelled) wrote it down. `None` where the source
+    /// has no such word, so a stored reading this build cannot place is not made up into one.
+    pub fn read(source: StateSource, spelled: &'a str) -> Option<Observed<'a>> {
+        match source {
+            StateSource::Tracker => Some(Observed::Tracker(spelled)),
+            StateSource::Forge => ForgeFact::from_wire(spelled).map(Observed::Forge),
+            StateSource::Watch => ReadingState::from_wire(spelled).map(Observed::Watch),
+            StateSource::Fleet => FleetFact::from_wire(spelled).map(Observed::Fleet),
+        }
+    }
+}
+
 impl Observed<'_> {
     pub fn source(&self) -> StateSource {
         match self {
