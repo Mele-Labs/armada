@@ -201,7 +201,7 @@ function sessions(control: BayControl): SessionsStore {
     if (id !== undefined) setBay(one.repo, one.slot, { state: "hosted_session", session_id: id, session_title: one.title }, { branch: one.branch, since: now() });
   };
   /** The lead starts a Job of its own in one repository, linked under it, and it takes a bay and goes to work. */
-  const spawn = (at: number) => {
+  const spawn = (at: number, quiet = false) => {
     const one = FLIGHTS[at]!;
     const lead = leadId;
     const id = store.start();
@@ -219,7 +219,7 @@ function sessions(control: BayControl): SessionsStore {
       rows: [youSaid(`${one.title}. Part of ${LEAD}.`), tool(`Read ${one.files[0]}`)],
       attachments: [{ kind: "started_by", id: lead }, { kind: "slot", slot: one.slot }, { kind: "branch", name: one.branch, slot: one.slot }],
     }));
-    store.edit(lead, (it) => ({ ...it, rows: [...it.rows, tool(`start_another_session ${one.title}`), startedRow(id, one.title)], attachments: [...it.attachments, { kind: "started_to", id }] }));
+    store.edit(lead, (it) => ({ ...it, rows: [...it.rows, ...(quiet ? [] : [tool(`start_another_session ${one.title}`)]), startedRow(id, one.title)], attachments: [...it.attachments, { kind: "started_to", id }] }));
     hold(at);
   };
   const land = (at: number) => {
@@ -228,17 +228,20 @@ function sessions(control: BayControl): SessionsStore {
     setBay(one.repo, one.slot, { state: "free" });
   };
 
+  /** The lead starts all four in one call, and the four rows arrive together. */
+  const spawnAll = () => {
+    if (leadId !== undefined) store.edit(leadId, (it) => ({ ...it, rows: [...it.rows, tool(`start_another_session ${FLIGHTS.map((one) => one.title).join(", ")}`)] }));
+    FLIGHTS.forEach((_, at) => spawn(at, true));
+  };
+
   let moment = 0;
   const moments: Record<number, () => void> = {
-    // The lead starts its four Jobs, one at a time.
-    1: () => spawn(0),
-    2: () => spawn(1),
-    3: () => spawn(2),
-    4: () => spawn(3),
+    // The lead starts its four Jobs, in one call.
+    1: spawnAll,
     // The drones lift off.
-    5: () => [0, 1, 2, 3].forEach((at) => working(at, `Edit ${FLIGHTS[at]!.files[0]}`)),
+    2: () => [0, 1, 2, 3].forEach((at) => working(at, `Edit ${FLIGHTS[at]!.files[0]}`)),
     // Flight 2 asks for a sign-in, in a command to run.
-    6: () =>
+    3: () =>
       flight(1, (one) => ({
         ...one,
         turn: { state: "idle" },
@@ -248,10 +251,10 @@ function sessions(control: BayControl): SessionsStore {
         waitingFor: [loginItem()],
       })),
     // Flight 3 shows a screen.
-    7: () =>
+    4: () =>
       flight(2, (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", lastTurnAt: now(), rows: [...one.rows, say("Dark mode is on the Settings screen.")], waitingFor: [walkItem()] })),
     // Flight 3 is approved and carries on. Flight 4 has written its release notes and asks to have them read.
-    8: () => {
+    5: () => {
       flight(2, (one) => ({ ...one, turn: { state: "working" }, standing: "working", waitingFor: [], lastTurnAt: now() }));
       flight(3, (one) => ({
         ...one,
@@ -264,7 +267,7 @@ function sessions(control: BayControl): SessionsStore {
       }));
     },
     // Flight 4 has its note and carries on. Flight 1 runs the staging checkout in its Job browser and asks to go on.
-    9: () => {
+    6: () => {
       flight(3, (one) => ({ ...one, turn: { state: "working" }, standing: "working", waitingFor: [], lastTurnAt: now(), rows: [...one.rows, say("Leading with dark mode."), tool(`Edit ${FLIGHTS[3]!.files[0]}`)] }));
       const id = ids[0];
       if (id === undefined) return;
@@ -279,41 +282,41 @@ function sessions(control: BayControl): SessionsStore {
       }));
     },
     // Flight 1 drives the page: card details, Pay, the order confirmation.
-    10: () => {
+    7: () => {
       const id = ids[0];
       if (id === undefined) return;
       navigate(id, STAGING_CARD);
       flight(0, (one) => ({ ...one, rows: [...one.rows, tool("browser_click Check out"), tool("browser_type 4242 4242 4242 4242 into Card number")] }));
     },
-    11: () => {
+    8: () => {
       const id = ids[0];
       if (id === undefined) return;
       navigate(id, STAGING_PAY);
       flight(0, (one) => ({ ...one, rows: [...one.rows, tool("browser_click Pay $84.00")] }));
     },
-    12: () => {
+    9: () => {
       const id = ids[0];
       if (id === undefined) return;
       navigate(id, STAGING_DONE);
       flight(0, (one) => ({ ...one, rows: [...one.rows, tool("browser_snapshot"), say("The order is confirmed. The checkout test passes.")] }));
     },
     // The four push. Flight 1 runs its Checks, and the other three are queued.
-    13: () => {
+    10: () => {
       flight(0, (one) => ({ ...withPull(one, pullOf(FLIGHTS[0]!, "open", { state: "pending" }, false)), turn: { state: "idle" }, standing: "idle", lastTurnAt: now(), rows: [...one.rows, tool("gh pr create")] }));
       for (const at of [1, 2, 3]) {
         flight(at, (one) => ({ ...withPull(one, pullOf(FLIGHTS[at]!, "open", { state: "passed" }, true)), turn: { state: "idle" }, standing: "idle", lastTurnAt: now(), rows: [...one.rows, tool("gh pr create")] }));
       }
     },
     // Each landing frees its bay: relay-api, relay-app, relay-docs, then relay-web.
-    14: () => {
+    11: () => {
       land(1);
       flight(0, (one) => withPull(one, pullOf(FLIGHTS[0]!, "open", { state: "passed" }, true)));
     },
-    15: () => land(2),
-    16: () => land(3),
-    17: () => land(0),
+    12: () => land(2),
+    13: () => land(3),
+    14: () => land(0),
     // The lead ends, and the tasks it held ask whether they are done.
-    18: () => {
+    15: () => {
       const id = leadId;
       if (id === undefined) return;
       store.edit(id, (one) => ({
@@ -441,10 +444,7 @@ const over = (at: number) => [
 
 /** One batch for each moment, in step with `later`: moment n is `EVENTS_LATER[n - 1]`. */
 const EVENTS_LATER: NonNullable<NonNullable<Scenario["draft"]>["eventsLater"]> = [
-  () => started(0),
-  () => started(1),
-  () => started(2),
-  () => started(3),
+  () => [0, 1, 2, 3].flatMap((at) => started(at)),
   () => [0, 1, 2, 3].flatMap((at) => edited(at, 0.4)),
   () => event(0.1, jobWho(1), "session.turn", "ask", "Asking for a sign-in"),
   () => event(0.1, jobWho(2), "session.turn", "ask", "Walk ready"),

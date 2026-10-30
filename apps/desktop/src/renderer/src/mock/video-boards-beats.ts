@@ -10,7 +10,6 @@ export type Beat = { clock: string; stamp?: string; step: Step };
 
 const beat = (clock: string, stamp: string | undefined, step: Step): Beat => (stamp === undefined ? { clock, step } : { clock, stamp, step });
 
-const projects = region("Projects", { exact: true });
 const relay = region("Project Relay 2.4");
 const jobs = region("Jobs", { exact: true });
 const map = role("listbox", "Map");
@@ -26,6 +25,7 @@ const card = (title: string): Target => role("group", title);
 const LEAD = "Ship Relay 2.4";
 const [CHECKOUT, PAYMENTS, DARK, NOTES] = ["Fix the flaky checkout test", "Upgrade the payments SDK", "Dark mode for Settings", "Release notes for 2.4"] as const;
 const [WEB, API, APP, DOCS] = ["relay-web", "relay-api", "relay-app", "relay-docs"] as const;
+const REQUEST = `${LEAD}\n  - ${[CHECKOUT, PAYMENTS, DARK, NOTES].join("\n  - ")}`;
 const walkWindow = dialog(`Bridge's window on ${DARK}`);
 
 // Flight 2: the command in Needs you, and the terminal that opens under it.
@@ -45,25 +45,13 @@ const browserPane = inside(browser, role("group", "Job browser", { exact: true }
 const shown = (name: string): Target => inside(browserPane, role("article", name));
 
 export const BEATS: readonly Beat[] = [
-  // Shot 1, 0:00 to 0:05
-  beat("T-00:05", undefined, { press: place("Projects"), say: "0:00 to 0:05, shot 1, countdown. A mono mission clock counts down in black. On zero the Projects tab cuts in on the project. Caption: You have one release to ship today." }),
-  beat("T+00:00", undefined, { press: inside(projects, button("Relay 2.4", { exact: true })), say: "The project is Relay 2.4." }),
-  beat("T+00:02", undefined, { look: card(LEAD), say: `One card, ${LEAD}, with four subtasks under it. Nothing has a Job yet.` }),
-  beat("T+00:03", undefined, { look: relay, say: `The subtasks are ${CHECKOUT} in ${WEB}, ${PAYMENTS} in ${API}, ${DARK} in ${APP} and ${NOTES} in ${DOCS}.` }),
-
-  // Shot 2, 0:05 to 0:14
-  beat("T+00:05", undefined, { press: inside(relay, button(`Dispatch ${LEAD}`, { exact: true })), say: `0:05 to 0:14, shot 2, launch. The cursor presses the Dispatch icon on ${LEAD}. Caption: Give it to one Job. It splits the work and dispatches the rest.` }),
-  beat("T+00:06", undefined, { look: sheet, say: "The Dispatch sheet opens with the task and its four subtasks as lines." }),
+  // Shot 1, 0:00 to 0:02, then shot 2, 0:02 to 0:14
+  beat("T-00:02", undefined, { press: inside(region("Dispatch controls"), button("Dispatch", { exact: true })), say: "0:00, shot 1. The Cockpit, nothing flying yet. The cursor presses Dispatch. Caption: You have one release to ship today." }),
+  beat("T+00:01", undefined, { type: REQUEST, into: sheet, say: `0:02 to 0:14, shot 2, launch. The request is typed into the Dispatch sheet: ${LEAD}, and its four subtasks a line each. Caption: Give it to one Job. It splits the work and dispatches the rest.` }),
   beat("T+00:07", "LEAD · GO", { key: "Enter", on: sheet, say: "Enter starts it. The lead Job opens on the stage in the Cockpit." }),
   beat("T+00:08", "LEAD · GO", { look: stage(LEAD), say: "One row in the Jobs list, the lead. It holds no bay." }),
-  beat("T+00:10", "FLIGHT 1 · GO", { later: jobs, say: `The lead starts its first Job, in ${WEB}.` }),
-  beat("T+00:10", "FLIGHT 1 · GO", { look: row(CHECKOUT), say: `${CHECKOUT} stands under the lead, joined to it by the linked Job line.` }),
-  beat("T+00:11", "FLIGHT 2 · GO", { later: jobs, say: `The second, in ${API}.` }),
-  beat("T+00:11", "FLIGHT 2 · GO", { look: row(PAYMENTS), say: `${PAYMENTS} stands under the lead.` }),
-  beat("T+00:12", "FLIGHT 3 · GO", { later: jobs, say: `The third, in ${APP}.` }),
-  beat("T+00:12", "FLIGHT 3 · GO", { look: row(DARK), say: `${DARK} stands under the lead.` }),
-  beat("T+00:13", "FLIGHT 4 · GO", { later: jobs, say: `The fourth, in ${DOCS}.` }),
-  beat("T+00:13", "FLIGHT 4 · GO", { look: row(NOTES), say: `${NOTES} stands under the lead.` }),
+  beat("T+00:10", "FLIGHTS · GO", { later: jobs, say: `The lead starts its four Jobs in one call, one in each of ${WEB}, ${API}, ${APP} and ${DOCS}.` }),
+  beat("T+00:10", "FLIGHTS · GO", { look: jobs, say: `${CHECKOUT}, ${PAYMENTS}, ${DARK} and ${NOTES} stand under the lead together, each joined to it by the linked Job line.` }),
   beat("T+00:13", undefined, { press: inside(stage(LEAD), button("Back", { exact: true })), say: "Back to the deck." }),
   beat("T+00:14", undefined, { look: bays, say: `A bay is held in each repository: ${WEB}, ${API}, ${APP} and ${DOCS}.` }),
 
