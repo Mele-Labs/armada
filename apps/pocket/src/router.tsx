@@ -1,6 +1,6 @@
 // Paths without a library. `/` home, `/pair` (`?code=…` from a pairing link, `?origin=…` to pair a Mac
 // again), `/dispatch`, and a Job at `/jobs/<Mac origin, encoded>/<id>`, with `/file?path=…` and
-// `/sketch?id=…` under it for what the Job showed. `_` for the Mac is a push that did not say which.
+// `/sketch?id=…` under it for what the Job showed, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
 
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -28,10 +28,12 @@ export type Route =
   | { screen: "pair"; code: string; origin?: string }
   | { screen: "dispatch" }
   | { screen: "job"; origin: string | undefined; id: string }
+  | { screen: "draft"; origin: string; id: string }
   | { screen: "file"; origin: string; id: string; path: string }
   | { screen: "sketch"; origin: string; id: string; sketch: string };
 
 export const jobPath = (origin: string, id: string) => `/jobs/${encodeURIComponent(origin)}/${encodeURIComponent(id)}`;
+export const draftPath = (origin: string, id: string) => `/drafts/${encodeURIComponent(origin)}/${encodeURIComponent(id)}`;
 export const filePath = (origin: string, id: string, path: string) => `${jobPath(origin, id)}/file?path=${encodeURIComponent(path)}`;
 export const sketchPath = (origin: string, id: string, sketch: string) => `${jobPath(origin, id)}/sketch?id=${encodeURIComponent(sketch)}`;
 export const pairPath = (origin?: string) => (origin === undefined ? "/pair" : `/pair?origin=${encodeURIComponent(origin)}`);
@@ -44,6 +46,8 @@ export function routeOf(whole: string): Route {
     return { screen: "pair", code: query.get("code") ?? "", ...(origin === null ? {} : { origin }) };
   }
   if (url.pathname === "/dispatch") return { screen: "dispatch" };
+  const draft = /^\/drafts\/([^/]+)\/([^/]+)$/.exec(url.pathname);
+  if (draft !== null) return { screen: "draft", origin: decodeURIComponent(draft[1]!), id: decodeURIComponent(draft[2]!) };
   const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch))?$/.exec(url.pathname);
   if (job !== null) {
     const mac = decodeURIComponent(job[1]!);

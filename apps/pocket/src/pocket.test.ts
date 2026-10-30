@@ -96,7 +96,7 @@ describe("routeOf", () => {
 });
 
 describe("homeOf", () => {
-  const session = (id: string, extra: Partial<PhoneSession>): PhoneSession => ({ id, kind: "hosted", waiting: false, working: false, started_at: "2026-10-08T10:00:00Z", ...extra });
+  const session = (id: string, extra: Partial<PhoneSession>): PhoneSession => ({ id, kind: "hosted", waiting: false, working: false, held: false, started_at: "2026-10-08T10:00:00Z", ...extra });
   const mac = (origin: string, extra: Partial<Mac>): Mac => ({ machine: { origin, name: origin.slice(8), deviceId: "d", key: {} as CryptoKey }, paired: true, needs: [], live: [], ...extra });
   it("leaves out an unpaired Mac's Jobs and lists it as troubled", () => {
     const home = homeOf({ macs: [mac("https://a", { needs: [session("a1", { waiting: true, waiting_since: "2026-10-08T11:00:00Z" })] }), mac("https://b", { paired: false, needs: [session("b1", { waiting: true })] })] });

@@ -15,7 +15,8 @@ on a list at `http://localhost:5173/`. `POCKET_FIXTURE_UNPAIRED=laptop` makes
 goes to `/pair`. Routes: `/` every Mac's Jobs, `/pair` (`?code=…` from a
 pairing link, `?origin=…` to pair a Mac again), `/dispatch`, a Job at
 `/jobs/<Mac origin, encoded>/<id>`, and what it showed under it at
-`/file?path=…` and `/sketch?id=…`.
+`/file?path=…` and `/sketch?id=…`. A draft Job, one held on its start card,
+opens at `/drafts/<Mac origin, encoded>/<id>`.
 
 Every call is signed with that Mac's key in `src/client.ts`. Each key is made
 when its Mac is paired, non-extractable, and kept in IndexedDB

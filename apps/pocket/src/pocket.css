@@ -15,15 +15,17 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) { font-size: 
 .deck-list__rows { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2); list-style: none; }
 .deck-list__item { display: flex; align-items: center; gap: var(--space-2); }
 .deck-list__item > .deck-row { flex: 1 1 0; width: auto; min-width: 0; }
-.deck-row { --deck-slot: var(--space-4); position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--deck-slot); grid-template-rows: auto auto; align-items: center; column-gap: var(--space-3); row-gap: calc(var(--space-1) / 2); width: 100%; border: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-default); font: inherit; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
+.deck-row { --deck-slot: var(--space-4); --pk-age: var(--space-12); position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto var(--pk-age); grid-template-rows: auto auto; align-items: center; column-gap: var(--space-3); row-gap: calc(var(--space-1) / 2); width: 100%; border: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-default); font: inherit; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 .deck-row__title { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
-.deck-row__marks { grid-column: 2; grid-row: 1; display: grid; place-items: center; color: var(--fg-subtle); }
+.deck-row__link { grid-column: 2; grid-row: 1; justify-self: end; display: grid; place-items: center; color: var(--fg-subtle); }
+.deck-row__context { grid-column: 2; grid-row: 2; justify-self: end; --readout-chars: 5; }
+.deck-row__marks { grid-column: 3; grid-row: 1; display: grid; place-items: center end; color: var(--fg-subtle); }
 .deck-row[data-tone="ask"] .deck-row__marks { color: var(--status-awaiting-review); }
 .deck-row[data-tone="bad"] .deck-row__marks { color: var(--status-completed-failed); }
 .deck-row__says { grid-column: 1; grid-row: 2; display: flex; gap: var(--space-2); min-height: var(--leading-xs); min-width: 0; overflow: hidden; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-xs); }
-.deck-row__said { grid-column: 2; grid-row: 2; justify-self: end; color: var(--fg-muted); white-space: nowrap; }
+.deck-row__said { grid-column: 3; grid-row: 2; justify-self: end; color: var(--fg-muted); white-space: nowrap; }
 /* A Job that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone. */
 .deck-row[data-needs]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
 @keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
@@ -68,3 +70,29 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) { font-size: 
 
 .pk-shown__text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-xs); }
 .pk-shown__image { display: block; max-width: 100%; height: auto; }
+
+/* The plan's two limits, under Home's header. */
+.pk-usage { display: flex; flex: none; justify-content: flex-end; gap: var(--space-4); padding: 0 var(--space-4) var(--space-2); }
+.pk-usage__limit { display: inline-flex; align-items: center; gap: var(--space-2); }
+.pk-usage { --readout-chars: 4; }
+.pk-usage__name { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+
+/* A draft Job: its title, the brief to edit, then what it will run on. */
+.pk-draft { display: grid; align-content: start; gap: var(--space-3); }
+.pk-draft__title { margin: 0; font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-medium); }
+.pk-draft__facts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pk-bar--pair { grid-template-columns: 1fr 1fr; }
+
+/* A Run card and a Draft card at the thread's end, their presses at the footer's end. */
+.pk-card { display: grid; gap: var(--space-3); }
+.pk-card__command { display: block; padding: var(--space-2) var(--space-3); overflow-x: auto; border-radius: var(--radius-sm); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); white-space: pre; }
+.pk-card__text { max-height: calc(var(--space-12) * 6); overflow-y: auto; }
+.pk-card__acts { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* A Job's header on the phone: the title keeps the first line, and the links and the context figure take a line of their own under it. */
+.pk-pane .armada-session-frame__head { flex-wrap: wrap; row-gap: 0; }
+.pk-head__facts { order: 1; display: flex; flex-basis: 100%; align-items: center; gap: var(--space-2); min-width: 0; padding-bottom: var(--space-2); }
+.pk-head__links { display: flex; flex: 1; gap: var(--space-1); min-width: 0; overflow-x: auto; }
+.pk-head__links > * { flex: 0 1 auto; min-width: 0; }
+.pk-head__links .armada-button { max-width: 100%; gap: var(--space-1); }
+.pk-head__chip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
