@@ -34,7 +34,7 @@ export type ProjectsSnapshot = {
   renaming: string | undefined;
   /** The new project's name field is up in the list. */
   naming: boolean;
-  /** The repository the last task was added to, by Manifest id: the composer offers it first. */
+  /** The repository the last task was added to in this window, by Manifest id. `lastUsedRepo` reads it. */
   lastRepo: string | undefined;
   /** Done tasks are drawn. Off, they are hidden in every list. */
   showDone: boolean;
@@ -56,6 +56,17 @@ export const allRows = (list: { rows: readonly ProjectRow[] }): ProjectRow[] => 
 /** The task a subtask stands under, or none where the row is not a subtask. */
 export const parentOf = (snap: Pick<ProjectsSnapshot, "projects" | "loose">, rowId: string): TaskRow | undefined =>
   [...snap.loose, ...snap.projects.flatMap((one) => one.rows)].find((row): row is TaskRow => row.kind === "task" && (row.subtasks ?? []).some((one) => one.id === rowId));
+
+/**
+ * The repository a task was last added to, which the composer and the palette offer first: this window's, else the newest task's.
+ * Fleet mints a row's id as a ULID, so the greatest id is the newest, and the choice outlives a reload.
+ */
+export function lastUsedRepo(snap: Pick<ProjectsSnapshot, "projects" | "loose" | "lastRepo">): string | undefined {
+  if (snap.lastRepo !== undefined) return snap.lastRepo;
+  let newest: ProjectRow | undefined;
+  for (const row of [...allRows({ rows: snap.loose }), ...snap.projects.flatMap(allRows)]) if (row.kind === "task" && (newest === undefined || row.id > newest.id)) newest = row;
+  return newest?.manifestId;
+}
 
 /** A row done: a task ticked, or an issue its tracker closed. */
 export const isDone = (row: ProjectRow): boolean => rowState(row) === "done" || rowState(row) === "closed";
@@ -337,6 +348,13 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
       if (home === undefined) return;
       editRow(rowId, (row) => (row.kind === "task" ? { ...row, pulls: (row.pulls ?? []).filter((one) => one.number !== number) } : row));
       void queue(() => source.unlinkTaskPull(rowId, { number }));
+    },
+    /** A top-level task and its subtasks to another repository, in the same project and place. Its links keep the repository they were linked in. */
+    moveTaskToRepository: (taskId: string, manifestId: string) => {
+      const home = homeOf(taskId);
+      if (home === undefined || home.row.kind !== "task" || home.row.manifestId === manifestId || !rowsIn(home.key).some((row) => row.id === taskId)) return;
+      editRow(taskId, (row) => (row.kind === "task" ? { ...row, manifestId, ...(row.subtasks === undefined ? {} : { subtasks: row.subtasks.map((one) => ({ ...one, manifestId })) }) } : row));
+      void queue(() => source.moveProjectTaskRepository(taskId, { manifest_id: manifestId }));
     },
     /** Moves a row one place up or down the list it stands in: a subtask among its parent's. */
     move: (rowId: string, by: 1 | -1) => {

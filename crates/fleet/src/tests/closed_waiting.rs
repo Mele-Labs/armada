@@ -113,7 +113,7 @@ async fn the_newest_closed_item_comes_first() {
 async fn an_item_whose_subject_has_ended_is_listed_and_refused_a_reopening() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let since = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()) }).await.unwrap().done_since.expect("when");
+    let since = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap().done_since.expect("when");
     let item = format!("done:{}", since.as_str());
     let closed = Arc::clone(&rig.fleet).dismiss_waiting(close(&id, &item)).await.unwrap();
     assert!(!closed.closed[0].ended, "while the Job still says it is done");

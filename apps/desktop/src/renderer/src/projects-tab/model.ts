@@ -5,11 +5,14 @@
 /** The Job a row was sent to, by id, and its title as it was sent, so a Job that has ended still reads by name. */
 export type Holder = { id: string; title: string };
 
-/** An issue as the tracker reads it: open or closed is the tracker's to say. `url` is empty for one Fleet listed, which keeps the reference only. */
-export type Linked = { reference: string; title: string; url: string; state: "open" | "closed" };
+/**
+ * An issue as the tracker reads it: open or closed is the tracker's to say. `url` is empty for one Fleet listed, which keeps the
+ * reference only. `manifestId` is the repository it was linked in, on one Fleet listed: a task moved since keeps it.
+ */
+export type Linked = { reference: string; title: string; url: string; state: "open" | "closed"; manifestId?: string };
 
-/** A pull request as its forge reads it. `url` is empty for one Fleet listed, which keeps the number only. */
-export type LinkedPull = { number: number; title: string; url: string; state: "open" | "draft" | "merged" | "closed" };
+/** A pull request as its forge reads it. `url` is empty for one Fleet listed, which keeps the number only. `manifestId` as on `Linked`. */
+export type LinkedPull = { number: number; title: string; url: string; state: "open" | "draft" | "merged" | "closed"; manifestId?: string };
 
 /**
  * A task he wrote. Done is his to say: by ticking it, or by answering the ask when the Job holding it finishes or a pull

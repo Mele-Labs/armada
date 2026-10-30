@@ -312,7 +312,28 @@ pub fn sent(
             let text = values.hidden(&String::from_utf8_lossy(&body));
             (response, response_cut) = cut(&text, bounds.row);
             response_cut |= truncated;
-            let (inline, cut_here) = cut(&text, most);
+            let (inline, cut_here) = match (&send.pick, send.body_inline) {
+                (Some(path), _) => {
+                    // The path reads the whole body, so a body that was cut cannot be read.
+                    let picked = if truncated || text.len() > read {
+                        Err("the body ran past what is read, so `pick` cannot read it: read the saved file".to_string())
+                    } else {
+                        ipc::pick_json(&text, path)
+                    };
+                    match picked {
+                        Ok(value) => cut(&values.hidden(&value), most),
+                        Err(why) => {
+                            answer.note = Some(match answer.note.take() {
+                                Some(note) => format!("{note} {why}."),
+                                None => format!("{why}."),
+                            });
+                            (String::new(), false)
+                        }
+                    }
+                }
+                (None, false) => (String::new(), false),
+                (None, true) => cut(&text, most),
+            };
             if by == RequestBy::Agent && !text.is_empty() {
                 let json = headers.iter().any(|(name, value)| {
                     name.eq_ignore_ascii_case("content-type") && value.to_ascii_lowercase().contains("json")
@@ -322,7 +343,7 @@ pub fn sent(
             }
             answer.status = Some(status);
             answer.body = inline;
-            answer.truncated = truncated || cut_here;
+            answer.truncated = !answer.body.is_empty() && (truncated || cut_here);
             answer.headers = headers
                 .into_iter()
                 .filter(|(name, _)| by == RequestBy::Owner || !name.eq_ignore_ascii_case("set-cookie"))

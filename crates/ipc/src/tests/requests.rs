@@ -188,3 +188,27 @@ fn a_requested_row_carries_no_kept_header() {
     let row = decode::<crate::SessionRow>("a row", kept.as_bytes()).expect("an unknown field does not break a parse");
     assert!(!encode(&row).expect("plain data").contains("cookie_host"));
 }
+
+#[test]
+fn a_send_with_an_unknown_field_is_refused_and_the_new_options_round_trip() {
+    let base = r#"{"method":"GET","url":"https://api.example.test/x","headers":[]"#;
+    let why = decode::<SendRequest>("a send", format!(r#"{base},"pik":"$.a"}}"#).as_bytes()).expect_err("refused");
+    assert!(why.why.contains("pik"), "{}", why.why);
+    let send = decode::<SendRequest>("a send", format!(r#"{base}}}"#).as_bytes()).expect("reads");
+    assert!(send.body_inline && send.pick.is_none());
+    let lean = format!(r#"{base},"body_inline":false,"pick":"$.a"}}"#);
+    let send = decode::<SendRequest>("a send", lean.as_bytes()).expect("reads");
+    assert!(!send.body_inline);
+    assert_eq!(send.pick.as_deref(), Some("$.a"));
+    let again = decode::<SendRequest>("a send", encode(&send).expect("plain data").as_bytes()).expect("reads");
+    assert_eq!(again, send);
+}
+
+#[test]
+fn pick_reads_one_value_many_or_says_why_not() {
+    assert_eq!(crate::pick_json(r#"{"a":{"b":2}}"#, "$.a.b").unwrap(), "2");
+    assert_eq!(crate::pick_json(r#"{"a":[1,2]}"#, "$.a[*]").unwrap(), "[1,2]");
+    assert!(crate::pick_json(r#"{"a":1}"#, "$.b").unwrap_err().contains("matched nothing"));
+    assert!(crate::pick_json("nope secret", "$.a").unwrap_err().contains("not JSON"));
+    assert!(!crate::pick_json("nope secret", "$.a").unwrap_err().contains("secret"));
+}

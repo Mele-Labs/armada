@@ -259,3 +259,80 @@ fn the_rail_reads_an_approval_only_on_the_newest_revision_kept() {
     assert!(!approved_on_newest(&with(&[("revision", "2")])), "not answered");
     assert!(!approved_on_newest(&detail(&[("form", "sketch"), ("asked", "true"), ("revisions", two), ("revision", "2"), ("settled", "approved")])));
 }
+
+async fn plan_of(rig: &Rig, id: &SessionId) -> ipc::SessionPlan {
+    Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.plan.expect("a plan")
+}
+
+async fn plan_recorded(rig: &Rig, id: &SessionId) {
+    let plan = ipc::RecordPlan {
+        summary: "You get a plan.".into(),
+        groups: vec![ipc::PlanGroupInput {
+            id: None,
+            title: "Store".into(),
+            agent: "rust-engineer".into(),
+            paths: vec!["crates/store".into()],
+            issue: None,
+            gives: None,
+            lands_in: None,
+            tasks: vec![ipc::PlanTaskInput { id: None, title: "Add the table".into() }],
+        }],
+        sketch: None,
+        walk: None,
+        session_id: Some(id.clone()),
+    };
+    rig.fleet.record_plan(None, plan, false).await.expect("recorded");
+}
+
+#[tokio::test]
+async fn approving_the_page_approves_the_pending_plan_held_behind_it() {
+    let rig = rig_placing(None);
+    let (id, _work, _file, path) = one_page(&rig).await;
+    plan_recorded(&rig, &id).await;
+    let held = plan_of(&rig, &id).await;
+    assert!(held.approved_at.is_none() && held.held_by.iter().any(|one| one.url == path), "held behind the page: {:?}", held.held_by);
+
+    Arc::clone(&rig.fleet).answer_document(answer(&id, &path, "1", DocumentHow::Approved, None)).await.unwrap();
+
+    let plan = plan_of(&rig, &id).await;
+    assert!(plan.approved && plan.approved_at.is_some(), "approved with the page: {plan:?}");
+}
+
+#[tokio::test]
+async fn sending_the_page_back_leaves_the_plan_pending() {
+    let rig = rig_placing(None);
+    let (id, _work, _file, path) = one_page(&rig).await;
+    plan_recorded(&rig, &id).await;
+
+    Arc::clone(&rig.fleet).answer_document(answer(&id, &path, "1", DocumentHow::SentBack, Some("Say more."))).await.unwrap();
+
+    let plan = plan_of(&rig, &id).await;
+    assert!(!plan.approved && plan.approved_at.is_none(), "{plan:?}");
+}
+
+#[tokio::test]
+async fn approving_the_page_leaves_an_approved_plan_as_it_was() {
+    let rig = rig_placing(None);
+    let (id, _work, _file, path) = one_page(&rig).await;
+    plan_recorded(&rig, &id).await;
+    Arc::clone(&rig.fleet).approve_plan(ipc::ApprovePlan { session_id: id.clone(), version: 1 }).await.unwrap();
+    let before = plan_of(&rig, &id).await;
+
+    Arc::clone(&rig.fleet).answer_document(answer(&id, &path, "1", DocumentHow::Approved, None)).await.unwrap();
+
+    assert_eq!(plan_of(&rig, &id).await.approved_at, before.approved_at, "approved once, not again");
+}
+
+#[tokio::test]
+async fn approving_the_page_does_not_bring_back_a_plan_he_set_aside() {
+    let rig = rig_placing(None);
+    let (id, _work, _file, path) = one_page(&rig).await;
+    plan_recorded(&rig, &id).await;
+    // Held behind the page the plan has no card to dismiss, so it is put away as Not yet does.
+    rig.fleet.plan_set_aside(id.as_str(), "plan:1").await.unwrap();
+
+    Arc::clone(&rig.fleet).answer_document(answer(&id, &path, "1", DocumentHow::Approved, None)).await.unwrap();
+
+    let plan = plan_of(&rig, &id).await;
+    assert!(plan.set_aside_at.is_some() && plan.approved_at.is_none(), "{plan:?}");
+}

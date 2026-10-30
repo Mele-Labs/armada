@@ -22,8 +22,9 @@ fn a_tracker_word_is_matched_exactly_and_one_no_state_lists_is_unmapped() {
 }
 
 #[test]
-fn the_ticket_armada_carries_lists_no_words_so_every_status_is_unmapped() {
+fn the_ticket_armada_carries_lists_only_closed_so_every_other_status_is_unmapped() {
     let carried = Lifecycle::ticket();
+    assert_eq!(carried.standing_of(&Observed::Tracker("closed")), Standing::In(id("closed")));
     for status in ["To Do", "In Progress", "Done"] {
         assert_eq!(carried.standing_of(&Observed::Tracker(status)), Standing::Unmapped(text(status)));
     }
