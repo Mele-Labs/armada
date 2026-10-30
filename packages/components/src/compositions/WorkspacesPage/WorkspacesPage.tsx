@@ -21,6 +21,8 @@ export type WorkspacesPageProps = {
   /** What each level sets, under `everywhere`, `workspace:<id>` and `repository:<id>`. */
   layers: AutonomyLayers;
   picked: WorkspacesPick;
+  /** Fleet's words for what it refused, where the press was. */
+  notice?: string | undefined;
   onPick: (pick: WorkspacesPick) => void;
   onSet: (key: string, kind: AutonomyKind, level: Autonomy | undefined) => void;
   onCreate: (name: string, repositories: readonly string[]) => void;
@@ -35,7 +37,7 @@ const EVERYWHERE: AutonomyLevel = { key: "everywhere", name: "Everywhere" };
 /** The layer key a level is kept under. */
 export const layerKey = (pick: Exclude<WorkspacesPick, { kind: "new" }>): string => (pick.kind === "everywhere" ? "everywhere" : `${pick.kind}:${pick.id}`);
 
-export function WorkspacesPage({ repositories, workspaces, layers, picked, onPick, onSet, onCreate, onSave, onRemove, onOpenWorkflows }: WorkspacesPageProps) {
+export function WorkspacesPage({ repositories, workspaces, layers, picked, notice, onPick, onSet, onCreate, onSave, onRemove, onOpenWorkflows }: WorkspacesPageProps) {
   const name = (id: string) => repositories.find((one) => one.id === id)?.name ?? id;
   const inNone = repositories.filter((one) => !workspaces.some((held) => held.repositories.includes(one.id)));
   const workspace = picked.kind === "workspace" ? workspaces.find((one) => one.id === picked.id) : undefined;
@@ -89,6 +91,11 @@ export function WorkspacesPage({ repositories, workspaces, layers, picked, onPic
       </section>
 
       <section className="armada-workspaces__detail" aria-label="Detail" data-col="detail">
+        {notice === undefined ? null : (
+          <p className="armada-workspaces__said" role="alert" data-refused>
+            {notice}
+          </p>
+        )}
         {picked.kind === "new" ? (
           <div className="armada-workspaces__panel">
             <WorkspaceForm key="new" mode="new" repositories={repositories} onSubmit={onCreate} />

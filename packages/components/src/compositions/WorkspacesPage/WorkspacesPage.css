@@ -126,3 +126,11 @@
 .armada-workspaces__detail > .armada-button {
   align-self: flex-start;
 }
+
+/* Fleet's sentence for an act it refused, as it said it. */
+.armada-workspaces__said {
+  margin: 0;
+  color: var(--status-completed-failed);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}

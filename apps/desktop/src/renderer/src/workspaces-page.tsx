@@ -1,26 +1,23 @@
-// System > Workspaces over the Workspaces the window holds (armada-cwj). Mock-only for now: the seed keeps them, and no Fleet call is behind it yet.
+// System > Workspaces over the Workspaces Fleet keeps (armada-cwj). `use-workspaces.ts` holds them; this hands them to the page.
 
 import { WorkspacesPage } from "@armada/components";
-import type { WorkspaceRow } from "@armada/components";
 
 import { openSystemEntry } from "./system-entry";
-import { useWorkspaceHeld } from "./workspace-draft";
+import type { WorkspacesHeld } from "./use-workspaces";
 
-export function WorkspacesSurface() {
-  const book = useWorkspaceHeld()?.book;
-  if (book === undefined) return null;
-  const workspaces = book.records.map((one): WorkspaceRow => ({ id: one.id, name: one.name, repositories: one.repositories, ...(one.home === undefined ? {} : { home: one.home }) }));
+export function WorkspacesSurface({ held }: { held: WorkspacesHeld }) {
   return (
     <WorkspacesPage
-      repositories={book.served}
-      workspaces={workspaces}
-      layers={book.layers}
-      picked={book.picked}
-      onPick={book.pick}
-      onSet={book.set}
-      onCreate={book.create}
-      onSave={book.save}
-      onRemove={book.remove}
+      repositories={held.served}
+      workspaces={held.workspaces}
+      layers={held.layers}
+      picked={held.picked}
+      notice={held.notice}
+      onPick={held.pick}
+      onSet={held.set}
+      onCreate={held.create}
+      onSave={held.save}
+      onRemove={held.remove}
       onOpenWorkflows={() => openSystemEntry("kit:workflows")}
     />
   );

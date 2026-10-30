@@ -188,6 +188,7 @@ export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
 export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export { autonomyRows } from "./compositions/WorkflowManager/Autonomy";
 export type { AutonomyKind, AutonomyLayer, AutonomyLayers } from "./compositions/WorkflowManager/Autonomy";
 export { WorkspacesPage, layerKey } from "./compositions/WorkspacesPage/WorkspacesPage";
 export type { WorkspaceRow, WorkspacesPageProps, WorkspacesPick } from "./compositions/WorkspacesPage/WorkspacesPage";
