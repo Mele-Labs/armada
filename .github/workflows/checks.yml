@@ -358,6 +358,19 @@ jobs:
           name: sync_mod_test
           cmd: python3 scripts/test_sync_mod.py
 
+  format_catch_up_test:
+    name: format_catch_up_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'format_catch_up_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: format_catch_up_test
+          cmd: python3 scripts/test_format_catch_up.py
+
   # The desktop tests that read no surface: main and the renderer's own modules,
   # mostly node. Linux, one job, no shards: the files add up to 44 seconds.
   desktop_unit:
@@ -585,6 +598,7 @@ jobs:
       - hooks_test
       - preview_test
       - sync_mod_test
+      - format_catch_up_test
       - xtask_test
       - format
       - foundations

@@ -19,7 +19,7 @@ import re
 import sys
 
 # Bare names with a static job in checks.yml.
-ROOT = {"build", "test", "acceptance", "typecheck", "hooks_test", "preview_test", "sync_mod_test"}
+ROOT = {"build", "test", "acceptance", "typecheck", "hooks_test", "preview_test", "sync_mod_test", "format_catch_up_test"}
 
 # Run by the Linux job that runs vitest directly, outside the matrix so that
 # `desktop_test` reports it with the shards and `ci` does not wait on it.

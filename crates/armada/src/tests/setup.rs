@@ -73,6 +73,7 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         vec![
             "acceptance".to_string(),
             "build".to_string(),
+            "format_catch_up_test".to_string(),
             "hooks_test".to_string(),
             "preview_test".to_string(),
             "sync_mod_test".to_string(),
@@ -82,7 +83,8 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         "the Checks this workspace is built and tested with — Rust, `acceptance` \
          on its own so a red one names a broken milestone claim rather than a \
          unit test (#1130), the Bridge's packages nobody owns (#200: every \
-         Check used to compile Rust), and the merge line's own two Python suites, which no other \
+         Check used to compile Rust), and the Python suites for the merge line's hook and \
+         this repository's own scripts, which no other \
          Check reads. The rest of the Bridge's Checks are in `packages/` and \
          `apps/desktop`, one `armada.yml` each. There is no `clippy` — `[clippy-as-a-check]` in \
          `docs/OPEN.md` says why"
@@ -140,6 +142,7 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
                 && *name != "hooks_test"
                 && *name != "preview_test"
                 && *name != "sync_mod_test"
+                && *name != "format_catch_up_test"
         })
         .map(|(_, name, run)| (*name, *run))
         .collect();
@@ -262,11 +265,12 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "hooks_test",
             "preview_test",
             "sync_mod_test",
+            "format_catch_up_test",
         ],
         "the order `armada.yml` declares them in, which is the order they answer \
          in — not `check_names`' alphabetical"
     );
-    // The same seven, and no eighth: the expansion is the registry and the
+    // The same eight, and no ninth: the expansion is the registry and the
     // registry is what `check_names` lists.
     let mut sorted = names.clone();
     sorted.sort_unstable();
