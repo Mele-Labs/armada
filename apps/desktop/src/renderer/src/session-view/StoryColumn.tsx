@@ -24,15 +24,17 @@ import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
-import { useSessionsDraft } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
 import { Mark } from "./DeliveryRoute";
 import { BriefZone } from "./BriefZone";
+import { ChildJob } from "./ChildJob";
 import { briefOf, FlightRows } from "./FlightPlan";
 import { LaterBlock } from "./LaterBlock";
+import { finishedChild, inHandOf, looseChildrenOf } from "./linked";
 import { OpenGroupMenu, useOpenGroupShown } from "./OpenGroup";
 import { WALK_STEP, byKind, madeOf, reportOf, stepOf, type Made } from "./ledger";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
@@ -65,6 +67,7 @@ function ruleOf(session: Session, itemId: string): { rule: string; row: string }
 
 export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
+  const sessions = useSessions();
   const layout = useLayout("job.panels").all;
   const [view, setView] = useLedgerView();
   const everything = useWhole(id);
@@ -98,7 +101,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const detected = detectedOf(session);
   const now = detected === undefined ? accountNowOf(session) : undefined;
   const groups = planned ? viewOf(plan, ed.marks) : [];
-  const steps = stepsOf(groups, approved, workingGroup);
+  const steps = stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
+  // A Job started outside the plan is work in hand in Now until it finishes, then something made in Done.
+  const outside = looseChildrenOf(sessions, session);
+  const running = outside.filter((child) => !finishedChild(child));
   const by = (step: "done" | "current" | "upcoming") => (editing ? [] : groups.filter((group) => steps.get(group.id) === step));
   const finished = by("done");
   // The group with the freshest mark in progress leads; groups with no age keep the plan's order.
@@ -110,7 +116,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const workflowNow = at === undefined ? undefined : flow[at];
   const workflowNext = flow.filter((_, i) => at === undefined || i > at);
 
-  const made = madeOf(session, entries, { landing: kind, mods: mods.length, onOpenSketch });
+  const made = madeOf(session, entries, { landing: kind, mods: mods.length, onOpenSketch, jobs: { children: outside.filter(finishedChild), open: onOpenSession } });
   const doc = kind === "report" ? reportOf(session, entries) !== undefined : artifactsOf(session, entries).some((group) => group.id === "doc");
   const route = routeOf(session, kind, { doc, mods });
   // A step of the route the workflow already names is that step, not a second row.
@@ -253,6 +259,15 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         </div>
       )}
       {working.length === 0 ? null : <FlightRows all={all} groups={working} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
+      {running.length === 0 ? null : (
+        <ul className="sv-flight__groups" aria-label="Jobs">
+          {running.map((child) => (
+            <li key={child.id} className="sv-flight__group" data-handed="">
+              <ChildJob child={child} manifestId={manifestId} onOpen={onOpenSession} />
+            </li>
+          ))}
+        </ul>
+      )}
       {afterPlan ? list : null}
       {!editing ? null : (
         <div className="sv-plan" data-drafting={drafting || undefined}>
@@ -327,6 +342,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const groupTime = (group: WorkGroup) => group.tasks.reduce<string | undefined>((latest, one) => (one.changedAt !== undefined && (latest === undefined || one.changedAt > latest) ? one.changedAt : latest), undefined);
   const madeTime = (one: Made): string | undefined => {
     if (one.shape === "pr") return session.trail?.opened?.[one.pr.number];
+    if (one.shape === "job") return one.child.lastTurnAt;
     if (one.shape === "row" && one.key.startsWith("walk:")) {
       const shown = session.rows.find((row) => row.kind === "window" && `walk:${row.id}` === one.key);
       return shown?.kind === "window" ? shown.ended : undefined;

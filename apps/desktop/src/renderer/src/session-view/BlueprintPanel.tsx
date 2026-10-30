@@ -11,8 +11,10 @@ import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { accountGroupOf, accountNowOf } from "../session-activity";
+import { useSessions } from "../sessions-draft";
 import { AgentTasks } from "./AgentTasks";
 import { FlightHead, FlightRows } from "./FlightPlan";
+import { inHandOf } from "./linked";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
@@ -36,9 +38,10 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
   const todos = (session.activity?.todos ?? []).filter((one) => one.task === undefined);
   const atWork = planned ? [] : subagentsAtWork(session);
   const workingGroup = accountGroupOf(session)?.id;
+  const sessions = useSessions();
   const now = accountNowOf(session);
   const groups = planned ? viewOf(plan, ed.marks) : [];
-  const steps = stepsOf(groups, plan?.approved === true, workingGroup);
+  const steps = stepsOf(groups, plan?.approved === true, workingGroup, inHandOf(sessions, session));
   const sketch = plan?.sketch;
   // An approved plan is read as the flight plan; the whole plan is a press away, and a plan with changes marked on it stands whole.
   const nowView = planned && plan.approved && !everything.whole && ed.marks.length === 0;

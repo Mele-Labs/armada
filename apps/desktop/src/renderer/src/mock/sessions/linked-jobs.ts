@@ -1,5 +1,6 @@
 // A Job whose plan has eight groups, seven of them handed to Jobs of their own in seven different states, and the groups still shut. The Job view's spine draws each
-// shut row with its Job on it. Mock only: every field here is one Fleet would owe (`packages/screens/src/draft/sessions.ts`).
+// shut row with its Job on it. The group handed to the Job still working has every task ticked, as an agent ticks them when it hands them, and still reads
+// as being worked. Two more Jobs were started outside the plan: one running, in Now, and one ended, in Done. Mock only: every field here is one Fleet would owe (`packages/screens/src/draft/sessions.ts`).
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -21,7 +22,7 @@ const groups: WorkGroup[] = NAMES.map((title, at) => ({
   agent: at === 3 || at === 4 ? "bridge-engineer" : "rust-engineer",
   title,
   paths: [at === 3 || at === 4 ? "apps/desktop" : "crates/store"],
-  tasks: [task(`T${at * 2 + 1}`, `${title}, first`, at === 5 ? "done" : "open"), task(`T${at * 2 + 2}`, `${title}, second`, at === 5 ? "done" : "open")],
+  tasks: [task(`T${at * 2 + 1}`, `${title}, first`, at === 2 || at === 5 ? "done" : "open"), task(`T${at * 2 + 2}`, `${title}, second`, at === 2 || at === 5 ? "done" : "open")],
 }));
 
 const BEFORE = "jobs-2";
@@ -31,6 +32,20 @@ const ASKING = "jobs-5";
 const CHECKING = "jobs-6";
 const MERGED = "jobs-7";
 const ENDED = "jobs-8";
+const OUTSIDE_RUNNING = "jobs-10";
+const OUTSIDE_ENDED = "jobs-11";
+
+/** Jobs its agent started outside the plan, with no group. */
+const outside: Omit<Handed, "group">[] = [
+  {
+    id: OUTSIDE_RUNNING,
+    title: "Seed the test database",
+    slot: 10,
+    branch: "armada/jobs-seed",
+    change: (one) => ({ ...one, attachments: [...one.attachments, pull(2436, "Seed the test database", "armada/jobs-seed", { state: "open", checks: { state: "pending" } })] }),
+  },
+  { id: OUTSIDE_ENDED, title: "Check an old dump restores", slot: 11, branch: "armada/jobs-restore", change: (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", dead: "ended", lastTurnAt: ago(30) }) },
+];
 
 const handed: Handed[] = [
   { id: BEFORE, group: "g1", title: "Migrations get names", slot: 3, branch: "armada/jobs-names", change: (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", waits: { on: { id: WORKING, title: "Migrations apply in order" }, when: "ends", base: "main", needs: "", brief: "Name the migrations.", by: "agent" } }) },
@@ -86,6 +101,8 @@ const parent = (): Session => ({
     tool("j-3", "13:40:20", "record_plan"),
     you("j-4", "13:42:00", "Approved."),
     ...handed.flatMap((one, at): Session["rows"] => [tool(`j-s${at}`, "13:42:30", `start_another_session ${one.title}`), started(`j-t${at}`, "13:42:31", one.id, one.title)]),
+    you("j-5", "13:44:00", "Also seed the test database, and check an old dump still restores."),
+    ...outside.flatMap((one, at): Session["rows"] => [tool(`j-o${at}`, "13:44:30", `start_another_session ${one.title}`), started(`j-u${at}`, "13:44:31", one.id, one.title)]),
   ],
   attachments: [
     { kind: "slot", slot: 2 },
@@ -93,6 +110,7 @@ const parent = (): Session => ({
     pull(2400, "Move the store to named migrations", "armada/named-migrations", { state: "open", checks: { state: "pending" } }),
     { kind: "link", url: "https://git.example/armada/docs/migrations", by: "agent" },
     ...handed.map((one) => ({ kind: "started_to" as const, id: one.id, group: one.group })),
+    ...outside.map((one) => ({ kind: "started_to" as const, id: one.id })),
   ],
   work: { railOff: true, plan: { scope: ["crates/store", "apps/desktop"], approved: true, groups } },
 });
@@ -115,6 +133,7 @@ export function linkedJobsOnPlan(name: string, says: string): Scenario {
     sessionsStore([
       parent(),
       ...handed.map((one) => one.change(child(one.id, one.title, one.group, one.slot, one.branch, `${one.title}. Group: ${groups.find((g) => g.id === one.group)?.title ?? ""}.`, [], PARENT))),
+      ...outside.map((one) => one.change(child(one.id, one.title, undefined, one.slot, one.branch, `${one.title}.`, [], PARENT))),
       other(),
     ]);
   return { ...board, name, says, draft: { sessions, areas: mockAreas } };
