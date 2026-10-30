@@ -3,7 +3,7 @@
 // **A query runs when a list needs it and again only when it changes**: nothing polls a tracker. Writing a query is the one
 // act that calls a model, so it asks first, through the box every spending act uses.
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { SURFACE } from "@armada/shell";
 
@@ -55,6 +55,18 @@ export function createIssuesStore(source: IssuesSource) {
   /** What the Jobs said they hold of each repository the last time the list was drawn. */
   const told = new Map<string, string>();
   let reportsAsked = false;
+
+  /** Fleet's list of reported bugs, whole: it replaces what is held, and puts away a report that is gone. */
+  const heardReports = (reports: ReportedBug[]) =>
+    set({ reports, ...(snap.openReport !== undefined && !reports.some((one) => one.id === snap.openReport) ? { openReport: undefined } : {}) });
+  const loadReports = () => {
+    const reports = source.reports;
+    if (reports === undefined) return;
+    void reports.list().then((answer) => {
+      if (answer.ok) heardReports(answer.value);
+      else reportsAsked = false;
+    });
+  };
 
   const savedInto = (manifestId: string, saved: SavedQuery[]) =>
     set({ trackers: (snap.trackers ?? []).map((one) => (one.manifestId === manifestId && one.state === "read" ? { ...one, saved } : one)) });
@@ -127,21 +139,38 @@ export function createIssuesStore(source: IssuesSource) {
       });
     },
     run,
-    /** Reads the reported bugs once, when the tab or the Cockpit first needs them. */
+    /** Reads the reported bugs once, when the tab or the Cockpit first needs them; asked again if Fleet did not answer. */
     readReports: () => {
       if (reportsAsked || source.reports === undefined) return;
       reportsAsked = true;
-      void source.reports.list().then((answer) => answer.ok && set({ reports: answer.value }));
+      loadReports();
     },
+    /** Reads the reported bugs again, as a window does whenever Fleet is reached again, which is when a change could have been missed. */
+    loadReports,
+    /** Hears `bug_reports.changed` until the returned function is called. */
+    followReports: (): (() => void) => source.reports?.follow(heardReports) ?? (() => undefined),
     /** Opening a report marks it read here, and puts any issue away. */
     openReport: (id: string | undefined) => set(id === undefined ? { openReport: undefined } : { openReport: id, open: undefined, seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] }),
-    keepReport: (id: string) => {
-      set({ reports: snap.reports.map((one) => (one.id === id ? { ...one, kept: true } : one)), seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] });
-      void source.reports?.keep(id);
+    /** Keeps a report with Fleet, and shows it kept once Fleet says so. A refusal is said on the tab, and the list is read again. */
+    keepReport: async (id: string): Promise<void> => {
+      set({ seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] });
+      const answer = await source.reports?.keep(id);
+      if (answer === undefined) return;
+      if (!answer.ok) {
+        set({ failed: answer.said });
+        return loadReports();
+      }
+      set({ reports: snap.reports.map((one) => (one.id === id ? answer.value : one)), failed: undefined });
     },
-    dropReport: (id: string) => {
-      set({ reports: snap.reports.filter((one) => one.id !== id), ...(snap.openReport === id ? { openReport: undefined } : {}) });
-      void source.reports?.drop(id);
+    /** Drops a report with Fleet, and puts it away once Fleet says so. A refusal is said on the tab, and the list is read again. */
+    dropReport: async (id: string): Promise<void> => {
+      const answer = await source.reports?.drop(id);
+      if (answer === undefined) return;
+      if (!answer.ok) {
+        set({ failed: answer.said });
+        return loadReports();
+      }
+      set({ reports: snap.reports.filter((one) => one.id !== id), failed: undefined, ...(snap.openReport === id ? { openReport: undefined } : {}) });
     },
     open: (manifestId: string | undefined, reference?: string) => {
       if (manifestId === undefined || reference === undefined) return set({ open: undefined, openReport: undefined });
@@ -237,4 +266,16 @@ export function useIssues(): IssuesSnapshot {
 /** Issues is left off the places and the palette where nothing serves it. */
 export function issuesHidden(served: boolean): readonly string[] {
   return served ? [] : [SURFACE.issues];
+}
+
+/**
+ * Keeps the reported bugs current while the window is open: it hears `bug_reports.changed`, and reads them whenever Fleet is
+ * reached again, which is when a change could have been missed.
+ */
+export function useReportedBugsFollowed(connected: boolean): void {
+  const store = useIssuesStore();
+  useEffect(() => store?.followReports(), [store]);
+  useEffect(() => {
+    if (connected) store?.loadReports();
+  }, [store, connected]);
 }

@@ -49,6 +49,7 @@ function fakeHost(
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
     projects: { changed: () => {} },
+    bugReports: { changed: () => {} },
     agentSignIn: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
     acts: { failed: () => {} },
@@ -121,6 +122,16 @@ describe("a repository's projects, carried whole by their event", () => {
     const projects = { projects: [{ id: "p1", name: "Pocket launch", rows: [{ kind: "task", id: "t1", manifest_id: "armada", title: "Pair a phone", notes: "", state: "open" }] }], loose: [] };
     applyArrival({ ...host, projects: { changed } }, JSON.stringify({ message: "event", cursor: 5, event: { kind: "projects.changed", ...projects } }), FLEET);
     expect(changed).toHaveBeenCalledWith(projects);
+  });
+});
+
+describe("the bugs agents reported, carried whole by their event", () => {
+  it("are passed on as the list and nothing of the event's kind", () => {
+    const { host } = fakeHost();
+    const changed = vi.fn();
+    const reports = { reports: [{ id: "r1", session_id: "s1", job_title: "A Job", title: "A fault", what: "It broke.", steps: [], errors: [], logs: [], at: "2026-10-29T10:00:00Z" }] };
+    applyArrival({ ...host, bugReports: { changed } }, JSON.stringify({ message: "event", cursor: 6, event: { kind: "bug_reports.changed", ...reports } }), FLEET);
+    expect(changed).toHaveBeenCalledWith(reports);
   });
 });
 

@@ -7,7 +7,7 @@ import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, Stamp, Tooltip } f
 import { PullRequestMenuOn } from "../pull-request-menu";
 import { IssueState, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
-import { ISSUES_KEYS, REPORT_KEYS } from "./key-table";
+import { ISSUES_KEYS } from "./key-table";
 import { IssueJobCard, toneOfHolders, useHolders } from "./marks";
 import type { ReportedBug, TicketRead } from "./model";
 import { useIssues, useIssuesStore } from "./store";
@@ -153,13 +153,13 @@ function ReportReader({ report, armada, onOpenSession, onStartReport }: Hosts & 
               </Tooltip>
             )
           ) : (
-            <Tooltip label="Keep" shortcut={REPORT_KEYS.keep}>
+            <Tooltip label="Keep" shortcut={ISSUES_KEYS.keep}>
               <Button variant="secondary" size="sm" data-keep onClick={() => store.keepReport(report.id)}>
                 Keep
               </Button>
             </Tooltip>
           )}
-          <Tooltip label="Drop" shortcut={REPORT_KEYS.drop}>
+          <Tooltip label="Drop" shortcut={ISSUES_KEYS.drop}>
             <Button variant="ghost" size="sm" data-drop onClick={() => store.dropReport(report.id)}>
               Drop
             </Button>

@@ -17,5 +17,5 @@
   means = "A reported bug on the Issues tab that he kept, to start a Job on"
   group = "Issues"
   size = "12px"
-  status = "Proposed"
-  notes = "Proposed 29 Oct 2026 for the walk `reported-bugs`, tooltip `Kept`. A report is written down to keep, which is this glyph's own meaning. Refused: `bookmark`, `pin` and `flag`, each reserved against a kept item, and `check`, which is a Job's idle state. The owner may rule otherwise."
+  status = "Specified"
+  notes = "Specified 29 Oct 2026 on the walk `reported-bugs`, which the owner walked and approved. Tooltip `Kept`. A report is written down to keep, which is this glyph's own meaning. Refused: `bookmark`, `pin` and `flag`, each reserved against a kept item, and `check`, which is a Job's idle state."

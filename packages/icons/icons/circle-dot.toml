@@ -37,5 +37,5 @@
   means = "A reported bug on the Issues tab that nobody has opened yet, in the muted ink"
   group = "Issues"
   size = "12px"
-  status = "Proposed"
-  notes = "Proposed 29 Oct 2026 for the walk `reported-bugs`, tooltip `Unread`. It asks nothing of the owner, so it is neither a pulse nor the awaiting review hue, and it goes once the report is opened. Borrowed and not minted: `reply` is a reply the agent made, and `mail` is reserved to a stranded slot. The owner may rule otherwise."
+  status = "Specified"
+  notes = "Specified 29 Oct 2026 on the walk `reported-bugs`, which the owner walked and approved. Tooltip `Unread`. It asks nothing of the owner, so it is neither a pulse nor the awaiting review hue, and it goes once the report is opened. Borrowed and not minted: `reply` is a reply the agent made, and `mail` is reserved to a stranded slot."

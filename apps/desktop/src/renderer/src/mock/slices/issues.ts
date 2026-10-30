@@ -4,7 +4,7 @@
 import type { IssueList, IssueRead, MergeLines, PullRequestState } from "@armada/protocol";
 
 import type { IssuesApi } from "../../../../shared/api/issues";
-import type { IssuesSource, QueryToSave, Read, ReportedBug, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "../../issues-tab/model";
+import type { IssuesSource, QueryToSave, Read, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "../../issues-tab/model";
 import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
 import type { ReviewSeed } from "../review-seed";
@@ -218,8 +218,7 @@ function byJql(query: string, me: string): (ticket: Ticket) => boolean {
 }
 
 /** The tab's tracker over a scenario's seed, built per window, so what is saved is gone with the window. */
-export function issuesTabSource(seed: IssuesSeed, reported: readonly ReportedBug[] = []): IssuesSource {
-  let reports = reported.map((one) => ({ ...one }));
+export function issuesTabSource(seed: IssuesSeed): IssuesSource {
   const repositories = new Map(seed.map((one) => [one.tracker.manifestId, { ...one, tracker: structuredClone(one.tracker) }]));
   const of = (manifestId: string) => repositories.get(manifestId);
   const saved = (manifestId: string): SavedQuery[] => {
@@ -234,11 +233,6 @@ export function issuesTabSource(seed: IssuesSeed, reported: readonly ReportedBug
   const stamped = (manifestId: string, one: Ticket): Ticket => ({ ...one, holders: of(manifestId)?.held?.[one.reference] ?? [] });
   const refused = <T,>(manifestId: string): Read<T> => ({ ok: false, said: `No tracker is read for ${manifestId}.` });
   return {
-    reports: {
-      list: async () => ({ ok: true, value: reports.map((one) => ({ ...one })) }),
-      keep: async (id) => ((reports = reports.map((one) => (one.id === id ? { ...one, kept: true } : one))), { ok: true, value: undefined }),
-      drop: async (id) => ((reports = reports.filter((one) => one.id !== id)), { ok: true, value: undefined }),
-    },
     trackers: async (manifestIds) => ({ ok: true, value: [...repositories.values()].map((one) => one.tracker).filter((one) => manifestIds.includes(one.manifestId)) }),
     run: async (manifestId, query) => {
       const one = of(manifestId);
