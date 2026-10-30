@@ -10,10 +10,11 @@
 //! as a file, so the Job's copy has a text to start from.
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use api::{Authoring, HostedSessions, Lifecycles, Refusal};
+use api::{Authoring, HostedSessions, Lifecycles, Next, Refusal};
 use ipc::{
-    AnswerWaiting, ChangeJobCopy, ChangeOrigin, ChangeSessionSteps, ChangeState, ChangedBy, CopyPieceKind, JobCopy, KeepJobPiece,
+    AnswerWaiting, ChangeJobCopy, ChangeOrigin, ChangeSessionSteps, ChangeState, ChangedBy, CopyPieceKind, Event, JobCopy, KeepJobPiece,
     KeepJobWorkflow, PieceScope, ProposeWorkflowChange, SessionId, SetSessionWorkflow, SkipSessionStep, StepChange, WaitingSource,
     WorkflowId,
 };
@@ -454,6 +455,60 @@ async fn dismissing_the_proposal_of_a_piece_writes_nothing() {
     assert!(in_kit(&rig, "rules").is_empty());
     assert_eq!(rig.fleet.store().lock().await.workflow_change(kept.change).unwrap().unwrap().state, store::CHANGE_DISMISSED);
     assert!(proposal_waiting(&rig, &id).await.is_none());
+}
+
+/// The repository `keep_drafts.changed` named, once for each time the stream carries it in the next moments.
+async fn keep_draft_events(watching: &mut api::Subscription) -> Vec<String> {
+    let mut found = Vec::new();
+    while let Ok(next) = tokio::time::timeout(Duration::from_millis(300), watching.next()).await {
+        match next {
+            Some(Next::Send(delivered)) => {
+                if let Event::KeepDraftsChanged(told) = delivered.event {
+                    found.push(told.manifest_id.as_str().to_string());
+                }
+            }
+            other => panic!("the stream ended or dropped: {other:?}"),
+        }
+    }
+    found
+}
+
+#[tokio::test]
+async fn a_pieces_keep_is_listed_for_its_repository_until_it_is_approved_and_each_move_is_told() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    let mut watching = rig.fleet.events().subscribe();
+    assert!(rig.fleet.list_keep_drafts(None).await.expect("listed").drafts.is_empty(), "nothing is kept yet");
+
+    Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+    let listed = rig.fleet.list_keep_drafts(None).await.expect("listed");
+    assert_eq!(listed.manifest_id, rig.manifest);
+    assert_eq!(listed.drafts.len(), 1, "{listed:?}");
+    assert_eq!((listed.drafts[0].kind, listed.drafts[0].id.as_str()), (CopyPieceKind::Rule, "deploy_watch"));
+    assert!(listed.drafts[0].text.contains("retries: 1"), "the file Approve would save: {}", listed.drafts[0].text);
+    assert_eq!(keep_draft_events(&mut watching).await, [rig.manifest.as_str()], "the page is told when one opens");
+
+    let item = proposal_waiting(&rig, &id).await.expect("waits").id;
+    answered(&rig, &id, &item, 0).await.expect("approved");
+    assert!(rig.fleet.list_keep_drafts(None).await.expect("listed").drafts.is_empty(), "an approved draft is no longer waiting");
+    assert_eq!(keep_draft_events(&mut watching).await, [rig.manifest.as_str()], "and the page is told when it goes");
+}
+
+#[tokio::test]
+async fn a_pieces_keep_leaves_the_list_when_it_is_dismissed_and_the_page_is_told() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    let mut watching = rig.fleet.events().subscribe();
+    Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+    assert_eq!(rig.fleet.list_keep_drafts(None).await.expect("listed").drafts.len(), 1);
+    keep_draft_events(&mut watching).await;
+
+    let item = proposal_waiting(&rig, &id).await.expect("waits").id;
+    answered(&rig, &id, &item, 1).await.expect("dismissed");
+    assert!(rig.fleet.list_keep_drafts(None).await.expect("listed").drafts.is_empty());
+    assert_eq!(keep_draft_events(&mut watching).await, [rig.manifest.as_str()]);
 }
 
 #[tokio::test]

@@ -12,8 +12,8 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    CopyPieceKind, JobPieceProposed, KeepJobPiece, LifecyclePiece, LifecyclePieceKind, PieceScope, SaveLifecyclePiece,
-    WireError, WireValue, WorkflowChangeRef,
+    CopyPieceKind, JobPieceProposed, KeepDraft, KeepDrafts, KeepDraftsChanged, KeepJobPiece, LifecyclePiece, LifecyclePieceKind, ManifestId,
+    PieceScope, SaveLifecyclePiece, WireError, WireValue, WorkflowChangeRef,
 };
 use store::{KeptWorkflowChange, PieceKind};
 
@@ -45,6 +45,15 @@ fn kind_of(piece: &str) -> LifecyclePieceKind {
         LifecyclePieceKind::Rule
     } else {
         LifecyclePieceKind::Lifecycle
+    }
+}
+
+/// The kind a change's `piece` column names, as the wire spells it.
+fn copy_kind_of(piece: &str) -> CopyPieceKind {
+    if piece == "rule" {
+        CopyPieceKind::Rule
+    } else {
+        CopyPieceKind::Lifecycle
     }
 }
 
@@ -123,7 +132,26 @@ where
             .map_err(|why| self.ledger_fault(why))?;
         let title = format!("{}{} {piece_id}", word[..1].to_uppercase(), &word[1..]);
         self.proposal_titled(&id, change, title, &after, Some(before.clone()).filter(|before| !before.is_empty())).await;
+        self.keep_drafts_changed(&hosting.manifest_id);
         Ok(JobPieceProposed { change, kind: keep.kind, id: piece_id, scope, replaces: !before.is_empty() })
+    }
+
+    /// `list_keep_drafts`: the open proposals of a rule or a lifecycle in one repository, as the files Approve would write.
+    pub(crate) async fn keep_drafts_listed(&self, manifest_id: Option<&ManifestId>) -> Result<KeepDrafts, Refusal> {
+        let served = self.served_named(manifest_id)?;
+        let manifest = served.manifest().id().as_str().to_string();
+        let open = self.store().lock().await.open_piece_changes(&manifest).map_err(|why| self.ledger_fault(why))?;
+        let drafts = open
+            .into_iter()
+            .filter_map(|one| Some(KeepDraft { kind: copy_kind_of(&one.piece), id: one.workflow_id, text: one.after_text? }))
+            .collect();
+        Ok(KeepDrafts { manifest_id: ManifestId::carried(manifest), drafts })
+    }
+
+    /// Say a repository's drafts of a rule or a lifecycle changed, so a page holding them reads them again. Told
+    /// from the three places that move one, never from an agent's tool call.
+    fn keep_drafts_changed(&self, manifest_id: &str) {
+        self.publish(ipc::Event::KeepDraftsChanged(KeepDraftsChanged { manifest_id: ManifestId::carried(manifest_id) }));
     }
 
     /// A proposal on a Job's draft approved: a workflow's is saved as a drafted change is, and a rule's or a
@@ -171,6 +199,7 @@ where
         self.lifecycle_piece_saved(SaveLifecyclePiece { piece, overwrite: !kept.is_new })?;
         let at = self.now();
         self.store().lock().await.workflow_change_approved(kept.id, at.as_str()).map_err(|why| self.ledger_fault(why))?;
+        self.keep_drafts_changed(&kept.manifest_id);
         Ok(())
     }
 
@@ -178,6 +207,7 @@ where
     async fn piece_change_dismissed(&self, kept: KeptWorkflowChange) -> Result<(), Refusal> {
         let at = self.now();
         if self.store().lock().await.workflow_change_dismissed(kept.id, at.as_str()).map_err(|why| self.ledger_fault(why))? {
+            self.keep_drafts_changed(&kept.manifest_id);
             return Ok(());
         }
         Err(Refusal::IllegalMove(WireError::raised(
