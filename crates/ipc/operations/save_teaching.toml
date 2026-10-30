@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Keep a checked teaching: a Logbook entry for the agent note and a mod for each part that changes something"
+description = "Keep a checked teaching: a Logbook entry for the agent note, a mod for each part that changes something and a rule piece for a rule"
 notes = """
-`POST /teachings`, body `{note?, words?, fleet?, tweak?, layout?, reach, repository?, session_id?, cite?, source?}`: the parts `read_teaching` answers with, as the person left them, then `reach` (`repository` or `everywhere`), `repository` (a root `list_repositories` names, required for `repository`), `session_id` and `cite` (the Session and message the teaching came from) and `source` (as `read_teaching` takes it). Answers `{entry?, mods}`: the Logbook entry's id when there was a note, and the names of the mods written, each of them on.
+`POST /teachings`, body `{note?, words?, fleet?, tweak?, layout?, rule?, reach, repository?, session_id?, cite?, source?}`: the parts `read_teaching` answers with, as the person left them, then `reach` (`repository` or `everywhere`), `repository` (a root `list_repositories` names, required for `repository`), `session_id` and `cite` (the Session and message the teaching came from) and `source` (as `read_teaching` takes it). Answers `{entry?, mods, rule?}`: the Logbook entry's id when there was a note, the names of the mods written, each of them on, and the rule piece written when there was a `rule`, as `save_lifecycle_piece` answers it.
 
 **The note becomes a Logbook entry** through the same code as `teach_logbook_entry`, with `{session_id, cite}` as its one evidence row. **Each other part becomes a mod**, by what it changes:
 
@@ -14,6 +14,8 @@ notes = """
 | `fleet` | A Fleet mod (`fleet.toml`): one rule, with its `matches` and `when` if it has them; `untestable` is not written | `fleet-<notice>` |
 | `tweak` | A Tweak mod (`tweak.css`): the tokens as `:root` declarations | `tweak-<first token>` |
 | `layout` | A Layout mod (`layout.json`) | the part's `name`, slugged |
+
+**A `rule` is not a mod.** It is saved as a rule piece in Kit, through the code `save_lifecycle_piece` writes one with: yours, in Kit's `rules` folder, for every Job from the next one. Its scope is `reach`, whatever the part carries: `repository` scopes it to `repository`'s Manifest id and `everywhere` writes it with no scope. Its id is made again from its name, as the Workflows page makes one for a new rule (lower case words joined by underscores), and takes `_2`, `_3` where a rule that applies to the repository or that Kit keeps has it, so a save never replaces a rule. `untestable` is not written, and a piece records no `entry` or `taught_on`, so forgetting the note does not remove it.
 
 A name that is taken gets `-2`, `-3`. Each mod's `mod.toml` records `entry` (the Logbook entry's id, when there is one) and `taught_on`: `source.text` for a Bridge source, so the mod row can say what it was taught on. **Everything is checked before anything is written**, by what `read_teaching` holds a proposal to, so a refusal leaves no entry and no mod behind. A body with no part is a 422 `fleet.teaching_input_refused`; the part refusals are `read_teaching`'s 422 codes. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`.
 

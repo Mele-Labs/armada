@@ -515,7 +515,7 @@ pub use logbook::{
     LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LockLogbookEntry, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
-    ProposedAddress, ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
     TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
 pub use taught_mods::{AddressFound, CommandsFile, Condition, Does, FleetFile, FleetRule, Instead, PaletteCommand, RuleScope, WordsAddress, WordsFile};
