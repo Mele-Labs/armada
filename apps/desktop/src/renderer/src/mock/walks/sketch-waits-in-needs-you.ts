@@ -12,11 +12,14 @@ const sketchWaitsInNeedsYou = walk("sketch-waits-in-needs-you", [
   { look: deckRow("Pause a Job from its row"), say: "The turn is running and the row needs you" },
   { press: deckRow("Pause a Job from its row"), say: "The Job" },
   { look: inside(pinned, button("Approve", { exact: true })), say: "The sketch is pinned above the composer, with Approve and Send back" },
+  { look: role("article", "Sketch: Pause on the row, first take", { exact: true }), say: "An earlier sketch he has not answered stays in the thread without Approve; the pin is the one to answer" },
+  { look: inside(pinned, button("Approve", { exact: true })), say: "Only the pin carries Approve and Send back" },
   { press: inside(pinned, button("Zoom in", { exact: true })), say: "Zoom it in place" },
   { press: inside(pinned, button("Fold", { exact: true })), say: "Fold it to one line" },
   { look: inside(pinned, button("Send back", { exact: true })), say: "Approve and Send back stay on the line" },
   { press: inside(pinned, button("Approve", { exact: true })), say: "Approve it from there" },
-  { look: inside(card, role("img", "Approved")), say: "The pin is gone and the card in the thread reads Approved" },
+  { look: inside(card, role("img", "Approved")), say: "The card in the thread reads Approved" },
+  { look: role("article", "Sketch to approve: Pause on the row, first take", { exact: true }), say: "The pin moves on to the next one he has not answered" },
 ]);
 
 export { sketchWaitsInNeedsYou as "sketch-waits-in-needs-you" };
