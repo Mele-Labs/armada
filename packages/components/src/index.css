@@ -327,6 +327,7 @@
 @import "./compositions/WorkflowManager/WorkflowManager.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/RegisteredOwner/RegisteredOwner.css";
+@import "./compositions/RevisionMenu/RevisionMenu.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/RunningChecks/RunningChecks.css";
 @import "./compositions/SessionThread/SessionThread.css";
@@ -431,4 +432,3 @@
 @import "./compositions/SessionThread/thread-keys.css";
 @import "./compositions/SessionThread/SubagentRow.css";
 @import "./compositions/TaskChip/TaskChip.css";
-@import "./compositions/RevisionMenu/RevisionMenu.css";
