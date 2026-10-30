@@ -9,7 +9,7 @@ import "./video-hud.css";
 import { BEATS } from "./video-boards-beats";
 
 const toneOf = (stamp: string): "go" | "decision" | "landed" =>
-  stamp.endsWith("TOUCHDOWN") || stamp.endsWith("CLEARED") ? "landed" : stamp.endsWith("DECISION") || stamp.endsWith("CHECK") ? "decision" : "go";
+  stamp.endsWith("TOUCHDOWN") ? "landed" : stamp.endsWith("SIGN-IN") || stamp.endsWith("REQUESTED") || stamp.endsWith("CHECK") ? "decision" : "go";
 
 function Hud() {
   const [at, setAt] = useState(1);
