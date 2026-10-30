@@ -93,7 +93,8 @@ function instanceOf(held: HeldInstance, moves: readonly InstanceMove[]): Instanc
     label: held.label,
     state: held.standing.kind === "in" ? held.standing.state : "",
     visited: visitedBy(held, moves),
-    ...(held.standing.kind === "unmapped" ? { title: `Unmapped: ${held.standing.said}` } : {}),
+    ...(held.standing.kind === "unmapped" ? { title: `Unmapped: ${held.standing.said}`, unmapped: held.standing.said } : {}),
+    ...(held.ended_at === undefined ? {} : { ended: true as const }),
   };
 }
 

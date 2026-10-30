@@ -209,6 +209,8 @@ export type HeldInstance = {
   standing: InstanceStanding;
   /** What it came from, in the order the links were made. A link may name an instance the Job does not hold. */
   links: InstanceLink[];
+  /** When ending the Job ended it, standing where it was. Absent while it is live, and for one that reached an end state of its own. */
+  ended_at?: string;
 };
 
 /** One change of standing, kept when a read found the instance somewhere else. `source` is `tracker`, `forge`, `watch` or `fleet`. */

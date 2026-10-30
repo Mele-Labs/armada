@@ -247,6 +247,9 @@
 .armada-lane-item__sub > span { display: block; }
 .armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
 .armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
+/* Where an instance stood when ending the Job ended it: no hue, and not struck through, since nothing was left out. */
+.armada-lane-item[data-ended] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
+.armada-lane__head[data-ended] .armada-lane__title { color: var(--fg-subtle); }
 
 /* A state this Job's own copy changed: a dashed frame in the waiting hue and the comparison's glyph on its corner. */
 .armada-lane-item[data-changed] .armada-lane-item__main { border-style: dashed; --frame: var(--status-awaiting-review); }

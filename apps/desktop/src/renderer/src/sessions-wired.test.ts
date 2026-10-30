@@ -8,6 +8,7 @@ import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
 import type { StateChange } from "../../shared/state-change";
 import { forgetKept, writeKept } from "@armada/components";
+import { inFlight } from "@armada/components/src/compositions/LaneCanvas/build";
 import { aimKey } from "./session-view/mod-aim";
 import { QUEUED_KEY } from "./queued-ideas";
 import { WiredStore } from "./sessions-wired";
@@ -726,6 +727,63 @@ it("draws no lanes for a Job that holds nothing, one that has ended, or a Fleet 
   await publish(record("a"), record("b"), { ...record("c"), state: "ended" });
   expect(store.draft.get().map((one) => one.lanes)).toEqual([undefined, undefined, undefined]);
   expect(getJobLifecycles.mock.calls.map(([id]) => id)).toEqual(["a", "b"]);
+});
+
+const lifecycle = (id: string, name: string, states: [string, string][], ends: string[]): JobLifecycles["lifecycles"][number] => ({
+  id,
+  name,
+  scope: { kind: "everywhere" },
+  states: states.map(([state, label]) => ({ id: state, label, read: { source: "tracker", words: [label] } })),
+  transitions: [],
+  ends,
+});
+
+/** A Job holding a deploy rolling out, a ticket in review, a pull request approved, a ticket whose status nobody mapped, one not read yet, and a deploy that is healthy. */
+const flying = (id: string): JobLifecycles => ({
+  session_id: id,
+  lifecycles: [
+    lifecycle("deploy", "Deploy", [["rolling_out", "Rolling out"], ["healthy", "Healthy"]], ["healthy"]),
+    lifecycle("ticket", "Ticket", [["in_review", "In review"], ["closed", "Closed"]], ["closed"]),
+    lifecycle("pr", "Pull request", [["approved", "Approved"], ["merged", "Merged"]], ["merged"]),
+  ],
+  instances: [
+    { lifecycle: "deploy", key: "web", label: "Deploy", standing: { kind: "in", state: "rolling_out" }, links: [] },
+    { lifecycle: "ticket", key: "ARM-42", label: "ARM-42", standing: { kind: "in", state: "in_review" }, links: [] },
+    { lifecycle: "pr", key: "24", label: "PR #24", standing: { kind: "in", state: "approved" }, links: [] },
+    { lifecycle: "ticket", key: "ARM-43", label: "ARM-43", standing: { kind: "unmapped", said: "Awaiting QA" }, links: [] },
+    { lifecycle: "ticket", key: "ARM-44", label: "ARM-44", standing: { kind: "unread" }, links: [] },
+    { lifecycle: "deploy", key: "api", label: "API", standing: { kind: "in", state: "healthy" }, links: [] },
+  ],
+  moves: [],
+});
+
+it("lists what End finds in flight on a real Job, as Fleet read it, and nothing once ending the Job ended it", async () => {
+  const { store, publish, changed } = await holdingStore(async (id) => ({ ok: true, value: flying(id) }));
+  await publish(record("a"));
+  const rows = () => inFlight(store.draft.get()[0]!.lanes!.job).map((one) => (one.state === "" ? one.label : `${one.label}: ${one.state}`));
+  expect(rows()).toEqual(["Deploy: Rolling out", "ARM-42: In review", "PR #24: Approved", "ARM-43: Awaiting QA", "ARM-44"]);
+
+  const ended = flying("a");
+  changed({ ...ended, instances: ended.instances.map((one) => (one.standing.kind === "in" && one.standing.state === "healthy" ? one : { ...one, ended_at: AT })) });
+  expect(rows()).toEqual([]);
+  expect(store.draft.get()[0]?.lanes?.job.instances.filter((one) => one.ended === true)).toHaveLength(5);
+});
+
+it("lists a ticket nobody has read yet when End finds nothing else, and a status nobody mapped", async () => {
+  const { store, publish } = await holdingStore(async (id) => ({
+    ok: true,
+    value: {
+      ...flying(id),
+      instances: [
+        { lifecycle: "ticket", key: "ARM-44", label: "ARM-44", standing: { kind: "unread" }, links: [] },
+        { lifecycle: "ticket", key: "ARM-43", label: "ARM-43", standing: { kind: "unmapped", said: "Awaiting QA" }, links: [] },
+      ],
+    },
+  }));
+  await publish(record("a"));
+
+  const rows = inFlight(store.draft.get()[0]!.lanes!.job).map((one) => (one.state === "" ? one.label : `${one.label}: ${one.state}`));
+  expect(rows).toEqual(["ARM-44", "ARM-43: Awaiting QA"]);
 });
 
 const MOVES_TICKET: AppliedRule = {

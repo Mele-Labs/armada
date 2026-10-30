@@ -49,7 +49,6 @@ import {
   useAccount,
   useTerminalDock,
   FILE_SHOWN,
-  inFlight,
 } from "@armada/components";
 import type { DebugPayload, DraftAnswer, RunsPlace, SketchAnswer, TeachPick } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
@@ -147,7 +146,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
-import { InFlightDialog } from "./session-view/InFlightDialog";
+import { askToEnd } from "./end-job";
 import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -827,9 +826,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   useEffect(() => setEndPanel(undefined), [session.id]);
-  // End on a Job that still holds a ticket, a pull request or a deploy lists them first.
-  const [ending, setEnding] = useState(false);
-  useEffect(() => setEnding(false), [session.id]);
   const [failedAway, setFailedAway] = useState<string | undefined>();
   const dispatchFailure = useDispatchFailureHere();
   const centre = useRef<HTMLDivElement>(null);
@@ -1105,9 +1101,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const listed = needs.some((one) => one.restart === undefined || one.onDismiss !== undefined) || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
   const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
-  // Ending a Job ends its instances too, so what is still in flight is listed first and the end waits for the press. A Job with nothing in flight ends at once.
-  const flying = session.lanes === undefined ? [] : inFlight(session.lanes.job);
-  const end = () => (flying.length > 0 ? setEnding(true) : draft.close?.(session.id));
+  // Ending a Job ends its instances too, so what is still in flight is listed first and the end waits for the press (`end-job.tsx`, the same from every view of the Job).
+  const end = () => askToEnd(draft, session.id);
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined
@@ -1378,16 +1373,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}
-      {ending && flying.length > 0 ? (
-        <InFlightDialog
-          rows={flying}
-          onEnd={() => {
-            setEnding(false);
-            draft.close?.(session.id);
-          }}
-          onKeep={() => setEnding(false)}
-        />
-      ) : null}
       {narrow ? (
         <OverTheApp open={ledgerOpen}>
           <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>

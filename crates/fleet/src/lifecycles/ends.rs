@@ -34,6 +34,7 @@ fn kept(held: &HeldInstances, moves: &[Transition]) -> Held {
         seen: String::new(),
         watch_id: String::new(),
         taken_on_at: String::new(),
+        ended_at: String::new(),
     });
     let moves = moves.iter().enumerate().map(|(n, one)| KeptMove {
         id: n as i64,
