@@ -477,6 +477,7 @@ fn a_repository_with_no_workflows_of_its_own_runs_on_what_armada_carries() {
             "code_review",
             "design_plan",
             "feature",
+            "orchestrate",
             "prototype",
             "refactor",
             "revert",
