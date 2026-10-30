@@ -646,6 +646,11 @@ if $dry_run; then
     echo "would boot $pocket_service out if it is loaded and delete $pocket_plist: Fleet serves the phone itself"
   fi
   echo "would copy $src/plugins to $support/mod (scripts/sync-mod)"
+  if command -v claude >/dev/null 2>&1; then
+    echo "would run claude plugin marketplace update armada-local, then claude plugin update armada@armada-local; a failed update is one warning and the restart goes on"
+  else
+    echo "WARNING: claude is not on PATH, so the installed armada plugin would not be updated"
+  fi
   echo "would write $support/restart-source: $src"
   if $adopt; then
     if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
@@ -683,6 +688,18 @@ say "Installing armada from $src"
 # A missing source warns and does not stop the restart.
 say "Copying the Claude Code mod from $src"
 "$root/scripts/sync-mod" "$src"
+
+# **A terminal job loads the plugin the CLI cached, not the copy**, and the cache
+# moves only on these two commands, so a person would otherwise run them before
+# `/reload-plugins` brought the new mod in. A hosted job loads the copy itself and
+# needs neither. A CLI that is not on PATH or an update that fails is one warning:
+# a restart is not worth refusing over a plugin.
+say "Updating the installed armada plugin"
+if ! command -v claude >/dev/null 2>&1; then
+  echo "restart: warning: claude is not on PATH, so the installed armada plugin was not updated" >&2
+elif ! { claude plugin marketplace update armada-local && claude plugin update armada@armada-local; } >&2; then
+  echo "restart: warning: claude could not update the installed armada plugin, so terminal jobs keep the mod they have" >&2
+fi
 
 # **A stamp this script writes, not a build output's own mtime.** A first
 # attempt compared source files against `out/main/index.js`, and every build

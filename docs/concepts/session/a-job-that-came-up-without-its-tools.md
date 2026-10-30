@@ -31,6 +31,7 @@ A Job with none has no turn to carry the restart, so Fleet tells the replacement
 A Job waiting to be moved into a slot, or paused, is left as it is, because the move or the resume starts the process that loads the copy.
 The answer comes once the restart is under way, and the mark clears when the new process's own `init` line says nothing is missing.
 A copy that cannot be filled refuses the press with the script's words and restarts nothing; a terminal Job is refused too, since Fleet does not host its process.
+**Fleet uses the same restart unasked** for a process whose reported mod is older than its copy, once it is between turns, and starts no replacement: the Job's next line does ([Installing the Claude Code mod](installing-the-claude-code-mod.md)).
 
 **Bridge draws the mark as the `unplug` glyph**, on the Job's row in the Jobs list and in its header, with a tooltip that is the label: the CLI's version, then a sentence for each piece missing, such as `Claude Code 2.1.312. No armada mod. No task tools.`
 The row's inspect card carries the same sentence as its Tools line.
