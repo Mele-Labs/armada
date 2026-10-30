@@ -21,7 +21,7 @@ const made: LedgerEntry[] = [
   { key: "p2", kind: "pull_request", name: "Pull request #1850", text: "#1850 Name the store migrations", pr: { merged: false, checks: "passed", checksSaid: "Checks passed" }, onOpen: fn() },
 ];
 
-function Frame() {
+function Frame({ summary }: { summary?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="armada-session-frame__centre" style={{ display: "flex", flexDirection: "column", height: "calc(var(--space-12) * 8)", width: "calc(var(--space-12) * 10)" }}>
@@ -29,7 +29,7 @@ function Frame() {
         <p>The thread</p>
       </div>
       <div style={{ position: "relative", marginBlockStart: "var(--h-badge)" }}>
-        <SessionEndBand done={{ onEnd: end, onKeep: keep, made }} open={open} onOpen={setOpen} />
+        <SessionEndBand done={{ onEnd: end, onKeep: keep, made, ...(summary === undefined ? {} : { summary }) }} open={open} onOpen={setOpen} />
         <textarea aria-label="Message" />
       </div>
     </div>
@@ -90,5 +90,34 @@ export const EscFoldsWithFocusOutside: Story = {
     canvas.getByRole("textbox", { name: "Message" }).focus();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(band).toHaveAttribute("aria-expanded", "false"));
+  },
+};
+
+/** The Job's own summary opens above what was made; an empty one, or none, draws nothing. */
+export const ASummaryOpensAboveWhatWasMade: Story = {
+  render: () => <Frame summary="Pinned the store clock and named the migrations." />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Pinned the store clock and named the migrations.")).not.toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Nothing left to do" }));
+    const summary = canvas.getByText("Pinned the store clock and named the migrations.");
+    await expect(summary).toBeVisible();
+    await expect(summary).toHaveClass("armada-session-done__summary");
+    const made = canvas.getByRole("list", { name: "Pull requests" });
+    await expect(summary.compareDocumentPosition(made) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  },
+};
+
+/** No summary and an empty one both leave the panel as it was: the made list and the acts, no summary line. */
+export const NoSummaryDrawsNothing: Story = {
+  render: () => (
+    <>
+      <Frame />
+      <Frame summary="" />
+    </>
+  ),
+  play: async ({ canvasElement, canvas }) => {
+    for (const band of canvas.getAllByRole("button", { name: "Nothing left to do" })) await userEvent.click(band);
+    await expect(canvas.getAllByRole("button", { name: "End job" })).toHaveLength(2);
+    await expect(canvasElement.querySelector(".armada-session-done__summary")).toBeNull();
   },
 };

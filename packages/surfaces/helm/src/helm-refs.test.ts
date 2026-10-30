@@ -188,4 +188,15 @@ describe("the Job's document", () => {
     expect(refs("documents/bridge-pricing-schema.html")).toEqual([]);
     expect(refs(`see ${RELATIVE}`)).toEqual([]);
   });
+
+  it("is its title in a sentence, and where a Job is named the same, the page and not the Job", () => {
+    const said = "I wrote it up as Bridge pricing schema, ready to read.";
+    expect(refs(said)).toEqual([["Bridge pricing schema", "document", PAGE, "Bridge pricing schema"]]);
+    const same: RefWorld = { ...PAGED, sessions: [{ id: "01J9ZK7M3Q8T5V2X4Y6Z0A1B2C", title: "Bridge pricing schema" }] };
+    expect(refs(said, same)).toEqual([["Bridge pricing schema", "document", PAGE, "Bridge pricing schema"]]);
+  });
+
+  it("leaves a Job's own title linking to that Job where no page shares it", () => {
+    expect(refs("Back in Sessions list views", PAGED)).toEqual([["Sessions list views", "session", "01J9ZK7M3Q8T5V2X4Y6Z0A1B2C", "Sessions list views"]]);
+  });
 });

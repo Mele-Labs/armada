@@ -23,7 +23,7 @@ export function useOneBar({ live, dispatching, open, picked, repositories }: {
   repositories: readonly RepositorySummary[];
 }): PaletteDispatch {
   useOpenedToDispatch(live, dispatching.openNew, dispatching.openAfter);
-  const filing = useProjectsFiling(picked, repositories);
+  const filing = useProjectsFiling(picked, repositories, open);
   const [adding, setAdding] = useState<AddKind>();
   useEffect(() => {
     if (!open) setAdding(undefined);
@@ -37,8 +37,9 @@ export function useOneBar({ live, dispatching, open, picked, repositories }: {
     ...(kinds.length < 2
       ? {}
       : { onKind: (next: BarKind) => (adds(next) ? (setAdding(next), dispatching.choose(dispatching.kinds[0] ?? "session")) : (setAdding(undefined), dispatching.choose(next))) }),
-    onDispatch: (words, kind) => (adds(kind) ? filing?.add(words, kind) : dispatching.openSheet(words)),
-    ...(filing === undefined ? {} : { step: (words: string, kind: BarKind) => (adds(kind) ? filing.step(words, kind) : undefined) }),
+    onDispatch: (words, kind, chosen) => (adds(kind) ? filing?.add(words, kind, chosen) : dispatching.openSheet(words)),
+    // A task's row names the repository and the project it goes to before ↵ files it.
+    ...(filing === undefined || adding !== "task" ? {} : { chips: filing.chips }),
   };
 }
 

@@ -306,7 +306,7 @@ async fn answering_an_ask_with_words_is_a_message_and_ends_it() {
 async fn a_done_since_is_served_as_a_done_item_and_standing() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let said = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()) }).await.unwrap();
+    let said = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap();
     let since = said.done_since.expect("when").as_str().to_string();
 
     let row = record(&rig, &id).await;
