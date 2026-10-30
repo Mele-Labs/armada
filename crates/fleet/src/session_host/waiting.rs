@@ -15,6 +15,9 @@
 //! **So does every sketch he has not answered**, `sketch:<title>`, until he approves it, sends it back
 //! or dismisses it; drawing it again lifts a dismissal. `sketching::sketch_items` reads it.
 //!
+//! **So does the newest revision of every page a Job wrote under `.armada/documents/`**,
+//! `document:<path>`; a new revision asks again and lifts a dismissal. `document_answers` reads it.
+//!
 //! **Every end a step waits on him for has its item**, named in `rail_ends::End::waits_on`, where an
 //! end with no wait does not build. A step that ends on his reply waits at every turn end, a reply that
 //! only reports included: `rail_drawn` adds [`step_reply_item`] where nothing else waits.
@@ -623,6 +626,8 @@ where
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
             items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
+            // So is every page's newest revision, until he approves it, sends it back or dismisses it.
+            items.extend(super::document_answers::document_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -700,6 +705,7 @@ where
                         | WaitingSource::WindowAsk
                         | WaitingSource::Draft
                         | WaitingSource::Sketch
+                        | WaitingSource::Document
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
@@ -1076,6 +1082,10 @@ where
                 SESSION_WAITING_EMPTY,
                 "a sketch is approved, or sent back, from its own card",
             )),
+            WaitingSource::Document => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a document is approved, or sent back, from its own card",
+            )),
             WaitingSource::Judge => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a concern is sent to the agent, or dismissed, from its own card",
@@ -1223,7 +1233,9 @@ where
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
-            WaitingSource::Walk | WaitingSource::Sketch | WaitingSource::Replied if !dismiss.misread => Some(dismissed_by_owner(&item.text)),
+            WaitingSource::Walk | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Replied if !dismiss.misread => {
+                Some(dismissed_by_owner(&item.text))
+            }
             _ => None,
         };
         if let Some(text) = told {

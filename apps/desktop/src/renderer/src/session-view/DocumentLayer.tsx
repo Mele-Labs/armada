@@ -3,15 +3,17 @@
 // place**: a note is made on the page itself (the shared note box), held with Enter, and sent with ⌘Enter from the page or the Notes as
 // one message to the Job. The Job's next revision is the reply: Changes marks what moved on, and each sent note shows the change that
 // answers it. The thread and the Landing under the sheet are not unmounted, so Esc gives the Job back exactly as it was.
+// **While the newest revision waits on him**, Approve and Send back head the left column, the thread card's own.
 // `docs/concepts/session/noting-what-you-read.md`.
 
 import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExternalLink, FileDiff, PanelRightClose, PanelRightOpen, X } from "lucide-react";
-import { Button, DropdownMenu, KbdBinding, NoteNumber, Sheet, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
+import { ApprovalAnswers, Button, DropdownMenu, KbdBinding, NoteNumber, Sheet, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
+import { documentAnswerOf } from "../session-thread-rows";
 import { DocumentPage, type DocumentFocus, type LitNote, type PageNote, type SentNote } from "./DocumentPage";
 import { diffPages } from "./document-diff";
 import { placeOf } from "./document-find";
@@ -252,6 +254,11 @@ export function DocumentLayer({ session }: { session: Session }) {
           {page === undefined ? null : (
             <>
               <div className="armada-doc__side">
+                {doc?.waits !== true || draft?.answerDocument === undefined ? null : (
+                  <div className="armada-doc__approve">
+                    <ApprovalAnswers id={doc.id} keep={`document:${session.id}:${doc.id}:layer`} open onAnswer={(id, answer) => void draft.answerDocument?.(documentAnswerOf(session, id, answer))} />
+                  </div>
+                )}
                 <nav className="armada-doc__rail" aria-label="Contents" data-rail="">
                   {page.sections.map((one) => (
                     <button key={one.id} type="button" className="armada-doc__section" aria-current={current === one.id ? "location" : undefined} onClick={() => toSection(one.id)}>

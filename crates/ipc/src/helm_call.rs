@@ -232,12 +232,16 @@ pub enum HelmCallAnswer {
     AllowLikeThisForSession,
 }
 
-/// Whether a call past a session's slots reads what it names or writes to it.
+/// Whether a call past a session's slots reads what it names, writes to it, or runs something the
+/// guard cannot class as either.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReachesTo {
     Read,
     Write,
+    /// **Neither known to read nor known to write** (the owner, 30 Oct 2026): a read-only line
+    /// asked as a write was closed as an edit he did not want.
+    Run,
 }
 
 /// The kind of a shell call: its program, and for an interpreter the script it runs. Wide enough

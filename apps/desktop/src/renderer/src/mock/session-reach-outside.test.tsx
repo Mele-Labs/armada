@@ -2,7 +2,7 @@
 // command and offers the five answers over a folder picker, Always allow on Documents settles the
 // card, and Settings, Features lists the folder beside the blocked one, with Remove taking it off
 // again. Another Session's write says it is a write, and Always allow for this job settles it with
-// nothing listed. #2441.
+// nothing listed. A third, a node script the guard cannot class, says run. #2441.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -38,6 +38,12 @@ test("Reach outside: the card's folder picker, Always allow, and the list in Set
   await expect.element(card.getByText("Always applies to writes to", { exact: true })).toBeVisible();
   await userEvent.click(answers.getByRole("button", { name: "Always allow for this job notes.md", exact: true }));
   await expect.element(card).not.toBeInTheDocument();
+
+  // A command the guard cannot class says run, over the command, and never write.
+  await toSession(/Tidy other repo/);
+  await expect.element(card.getByText("Permission to run", { exact: true })).toBeVisible();
+  await expect.element(card.getByText(/tidy\.mjs ~\/code\/other-repo/)).toBeVisible();
+  await expect.element(card.getByText("Always applies to commands on", { exact: true })).toBeVisible();
 
   await toSystemPage("Features");
   const list = page.getByRole("list", { name: "Folders jobs reach" });

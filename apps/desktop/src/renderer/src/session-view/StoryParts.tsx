@@ -248,6 +248,8 @@ export function MadeList({ session, list, label, newest }: { session: Session; l
               <IssueRow issue={one.issue} manifestId={session.manifestId} />
             ) : one.shape === "mods" ? (
               <ModsMade id={session.id} />
+            ) : one.shape === "job" ? (
+              <ChildJob child={one.child} manifestId={session.manifestId} onOpen={one.open} />
             ) : one.report === true ? (
               <Report session={session} row={one.row} />
             ) : (

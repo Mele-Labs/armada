@@ -179,7 +179,11 @@ Pictures, Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, 
 (`fleet::helm::deciding::GUARDED`). Such a read, a write into his own files, and a `Write` or
 `Edit` anywhere outside its slots and `/tmp` are put to him on a card in the job's thread.
 **The card says whether the call reads or writes** (the owner, 16 Oct 2026): "Permission to read"
-or "Permission to write", and "Always applies to reads of" or "writes to" over the path. It offers
+or "Permission to write", and "Always applies to reads of" or "writes to" over the path.
+**A command the guard cannot class says run** (the owner, 30 Oct 2026): "Permission to run" over
+the command, and "Always applies to commands on" the path. Write is kept for a call known to change
+files, so a read-only line is never asked as an edit. What runs and what is refused is the same
+either way. It offers
 Allow once, Reject once, Always allow, Always allow for this job and Always block, the last
 three over the path the guard named first, drawn as its folders so a press on `Documents` chooses
 everything under it. **The folder list answers before a card is drawn** (`features.reachFolders`
