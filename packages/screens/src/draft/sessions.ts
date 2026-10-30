@@ -448,11 +448,11 @@ export type SessionWait = {
   needs: string;
   /** The words it was dispatched with, which it starts on. */
   brief: string;
-  /** What happens once the condition is met: absent or true opens it as a draft (held); false is Approved, which starts it at once. Mock-only. */
+  /** What happens once the condition is met: absent or true opens it as a draft (held); false is Approved, which starts it at once. */
   held?: boolean;
-  /** The workflow it starts under, by id; absent is the proposer's. Mock-only. */
+  /** The workflow it starts under, by id; absent is the proposer's. */
   workflow?: string;
-  /** The model and effort it starts on; absent is the default. Mock-only. */
+  /** The model and effort it starts on; absent is the default. */
   model?: string;
   effort?: string;
   /** Who last set the condition. */

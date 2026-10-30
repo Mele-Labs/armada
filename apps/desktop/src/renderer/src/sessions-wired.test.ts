@@ -398,7 +398,7 @@ const PLAN = {
   scope: [],
   groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Add the column", state: "open" as const }] }],
 };
-const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const };
+const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const, held: true };
 
 /** A window holding the Session `@Retry loop` names, with a plan, and a Session that waits on it; Fleet answers as the arguments say. */
 async function waiting(reading: { condition: object; base: string; needs?: string; plain?: boolean } = { condition: { kind: "pr_lands" }, base: "main", needs: "the schema" }) {
@@ -497,6 +497,21 @@ it("starts a waiting Session now through Fleet", async () => {
   const { store, startWaitingNow } = await waiting();
   store.draft.startNow!("w");
   await vi.waitFor(() => expect(startWaitingNow).toHaveBeenCalledWith("w"));
+});
+
+it("approves a waiting Session and sets what it starts on through Fleet, and draws what Fleet kept", async () => {
+  const { store, changeWaiting } = await waiting();
+  store.draft.startThen!("w", false);
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenCalledWith({ waiting_session: "w", held: false }));
+  store.draft.startTuning!("w", { model: "opus", effort: null });
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenLastCalledWith({ waiting_session: "w", model: "opus", effort: "" }));
+  store.draft.startTuning!("w", { workflow: "feature" });
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenLastCalledWith({ waiting_session: "w", workflow: "feature" }));
+});
+
+it("draws the approval and picks the wait holds", async () => {
+  const { store } = await waiting();
+  expect(store.draft.get().find((one) => one.id === "w")?.waits).toMatchObject({ held: true });
 });
 
 // ---- One file of a write clash ------------------------------------------------------------------------------
