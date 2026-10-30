@@ -119,6 +119,19 @@ pub(crate) async fn move_project_row<D: Projects>(
     answered(&served, result)
 }
 
+pub(crate) async fn move_project_task_repository<D: Projects>(
+    State(served): State<Served<D>>,
+    Path(row): Path<String>,
+    body: Bytes,
+) -> Response {
+    let to = match decoded(&served, "which repository a project task goes to", &body) {
+        Ok(to) => to,
+        Err(response) => return response,
+    };
+    let result = served.daemon().move_project_task_repository(row, to).await;
+    answered(&served, result)
+}
+
 pub(crate) async fn tick_project_task<D: Projects>(
     State(served): State<Served<D>>,
     Path(row): Path<String>,

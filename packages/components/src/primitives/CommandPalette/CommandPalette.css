@@ -307,6 +307,75 @@
   font-weight: var(--weight-medium);
 }
 
+/* A dispatch row carrying chips is stacked: the words on the first line, with the glyph and the kind; the chips on a
+ * second, whole, starting under the first word. A row with no chips stays one line. */
+.armada-palette__row--stacked {
+  align-items: flex-start;
+  height: auto;
+  min-height: var(--h-menu-item);
+  padding-block: var(--space-2);
+}
+
+.armada-palette__row--stacked .armada-palette__glyph,
+.armada-palette__row--stacked .armada-palette__kind {
+  height: var(--leading-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-palette__row--stacked .armada-palette__label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  overflow: visible;
+}
+
+.armada-palette__row--stacked .armada-palette__title {
+  line-height: var(--leading-sm);
+}
+
+/* The dispatch row's chips: where the words go, in the repository chip's frame. */
+.armada-palette__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-palette__chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  cursor: default;
+}
+
+button.armada-palette__chip {
+  cursor: pointer;
+}
+
+.armada-palette__chip > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-palette__chip[data-open] {
+  border-color: var(--accent);
+}
+
+.armada-palette__chip-name {
+  white-space: nowrap;
+}
+
 /* The keys the one bar answers, along its foot while there is something typed to send. */
 .armada-palette__keys-foot {
   flex: none;

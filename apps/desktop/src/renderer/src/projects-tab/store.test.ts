@@ -5,7 +5,8 @@ import { expect, test, vi } from "vitest";
 import type { ProjectRow, Projects } from "@armada/protocol";
 
 import type { ProjectsApi } from "../../../shared/api/projects";
-import { createProjectsStore } from "./store";
+import type { TaskRow } from "./model";
+import { createProjectsStore, lastUsedRepo } from "./store";
 
 const task = (id: string, manifest_id: string, title: string): ProjectRow => ({ kind: "task", id, manifest_id, title, notes: "", state: "open" });
 
@@ -43,6 +44,10 @@ function fleet() {
     removeProjectRow: vi.fn(async (row: string) => {
       held.loose = held.loose.filter((one) => one.id !== row);
       for (const one of held.projects) one.rows = one.rows.filter((it) => it.id !== row);
+      return answer();
+    }),
+    moveProjectTaskRepository: vi.fn(async (row: string, body: { manifest_id: string }) => {
+      for (const one of held.projects.flatMap((it) => it.rows)) if (one.kind === "task" && (one.id === row || one.parent === row)) one.manifest_id = body.manifest_id;
       return answer();
     }),
     onProjectsChanged: () => () => {},
@@ -124,4 +129,59 @@ test("a row Dispatch starts a Job with is named by its id alone", async () => {
 
   expect(store.refOf("s1")).toEqual({ row: "s1" });
   expect(store.refOf("nope")).toBeUndefined();
+});
+
+const shown = (id: string, manifestId: string, subtasks?: TaskRow[]): TaskRow => ({ kind: "task", id, manifestId, title: id, done: false, ...(subtasks === undefined ? {} : { subtasks }) });
+
+test("the repository last used is this window's last add, else the newest task's, else none", () => {
+  const rows = [shown("01J0A", "armada"), shown("01J0C", "site"), shown("01J0B", "armada")];
+  // Ids are ULIDs, so the greatest is the newest, wherever it stands in the lists.
+  expect(lastUsedRepo({ projects: [{ id: "p", name: "P", rows: rows.slice(0, 2), usedAt: 0 }], loose: rows.slice(2), lastRepo: undefined })).toBe("site");
+  // A subtask counts as a task: its parent is older but it is the newest written.
+  expect(lastUsedRepo({ projects: [], loose: [shown("01J0A", "armada", [shown("01J0Z", "site")])], lastRepo: undefined })).toBe("site");
+  expect(lastUsedRepo({ projects: [], loose: rows, lastRepo: "armada" })).toBe("armada");
+  expect(lastUsedRepo({ projects: [], loose: [], lastRepo: undefined })).toBeUndefined();
+});
+
+test("a task added in this window is the repository last used, before the newest one Fleet lists", async () => {
+  const store = await loaded(fleet());
+  expect(lastUsedRepo(store.get())).toBe("site");
+
+  store.addTask("armada", undefined, "Update the changelog");
+
+  expect(lastUsedRepo(store.get())).toBe("armada");
+});
+
+/** Fleet with a task that has two subtasks, in armada's Pocket launch. */
+async function movable() {
+  const source = fleet();
+  const sub = (id: string, title: string): ProjectRow => ({ kind: "task", id, manifest_id: "armada", title, notes: "", state: "open", parent: "a1" });
+  source.held.projects[0]!.rows.splice(1, 0, sub("a1a", "Draw the code"), sub("a1b", "Scan it"));
+  return { source, store: await loaded(source) };
+}
+
+test("a task moved to another repository takes its subtasks with it, in the same place, and writes one move", async () => {
+  const { source, store } = await movable();
+
+  store.moveTaskToRepository("a1", "site");
+
+  const [first, other] = store.get().projects[0]!.rows as [TaskRow, TaskRow];
+  expect([first, ...first.subtasks!].map((row) => row.manifestId)).toEqual(["site", "site", "site"]);
+  expect([first.id, other.id]).toEqual(["a1", "s1"]);
+  await vi.waitFor(() => expect(source.moveProjectTaskRepository).toHaveBeenCalledTimes(1));
+  expect(source.moveProjectTaskRepository).toHaveBeenCalledWith("a1", { manifest_id: "site" });
+});
+
+test("a subtask is not moved on its own, nor a task to the repository it is in: neither is written", async () => {
+  const { source, store } = await movable();
+
+  store.moveTaskToRepository("a1a", "site");
+  store.moveTaskToRepository("a1", "armada");
+
+  const parent = store.get().projects[0]!.rows[0] as TaskRow;
+  expect([parent, ...parent.subtasks!].map((row) => row.manifestId)).toEqual(["armada", "armada", "armada"]);
+  // Writes go one after another, so a real move after them is the last to arrive and anything refused would be before it.
+  store.moveTaskToRepository("a1", "site");
+  await vi.waitFor(() => expect(source.moveProjectTaskRepository).toHaveBeenCalledWith("a1", { manifest_id: "site" }));
+  expect(source.moveProjectTaskRepository).toHaveBeenCalledTimes(1);
 });

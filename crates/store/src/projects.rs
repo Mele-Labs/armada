@@ -41,19 +41,36 @@ pub struct KeptProjectRow {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptRowItem {
     /// A task he wrote. `notes` is empty for none. `parent` is the id of the task it is a subtask of,
-    /// one level deep, `issues` the references of the issues linked to it, and `pulls` the numbers of the pull
-    /// requests linked to it, each in the order linked.
+    /// one level deep, and `issues` and `pulls` the issues and pull requests linked to it, each in the order linked.
     Task {
         title: String,
         notes: String,
         state: KeptTaskState,
         parent: Option<String>,
-        issues: Vec<String>,
-        pulls: Vec<u64>,
+        issues: Vec<KeptTaskIssue>,
+        pulls: Vec<KeptTaskPull>,
     },
     /// A linked issue: the tracker's reference, as `IssueReference` reads it, and nothing else.
     Issue { reference: String },
 }
+
+/// An issue linked to a task: the tracker's reference, and the repository it was linked in, which
+/// moving the task to another keeps.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptTaskIssue {
+    pub reference: String,
+    pub manifest_id: String,
+}
+
+/// A pull request linked to a task: its number, and the repository it was linked in, as [`KeptTaskIssue`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptTaskPull {
+    pub number: u64,
+    pub manifest_id: String,
+}
+
+/// A link's repository: its own, or its task's for one kept before links named theirs. `t` is the link, `r` its task.
+const LINK_REPOSITORY: &str = "COALESCE(NULLIF(t.manifest_id, ''), r.manifest_id, '')";
 
 /// The Job holding a task: its id, and its title where it has one.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -196,24 +213,38 @@ impl Store {
             .filter_map(|(project, row)| row.map(|row| (project, row)))
             .collect();
         let at: std::collections::HashMap<String, usize> = rows.iter().enumerate().map(|(at, (_, row))| (row.id.clone(), at)).collect();
-        let mut statement = self.conn.prepare("SELECT task_id, issue FROM project_task_issues ORDER BY position").map_err(database(doing))?;
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT t.task_id, t.issue, {LINK_REPOSITORY} FROM project_task_issues t
+                 LEFT JOIN project_rows r ON r.id = t.task_id ORDER BY t.position"
+            ))
+            .map_err(database(doing))?;
         let linked = statement
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, KeptTaskIssue { reference: row.get(1)?, manifest_id: row.get(2)? })))
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(database(doing))?;
-        for (task, reference) in linked {
+        for (task, issue) in linked {
             if let Some((_, KeptProjectRow { item: KeptRowItem::Task { issues, .. }, .. })) = at.get(&task).map(|at| &mut rows[*at]) {
-                issues.push(reference);
+                issues.push(issue);
             }
         }
-        let mut statement = self.conn.prepare("SELECT task_id, pull FROM project_task_pulls ORDER BY position").map_err(database(doing))?;
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT t.task_id, t.pull, {LINK_REPOSITORY} FROM project_task_pulls t
+                 LEFT JOIN project_rows r ON r.id = t.task_id ORDER BY t.position"
+            ))
+            .map_err(database(doing))?;
         let linked = statement
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, KeptTaskPull { number: row.get::<_, i64>(1)? as u64, manifest_id: row.get(2)? }))
+            })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(database(doing))?;
-        for (task, number) in linked {
+        for (task, pull) in linked {
             if let Some((_, KeptProjectRow { item: KeptRowItem::Task { pulls, .. }, .. })) = at.get(&task).map(|at| &mut rows[*at]) {
-                pulls.push(number as u64);
+                pulls.push(pull);
             }
         }
         let mut loose = Vec::new();
@@ -473,12 +504,41 @@ impl Store {
         Ok(true)
     }
 
-    /// Link an issue, by reference, to a task; linking it again changes nothing. Whether there was a task by that id.
+    /// Move task `id` and its subtasks to the repository `manifest_id`. **Its links keep the repository
+    /// they were linked in**, and a Job holding it keeps holding it. Whether there was a top-level task by that id.
+    pub fn move_project_task_repository(&mut self, id: &str, manifest_id: &str) -> Result<bool, WriteError> {
+        let doing = "moving a task to another repository";
+        let tx = self.conn.transaction().map_err(database(doing))?;
+        let task: i64 = tx
+            .query_row("SELECT COUNT(*) FROM project_rows WHERE id = ?1 AND kind = 'task' AND parent = ''", params![id], |row| row.get(0))
+            .map_err(database(doing))?;
+        if task == 0 {
+            return Ok(false);
+        }
+        for links in ["project_task_issues", "project_task_pulls"] {
+            tx.execute(
+                &format!(
+                    "UPDATE {links} SET manifest_id = (SELECT r.manifest_id FROM project_rows r WHERE r.id = {links}.task_id)
+                     WHERE manifest_id = '' AND task_id IN (SELECT id FROM project_rows WHERE id = ?1 OR parent = ?1)"
+                ),
+                params![id],
+            )
+            .map_err(database(doing))?;
+        }
+        tx.execute("UPDATE project_rows SET manifest_id = ?2 WHERE id = ?1 OR parent = ?1", params![id, manifest_id])
+            .map_err(database(doing))?;
+        tx.commit().map_err(database(doing))?;
+        Ok(true)
+    }
+
+    /// Link an issue, by reference, to a task, in the task's repository; linking it again changes nothing.
+    /// Whether there was a task by that id.
     pub fn link_task_issue(&mut self, id: &str, reference: &str) -> Result<bool, WriteError> {
         self.task_issue(id, "linking an issue to a task", |tx| {
             tx.execute(
-                "INSERT OR IGNORE INTO project_task_issues (task_id, issue, position)
-                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_task_issues WHERE task_id = ?1))",
+                "INSERT OR IGNORE INTO project_task_issues (task_id, issue, position, manifest_id)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_task_issues WHERE task_id = ?1),
+                         (SELECT manifest_id FROM project_rows WHERE id = ?1))",
                 params![id, reference],
             )
         })
@@ -491,12 +551,14 @@ impl Store {
         })
     }
 
-    /// Link a pull request, by number, to a task; linking it again changes nothing. Whether there was a task by that id.
+    /// Link a pull request, by number, to a task, in the task's repository; linking it again changes nothing.
+    /// Whether there was a task by that id.
     pub fn link_task_pull(&mut self, id: &str, number: u64) -> Result<bool, WriteError> {
         self.task_issue(id, "linking a pull request to a task", |tx| {
             tx.execute(
-                "INSERT OR IGNORE INTO project_task_pulls (task_id, pull, position)
-                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_task_pulls WHERE task_id = ?1))",
+                "INSERT OR IGNORE INTO project_task_pulls (task_id, pull, position, manifest_id)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_task_pulls WHERE task_id = ?1),
+                         (SELECT manifest_id FROM project_rows WHERE id = ?1))",
                 params![id, number as i64],
             )
         })
@@ -509,20 +571,20 @@ impl Store {
         })
     }
 
-    /// Pull request `number` of `manifest_id` merged: each task it is linked to that has not been asked
-    /// about it, and is open or held, is `asked` from `at`. A Job holding one keeps holding it. **A link
-    /// asks once**, so a task answered `open` is not asked again by the same merge. Who held each task
-    /// that moved, `""` for nobody.
+    /// Pull request `number` of `manifest_id` merged: each task it was linked to in that repository, wherever
+    /// the task is now, that has not been asked about it, and is open or held, is `asked` from `at`. A Job
+    /// holding one keeps holding it. **A link asks once**, so a task answered `open` is not asked again by
+    /// the same merge. Who held each task that moved, `""` for nobody.
     pub fn ask_pulled_project_tasks(&mut self, manifest_id: &str, number: u64, at: &str) -> Result<Vec<String>, WriteError> {
         let doing = "asking about project tasks a pull request merged for";
         let tx = self.conn.transaction().map_err(database(doing))?;
         let linked: Vec<(String, String)> = {
             let mut statement = tx
-                .prepare(
+                .prepare(&format!(
                     "SELECT t.task_id, r.state FROM project_task_pulls t
                      JOIN project_rows r ON r.id = t.task_id
-                     WHERE r.manifest_id = ?1 AND t.pull = ?2 AND t.asked = 0 ORDER BY t.task_id",
-                )
+                     WHERE {LINK_REPOSITORY} = ?1 AND t.pull = ?2 AND t.asked = 0 ORDER BY t.task_id"
+                ))
                 .map_err(database(doing))?;
             let linked = statement
                 .query_map(params![manifest_id, number as i64], |row| Ok((row.get(0)?, row.get(1)?)))

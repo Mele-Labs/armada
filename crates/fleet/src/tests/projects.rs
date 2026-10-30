@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use api::{Next, Projects, Refusal};
 use ipc::{
-    Event, IssueState, LinkProjectIssue, ManifestId, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectRow,
-    ProjectTask, ProjectTaskState, TickProjectTask,
+    Event, IssueState, LinkProjectIssue, LinkTaskPull, ManifestId, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask,
+    ProjectRow, ProjectTask, ProjectTaskState, TickProjectTask,
 };
 use testkit::{FakeHarness, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
 
@@ -227,7 +227,7 @@ async fn each_refusal_is_its_neighbours_status() {
 }
 
 /// Serves a second repository beside the first, and its id.
-fn a_second_repository(fleet: &Hosted, home: &TempDir) -> ManifestId {
+pub(super) fn a_second_repository(fleet: &Hosted, home: &TempDir) -> ManifestId {
     let root = home.path().join("second").to_string_lossy().to_string();
     std::fs::create_dir_all(&root).expect("a folder");
     let text = "version: 1\nid: 01SECONDMANIFEST\n";
@@ -327,4 +327,121 @@ async fn a_loose_task_ticks_and_is_linked_and_removed_like_any() {
     let gone = fleet.remove_project_row(id).await.expect("removed");
     assert_eq!(gone.loose.len(), 1);
     assert!(gone.projects.is_empty());
+}
+
+/// The repositories the store keeps for task `row`'s issue links and pull request links, in the order linked.
+async fn link_repositories(fleet: &Hosted, row: &str) -> (Vec<String>, Vec<String>) {
+    let kept = fleet.store().lock().await.projects().expect("read");
+    let found = kept.projects.into_iter().flat_map(|one| one.rows).chain(kept.loose).find(|one| one.id == row).expect("the row");
+    match found.item {
+        store::KeptRowItem::Task { issues, pulls, .. } => {
+            (issues.into_iter().map(|one| one.manifest_id).collect(), pulls.into_iter().map(|one| one.manifest_id).collect())
+        }
+        store::KeptRowItem::Issue { .. } => panic!("a task"),
+    }
+}
+
+fn state_in(rows: &[ProjectRow], title: &str) -> Option<ProjectTaskState> {
+    rows.iter().find_map(|row| match row {
+        ProjectRow::Task { title: one, state, .. } if one == title => Some(*state),
+        _ => None,
+    })
+}
+
+#[tokio::test]
+async fn moving_a_task_to_another_repository_takes_its_subtasks_and_leaves_its_links_in_the_one_they_were_linked_in() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &Arc::new(FakeTracker::empty()));
+    let (first, second) = (manifest(&fleet), a_second_repository(&fleet, &home));
+    let project = launched(&fleet).await;
+    let travels = row_ids(&fleet.add_project_task(new_task(first.clone(), Some(project.clone()), "Travels")).await.expect("added"))[0].clone();
+    let sub = row_ids(&fleet.add_project_subtask(travels.clone(), task("Sub")).await.expect("added"))[1].clone();
+    fleet.add_project_task(new_task(first.clone(), Some(project), "Stays")).await.expect("added");
+    fleet.link_task_issue(travels.clone(), link("7")).await.expect("linked");
+    fleet.link_task_pull(travels.clone(), LinkTaskPull { number: 5 }).await.expect("linked");
+    fleet.link_task_issue(sub.clone(), link("8")).await.expect("linked");
+    fleet.store().lock().await.hold_project_tasks("s1", std::slice::from_ref(&travels)).expect("held");
+    let before = row_ids(&fleet.list_projects().await.expect("listed"));
+    let mut watching = fleet.events().subscribe();
+
+    let moved = fleet.move_project_task_repository(travels.clone(), second.clone()).await.expect("moved");
+
+    let rows = &moved.projects[0].rows;
+    assert_eq!(named_in(rows, "Travels").as_deref(), Some(second.as_str()));
+    assert_eq!(named_in(rows, "Sub").as_deref(), Some(second.as_str()), "its subtask goes with it");
+    assert_eq!(named_in(rows, "Stays").as_deref(), Some(first.as_str()), "and no other row");
+    assert_eq!(row_ids(&moved), before, "each in the place it stood");
+    assert_eq!(state_in(rows, "Travels"), Some(ProjectTaskState::Held), "a Job holding it keeps it");
+    let first_only = vec![first.as_str().to_string()];
+    assert_eq!(link_repositories(&fleet, &travels).await, (first_only.clone(), first_only.clone()), "its links stay the first's");
+    assert_eq!(link_repositories(&fleet, &sub).await, (first_only, Vec::new()));
+    let published = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let Event::ProjectsChanged(projects) = delivered.event {
+                        return projects;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("a projects.changed arrives");
+    assert_eq!(published, moved, "what was answered is what was published");
+
+    let again = fleet.move_project_task_repository(travels, second).await.expect("to the repository it is in");
+    assert_eq!(again, moved, "changes nothing");
+}
+
+#[tokio::test]
+async fn a_linked_issue_and_pull_request_say_the_repository_they_were_linked_in_on_the_wire_after_their_task_moved() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &Arc::new(FakeTracker::empty()));
+    let (first, second) = (manifest(&fleet), a_second_repository(&fleet, &home));
+    let project = launched(&fleet).await;
+    let travels = row_ids(&fleet.add_project_task(new_task(first.clone(), Some(project), "Travels")).await.expect("added"))[0].clone();
+    fleet.link_task_issue(travels.clone(), link("7")).await.expect("linked");
+    let linked = fleet.link_task_pull(travels.clone(), LinkTaskPull { number: 5 }).await.expect("linked");
+    let links_of = |projects: &ipc::Projects| match &projects.projects[0].rows[0] {
+        ProjectRow::Task { manifest_id, issues, pulls, .. } => (
+            manifest_id.as_str().to_string(),
+            issues.iter().map(|one| one.manifest_id.as_ref().map(|id| id.as_str().to_string())).collect::<Vec<_>>(),
+            pulls.iter().map(|one| one.manifest_id.as_ref().map(|id| id.as_str().to_string())).collect::<Vec<_>>(),
+        ),
+        ProjectRow::Issue { .. } => panic!("a task"),
+    };
+    let first_only = vec![Some(first.as_str().to_string())];
+    assert_eq!((links_of(&linked).1, links_of(&linked).2), (first_only.clone(), first_only.clone()), "a link says where it was linked, in the task's own repository too");
+
+    let moved = fleet.move_project_task_repository(travels, second.clone()).await.expect("moved");
+    assert_eq!(
+        links_of(&moved),
+        (second.as_str().to_string(), first_only.clone(), first_only),
+        "the task is the second's, and each link still the first's"
+    );
+}
+
+#[tokio::test]
+async fn moving_a_subtask_an_issue_row_or_a_row_there_is_not_or_to_a_repository_not_served_is_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &Arc::new(FakeTracker::empty()));
+    let (first, second) = (manifest(&fleet), a_second_repository(&fleet, &home));
+    let project = launched(&fleet).await;
+    let travels = row_ids(&fleet.add_project_task(new_task(first.clone(), Some(project.clone()), "Travels")).await.expect("added"))[0].clone();
+    let sub = row_ids(&fleet.add_project_subtask(travels.clone(), task("Sub")).await.expect("added"))[1].clone();
+    let issue = row_ids(&fleet.link_project_issue(new_issue(first, Some(project), "7")).await.expect("linked"))[2].clone();
+    let before = fleet.list_projects().await.expect("listed");
+
+    let refused = |row: String, to: ManifestId| {
+        let fleet = &fleet;
+        async move { code_of(fleet.move_project_task_repository(row, to).await.expect_err("refused")) }
+    };
+    assert_eq!(refused(sub, second.clone()).await, (422, "fleet.project_subtask_too_deep".to_string()), "a subtask moves with its task");
+    assert_eq!(refused(issue, second.clone()).await, (422, "fleet.project_row_not_a_task".to_string()));
+    assert_eq!(refused("nope".to_string(), second).await, (404, "fleet.no_such_project_row".to_string()));
+    let nowhere = refused(travels, ManifestId::carried("01NOTSERVEDHERE")).await;
+    assert_eq!(nowhere, (422, "fleet.unacceptable_proposal".to_string()), "a repository Fleet does not serve");
+    assert_eq!(fleet.list_projects().await.expect("listed"), before, "nothing refused was kept");
 }

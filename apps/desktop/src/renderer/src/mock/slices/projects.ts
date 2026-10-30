@@ -2,7 +2,8 @@
 // and every write below changes this window's copy and answers it whole, then publishes it as `projects.changed`, as Fleet does.
 // **A project is his and spans repositories**: each row names its own, and the tasks in no project are `loose`.
 // **Only a reference or a number is kept on a row**: an issue's or a pull request's title and state are read when the rows are,
-// from what the scenario's trackers and pull requests say.
+// from what the scenario's trackers and pull requests say. A link keeps the repository it was linked in, so a task moved to
+// another repository leaves its links where they were.
 //
 // **A done ask is one question in two places**: on the rows, and while the Job that held them is live, as a `task_done` Needs you
 // item on that Job. Fleet keeps the two alike; here the window's two stores are joined, as Fleet would join them: the scenario
@@ -55,9 +56,14 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
     const lists = (): { id: string; name: string; rows: ProjectRow[] }[] => [{ id: LOOSE_ASK, name: "", rows: held.loose }, ...held.projects];
     for (const list of lists()) {
       for (const row of list.rows) {
+        // A seed's link that names no repository was linked in its task's, which a move must not carry it away from.
+        if (row.kind === "task") {
+          for (const linked of row.issues ?? []) linked.manifest_id ??= row.manifest_id;
+          for (const pull of row.pulls ?? []) pull.manifest_id ??= row.manifest_id;
+        }
         if (row.kind === "issue") issueRead.set(`${row.manifest_id}:${row.issue}`, { ...(row.title === undefined ? {} : { title: row.title }), ...(row.state === undefined ? {} : { state: row.state }) });
         else {
-          for (const linked of row.issues ?? []) issueRead.set(`${row.manifest_id}:${linked.issue}`, { ...(linked.title === undefined ? {} : { title: linked.title }), ...(linked.state === undefined ? {} : { state: linked.state }) });
+          for (const linked of row.issues ?? []) issueRead.set(`${linked.manifest_id ?? row.manifest_id}:${linked.issue}`, { ...(linked.title === undefined ? {} : { title: linked.title }), ...(linked.state === undefined ? {} : { state: linked.state }) });
           for (const pull of row.pulls ?? []) if (pull.title !== undefined) pullRead.set(pull.number, { title: pull.title, state: pull.state ?? "open" });
         }
       }
@@ -70,8 +76,8 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
         const { issues, pulls, ...rest } = row;
         return {
           ...rest,
-          ...((issues ?? []).length === 0 ? {} : { issues: (issues ?? []).map((one) => ({ issue: one.issue, ...issueRead.get(`${row.manifest_id}:${one.issue}`) })) }),
-          ...((pulls ?? []).length === 0 ? {} : { pulls: (pulls ?? []).map((one) => ({ number: one.number, ...pullRead.get(one.number) })) }),
+          ...((issues ?? []).length === 0 ? {} : { issues: (issues ?? []).map((one) => ({ issue: one.issue, manifest_id: one.manifest_id ?? row.manifest_id, ...issueRead.get(`${one.manifest_id ?? row.manifest_id}:${one.issue}`) })) }),
+          ...((pulls ?? []).length === 0 ? {} : { pulls: (pulls ?? []).map((one) => ({ number: one.number, manifest_id: one.manifest_id ?? row.manifest_id, ...pullRead.get(one.number) })) }),
         };
       };
       const kept = structuredClone(held);
@@ -229,7 +235,7 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
           const task = taskAt(row);
           if (task === undefined) return noRow();
           const reference = normal(issue);
-          if (!(task.row.issues ?? []).some((it) => it.issue === reference)) task.row.issues = [...(task.row.issues ?? []), { issue: reference }];
+          if (!(task.row.issues ?? []).some((it) => it.issue === reference)) task.row.issues = [...(task.row.issues ?? []), { issue: reference, manifest_id: task.row.manifest_id }];
         }),
       unlinkTaskIssue: (row, { issue }) =>
         write(() => {
@@ -265,7 +271,7 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
         write(() => {
           const task = taskAt(row);
           if (task === undefined) return noRow();
-          if (!(task.row.pulls ?? []).some((it) => it.number === number)) task.row.pulls = [...(task.row.pulls ?? []), { number }];
+          if (!(task.row.pulls ?? []).some((it) => it.number === number)) task.row.pulls = [...(task.row.pulls ?? []), { number, manifest_id: task.row.manifest_id }];
         }),
       unlinkTaskPull: (row, { number }) =>
         write(() => {
@@ -319,6 +325,14 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
           }
           reset(from.rows, leaving);
           if (across) reset(to, groups);
+        }),
+      moveProjectTaskRepository: (row, { manifest_id }) =>
+        write(() => {
+          const task = taskAt(row);
+          if (task === undefined) return noRow();
+          if (task.row.parent !== undefined) return refused("fleet.project_subtask_too_deep", "A subtask moves with its task");
+          // The links are kept as they are: each was made in its own repository and stays there.
+          for (const each of task.rows) if (each.kind === "task" && (each.id === row || each.parent === row)) each.manifest_id = manifest_id;
         }),
       tickProjectTask: (row, { done }) =>
         write(() => {
