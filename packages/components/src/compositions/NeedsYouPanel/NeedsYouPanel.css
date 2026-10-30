@@ -197,7 +197,8 @@
 .armada-session-thread__stage::after {
   content: "";
   position: absolute;
-  inset: 0;
+  /* Out to the frame body's own padding, so the thread's sides and edges are dimmed too. */
+  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-3)) 0;
   z-index: 1;
   background: color-mix(in srgb, var(--bg-base) 50%, transparent);
   opacity: 0;
