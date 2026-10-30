@@ -3,7 +3,7 @@
 // opens to its tasks and the live line, and a press opens or shuts any. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { LinkedSession, Tooltip } from "@armada/components";
+import { LinkedSession, LinkedSessionChip, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -72,11 +72,16 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
   const here = hereOf(group);
   return (
     <li className="sv-flight__group" data-group={group.id} data-step={step} data-open={open || undefined}>
-      <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} onClick={flip}>
+      <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} data-nav="" onClick={flip}>
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
-        {open ? null : <TaskTrack tasks={group.tasks} />}
+        {open || child !== undefined ? null : <TaskTrack tasks={group.tasks} />}
       </button>
+      {open || child === undefined ? null : (
+        <span className="sv-flight__job">
+          <LinkedSessionChip {...linkedPropsOf(child, onOpenSession)} />
+        </span>
+      )}
       {!open ? null : (
         <div className="sv-flight__open">
           {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
