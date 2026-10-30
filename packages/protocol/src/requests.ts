@@ -120,7 +120,7 @@ export type SendRequest = {
 /**
  * `send_request`'s answer. `url` is the address filled in. `status` is absent where nothing answered, and `error` says why
  * (refused, timed out, a name that did not resolve). `body` is cut at 256 KiB and `truncated` says so. `note` names each
- * `{{name}}` sent unfilled. **A secret is `{{name}}` in every field.**
+ * `{{name}}` sent unfilled. `saved` is an agent's send only, never Bridge's. **A secret is `{{name}}` in every field.**
  */
 export type RequestSent = {
   url: string;
@@ -131,4 +131,15 @@ export type RequestSent = {
   truncated: boolean;
   error?: string;
   note?: string;
+  saved?: RequestBodySaved;
+};
+
+/**
+ * Where an agent's send saved the answer's whole body, secrets as `{{name}}`: a file under the Job's scratch folder,
+ * gone when the Job ends. `bytes` is what was written, and `truncated` says the body ran past 16 MiB.
+ */
+export type RequestBodySaved = {
+  path: string;
+  bytes: number;
+  truncated: boolean;
 };
