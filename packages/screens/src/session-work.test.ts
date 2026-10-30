@@ -163,6 +163,19 @@ describe("the plan", () => {
     expect(groups[1]?.landsIn).not.toHaveProperty("pullRequest");
   });
 
+  it("maps the own_job of a group onto ownJob, and leaves it off the groups that go to no Job of their own", () => {
+    const wire: SessionPlan = {
+      ...PLAN,
+      groups: [
+        { ...PLAN.groups[0]!, own_job: true },
+        { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] },
+      ],
+    };
+    const groups = planOf(wire, { attachments: [], rows: undefined, drawn: [] }).groups;
+    expect(groups[0]?.ownJob).toBe(true);
+    expect(groups[1]).not.toHaveProperty("ownJob");
+  });
+
   it("carries the summary, what each group gives and when he set it aside, and leaves each off where Fleet has none", () => {
     const plain = planOf({ ...PLAN, summary: "He can queue a Session for later.", set_aside_at: AT, groups: [{ ...PLAN.groups[0]!, gives: "A queue that survives a restart" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] }] }, { attachments: [], rows: undefined, drawn: [] });
     expect(plain.summary).toBe("He can queue a Session for later.");

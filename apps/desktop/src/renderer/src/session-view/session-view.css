@@ -413,3 +413,5 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
 .sv-dock[data-end] .armada-session-composer,
 .sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }
+.sv-dock[data-wait-open] .armada-session-composer,
+.sv-dock[data-wait-open] .armada-session-composer:focus-within { border-color: var(--status-handed-in); }

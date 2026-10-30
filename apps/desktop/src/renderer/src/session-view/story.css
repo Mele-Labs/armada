@@ -49,6 +49,9 @@
 .sv-group__task[data-stale] > .armada-task-mark, .sv-group__task[data-stale] > .sv-group__task-age { opacity: 0.6; }
 .sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 
+/* A group that goes to a Job of its own is the placeholder Job card (`JobCard`) alone, and the card is the frame: the group adds none. */
+.sv-group[data-placeholder] { gap: var(--space-2); border: 0; background: none; box-shadow: none; }
+
 /* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
 
 .sv-field__now { flex: none; padding: var(--space-3); }

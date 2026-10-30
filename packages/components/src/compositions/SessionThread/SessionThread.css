@@ -183,6 +183,8 @@
 .armada-session-thread__plan[data-reviewable]:hover { border-color: var(--accent); }
 .armada-session-thread__plan[data-reviewable]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-session-thread__plan { max-height: calc(var(--space-12) * 5); overflow: hidden; }
+/* A plan whose groups go to Jobs of their own holds every Job's card: one cut off reads as a Job the plan does not have. */
+.armada-session-thread__plan[data-jobs] { max-height: none; }
 /* A plan with findings on it grows to hold them; the findings scroll inside their own region and the answers stay in view. */
 .armada-session-thread__plan[data-findings] { max-height: 70vh; }
 .armada-session-thread__plan-review { flex: 0 1 auto; min-height: 0; max-height: calc(var(--space-12) * 8); overflow: auto; }
