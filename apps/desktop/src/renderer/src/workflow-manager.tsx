@@ -255,6 +255,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
     lands: held.lands,
     canConnect: held.canConnect,
     pending: held.pending,
+    drafted: held.drafted,
     pieceActs: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => {
       const found = held.pieceAt(pick, tab);
       const at = found === undefined ? undefined : (served.find((one) => one.manifestId === found.home)?.root ?? root);

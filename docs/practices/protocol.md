@@ -1190,7 +1190,7 @@ It carries the Job's definitions each time, a few KB at a handful per Job, so a 
 ## A Job's own copy: `get_job_copy`, `change_session_steps`, `change_job_copy`, `keep_job_workflow`, `keep_job_piece` and `propose_workflow_change`
 
 Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*, *Changing one Job*; `crates/ipc/src/job_copy.rs`, `crates/fleet/src/session_host/job_copying.rs`.
-**Additive**: six operations, six routes, `set_session_workflow` and `skip_session_step` opened to the agent, and four fields on existing types.
+**Additive**: seven operations, seven routes and one event kind, `set_session_workflow` and `skip_session_step` opened to the agent, and four fields on existing types.
 The agent changes its own Job's copy of its workflow, lifecycles and rules with a tool, the owner does the same from the Job's lanes, and both go through the same operations.
 **A change applies to that Job at once and to no other**: the files in the repository and in Kit, and every other Job's copy, stay as they are.
 Only Keep for every Job proposes it for the others, and that waits on the owner's Approve.
@@ -1203,6 +1203,8 @@ Bridge's half is `packages/protocol/src/job-copy.ts`, written by hand, and `apps
 | `change_job_copy` (`POST /sessions/copy`, `Yes`) | Bridge or an agent sends | `ChangeJobCopy` `{ session_id, kind, id, text? }`, `kind` `lifecycle` or `rule`; a blank `id` with a `text` takes the id the file declares, and no `text` drops the piece. Answers the `JobCopy` |
 | `keep_job_workflow` (`POST /sessions/copy/keep`, Bridge only) | Bridge sends | `KeepJobWorkflow` `{ session_id, source? }`. Answers the `WorkflowChange` kept, `origin` `{ kind: "job" }`, `state` `ready` |
 | `keep_job_piece` (`POST /sessions/copy/keep_piece`, Bridge only) | Bridge sends | `KeepJobPiece` `{ session_id, kind, id }`, `kind` `rule` or `lifecycle`. Answers a `JobPieceProposed` `{ change, kind, id, scope, replaces }` |
+| `list_keep_drafts` (`GET /lifecycles/keep_drafts?manifest_id=`, Bridge only) | Bridge reads | `KeepDrafts` `{ manifest_id, drafts[] }`; a `KeepDraft` is `{ kind, id, text }`, `kind` `rule` or `lifecycle`, `text` the piece's file as Approve would save it. The open `keep_job_piece` proposals of that repository, one per piece with the newest text standing, oldest first. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
+| `keep_drafts.changed` (event, Bridge only) | Fleet publishes | `KeepDraftsChanged` `{ manifest_id }` and no draft. Raised once a proposal is kept, once his Approve saves it and once his Dismiss drops it; a refused Approve raises nothing |
 | `propose_workflow_change` (`POST /workflows/changes/propose?manifest_id=`, `Yes`) | An agent sends | `ProposeWorkflowChange` `{ workflow_id, source, definition }`. Answers the `WorkflowChange` kept |
 | `set_session_workflow`, `skip_session_step` | `Yes` now | An agent calls them on its own Job; the answer is a receipt (`workflow`, `workflow_step`, `skipped_steps`) |
 | `JobLifecycles.rules`, `JobLifecycles.changes` | Fleet writes | The rules the Job's copy holds, which are the ones that run for it, and what was changed in the copy, for the lanes to mark. Both are left out when empty |
@@ -1227,7 +1229,10 @@ A step or a rule that was dropped has no node to draw, so its mark is listed und
 **A rule or a lifecycle is kept one piece at a time**, from its own row under the lanes: `keep_job_piece` proposes the piece the copy holds as a file in Kit within the Job's repository, the repository's own level.
 `save_lifecycle_piece` writes at once and has no held form, so the proposal waits in the `workflow_changes` row a workflow's does: `piece` is `rule` or `lifecycle`, `source` is `kit`, `workflow_id` is the piece's id, and `before` and `after` are Kit's file now and the piece as a save would write it.
 A `draft` row on the Job carries it, named `Rule <id>` or `Lifecycle <id>`, and the owner's Approve on that draft is the save, through `save_lifecycle_piece`'s own: it replaces Kit's file only where the row began from it (409 `fleet.workflow_changed_since` where Kit's changed since), and his Dismiss drops the row.
-**It is on the Job's draft and not on the Workflows page**: `list_workflow_changes` never lists a piece, and `approve_workflow_change` and `dismiss_workflow_change` answer 404 for one.
+**It is approved from the Job's draft and not from the Workflows page**: `list_workflow_changes` never lists a piece, and `approve_workflow_change` and `dismiss_workflow_change` answer 404 for one.
+The Workflows page marks the pieces that wait, with the clock, and draws one the repository does not hold from the draft's text, so it reads `list_keep_drafts` for its repository and reads it again on `keep_drafts.changed`.
+The event names the repository and carries no draft: it is raised from the three places that move a proposal, never from an agent's tool call, a few bytes at the owner's pace, so it adds nothing to the unbounded sink of the event stream, and a Bridge that missed one reads the list on the resync after a `Missed`.
+A lifecycle drawn only from a draft has no file, so the page offers no Name and no Delete for it.
 A piece the Job dropped is marked `dropped` on its `JobCopyChange` and is refused (422 `fleet.job_copy_piece_refused`), as is one as the Job froze it and one Kit already holds.
 Fleet writes nothing to a tracker or a forge for any of this.
 

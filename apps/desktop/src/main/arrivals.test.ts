@@ -50,7 +50,7 @@ function fakeHost(
     modelDownshift: { changed: () => {}, seed: async () => {} },
     projects: { changed: () => {} },
     bugReports: { changed: () => {} },
-    lifecycles: { changed: () => {} },
+    lifecycles: { changed: () => {}, keepDraftsChanged: () => {} },
     agentSignIn: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
     acts: { failed: () => {} },
@@ -136,6 +136,15 @@ describe("the bugs agents reported, carried whole by their event", () => {
   });
 });
 
+describe("the Keep for every Job drafts of a repository, announced by their event", () => {
+  it("name the repository alone, which is passed on for the windows to read again", () => {
+    const { host } = fakeHost();
+    const keepDraftsChanged = vi.fn();
+    applyArrival({ ...host, lifecycles: { changed: () => {}, keepDraftsChanged } }, JSON.stringify({ message: "event", cursor: 8, event: { kind: "keep_drafts.changed", manifest_id: "01WEB" } }), FLEET);
+    expect(keepDraftsChanged).toHaveBeenCalledWith("01WEB");
+  });
+});
+
 describe("a Job's lifecycles, carried whole by their event", () => {
   it("are passed on as the Job's and nothing of the event's kind, and the Job's own row is not touched", () => {
     const { host } = fakeHost();
@@ -146,7 +155,7 @@ describe("a Job's lifecycles, carried whole by their event", () => {
       instances: [{ lifecycle: "pr", key: "812", label: "PR #812", standing: { kind: "in", state: "in_review" }, links: [{ lifecycle: "ticket", key: "ARM-41" }] }],
       moves: [],
     };
-    applyArrival({ ...host, lifecycles: { changed } }, JSON.stringify({ message: "event", cursor: 7, event: { kind: "job_lifecycles.changed", ...held } }), FLEET);
+    applyArrival({ ...host, lifecycles: { changed, keepDraftsChanged: () => {} } }, JSON.stringify({ message: "event", cursor: 7, event: { kind: "job_lifecycles.changed", ...held } }), FLEET);
     expect(changed).toHaveBeenCalledWith(held);
   });
 });

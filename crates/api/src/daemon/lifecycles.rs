@@ -8,7 +8,7 @@
 use std::future::Future;
 
 use ipc::{
-    AllWorkspaces, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
+    AllWorkspaces, DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
     RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
 };
 
@@ -44,6 +44,13 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RepositoryAutonomy, Refusal>> + Send;
+
+    /// `list_keep_drafts` — the rules and lifecycles Jobs kept for every Job in one repository that still
+    /// wait on the owner's Approve, one per piece, oldest first.
+    fn list_keep_drafts(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<KeepDrafts, Refusal>> + Send;
 
     /// `get_job_lifecycles` — what the placed Job holds and where it stands. `caller` places a hosted
     /// Job; else `session_id` names one. [`Refusal::Unacceptable`] where nothing places a Job,

@@ -1,0 +1,12 @@
+[operations.list_keep_drafts]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The rules and lifecycles Jobs kept for every Job in one repository that still wait on the owner's Approve"
+notes = """
+`GET /lifecycles/keep_drafts?manifest_id=`, since 30 Oct 2026, the repository Fleet started in where absent. Answers 200 with `KeepDrafts` `{ manifest_id, drafts[] }`, a `KeepDraft` being `{ kind, id, text }`: `kind` is `rule` or `lifecycle`, `id` the one the piece declares and `text` the piece's file as Approve would save it, within that repository.
+
+**One draft per piece, oldest first.** Where `keep_job_piece` kept the same piece more than once and none is settled, the newest text stands. A draft leaves the list when it is approved or dismissed from the Job's draft. A workflow's change is `list_workflow_changes`'; this lists no workflow. 422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id.
+
+`keep_drafts.changed` says when to read it again.
+"""

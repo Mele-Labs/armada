@@ -97,6 +97,10 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
           left_out: [],
         },
       }),
+      listKeepDrafts: async (manifestId) => ({
+        ok: true,
+        value: { manifest_id: manifestId, drafts: (seed.keeps ?? []).filter((one) => one.manifestId === manifestId).map(({ kind, id, text }) => ({ kind, id, text })) },
+      }),
       saveLifecyclePiece: async ({ piece, overwrite }) => {
         const file = (id: string) => `${KIT}/${FOLDER[piece.kind]}/${id}.toml`;
         const at = (id: string, scope: PieceScope): PieceKept => ({ rank: { reach: scope.kind === "everywhere" ? "everywhere" : "repository", source: "kit" }, path: file(id) });
@@ -160,6 +164,7 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       },
       getJobLifecycles: async (sessionId) => ({ ok: true, value: servedLifecycles.get(sessionId) ?? { session_id: sessionId, lifecycles: [], instances: [], moves: [] } }),
       onJobLifecyclesChanged: (onChanged) => servedLifecycles.listen(onChanged),
+      onKeepDraftsChanged: () => () => undefined,
       getJobCopy: async () => noCopy,
       changeSessionSteps: async () => noCopy,
       changeJobCopy: async () => noCopy,
