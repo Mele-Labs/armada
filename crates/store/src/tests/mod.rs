@@ -53,6 +53,7 @@ mod word_asks;
 mod job_renames;
 mod job_issues;
 mod lifecycle_instances;
+mod job_rules;
 mod plan_beads;
 mod adversarial_reviews;
 mod fleet_calls;

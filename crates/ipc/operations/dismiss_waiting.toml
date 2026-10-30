@@ -10,5 +10,7 @@ notes = """
 
 A `held_child` item is not dismissed: it stands while the child is held, and a dismiss is a 422 `fleet.session_waiting_empty`.
 
+A `rule_act` item (id `rule_act:<row id>`) is Skip: the act is recorded skipped and the agent is told nothing.
+
 A `preview_offer` item (id `preview:<branch>@<tip>`) is Skip: it is dropped and the agent is told nothing. That tip is not offered again; a newer one is.
 """

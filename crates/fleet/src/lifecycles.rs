@@ -13,11 +13,17 @@
 //! where the issue ledger already reads it, a watch where its reading is kept, and Fleet's events
 //! from the tap that already hears every Job's row change.
 
+pub(crate) mod acting;
+pub mod copying;
+mod following;
 pub mod ends;
 pub mod holding;
 mod keeping;
+pub mod looking;
 mod polling;
 pub mod reading;
+pub mod ruling;
+pub mod saying;
 pub(crate) mod taking_on;
 mod waking;
 
@@ -26,6 +32,7 @@ use core_model::{Lifecycle, ManifestId, Ulid};
 
 use crate::daemon::Fleet;
 
+pub use following::keep_the_rules;
 pub use keeping::keep_the_lifecycles;
 
 impl<H, V, W> Fleet<H, V, W>

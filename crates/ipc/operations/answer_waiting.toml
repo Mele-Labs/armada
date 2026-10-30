@@ -18,6 +18,8 @@ A `draft` item (id `draft:<row id>`) is settled three ways. A `choice` of 0 (`Ap
 
 A `held_child` item (id `start:<child id>`) is not answered: pressing Start on the child (`begin_session`) settles it, so any answer is a 422 `fleet.session_waiting_empty` and nothing is sent.
 
+A `rule_act` item (id `rule_act:<row id>`) takes a `choice` only: 0 is *Do it* (*Try again* on an act that failed past its retries), which hands the act to Fleet to carry out, and 1 is *Skip*, which records it skipped. **Neither sends the agent a message.** Words or a mode alone are a 422 `fleet.session_waiting_empty`, and a second answer is a 409 since the act is settled.
+
 A `preview_offer` item (id `preview:<branch>@<tip>`) is not answered either: Refresh preview runs its command, Skip dismisses it, and a new build drops it. Any answer is a 422 `fleet.session_waiting_empty` and nothing is sent.
 
 The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.

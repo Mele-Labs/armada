@@ -210,6 +210,16 @@ describe("a draft put to the person", () => {
   });
 });
 
+describe("an act a rule would do, put to the person", () => {
+  const AT = "2026-10-29T09:00:00.000Z";
+
+  test("calls him while the turn goes on, as a draft does", () => {
+    const item = { id: "rule_act:12", text: "Move ARM-41 to In progress", since: AT, source: "rule_act", act: { kind: "answer", target: "rule_act:12" }, options: [{ label: "Do it" }, { label: "Skip" }] };
+    const one = session("w", { turn: { state: "working" }, waitingFor: [item] });
+    expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["rule_act:12"]);
+  });
+});
+
 describe("a sketch put to the person", () => {
   const AT = "2026-10-29T09:00:00.000Z";
   const sketch = { id: "sketch:Store clock", text: "Store clock", since: AT, source: "sketch", act: { kind: "message", target: "w" } };

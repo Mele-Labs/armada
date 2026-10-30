@@ -24,7 +24,7 @@
 //!
 //! **Text in, not directories**, so a test drives it with no file.
 
-mod acts;
+pub(crate) mod acts;
 mod applying;
 mod moment;
 
@@ -42,8 +42,8 @@ pub use applying::{RuleFile, Rules};
 
 const TOP_LEVEL: &[&str] = &["version", "rule_id", "name", "scope", "when", "if", "do", "autonomy", "on_failure"];
 const FAILURE_KEYS: &[&str] = &["retries", "then"];
-const AUTONOMY: &[(&str, Autonomy)] = &[("acts", Autonomy::Acts), ("asks", Autonomy::Asks), ("off", Autonomy::Off)];
-const AUTONOMY_LEGAL: &[&str] = &["acts", "asks", "off"];
+pub(crate) const AUTONOMY: &[(&str, Autonomy)] = &[("acts", Autonomy::Acts), ("asks", Autonomy::Asks), ("off", Autonomy::Off)];
+pub(crate) const AUTONOMY_LEGAL: &[&str] = &["acts", "asks", "off"];
 const THEN: &[(&str, Then)] = &[("tell_agent", Then::TellAgent), ("ask_owner", Then::AskOwner)];
 const THEN_LEGAL: &[&str] = &["tell_agent", "ask_owner"];
 

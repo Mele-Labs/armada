@@ -23,6 +23,7 @@ use crate::daemon::Fleet;
 pub(super) const TICKET: &str = "ticket";
 pub(super) const PULL_REQUEST: &str = "pr";
 pub(super) const JOB: &str = "job";
+pub(super) const DEPLOY: &str = "deploy";
 
 /// What of a row decides whether anything a Job holds moved.
 type Row = (String, String, AttachmentState, String, String);
@@ -146,7 +147,7 @@ where
             landed: landed(&child.attachments),
             ended: child.state == SessionState::Ended,
         };
-        let lifecycles = self.lifecycles_that_apply(&manifest);
+        let lifecycles = self.lifecycles_of_job(&*self.store().lock().await, parent, &manifest);
         let Some(job) = lifecycles.iter().find(|one| one.id().as_str() == JOB) else { return };
         if let Some(fact) = fleet_fact(job, &seen) {
             self.lifecycle_seen(parent, JOB, child_id, Observed::Fleet(fact)).await;
@@ -167,12 +168,12 @@ where
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let manifest = store.session(session).ok().flatten()?.manifest_id?;
-        let lifecycles = self.lifecycles_that_apply(&manifest);
+        let lifecycles = self.lifecycles_of_job(&store, session, &manifest);
         let mut held = rebuilt(&lifecycles, &store.lifecycle_instances_of(session).ok()?);
         let subject = subject_of(&held, lifecycle, key)?;
         let transition = read_instance(&mut held, &lifecycles, &subject, &seen, &at)?;
         let (from, to) = (transition.moved.from.as_wire(), transition.moved.to.as_wire());
-        store
+        let kept = store
             .keep_lifecycle_read(&KeptRead {
                 session_id: session,
                 lifecycle,
@@ -184,6 +185,10 @@ where
             })
             .ok()?;
         drop(store);
+        // The Job's rules hear the move once it is kept, outside the hold that kept it.
+        if let Some(move_id) = kept {
+            self.rules_heard_move(session, &transition, move_id).await;
+        }
         self.lifecycle_wakes(session).await;
         Some(transition)
     }

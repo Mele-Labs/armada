@@ -37,6 +37,10 @@ where
     pub fn timeline(&self) -> &crate::timeline::Timeline {
         &self.timeline
     }
+    /// What wakes the worker that does what a Job's rules planned.
+    pub(crate) fn rule_acts(&self) -> &crate::lifecycles::acting::Owed {
+        &self.rule_acts
+    }
     pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }

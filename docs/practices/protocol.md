@@ -1064,6 +1064,27 @@ The build notice does not take an offer for a restart wait it answers, so a new 
 **The event stream.** No new event: a new offer publishes `session.changed` on its Job, and so does a build change that drops one.
 The open risk below is neither better nor worse.
 
+## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
+
+Since 30 Oct 2026. `crates/fleet/src/session_host/rule_asks.rs`, `crates/fleet/src/lifecycles/acting.rs`.
+**Two enum values**: no operation, route, event kind, error or type on the wire.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `rule_act` on `WaitingSource` in `packages/protocol/src/sessions.ts` and `lifecycle_rule` in `notices.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `rule_act`: id `rule_act:<row id>`, text the act in the owner's words (`Move ARM-41 to In progress`) or, once it failed past its retries, what failed, act `answer` whose `target` is the id, and exactly two options, `Do it` and `Skip`, labels only. On a failed act the first label is `Try again`. A draft act raises none: it is proposed at once and the `draft` item is the ask. Read off the kept act on every read, so a restart keeps it; gone once the Job ends |
+| `answer_waiting` on it | Bridge writes | No new field. Choice 0 hands the act to Fleet to carry out, and choice 1 records it skipped. Neither sends the agent anything. Words alone are a 422 `fleet.session_waiting_empty`; a second answer finds it settled and is a 409 |
+| `dismiss_waiting` on it | Bridge writes | No new field. It is Skip |
+| `Notice` (`SessionRow::Message.notice`, a mute's `notice`) | Fleet writes, Bridge reads | Gains `lifecycle_rule`: a rule of the Job told its agent something, or woke it, or told it what failed. It is muted, taught and given a Fleet rule as any other notice is |
+
+**A Job started before this holds no copy of the rules**, so it plans nothing and raises nothing; the store gained tables for the copy, the acts and what was last seen, and no table or column was changed.
+**A Bridge that matches `WaitingSource` or `Notice` exhaustively** meets a value it did not know; the mirror gained both first, and equal IDs hold the two together.
+
+**Skew.** As above.
+**The event stream.** No new event: a planned or settled act publishes `session.changed` on its Job.
+The open risk below is neither better nor worse.
+
 ## A note sent to a Job is kept on it: the `note` artifact
 
 Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`.
