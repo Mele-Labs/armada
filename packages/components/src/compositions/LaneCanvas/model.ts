@@ -414,7 +414,7 @@ export type Fired = {
  * A change made to this Job's own copy, marked on what it changes: `lane` is the instance and `item` its state, `workflow` and `item` the step added or skipped,
  * `rule` and `item` the rule, or a lifecycle's id and no `item` for the lifecycle as a whole.
  */
-export type JobChange = { id: string; lane: string; item: string; text: string; at: string; /** A rule or a lifecycle the Job took out of its copy: nothing of it is left to keep for every Job. */ dropped?: true };
+export type JobChange = { id: string; lane: string; item: string; text: string; at: string; /** A rule or a lifecycle the Job took out of its copy: nothing of it is left to keep for every Job. */ dropped?: true; /** A changed rule's name, from any rule the Job or its repository holds, drawn or not. */ name?: string };
 
 /** What the agent made of a human comment left on an instance. */
 export type CommentRead = "change" | "answer" | "skip";

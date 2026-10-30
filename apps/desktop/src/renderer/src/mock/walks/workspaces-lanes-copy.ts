@@ -28,9 +28,9 @@ export const workspacesLanesCopy = walk("workspaces-lanes", [
   { press: role("menuitem", "Rule", { exact: true }), say: "A rule" },
   { type: RULE, into: inside(RULE_FORM, role("textbox", "Rule file", { exact: true })), say: "Its file" },
   { press: inside(RULE_FORM, button("Add", { exact: true })), say: "It is added to this Job only" },
-  { look: inside(CHANGES, button("Keep for every Job: ask_for_review", { exact: true })), say: "Each changed rule or lifecycle has its own Keep" },
-  { press: inside(CHANGES, button("Keep for every Job: ask_for_review", { exact: true })), say: "It proposes that one piece for Kit, within this repository" },
-  { look: inside(CHANGES, role("img", "Proposed for every Job: ask_for_review", { exact: true })), say: "It waits on Approve on the Job's draft" },
+  { look: inside(CHANGES, button("Keep for every Job: Ask for review", { exact: true })), say: "Each changed rule or lifecycle has its own Keep" },
+  { press: inside(CHANGES, button("Keep for every Job: Ask for review", { exact: true })), say: "It proposes that one piece for Kit, within this repository" },
+  { look: inside(CHANGES, role("img", "Proposed for every Job: Ask for review", { exact: true })), say: "It waits on Approve on the Job's draft" },
 ], { width: 2000, height: 1200 });
 
 export { workspacesLanesCopy as "workspaces-lanes-copy" };

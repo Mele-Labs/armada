@@ -1,0 +1,16 @@
+[operations.answer_document]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Approve the revision of a document a Job wrote, or send it back with a note, as he read it"
+notes = """
+`POST /sessions/document/answer`, body `AnswerDocument`: `session_id`, `document` (the Needs you item id, `document:<page path>`), `revision` (the document's `detail.revision` as he read it), `how` (`approved` or `sent_back`) and optional `words`. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+**Every revision Fleet keeps of a page under `.armada/documents/` is put to the person**: its `detail` carries `asked` `"true"`, `revision`, the newest revision's number (`"1"`, `"2"` and on, as many as `revisions` names), and `kept_at`, when that revision was kept, written as `settled_at` is. Bridge places the document's card by `kept_at`, since `changed_at` moves when he answers. Fleet reads it off the page it kept, never off a tool call. A new revision writes the detail afresh, so `settled`, `settled_at` and `words` go and it asks again; a reread of the same bytes keeps nothing and asks nothing. A document kept before this has no `asked` and does not ask. It waits in Needs you as `document` until he answers it here or dismisses it. **It is never a `waiting_for` item.**
+
+**The Job is told as his message**: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note, and to revise the page at its path. Words with an approval go on the line after it. The revision is settled only once the message is sent, so a failed send leaves it open: `detail` gains `settled` (`approved` or `sent_back`), `settled_at` and, where he gave any, `words`.
+
+**Only the revision he read is answered.** A `revision` that is not the newest is a 409, `fleet.document_revised`. A document the Job does not hold, one not asked, or one already settled is a 422, `fleet.document_not_open`; `sent_back` with no note is a 422, `fleet.document_answer_empty`; a Job Fleet does not know is a 422, `fleet.document_answer_unnamed`. Nothing is written or sent on any refusal.
+
+`agent_access` is `No`: it is the person's answer.
+"""

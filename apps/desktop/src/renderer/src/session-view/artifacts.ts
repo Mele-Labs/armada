@@ -71,7 +71,7 @@ export const linkTitle = (url: string): string => {
   }
 };
 
-/** The other Sessions in the window, for the ones this Session handed a plan group to, and how to open one. */
+/** The other Sessions in the window, for the ones this Session started, and how to open one. */
 export type Beside = { sessions: readonly Session[]; open: (id: string) => void };
 
 export function artifactsOf(session: Session, entries: readonly LedgerEntry[], beside?: Beside): ArtifactGroup[] {
@@ -82,7 +82,7 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   const open = (entry: LedgerEntry | undefined) => (entry === undefined ? {} : { open: entry.onOpen });
   const newest = <T,>(rows: readonly T[]) => [...rows].reverse();
 
-  // First section: the Jobs this one handed plan groups to.
+  // First section: the Jobs this one started, with the plan group each was handed under it where it had one.
   add(
     "session",
     "Jobs",

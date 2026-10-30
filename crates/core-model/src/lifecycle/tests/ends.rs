@@ -24,13 +24,14 @@ fn a_word_that_is_not_the_pair_is_refused_and_not_taken_for_a_lifecycle() {
 }
 
 #[test]
-fn the_five_words_keep_their_spelling_and_the_new_variant_is_after_them() {
+fn the_five_words_keep_their_spelling_and_each_new_variant_is_after_them() {
     let words: Vec<_> = StepEnd::ALL.iter().map(|end| end.as_wire().into_owned()).collect();
-    assert_eq!(words, ["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked"]);
+    assert_eq!(words, ["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked", "document_approved"]);
     for end in StepEnd::ALL {
         assert_eq!(StepEnd::from_wire(&end.as_wire()).as_ref(), Some(end));
     }
     let lifecycle = StepEnd::from_wire("any pr: approved").expect("a lifecycle end");
     assert_eq!(lifecycle.as_wire(), "any pr: approved");
     assert!(StepEnd::IdeaPicked < lifecycle, "ordered after every word, so a list written before sorts as it did");
+    assert!(lifecycle < StepEnd::DocumentApproved, "and a document's approval after both, for the same reason");
 }

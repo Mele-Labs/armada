@@ -3,7 +3,8 @@
 //! own attachments folder and not in the worktree, so a released slot keeps them. The page is one
 //! artifact on the Job's ledger, upserted on its path, whose `revisions` detail names the kept files
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
-//! holds one that will not draw is told. The write is never refused.
+//! holds one that will not draw is told. The write is never refused. **Each revision kept is put to
+//! the person**, read off the page kept here and never off the tool call: `document_answers` answers it.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -11,7 +12,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Sessions;
-use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport};
+use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
 
 use super::document_page::{sketches_in, title_of};
 use crate::daemon::Fleet;
@@ -47,22 +48,27 @@ where
         // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
         let Ok(Ok(Some((html, revisions)))) = kept else { return };
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
-        let Ok(revisions) = ipc::encode(&names) else { return };
+        let Ok(encoded) = ipc::encode(&names) else { return };
+        // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
+        // this one is what asks the person again about the new revision.
+        let detail = [
+            ("form".to_string(), "document".to_string()),
+            ("title".to_string(), title_of(&html, &path)),
+            ("revisions".to_string(), encoded),
+            (DOCUMENT_ASKED.to_string(), "true".to_string()),
+            (DOCUMENT_REVISION.to_string(), names.len().to_string()),
+            (DOCUMENT_KEPT_AT.to_string(), self.instant().as_str().to_string()),
+        ]
+        .into();
+        // A page he dismissed waits again once it is revised, as a sketch drawn again does.
+        let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
+        let _ = self.store().lock().await.restore_waiting(id, &item);
         let _ = self
             .report_session(SessionReport {
                 harness: String::from(adapters::HOSTED_HARNESS),
                 session_id: SessionId::carried(id),
                 fact: SessionFact::Attached {
-                    attachment: AttachmentReport {
-                        kind: String::from("artifact"),
-                        target: path.clone(),
-                        detail: [
-                            ("form".to_string(), "document".to_string()),
-                            ("title".to_string(), title_of(&html, &path)),
-                            ("revisions".to_string(), revisions),
-                        ]
-                        .into(),
-                    },
+                    attachment: AttachmentReport { kind: String::from("artifact"), target: path.clone(), detail },
                 },
             })
             .await;
