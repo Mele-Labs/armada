@@ -62,12 +62,12 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 | Step | The agent | Ends when |
 |---|---|---|
 | `find_the_cause` | Reproduces the bug, names the cause, records the fix as tasks | you approve the plan |
-| `fix` | Makes the fix; writes no test | a walk is shown |
-| `short_walk` | Shows the fix as a short walk straight to the place; writes no test | you approve the walk |
+| `fix` | Makes the fix and shows it as a short walk straight to the place; writes no test | you approve the walk |
 | `tests` | Writes the test that fails without the fix and passes with it | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
-`short_walk` is passed over when nothing would be seen.
+`fix` both follows the plan and walks, and its walk is passed over when nothing would be seen.
+A separate walk step after it had him approve one walk twice (30 Oct 2026).
 
 ### `orchestrate`
 
@@ -105,6 +105,7 @@ On a step that `delivers` the state gates the merge instead (Land waits on `pr: 
 
 **`walks: true`** is the step where he is shown the work and approves it before any test is written.
 It is current from the plan's approval until he approves a window the Job showed, and it needs a recording step before it.
+The step after it is entered the moment it is passed, so a Job is never sent back to show a walk he approved.
 
 **A walk is expected** when the plan said `seen: true`, when it named a `walk`, or when the Job showed a window.
 `seen: true` says the person would see the change, and holds nothing.
