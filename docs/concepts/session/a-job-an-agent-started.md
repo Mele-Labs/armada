@@ -6,7 +6,7 @@ A Job's agent may start a Job, or fork its own conversation into one, through tw
 
 | | |
 |---|---|
-| `start_another_session` | `manifest_id`, `title`, `message`. A new Job in any repository Fleet serves |
+| `start_another_session` | `manifest_id`, `title`, `message`. A new Job in any repository Fleet serves. Or `jobs` alone, a list of those, for several in one call: each starts as its own call would, in order, and the answer gives each one's id or refusal in that order |
 | `fork_this_session` | `title`, `message`, optional `at`. A copy of the caller's own conversation, to the row `at` or to its latest message of its own that the transcript holds. Allowed while the caller is live, since it is a fork at a message |
 | The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Job**, so an agent cannot fork another's conversation, and a call from no hosted Job is refused 422 `fleet.agent_start_unplaced` |
 | Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No |
@@ -29,6 +29,8 @@ Nothing runs before Start, and no step prompt goes out either: the first turn ca
 
 **The caller waits on it too**, in its own Needs you, while the Job is live and held: id `start:<child id>`, text *Press Start on "<child title>"*, source `held_child`, act `message` on the child, so a press opens it.
 Fleet reads it off the child on every read of the caller, so Start or ending the child takes it off, and both publish the caller again.
+Bridge draws Start on that item and on the child's Started row in the caller's thread, at the row's end before its chevron, so he starts it from either without opening it.
+The two are one press, and both read *Starting…* while the start waits.
 `answer_waiting` and `dismiss_waiting` refuse it, since Start is the answer.
 An item of the caller's agent whose act is `message` on a held child is left off, as Fleet's already says it, and the tool tells the agent to list none.
 
