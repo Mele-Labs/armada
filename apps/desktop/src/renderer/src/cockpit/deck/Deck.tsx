@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -180,7 +180,7 @@ const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0
 
 /**
  * **Filter**, at the right of the list's band: a glyph that opens a small menu. A search field heads it with the caret in
- * it, and under it are the four scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
+ * it, and under it are the five scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
  * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the glyph is lit and its tooltip says so.
  * ↑ from the first row opens it.
  */
@@ -206,7 +206,7 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
           search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
           open={open}
           onOpenChange={setSearching}
-          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope }))}
+          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope, ...(id === "paused" ? { icon: Pause } : {}) }))}
           onSelect={(id) => setScope(id as Scope)}
         />
       </Tooltip>

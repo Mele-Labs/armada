@@ -8,6 +8,7 @@ import type {
   JobCopy,
   JobLifecycles,
   JobPieceProposed,
+  KeepDrafts,
   KeepJobPiece,
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
@@ -26,6 +27,7 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 export class LifecyclesHost {
   private readonly port: () => number | null;
   private told: (held: JobLifecycles) => void = () => {};
+  private toldKeepDrafts: (manifestId: string) => void = () => {};
 
   constructor(port: () => number | null) {
     this.port = port;
@@ -41,6 +43,16 @@ export class LifecyclesHost {
     this.told(held);
   }
 
+  /** Say where a repository whose Keep drafts changed goes: main's, which owns the windows. */
+  onKeepDraftsChanged(told: (manifestId: string) => void): void {
+    this.toldKeepDrafts = told;
+  }
+
+  /** `keep_drafts.changed`. It names the repository alone: each window reads the drafts again if it holds them. */
+  keepDraftsChanged(manifestId: string): void {
+    this.toldKeepDrafts(manifestId);
+  }
+
   /** `GET /workspaces?manifest_id=`. */
   workspaces(manifestId: string): Promise<LifecyclesActed<RepositoryWorkspaces>> {
     return this.read(`/workspaces?manifest_id=${encodeURIComponent(manifestId)}`);
@@ -54,6 +66,11 @@ export class LifecyclesHost {
   /** `GET /lifecycles/rules?manifest_id=`. */
   rules(manifestId: string): Promise<LifecyclesActed<RepositoryLifecycleRules>> {
     return this.read(`/lifecycles/rules?manifest_id=${encodeURIComponent(manifestId)}`);
+  }
+
+  /** `GET /lifecycles/keep_drafts?manifest_id=`. */
+  keepDrafts(manifestId: string): Promise<LifecyclesActed<KeepDrafts>> {
+    return this.read(`/lifecycles/keep_drafts?manifest_id=${encodeURIComponent(manifestId)}`);
   }
 
   /** `POST /lifecycles/pieces/save`. */

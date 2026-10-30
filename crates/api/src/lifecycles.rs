@@ -45,6 +45,17 @@ pub(crate) async fn list_lifecycle_rules<D: Lifecycles>(
     }
 }
 
+/// The rules and lifecycles Jobs kept for every Job in one repository, waiting on the owner's Approve.
+pub(crate) async fn list_keep_drafts<D: Lifecycles>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+) -> Response {
+    match served.daemon().list_keep_drafts(scope.manifest()).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=`, read only where the connection places no Job.
 #[derive(Deserialize)]
 pub(crate) struct ForJobLifecycles {

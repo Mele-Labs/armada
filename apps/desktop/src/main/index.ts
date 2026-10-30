@@ -588,6 +588,7 @@ void app.whenReady().then(() => {
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.projects.onChanged((projects) => everyWindow(CHANNELS.projectsChanged, projects));
   connection.bugReports.onChanged((reports) => everyWindow(CHANNELS.bugReportsChanged, reports));
+  connection.lifecycles.onKeepDraftsChanged((manifestId) => everyWindow(CHANNELS.keepDraftsChanged, manifestId));
   connection.lifecycles.onChanged((held) => everyWindow(CHANNELS.jobLifecyclesChanged, held));
   connection.agentSignIn.onChanged((state) => {
     agentSignInNotice.read(state);

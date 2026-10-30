@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{Backlog, LinkLookup, ReadOnly, Tool, ToolInstalled, Tracker, TrackerChoice, TrackerWrites, Trackers};
+use adapter_traits::{Backlog, LinkLookup, ReadOnly, TicketState, Tool, ToolInstalled, Tracker, TrackerChoice, TrackerWrites, Trackers};
 
 use crate::{FakeBeads, FakeLinkLookup, FakeTracker};
 
@@ -23,6 +23,8 @@ pub struct FakeTrackers {
     writers: Mutex<BTreeMap<Provider, Arc<dyn TrackerWrites + Send + Sync>>>,
     /// Only the providers a test planted a backlog for have one, as only beads does.
     backlogs: Mutex<BTreeMap<Provider, Arc<dyn Backlog + Send + Sync>>>,
+    /// The words a provider declares for the ticket's states. None for the ones a test did not say.
+    ticket_words: Mutex<BTreeMap<Provider, &'static [(TicketState, &'static str)]>>,
     asked: Mutex<Vec<TrackerChoice>>,
     installed: Mutex<Vec<&'static str>>,
     installed_in: Mutex<Vec<String>>,
@@ -40,6 +42,7 @@ impl FakeTrackers {
                 Arc::new(FakeLinkLookup::resolving_nothing()) as Arc<dyn LinkLookup + Send + Sync>,
             )])),
             backlogs: Mutex::new(BTreeMap::new()),
+            ticket_words: Mutex::new(BTreeMap::new()),
             asked: Mutex::new(Vec::new()),
             installed: Mutex::new(Vec::new()),
             installed_in: Mutex::new(Vec::new()),
@@ -73,6 +76,18 @@ impl FakeTrackers {
         // Beads is written through its backlog, and a saved rule's writes are not planned against it here.
         self.writers.lock().expect("not poisoned").insert(provider.clone(), Arc::new(ReadOnly));
         self.backlogs.lock().expect("not poisoned").insert(provider, beads);
+        self
+    }
+
+    /// These words for the ticket's states, declared for a Manifest that names no provider.
+    pub fn ticket_words(self, words: &'static [(TicketState, &'static str)]) -> FakeTrackers {
+        self.ticket_words.lock().expect("not poisoned").insert(None, words);
+        self
+    }
+
+    /// These words for the ticket's states, declared by the Manifests that name `provider`.
+    pub fn ticket_words_named(self, provider: &str, words: &'static [(TicketState, &'static str)]) -> FakeTrackers {
+        self.ticket_words.lock().expect("not poisoned").insert(Some(provider.to_string()), words);
         self
     }
 
@@ -127,6 +142,11 @@ impl Trackers for FakeTrackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
         let provider = choice.provider().map(String::from);
         self.backlogs.lock().expect("not poisoned").get(&provider).cloned()
+    }
+
+    fn ticket_words(&self, choice: &TrackerChoice) -> &'static [(TicketState, &'static str)] {
+        let provider = choice.provider().map(String::from);
+        self.ticket_words.lock().expect("not poisoned").get(&provider).copied().unwrap_or(&[])
     }
 
     fn writer(&self, choice: &TrackerChoice) -> Arc<dyn TrackerWrites + Send + Sync> {

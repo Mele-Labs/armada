@@ -121,6 +121,35 @@ fn ending_a_job_ends_what_it_names_once_and_leaves_the_rest_and_the_standing_alo
 }
 
 #[test]
+fn handing_an_instance_away_ends_it_standing_where_it_was_and_names_the_job_it_went_to_and_only_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.take_on_lifecycle_instance("s1", "ticket", "armada-95v", &[], "t0").expect("taken on");
+    store.take_on_lifecycle_instance("s1", "ticket", "armada-7gs", &[], "t0").expect("taken on");
+    store.keep_lifecycle_read(&read("armada-95v", "open", None, "t1")).expect("kept");
+
+    assert!(store.hand_lifecycle_instance("s1", "ticket", "armada-95v", "s2", "t2").expect("handed"));
+    assert!(!store.hand_lifecycle_instance("s1", "ticket", "armada-95v", "s3", "t3").expect("again"), "handed once, to the first");
+
+    let held = store.lifecycle_instances_of("s1").expect("reads");
+    assert_eq!((held[0].ended_at.as_str(), held[0].handed_to.as_str()), ("t2", "s2"));
+    assert_eq!(held[0].seen, "open", "it stands where it was");
+    assert_eq!((held[1].ended_at.as_str(), held[1].handed_to.as_str()), ("", ""), "one not named is still held");
+}
+
+#[test]
+fn an_instance_that_ended_with_its_job_is_not_handed_after_and_is_not_one_that_was() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.take_on_lifecycle_instance("s1", "ticket", "armada-95v", &[], "t0").expect("taken on");
+    store.end_lifecycle_instances("s1", &[("ticket", "armada-95v")], "t1").expect("ends");
+
+    assert!(!store.hand_lifecycle_instance("s1", "ticket", "armada-95v", "s2", "t2").expect("refused"));
+    let held = store.lifecycle_instances_of("s1").expect("reads");
+    assert_eq!((held[0].ended_at.as_str(), held[0].handed_to.as_str()), ("t1", ""));
+}
+
+#[test]
 fn a_job_told_to_wait_is_released_once() {
     let dir = TempDir::new();
     let mut store = open(&dir);

@@ -343,6 +343,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/lifecycles/rules",
     },
+    Route {
+        operation: "list_keep_drafts",
+        method: "GET",
+        path: "/lifecycles/keep_drafts",
+    },
     // Saved in Kit's folders and nowhere else: the repository's own copy is `commit_to_repository`'s.
     Route {
         operation: "save_lifecycle_piece",
