@@ -47,7 +47,7 @@ pub use shared_home::{FakeHarnessHome, FakeHome, FakeHomes, FakeRemote, HeldFold
 pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};
 pub use store::FakeStore;
 pub use test_map::FakeCollector;
-pub use tracker::FakeTracker;
+pub use tracker::{FakeTracker, IssueWritten};
 pub use trackers::FakeTrackers;
 pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Hold, Merging, ParkHold};
 pub use work_product::{FakeDiffRefused, FakeWorkProduct, Holding, Written};

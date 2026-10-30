@@ -687,7 +687,8 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         settled: Option<DraftSettled>,
         /// The workflow change this draft is the owner's say on: Approve saves it, Dismiss drops it.
-        /// `text` is then the definition and `title` is `Workflow <id>`. Absent on any other draft.
+        /// `text` is then the definition and `title` is `Workflow <id>`, or the file and `Rule <id>` or
+        /// `Lifecycle <id>` for a piece a Job proposed for Kit. Absent on any other draft.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         change: Option<i64>,
     },

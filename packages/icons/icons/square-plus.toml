@@ -12,3 +12,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Add after`. A node added to a canvas, which is this glyph's own reservation."
+
+[[icons.square-plus.usage]]
+  means = "Add to this Job, on the Job's lanes: a step, a lifecycle or a rule in the Job's own copy"
+  group = "Workspace lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `workspaces-lanes-copy`. Tooltip `Add to this Job`, a menu of Step, Lifecycle and Rule. A node added to a canvas, which is this glyph's own reservation."

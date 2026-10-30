@@ -63,6 +63,8 @@ impl Sessions for FakeDaemon {
             started: None,
             workflow_visits: Vec::new(),
             skipped_steps: Vec::new(),
+            workflow_waiting_on: Vec::new(),
+            workflow_copy: None,
         })
     }
 
@@ -240,6 +242,10 @@ impl Sessions for FakeDaemon {
             pull: None,
             part_title: None,
             by: ipc::WaitBy::You,
+            held: change.held.unwrap_or(true),
+            workflow: None,
+            model: None,
+            effort: None,
         })
     }
 

@@ -5,13 +5,16 @@
 //! **A teaching becomes a Logbook entry for what agents should know, and mods by what it changes**:
 //! Words, Fleet, a theme tweak or a layout. Save makes the entry through `teach_logbook_entry` and
 //! writes the mods, so Bridge files nothing itself. A teaching on Bridge's own interface has no
-//! agent note and lives in Mods alone.
+//! agent note and lives in Mods alone. **A lifecycle rule is not a mod**: it is a rule piece in Kit,
+//! written as the Workflows page writes one (`save_lifecycle_piece`).
 //!
 //! **Bridge's mirror is `packages/protocol/src/teaching.ts`**, field for field.
 
 use serde::{Deserialize, Serialize};
 
+use crate::lifecycles::LifecycleRule;
 use crate::logbook::{LogbookKind, LogbookSection};
+use crate::piece_saving::LifecyclePieceSaved;
 use crate::taught_mods::{AddressFound, FleetRule};
 
 /// How far a teaching reaches: the Session's repository, or all of them.
@@ -37,6 +40,8 @@ pub enum TeachingSourceKind {
     /// A Check's result.
     Check,
     PullRequest,
+    /// A ticket in a Job's lanes. `ids` holds its key.
+    Ticket,
     /// A panel of Bridge's own interface. `ids` holds the panel's id.
     Panel,
     /// A row of a list in Bridge.
@@ -160,6 +165,19 @@ pub struct ProposedFleet {
     pub untestable: Vec<String>,
 }
 
+/// The rule part of a proposal: a lifecycle rule as the Workflows page edits it, and what the person
+/// said that Fleet cannot test. **Only the rule is ever written to a file**; `untestable` is for
+/// Bridge to say so, and a rule saved with some is saved without them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposedRule {
+    #[serde(flatten)]
+    pub rule: LifecycleRule,
+    /// The person's own words for each condition they named that is not one a rule's `if` can hold.
+    /// Fleet invents none in its place.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub untestable: Vec<String>,
+}
+
 /// `read_teaching`' answer: **at least one part is present**. Nothing is kept.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TeachingProposal {
@@ -173,6 +191,10 @@ pub struct TeachingProposal {
     pub tweak: Vec<TweakChange>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<TeachingLayout>,
+    /// A lifecycle rule: when, if and do, with an autonomy. **Its scope is the reach the person
+    /// chose**, so a save puts it there whatever scope this carries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<ProposedRule>,
 }
 
 /// `save_teaching`' body: the proposal as the person left it, and where it was taught. Every part
@@ -206,6 +228,9 @@ pub struct SavedTeaching {
     /// The mods written or added to, by name.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mods: Vec<String>,
+    /// The rule piece written in Kit, which is not a mod.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<LifecyclePieceSaved>,
 }
 
 /// One pattern Bridge links, with where it opens for the repository asked about.

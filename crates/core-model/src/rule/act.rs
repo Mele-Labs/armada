@@ -103,8 +103,10 @@ pub enum Act {
     Draft { template: Words, target: Target },
     /// Start a Job on a prompt, in a workflow (by its slug) where one is named.
     StartJob { workflow: Option<Words>, prompt: Words },
-    /// Start a watch from a recipe, with the values it needs.
-    StartWatch { recipe: Words, values: BTreeMap<Words, Words> },
+    /// Start a watch from a recipe, with the values it needs. **`deploy` names the deploy it
+    /// follows**, the key of an instance of the `deploy` lifecycle the Job takes on with it, so the
+    /// watch's readings are where that deploy stands. A watch with none follows nothing.
+    StartWatch { recipe: Words, values: BTreeMap<Words, Words>, deploy: Option<Words> },
     /// Say something to the Job's agent, which wakes it.
     Tell { message: Words },
     /// Wake the Job's agent with nothing to say.

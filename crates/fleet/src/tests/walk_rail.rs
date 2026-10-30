@@ -152,23 +152,24 @@ fn the_nudge_for_a_test_before_the_walk_is_worded_as_the_others_are() {
 #[test]
 fn what_ends_each_step_is_read_off_its_anchor() {
     let ends = |steps: &[RailStep]| (0..steps.len()).map(|one| ends_when(steps, one)).collect::<Vec<_>>();
+    let said = |words: &[Option<&str>]| words.iter().map(|word| word.map(String::from)).collect::<Vec<_>>();
     assert_eq!(
         ends(&feature()),
-        [
+        said(&[
             Some("you reply"),
             Some("a plan is recorded"),
             Some("you approve the plan"),
             Some("you approve the walk"),
             Some("it is pushed"),
             Some("it is merged")
-        ]
+        ])
     );
     assert_eq!(
         ends(&bug()),
-        [Some("you approve the plan"), Some("a walk is shown"), Some("you approve the walk"), Some("it is pushed"), Some("it is merged")]
+        said(&[Some("you approve the plan"), Some("a walk is shown"), Some("you approve the walk"), Some("it is pushed"), Some("it is merged")])
     );
     let loose = [fitted("Build", Fit::Edited), step("Free text")];
-    assert_eq!(ends(&loose), [None, None]);
+    assert_eq!(ends(&loose), said(&[None, None]));
     assert_eq!(ends_when(&feature(), 9), None, "no such step");
     assert_eq!(passed_over_when(&walk()), Some("nothing would be seen"));
     assert_eq!(passed_over_when(&step("Refine")), None);

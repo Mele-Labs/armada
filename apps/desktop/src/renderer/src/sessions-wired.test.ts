@@ -1,13 +1,14 @@
 // What the store behind the window's Sessions does with what main publishes.
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { SessionRecord } from "@armada/protocol";
+import type { AppliedRule, JobLifecycles, SessionRecord } from "@armada/protocol";
 
 import type { BridgeApi } from "../../shared/api";
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
 import type { StateChange } from "../../shared/state-change";
 import { forgetKept, writeKept } from "@armada/components";
+import { inFlight } from "@armada/components/src/compositions/LaneCanvas/build";
 import { aimKey } from "./session-view/mod-aim";
 import { QUEUED_KEY } from "./queued-ideas";
 import { WiredStore } from "./sessions-wired";
@@ -398,7 +399,7 @@ const PLAN = {
   scope: [],
   groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Add the column", state: "open" as const }] }],
 };
-const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const };
+const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const, held: true };
 
 /** A window holding the Session `@Retry loop` names, with a plan, and a Session that waits on it; Fleet answers as the arguments say. */
 async function waiting(reading: { condition: object; base: string; needs?: string; plain?: boolean } = { condition: { kind: "pr_lands" }, base: "main", needs: "the schema" }) {
@@ -497,6 +498,21 @@ it("starts a waiting Session now through Fleet", async () => {
   const { store, startWaitingNow } = await waiting();
   store.draft.startNow!("w");
   await vi.waitFor(() => expect(startWaitingNow).toHaveBeenCalledWith("w"));
+});
+
+it("approves a waiting Session and sets what it starts on through Fleet, and draws what Fleet kept", async () => {
+  const { store, changeWaiting } = await waiting();
+  store.draft.startThen!("w", false);
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenCalledWith({ waiting_session: "w", held: false }));
+  store.draft.startTuning!("w", { model: "opus", effort: null });
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenLastCalledWith({ waiting_session: "w", model: "opus", effort: "" }));
+  store.draft.startTuning!("w", { workflow: "feature" });
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenLastCalledWith({ waiting_session: "w", workflow: "feature" }));
+});
+
+it("draws the approval and picks the wait holds", async () => {
+  const { store } = await waiting();
+  expect(store.draft.get().find((one) => one.id === "w")?.waits).toMatchObject({ held: true });
 });
 
 // ---- One file of a write clash ------------------------------------------------------------------------------
@@ -640,4 +656,171 @@ it("still says a start refused anywhere else on the Sessions line, and raises no
 
   expect(store.draft.said!()).toBe("No such row in your projects.");
   expect(raised()).toEqual([]);
+});
+
+// ---- What a Job holds -----------------------------------------------------------------------------------------------------
+
+const TICKET: JobLifecycles["lifecycles"][number] = {
+  id: "ticket",
+  name: "Ticket",
+  scope: { kind: "everywhere" },
+  states: [
+    { id: "todo", label: "To do", read: { source: "tracker", words: ["To Do"] } },
+    { id: "in_progress", label: "In progress", read: { source: "tracker", words: ["In Progress"] } },
+  ],
+  transitions: [{ from: "todo", to: "in_progress" }],
+  ends: [],
+};
+
+const holding = (id: string, state: string): JobLifecycles => ({
+  session_id: id,
+  lifecycles: [TICKET],
+  instances: [{ lifecycle: "ticket", key: "ARM-41", label: "ARM-41", standing: { kind: "in", state }, links: [] }],
+  moves: [],
+});
+
+/** A store whose Fleet answers `get_job_lifecycles` with `answer` and `list_lifecycle_rules` with `rules`, and whose `job_lifecycles.changed` is sent by hand. */
+async function holdingStore(answer: (id: string) => ReturnType<BridgeApi["getJobLifecycles"]>, rules?: () => ReturnType<BridgeApi["listLifecycleRules"]>) {
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  let changed: (held: JobLifecycles) => void = () => undefined;
+  const getJobLifecycles = vi.fn(answer);
+  const listLifecycleRules = vi.fn(rules ?? (async () => ({ ok: true as const, value: { manifest_id: "armada", rules: [], left_out: [] } })));
+  const api = {
+    syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }),
+    subscribeChanges: (on: typeof send) => ((send = on), () => undefined),
+    getJobLifecycles,
+    listLifecycleRules,
+    onJobLifecyclesChanged: (on: typeof changed) => ((changed = on), () => undefined),
+  } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const publish = async (...records: SessionRecord[]) => {
+    send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: records } }), seq: 0 });
+    await new Promise((done) => setTimeout(done, 0));
+  };
+  return { store, getJobLifecycles, listLifecycleRules, publish, changed: (held: JobLifecycles) => changed(held) };
+}
+
+it("draws a lane for each instance a Job holds, as Fleet reads it, and moves it when Fleet says it moved", async () => {
+  const { store, publish, changed } = await holdingStore(async (id) => ({ ok: true, value: holding(id, "todo") }));
+  await publish(record("a"));
+  expect(store.draft.get()[0]?.lanes?.job.instances).toMatchObject([{ label: "ARM-41", state: "todo" }]);
+
+  changed(holding("a", "in_progress"));
+  expect(store.draft.get()[0]?.lanes?.job.instances).toMatchObject([{ label: "ARM-41", state: "in_progress" }]);
+});
+
+it("keeps what an event said when an older read answers after it", async () => {
+  let answer: (held: JobLifecycles) => void = () => undefined;
+  const { store, publish, changed } = await holdingStore(() => new Promise((done) => (answer = (held) => done({ ok: true, value: held }))));
+  await publish(record("a"));
+  changed(holding("a", "in_progress"));
+  answer(holding("a", "todo"));
+  await new Promise((done) => setTimeout(done, 0));
+  expect(store.draft.get()[0]?.lanes?.job.instances[0]?.state).toBe("in_progress");
+});
+
+it("draws no lanes for a Job that holds nothing, one that has ended, or a Fleet that refuses the read, and asks once for each Job", async () => {
+  const empty: JobLifecycles = { session_id: "a", lifecycles: [], instances: [], moves: [] };
+  const { store, publish, getJobLifecycles } = await holdingStore(async (id) => (id === "b" ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { ...empty, session_id: id } }));
+  await publish(record("a"), record("b"), { ...record("c"), state: "ended" });
+  await publish(record("a"), record("b"), { ...record("c"), state: "ended" });
+  expect(store.draft.get().map((one) => one.lanes)).toEqual([undefined, undefined, undefined]);
+  expect(getJobLifecycles.mock.calls.map(([id]) => id)).toEqual(["a", "b"]);
+});
+
+const lifecycle = (id: string, name: string, states: [string, string][], ends: string[]): JobLifecycles["lifecycles"][number] => ({
+  id,
+  name,
+  scope: { kind: "everywhere" },
+  states: states.map(([state, label]) => ({ id: state, label, read: { source: "tracker", words: [label] } })),
+  transitions: [],
+  ends,
+});
+
+/** A Job holding a deploy rolling out, a ticket in review, a pull request approved, a ticket whose status nobody mapped, one not read yet, and a deploy that is healthy. */
+const flying = (id: string): JobLifecycles => ({
+  session_id: id,
+  lifecycles: [
+    lifecycle("deploy", "Deploy", [["rolling_out", "Rolling out"], ["healthy", "Healthy"]], ["healthy"]),
+    lifecycle("ticket", "Ticket", [["in_review", "In review"], ["closed", "Closed"]], ["closed"]),
+    lifecycle("pr", "Pull request", [["approved", "Approved"], ["merged", "Merged"]], ["merged"]),
+  ],
+  instances: [
+    { lifecycle: "deploy", key: "web", label: "Deploy", standing: { kind: "in", state: "rolling_out" }, links: [] },
+    { lifecycle: "ticket", key: "ARM-42", label: "ARM-42", standing: { kind: "in", state: "in_review" }, links: [] },
+    { lifecycle: "pr", key: "24", label: "PR #24", standing: { kind: "in", state: "approved" }, links: [] },
+    { lifecycle: "ticket", key: "ARM-43", label: "ARM-43", standing: { kind: "unmapped", said: "Awaiting QA" }, links: [] },
+    { lifecycle: "ticket", key: "ARM-44", label: "ARM-44", standing: { kind: "unread" }, links: [] },
+    { lifecycle: "deploy", key: "api", label: "API", standing: { kind: "in", state: "healthy" }, links: [] },
+  ],
+  moves: [],
+});
+
+it("lists what End finds in flight on a real Job, as Fleet read it, and nothing once ending the Job ended it", async () => {
+  const { store, publish, changed } = await holdingStore(async (id) => ({ ok: true, value: flying(id) }));
+  await publish(record("a"));
+  const rows = () => inFlight(store.draft.get()[0]!.lanes!.job).map((one) => (one.state === "" ? one.label : `${one.label}: ${one.state}`));
+  expect(rows()).toEqual(["Deploy: Rolling out", "ARM-42: In review", "PR #24: Approved", "ARM-43: Awaiting QA", "ARM-44"]);
+
+  const ended = flying("a");
+  changed({ ...ended, instances: ended.instances.map((one) => (one.standing.kind === "in" && one.standing.state === "healthy" ? one : { ...one, ended_at: AT })) });
+  expect(rows()).toEqual([]);
+  expect(store.draft.get()[0]?.lanes?.job.instances.filter((one) => one.ended === true)).toHaveLength(5);
+});
+
+it("lists a ticket nobody has read yet when End finds nothing else, and a status nobody mapped", async () => {
+  const { store, publish } = await holdingStore(async (id) => ({
+    ok: true,
+    value: {
+      ...flying(id),
+      instances: [
+        { lifecycle: "ticket", key: "ARM-44", label: "ARM-44", standing: { kind: "unread" }, links: [] },
+        { lifecycle: "ticket", key: "ARM-43", label: "ARM-43", standing: { kind: "unmapped", said: "Awaiting QA" }, links: [] },
+      ],
+    },
+  }));
+  await publish(record("a"));
+
+  const rows = inFlight(store.draft.get()[0]!.lanes!.job).map((one) => (one.state === "" ? one.label : `${one.label}: ${one.state}`));
+  expect(rows).toEqual(["ARM-44", "ARM-43: Awaiting QA"]);
+});
+
+const MOVES_TICKET: AppliedRule = {
+  rule: {
+    id: "move-ticket",
+    name: "Move to In progress",
+    scope: { kind: "everywhere" },
+    when: { kind: "step_starts", step: "plan" },
+    conditions: [],
+    does: [{ kind: "tracker_write", autonomy: "acts", what: { act: "tracker_move", to: "in_progress", target: { among: { kind: "held", lifecycle: "ticket" } } } }],
+    on_failure: { retries: 0, then: "ask_owner" },
+  },
+  kept: { rank: { reach: "everywhere", source: "armada" } },
+};
+
+const planned = (id: string): JobLifecycles => ({
+  ...holding(id, "in_progress"),
+  acts: [{ rule: "move-ticket", text: "Move ARM-41 to In progress", course: "acts", standing: "planned", at: AT, on: { lifecycle: "ticket", key: "ARM-41" } }],
+});
+
+it("reads the repository's rules for a Job whose rules planned an act, and draws the act on its rule", async () => {
+  const { store, publish, listLifecycleRules } = await holdingStore(async (id) => ({ ok: true, value: planned(id) }), async () => ({ ok: true, value: { manifest_id: "armada", rules: [MOVES_TICKET], left_out: [] } }));
+  await publish(record("a"));
+  expect(listLifecycleRules.mock.calls).toEqual([["armada"]]);
+  const job = store.draft.get()[0]?.lanes?.job;
+  expect(job?.copy.rules.map((one) => one.id)).toEqual(["move-ticket"]);
+  expect(job?.fired).toMatchObject([{ rule: "move-ticket", outcome: "waiting", acts: [{ text: "Move ARM-41 to In progress", standing: "planned" }] }]);
+});
+
+it("reads no rules for a Job whose rules planned nothing, and keeps the lanes where a Fleet refuses them", async () => {
+  const quiet = await holdingStore(async (id) => ({ ok: true, value: holding(id, "todo") }));
+  await quiet.publish(record("a"));
+  expect(quiet.listLifecycleRules).not.toHaveBeenCalled();
+  expect(quiet.store.draft.get()[0]?.lanes?.job.fired).toEqual([]);
+
+  const refused = await holdingStore(async (id) => ({ ok: true, value: planned(id) }), async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }));
+  await refused.publish(record("a"));
+  expect(refused.store.draft.get()[0]?.lanes?.job.instances).toMatchObject([{ label: "ARM-41", state: "in_progress" }]);
+  expect(refused.store.draft.get()[0]?.lanes?.job.fired).toEqual([]);
 });

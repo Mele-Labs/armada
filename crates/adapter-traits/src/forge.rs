@@ -16,6 +16,8 @@ use crate::{
     Review, UnderReview, WhatBecameOfIt, Worktree,
 };
 
+const NO_REVIEWERS: &str = "this forge cannot request reviewers";
+
 /// Asking the forge about pull requests and CI, and the few writes a person
 /// presses for.
 ///
@@ -238,6 +240,24 @@ pub trait Forge {
     /// that the work is ready to be read. The refusal is the forge's own
     /// sentence, as [`enable_auto_merge`](Forge::enable_auto_merge)'s is.
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
+
+    /// Ask `reviewers`, by the forge's own names, to review a pull request.
+    ///
+    /// **A write to the forge, taken only from a rule the owner saved**: it tells those people.
+    /// The refusal is the forge's own sentence, as [`mark_ready`](Forge::mark_ready)'s is. **A
+    /// forge with no call for it says so by default**, so it compiles and
+    /// [`can_request_reviewers`](Forge::can_request_reviewers) says it first.
+    fn request_reviewers(&self, in_repo: &str, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+        let _ = (in_repo, pull_request, reviewers);
+        Err(String::from(NO_REVIEWERS))
+    }
+
+    /// Whether [`request_reviewers`](Forge::request_reviewers) does anything here, and in a
+    /// sentence why not where it does not. **Pure**: it runs nothing, so planning can ask it, and
+    /// the owner is never asked to press a request nothing can make.
+    fn can_request_reviewers(&self) -> Result<(), String> {
+        Err(String::from(NO_REVIEWERS))
+    }
 
     /// What a person reads on one pull request's page: the conversation, the
     /// forge's checks, the files and commits. **`None` is the forge's

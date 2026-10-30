@@ -1,14 +1,15 @@
 // The pieces the Job's story is read with (`StoryColumn.tsx`): the brief the Job was dispatched with, a row for each plan group (`FlightRows`) with its state glyph, its title
 // and, while folded, one slim track of segments for its tasks on the right (`TaskTrack`), and the head with the workflow's picker and steps (`FlightHead`). A group
-// opens to its tasks and the live line, and a press opens or shuts any. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
+// opens to its tasks and the live line, and a press opens or shuts any. A group handed to a Job is that Job's card instead (`ChildJob.tsx`). The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { LinkedSession, Tooltip } from "@armada/components";
+import { Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
+import { ChildJob } from "./ChildJob";
 import { GroupPullRequests, issueOfGroup } from "./IssuesBlock";
-import { childrenOf, linkedPropsOf } from "./linked";
+import { childrenOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
 import type { ViewGroup } from "./plan-marks";
@@ -70,9 +71,17 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
   const child = childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
   const named = issueOfGroup(parent, group.issue);
   const here = hereOf(group);
+  // The Job takes the group's row, open or shut: its tasks are the Job's work, which opening the Job shows.
+  if (child !== undefined) {
+    return (
+      <li className="sv-flight__group" data-group={group.id} data-step={step} data-handed="">
+        <ChildJob child={child} group={group.title} manifestId={manifestId} onOpen={onOpenSession} />
+      </li>
+    );
+  }
   return (
     <li className="sv-flight__group" data-group={group.id} data-step={step} data-open={open || undefined}>
-      <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} onClick={flip}>
+      <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} data-nav="" onClick={flip}>
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
         {open ? null : <TaskTrack tasks={group.tasks} />}
@@ -85,7 +94,6 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
               <TaskLine key={task.id} task={task} here={task.id === here} now={now} />
             ))}
           </ul>
-          {child === undefined ? null : <LinkedSession {...linkedPropsOf(child, onOpenSession)} />}
           {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />}
         </div>
       )}

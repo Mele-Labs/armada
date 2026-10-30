@@ -153,7 +153,7 @@ export function mountApp(
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
-    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods");
+    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule");
   }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);

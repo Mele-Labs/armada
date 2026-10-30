@@ -42,6 +42,10 @@ mod checks;
 mod disputes;
 /// An agent's report that Armada itself got something wrong, kept on this Mac.
 mod bug_reports;
+/// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
+mod lifecycles;
+/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+mod piece_saving;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
 pub mod shape;
@@ -64,6 +68,8 @@ pub mod door;
 mod drift;
 /// What the Workflows page reads beside a definition's text, and its acts on a copy.
 mod workflow_page;
+/// A Job's own copy of its workflow, lifecycles and rules, and what was changed in it.
+mod job_copy;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
 /// The Manifest file itself, read and written — the half of Journey 9's
@@ -274,6 +280,16 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use piece_saving::{
+    AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
+    LifecyclePieceSaved, SaveLifecyclePiece, WorkspaceToSave,
+};
+pub use lifecycles::{
+    AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
+    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
+    RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
+};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft,
@@ -297,6 +313,10 @@ pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
 };
 pub use configured::ManifestConfig;
+pub use job_copy::{
+    ChangeJobCopy, ChangeSessionSteps, ChangedBy, CopyPieceKind, JobCopy, JobCopyChange, JobCopyPiece, JobCopyStep, JobPieceProposed,
+    KeepJobPiece, KeepJobWorkflow, ProposeWorkflowChange, StepChange,
+};
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
     SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
@@ -501,7 +521,7 @@ pub use logbook::{
     LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LockLogbookEntry, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
-    ProposedAddress, ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
     TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
 pub use taught_mods::{AddressFound, CommandsFile, Condition, Does, FleetFile, FleetRule, Instead, PaletteCommand, RuleScope, WordsAddress, WordsFile};

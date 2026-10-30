@@ -715,6 +715,14 @@ pub enum WaitingSource {
     /// `run` act whose `target` is `scripts/preview --restart`. Dismissing it is Skip and tells the
     /// agent nothing; answering it is refused. Gone once the build changes.
     PreviewOffer,
+    /// Fleet: an act a lifecycle rule of the Job planned is the person's to say first, or it failed
+    /// past the rule's retries and the rule says to ask. Kept, never the agent's: id `rule_act:<row>`,
+    /// text the act in his words (`Move ARM-41 to In progress`) or, once it failed, what failed, an
+    /// `answer` act whose `target` is the id, and exactly two options, `Do it` (choice 0) and `Skip`
+    /// (choice 1), labels only; on a failed act choice 0 is `Try again`. `Do it` hands the act to Fleet
+    /// to carry out and `Skip` records it skipped; **neither sends the agent a word**. Dismissing it
+    /// is Skip. Listed only while the Job is live.
+    RuleAct,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -1200,6 +1208,16 @@ pub struct SessionRecord {
     /// one passed. Empty where none is. `skip_session_step`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skipped_steps: Vec<u32>,
+    /// What the step the Job is on waits for, as the rail words it: `Waiting on PR #812: Approved`. One
+    /// sentence for each lifecycle end the step lists that has not come, in the order the step lists them.
+    /// Empty where the step waits on no lifecycle, and once an end has come. Since 30 Oct 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflow_waiting_on: Vec<String>,
+    /// The Job's own copy of its workflow, once a step of it was changed: the steps the rail and the lanes
+    /// draw, in place of the ones the repository's definition lists. Absent for a Job that changed none.
+    /// Since 30 Oct 2026. `change_session_steps`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_copy: Option<crate::WorkflowSummary>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

@@ -362,11 +362,7 @@ pub(crate) fn usual_road(history: &[Vec<BuildStopId>]) -> Vec<BuildStopId> {
 /// Whether the ledger says this pull request merged. A row spent by a `gh pr merge` the forge has not
 /// confirmed still reads open, and is not one.
 pub(crate) fn merged(pull: &KeptAttachment) -> bool {
-    match pull.detail.get("state").map(String::as_str) {
-        Some("merged") => true,
-        Some("open" | "draft" | "closed") => false,
-        _ => pull.state == AttachmentState::Spent,
-    }
+    crate::pull_requesting::pull_merged(&pull.detail, pull.state == AttachmentState::Spent)
 }
 
 /// The pull request this build is on the road with: the newest one held that is not closed and did not

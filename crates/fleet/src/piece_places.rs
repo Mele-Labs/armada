@@ -16,8 +16,9 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use config::{Lifecycles, PieceWritten, Rules, Workspaces};
+use config::{Autonomies, Lifecycles, PieceWritten, Rules, Workspaces};
 use core_model::{Lifecycle, ManifestId, ScopeId};
+use store::{KeptCopy, KeptPiece, PieceKind};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -29,13 +30,15 @@ pub(crate) const LIFECYCLES: &str = "lifecycles";
 pub(crate) const RULES: &str = "rules";
 /// The folder Workspaces are kept in, in the same two places.
 pub(crate) const WORKSPACES: &str = "workspaces";
+/// The folder autonomy defaults are kept in, in the same two places.
+pub(crate) const AUTONOMY: &str = "autonomy";
 /// What a piece file may be written as, the same set a workflow's is.
 const EXTENSIONS: &[&str] = &["json", "yml", "yaml"];
 
 /// Every piece file in `folder`, by name. A folder that is not there holds none, and a file that
 /// will not read is skipped: a person cannot be told what is not readable except as a file that
 /// did not fit, and that sentence needs text.
-fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
+pub(crate) fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };
@@ -66,7 +69,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Where Kit keeps a kind of piece on this Mac.
-    fn kit_pieces(&self, kind: &str) -> PathBuf {
+    pub(crate) fn kit_pieces(&self, kind: &str) -> PathBuf {
         PathBuf::from(&self.host().kit_home).join(kind)
     }
 
@@ -110,6 +113,71 @@ where
         let written = self.pieces_written(&served, &workspaces, RULES);
         let running: Vec<&Lifecycle> = lifecycles.running().collect();
         Ok(Rules::applying_to(served.manifest().id(), &workspaces, &running, written))
+    }
+
+    /// The autonomy defaults that apply to one repository: Kit's and the repository's own, and those
+    /// a Workspace's home scopes to it, the narrower laid over the wider.
+    pub fn autonomy_applying_to(&self, repository: &ManifestId) -> Result<Autonomies, Refusal> {
+        let served = self.repositories().serving(repository.as_str()).ok_or_else(|| {
+            self.refusal(Adrift::NoSuchManifest {
+                named: repository.as_str().to_string(),
+                held: self.held_manifests(),
+            })
+        })?;
+        let workspaces = self.workspaces_read();
+        let written = self.pieces_written(&served, &workspaces, AUTONOMY);
+        Ok(Autonomies::applying_to(served.manifest().id(), &workspaces, written))
+    }
+
+    /// What a Job in `repository` freezes when it starts: the text of each lifecycle file and each
+    /// rule that applies, and the autonomy defaults laid over each other. **The text, and not the
+    /// parsed value**, so what a Job keeps is what was written then. The four lifecycles Armada
+    /// carries are not files and are not kept: they are the same for every Job.
+    pub(crate) fn job_copy_for(&self, repository: &str) -> Result<KeptCopy, Refusal> {
+        let served = self.repositories().serving(repository).ok_or_else(|| {
+            self.refusal(Adrift::NoSuchManifest {
+                named: repository.to_string(),
+                held: self.held_manifests(),
+            })
+        })?;
+        let workspaces = self.workspaces_read();
+        let id = served.manifest().id();
+        let text_of = |written: &[PieceWritten], path: &Path| {
+            written.iter().find(|one| one.path() == path).map(|one| one.text().to_string()).unwrap_or_default()
+        };
+        let mut pieces = Vec::new();
+
+        let written = self.pieces_written(&served, &workspaces, LIFECYCLES);
+        let lifecycles = Lifecycles::applying_to(id, &workspaces, written.clone());
+        for file in lifecycles.files().iter().filter(|file| file.overridden_by().is_none()) {
+            let Some(path) = file.path() else { continue };
+            pieces.push(KeptPiece {
+                kind: PieceKind::Lifecycle,
+                piece_id: file.lifecycle().id().as_str().to_string(),
+                path: path.display().to_string(),
+                text: text_of(&written, path),
+            });
+        }
+
+        let written = self.pieces_written(&served, &workspaces, RULES);
+        let running: Vec<&Lifecycle> = lifecycles.running().collect();
+        let rules = Rules::applying_to(id, &workspaces, &running, written.clone());
+        for file in rules.files().iter().filter(|file| file.overridden_by().is_none()) {
+            pieces.push(KeptPiece {
+                kind: PieceKind::Rule,
+                piece_id: file.rule().id().as_str().to_string(),
+                path: file.path().display().to_string(),
+                text: text_of(&written, file.path()),
+            });
+        }
+
+        let written = self.pieces_written(&served, &workspaces, AUTONOMY);
+        let autonomy = Autonomies::applying_to(id, &workspaces, written)
+            .defaults()
+            .iter()
+            .map(|(kind, autonomy)| (kind.as_wire().to_string(), autonomy.as_wire().to_string()))
+            .collect();
+        Ok(KeptCopy { pieces, autonomy })
     }
 
     /// The files of one kind of piece `served` reads: Kit's, its own, and its Workspaces' homes'.

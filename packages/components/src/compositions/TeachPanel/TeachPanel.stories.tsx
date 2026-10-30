@@ -16,6 +16,7 @@ const meta: Meta<typeof TeachPanel> = {
     stage: "writing",
     onReach: fn(),
     onTeach: fn(),
+    onRule: fn(),
     onChange: fn(),
     onSave: fn(),
   },
@@ -157,5 +158,41 @@ export const LayoutChange: Story = {
   play: async ({ canvasElement }) => {
     const layout = within(canvasElement).getByRole("region", { name: "Layout" });
     await expect(within(layout).getByText("Branch column")).toBeVisible();
+  },
+};
+
+/** A lifecycle rule read from a pull request: When, If and Do change in place, and what Fleet cannot test is one line under it. */
+export const Rule: Story = {
+  args: {
+    source: { kind: "pull_request", text: "#2712 Pin the clock" },
+    say: "When this is approved, move its tickets to Done",
+    stage: "shown",
+    reading: {
+      rule: {
+        rule: {
+          id: "move_its_tickets_to_done",
+          name: "Move its tickets to Done",
+          scope: { kind: "within", id: "armada" },
+          when: { kind: "enters", lifecycle: "pull_request", state: "approved" },
+          conditions: [],
+          does: [{ what: { act: "tracker_move", to: "done", target: { among: { kind: "linked_from", lifecycle: "ticket" } } }, kind: "tracker_write", autonomy: "asks" }],
+          autonomy: "asks",
+          on_failure: { retries: 2, then: "ask_owner" },
+        },
+        lifecycles: [
+          { id: "ticket", name: "Ticket", kind: "tracker", states: [{ id: "todo", label: "To do" }, { id: "done", label: "Done" }] },
+          { id: "pull_request", name: "Pull request", kind: "forge", states: [{ id: "ready", label: "Ready" }, { id: "approved", label: "Approved" }] },
+        ],
+        steps: [],
+        workflows: [],
+        untestable: "Fleet cannot test: the build is green",
+      },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const rule = within(canvasElement).getByRole("region", { name: "Rule" });
+    await expect(within(rule).getByText("Fleet cannot test: the build is green")).toBeVisible();
+    await userEvent.click(within(rule).getByText("Acts", { exact: true }));
+    await expect(args.onRule).toHaveBeenCalledTimes(1);
   },
 };

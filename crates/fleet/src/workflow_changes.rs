@@ -24,7 +24,7 @@ use core_model::{Component, Envelope, FieldValue, Level};
 use config::ResolvedWorkflow;
 use ipc::{
     ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, ManifestId, ProposeNewWorkflow,
-    ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SendSessionMessage, SessionId, StartSession, StepId,
+    ProposeToArmada, ProposeWorkflowChange, SaveWorkflow, SendBackWorkflowChange, SendSessionMessage, SessionId, StartSession, StepId,
     SuggestWorkflowChange, WireError, WireValue, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
     WorkflowId, WorkflowScope, WorkflowSupportBuilding,
 };
@@ -38,6 +38,8 @@ use crate::workflow_page::IS_ARMADAS;
 
 /// The words or the notes or the definition are blank. A 422.
 const EMPTY: &str = "fleet.workflow_change_empty";
+/// A Job proposed text that is what the file holds already. A 422.
+const UNCHANGED: &str = "fleet.workflow_change_unchanged";
 /// No model could be asked. A 422.
 const NO_AGENT: &str = "fleet.workflow_change_no_agent";
 /// The definition has no such step. A 422.
@@ -49,15 +51,15 @@ const NOTHING_DRIFTED: &str = "fleet.workflow_nothing_drifted";
 /// Fleet kept no change by that id. A 404.
 const NO_SUCH_CHANGE: &str = "fleet.no_such_workflow_change";
 /// The change is not ready to approve. A 409.
-const NOT_READY: &str = "fleet.workflow_change_not_ready";
+pub(crate) const NOT_READY: &str = "fleet.workflow_change_not_ready";
 /// The file no longer holds what the change was made from. A 409.
-const CHANGED_SINCE: &str = "fleet.workflow_changed_since";
+pub(crate) const CHANGED_SINCE: &str = "fleet.workflow_changed_since";
 /// The change is drafting or settled, so it cannot be sent back. A 409.
 const NOT_SENDABLE: &str = "fleet.workflow_change_not_sendable";
 /// Only a change Armada can't make yet is built for. A 409.
 const NOT_BUILDABLE: &str = "fleet.workflow_change_not_buildable";
 /// The change is settled already. A 409.
-const SETTLED: &str = "fleet.workflow_change_settled";
+pub(crate) const SETTLED: &str = "fleet.workflow_change_settled";
 /// Fleet does not serve Armada's own repository. A 422.
 const ARMADA_NOT_SERVED: &str = "fleet.workflow_armada_not_served";
 /// The store would not answer. A 500.
@@ -207,10 +209,74 @@ where
         drop(store);
         // Fleet raises the owner's call itself, on the Job the connection places; no caller, no call.
         if let Some(job) = api::asking().and_then(|caller| self.session_holding(&caller)) {
-            self.proposal_waits(&job, id, &kept.workflow_id, &definition).await;
+            self.proposal_waits(&job, id, &kept.workflow_id, &definition, None).await;
         }
         // Read as the listing reads it, so the answer and the list carry the same steps.
         Ok(self.change_read(&served, &kept))
+    }
+
+    /// `propose_workflow_change`: a Job proposes new text for a workflow that exists in `source`, for every
+    /// Job. It waits on the owner's Approve like a drafted change, and nothing is written before.
+    pub(crate) async fn workflow_change_proposed(
+        &self,
+        proposed: ProposeWorkflowChange,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<WorkflowChange, Refusal> {
+        if proposed.definition.trim().is_empty() {
+            return Err(self.change_blank("The definition is blank; there is nothing to propose"));
+        }
+        let served = self.served_named(manifest_id.as_ref())?;
+        let job = api::asking().and_then(|caller| self.session_holding(&caller));
+        self.workflow_proposed(&served, job.as_deref(), proposed.workflow_id.as_str(), proposed.source.trim(), &proposed.definition, false).await
+    }
+
+    /// Keep `after` as the owner's to approve for `workflow` in `source`, and raise his call on `job`. **The
+    /// text is checked as a save would check it**, replacing the file. A place that holds no file of that id is
+    /// refused unless `new_allowed`, which is where Armada carries the workflow and the repository does not yet.
+    pub(crate) async fn workflow_proposed(
+        &self,
+        served: &Served,
+        job: Option<&str>,
+        workflow: &str,
+        source: &str,
+        after: &str,
+        new_allowed: bool,
+    ) -> Result<WorkflowChange, Refusal> {
+        let after = after.trim().to_string();
+        let before = match self.copy_text(served, workflow, source) {
+            Ok(before) => before,
+            Err(_) if new_allowed && source != "armada" => String::new(),
+            Err(refusal) => return Err(refusal),
+        };
+        self.check_workflow_file(&SaveWorkflow { scope: scope_of(source), definition: after.clone(), overwrite: true }, served)?;
+        let roster = config::Roster::of(self.models_on());
+        let path = Path::new("workflow.json");
+        let proposed = config::WorkflowDef::parse(path, &after, &roster)
+            .map_err(|why| Refusal::Unacceptable(WireError::raised(EMPTY, why.to_string(), self.run_id())))?;
+        if proposed.id().as_str() != workflow {
+            return Err(self.change_blank(&format!("The `workflow_id` is `{}`, and it must stay `{workflow}`", proposed.id().as_str())));
+        }
+        if config::WorkflowDef::parse(path, &before, &roster).is_ok_and(|held| held == proposed) {
+            return Err(Refusal::Unacceptable(WireError::raised(
+                UNCHANGED,
+                format!("`{workflow}` from {source} already reads this way, so there is nothing to approve"),
+                self.run_id(),
+            )));
+        }
+        let at = self.now();
+        let mut store = self.store().lock().await;
+        let id = store
+            .begin_proposed_workflow_change(served.manifest().id().as_str(), workflow, source, &before, &after, at.as_str())
+            .map_err(|why| self.change_not_kept(why))?;
+        let kept = store
+            .workflow_change(id)
+            .map_err(|why| self.change_not_kept(why))?
+            .ok_or_else(|| self.change_not_kept("the change was not there to read"))?;
+        drop(store);
+        if let Some(job) = job {
+            self.proposal_waits(job, id, workflow, &after, Some(before).filter(|before| !before.is_empty())).await;
+        }
+        Ok(self.change_read(served, &kept))
     }
 
     /// Ask for new words for one step, now.
@@ -425,7 +491,7 @@ where
             return Err(self.change_blank("The notes are blank; say what was wrong with the draft"));
         }
         let kept = self.change_held(back.change).await?;
-        if kept.is_new {
+        if kept.is_new || kept.from_job {
             return Err(Refusal::IllegalMove(WireError::raised(
                 NOT_SENDABLE,
                 format!("change {} is a proposed workflow, which is approved or dismissed and not sent back", kept.id),
@@ -600,7 +666,8 @@ where
 
     async fn change_held(&self, id: i64) -> Result<KeptWorkflowChange, Refusal> {
         let kept = self.store().lock().await.workflow_change(id).map_err(|why| self.change_not_kept(why))?;
-        kept.ok_or_else(|| {
+        // A rule or a lifecycle a Job proposed is held in the same row, and is approved from the Job's draft.
+        kept.filter(|one| one.piece.is_empty()).ok_or_else(|| {
             Refusal::NotFound(WireError::raised(NO_SUCH_CHANGE, format!("no change {id} is kept"), self.run_id()))
         })
     }
@@ -772,8 +839,8 @@ where
             id: StepId::carried(steps[at].id.clone()),
             label: steps[at].label.clone(),
             instructions: steps[at].instructions.clone(),
-            ends_when: ends_when(&steps, at).map(str::to_string),
-            ends_any: ends_any(&steps, at).into_iter().map(str::to_string).collect(),
+            ends_when: ends_when(&steps, at),
+            ends_any: ends_any(&steps, at),
             passed_over_when: passed_over_when(&steps[at]).map(str::to_string),
         });
         Some(read.collect())
@@ -844,6 +911,7 @@ fn change_wire(kept: &KeptWorkflowChange) -> WorkflowChange {
         _ => ChangeState::Failed,
     };
     let origin = match &kept.asked {
+        _ if kept.from_job => ChangeOrigin::Job,
         _ if kept.is_new => ChangeOrigin::New,
         Some(text) => ChangeOrigin::Asked { text: text.clone() },
         None => ChangeOrigin::Drift { nudges: kept.nudges.clone() },

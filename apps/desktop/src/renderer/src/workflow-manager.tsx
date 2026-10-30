@@ -32,6 +32,8 @@ import {
 } from "./commands";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { IssueJobCard } from "./issues-tab/marks";
+import { useFleetWorkspace } from "./lifecycle-editing/use-fleet-workspace";
+import type { PiecesApi } from "./lifecycle-editing/fleet-pieces";
 import { askToOpenSessionInCockpit } from "./open-session";
 import { useSessions } from "./sessions-draft";
 import { useLanePanel } from "./shared-panel/store";
@@ -52,6 +54,9 @@ const POLL_MS = 1000;
 
 /** How long an agent takes over a change to the Workspace's rules, which the mock draws up itself. */
 const RULING_MS = 1200;
+
+/** The calls the lanes make for the lifecycles and rules Fleet keeps. */
+const piecesApi = (): PiecesApi => window.armada;
 
 /** What was read of one copy: its steps, the Jobs Fleet nudged at them, and the line it says it is for. */
 type Read = { steps: readonly ManagedStep[]; drift: Readonly<Record<string, readonly DriftedJob[]>>; forRequests: string };
@@ -90,8 +95,8 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const [notice, setNotice] = useState<string | undefined>(undefined);
   // The Jobs the window holds, so a Job a press started is drawn as the shared Job card once Fleet lists it.
   const sessions = useSessions();
-  // The Workspace the lanes are drawn in, where the window holds one, and a change to its rules an agent has drawn up.
-  const workspace = useWorkspaceHeld();
+  // The Workspace the lanes are drawn in: a scenario's, else the lifecycles and rules Fleet keeps for this repository. A change to its rules an agent has drawn up is the scenario's.
+  const seeded = useWorkspaceHeld();
   const lanePanel = useLanePanel();
   const [ruled, setRuled] = useState<AgentState | undefined>(undefined);
   const ruling = useRef<number | undefined>(undefined);
@@ -112,6 +117,9 @@ function Held({ current, repository, root, served }: { current: string | null; r
   );
 
   const rows = useMemo((): readonly Listed[] => (listed === null || !listed.ok ? [] : listedOf(listed.workflows, listed.leftOut, current)), [listed, current]);
+  const workflowIds = useMemo(() => [...new Set(rows.map((one) => one.id))], [rows]);
+  const fleet = useFleetWorkspace(piecesApi, current, served, workflowIds, seeded === undefined);
+  const workspace = seeded ?? fleet?.held;
   const workflows = useMemo(
     (): readonly ManagedWorkflow[] =>
       rows.map((row) => {
@@ -239,6 +247,20 @@ function Held({ current, repository, root, served }: { current: string | null; r
     })();
   };
 
+  /** What the editor needs of the pieces Fleet keeps: that they are pieces, whether they can be saved, and where each is committed from. */
+  const kept = (held: NonNullable<typeof fleet>) => ({
+    pieces: true as const,
+    ...(held.readOnly ? { readOnly: true as const } : {}),
+    lands: held.lands,
+    canConnect: held.canConnect,
+    pending: held.pending,
+    pieceActs: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => {
+      const found = held.pieceAt(pick, tab);
+      const at = found === undefined ? undefined : (served.find((one) => one.manifestId === found.home)?.root ?? root);
+      return found === undefined || at === undefined || at === null ? null : <PieceActs key={`${pick.kind}/${pick.id}/${tab}`} commitOnly icons repository={at} piece={found.piece} />;
+    },
+  });
+
   return (
     <WorkflowManager
       repository={repository}
@@ -250,7 +272,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
         onSwitch: (workflowId, on) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, current)),
       }}
       workflows={workflows}
-      notice={notice}
+      notice={notice ?? fleet?.notice}
       drift={picked === null ? {} : { [picked.id]: readOfPicked?.drift ?? {} }}
       picked={picked}
       onPick={(one) => {
@@ -259,7 +281,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
         open(one, armadaOf(rows, one.id));
       }}
       agent={ruled ?? agentOf(changes, known)}
-      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onChange: workspace.change, panel: lanePanel, onSteps: writeSteps } })}
+      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onChange: workspace.change, panel: lanePanel, onSteps: writeSteps, ...(seeded === undefined && fleet !== undefined ? kept(fleet) : {}) } })}
       suggestions={picked === null ? {} : { [picked.id]: suggestions }}
       suggesting={suggesting}
       actsFor={(one) => {

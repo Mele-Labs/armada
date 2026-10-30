@@ -13,9 +13,13 @@ const checksSaid = (checks: Checks) =>
   checks.state === "failed" ? `Checks failed: ${checks.failing}` : checks.state === "pending" ? "Checks running" : "Checks passed";
 
 /** The pull request that stands for a child: the open one, else the last it merged. */
-function prOf(child: Session): LinkedSessionProps["pr"] {
+export function pullOf(child: Session) {
   const all = attachmentsOf(child, "pull_request");
-  const one = all.find((pr) => pr.state !== "merged") ?? all.at(-1);
+  return all.find((pr) => pr.state !== "merged") ?? all.at(-1);
+}
+
+function prOf(child: Session): LinkedSessionProps["pr"] {
+  const one = pullOf(child);
   if (one === undefined) return undefined;
   return {
     number: one.number,

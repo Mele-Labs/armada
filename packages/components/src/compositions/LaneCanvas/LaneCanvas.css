@@ -64,6 +64,17 @@
   white-space: nowrap;
 }
 
+/* A lifecycle this Job's own copy changed: the comparison's glyph in the waiting hue, on the head's corner. */
+.armada-lane__changed {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: grid;
+  place-items: center;
+  color: var(--status-awaiting-review);
+  cursor: default;
+}
+
 .armada-lane__source {
   overflow: hidden;
   color: var(--fg-subtle);
@@ -73,6 +84,33 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* A lifecycle's head is a button where the lanes are edited: it picks the lifecycle, and its frame says so. */
+.armada-lane__pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.armada-lane__pick:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+.armada-lane__head[data-picked] { box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); }
+
+.armada-lane__pending {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-flex;
+  color: var(--fg-subtle);
+}
+/* Beside a removal that waits, a change on this Job stands to its left. */
+.armada-lane__pending + .armada-lane__changed { right: calc(var(--space-1) + var(--space-4)); }
 
 /* ---- A step or a state ------------------------------------------------------------------------------------------- */
 
@@ -243,8 +281,13 @@
   --ground: color-mix(in srgb, var(--status-awaiting-review) 10%, var(--bg-raised));
 }
 .armada-lane-item[data-waiting] .armada-lane-item__sub { color: var(--status-awaiting-review); }
+/* One sentence for each end the step has not had, each on its own line. */
+.armada-lane-item__sub > span { display: block; }
 .armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
 .armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
+/* Where an instance stood when ending the Job ended it: no hue, and not struck through, since nothing was left out. */
+.armada-lane-item[data-ended] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
+.armada-lane__head[data-ended] .armada-lane__title { color: var(--fg-subtle); }
 
 /* A state this Job's own copy changed: a dashed frame in the waiting hue and the comparison's glyph on its corner. */
 .armada-lane-item[data-changed] .armada-lane-item__main { border-style: dashed; --frame: var(--status-awaiting-review); }
@@ -307,6 +350,7 @@
 .armada-lane-edge[data-tone="acted"] { --hue: var(--step-advanced); }
 .armada-lane-edge[data-tone="asked"] { --hue: var(--status-awaiting-review); }
 .armada-lane-edge[data-tone="waiting"] .armada-lane-edge__line,
+.armada-lane-edge[data-tone="skipped"] .armada-lane-edge__line,
 .armada-lane-edge[data-tone="proposed"] .armada-lane-edge__line { stroke-dasharray: var(--space-2) var(--space-1); }
 .armada-lane-edge[data-tone="proposed"] { --hue: var(--step-advanced); }
 .armada-lane-edge[data-autonomy="off"] { --hue: var(--border-strong); }
@@ -315,6 +359,9 @@
 .armada-lane-surface .armada-lane-edge[data-picked] .armada-lane-edge__line { stroke-width: calc(var(--border-width) * 2.5); }
 
 /* ---- A rule's chip, on its edge ------------------------------------------------------------------------------------ */
+
+/* The canvas draws in the lanes' own area: what a pan leaves under the heads, a chip or a line included, is cut at their edge. */
+.armada-lane-canvas .react-flow__renderer { clip-path: inset(0 0 0 var(--lane-head)); }
 
 /* The chips are drawn in React Flow's label layer, which sits before the nodes in the document: lifted above them, a chip over a node is still pressable. */
 .armada-lane-surface .react-flow__edgelabel-renderer { z-index: 5; }
@@ -375,9 +422,12 @@
 .armada-lane-chip[data-quiet] .armada-lane-chip__diamond polygon { fill: var(--bg-raised); }
 .armada-lane-chip[data-tone="proposed"] .armada-lane-chip__diamond polygon,
 .armada-lane-chip[data-tone="waiting"] .armada-lane-chip__diamond polygon,
+.armada-lane-chip[data-tone="skipped"] .armada-lane-chip__diamond polygon,
 .armada-lane-chip[data-needs] .armada-lane-chip__diamond polygon { stroke-dasharray: var(--space-1) var(--space-1); }
 .armada-lane-chip__mark { position: relative; flex: none; color: var(--hue); }
 .armada-lane-chip__differs { flex: none; color: var(--fg-muted); }
+/* A rule this Job's own copy changed: the comparison's glyph in the waiting hue, as a changed state wears it. */
+.armada-lane-chip__changed { flex: none; color: var(--status-awaiting-review); }
 /* A rule waiting on the person wears the waiting hue, as a row that needs them does. */
 .armada-lane-chip[data-needs] { --hue: var(--status-awaiting-review); }
 .armada-lane-chip__meta {

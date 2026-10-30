@@ -44,6 +44,13 @@ export type SessionWait = {
   /** The title of the group or task a `group_done` or `task_done` condition names, as the plan of the Session waited on has it now. */
   part_title?: string;
   by: WaitBy;
+  /** Once the condition is met its first message waits for the person (a draft). `false` is approved: it starts at once. */
+  held: boolean;
+  /** The workflow id it starts under; absent is a custom Job. */
+  workflow?: string;
+  /** The model and effort it starts on; absent is the machine's own. */
+  model?: string;
+  effort?: string;
 };
 
 /** `POST /sessions/read_wait`: the proposer reads a brief that tags `session_id` for the wait it names. Answers `WaitReading`. */
@@ -59,7 +66,17 @@ export type WaitReading = { condition: StartCondition; base: StartBase; needs?: 
  * `POST /sessions/change_waiting`: when a waiting Session starts, or where from. The agent of the Session waited on
  * changes a Session that waits on it; Bridge's call changes any. Answers the `SessionWait` as it now stands.
  */
-export type ChangeWaiting = { waiting_session: string; condition?: StartCondition; base?: StartBase };
+export type ChangeWaiting = {
+  waiting_session: string;
+  condition?: StartCondition;
+  base?: StartBase;
+  /** The person's approval: `false` starts it at once when the condition is met, `true` opens it as a draft. Refused from an agent. */
+  held?: boolean;
+  /** What it starts on; an empty string clears the pick. Refused from an agent. */
+  workflow?: string;
+  model?: string;
+  effort?: string;
+};
 
 /** `POST /sessions/start_waiting`: start a waiting Session at once, whatever its condition. Answers `SessionRecord`. */
 export type StartWaitingNow = { session_id: string };

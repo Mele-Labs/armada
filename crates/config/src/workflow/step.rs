@@ -21,6 +21,7 @@ use core_model::{
 };
 use serde_yaml_ng::Value;
 
+use super::ends;
 use super::mechanical::{self, MechanicalCheck};
 use crate::error::{Fault, Refusal};
 use crate::judge;
@@ -107,16 +108,6 @@ const PHASE_CARRIED: &[(&str, StepPhase)] = &[
     ("delivery", StepPhase::Delivery),
 ];
 const PHASE_LEGAL: &[&str] = &["setup", "work", "delivery"];
-
-/// `ends_on`'s words, all carried.
-const ENDS_CARRIED: &[(&str, StepEnd)] = &[
-    ("replied", StepEnd::Replied),
-    ("walk_approved", StepEnd::WalkApproved),
-    ("sketch_approved", StepEnd::SketchApproved),
-    ("draft_approved", StepEnd::DraftApproved),
-    ("idea_picked", StepEnd::IdeaPicked),
-];
-const ENDS_LEGAL: &[&str] = &["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked"];
 
 /// The whole of the `evidence` block, and of the `submitted` object inside it.
 const EVIDENCE_KEYS: &[&str] = &["submitted", "captured", "walked"];
@@ -341,7 +332,7 @@ impl Step {
         self.walks
     }
 
-    /// What the person does that ends the step, any one of them: `ends_on`, with `awaits_reply:
+    /// What ends the step, any one of them: `ends_on`, with `awaits_reply:
     /// true` read as `replied`. **Empty where the file writes neither.** `workflowdef-fields.toml`.
     pub fn ends_on(&self) -> &[StepEnd] {
         &self.ends_on
@@ -472,13 +463,7 @@ pub(super) fn read(
     let ends_key = table.at("ends_on");
     let ends_on = match table.optional("ends_on") {
         None => Some(Vec::new()),
-        Some(value) => yaml::list(&ends_key, value, out).and_then(|items| {
-            let read: Vec<Option<StepEnd>> = items
-                .iter()
-                .map(|(key, item)| yaml::word(key, item, ENDS_CARRIED, ENDS_LEGAL, ENDS_LEGAL, out))
-                .collect();
-            read.into_iter().collect::<Option<Vec<StepEnd>>>()
-        }),
+        Some(value) => ends::read(&ends_key, value, out),
     };
     // `awaits_reply: true` is `replied`, so the two spellings are one list, in the order written.
     let ends_on = ends_on.zip(awaits_reply).map(|(listed, awaits)| {
@@ -617,6 +602,10 @@ pub(super) fn read(
             },
         ));
     }
+    // A lifecycle end on a step that something else places would be read by nothing. **A delivering step is
+    // not one**: the end gates its merge.
+    let placed = ends::Placed { walks: walks == Some(true), follows_plan: follows_plan == Some(true), records_plan: is_plan_step };
+    out.extend(ends::placed(&ends_key, ends_on.as_deref().unwrap_or_default(), placed));
     table.close(STEP_KEYS, out);
     if disagrees
         || drafts_nothing

@@ -116,6 +116,11 @@ impl Rule {
             }
         }
         for act in &self.does {
+            if let Act::StartWatch { deploy: Some(_), .. } = act {
+                if let Ok(deploy) = LifecycleId::new("deploy") {
+                    named.push((deploy, None));
+                }
+            }
             let Some(Target { among, in_state }) = act.target() else { continue };
             let Some(lifecycle) = among.lifecycle(entered) else { continue };
             named.push((lifecycle.clone(), in_state.clone()));

@@ -51,6 +51,22 @@ enum Set<'a> {
         #[serde(skip_serializing_if = "Option::is_none")]
         draft: Option<&'a str>,
     },
+    Workflow {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        workflow: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        workflow_step: Option<u32>,
+        skipped_steps: &'a [u32],
+    },
+    Copy {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        workflow: Option<&'a str>,
+        own: bool,
+        steps: Vec<&'a str>,
+        lifecycles: Vec<&'a str>,
+        rules: Vec<&'a str>,
+        changes: Vec<&'a str>,
+    },
     Done {
         done: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -224,6 +240,32 @@ impl<'a> Receipt<'a> {
             .find(|item| item.text == draft.title.trim())
             .map(|item| item.id.as_str());
         Receipt::of(record, Set::Drafted { draft: drafted })
+    }
+
+    /// The workflow the Job follows and the steps skipped, after either was set.
+    pub(crate) fn workflow(record: &'a SessionRecord) -> Self {
+        let set = Set::Workflow {
+            workflow: record.workflow.as_deref(),
+            workflow_step: record.workflow_step,
+            skipped_steps: &record.skipped_steps,
+        };
+        Receipt::of(record, set)
+    }
+
+    /// The Job's copy as ids and one line each change: the text of a piece is the Job's to ask for with
+    /// `get_job_copy`, so it is not said again here.
+    pub(crate) fn copy(copy: &'a ipc::JobCopy) -> Self {
+        Receipt {
+            session_id: copy.session_id.as_str(),
+            set: Set::Copy {
+                workflow: copy.workflow.as_ref().map(|workflow| workflow.as_str()),
+                own: copy.own,
+                steps: copy.steps.iter().map(|step| step.id.as_str()).collect(),
+                lifecycles: copy.lifecycles.iter().map(|piece| piece.id.as_str()).collect(),
+                rules: copy.rules.iter().map(|piece| piece.id.as_str()).collect(),
+                changes: copy.changes.iter().map(|change| change.text.as_str()).collect(),
+            },
+        }
     }
 
     pub(crate) fn done(record: &'a SessionRecord) -> Self {

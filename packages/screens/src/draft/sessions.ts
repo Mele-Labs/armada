@@ -15,7 +15,7 @@ import type { AdversarialReviewState } from "@armada/components/src/compositions
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
 import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
@@ -263,6 +263,21 @@ export type SessionWorkActs = {
   judge?: (id: string) => Promise<void>;
 };
 
+/**
+ * The acts on a Job's own copy of its workflow, lifecycles and rules, from the Job's lanes. A change applies to that Job at once and the lanes mark it. **Each answers
+ * Fleet's words where it refused, and nothing where it took it**, so the form that asked can say why it did not close.
+ */
+export type JobCopyActs = {
+  /** Adds, moves, rewords or drops a step of the Job's workflow. */
+  step: (id: string, change: StepChange) => Promise<string | undefined>;
+  /** Puts a lifecycle or a rule in the copy from the whole file, which names its own id; with no text, takes the one named out. */
+  piece: (id: string, kind: "lifecycle" | "rule", piece: string, text: string | undefined) => Promise<string | undefined>;
+  /** Proposes the Job's workflow for every Job. It waits on Approve on the Workflows page. */
+  keep: (id: string) => Promise<string | undefined>;
+  /** Proposes one rule or lifecycle the Job changed for every Job, as a file in Kit within the Job's repository. It waits on Approve on the Job's draft. */
+  keepPiece: (id: string, kind: "lifecycle" | "rule", piece: string) => Promise<string | undefined>;
+};
+
 /** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 
@@ -455,6 +470,13 @@ export type SessionWait = {
   needs: string;
   /** The words it was dispatched with, which it starts on. */
   brief: string;
+  /** What happens once the condition is met: absent or true opens it as a draft (held); false is Approved, which starts it at once. */
+  held?: boolean;
+  /** The workflow it starts under, by id; absent is the proposer's. */
+  workflow?: string;
+  /** The model and effort it starts on; absent is the default. */
+  model?: string;
+  effort?: string;
   /** Who last set the condition. */
   by: "you" | "agent";
 };
@@ -854,6 +876,10 @@ export type SessionsDraft = {
   startWhen?: (id: string, when: StartWhen, part?: { id: string; title: string }) => void;
   /** Starts a waiting Session now, whatever its condition. The Session it waits on is told. Absent with `startWhen`. */
   startNow?: (id: string) => void;
+  /** Sets whether a waiting Session opens as a draft (`held`) when its condition is met; not held is Approved, which starts it at once. Absent where nothing serves it. */
+  startThen?: (id: string, held: boolean) => void;
+  /** Sets the workflow, model and effort a waiting Session starts on; a key left out is unchanged and `null` clears it. Absent with `startThen`. */
+  startTuning?: (id: string, tuning: { workflow?: string | null; model?: string | null; effort?: string | null }) => void;
   /** Ideas saved to start later, oldest first. Absent where nothing serves them, and Dispatch offers no Queue for later. */
   queued?: () => readonly QueuedIdea[];
   /** Saves an idea without starting it. Absent with `queued`. */
@@ -1081,6 +1107,8 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
+  /** The acts on a Job's own copy of its workflow, lifecycles and rules. Absent where nothing serves them, and the lanes offer none. */
+  copy?: JobCopyActs;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => void;
 };

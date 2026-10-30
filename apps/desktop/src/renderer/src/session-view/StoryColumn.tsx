@@ -14,7 +14,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
-import { Button, TaskMark, Tooltip, waitingSaid, type LedgerEntry } from "@armada/components";
+import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import { owesOf, type AgentTask, type Session, type SessionTodo, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
 
@@ -134,8 +134,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
   // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
-  const lanes = session.lanes?.job;
-  const waiting = lanes === undefined ? undefined : waitingSaid(lanes, lanes.copy.lifecycles);
+  const waiting = session.lanes?.job.waiting;
   // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
   // Fleet holds the live list in memory only; after a restart the build record's copy stands in until the agent next changes it.
   const reported = session.activity?.todos ?? [];
@@ -241,7 +240,9 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           line={working.length === 0 ? now : undefined}
         />
         {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
-        {waiting === undefined ? null : <WaitBeat text={waiting} />}
+        {(waiting ?? []).map((said) => (
+          <WaitBeat key={said} text={said} />
+        ))}
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}

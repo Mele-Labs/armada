@@ -4,7 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { LaneCanvas } from "./LaneCanvas";
 import type { LanePick } from "./LaneCanvas";
-import { editorLanes } from "./build";
+import { editorLanes, jobLanes } from "./build";
 import { DEFAULT } from "./model";
 import type { Workspace } from "./model";
 
@@ -136,5 +136,36 @@ export const BesideAPanel: Story = {
     const edge = panel.getBoundingClientRect().left;
     await waitFor(() => expect(node.getBoundingClientRect().right).toBeLessThanOrEqual(edge));
     await expect(toolbar.getBoundingClientRect().right).toBeLessThanOrEqual(edge);
+  },
+};
+
+/** A Job's ticket: its lane head is a button, and its menu offers Teach (the ContextMenu key here, as the right press does with a pointer). */
+function Taught({ onTeach }: { onTeach: (title: string) => void }) {
+  const { lanes, rules } = jobLanes(
+    {
+      workspace: "my-store",
+      copy: {
+        steps: [{ id: "build", label: "Build", col: 0 }, { id: "ship", label: "Ship", col: 1 }],
+        lifecycles: [{ id: "ticket", label: "Ticket", from: "Tracker", kind: "tracker", states: [{ id: "todo", label: "To do", reads: [], col: 0 }, { id: "done", label: "Done", reads: [], col: 1, end: true }], next: [["todo", "done"]] }],
+        rules: [],
+      },
+      instances: [{ id: "ticket:ARM-41", lifecycle: "ticket", label: "ARM-41", state: "todo", visited: ["todo"] }],
+      fired: [],
+      changes: [],
+    },
+    { at: 0, workflow: "feature", working: true },
+  );
+  return <LaneCanvas label="Workflow" lanes={lanes} rules={rules} onTeach={(lane) => onTeach(lane.title)} />;
+}
+
+export const TeachOnATicket: StoryObj<typeof Taught> = {
+  render: (args) => <Taught {...args} />,
+  args: { onTeach: fn() },
+  play: async ({ canvasElement, args }) => {
+    const head = await within(canvasElement).findByRole("button", { name: "Ticket ARM-41" });
+    head.focus();
+    await userEvent.keyboard("{ContextMenu}");
+    await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Teach" }));
+    await expect(args.onTeach).toHaveBeenCalledWith("ARM-41");
   },
 };

@@ -34,6 +34,8 @@ export const NOTICES = [
   "issue_lost",
   "document_sketch",
   "task_marked",
+  "lifecycle_rule",
+  "lifecycles_clear",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

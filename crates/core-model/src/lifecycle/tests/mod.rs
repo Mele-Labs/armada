@@ -1,6 +1,7 @@
 //! Tests of the lifecycle vocabulary. None needs a tracker, a forge or a Job to run.
 
 mod declaring;
+mod ends;
 mod holding;
 mod reading;
 

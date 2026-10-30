@@ -61,6 +61,7 @@ mod loadout_reading;
 mod rail;
 /// What ends each step of a workflow, derived from its anchor, for the workflow's page.
 mod rail_ends;
+mod rail_lifecycle;
 /// The repository's test paths by convention, which the rail asks about a file the agent wrote.
 mod test_paths;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
@@ -349,12 +350,15 @@ mod worktrees_kept;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
 mod wire;
+mod workflow_lifecycles;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
 /// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read
 /// from the places a piece is kept.
 mod piece_places;
+/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+mod piece_saving;
 pub mod workspaces;
 
 #[cfg(test)]

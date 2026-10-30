@@ -97,6 +97,8 @@ test('a gh command is read for the act and the number it names', () => {
   // Auto-merge only asks: nothing has merged yet.
   expect(ghAct('gh pr merge 2027 --merge --auto')).toBeUndefined()
   expect(ghAct('gh pr merge --auto --merge 2027 | tail -1')).toBeUndefined()
+  // Turning auto-merge off merges nothing either.
+  expect(ghAct('gh pr merge 3042 --disable-auto 2>&1 | tail -2')).toBeUndefined()
   expect(ghAct('gh pr close')).toEqual({ act: 'close', number: undefined })
   expect(ghAct('gh pr view 12')).toBeUndefined()
 })

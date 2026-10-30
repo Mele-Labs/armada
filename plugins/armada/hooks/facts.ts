@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.51'
+export const MOD_VERSION = '0.3.52'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -245,7 +245,8 @@ export function ghAct(command: string): GhAct | undefined {
   if (hit === null) return undefined
   // `--auto` asks the forge to merge later, or puts it in the merge queue: nothing has merged
   // yet, and Fleet's pull reading settles it when it does (#2027 read as merged, 8 Oct 2026).
-  if (hit[1] === 'merge' && /(?:^|\s)--auto(?:\s|$)/.test(hit[2])) return undefined
+  // `--disable-auto` takes that back, and merges nothing either (#3042 read as merged, 30 Oct 2026).
+  if (hit[1] === 'merge' && /(?:^|\s)--(?:disable-)?auto(?:\s|$)/.test(hit[2])) return undefined
   const number = /(?:^|\s)#?(\d+)(?:\s|$)/.exec(hit[2])?.[1]
   return { act: hit[1] as GhAct['act'], number }
 }

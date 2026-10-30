@@ -28,6 +28,7 @@
 /// Editing `armada.yml` a key at a time, every other byte left where it was.
 mod amending;
 mod applying;
+mod autonomy;
 mod catalogue;
 mod error;
 mod fields;
@@ -53,6 +54,8 @@ mod widening;
 mod workflow;
 /// A Workspace means a set of repositories here, and not the Manifest's monorepo unit.
 mod workspace;
+/// A piece as the YAML text its file holds.
+mod writing;
 mod yaml;
 
 #[cfg(test)]
@@ -63,6 +66,7 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRun, NewRunner, NotAmended, PortEdit, RunEdit, Unplaceable,
 };
 pub use applying::{LifecycleFile, Lifecycles, Rank, Reach};
+pub use autonomy::{parse as parse_autonomy, AutonomyFile, AutonomyPiece, Autonomies};
 pub use catalogue::{
     carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
     CARRIED_AT,
@@ -88,8 +92,12 @@ pub use watches::{
     Written as WatchRecipeWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{head_of, MechanicalCheck, Step, WorkflowDef, WorkflowHead};
+pub use workflow::{
+    edit_steps, head_of, names_no_lifecycle, EditFault, Edited, EndFault, MechanicalCheck, NamesNoLifecycle, NewStep, Step, StepEdit, WorkflowDef,
+    WorkflowHead,
+};
 pub use workspace::{parse_workspace, WorkspaceError, WorkspaceFile, Workspaces};
+pub use writing::piece_text;
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that

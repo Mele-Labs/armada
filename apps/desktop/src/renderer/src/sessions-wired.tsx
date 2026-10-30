@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { AnswerSketch, CallKind, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { AnswerSketch, AppliedRule, CallKind, ChangeWaiting, JobLifecycles, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -107,6 +107,15 @@ export class WiredStore {
   private readonly fetching = new Set<string>();
   /** What changed a Session's workflow, model or effort, from the timeline. */
   private events: readonly TimelineEvent[] = NONE;
+  /** What each Job holds: `get_job_lifecycles` when the Job first appeared, `job_lifecycles.changed` after. */
+  private readonly lifecyclesHeld = new Map<string, JobLifecycles>();
+  /** The Jobs a read was made for, and the ones an event has spoken for since: an older read must not land over it. */
+  private readonly lifecyclesAsked = new Set<string>();
+  private readonly lifecyclesHeard = new Set<string>();
+  /** The rules that apply to each repository, by Manifest id, which the acts a Job's rules planned are drawn on. Read when a Job holds acts. */
+  private readonly rulesHeld = new Map<string, readonly AppliedRule[]>();
+  /** Events lost so far, so a count that grew reads every Job again. */
+  private missedSeen = 0;
   /** Picks of the proposer he changed here, until the record says so too. */
   private readonly unpicked = new Map<string, ReadonlySet<ProposedField>>();
   /** Fleet's refusal of the last adversarial review pressed on a Session's plan, drawn as the review failing until the next press. */
@@ -139,15 +148,24 @@ export class WiredStore {
     const off = source.subscribe((state) => this.take(state));
     // Another window saved or started an idea: this one reads the queue again.
     const heard = hearQueuedIdeas(() => this.keepQueued(readQueuedIdeas()));
+    const lifecycles = typeof this.api.onJobLifecyclesChanged === "function" ? this.api.onJobLifecyclesChanged((held) => this.holdLifecycles(held, true)) : undefined;
     return () => {
       live = false;
       off();
       heard();
+      lifecycles?.();
     };
   }
 
   private take(state: BridgeState): void {
     const was = this.inputs;
+    // A resync follows a gap in the events, so what each Job holds is read again.
+    const gap = state.missed > this.missedSeen;
+    if (gap) {
+      this.lifecyclesAsked.clear();
+      this.lifecyclesHeard.clear();
+    }
+    this.missedSeen = state.missed;
     // Every message brings the whole state as new objects. What did not change is kept as it was, so a message about
     // one Session finds every other one the same and reads only that one.
     const next = {
@@ -161,9 +179,54 @@ export class WiredStore {
       helm: share(was?.helm, state.helm),
       workflowsOff: workflowsOffIn(state.settings),
     };
-    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.sessionWatches === next.sessionWatches && was.sessionThreadsReading === next.sessionThreadsReading && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
+    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.sessionWatches === next.sessionWatches && was.sessionThreadsReading === next.sessionThreadsReading && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) {
+      if (gap) this.readLifecycles();
+      return;
+    }
     this.inputs = next;
     this.recompute();
+    this.readLifecycles();
+  }
+
+  /** Ask for what each live Job holds, once. A Fleet too old to serve it answers a refusal, and the Job keeps no lanes. */
+  private readLifecycles(): void {
+    const read = this.inputs?.sessions;
+    if (read === undefined || read.state !== "read" || typeof this.api.getJobLifecycles !== "function") return;
+    for (const record of read.sessions) {
+      if (record.state === "ended" || record.hosted === undefined || record.helm === true || this.lifecyclesAsked.has(record.id)) continue;
+      this.lifecyclesAsked.add(record.id);
+      void this.api.getJobLifecycles(record.id).then(
+        (answer) => answer.ok && !this.lifecyclesHeard.has(record.id) && this.holdLifecycles(answer.value, false),
+        () => undefined,
+      );
+    }
+  }
+
+  /** What a Job holds, whole. A read that finds a Job holding nothing it was not known to hold changes nothing. */
+  private holdLifecycles(held: JobLifecycles, spoke: boolean): void {
+    if (spoke) this.lifecyclesHeard.add(held.session_id);
+    else if (held.instances.length === 0 && !this.lifecyclesHeld.has(held.session_id)) return;
+    this.lifecyclesHeld.set(held.session_id, held);
+    if ((held.acts?.length ?? 0) > 0) this.readRules(this.manifestOf(held.session_id));
+    this.recompute();
+  }
+
+  private manifestOf(sessionId: string): string | undefined {
+    const read = this.inputs?.sessions;
+    return read?.state === "read" ? read.sessions.find((one) => one.id === sessionId)?.manifest_id : undefined;
+  }
+
+  /** The rules of a repository as Fleet reads them now. What was drawn from is kept when the rules have not changed, so a Job is not built again for it. */
+  private readRules(manifestId: string | undefined): void {
+    if (manifestId === undefined || typeof this.api.listLifecycleRules !== "function") return;
+    void this.api.listLifecycleRules(manifestId).then(
+      (answer) => {
+        if (!answer.ok || JSON.stringify(answer.value.rules) === JSON.stringify(this.rulesHeld.get(manifestId))) return;
+        this.rulesHeld.set(manifestId, answer.value.rules);
+        this.recompute();
+      },
+      () => undefined,
+    );
   }
 
   private recompute(): void {
@@ -210,10 +273,17 @@ export class WiredStore {
     workflows: this.inputs?.holds.workflows ?? NONE,
     events: this.events,
     ...(this.inputs?.sessionWatches[id] === undefined ? {} : { watches: this.inputs.sessionWatches[id] }),
+    ...(this.lifecyclesHeld.has(id) ? { lifecycles: this.lifecyclesHeld.get(id)! } : {}),
+    ...(this.rulesFor(id) === undefined ? {} : { lifecycleRules: this.rulesFor(id)! }),
     ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
     ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
     ...(this.reviewRefused.has(id) ? { reviewRefused: this.reviewRefused.get(id)! } : {}),
   });
+
+  /** The rules that apply to a Job's repository, where they have been read. */
+  private rulesFor(id: string): readonly AppliedRule[] | undefined {
+    return this.rulesHeld.size === 0 ? undefined : this.rulesHeld.get(this.manifestOf(id) ?? "");
+  }
 
   /** The timeline's entries, of which only a value he changed in a panel is a row of a thread. Drawn again only when one of those changed. */
   readonly setEvents = (events: readonly TimelineEvent[]): void => {
@@ -388,6 +458,12 @@ export class WiredStore {
     if (waiting?.waits === undefined) return;
     const parts = planPartsOf(this.mapped.find((one) => one.id === waiting.waits!.on.id));
     const done = await this.api.changeWaiting({ waiting_session: id, condition: conditionOfWhen(when, part, parts) });
+    if (!done.ok) this.tell(done.outcome);
+  }
+
+  /** Approves a waiting Session or withdraws the approval, or sets what it starts on; `""` clears a pick. A refusal is a toast. */
+  private async changingStart(id: string, change: Pick<ChangeWaiting, "held" | "workflow" | "model" | "effort">): Promise<void> {
+    const done = await this.api.changeWaiting({ waiting_session: id, ...change });
     if (!done.ok) this.tell(done.outcome);
   }
 
@@ -566,6 +642,13 @@ export class WiredStore {
     return done.ok;
   }
 
+  /** One call whose refusal the form that made it draws: Fleet's words where it refused, nothing where it took it. */
+  private async said(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await act;
+    return done.ok ? undefined : refusalWords(done.outcome);
+  }
+
   /** Runs the review of the plan as it is now: again where one was run, of whatever version. A refusal is drawn where the review fails. */
   private async reviewing(id: string): Promise<void> {
     const work = this.lookup(id)?.work;
@@ -690,6 +773,8 @@ export class WiredStore {
     settlesWait: (words) => this.settledWait(words),
     startWhen: (id, when, part) => void this.changingWait(id, when, part),
     startNow: (id) => void this.startingNow(id),
+    startThen: (id, held) => void this.changingStart(id, { held }),
+    startTuning: (id, tuning) => void this.changingStart(id, { ...(tuning.workflow === undefined ? {} : { workflow: tuning.workflow ?? "" }), ...(tuning.model === undefined ? {} : { model: tuning.model ?? "" }), ...(tuning.effort === undefined ? {} : { effort: tuning.effort ?? "" }) }),
     queued: () => this.queuedNow,
     queue: (idea) => this.changeQueued((ideas) => [...ideas, { id: newIdeaId(), ...idea }]),
     startQueued: (id) => this.startingQueued(id),
@@ -860,6 +945,13 @@ export class WiredStore {
         const done = await this.api.judgeSession({ session_id: id });
         if (!done.ok) this.tell(done.outcome);
       },
+    },
+    // The Job's lanes re-read by Fleet's `job_lifecycles.changed` and the record's `workflow_copy`, so an act answers only whether it was taken.
+    copy: {
+      step: (id, change) => this.said(this.api.changeSessionSteps({ session_id: id, change })),
+      piece: (id, kind, piece, text) => this.said(this.api.changeJobCopy({ session_id: id, kind, id: piece, ...(text === undefined ? {} : { text }) })),
+      keep: (id) => this.said(this.api.keepJobWorkflow(id)),
+      keepPiece: (id, kind, piece) => this.said(this.api.keepJobPiece({ session_id: id, kind, id: piece })),
     },
     get commands() {
       return store.commandsRead();

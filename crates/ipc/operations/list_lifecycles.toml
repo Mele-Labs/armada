@@ -1,0 +1,14 @@
+[operations.list_lifecycles]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The lifecycles that apply to one repository, each with its states, expected moves, end states, scope and where it was kept, and the files set aside"
+notes = """
+`GET /lifecycles?manifest_id=`, the repository Fleet started in where absent. Answers 200 with `RepositoryLifecycles`: `manifest_id`, `lifecycles` and `left_out`. Each is an `AppliedLifecycle` `{ lifecycle, kept }`.
+
+**`lifecycle`** is a `LifecycleDefinition` `{ id, name, scope, states[], transitions[], ends[] }`. `scope` is `{ kind: "everywhere" }` or `{ kind: "within", id }`, a Workspace or a repository. A state is `{ id, label, read }`, and `read` says how an instance is seen to be in it, by `source`: `tracker` `{ words[] }` (the tracker's own words, none allowed), `forge` `{ fact }`, `watch` `{ state }` or `fleet` `{ fact }`. `transitions` (`{ from, to }`) are the moves a lifecycle expects, and not the ones it permits: a state is read and never set. `ends` are the states that end an instance.
+
+**`kept`** is a `PieceKept` `{ rank, path?, overridden_by?, hides? }`. `rank` is `{ reach, source, home? }`: `reach` is how narrowly the scope names this repository (`everywhere`, `workspace` or `repository`), `source` the place (`armada`, `kit` or `repository`) and `home` true for a file read from the home repository of the Workspace it is scoped to. `path` is absent for the four lifecycles Armada carries. The one that runs for each id comes first, and each one it replaced follows with `overridden_by` set to the rank of the one that runs instead; `hides` is the place a Kit file replaced because it says something else.
+
+**`left_out`** is each file set aside (`{ source, path, said }`) with the sentence a person reads. Read when asked and never cached. 422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id, the sentence naming the ones it does.
+"""

@@ -2,7 +2,7 @@
 //! already assumes elsewhere. #91, `docs/concepts/tracker.md`.
 //!
 //! **No parse**, `crate::main_ci`'s way: `--jq` reduces the listing to `@tsv`.
-//! **Nothing here writes.**
+//! **Nothing here writes**: a saved rule's writes to these issues are `crate::issue_writes`.
 
 use adapter_traits::{
     FromOutside, IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue,

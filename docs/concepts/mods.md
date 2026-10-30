@@ -37,7 +37,7 @@ A month later you promote it, and a Job of its own opens a pull request that put
 | `fleet.toml` | What Fleet does with a notice, by Job, repository or everywhere, in a Fleet mod |
 | `tweak.css` | Token values layered over whichever theme is chosen, in a tweak mod |
 | `commands.toml` | Rows added to the command palette, each starting a Job, opening an address, running a line or chaining other rows, in a Commands mod |
-| `tracker.toml` | How to list, search and read a tracker's issues, in a tracker mod. *Tracker mods* below |
+| `tracker.toml` | How to list, search and read a tracker's issues, and optionally to move, assign and close them, in a tracker mod. *Tracker mods* below |
 | `.tried.toml` | A tracker mod's last try, written by Fleet and never promoted |
 | `.git/` | The mod's own history, one commit at scaffold |
 
@@ -248,6 +248,9 @@ At most 32 KiB of TOML, read by `crates/adapters/src/taught_tracker/file.rs`.
 | `[list]` | no | A call listing the open issues. Absent is a search for the guide's `open` |
 | `[read]` | yes | A call: `{reference}` is the issue's reference. Its `map` yields one issue or `null` |
 | `[links]` | no | `reference`, a regular expression for how a ticket's reference is written in the words of a dispatch or a message. Text that matches links to that ticket |
+| `[move]` | no | A write: `{reference}` is the issue and `{status}` the tracker's own word for where it goes |
+| `[assign]` | no | A write: `{reference}` is the issue and `{assignee}` whoever it goes to, as the tracker names them |
+| `[close]` | no | A write: `{reference}` is the issue |
 
 A call names its `transport` and takes that transport's keys and no others.
 
@@ -263,11 +266,18 @@ A result that has neither fails the call and says so, and so does a text part th
 A result with `isError` fails the call with its text, and a JSON-RPC error fails it with the server's message.
 A server's own requests, such as `ping`, are not answered.
 
-Every call has a `map`, a `jq` filter turning the answer into a list of issues under Armada's own names.
+`[move]`, `[assign]` and `[close]` are the writes a rule the owner saved can make, and each is optional.
+A write takes a call's `transport` and that transport's keys, **and no `map`**: its answer is not read, and it succeeded when a program exits 0, an HTTP request is answered below 400, or an MCP tool does not say `isError`.
+A write over `http` is a `POST` (the default), `PUT` or `PATCH`, and takes a `body` as a `POST` does.
+Without a section the mod cannot make that write, and a rule's act that needs it is kept as not carried, with the reason, and raises nothing.
+A close with no `[close]` is a `[move]` to the word the Workspace's ticket lifecycle gives Closed, and with neither it is not carried.
+**A try never runs a write**: it would change the tracker, so the file is checked and nothing more.
+
+Every read call has a `map`, a `jq` filter turning the answer into a list of issues under Armada's own names.
 `reference`, `title`, `url` and `closed` (true or false) are required, and a row missing one fails that call naming the row and the key.
 `author`, `assignees`, `labels`, `updated_at`, `excerpt` or `body`, `opened_at`, `fields` (`[{name, values}]`), `comments` (`[{author, at, body}]`) and `linked_pull_requests` (`[{number, title, url, state}]`) are read where they are there.
 
-`{query}`, `{reference}` and `{credential}` are filled into one value each and never through a shell: as written in an argument or a header, percent-encoded in a URL, and escaped inside a JSON string in a body or in an `mcp` call's `arguments`.
+`{query}`, `{reference}`, `{status}`, `{assignee}` and `{credential}` are filled into one value each and never through a shell: as written in an argument or a header, percent-encoded in a URL, and escaped inside a JSON string in a body or in an `mcp` call's `arguments`.
 In an `mcp` call they are filled into `env` and `arguments` only, since a token in `server` would show in the process list, so `server` and `tool` are written as they are.
 Any other `{word}` is text, so a body's own braces stand.
 A URL is `https://`, or `http://` to this machine, and names its host as written, so a credential goes only to the host the file names.
@@ -276,9 +286,9 @@ A URL is `https://`, or `http://` to this machine, and names its host as written
 |---|---|
 | A section or a key a tracker does not read | `[comments]`, `shell = true` |
 | A transport this build does not have | `transport = "grpc"` |
-| A placeholder the section cannot fill | `{query}` in `[read]`, `{credential}` with no `[credential]` |
-| A search that never uses `{query}`, a read that never uses `{reference}` | Every call would ask the same |
-| A call with no `map` | |
+| A placeholder the section cannot fill | `{query}` in `[read]`, `{status}` outside `[move]`, `{credential}` with no `[credential]` |
+| A search that never uses `{query}`, a read that never uses `{reference}`, a `[move]` that never uses `{status}`, an `[assign]` that never uses `{assignee}` | Every call would ask the same |
+| A read call with no `map`, a write with one | |
 | A `[links] reference` that is not a pattern, or matches the empty text | `LIN-(\d+`, `x*` |
 | An `mcp` call with no `server` or no `tool`, or `arguments` holding a date | |
 

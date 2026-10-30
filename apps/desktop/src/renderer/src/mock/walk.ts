@@ -26,6 +26,8 @@ export type Target = {
   exact?: boolean;
   /** Looked for only inside this one. */
   within?: Target;
+  /** What to look for instead where this is not on the page, in this order. */
+  or?: Target[];
   /** How a stop names it. */
   said: string;
 };
@@ -91,6 +93,14 @@ export function text(words: Name): Target {
 export function card(label: string): Target {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return { role: "button", name: new RegExp(`^${escaped}, `), said: `a card named “${label}”` };
+}
+
+/**
+ * `first`, or else the next of `others` that is on the page: a place that is drawn two ways, as Back is a button where a panel opened over another and
+ * Close is the one where it opened over the page.
+ */
+export function either(first: Target, ...others: Target[]): Target {
+  return { ...first, or: others, said: [first, ...others].map((one) => one.said).join(" or ") };
 }
 
 /** `target`, looked for only inside `scope`. */

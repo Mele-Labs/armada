@@ -13,6 +13,7 @@ import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
+import type { WorkflowSummary } from "./setup";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
 import type { SessionWait, StartAfter } from "./session-waits";
@@ -206,6 +207,16 @@ export type SessionRecord = {
   workflow_visits?: StepVisit[];
   /** The steps the person skipped, by the same index as `workflow_step`. The Job passes over each one. Absent where none is. */
   skipped_steps?: number[];
+  /**
+   * What the step the Job is on waits for, as the rail words it: `Waiting on PR #812: Approved`. One sentence for each lifecycle end
+   * the step lists that has not come, in the order the step lists them. Absent where the step waits on no lifecycle, and once an end has come.
+   */
+  workflow_waiting_on?: string[];
+  /**
+   * The Job's own copy of its workflow, once it changed a step of it (`change_session_steps`): what the rail and the lanes read
+   * in place of the repository's. Absent until then. Since 30 Oct 2026.
+   */
+  workflow_copy?: WorkflowSummary;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
@@ -305,12 +316,17 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `preview_offer` (text `<branch> moved since the preview left it out: <why>`, act `run` whose `target` is `scripts/preview --restart`)
  * is Fleet offering a refresh on the Job holding a branch the preview left out, once that branch moves past the tip it was left out at.
  * Dismissing it is Skip, and tells the agent nothing.
+ * `rule_act` (id `rule_act:<row>`, text the act in his words, such as `Move ARM-41 to In progress`, act `answer` whose `target` is the id) is
+ * an act a lifecycle rule of the Job planned that he is asked about first, or one that failed past the rule's retries where the rule says to
+ * ask, when the text says what failed. Exactly two options: `Do it` (choice 0, `Try again` on a failed act) carries the act out and `Skip`
+ * (choice 1) records it skipped. Neither sends the agent a word, and dismissing it is Skip. It is listed while the Job is live.
+ * A draft act is never one: it is proposed at once and the `draft` item it raises is the ask.
  * `sketch` (id `sketch:<title>`, the sketch attachment's id, text the title, act `message` whose `target` is the Job's own id) is a sketch the
  * agent showed with `show_sketch` that he has not approved or sent back on its card. Its press opens the sketch. Dismissing it settles it.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back. **Proposed, not on the wire**: only the mock raises it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "sketch" | "document";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

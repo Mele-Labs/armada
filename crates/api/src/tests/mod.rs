@@ -25,6 +25,7 @@ mod projects;
 mod helm_tells;
 mod hosted_sessions;
 mod bug_reports;
+mod lifecycle_routes;
 mod door_receipts;
 mod accounts;
 mod adversarial_review;

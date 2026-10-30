@@ -6,8 +6,9 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Logbook, Mods, Refusal, Teaching};
 use ipc::{
-    Does, FleetRule, LogbookKind, LogbookSection, ModKind, RuleScope, SaveTeaching, SessionId, TeachingLayout,
-    TeachingNote, TeachingProposal, TeachingReach, TeachingSource, TeachingSourceKind, TeachingWords, TweakChange,
+    Does, FleetRule, LifecycleRule, LogbookKind, LogbookSection, ModKind, PieceScope, ProposedRule, RuleAct, RuleAmong, RuleDoing, RuleOnFailure,
+    RuleScope, RuleTarget, RuleWhen, SaveTeaching, SessionId, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach, TeachingSource,
+    TeachingSourceKind, TeachingWords, TweakChange,
 };
 
 use super::session_host::{eventually, rig_placing, Rig};
@@ -358,4 +359,121 @@ async fn a_rule_whose_pattern_cannot_work_or_finds_nothing_in_the_notice_it_was_
         let refused = Arc::clone(&rig.fleet).save_teaching(ruled(pattern, text)).await.expect_err(pattern);
         assert_eq!(code(refused).1, "fleet.teaching_rule_refused", "{pattern}");
     }
+}
+
+/// What the panel hands back for "when this is approved, move its tickets to Done": the rule as a
+/// read answers it, with the id and scope the read gave and the kind and autonomy worked out.
+fn closes_tickets() -> ProposedRule {
+    ProposedRule {
+        rule: LifecycleRule {
+            id: "close_the_tickets_when_approved".to_string(),
+            name: "Close the tickets when approved".to_string(),
+            scope: PieceScope::Everywhere,
+            when: RuleWhen::Enters { lifecycle: "pr".to_string(), state: "approved".to_string() },
+            conditions: Vec::new(),
+            does: vec![RuleDoing {
+                what: RuleAct::TrackerMove {
+                    to: "closed".to_string(),
+                    target: RuleTarget { among: RuleAmong::LinkedFrom { lifecycle: "ticket".to_string() }, in_state: None },
+                },
+                kind: "tracker_write".to_string(),
+                autonomy: "asks".to_string(),
+            }],
+            autonomy: None,
+            on_failure: RuleOnFailure { retries: 2, then: "ask_owner".to_string() },
+        },
+        untestable: vec!["when it is not a Friday".to_string()],
+    }
+}
+
+fn from_pull_request(rig: &Rig, rule: ProposedRule) -> SaveTeaching {
+    SaveTeaching {
+        source: Some(TeachingSource { kind: TeachingSourceKind::PullRequest, text: "#812 Add the store page".into(), ids: vec!["812".into()] }),
+        ..saving(TeachingProposal { rule: Some(rule), ..TeachingProposal::default() }, Some(rig))
+    }
+}
+
+fn rule_files(rig: &Rig) -> Vec<std::path::PathBuf> {
+    let folder = std::path::Path::new(&rig.fleet.host().kit_home).join("rules");
+    let mut files: Vec<_> = std::fs::read_dir(folder).map(|found| found.filter_map(Result::ok).map(|one| one.path()).collect()).unwrap_or_default();
+    files.sort();
+    files
+}
+
+#[tokio::test]
+async fn a_rule_is_written_as_a_rule_piece_in_kit_scoped_to_the_repository_and_is_not_a_mod() {
+    let rig = rig_placing(None);
+    let saved = Arc::clone(&rig.fleet).save_teaching(from_pull_request(&rig, closes_tickets())).await.expect("saved");
+
+    let manifest = rig.fleet.manifest_id_at(&rig.root).expect("manifest");
+    let piece = saved.rule.expect("the rule piece");
+    assert_eq!((piece.id.as_str(), piece.replaced), ("close_the_tickets_when_approved", false));
+    assert_eq!(piece.scope, PieceScope::Within { id: manifest.clone() }, "the reach the person chose, whatever the rule carried");
+    assert!(saved.mods.is_empty() && saved.entry.is_none(), "a rule is neither a mod nor a note");
+    assert!(mods_named(&rig).await.is_empty());
+
+    let file = std::fs::read_to_string(&piece.file).expect("written");
+    assert!(file.contains("rule_id: close_the_tickets_when_approved") && file.contains(&format!("scope: {manifest}")), "{file}");
+    assert!(!file.contains("Friday"), "untestable is not kept\n{file}");
+    let applying = rig.fleet.rules_applying_to(&core_model::ManifestId::carried(core_model::Ulid::carried(&manifest))).expect("read");
+    let rule = applying.files().iter().find(|one| one.rule().id().as_str() == "close_the_tickets_when_approved").expect("a read finds it");
+    assert_eq!(rule.rank().source, core_model::PieceSource::Kit, "yours, in the Kit");
+}
+
+#[tokio::test]
+async fn a_rule_taught_for_every_repository_has_no_scope_in_its_file() {
+    let rig = rig_placing(None);
+    let mut save = from_pull_request(&rig, closes_tickets());
+    save.reach = TeachingReach::Everywhere;
+    let piece = Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved").rule.expect("the rule piece");
+    assert_eq!(piece.scope, PieceScope::Everywhere);
+    let file = std::fs::read_to_string(&piece.file).expect("written");
+    assert!(!file.contains("scope:"), "{file}");
+}
+
+#[tokio::test]
+async fn the_id_is_made_from_the_name_the_person_left_and_a_second_rule_of_it_is_a_second_piece() {
+    let rig = rig_placing(None);
+    let mut renamed = closes_tickets();
+    renamed.rule.name = "Tickets done on approval".to_string();
+    let first = Arc::clone(&rig.fleet).save_teaching(from_pull_request(&rig, renamed.clone())).await.expect("saved").rule.expect("piece");
+    assert_eq!(first.id, "tickets_done_on_approval", "the editor's rule: lower case words joined by underscores");
+    let second = Arc::clone(&rig.fleet).save_teaching(from_pull_request(&rig, renamed)).await.expect("saved").rule.expect("piece");
+    assert_eq!((second.id.as_str(), second.replaced), ("tickets_done_on_approval_2", false), "never over the first");
+    assert_eq!(rule_files(&rig).len(), 2);
+}
+
+#[tokio::test]
+async fn a_rule_a_read_of_its_file_would_set_aside_is_refused_and_the_note_with_it_is_not_kept() {
+    let rig = rig_placing(None);
+    let mut lifecycle_missing = closes_tickets();
+    lifecycle_missing.rule.when = RuleWhen::Enters { lifecycle: "release".to_string(), state: "out".to_string() };
+    let mut state_missing = closes_tickets();
+    state_missing.rule.when = RuleWhen::Enters { lifecycle: "pr".to_string(), state: "aproved".to_string() };
+    let mut does_nothing = closes_tickets();
+    does_nothing.rule.does.clear();
+    let mut unnamed = closes_tickets();
+    unnamed.rule.name = "  ".to_string();
+    for (why, rule) in [("a lifecycle that does not apply", lifecycle_missing), ("a state it lacks", state_missing), ("no acts", does_nothing), ("no name", unnamed)] {
+        let mut save = from_pull_request(&rig, rule);
+        save.proposal.note = Some(note("A fine note."));
+        let refused = Arc::clone(&rig.fleet).save_teaching(save).await.expect_err(why);
+        assert_eq!(code(refused), (422, "fleet.teaching_rule_refused".to_string()), "{why}");
+    }
+    assert!(rule_files(&rig).is_empty(), "nothing was written");
+    let logbook = rig.fleet.get_logbook(Some(rig.root.clone()), None, None).await.expect("read");
+    assert!(logbook.entries.iter().all(|one| one.text != "A fine note."), "and the note that came with it was not kept");
+
+    let mut placed = from_pull_request(&rig, closes_tickets());
+    placed.repository = None;
+    assert_eq!(code(Arc::clone(&rig.fleet).save_teaching(placed).await.expect_err("no repository")), (422, "fleet.teaching_input_refused".to_string()));
+}
+
+#[tokio::test]
+async fn a_rule_comes_with_the_note_a_ticket_was_taught_and_only_the_note_is_told() {
+    let rig = rig_placing(None);
+    let mut save = from_pull_request(&rig, closes_tickets());
+    save.proposal.note = Some(note("Tickets close when their pull request is approved."));
+    let saved = Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
+    assert!(saved.entry.is_some() && saved.rule.is_some() && saved.mods.is_empty());
 }

@@ -48,8 +48,8 @@ export type PanelItem =
   | { kind: "lane"; title: string; heading: string; crumb: string }
   /** A Job's lanes: the workflow and what it holds, with the spine left on show beside. */
   | { kind: "lanes"; sessionId: string }
-  /** What a rule on a Job's lanes is waiting on the person for, answered there. `row` is its card in the thread, which stays on show once it is sent. */
-  | { kind: "rule"; sessionId: string; rule: string; row: string }
+  /** What a rule on a Job's lanes is waiting on the person for, answered there. `row` is its card in the thread, which stays on show once it is sent. Without one, the panel says what the rule's acts are and where each stands. */
+  | { kind: "rule"; sessionId: string; rule: string; row?: string }
   /** A Job's own shell, where `terminal.openJobTerminalIn` says the side panel. */
   | { kind: "terminal"; sessionId: string }
   /** A Job's browser, the page its agent drives (`job-browser/store.ts`). */

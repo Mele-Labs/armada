@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    NotTracked, OpenIssue, Outgoing, QueryGuide, ReadIssue, RequestSender, Secret, Tracker,
+    IssueWrite, NotTracked, OpenIssue, Outgoing, QueryGuide, ReadIssue, RequestSender, Secret, Tracker, TrackerWrites,
 };
 
 use crate::HttpRequests;
@@ -18,6 +18,7 @@ mod file;
 mod mapping;
 mod mcp;
 mod running;
+mod writes;
 
 pub use file::{problems, read, TrackerFile, MOST_BYTES};
 use file::{Call, Transport};
@@ -59,8 +60,21 @@ impl TaughtTracker {
     /// credential**, which is read here, for this call, and dropped with it.
     fn rows(&self, call: &Call, asked: Fills<'_>, doing: &'static str) -> Result<Option<Vec<String>>, NotTracked> {
         let credential = self.credential().map_err(|why| NotTracked::of(doing, why))?;
-        let fills = Fills { query: asked.query, reference: asked.reference, credential: credential.as_ref() };
-        let answer = match &call.transport {
+        let fills = Fills { query: asked.query, reference: asked.reference, credential: credential.as_ref(), ..Fills::default() };
+        let Some(answer) = self.answer(&call.transport, &fills, doing)? else { return Ok(None) };
+        let jq = ["jq".to_string(), "-r".to_string(), mapping::program(&call.map)];
+        let mapped = running::run(&jq, Some(&answer)).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
+        if !mapped.succeeded {
+            return Err(NotTracked::of(doing, fills.scrubbed(&mapping::refusal_of(&mapped.stderr))));
+        }
+        let text = String::from_utf8_lossy(&mapped.stdout);
+        Ok(Some(text.lines().filter(|line| !line.is_empty()).map(str::to_string).collect()))
+    }
+
+    /// What `transport` answers, filled from `fills`. `None` is a 404 for a call that names an
+    /// issue. **Every refusal is scrubbed of the credential.**
+    fn answer(&self, transport: &Transport, fills: &Fills<'_>, doing: &'static str) -> Result<Option<Vec<u8>>, NotTracked> {
+        let answer = match transport {
             Transport::Cli { argv } => {
                 let filled: Vec<String> = argv.iter().map(|one| fills.fill(one, Escape::Plain)).collect();
                 let ran = running::run(&filled, None).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
@@ -98,13 +112,7 @@ impl TaughtTracker {
                     .map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?
             }
         };
-        let jq = ["jq".to_string(), "-r".to_string(), mapping::program(&call.map)];
-        let mapped = running::run(&jq, Some(&answer)).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
-        if !mapped.succeeded {
-            return Err(NotTracked::of(doing, fills.scrubbed(&mapping::refusal_of(&mapped.stderr))));
-        }
-        let text = String::from_utf8_lossy(&mapped.stdout);
-        Ok(Some(text.lines().filter(|line| !line.is_empty()).map(str::to_string).collect()))
+        Ok(Some(answer))
     }
 
     /// The secret the credential command prints, or `None` where the file names none.
@@ -181,6 +189,34 @@ impl Tracker for TaughtTracker {
     }
 }
 
+/// The writes the mod teaches. **Each is one call that answers nothing read**: it succeeds as a
+/// program exits 0, an HTTP request is answered below 400, and an MCP tool does not say `isError`.
+impl TrackerWrites for TaughtTracker {
+    fn can(&self, write: &IssueWrite<'_>) -> Result<(), String> {
+        self.file.writes.call_for(write).map(drop)
+    }
+
+    fn write(&self, _in_repo: &str, reference: &str, write: &IssueWrite<'_>) -> Result<(), NotTracked> {
+        let doing = write.doing();
+        let transport = self.file.writes.call_for(write).map_err(|why| NotTracked::of(doing, why))?;
+        let reference = reference.trim();
+        if reference.is_empty() {
+            return Err(NotTracked::of(doing, "no issue was named"));
+        }
+        let (status, assignee) = match write {
+            IssueWrite::Move { status } => (Some(*status), None),
+            IssueWrite::Close { status } => (*status, None),
+            IssueWrite::Assign { to } => (None, Some(*to)),
+        };
+        let credential = self.credential().map_err(|why| NotTracked::of(doing, why))?;
+        let fills = Fills { reference: Some(reference), status, assignee, credential: credential.as_ref(), ..Fills::default() };
+        match self.answer(transport, &fills, doing)? {
+            Some(_) => Ok(()),
+            None => Err(NotTracked::of(doing, "the tracker has no such issue")),
+        }
+    }
+}
+
 /// A Manifest's provider that names a tracker mod, looked up at each call: **on the blocking
 /// thread the call runs on**, and as the mod stands then, so a try that passes after Fleet
 /// started is honoured without a restart.
@@ -226,5 +262,19 @@ impl Tracker for Taught {
             Ok(tracker) => tracker.query_guide(),
             Err(not) => QueryGuide { guide: not.said, ..QueryGuide::default() },
         }
+    }
+}
+
+impl TrackerWrites for Taught {
+    fn can(&self, write: &IssueWrite<'_>) -> Result<(), String> {
+        match self.mods.taught(&self.name) {
+            Some(Ok(file)) => TaughtTracker::over(file).can(write),
+            Some(Err(why)) => Err(why),
+            None => Err(self.unknown.clone()),
+        }
+    }
+
+    fn write(&self, in_repo: &str, reference: &str, write: &IssueWrite<'_>) -> Result<(), NotTracked> {
+        self.tracker(write.doing())?.write(in_repo, reference, write)
     }
 }

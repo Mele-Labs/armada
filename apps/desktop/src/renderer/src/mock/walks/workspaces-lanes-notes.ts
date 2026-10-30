@@ -1,10 +1,11 @@
 // The 29 Oct 2026 notes on Workspaces, lifecycles and rules, each change straight to: a pick opens the side panel with its settings as fields saved as they are changed, Runs in opens on a
 // Default tab and a tab that differs from the level above carries the changed mark, the box that tells an agent what to change stands under the tabs, the first change on Armada's workflow makes your own, the canvas draws each kind in its own shape,
 // the Job's Workflow opens in the side panel with the Now beat opening the rule that waits on you, and a comment's triage is on the comment in the pull request. A third Job changes its
-// own copy of the workflow and starts two Jobs; Workflow opens in the side panel on a window narrower than 1800px and in the spine on a wider one. The long walk is `workspaces-lanes`.
+// own copy of the workflow and starts two Jobs; Workflow opens: in the side panel under 1800px, in the spine from it and in the spine on a wider one. The long walk is `workspaces-lanes`.
 // A mock, no Fleet behind it.
 
-import { button, deckRow, inside, region, role, text, toSystemPage, walk } from "../walk";
+import { button, deckRow, either, inside, region, role, text, toSystemPage, walk } from "../walk";
+import type { Target } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const group = (name: string) => role("group", name, { exact: true });
@@ -20,11 +21,13 @@ const tab = (name: string) => inside(RUNS_IN, role("tab", name, { exact: true })
 
 const views = role("toolbar", "Views", { exact: true });
 const workflowView = button("Workflow", { exact: true });
-const LANES_PANEL = role("dialog", "Workflow", { exact: true });
-const JOB_LANES = inside(LANES_PANEL, group("Workflow"));
+// Workflow is a dialog on a window narrower than 1800px and a section of the spine on a wider one, so what is inside it is found without naming which.
+const JOB_LANES = group("Workflow");
 const node = (name: string) => inside(JOB_LANES, button(name, { exact: true }));
 const RULE_PANEL = role("dialog", "Rule: Ask for review");
 const PR_PANEL = role("dialog", /#812/);
+// What goes back to the Workflow: a button where the panel opened over the Workflow's own, and Close where it opened over the docked one.
+const back = (panel: Target) => either(inside(panel, button(/^Back/)), inside(panel, button("Close")));
 const SPINE = region("Workflow", { exact: true });
 const SPINE_LANES = inside(SPINE, group("Workflow"));
 const NOW = role("list", "Now", { exact: true });
@@ -72,32 +75,32 @@ const notes = walk("workspaces-lanes", [
   toSessions,
   { press: deckRow("Add gift cards to the cart"), say: "A Job" },
   { look: text("Reading ARM-41 and ARM-42"), say: "The Now beat says what the agent is doing" },
-  { press: inside(views, workflowView), say: "Workflow opens in the side panel, fitted to its width" },
+  { press: inside(views, workflowView), say: "Workflow opens, fitted to its width" },
   { later: JOB_LANES, say: "Panned to where the Job is" },
   { later: node("ARM-41: In progress, assigned to you"), say: "A ticket's state is a pin on a heavier frame. Only the step the agent works on takes the accent" },
   { later: node("PR #812: Draft"), say: "Two moments on" },
-  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
+  { key: "Escape", on: JOB_LANES, say: "Esc shuts Workflow" },
   { press: inside(NOW, button("Ask for review", { exact: true })), say: "Waiting on you, in Now, opens the same rule in the side panel as the canvas does" },
   { press: inside(RULE_PANEL, button("Send", { exact: true })), say: "The card is the rule's own: where it goes and to whom. Send sends it" },
   { look: inside(RULE_PANEL, role("img", "Sent", { exact: true })), say: "The panel stays open and says it went" },
   { press: inside(RULE_PANEL, button("Close")), say: "Close the panel" },
   { press: inside(views, workflowView), say: "Workflow opens again" },
   { later: inside(JOB_LANES, button("Ask for review", { exact: true })), say: "The ask went out" },
-  { later: inside(LANES_PANEL, region("Comments on PR #812")), say: "Comments are a monitor: what the agent made of each" },
-  { press: inside(LANES_PANEL, button(/^Open in the pull request: .* on src\/cart\/totals\.ts/)), say: "A comment opens the pull request at that comment" },
+  { later: region("Comments on PR #812"), say: "Comments are a monitor: what the agent made of each" },
+  { press: button(/^Open in the pull request: .* on src\/cart\/totals\.ts/), say: "A comment opens the pull request at that comment" },
   { look: inside(PR_PANEL, button("Send to Job: Maya on src/cart/totals.ts:42", { exact: true })), say: "The triage is a mark on the comment, with its acts" },
 
-  { press: inside(PR_PANEL, button("Back")), say: "Back to the Workflow" },
-  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
+  { press: back(PR_PANEL), say: "Back to the Workflow" },
+  { key: "Escape", on: JOB_LANES, say: "Esc shuts Workflow" },
   { press: deckRow("Go through app feedback"), say: "A Job that goes through app feedback" },
-  { press: inside(views, workflowView), say: "Workflow opens in the side panel on a window narrower than 1800px" },
+  { press: inside(views, workflowView), say: "Workflow opens: in the side panel under 1800px, in the spine from it" },
   { later: JOB_LANES, say: "The workflow as the Job started it" },
   { look: node("Step: Oversee"), say: "The agent changed its own copy: Walk and Refine skipped, Dispatch and Oversee added after Approve plan. Each is marked" },
   { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee waits for them" },
   { look: node("Fix cart rounding: PR open"), say: "Two Jobs, each a card with the Drone on a lane of its own: Started, PR open and Landed" },
-  { look: inside(JOB_LANES, text("Waiting on: Fix cart rounding, Tidy the PR panel landing")), say: "Oversee names the Jobs it waits on, and ends when the last lands" },
-  { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
-  { later: inside(views, workflowView), say: "The next steps play a window wider than 1800px" },
+  { look: inside(JOB_LANES, text("Waiting on Fix cart rounding, Tidy the PR panel landing: Landed")), say: "Oversee names the Jobs it waits on, and ends when the last lands" },
+  { key: "Escape", on: JOB_LANES, say: "Esc shuts Workflow" },
+  { later: inside(views, workflowView), say: "From here the window plays wider than 1800px" },
   { press: inside(views, workflowView), say: "Wider than 1800px, Workflow opens in the spine column" },
   { look: inside(SPINE_LANES, text("Waiting on Tidy the PR panel landing: Landed")), say: "It is a view like Artifacts and Checks: pressed again, or Esc, shuts it" },
   { later: inSpine("Tidy the PR panel landing: PR open"), say: "One Job has landed and one is in review" },

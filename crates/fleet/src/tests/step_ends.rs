@@ -73,9 +73,9 @@ fn every_end_of_a_step_is_said_and_one_alone_is_also_said_as_the_one() {
     assert_eq!(ends_any(&steps, 0), ["you approve a draft", "you pick one of the ideas shown", "you approve a walk"]);
     assert_eq!(ends_when(&steps, 0), None, "several ends are no single phrase");
     assert_eq!(ends_any(&steps, 1), ["a plan is recorded"], "a step that lists none");
-    assert_eq!(ends_when(&steps, 2), Some("you approve the plan"));
+    assert_eq!(ends_when(&steps, 2).as_deref(), Some("you approve the plan"));
     let sketched = [ending("Sketch", &[StepEnd::SketchApproved]), plan_step()];
-    assert_eq!(ends_when(&sketched, 0), Some("you approve a sketch"));
+    assert_eq!(ends_when(&sketched, 0).as_deref(), Some("you approve a sketch"));
     for end in [End::AnyWalkApproved, End::SketchApproved, End::DraftApproved, End::IdeaPicked] {
         assert!(!end.by_the_job(), "{end:?} is the person's");
     }
