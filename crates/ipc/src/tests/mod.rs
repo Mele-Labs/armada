@@ -9,6 +9,7 @@
 
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
+mod bug_reports;
 mod accounts;
 mod notice_mutes;
 mod annotations;

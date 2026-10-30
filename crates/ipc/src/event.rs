@@ -34,6 +34,7 @@ use crate::sleep::SleepState;
 use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::watches::WatchList;
+use crate::bug_reports::BugReports;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::terminals::JobTerminal;
@@ -196,6 +197,9 @@ pub enum Event {
     // reading, a weighing, a stop or an end. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(rename = "watches.changed")]
     WatchesChanged(WatchList),
+    // The bug reports agents made of Armada, every one on this Mac, whole, after one was made, kept or dropped.
+    #[serde(rename = "bug_reports.changed")]
+    BugReportsChanged(BugReports),
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),

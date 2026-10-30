@@ -519,6 +519,26 @@ const ROUTES: &[Route] = &[
         path: "/sessions/dispute_fleet",
     },
     Route {
+        operation: "report_bug",
+        method: "POST",
+        path: "/sessions/report_bug",
+    },
+    Route {
+        operation: "list_bug_reports",
+        method: "GET",
+        path: "/bug_reports",
+    },
+    Route {
+        operation: "keep_bug_report",
+        method: "POST",
+        path: "/bug_reports/:report_id/keep",
+    },
+    Route {
+        operation: "drop_bug_report",
+        method: "POST",
+        path: "/bug_reports/:report_id/drop",
+    },
+    Route {
         operation: "finish_up",
         method: "POST",
         path: "/sessions/finish_up",

@@ -49,6 +49,7 @@ export type ActionScope =
   | "open studio"
   | "plan"
   | "projects"
+  | "report"
   | "review"
   | "thread";
 
@@ -753,6 +754,32 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: "undecided",
     shortcut: "s",
     scope: "issues",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "issues_keep",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Keep the report",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "K",
+    scope: "report",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "issues_drop",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Drop the report",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "D",
+    scope: "report",
     destructive: false,
     confirms: false,
     unbuilt: null,

@@ -96,3 +96,4 @@ export * from "./bay-history";
 export * from "./session-system";
 export * from "./underway";
 export * from "./watches";
+export * from "./bug-reports";

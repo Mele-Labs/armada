@@ -587,6 +587,55 @@ pub(crate) async fn dispute_fleet<D: Sessions>(
     }
 }
 
+/// The agent says Armada itself got something wrong. 200 with the id of the report Fleet kept; 422 for a call that places
+/// no session or leaves out the title or what went wrong. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn report_bug<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let report: ipc::ReportBug = match ipc::decode_body("a bug report", &body) {
+        Ok(report) => report,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().report_bug(crate::acting::asking(), report).await {
+        Ok(reported) => answer(StatusCode::OK, &reported, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The bug reports on this Mac, newest first.
+pub(crate) async fn list_bug_reports<D: Sessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_bug_reports().await {
+        Ok(reports) => answer(StatusCode::OK, &reports, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The report an act names.
+#[derive(Deserialize)]
+pub(crate) struct NamedReport {
+    report_id: String,
+}
+
+/// The owner keeps a bug report. 200 with it; 404 for an id that names none.
+pub(crate) async fn keep_bug_report<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(NamedReport { report_id }): axum::extract::Path<NamedReport>,
+) -> Response {
+    match served.daemon().keep_bug_report(report_id).await {
+        Ok(report) => answer(StatusCode::OK, &report, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner drops a bug report. 200 with its id; 404 for an id that names none.
+pub(crate) async fn drop_bug_report<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(NamedReport { report_id }): axum::extract::Path<NamedReport>,
+) -> Response {
+    match served.daemon().drop_bug_report(report_id).await {
+        Ok(dropped) => answer(StatusCode::OK, &dropped, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent gives back its slots, merged branches and servers. 200 with what went and what stayed; 422 for a call that places
 /// no session. **The session is placed by the connection**, as `all_done`'s is.
 pub(crate) async fn finish_up<D: Sessions>(
