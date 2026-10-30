@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { forgetViewed, markViewed } from "./cockpit/viewed";
-import { holdsDelivery, stateOf } from "./session-state";
+import { holdsDelivery, stateOf, waitsOf } from "./session-state";
 
 type Held = Parameters<typeof stateOf>[0];
 
@@ -175,5 +175,32 @@ describe("a Job he parked", () => {
 
   test("resumed, it waits on him again", () => {
     expect(stateOf(session({ waitingFor: paused.waitingFor })).state).toBe("waiting");
+  });
+});
+
+describe("a Job Fleet holds open waits on something that is not him", () => {
+  test("each wait Fleet names is a line in the band, and the mark's tooltip names them all", () => {
+    const held = session({
+      standing: "idle",
+      heldOpenBy: [
+        { kind: "watch", name: "Staging deploy" },
+        { kind: "pull_request", number: 409, on: { kind: "checks", auto_merge: true } },
+        { kind: "pull_request", number: 410, on: { kind: "checks", auto_merge: false } },
+        { kind: "pull_request", number: 3082, on: { kind: "queue" } },
+        { kind: "pull_request", number: 3083, on: { kind: "auto_merge" } },
+      ],
+    });
+    expect(waitsOf(held)).toEqual([
+      { kind: "watch", said: "Held open by Staging deploy" },
+      { kind: "checks", said: "#409 to auto-merge once Checks pass" },
+      { kind: "checks", said: "Checks running on #410" },
+      { kind: "merge", said: "#3082 in the merge queue" },
+      { kind: "merge", said: "#3083 to auto-merge" },
+    ]);
+    expect(stateOf(held)).toEqual({ state: "held", said: waitsOf(held).map((one) => one.said).join(" · ") });
+  });
+
+  test("with nothing held open, an idle Job is idle", () => {
+    expect(stateOf(session({ standing: "idle" }))).toEqual({ state: "idle", said: "Idle" });
   });
 });
