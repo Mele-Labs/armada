@@ -30,7 +30,10 @@ pub fn said(act: &Act, on: Option<&InstanceRef>, lifecycles: &[Lifecycle]) -> St
         Act::Forge { write: ForgeWrite::MarkReady, .. } => format!("Mark {thing} ready"),
         Act::Forge { write: ForgeWrite::Merge, .. } => format!("Merge {thing}"),
         Act::Forge { write: ForgeWrite::AutoMerge, .. } => format!("Turn on auto-merge for {thing}"),
-        Act::Draft { template, .. } => format!("Write the {} message on {thing}", template.as_str()),
+        Act::Draft { template, .. } => {
+            let text = filled(template.as_str(), on.map(|on| (on.lifecycle().as_str(), on.key())));
+            format!("Draft a message on {thing}: {}", cut(&text))
+        }
         Act::StartJob { prompt, .. } => format!("Start a Job: {}", quoted(prompt)),
         Act::StartWatch { deploy: Some(deploy), .. } => format!("Start the {} deploy watch", deploy.as_str()),
         Act::StartWatch { recipe, .. } => format!("Start the {} watch", recipe.as_str()),
@@ -49,17 +52,41 @@ pub fn failed(said: &str, why: &str) -> String {
 
 /// A pull request is `#812`, and anything else goes by its key.
 fn named(on: &InstanceRef) -> String {
-    match on.lifecycle().as_str() {
-        "pr" => format!("#{}", on.key()),
-        _ => on.key().to_string(),
+    thing(on.lifecycle().as_str(), on.key())
+}
+
+/// [`named`] for a thing a kept row names by its lifecycle and key.
+pub fn thing(lifecycle: &str, key: &str) -> String {
+    match lifecycle {
+        "pr" => format!("#{key}"),
+        _ => key.to_string(),
     }
+}
+
+/// What a Job started from `prompt` is called: the line a rule's act quotes.
+pub fn titled(prompt: &Words) -> String {
+    quoted(prompt)
 }
 
 /// The first line, cut where it runs long.
 fn quoted(words: &Words) -> String {
-    let first = words.as_str().lines().next().unwrap_or_default().trim();
+    cut(words.as_str())
+}
+
+fn cut(text: &str) -> String {
+    let first = text.lines().next().unwrap_or_default().trim();
     match first.char_indices().nth(QUOTED) {
         Some((at, _)) => format!("{}...", first[..at].trim_end()),
         None => first.to_string(),
+    }
+}
+
+/// A template with `{pr}`, `{ticket}` and the like filled: the placeholder is the id of the lifecycle
+/// of the thing the message is left on, and it becomes that thing as the owner reads it (`#812`).
+/// **One that names nothing the act is done to is left as written**, so the owner sees it and edits it.
+pub fn filled(template: &str, on: Option<(&str, &str)>) -> String {
+    match on {
+        Some((lifecycle, key)) => template.replace(&format!("{{{lifecycle}}}"), &thing(lifecycle, key)),
+        None => template.to_string(),
     }
 }

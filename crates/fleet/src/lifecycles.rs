@@ -13,6 +13,7 @@
 //! where the issue ledger already reads it, a watch where its reading is kept, and Fleet's events
 //! from the tap that already hears every Job's row change.
 
+pub(crate) mod acting;
 pub mod copying;
 mod following;
 pub mod holding;

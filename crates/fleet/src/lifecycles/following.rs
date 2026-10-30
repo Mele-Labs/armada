@@ -45,8 +45,17 @@ where
             let _ = tell.send(record.clone());
         }
     });
+    let doing = Arc::clone(&fleet);
     tokio::spawn(async move {
-        fleet.rules_caught_up().await;
+        // What a Fleet that stopped owes: moves its rules did not hear, and acts they planned and nobody did.
+        doing.rules_caught_up().await;
+        doing.rule_acts_carried_out().await;
+        loop {
+            doing.rule_acts().woken().await;
+            doing.rule_acts_carried_out().await;
+        }
+    });
+    tokio::spawn(async move {
         while let Some(record) = heard.recv().await {
             fleet.rules_looked_at(&record).await;
         }

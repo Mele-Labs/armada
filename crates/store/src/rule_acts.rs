@@ -201,8 +201,8 @@ impl Store {
         let doing = "reading the acts rules still owe";
         self.conn
             .prepare(&format!(
-                "SELECT {COLUMNS} FROM rule_acts a JOIN sessions s ON s.id = a.session_id
-                 WHERE a.state = 'planned' AND s.state = 'live' ORDER BY a.id"
+                "SELECT {COLUMNS} FROM rule_acts
+                 WHERE state = 'planned' AND session_id IN (SELECT id FROM sessions WHERE state = 'live') ORDER BY id"
             ))
             .map_err(failing(doing))?
             .query_map([], kept)

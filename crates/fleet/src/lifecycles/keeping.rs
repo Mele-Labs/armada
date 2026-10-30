@@ -24,6 +24,7 @@ use crate::daemon::Fleet;
 pub(super) const TICKET: &str = "ticket";
 pub(super) const PULL_REQUEST: &str = "pr";
 pub(super) const JOB: &str = "job";
+pub(super) const DEPLOY: &str = "deploy";
 
 /// What of a row decides whether anything a Job holds moved.
 type Row = (String, String, AttachmentState, String, String);

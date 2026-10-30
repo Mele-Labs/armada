@@ -232,6 +232,7 @@ where
     /// Bridge, and wake whoever does what was planned.
     async fn rules_published(&self, session: &str, kept: &[i64]) {
         if !kept.is_empty() {
+            self.rule_acts().wake();
             let _ = self.published_hosted(session).await;
         }
     }

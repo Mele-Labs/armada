@@ -367,6 +367,7 @@ where
             job_browser: Default::default(),
             scouts,
             timeline,
+            rule_acts: Default::default(),
             machine: fittings.machine,
             headroom: std::sync::Mutex::new(in_force.headroom),
             concurrency: std::sync::Mutex::new(in_force.concurrency),

@@ -2,7 +2,7 @@
 //! it, and settled once.
 
 use crate::tests::{open, TempDir};
-use crate::{rule_act_standing as standing, KeptCopy, KeptPiece, KeptSeen, NewRuleAct, PieceKind};
+use crate::{rule_act_standing as standing, KeptCopy, KeptPiece, KeptSeen, KeptSession, NewRuleAct, PieceKind, SessionFigures, SessionState};
 
 fn copy(text: &str) -> KeptCopy {
     KeptCopy {
@@ -86,4 +86,40 @@ fn what_the_last_look_at_a_job_showed_is_kept_and_replaced() {
         store.job_seen("s1").expect("reads"),
         Some(KeptSeen { step: None, pull_request_opened: true, landed: false, ended: false, events: 3 })
     );
+}
+
+fn session(id: &str, state: SessionState) -> KeptSession {
+    KeptSession {
+        id: id.into(),
+        harness: "a_harness".into(),
+        origin: "bridge".into(),
+        manifest_id: Some("armada".into()),
+        cwd: "/repos/armada".into(),
+        title: None,
+        state,
+        started_at: "2026-10-29T09:00:00.000Z".into(),
+        last_seen_at: "2026-10-29T09:00:00.000Z".into(),
+        last_turn_at: None,
+        ended_at: None,
+        end_reason: None,
+        figures: SessionFigures::default(),
+        mod_version: None,
+    }
+}
+
+#[test]
+fn what_a_stopped_fleet_owes_is_the_planned_acts_and_the_copies_of_live_jobs_only() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_session(&session("live", SessionState::Live)).expect("kept");
+    store.keep_session(&session("gone", SessionState::Ended)).expect("kept");
+    for job in ["live", "gone"] {
+        assert!(store.freeze_job_copy(job, "t0", &copy("a rule")).expect("freezes"));
+        store
+            .keep_rule_plan(job, "o", &["moves"], &[act("moves", 0, "ARM-41", standing::PLANNED), act("moves", 1, "ARM-41", standing::ASKED)], "t0")
+            .expect("keeps");
+    }
+    assert_eq!(store.live_job_copies().expect("reads"), ["live"]);
+    let owed = store.rule_acts_owed().expect("reads");
+    assert_eq!(owed.iter().map(|one| (one.session_id.as_str(), one.position)).collect::<Vec<_>>(), [("live", 0)], "asked is the owner's, ended is nobody's");
 }
