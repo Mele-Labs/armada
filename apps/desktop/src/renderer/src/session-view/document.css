@@ -68,3 +68,6 @@ td > .armada-doc__anchor { margin-inline-start: 0; }
 .armada-doc__answer-mark { display: inline-flex; align-items: center; justify-content: center; block-size: var(--leading-xs); color: var(--status-completed-success); }
 .armada-doc__answer-said { min-width: 0; overflow-wrap: anywhere; }
 .armada-doc__section:focus-visible, .armada-doc__note-body:focus-visible, .armada-doc__answer:focus-visible { outline: var(--edge-active) solid var(--edge-focus); outline-offset: calc(var(--edge-active) * -1); }
+
+/* Approve and Send back while the newest revision waits on him: a card of its own over Contents, its keys on one line. */
+.armada-doc__approve { display: flex; flex: none; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-card); }

@@ -15,7 +15,7 @@ use crate::error::{Fault, Refusal};
 use crate::yaml;
 
 /// The words, in the order the refusal lists them.
-const WORDS: &[&str] = &["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked"];
+const WORDS: &[&str] = &["replied", "walk_approved", "sketch_approved", "draft_approved", "idea_picked", "document_approved"];
 
 /// What is wrong with an `ends_on` item that is a lifecycle end.
 #[derive(Debug, Clone, PartialEq, Eq)]

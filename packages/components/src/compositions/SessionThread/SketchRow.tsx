@@ -21,11 +21,11 @@ const SETTLED = {
 } as const;
 
 /**
- * What answers a sketch put to the person, wherever it is read: the note he writes to send it back, how it ended once it
- * has, and Approve with Send back while it waits. One part for the thread card, the panel and the Needs you row, so the
- * three answer it the same way and a note written in one is kept under `keep`.
+ * What answers a sketch or a document put to the person, wherever it is read: the note he writes to send it back, how it
+ * ended once it has, and Approve with Send back while it waits. One part for the thread card, the panel and the Needs you
+ * row, so they answer it the same way and a note written in one is kept under `keep`. `id` is handed back with the answer.
  */
-export function SketchAnswers({ sketch, keep, settled, open, onAnswer }: { sketch: string; keep: string; settled?: SketchSettled; open: boolean; onAnswer?: (sketch: string, answer: SketchAnswer) => void }) {
+export function ApprovalAnswers({ id, keep, settled, open, onAnswer }: { id: string; keep: string; settled?: SketchSettled; open: boolean; onAnswer?: (id: string, answer: SketchAnswer) => void }) {
   const noteKey = `${keep}:note`;
   const [noting, setNoting] = useState(() => readKept<string>(noteKey) !== undefined);
   const [note, setNote] = useState("");
@@ -56,7 +56,7 @@ export function SketchAnswers({ sketch, keep, settled, open, onAnswer }: { sketc
         <CardFooter role="group" aria-label="Answers">
           {noting ? (
             <>
-              <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={() => onAnswer(sketch, { text: note.trim() })}>
+              <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={() => onAnswer(id, { text: note.trim() })}>
                 Send back
               </Button>
               <Button size="sm" variant="ghost" onClick={cancel}>
@@ -65,7 +65,7 @@ export function SketchAnswers({ sketch, keep, settled, open, onAnswer }: { sketc
             </>
           ) : (
             <>
-              <Button size="sm" variant="primary" onClick={() => onAnswer(sketch, { choice: 0 })}>
+              <Button size="sm" variant="primary" onClick={() => onAnswer(id, { choice: 0 })}>
                 Approve
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setNoting(true)}>
@@ -128,7 +128,7 @@ export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sessio
         {press}
         {!open && settled === undefined ? null : (
           <div className="armada-session-sketch__answers">
-            <SketchAnswers sketch={row.sketch} keep={keep ?? `sketch:${row.id}`} {...(settled === undefined ? {} : { settled })} open={open} {...(onAnswer === undefined ? {} : { onAnswer })} />
+            <ApprovalAnswers id={row.sketch} keep={keep ?? `sketch:${row.id}`} {...(settled === undefined ? {} : { settled })} open={open} {...(onAnswer === undefined ? {} : { onAnswer })} />
           </div>
         )}
       </div>
@@ -161,7 +161,7 @@ export function SketchReading({ scene, title, against, notes, marked, answer }: 
       <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} {...(notes === undefined ? {} : { notes })} {...(marked === undefined ? {} : { marked })} />
       {answer === undefined ? null : (
         <div className="armada-session-sketch__answers">
-          <SketchAnswers sketch={answer.sketch} keep={answer.keep} open onAnswer={answer.onAnswer} />
+          <ApprovalAnswers id={answer.sketch} keep={answer.keep} open onAnswer={answer.onAnswer} />
         </div>
       )}
     </div>
@@ -214,7 +214,7 @@ export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer
         </div>
       )}
       <div className="armada-session-sketch__answers">
-        <SketchAnswers sketch={sketch} keep={keep} open onAnswer={onAnswer} />
+        <ApprovalAnswers id={sketch} keep={keep} open onAnswer={onAnswer} />
       </div>
     </Card>
   );

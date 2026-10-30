@@ -139,6 +139,8 @@ pub(crate) struct Extra {
     pub any_walk_approved: bool,
     /// The person approved a sketch the Job showed.
     pub sketch_approved: bool,
+    /// The person approved the newest revision of a document the Job wrote, read off the kept page.
+    pub document_approved: bool,
     /// The person approved a draft the Job proposed, as written or with his own text.
     pub draft_approved: bool,
     /// The person picked an option the Job's question gave a preview.
@@ -188,6 +190,7 @@ pub(crate) struct Facts {
     pub walk_approved: bool,
     pub any_walk_approved: bool,
     pub sketch_approved: bool,
+    pub document_approved: bool,
     pub draft_approved: bool,
     pub idea_picked: bool,
     pub plan_expects_walk: bool,
@@ -232,6 +235,7 @@ impl Facts {
             walk_approved: extra.walk_approved,
             any_walk_approved: extra.any_walk_approved,
             sketch_approved: extra.sketch_approved,
+            document_approved: extra.document_approved,
             draft_approved: extra.draft_approved,
             idea_picked: extra.idea_picked,
             plan_expects_walk: extra.plan_expects_walk,
@@ -279,6 +283,7 @@ impl Facts {
             StepEnd::SketchApproved => self.sketch_approved,
             StepEnd::DraftApproved => self.draft_approved,
             StepEnd::IdeaPicked => self.idea_picked,
+            StepEnd::DocumentApproved => self.document_approved,
         }
     }
 

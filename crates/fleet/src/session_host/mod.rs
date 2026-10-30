@@ -20,6 +20,7 @@ mod call_rows;
 mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod bug_reports;
+pub(crate) mod document_answers;
 pub(crate) mod document_page;
 pub(crate) mod documents;
 pub(crate) mod dispute_review;
