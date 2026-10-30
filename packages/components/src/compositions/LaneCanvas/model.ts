@@ -16,18 +16,55 @@ export type Ref = { lane: string; item: string };
 export const nodeId = (lane: string, item: string): string => `${lane}/${item}`;
 
 /**
- * **Three levels**: the default's, which every Workspace and repository keeps until it changes something; the Workspace's (`workspace`); and one repository's, by its id. Each takes
- * what the level above says until it says otherwise, so a tab reads its own value, else the Workspace's, else the default's.
+ * **Three tiers**: the default's, which every Workspace and repository keeps until it changes something; a Workspace's, keyed `workspace:<id>`; and one repository's, by its id. Each takes
+ * what the tier above says until it says otherwise. A repository can be in two Workspaces, which are peers: the tab reads its own value, else the one Workspace that sets it, else the default's.
  */
 export const DEFAULT = "default";
 
-/** The levels a tab reads, nearest first: a repository's own, the Workspace's, then the default's. */
-export const levelsOf = (scope: string): string[] => (scope === DEFAULT ? [DEFAULT] : scope === "workspace" ? ["workspace", DEFAULT] : [scope, "workspace", DEFAULT]);
+/** The level a Workspace's tab and its pieces are kept at. */
+export const workspaceLevel = (id: string): string => `workspace:${id}`;
 
-/** The tabs that draw every level under them, so a mark on a node names each repository that differs: the default's and the Workspace's. */
-export const overviews = (scope: string): boolean => scope === DEFAULT || scope === "workspace";
+/** Whether a level is a Workspace's. */
+export const isWorkspaceLevel = (level: string): boolean => level.startsWith("workspace:");
 
-/** The tracker's, forge's or watch's own words that count as being in a state, at one level: the default's, the Workspace's or one repository's. */
+/**
+ * Pieces of one id that two Workspaces holding the same repository both set at one place: Fleet runs neither for that repository. Each group is the levels that tie, and a repository
+ * that is in two of a group reads the level above them.
+ */
+export type Clash = readonly (readonly string[])[];
+
+/** The Workspaces a page draws, by their level, and the ones that hold each repository. Set from the Workspace the editor draws, since a level's chain depends on it. */
+let heldBy: ReadonlyMap<string, readonly string[]> = new Map();
+
+/** The Workspaces the page draws: the ones that hold the repository it is on. A Workspace that names none draws the one `id` and `name` say, or none where `id` is empty. */
+export const workspacesOf = (workspace: Pick<Workspace, "id" | "name" | "workspaces">): readonly { id: string; name: string }[] =>
+  workspace.workspaces ?? (workspace.id === "" ? [] : [{ id: workspace.id, name: workspace.name }]);
+
+/** The name a level goes by: a Workspace's, else a repository's. */
+export const levelName = (workspace: Pick<Workspace, "id" | "name" | "workspaces" | "repositories">, level: string): string =>
+  isWorkspaceLevel(level) ? (workspacesOf(workspace).find((one) => workspaceLevel(one.id) === level)?.name ?? level) : (workspace.repositories.find((one) => one.id === level)?.name ?? level);
+
+/** Takes the Workspaces each repository is in from the Workspace the page draws. A repository that names none is in each of the Workspaces. */
+export function holding(workspace: Pick<Workspace, "id" | "name" | "workspaces" | "repositories">): void {
+  const all = workspacesOf(workspace);
+  heldBy = new Map(workspace.repositories.map((one) => [one.id, all.filter((each) => one.in === undefined || one.in.includes(each.id)).map((each) => workspaceLevel(each.id))] as const));
+}
+
+/** The levels of a chain that a clash sets aside: those of a group that two or more of the chain are in. */
+const setAside = (chain: readonly string[], clash: Clash): string[] => chain.filter((level) => clash.some((group) => group.includes(level) && group.filter((one) => chain.includes(one)).length > 1));
+
+/** The levels a tab reads, nearest first: a repository's own, the Workspaces that hold it, then the default's. Given the clash a piece has, the Workspaces that tie are not read. */
+export function levelsOf(scope: string, clash: Clash = []): string[] {
+  if (scope === DEFAULT) return [DEFAULT];
+  const chain = isWorkspaceLevel(scope) ? [scope] : [scope, ...(heldBy.get(scope) ?? [])];
+  const aside = setAside(chain, clash);
+  return [...chain.filter((level) => !aside.includes(level)), DEFAULT];
+}
+
+/** The Workspace levels a clash sets aside on a tab: the ones whose pieces differ, so the tab reads the default's. */
+export const clashAt = (clash: Clash | undefined, scope: string): string[] => setAside(scope === DEFAULT || isWorkspaceLevel(scope) ? [] : [scope, ...(heldBy.get(scope) ?? [])], clash ?? []);
+
+/** The tracker's, forge's or watch's own words that count as being in a state, at one level: the default's, a Workspace's or one repository's. */
 export type StateReads = { source: string; values: readonly string[]; scope: string };
 
 /** A state as the Workspace defines it: where Fleet reads it from is the lifecycle's, and the words that count as being in it are its own. */
@@ -43,6 +80,8 @@ export type StateDef = {
   end?: true;
   /** The tabs whose own piece does not have it. Fleet runs a tab's piece whole, so a state the default added is not there on a tab that keeps its own. */
   absent?: readonly string[];
+  /** The Workspaces whose lifecycles differ, so a repository in both reads the default's. */
+  clash?: Clash;
 };
 
 /** What reads a lifecycle's states, which is the shape its nodes are drawn in: the tracker or the forge (a pill), a watch (a hexagon), an Armada document (a pill) or a Job Armada started (a card). */
@@ -100,12 +139,14 @@ export type Rule = {
   does: readonly { act: ActKind; text: string }[];
   autonomy: Autonomy;
   kept: Kept;
-  /** `default`, `workspace`, or the id of the one repository it applies in. */
+  /** `default`, `workspace:<id>`, or the id of the one repository it applies in. */
   scope: string;
   /** Where a level below changes it from the one above. */
   overrides?: readonly RuleOverride[];
   /** The one workflow it belongs to. Absent, it applies in every workflow that has both ends. */
   workflow?: string;
+  /** The Workspaces whose pieces differ, so a repository in both reads the default's. */
+  clash?: Clash;
   /** The piece as Fleet keeps it at the rule's own level, which the rule's fields above are drawn from. Absent where the host keeps no pieces. */
   wire?: LifecycleRule;
 };
@@ -132,7 +173,8 @@ export type StepLayer = { step: string; scope: string; label?: string; words?: s
 /** A step added at a level below the default: it runs there and below, after the step it follows, and the definition does not hold it. */
 export type AddedStep = { id: string; label: string; after: string; scope: string; words?: string };
 
-export type Repository = { id: string; name: string };
+/** A repository a Workspace holds. `in` is the ids of the Workspaces it is in, among the ones the page draws; absent, all of them. */
+export type Repository = { id: string; name: string; in?: readonly string[] };
 
 /** What one workflow draws of the Workspace: where its steps sit, and which states of which lifecycles it has a lane for, and where. */
 export type WorkflowPlace = {
@@ -162,6 +204,8 @@ export type Observed = {
 export type Workspace = {
   id: string;
   name: string;
+  /** The Workspaces that hold the repository the page is on, each with a tab. Absent, the one `id` and `name` say. */
+  workspaces?: readonly { id: string; name: string }[];
   repositories: readonly Repository[];
   lifecycles: readonly LifecycleDef[];
   /** What else a step can wait on or be passed over for. */
@@ -172,10 +216,10 @@ export type Workspace = {
 };
 
 /** Whether something added at `own` exists on the tab for `scope`: at that level or below it. What the default holds has no level of its own and exists everywhere. */
-export const existsAt = (own: string | undefined, scope: string): boolean => own === undefined || own === DEFAULT || levelsOf(scope).includes(own);
+export const existsAt = (own: string | undefined, scope: string, clash?: Clash): boolean => own === undefined || own === DEFAULT || levelsOf(scope, clash).includes(own);
 
 /** Whether a state is there on the tab for `scope`: added at that level or above, and not left out of the piece that tab runs. */
-export const stateExistsAt = (state: StateDef, scope: string): boolean => existsAt(state.scope, scope) && !(state.absent ?? []).includes(scope);
+export const stateExistsAt = (state: StateDef, scope: string): boolean => existsAt(state.scope, scope, state.clash) && !(state.absent ?? []).includes(scope);
 
 /**
  * The lifecycles a workflow draws, each with the states it places, in the Workspace's order. Given a `scope`, a state added at another level is left out and the ways in and out of it are
@@ -236,9 +280,10 @@ export function stepsAt<T extends { id: string; label: string }>(steps: readonly
   return out;
 }
 
-/** A rule as it reads at a level: the default's own, then each level down changing what it changes. */
-export function ruleAt(rule: Rule, scope: string): Rule {
-  return levelsOf(scope)
+/** A rule as it reads at a level: the default's own, then each level down changing what it changes. `above` leaves the level's own out, for what it would read without it. */
+export function ruleAt(rule: Rule, scope: string, above = false): Rule {
+  return levelsOf(scope, rule.clash)
+    .slice(above ? 1 : 0)
     .reverse()
     .reduce((now, level) => {
       const own = rule.overrides?.find((one) => one.scope === level);
@@ -249,8 +294,8 @@ export function ruleAt(rule: Rule, scope: string): Rule {
 }
 
 /** A state's name at a level: the nearest that names it, else its own. */
-export function stateLabelAt(state: StateDef, scope: string): string {
-  for (const level of levelsOf(scope)) {
+export function stateLabelAt(state: StateDef, scope: string, above = false): string {
+  for (const level of levelsOf(scope, state.clash).slice(above ? 1 : 0)) {
     const named = state.names?.find((one) => one.scope === level);
     if (named !== undefined) return named.label;
   }
@@ -258,8 +303,8 @@ export function stateLabelAt(state: StateDef, scope: string): string {
 }
 
 /** The words that count as being in a state at a level, for one source: the nearest level that sets them. Absent where none does. */
-export function readsAt(state: StateDef, source: string, scope: string): readonly string[] | undefined {
-  for (const level of levelsOf(scope)) {
+export function readsAt(state: StateDef, source: string, scope: string, above = false): readonly string[] | undefined {
+  for (const level of levelsOf(scope, state.clash).slice(above ? 1 : 0)) {
     const found = state.reads.find((one) => one.source === source && one.scope === level);
     if (found !== undefined) return found.values;
   }

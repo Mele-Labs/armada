@@ -3,11 +3,15 @@
 
 import type { AppliedLifecycle, AppliedRule, LifecycleDefinition, LifecycleRule, WorkspaceOfRepositories } from "@armada/protocol";
 
+import type { KeptAutonomy } from "./workspaces-wire";
+
 /** Every piece the mock Fleet keeps, each with where it is kept. A read answers those that apply to the repository asked about. */
 export type PiecesSeed = {
   workspaces: readonly WorkspaceOfRepositories[];
   lifecycles: readonly AppliedLifecycle[];
   rules: readonly AppliedRule[];
+  /** The autonomy layers kept beside them, for a scenario that names none through `draft.workspace`. */
+  autonomy?: readonly KeptAutonomy[];
 };
 
 /** A repository of the seed: the id its pieces are read under and the root its folder is in. */
@@ -131,5 +135,52 @@ export function storePieces(web: Repository, api: Repository): PiecesSeed {
         kept: { rank: { reach: "workspace", source: "kit" }, path: "/Users/user/.armada/rules/ready.toml" },
       },
     ],
+  };
+}
+
+/**
+ * The Workspaces `platform` (api and web) and `mobile` (api and ios), both Kit's, and the first repository `api` in both: Armada's Ticket, Pull request and Deploy for everywhere; a rule of the
+ * person's own that starts the ticket; and **Mark ready, which the default sets, platform changes and mobile changes another way**, so api reads neither and falls back to the default's. Each Workspace
+ * sets how far Armada goes for a pull request write differently: platform asks and mobile acts.
+ */
+export function mobilePieces(api: Repository, web: Repository, ios: Repository): PiecesSeed {
+  const kit = "/Users/user/.armada";
+  const markReady = (more: Partial<LifecycleRule>, when: LifecycleRule["when"], autonomy: "acts" | "asks"): LifecycleRule =>
+    rule("ready", "Mark ready", when, [{ kind: "forge_write", autonomy, what: { act: "forge_mark_ready", target: { among: { kind: "held", lifecycle: "pull_request" } } } }], { autonomy, ...more });
+  const layer = (workspace: string, forge: "acts" | "asks"): KeptAutonomy => ({
+    layer: { id: "defaults", scope: { kind: "within", id: workspace }, defaults: { forge_write: forge } },
+    kept: { rank: { reach: "workspace", source: "kit" }, path: `${kit}/autonomy/${workspace}.toml` },
+  });
+  return {
+    workspaces: [
+      { id: "platform", name: "Platform", repositories: [api.id, web.id], source: "kit", path: `${kit}/workspaces/platform.toml` },
+      { id: "mobile", name: "Mobile", repositories: [api.id, ios.id], source: "kit", path: `${kit}/workspaces/mobile.toml` },
+    ],
+    lifecycles: [held(TICKET), held(PULL_REQUEST), held(DEPLOY)],
+    rules: [
+      {
+        rule: rule(
+          "progress",
+          "Start the ticket",
+          { kind: "enters", lifecycle: "pull_request", state: "draft" },
+          [{ kind: "tracker_write", autonomy: "acts", what: { act: "tracker_move", to: "in_progress", target: { among: { kind: "held", lifecycle: "ticket" } } } }],
+          { autonomy: "acts" },
+        ),
+        kept: { rank: { reach: "everywhere", source: "kit" }, path: `${kit}/rules/progress.toml` },
+      },
+      {
+        rule: markReady({}, { kind: "enters", lifecycle: "ticket", state: "in_review" }, "asks"),
+        kept: { rank: { reach: "everywhere", source: "kit" }, path: `${kit}/rules/ready.toml` },
+      },
+      {
+        rule: markReady({ name: "Mark ready when started", scope: { kind: "within", id: "platform" } }, { kind: "enters", lifecycle: "ticket", state: "in_progress" }, "asks"),
+        kept: { rank: { reach: "workspace", source: "kit" }, path: `${kit}/rules/ready-platform.toml` },
+      },
+      {
+        rule: markReady({ name: "Mark ready after review", scope: { kind: "within", id: "mobile" } }, { kind: "enters", lifecycle: "ticket", state: "in_review" }, "acts"),
+        kept: { rank: { reach: "workspace", source: "kit" }, path: `${kit}/rules/ready-mobile.toml` },
+      },
+    ],
+    autonomy: [layer("platform", "asks"), layer("mobile", "acts")],
   };
 }

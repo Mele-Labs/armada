@@ -70,7 +70,7 @@ export type AutonomyRow = {
 };
 
 /** Names as a person lists them: `a`, `a and b`, `a, b and c`. */
-const listed = (names: readonly string[]): string => (names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
+export const listed = (names: readonly string[]): string => (names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
 /** Each kind as the first level reads it: its value, the level that set it, and what pressing reset would leave. */
 export function autonomyRows(layers: AutonomyLayers, tiers: AutonomyTiers): AutonomyRow[] {

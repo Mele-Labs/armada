@@ -93,7 +93,7 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
       if (before === undefined || kept === undefined || readOnly) return;
       setNotice(undefined);
       // A rule a connector drew is kept as the piece the connector comes to, and each rule is drawn from its piece.
-      const made = withDrawn(withWires(before, next, kept.workspace?.id));
+      const made = withDrawn(withWires(before, next));
       setShown(made);
       if (opsFrom(kept, before, made).length === 0) return;
       waiting.current += 1;
@@ -125,7 +125,8 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
       if (read === undefined) return undefined;
       const found = kitPieceAt(read, pick.kind, pick.id, tab);
       if (found === undefined) return undefined;
-      const home = found.scope.kind === "within" && found.scope.id === read.workspace?.id ? read.workspace.home : undefined;
+      const scope = found.scope;
+      const home = scope.kind === "within" ? read.workspaces.find((one) => one.id === scope.id)?.home : undefined;
       return { piece: { kind: found.kind === "rule" ? "lifecycle_rule" : "lifecycle", id: found.id, scope: found.scope }, ...(home === undefined ? {} : { home }) };
     },
     [read],

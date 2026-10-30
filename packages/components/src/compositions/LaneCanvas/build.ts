@@ -1,7 +1,7 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, layersAt, lifecyclesAt, lifecyclesFor, nodeId, overviews, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
+import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, lifecyclesFor, nodeId, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
 import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, Rule, RuleView, Workspace } from "./model";
 
 /** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
@@ -98,11 +98,17 @@ export function editorLanes(input: {
 }): { lanes: LaneView[]; rules: RuleView[] } {
   const { workspace, workflow } = input;
   const scope = input.scope ?? DEFAULT;
-  const named = (ids: readonly string[]): string[] => ids.map((id) => (id === "workspace" ? workspace.name : (workspace.repositories.find((one) => one.id === id)?.name ?? id)));
-  /** The levels a mark names: on the default's tab and the Workspace's every one under it that differs, and on a repository's own tab only that one. */
-  const marked = (ids: readonly string[]): string[] => named(overviews(scope) ? ids : ids.filter((id) => id === scope));
-  /** A rule is drawn where it applies: everywhere on the default's tab and the Workspace's, and on a repository's tab where it is the Workspace's or that repository's own. */
-  const appliesHere = (rule: Rule): boolean => overviews(scope) || rule.scope === DEFAULT || rule.scope === "workspace" || rule.scope === scope;
+  const named = (ids: readonly string[]): string[] => ids.map((id) => levelName(workspace, id));
+  /** The levels a mark names: on the default's tab every one under it that differs; on a Workspace's, the repositories it holds that differ; on a repository's own tab only that one. */
+  const marked = (ids: readonly string[]): string[] =>
+    named(scope === DEFAULT ? ids : isWorkspaceLevel(scope) ? ids.filter((id) => !isWorkspaceLevel(id) && levelsOf(id).includes(scope)) : ids.filter((id) => id === scope));
+  /** A rule is drawn where it applies: everywhere on the default's tab; on a Workspace's, where it is the default's, that Workspace's or a repository's in it; on a repository's, where the levels it reads set it. */
+  const appliesHere = (rule: Rule): boolean => {
+    if (scope === DEFAULT) return true;
+    const owners = [rule.scope, ...(rule.overrides ?? []).map((one) => one.scope)];
+    if (isWorkspaceLevel(scope)) return owners.some((level) => level === DEFAULT || level === scope || (!isWorkspaceLevel(level) && levelsOf(level).includes(scope)));
+    return owners.some((level) => levelsOf(scope, rule.clash).includes(level));
+  };
   const steps = stepsOf(workspace, workflow, input.steps, scope);
   const lifecycles = lifecyclesAt(workspace, workflow, scope);
   const placeOf = workspace.workflows[workflow];
