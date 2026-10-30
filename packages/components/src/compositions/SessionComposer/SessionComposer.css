@@ -184,7 +184,10 @@
    itself, so a thread beside the browser answers to its own width and not the window's. */
 .armada-session-composer { container-type: inline-size; }
 @container (max-width: 400px) {
+  .armada-session-composer__bar { gap: var(--space-1); }
   .armada-session-composer__pick { min-width: 0; }
+  /* Just the caret's own room on the right, which is what a menu keeps when it has no words to spare. */
+  .armada-session-composer__bar .armada-select { padding-inline: var(--space-1) var(--space-6); }
 }
 
 .armada-session-composer__bar .armada-select-field {
