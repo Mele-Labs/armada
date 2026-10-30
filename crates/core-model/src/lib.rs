@@ -28,6 +28,8 @@ mod envelope;
 mod kit;
 /// The state machines a Job's tickets, pull requests, deploys and Jobs move through.
 mod lifecycle;
+/// Where a piece of configuration is kept: Armada's, the repository's or yours in Kit.
+mod piece;
 mod policy;
 /// Which door an act came through, and whom friction got in the way of.
 /// `docs/concepts/retro.md`.
@@ -40,6 +42,8 @@ mod test_map;
 mod watch;
 /// The workflow a Session or a Job follows, and the ids it is spelled in.
 mod workflow;
+/// A Workspace means a set of repositories, and not the Manifest's monorepo unit.
+mod workspace;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
@@ -56,6 +60,8 @@ pub use workflow::{
     Title, WorkflowId,
     WorkflowSource, under,
 };
+pub use piece::PieceSource;
+pub use workspace::{MalformedWorkspace, Workspace};
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
 };

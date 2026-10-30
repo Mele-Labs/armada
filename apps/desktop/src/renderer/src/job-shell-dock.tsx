@@ -7,6 +7,7 @@ import { DockedTerminal, XtermScreen, type ShellDockPane, type ShellPaneProps, t
 
 import { shellsOf, useJobShell, type JobShell, type JobShells, type ShellPlace } from "./job-shell";
 import { saveJobTerminalPlace, useJobTerminalPlace, type JobTerminalPlace } from "./job-terminal-place";
+import { viewingNow } from "./cockpit/viewed";
 import { closePanel, openInPanel, usePanel } from "./shared-panel/store";
 
 export type JobDock = {
@@ -71,7 +72,8 @@ function useShellArrivals(shells: JobShells | null, place: ShellPlace, sessionId
   useEffect(() => {
     if (shells === null) return;
     const offOpened = shells.onOpened((opened) => {
-      if (opened !== sessionId) return;
+      // A shell the agent opens while the Job is not on screen waits behind the Terminal tile, which pulses while it prints.
+      if (opened !== sessionId || !viewingNow(sessionId)) return;
       if (place === "page" && (shells.hasWindow(sessionId) || placed.current === "window") && toWindow(shells, place, sessionId)) return;
       if (placed.current === "side panel" && toPanel(shells, place, sessionId)) return;
       shells.show(place, sessionId, true);

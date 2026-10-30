@@ -27,6 +27,7 @@
 
 /// Editing `armada.yml` a key at a time, every other byte left where it was.
 mod amending;
+mod applying;
 mod catalogue;
 mod error;
 mod fields;
@@ -36,6 +37,7 @@ mod lifecycle;
 mod live;
 mod loops;
 mod manifest;
+mod piece;
 mod resolve;
 /// The review tools a pull request is asked with, from Armada, Kit and the repository.
 pub mod review_tools;
@@ -47,6 +49,8 @@ pub mod settings;
 mod watches;
 mod widening;
 mod workflow;
+/// A Workspace means a set of repositories here, and not the Manifest's monorepo unit.
+mod workspace;
 mod yaml;
 
 #[cfg(test)]
@@ -56,6 +60,7 @@ pub use amending::{
     amend, splice, Amended, CheckEdit, CommandEdit, Edit, EvidenceEdit, NewCheck, NewCommand, NewEvidence,
     NewLink, NewNarrowing, NewPort, NewRun, NewRunner, NotAmended, PortEdit, RunEdit, Unplaceable,
 };
+pub use applying::{LifecycleFile, Lifecycles, Rank, Reach};
 pub use catalogue::{
     carried, fit, fit_naming, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
     CARRIED_AT,
@@ -65,6 +70,7 @@ pub use fields::{workflow_fields, Field};
 pub use gating::{gating, owner, Gate, GateWhy};
 pub use lifecycle::{parse as parse_lifecycle, LifecycleError};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
+pub use piece::{LeftOut as PieceLeftOut, Written as PieceWritten};
 pub use manifest::{
     AppRun, BadSeedPath, Check, Command, FromKit, Harness, kit_copy_fault, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,
     Preparation, Seed, Server, TrackerBlock, DEFAULT_CI_GATE,
@@ -80,6 +86,7 @@ pub use watches::{
 };
 pub use widening::with_manifests_added;
 pub use workflow::{head_of, names_no_lifecycle, EndFault, MechanicalCheck, NamesNoLifecycle, Step, WorkflowDef, WorkflowHead};
+pub use workspace::{parse_workspace, WorkspaceError, WorkspaceFile, Workspaces};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that
