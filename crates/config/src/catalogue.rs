@@ -40,7 +40,7 @@ pub const CARRIED_AT: &str = "<carried by Armada>";
 /// **The files and not copies of them**, so an edit to one is an edit to what
 /// every repository runs, and `tests/carried.rs` fails if a ninth is added
 /// under `.armada/workflows/` without being listed here.
-const CARRIED: [(&str, &str); 7] = [
+const CARRIED: [(&str, &str); 8] = [
     (
         "bug.json",
         include_str!("../../../.armada/workflows/bug.json"),
@@ -56,6 +56,10 @@ const CARRIED: [(&str, &str); 7] = [
     (
         "feature.json",
         include_str!("../../../.armada/workflows/feature.json"),
+    ),
+    (
+        "orchestrate.json",
+        include_str!("../../../.armada/workflows/orchestrate.json"),
     ),
     (
         "prototype.json",
