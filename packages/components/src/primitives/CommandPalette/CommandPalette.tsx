@@ -817,6 +817,8 @@ function Row({
       aria-disabled={dormant ? true : undefined}
       className={classes}
       onMouseEnter={onEnter}
+      // A press must not take the focus off the field: a chip's option chosen by it leaves the words their keys.
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onChoose}
     >
       {/* The slot holds its width whether or not there is a glyph, so a

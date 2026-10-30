@@ -125,6 +125,21 @@ export const TabOpensTheFirstChipsListAndEnterChooses: Story = {
   },
 };
 
+/** **A press on an option leaves the focus in the words**, so ↵ files at once, as it does after ↵ chose the option. */
+export const ClickingAChipOptionReturnsTheKeysToTheWords: Story = {
+  args: task("Link the search box"),
+  render: (args) => <Held {...args} />,
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.keyboard("{Tab}");
+    await userEvent.click(await canvas.findByRole("option", { name: "site" }));
+    await expect(args.dispatch!.chips![0]!.onChoose).toHaveBeenCalledWith("site");
+    await expect(canvas.getByRole("combobox")).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(args.dispatch!.onDispatch).toHaveBeenCalledWith("Link the search box", "task", { repository: "site", project: NONE }));
+    await expect(args.dispatch!.onDispatch).toHaveBeenCalledTimes(1);
+  },
+};
+
 /** **Esc leaves the chip as it was**, closes only its list, and the palette stays up. */
 export const EscapeLeavesAChipUnchanged: Story = {
   args: task("Link the search box"),

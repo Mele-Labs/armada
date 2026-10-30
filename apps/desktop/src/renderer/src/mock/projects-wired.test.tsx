@@ -131,8 +131,7 @@ test("a project chosen from the row's chip is where the palette files the task",
   await userEvent.click(page.getByRole("button", { name: "Project No project" }));
   await userEvent.click(page.getByRole("option", { name: "Pocket launch" }));
   await expect.element(page.getByRole("button", { name: "Project Pocket launch" })).toBeVisible();
-  // The row is pressed rather than Enter: a press on the list's option takes the focus out of the field.
-  await userEvent.click(page.getByRole("option", { name: /^Add a task / }));
+  await userEvent.keyboard("{Enter}");
 
   await expect.poll(() => write.mock.calls.length).toBe(1);
   expect(write.mock.calls[0]![0]).toMatchObject({ manifest_id: "armada", project: "pocket-launch", title: "Check the pairing copy" });
