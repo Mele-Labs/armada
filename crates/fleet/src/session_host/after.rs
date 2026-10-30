@@ -4,7 +4,9 @@
 //! **A waiting Session is a blank Session and a wait.** It exists and is listed, holds its brief, takes
 //! no slot and runs no process. [`crate::after_following`] reads what Fleet observes of the Session waited
 //! on and calls [`Fleet::wait_met`] when the condition holds: the waiting Session then starts on that
-//! Session's handoff followed by the brief. **A Session an agent started waits the same way and is
+//! Session's handoff followed by the brief. **The person may approve a waiting Session and pick what it
+//! starts on** (`change_waiting`): approved (`held` false) it starts at once when released, on the workflow,
+//! model and effort its hosting holds. **A Session an agent started waits the same way and is
 //! released the same way, except that its first message is then held for the person**, as every start
 //! an agent makes is.
 //!
@@ -102,6 +104,10 @@ pub(crate) fn wait_wire(wait: &KeptWait, on_title: Option<String>, part_title: O
         pull: pull_of(wait),
         part_title,
         by: by_of(wait),
+        held: wait.held,
+        workflow: None,
+        model: None,
+        effort: None,
     }
 }
 
@@ -319,7 +325,43 @@ where
     async fn wait_wired(&self, wait: &KeptWait) -> SessionWait {
         let on_title = self.session_title(&wait.on_session).await;
         let part = self.plan_parts(&wait.on_session).await.into_iter().find(|one| one.id == wait.part).map(|one| one.title);
-        wait_wire(wait, Some(on_title), part)
+        let mut wire = wait_wire(wait, Some(on_title), part);
+        let hosting = self.store().lock().await.hosting(&wait.session_id).ok().flatten();
+        if let Some(hosting) = hosting {
+            (wire.workflow, wire.model, wire.effort) = (hosting.workflow, hosting.model, hosting.effort);
+        }
+        wire
+    }
+
+    /// The person's approval and picks on a waiting Job: the model and effort it starts on are its hosting's,
+    /// as `tune_session` keeps them, and a met wait starts on them. A pick of the person's is no longer the
+    /// proposer's. `""` clears one.
+    async fn start_picks_kept(self: &Arc<Self>, waiting: &str, change: &ChangeWaiting) -> Result<(), Refusal> {
+        let clean = |one: &Option<String>| one.as_ref().map(|one| one.trim().to_string()).map(|one| Some(one).filter(|one| !one.is_empty()));
+        if let Some(workflow) = clean(&change.workflow) {
+            self.workflow_set(ipc::SetSessionWorkflow { session_id: ipc::SessionId::carried(waiting), workflow }).await?;
+        }
+        let (model, effort) = (clean(&change.model), clean(&change.effort));
+        if model.is_none() && effort.is_none() {
+            return Ok(());
+        }
+        let mut store = self.store().lock().await;
+        let Some(mut hosting) = store.hosting(waiting).map_err(|why| self.ledger_fault(why))? else { return Ok(()) };
+        let (model_set, effort_set) = (model.is_some(), effort.is_some());
+        if let Some(model) = model {
+            hosting.model = model;
+        }
+        if let Some(effort) = effort {
+            hosting.effort = effort;
+        }
+        store.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
+        if model_set {
+            self.person_changed(&mut store, waiting, ipc::ProposedField::Model);
+        }
+        if effort_set {
+            self.person_changed(&mut store, waiting, ipc::ProposedField::Effort);
+        }
+        Ok(())
     }
 
     /// What a waiting Session is called: its title, else the first line of its brief.
@@ -456,7 +498,14 @@ where
                 WaitBy::Agent
             }
         };
+        let picks = change.held.is_some() || change.workflow.is_some() || change.model.is_some() || change.effort.is_some();
+        if picks && by == WaitBy::Agent {
+            return Err(self.hosted_refusal(WAIT_NOT_YOURS, &format!("whether job {waiting} starts at once, and what it starts on, are the person's to set")));
+        }
         let mut now = was.clone();
+        if let Some(held) = change.held {
+            now.held = held;
+        }
         if let Some(condition) = &change.condition {
             self.after_checked(&waiting, &StartAfter { session: ipc::SessionId::carried(&was.on_session), condition: condition.clone(), base: base_of(&was), needs: String::new() }).await?;
             let (kind, part) = condition_kept(condition);
@@ -470,8 +519,18 @@ where
         if let Some(base) = change.base {
             now.base = base_kept(base).to_string();
         }
+        self.start_picks_kept(&waiting, &change).await?;
         if now == was {
+            if picks {
+                let _ = self.published_hosted(&waiting).await;
+            }
             return Ok(self.wait_wired(&was).await);
+        }
+        if now.held != was.held && now.condition == was.condition && now.part == was.part && now.base == was.base {
+            // Approving is not a change of when it starts: it is kept and shown, and the Job waited on hears nothing.
+            self.store().lock().await.keep_wait(&now).map_err(|why| self.ledger_fault(why))?;
+            let _ = self.published_hosted(&waiting).await;
+            return Ok(self.wait_wired(&now).await);
         }
         now.by = by_kept(by).to_string();
         self.store().lock().await.keep_wait(&now).map_err(|why| self.ledger_fault(why))?;

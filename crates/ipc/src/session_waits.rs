@@ -90,6 +90,18 @@ pub struct SessionWait {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub part_title: Option<String>,
     pub by: WaitBy,
+    /// Once the condition is met, its first message waits for the person (a draft). `false` is the person's
+    /// approval: it starts at once.
+    pub held: bool,
+    /// The workflow id it starts under. Absent is a custom Job.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
+    /// The model it starts on. Absent is the machine's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// The effort it starts on. Absent is the machine's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
 }
 
 /// `read_session_wait`: the proposer reads a brief that tags a Session for the wait it names, before
@@ -129,6 +141,19 @@ pub struct ChangeWaiting {
     pub condition: Option<StartCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base: Option<StartBase>,
+    /// The person's approval: `false` starts the Job at once when its condition is met, `true` opens it as a
+    /// draft. **The person's alone**: an agent's call carrying it is refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<bool>,
+    /// The workflow it starts under; an empty id clears it. The person's alone, as `held`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
+    /// The model it starts on; empty is the machine's own. The person's alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// The effort it starts on; empty is the machine's own. The person's alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
 }
 
 /// `start_waiting_now`: the person starts a waiting Session at once, whatever its condition.

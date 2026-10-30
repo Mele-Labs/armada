@@ -513,6 +513,25 @@ export function sessionsStore(
       addTo(was.on.id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "changed", from: conditionSaid(was), to: conditionSaid(next), by: "you" }))]);
     },
     startNow: (id) => store.starts(id, "Started by you"),
+    startThen(id, held) {
+      edit(id, (one) => (one.waits === undefined ? one : { ...one, waits: { ...one.waits, held } }));
+    },
+    startTuning(id, tuning) {
+      edit(id, (one) => {
+        if (one.waits === undefined) return one;
+        const { workflow, model, effort, ...rest } = one.waits;
+        const next = { workflow, model, effort, ...tuning };
+        return {
+          ...one,
+          waits: {
+            ...rest,
+            ...(next.workflow == null ? {} : { workflow: next.workflow }),
+            ...(next.model == null ? {} : { model: next.model }),
+            ...(next.effort == null ? {} : { effort: next.effort }),
+          },
+        };
+      });
+    },
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
     confirmLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).map((it) => (it.id === later ? { ...it, confirmed: true } : it)) })),
     dropLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).filter((it) => it.id !== later) })),

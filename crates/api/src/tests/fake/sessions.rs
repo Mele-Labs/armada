@@ -241,6 +241,10 @@ impl Sessions for FakeDaemon {
             pull: None,
             part_title: None,
             by: ipc::WaitBy::You,
+            held: change.held.unwrap_or(true),
+            workflow: None,
+            model: None,
+            effort: None,
         })
     }
 

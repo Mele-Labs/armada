@@ -2,7 +2,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
+import { Check, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
 import { Button, Select, ShellPane, Tooltip, agoOf, isPressed, pressedDigit } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import type { StartWhen } from "@armada/screens/src/draft/sessions";
@@ -127,6 +127,8 @@ export function ShellPanel({ sessionId }: { sessionId: string }) {
  */
 function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Subject; session: Session; wait: SessionWait; sessions: readonly Session[]; draft: SessionsDraft }) {
   const parts = planPartsOf(sessions.find((one) => one.id === wait.on.id));
+  // Approved starts the Job when its trigger fires; otherwise it opens as a draft (held).
+  const approved = wait.held === false;
   const set = (when: StartWhen, part?: string) => {
     const found = parts.find((one) => one.id === part);
     draft.startWhen?.(session.id, when, found === undefined ? undefined : { id: found.id, title: found.title });
@@ -134,6 +136,12 @@ function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Sub
   return (
     <section className="deck-pane" data-frame="" aria-label={`Job: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
       <PaneHead glyph={SquareTerminal} kind="Job" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone: toneOf(subject) }} />}>
+        {draft.startThen === undefined ? null : (
+          <Button variant="secondary" size="sm" aria-pressed={approved} onClick={() => draft.startThen?.(session.id, approved)}>
+            {approved ? <Check size={12} aria-hidden="true" /> : null}
+            {approved ? "Approved" : "Approve"}
+          </Button>
+        )}
         {draft.startNow === undefined ? null : (
           <Button variant="primary" size="sm" onClick={() => draft.startNow?.(session.id)}>
             Start now
@@ -189,6 +197,49 @@ function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Sub
             <dt>Starts from</dt>
             <dd data-mono>{startsFrom(wait)}</dd>
           </div>
+          {draft.startTuning === undefined ? null : (
+            <>
+              <div className="deck-facts__row">
+                <dt>Workflow</dt>
+                <dd>
+                  <Select aria-label="Workflow" value={wait.workflow ?? ""} onChange={(event) => draft.startTuning?.(session.id, { workflow: event.target.value === "" ? null : event.target.value })}>
+                    <option value="">Auto</option>
+                    {(draft.work?.workflows ?? []).map((one) => (
+                      <option key={one.id} value={one.id}>
+                        {one.name}
+                      </option>
+                    ))}
+                  </Select>
+                </dd>
+              </div>
+              <div className="deck-facts__row">
+                <dt>Model</dt>
+                <dd>
+                  <Select aria-label="Model" value={wait.model ?? ""} onChange={(event) => draft.startTuning?.(session.id, { model: event.target.value === "" ? null : event.target.value })}>
+                    <option value="">{draft.defaultModel ?? "Auto"}</option>
+                    {draft.models.map((one) => (
+                      <option key={one} value={one}>
+                        {one}
+                      </option>
+                    ))}
+                  </Select>
+                </dd>
+              </div>
+              <div className="deck-facts__row">
+                <dt>Effort</dt>
+                <dd>
+                  <Select aria-label="Effort" value={wait.effort ?? ""} onChange={(event) => draft.startTuning?.(session.id, { effort: event.target.value === "" ? null : event.target.value })}>
+                    <option value="">Auto</option>
+                    {draft.efforts.map((one) => (
+                      <option key={one} value={one}>
+                        {one}
+                      </option>
+                    ))}
+                  </Select>
+                </dd>
+              </div>
+            </>
+          )}
         </dl>
       </div>
     </section>

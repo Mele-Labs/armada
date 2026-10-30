@@ -84,6 +84,10 @@ export function waitOfWire(wire: WireWait): SessionWait {
     needs: wire.needs ?? "",
     brief: wire.brief,
     by: wire.by,
+    held: wire.held,
+    ...(wire.workflow === undefined ? {} : { workflow: wire.workflow }),
+    ...(wire.model === undefined ? {} : { model: wire.model }),
+    ...(wire.effort === undefined ? {} : { effort: wire.effort }),
   };
 }
 

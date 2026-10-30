@@ -1,6 +1,8 @@
+import { Bot } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 
 import { Stamp } from "../../primitives/Stamp/Stamp";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RepositoryChip } from "../RepositoryChip/RepositoryChip";
 import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
@@ -36,11 +38,16 @@ export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childr
 /**
  * A Job as a card, where a surface names one: the Cockpit's Jobs row, framed in its state. **The state is the frame
  * and the left edge**, in the hue `jobToneOf` gives it, and its glyph with a tooltip; then the title, the last line it
- * said, its age and its repository. A press opens the Job.
+ * said, its age and its repository. A bot glyph stands at the left for a Job. A press opens the Job.
  */
 export function JobCard({ title, state, said, says, handedFrom, at, repository, selected = false, onOpen, ...rest }: JobCardProps) {
   return (
     <button {...rest} type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
+      <Tooltip label="Job">
+        <span className="armada-job-card__kind" role="img" aria-label="Job">
+          <Bot size={14} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
       <span className="armada-job-card__title">{title}</span>
       <span className="armada-job-card__mark">
         <SessionMark state={state} said={said} />

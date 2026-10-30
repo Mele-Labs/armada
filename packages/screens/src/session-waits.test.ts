@@ -28,7 +28,7 @@ const record = (id: string, change: Partial<SessionRecord> = {}): SessionRecord 
 
 const beside: Beside = { picture: () => undefined, sketches: [], pending: [] };
 
-const wait = (change: Partial<SessionWait> = {}): SessionWait => ({ on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" }, base: "main", brief: "Write the docs", by: "you", ...change });
+const wait = (change: Partial<SessionWait> = {}): SessionWait => ({ on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" }, base: "main", brief: "Write the docs", by: "you", held: true, ...change });
 
 const PARTS: readonly PlanPart[] = [
   { id: "g1", title: "Schema", kind: "group" },
@@ -36,8 +36,13 @@ const PARTS: readonly PlanPart[] = [
 ];
 
 describe("the wait a record holds", () => {
+  it("carries the approval and what it starts on", () => {
+    expect(waitOfWire(wait({ held: false, workflow: "feature", model: "opus", effort: "high" }))).toMatchObject({ held: false, workflow: "feature", model: "opus", effort: "high" });
+    expect(waitOfWire(wait())).not.toHaveProperty("model");
+  });
+
   it("reads every condition as the screens draw it, a group or a task as a plan part titled as Fleet read it", () => {
-    expect(waitOfWire(wait())).toEqual({ on: { id: "a", title: "Retry loop" }, when: "ends", base: "main", needs: "", brief: "Write the docs", by: "you" });
+    expect(waitOfWire(wait())).toEqual({ on: { id: "a", title: "Retry loop" }, when: "ends", base: "main", needs: "", brief: "Write the docs", by: "you", held: true });
     expect(waitOfWire(wait({ condition: { kind: "group_done", group: "g1" }, part_title: "Schema", needs: "the schema" }))).toMatchObject({ when: "plan", part: { id: "g1", title: "Schema" }, needs: "the schema" });
     expect(waitOfWire(wait({ condition: { kind: "task_done", task: "t1" } }))).toMatchObject({ when: "plan", part: { id: "t1", title: "t1" } });
     expect(waitOfWire(wait({ condition: { kind: "pr_pushed" }, base: "branch", pull: { number: 12, branch: "retry/loop" }, by: "agent" }))).toMatchObject({ when: "pushed", base: "branch", pull: { number: 12, branch: "retry/loop" }, by: "agent" });
