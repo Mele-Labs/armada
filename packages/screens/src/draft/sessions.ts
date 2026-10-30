@@ -707,8 +707,8 @@ export type SessionAsk = {
   questions?: readonly SessionQuestion[];
   /** The absolute path past the session's slots it asked about, which the "always" answers name a folder of. */
   reaches?: string;
-  /** Whether the call reads that path or writes to it. */
-  reachesTo?: "read" | "write";
+  /** Whether the call reads that path, writes to it, or runs something the guard cannot class. */
+  reachesTo?: "read" | "write" | "run";
   /** The Bash call's program and script, which "Allow calls like this for this job" allows a width of. */
   kind?: CallKind;
 };
