@@ -3,6 +3,8 @@
 
 import type { WebContents } from "electron";
 
+import { onOrigin, webOrigin } from "./address";
+
 /** What a page is asked for: the walk's partition is shared, so the grant is by contents and not by session. */
 const reach = new Map<number, (address: string) => boolean>();
 
@@ -18,4 +20,12 @@ export function reachesLocalNetwork(contents: WebContents, allowed: (address: st
 /** The test the window registered for these contents, or one that refuses every address. */
 export function may(contents: WebContents | null): (address: string) => boolean {
   return (contents !== null && reach.get(contents.id)) || (() => false);
+}
+
+/**
+ * A Job browser's test: **only while the owner drives, and only on the origin the page is on now.** A page the agent
+ * drives is refused, since nobody chose to let it reach an app on this machine.
+ */
+export function whileOwnerDrives(driving: () => boolean, current: () => string): (address: string) => boolean {
+  return (address) => driving() && onOrigin(webOrigin(current()) ?? "", address);
 }

@@ -267,6 +267,7 @@ fn pending_plan() -> ipc::SessionPlan {
             paths: vec!["crates/store".to_string()],
             issue: None,
             lands_in: ipc::PlanLandsIn::default(),
+            own_job: false,
             tasks: vec![ipc::SessionPlanTask {
                 id: "t1".to_string(),
                 text: "Rotate at midnight".to_string(),
