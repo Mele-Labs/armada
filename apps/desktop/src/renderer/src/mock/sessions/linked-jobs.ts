@@ -87,7 +87,13 @@ const parent = (): Session => ({
     you("j-4", "13:42:00", "Approved."),
     ...handed.flatMap((one, at): Session["rows"] => [tool(`j-s${at}`, "13:42:30", `start_another_session ${one.title}`), started(`j-t${at}`, "13:42:31", one.id, one.title)]),
   ],
-  attachments: [{ kind: "slot", slot: 2 }, { kind: "branch", name: "armada/named-migrations", slot: 2 }, ...handed.map((one) => ({ kind: "started_to" as const, id: one.id, group: one.group }))],
+  attachments: [
+    { kind: "slot", slot: 2 },
+    { kind: "branch", name: "armada/named-migrations", slot: 2 },
+    pull(2400, "Move the store to named migrations", "armada/named-migrations", { state: "open", checks: { state: "pending" } }),
+    { kind: "link", url: "https://git.example/armada/docs/migrations", by: "agent" },
+    ...handed.map((one) => ({ kind: "started_to" as const, id: one.id, group: one.group })),
+  ],
   work: { railOff: true, plan: { scope: ["crates/store", "apps/desktop"], approved: true, groups } },
 });
 
