@@ -236,7 +236,7 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
     copy: { steps, lifecycles: held.lifecycles.map(lifecycleOf), rules },
     instances: held.instances.map((one) => instanceOf(one, held.moves)),
     fired: firedOf(held.acts ?? [], rules, landsOn, steps, workflow?.visits ?? []),
-    changes: (held.changes ?? []).map((one): JobChange => ({ id: `${one.lane}:${one.item}:${one.at}`, lane: one.lane, item: one.item, text: one.text, at: one.at })),
+    changes: (held.changes ?? []).map((one): JobChange => ({ id: `${one.lane}:${one.item}:${one.at}`, lane: one.lane, item: one.item, text: one.text, at: one.at, ...(one.dropped === true ? { dropped: true as const } : {}) })),
     ...(waiting === undefined ? {} : { waiting }),
   };
   // `at` is -1 before a step starts and the step count once every one has ended; Fleet names no step in either case.

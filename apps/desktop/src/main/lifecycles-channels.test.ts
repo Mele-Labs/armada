@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { deleteOf, saveOf } from "./lifecycles-channels";
+import { deleteOf, keepOf, saveOf } from "./lifecycles-channels";
 
 const lifecycle = { kind: "lifecycle", lifecycle: { id: "ticket", name: "Ticket", scope: { kind: "everywhere" }, states: [], transitions: [], ends: [] } };
 
@@ -26,5 +26,16 @@ describe("a piece to delete", () => {
     expect(deleteOf({ kind: "lifecycle", id: " " })).toBeNull();
     expect(deleteOf({ kind: "tile", id: "ticket" })).toBeNull();
     expect(deleteOf(undefined)).toBeNull();
+  });
+});
+
+describe("a piece of a Job's copy to keep for every Job", () => {
+  it("is a rule or a lifecycle, named by the Job and the id it declares", () => {
+    expect(keepOf({ session_id: "s1", kind: "rule", id: "ask_for_review" })).toEqual({ session_id: "s1", kind: "rule", id: "ask_for_review" });
+    expect(keepOf({ session_id: "s1", kind: "lifecycle", id: "ticket", scope: { kind: "everywhere" } })).toEqual({ session_id: "s1", kind: "lifecycle", id: "ticket" });
+    expect(keepOf({ session_id: "s1", kind: "workspace", id: "mine" })).toBeNull();
+    expect(keepOf({ session_id: " ", kind: "rule", id: "ask_for_review" })).toBeNull();
+    expect(keepOf({ session_id: "s1", kind: "rule", id: "" })).toBeNull();
+    expect(keepOf(undefined)).toBeNull();
   });
 });

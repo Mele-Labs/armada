@@ -126,6 +126,10 @@ pub struct JobCopyChange {
     pub text: String,
     pub by: ChangedBy,
     pub at: Instant,
+    /// A rule or a lifecycle the Job took out of its copy. It is marked as dropped and there is nothing of it
+    /// left to keep for every Job.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dropped: bool,
 }
 
 /// `get_job_copy`: what a Job holds of its workflow, lifecycles and rules, and what was changed in it.

@@ -267,6 +267,8 @@ export type JobCopyActs = {
   piece: (id: string, kind: "lifecycle" | "rule", piece: string, text: string | undefined) => Promise<string | undefined>;
   /** Proposes the Job's workflow for every Job. It waits on Approve on the Workflows page. */
   keep: (id: string) => Promise<string | undefined>;
+  /** Proposes one rule or lifecycle the Job changed for every Job, as a file in Kit within the Job's repository. It waits on Approve on the Job's draft. */
+  keepPiece: (id: string, kind: "lifecycle" | "rule", piece: string) => Promise<string | undefined>;
 };
 
 /** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */

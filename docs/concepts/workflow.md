@@ -141,11 +141,12 @@ A proposal waits on the owner's Approve on the Workflows page, as a drafted chan
 |---|---|
 | Add a step, a lifecycle or a rule to this Job | Presses `+` above the Job's lanes and chooses which |
 | See what changed | The lanes mark the step, the rule's chip and the lifecycle's head, and *Changed on this Job* under them lists each change with who made it, the Job or him |
-| Keep a change for the others | Presses *Keep for every Job* on a changed workflow, which proposes the Job's workflow as a change and saves nothing until he approves it |
+| Keep a change for the others | Presses *Keep for every Job* on a changed workflow, which proposes the Job's workflow as a change, or on a changed rule or lifecycle, which proposes that one piece for Kit within the repository; nothing saves until he approves it |
 
 **A workflow is copied at the Job's first change to its steps**, as the file it followed then, so the Job keeps following that text while the repository's changes.
 A rule or a lifecycle is changed in the copy the Job froze when it started.
-Keeping a rule or a lifecycle for every Job is not built: it would go through the Workflows page's save, and nothing proposes one to it.
+A rule or a lifecycle is kept one piece at a time, from its own row under the lanes, and a piece the Job dropped is not offered.
+The proposal waits on the Job's draft, since the Workflows page holds a workflow's change and not a piece's.
 The timeline enters each change as `session.copy`, naming what changed and who.
 
 ### Where a definition comes from

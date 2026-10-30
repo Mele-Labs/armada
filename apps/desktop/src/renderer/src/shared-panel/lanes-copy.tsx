@@ -1,5 +1,6 @@
 // The owner's acts on a Job's own copy, from its lanes (`lanes.tsx`): `+` adds a step, a lifecycle or a rule to this Job, and the changes made to it are listed under the canvas with
-// Keep for every Job, which proposes the Job's workflow for the others. **A change applies to this Job at once**; Keep waits on Approve on the Workflows page, so it is not drawn as done.
+// Keep for every Job, which proposes the Job's workflow for the others, and a Keep on each changed rule or lifecycle for that one piece. **A change applies to this Job at once**; Keep waits on Approve (the workflow's
+// on the Workflows page, a piece's on the Job's draft), so it is not drawn as done.
 // A refusal is Fleet's own sentence, drawn in the form that asked. Keys: the menu's, Esc puts the form away, and ⌘↵ adds from any field.
 
 import { useState, type FormEvent, type KeyboardEvent } from "react";
@@ -7,6 +8,7 @@ import { BookMarked, Check, GitCompare, SquarePlus } from "lucide-react";
 import { Button, DropdownMenu, Input, Select, Textarea, Tooltip } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
+import type { JobChange } from "@armada/components/src/compositions/LaneCanvas/model";
 import type { JobCopyActs } from "@armada/screens/src/draft/sessions";
 
 export const ADD_SAID = "Add to this Job";
@@ -144,9 +146,32 @@ function FormActs({ pending, refused, blank, onCancel }: { pending: boolean; ref
   );
 }
 
+/** One changed rule or lifecycle, kept as a piece: the id it declares, or none for a row of the workflow. A piece the Job dropped has nothing left to keep. */
+function pieceOf(change: JobChange): { kind: "lifecycle" | "rule"; id: string } | undefined {
+  if (change.lane === "workflow" || change.dropped === true) return undefined;
+  return change.lane === "rule" ? { kind: "rule", id: change.item } : { kind: "lifecycle", id: change.lane };
+}
+
+/** What a changed rule or lifecycle row offers: Keep for every Job on that one piece, or a check once it is proposed. */
+function KeepPiece({ name, kept, pending, onKeep }: { name: string; kept: boolean; pending: boolean; onKeep: () => void }) {
+  return kept ? (
+    <Tooltip label={KEPT_SAID} asChild>
+      <span className="sv-lanes__kept" role="img" aria-label={`${KEPT_SAID}: ${name}`}>
+        <Check size={14} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  ) : (
+    <Tooltip label={KEEP_SAID} asChild>
+      <Button variant="ghost" size="sm" iconOnly aria-label={`${KEEP_SAID}: ${name}`} pending={pending} onClick={onKeep}>
+        <BookMarked size={16} aria-hidden />
+      </Button>
+    </Tooltip>
+  );
+}
+
 /**
  * What was changed on this Job, a row for each, under the canvas. **Keep for every Job is in the head, once, and only where a step of the workflow changed**: it proposes the
- * workflow the Job holds, whole. A rule or a lifecycle is kept for this Job alone until the Workflows page can save one.
+ * workflow the Job holds, whole. **A changed rule or lifecycle has its own Keep on its row**, since each proposes one piece; a dropped one has none.
  */
 export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lanes: SessionLanes; acts: JobCopyActs | undefined }) {
   const { changes } = lanes.job;
@@ -155,6 +180,9 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
   const [kept, setKept] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
   const [refused, setRefused] = useState<string | undefined>();
+  /** The rows whose piece was proposed, and the one being proposed. A change made again is a new row, which Keep offers again. */
+  const [keptRows, setKeptRows] = useState<ReadonlySet<string>>(new Set());
+  const [pendingRow, setPendingRow] = useState<string | undefined>();
   if (changes.length === 0) return null;
   const keep = async () => {
     if (acts === undefined || pending) return;
@@ -163,6 +191,15 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
     const said = await acts.keep(sessionId);
     setPending(false);
     if (said === undefined) setKept(signature);
+    else setRefused(said);
+  };
+  const keepPiece = async (change: JobChange, piece: { kind: "lifecycle" | "rule"; id: string }) => {
+    if (acts === undefined || pendingRow !== undefined) return;
+    setPendingRow(change.id);
+    setRefused(undefined);
+    const said = await acts.keepPiece(sessionId, piece.kind, piece.id);
+    setPendingRow(undefined);
+    if (said === undefined) setKeptRows((rows) => new Set(rows).add(change.id));
     else setRefused(said);
   };
   return (
@@ -189,15 +226,21 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
         </p>
       )}
       <ul className="sv-lanes__comments">
-        {changes.map((one) => (
-          <li key={one.id} className="sv-lanes__item">
-            <div className="sv-lanes__change">
-              <GitCompare className="sv-lanes__change-mark" size={14} strokeWidth={2} aria-hidden />
-              <span className="sv-lanes__author">{changedName(lanes, one)}</span>
-              <span className="sv-lanes__text">{one.text}</span>
-            </div>
-          </li>
-        ))}
+        {changes.map((one) => {
+          const piece = acts === undefined ? undefined : pieceOf(one);
+          return (
+            <li key={one.id} className="sv-lanes__item">
+              <div className="sv-lanes__change">
+                <GitCompare className="sv-lanes__change-mark" size={14} strokeWidth={2} aria-hidden />
+                <span className="sv-lanes__author">{changedName(lanes, one)}</span>
+                <span className="sv-lanes__text">{one.text}</span>
+                {piece === undefined ? null : (
+                  <KeepPiece name={changedName(lanes, one)} kept={keptRows.has(one.id)} pending={pendingRow === one.id} onKeep={() => void keepPiece(one, piece)} />
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

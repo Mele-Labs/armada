@@ -105,6 +105,7 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       changeSessionSteps: async () => noCopy,
       changeJobCopy: async () => noCopy,
       keepJobWorkflow: async () => noCopy,
+      keepJobPiece: async () => noCopy,
     };
   },
 };

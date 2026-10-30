@@ -84,7 +84,8 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
         rules: Vec::new(),
         changes: Vec::new(),
     };
-    held.changes = store.job_copy_marks(session).unwrap_or_default().iter().map(crate::session_host::job_copying::mark_wire).collect();
+    let pieces = store.job_copy_of(session).ok().flatten().map(|kept| kept.pieces).unwrap_or_default();
+    held.changes = store.job_copy_marks(session).unwrap_or_default().iter().map(|mark| crate::session_host::job_copying::mark_wire(mark, &pieces)).collect();
     held.rules = copy_rules(store, session);
     let Some(manifest) = store.session(session).ok().flatten().and_then(|kept| kept.manifest_id) else {
         return held;

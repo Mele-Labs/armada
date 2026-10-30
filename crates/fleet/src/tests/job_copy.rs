@@ -335,8 +335,12 @@ async fn a_rule_in_a_jobs_copy_is_changed_dropped_and_marked_on_the_lanes() {
     let broken = rig.fleet.piece_changed(rule_change(&id, Some("not a rule"))).await;
     assert!(refused_with(&broken, "fleet.job_copy_piece_refused"), "{broken:?}");
 
+    assert!(!copy.changes[0].dropped, "a rule the copy holds is not dropped");
     let copy = rig.fleet.piece_changed(rule_change(&id, None)).await.expect("dropped");
     assert!(copy.rules.is_empty());
+    assert!(copy.changes.iter().any(|one| one.lane == "rule" && one.item == "deploy_watch" && one.dropped), "its mark says it was dropped: {:?}", copy.changes);
+    let lanes = Arc::clone(&rig.fleet).get_job_lifecycles(None, Some(id.clone())).await.expect("lanes");
+    assert!(lanes.changes.iter().any(|one| one.item == "deploy_watch" && one.dropped), "and so do the lanes");
     let again = rig.fleet.piece_changed(rule_change(&id, None)).await;
     assert!(refused_with(&again, "fleet.job_copy_piece_refused"), "{again:?}");
     assert!(says_of_copy(&rig).await.iter().any(|(says, by)| says == "rule dropped: deploy_watch" && by.as_deref() == Some("by you")));

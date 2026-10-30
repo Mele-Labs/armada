@@ -8,6 +8,8 @@ import type {
   DeleteLifecyclePiece,
   JobCopy,
   JobLifecycles,
+  JobPieceProposed,
+  KeepJobPiece,
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
@@ -44,6 +46,8 @@ export type LifecyclesApi = {
   changeJobCopy: (change: ChangeJobCopy) => Promise<LifecyclesActed<JobCopy>>;
   /** The Job's copy of its workflow proposed for every Job: a ready change that waits on the owner's Approve. `POST /sessions/copy/keep`. */
   keepJobWorkflow: (sessionId: string) => Promise<LifecyclesActed<WorkflowChange>>;
+  /** One rule or lifecycle the Job changed proposed for every Job, as a file in Kit within the Job's repository: it waits on the owner's Approve on the Job's draft. `POST /sessions/copy/keep_piece`. */
+  keepJobPiece: (body: KeepJobPiece) => Promise<LifecyclesActed<JobPieceProposed>>;
 };
 
 export const LIFECYCLES_CHANNELS = {
@@ -57,6 +61,7 @@ export const LIFECYCLES_CHANNELS = {
   changeSessionSteps: "bridge:change-session-steps",
   changeJobCopy: "bridge:change-job-copy",
   keepJobWorkflow: "bridge:keep-job-workflow",
+  keepJobPiece: "bridge:keep-job-piece",
   /** Main to every window, not a request. */
   jobLifecyclesChanged: "bridge:job-lifecycles-changed",
 } as const;

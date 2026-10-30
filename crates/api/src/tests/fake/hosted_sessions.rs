@@ -236,6 +236,7 @@ impl HostedSessions for FakeDaemon {
                 text: "Added after plan by the Job".into(),
                 by: ipc::ChangedBy::Job,
                 at: ipc::Instant::carried("2026-10-30T09:00:00.000Z"),
+                dropped: false,
             }],
         })
     }

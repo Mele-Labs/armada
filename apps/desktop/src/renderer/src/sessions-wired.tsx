@@ -951,6 +951,7 @@ export class WiredStore {
       step: (id, change) => this.said(this.api.changeSessionSteps({ session_id: id, change })),
       piece: (id, kind, piece, text) => this.said(this.api.changeJobCopy({ session_id: id, kind, id: piece, ...(text === undefined ? {} : { text }) })),
       keep: (id) => this.said(this.api.keepJobWorkflow(id)),
+      keepPiece: (id, kind, piece) => this.said(this.api.keepJobPiece({ session_id: id, kind, id: piece })),
     },
     get commands() {
       return store.commandsRead();
