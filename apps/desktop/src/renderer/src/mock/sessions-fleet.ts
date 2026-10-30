@@ -379,7 +379,7 @@ export class FakeSessionsFleet {
             const waits =
               after === undefined
                 ? undefined
-                : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, ...(after.needs === undefined ? {} : { needs: after.needs }) };
+                : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, held: false, ...(after.needs === undefined ? {} : { needs: after.needs }) };
             const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }), ...(waits === undefined ? {} : { waits }) });
             // Held: it waits on its start card, with no choice standing, and nothing runs until `beginSession`. The words he dispatched
             // are the first message, held on the card and not yet in the thread; the title is their first words, as the proposer would write it.

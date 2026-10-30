@@ -2,13 +2,15 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Change when a Job waiting on you starts, or where from. Body: waiting_session, and condition and base, each optional"
+description = "Change when a Job waiting on you starts, or where from. Body: waiting_session, and condition, base, held, workflow, model and effort, each optional"
 notes = """
 `POST /sessions/change_waiting`, body `ChangeWaiting`: `waiting_session`, the id of the Job that waits, and optionally `condition` and `base`. Answered with the `SessionWait` as it now stands. `docs/concepts/session.md`, *A Job that waits on another*.
 
 `condition` is `{"kind": "ends"}`, `{"kind": "group_done", "group": "<id in your plan>"}`, `{"kind": "task_done", "task": "<id in your plan>"}`, `{"kind": "pr_pushed"}` or `{"kind": "pr_lands"}`. `base` is `main` or `branch`, the branch of your pull request. A group or task is named by the id `record_plan` gave it; a plan part you do not hold is refused 422 `fleet.wait_part_unknown`.
 
 **Whose call it is.** An agent's call is placed by its connection and may change a Job that waits on it and no other: 422 `fleet.wait_not_yours` otherwise, and `fleet.wait_unplaced` where it places no Job. Bridge's call (no connection) changes any, and the Job waited on is then told in words, which wakes its agent if it is idle. **Each change is a `waiter` row in both threads** (`event` `changed`; `from` and `to` the condition as it was and is; `by` `agent` or `you`; `side` `waiting` in the waiting Job's own thread), and the condition is read at once against what Fleet observes, so a change to one already met starts the Job. Refused 409 `fleet.wait_over` where the Job started already.
+
+**The person's alone:** `held` (`false` approves: the Job starts at once when its condition is met, `true` opens it as a draft), `workflow`, `model` and `effort` (what it starts on; an empty string clears a pick). An agent's call carrying any of them is refused 422 `fleet.wait_not_yours`. The `SessionWait` answered carries `held`, `workflow`, `model` and `effort`.
 
 `agent_access` is `Yes`: the Job waited on is the one that knows whether a pull request or a part of its plan is the real moment its work is ready.
 """

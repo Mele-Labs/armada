@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { AnswerSketch, CallKind, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { AnswerSketch, CallKind, ChangeWaiting, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -391,6 +391,12 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome);
   }
 
+  /** Approves a waiting Session or withdraws the approval, or sets what it starts on; `""` clears a pick. A refusal is a toast. */
+  private async changingStart(id: string, change: Pick<ChangeWaiting, "held" | "workflow" | "model" | "effort">): Promise<void> {
+    const done = await this.api.changeWaiting({ waiting_session: id, ...change });
+    if (!done.ok) this.tell(done.outcome);
+  }
+
   private async startingNow(id: string): Promise<void> {
     const done = await this.api.startWaitingNow(id);
     if (!done.ok) this.tell(done.outcome);
@@ -690,6 +696,8 @@ export class WiredStore {
     settlesWait: (words) => this.settledWait(words),
     startWhen: (id, when, part) => void this.changingWait(id, when, part),
     startNow: (id) => void this.startingNow(id),
+    startThen: (id, held) => void this.changingStart(id, { held }),
+    startTuning: (id, tuning) => void this.changingStart(id, { ...(tuning.workflow === undefined ? {} : { workflow: tuning.workflow ?? "" }), ...(tuning.model === undefined ? {} : { model: tuning.model ?? "" }), ...(tuning.effort === undefined ? {} : { effort: tuning.effort ?? "" }) }),
     queued: () => this.queuedNow,
     queue: (idea) => this.changeQueued((ideas) => [...ideas, { id: newIdeaId(), ...idea }]),
     startQueued: (id) => this.startingQueued(id),
