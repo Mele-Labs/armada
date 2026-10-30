@@ -17,6 +17,7 @@ import { baysOf } from "../../session-view/slot-trouble";
 import { useLayer } from "../../session-view/layers";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
+import { ConsoleBlock, consoleTake } from "./console";
 import { viewsOf } from "../../merge-line";
 import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
@@ -79,6 +80,7 @@ import { PullRequestMenuOn } from "../../pull-request-menu";
 import "../cockpit.css";
 import "./deck.css";
 import "./power.css";
+import "./console.css";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
@@ -841,8 +843,36 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const { expanded, toggle: toggleExpanded } = useFlightExpanded();
   /** Whether the Job's row holds more tiles than it shows; nothing while its tiles are not drawn. */
   const [overflows, setOverflows] = useState<boolean | undefined>();
+  // The mock's console take (`console.tsx`): with no Job open, the tiles and Dispatch are drawn as one curved console.
+  const take = folded.collapsed || editing || session !== undefined ? undefined : consoleTake();
+  const dispatching = useDispatching();
+  const tileKey = (tile: (typeof deckTiles)[number]) => {
+    const act = tile.builtIn === undefined ? undefined : DECK_ACTS[tile.id];
+    const Glyph = flightGlyph(tile.glyph, "zap");
+    const address = (tile.words ?? "").trim();
+    return (
+      <Tooltip key={tile.id} label={tile.builtIn === undefined ? `Open ${address}` : (DECK_TIPS[tile.id] ?? tile.label)} {...(tile.key === undefined ? {} : { shortcut: tile.key })} asChild>
+        <button
+          type="button"
+          className="deck-tile"
+          aria-label={tile.label}
+          data-key={tile.key}
+          aria-pressed={act?.pressed(deck)}
+          onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
+        >
+          <Glyph size={20} aria-hidden="true" />
+          <span className="deck-tile__text">{tile.text}</span>
+          {tile.key === undefined ? null : (
+            <Kbd className="deck-tile__key" aria-hidden="true">
+              {tileCap(tile.key)}
+            </Kbd>
+          )}
+        </button>
+      </Tooltip>
+    );
+  };
   return (
-    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined} data-console={take}>
       <Standby kind="controls" />
       <header className="deck-band" {...folded.band}>
         <span className="deck-band__name">Flight control</span>
@@ -869,35 +899,28 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
       ) : session !== undefined && draft !== undefined ? (
         <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} expanded={expanded} onOverflow={setOverflows} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
-        <div className="deck-controls__block">
-          {deckTiles.map((tile) => {
-            const act = tile.builtIn === undefined ? undefined : DECK_ACTS[tile.id];
-            const Glyph = flightGlyph(tile.glyph, "zap");
-            const address = (tile.words ?? "").trim();
-            return (
-              <Tooltip key={tile.id} label={tile.builtIn === undefined ? `Open ${address}` : (DECK_TIPS[tile.id] ?? tile.label)} {...(tile.key === undefined ? {} : { shortcut: tile.key })} asChild>
-                <button
-                  type="button"
-                  className="deck-tile"
-                  aria-label={tile.label}
-                  data-key={tile.key}
-                  aria-pressed={act?.pressed(deck)}
-                  onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
-                >
-                  <Glyph size={20} aria-hidden="true" />
-                  <span className="deck-tile__text">{tile.text}</span>
-                  {tile.key === undefined ? null : (
-                    <Kbd className="deck-tile__key" aria-hidden="true">
-                      {tileCap(tile.key)}
-                    </Kbd>
-                  )}
-                </button>
-              </Tooltip>
-            );
-          })}
-        </div>
+        take !== undefined ? (
+          <ConsoleBlock take={take} keys={deckTiles.map(tileKey)} centre={dispatching === undefined ? undefined : <DispatchKey open={() => dispatching.openNew()} />} />
+        ) : (
+          <div className="deck-controls__block">{deckTiles.map(tileKey)}</div>
+        )
       )}
     </section>
+  );
+}
+
+/** Dispatch as a key of the console, the one `DispatchDeck` draws, for the mock's console take. */
+function DispatchKey({ open }: { open: () => void }) {
+  return (
+    <Tooltip label="Dispatch" shortcut={keyFor("new_job")} asChild>
+      <button type="button" className="deck-tile deck-dispatch__tile" aria-label="Dispatch" onClick={open}>
+        <Send size={20} aria-hidden="true" />
+        <span className="deck-tile__text">Dispatch</span>
+        <Kbd className="deck-tile__key" aria-hidden="true">
+          {keyFor("new_job")}
+        </Kbd>
+      </button>
+    </Tooltip>
   );
 }
 
