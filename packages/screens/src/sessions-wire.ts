@@ -155,16 +155,15 @@ function settledOf(detail: Record<string, string | undefined>): Pick<Extract<Ses
 }
 
 /**
- * A document's newest revision as it was put to him: asked, its number, how he answered it, and when it was kept. **The record names no
- * time a revision was kept**, so it is read off the row: `changed_at` until he answers, since nothing else moves the detail, then `since`
- * for revision 1, kept once and never moved, else the answer's own time, the nearest the record holds. A page kept before Fleet asked
- * carries no `revision` and asks nothing.
+ * A document's newest revision as it was put to him: asked, its number, how he answered it, and when it was kept, `detail.kept_at`. A
+ * record without one is read off the row: `changed_at` until he answers, since nothing else moves the detail, then `since` for revision 1,
+ * else the answer's own time. A page kept before Fleet asked carries no `revision` and asks nothing.
  */
 function documentAskOf(one: Attachment, detail: Record<string, string | undefined>): Pick<Extract<SessionAttachment, { kind: "artifact" }>, "asked" | "revision" | "settled" | "kept"> {
   const given = detail["revision"];
   const revision = given === undefined || given === "" ? undefined : given;
   const settled = revision === undefined ? undefined : settledOf(detail).settled;
-  const kept = settled === undefined ? one.changed_at : revision === "1" ? one.since : settled.at;
+  const kept = detail["kept_at"] || (settled === undefined ? one.changed_at : revision === "1" ? one.since : settled.at);
   if (revision === undefined) return { kept };
   return { ...(detail["asked"] === "true" ? { asked: true as const } : {}), revision, ...(settled === undefined ? {} : { settled }), kept };
 }

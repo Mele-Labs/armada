@@ -988,7 +988,13 @@ describe("a document put to him on the ledger", () => {
     expect(approved).not.toHaveProperty("settled.words");
   });
 
-  it("stands where revision 1 was first kept once he answers it, and at the answer for a later one, which the record keeps no time of", () => {
+  it("stands where Fleet says the revision was kept, answered or not", () => {
+    const keptAt = "2026-10-30T10:04:00.000Z";
+    expect(read(page({ asked: "true", revision: "2", kept_at: keptAt }))).toMatchObject({ kept: keptAt });
+    expect(read(page({ asked: "true", revision: "2", kept_at: keptAt, settled: "approved", settled_at: ANSWERED }))).toMatchObject({ kept: keptAt });
+  });
+
+  it("without kept_at, stands where revision 1 was first kept once he answers it, and at the answer for a later one", () => {
     const first = "2026-10-30T10:01:00.000Z";
     expect(read(page({ asked: "true", revision: "1", settled: "approved", settled_at: ANSWERED }, first))).toMatchObject({ kept: first });
     expect(read(page({ asked: "true", revision: "2", settled: "approved", settled_at: ANSWERED }, first))).toMatchObject({ kept: ANSWERED });
