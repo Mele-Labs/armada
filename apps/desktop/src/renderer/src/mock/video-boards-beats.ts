@@ -66,12 +66,12 @@ export const BEATS: readonly Beat[] = [
   beat("T+00:25", undefined, { later: map, say: "0:25 to 0:37, shot 4, first call. Flight 2 stops on a question." }),
   beat("T+00:26", "FLIGHT 2 · REQUESTING DECISION", { look: map, say: "An amber pillar of light rises from Flight 2's drone, with a badge over it. Voice over: You hear from a Job only when it needs you." }),
   beat("T+00:29", "FLIGHT 2 · REQUESTING DECISION", { look: row(PAYMENTS), say: "The Flight 2 row turns yellow and pulses." }),
-  beat("T+00:31", "FLIGHT 2 · REQUESTING DECISION", { key: "c", on: jobs, say: "c goes to the first row that needs you." }),
-  beat("T+00:31", "FLIGHT 2 · REQUESTING DECISION", { key: "Enter", on: jobs, say: "Enter opens Flight 2 on the stage." }),
+  beat("T+00:31", "FLIGHT 2 · REQUESTING DECISION", { key: "c", on: row(CHECKOUT), say: "c goes to the first row that needs you." }),
+  beat("T+00:31", "FLIGHT 2 · REQUESTING DECISION", { key: "Enter", on: row(PAYMENTS), say: "Enter opens Flight 2 on the stage." }),
   beat("T+00:32", "FLIGHT 2 · REQUESTING DECISION", { look: inside(ask, text(/Migrate now, or pin v3/)), say: "The question: v4 drops the v1 webhooks. Migrate now, or pin v3?" }),
   beat("T+00:34", "FLIGHT 2 · REQUESTING DECISION", { press: inside(ask, role("radio", /^Migrate now/)), say: "The first option." }),
   beat("T+00:35", "FLIGHT 2 · REQUESTING DECISION", { press: inside(ask, button("Answer", { exact: true })), say: "Answer. The row stops pulsing." }),
-  beat("T+00:36", "FLIGHT 2 · REQUESTING DECISION", { key: "Escape", on: stage(PAYMENTS), say: "Esc returns to the deck. Flights 1 and 3 kept working the whole time." }),
+  beat("T+00:36", "FLIGHT 2 · REQUESTING DECISION", { press: inside(stage(PAYMENTS), button("Back", { exact: true })), say: "Back to the deck. Flights 1 and 3 kept working the whole time." }),
 
   // Shot 5, 0:37 to 0:52
   beat("T+00:37", undefined, { later: jobs, say: "0:37 to 0:52, shot 5, the walk. Flight 3 has a screen to show." }),
@@ -82,7 +82,7 @@ export const BEATS: readonly Beat[] = [
   beat("T+00:45", "FLIGHT 3 · VISUAL CHECK", { look: walkWindow, say: "The window runs full frame. This is the one shot where the app is not the subject." }),
   beat("T+00:50", "FLIGHT 3 · VISUAL CHECK", { press: inside(walkWindow, button("Approve")), say: "Approve." }),
   beat("T+00:51", "FLIGHT 3 · VISUAL CHECK", { press: button("Close window"), say: "The window closes." }),
-  beat("T+00:51", "FLIGHT 3 · VISUAL CHECK", { key: "Escape", on: stage(DARK), say: "Esc returns to the deck." }),
+  beat("T+00:51", "FLIGHT 3 · VISUAL CHECK", { press: inside(stage(DARK), button("Back", { exact: true })), say: "Back to the deck." }),
 
   // Shot 6, 0:52 to 1:00
   beat("T+00:52", undefined, { later: jobs, say: "0:52 to 1:00, shot 6, handoff. Flight 2's pull request opens." }),
