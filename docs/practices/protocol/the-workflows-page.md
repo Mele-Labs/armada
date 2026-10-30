@@ -32,6 +32,7 @@ Nudges are those `workflow_nudges` keeps for that step in that place's definitio
 | `fleet.workflow_unwritable` (500) | delete, where a file cannot be removed |
 
 **Make my copy needs no route.** `get_workflow` with `source=armada` reads Armada's text and `save_workflow` with `scope: kit` and `overwrite: false` writes it under the same id; 422 `fleet.workflow_exists` where Kit already holds one.
+In the Workspace's lanes the first change to one of Armada's makes the same copy, once, and the change is written to it; the column of steps keeps its row read-only.
 It is checked against the Checks of the repository Armada's row was listed under, as every save is.
 
 **Each copy is read and acted on under the Manifest Fleet listed it under**, the `manifest_id` on its `WorkflowSummary`, and not the pick's.
@@ -100,7 +101,7 @@ He dismisses the draft and asks again.
 
 **A suggestion is begun on its own** when a nudge is kept and at least two still count inside seven days at that step in that place, the place is the repository or Kit, and the step has no open change.
 A nudge marked not a drift does not count.
-Armada's own definitions get none: they are read-only, and a change to one is Propose to Armada or Make my copy.
+Armada's own definitions get none: they are read-only, and a change to one is Propose to Armada, Make my copy, or a first change in the lanes, which makes the copy.
 Suggest a change asks for one sooner, from the nudges that count then.
 
 **Propose to Armada** starts a Job on the repository Fleet serves as `armada`, the manifest id a retro's fix in Armada also looks for, with `start_session` and a brief that says to set the carried `.armada/workflows/` file for the id to the definition and land it as a pull request.

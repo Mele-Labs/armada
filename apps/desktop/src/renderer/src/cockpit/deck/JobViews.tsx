@@ -42,7 +42,7 @@ export type JobView = {
 
 const GLYPH: Record<(typeof VIEW_LAYERS)[number], string> = { artifacts: "library", checks: "shield-check", subagents: "drone", slot: "rows-3", system: "cpu" };
 
-/** The Job's four views, or none where there is no draft to read what is on. */
+/** The Job's views, or none where there is no draft to read what is on. */
 export function useJobViews(session: Session, bays: SessionBays | undefined): readonly JobView[] | undefined {
   const open = useLayer(session.id);
   const lanesOpen = useLanesView(session.id);

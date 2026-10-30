@@ -95,6 +95,7 @@ After the title it holds, in order:
 | Checks | The shield, pulsing in the running hue (blue) while any of the Job's Checks runs |
 | Subagents | The `drone` glyph, pulsing while any runs. The number running is in its tooltip, not beside the glyph |
 | Bays | Opens the Job's bays and write clashes |
+| Workflow | The `waypoints` glyph, on a Job whose Workspace gives it lifecycles. Opens the Job's workflow drawn as lanes |
 | The context figure | How full the context window is. Its popover holds Compact, which runs the Job's `/compact`: a hosted Job is sent it as a message, as picking it from `/` does, and a terminal Job is typed it through `draft.command`. Compact is off, with its reason, unless the agent or the terminal listed `compact` |
 | `⋯` and close | The Job's other acts, then closing the Job |
 
@@ -185,7 +186,7 @@ Pause answers `p` unless it is given another key.
 Update is gone.
 Compact is in the context figure, whose popover holds it.
 Map is the stage's own switch.
-The Job's views, Artifacts, Checks, Subagents and Bays, are icons in the Job's head (*The title bar*).
+The Job's views, Artifacts, Checks, Subagents and Bays, and Workflow on a Job that holds lifecycles, are icons in the Job's head (*The title bar*).
 There are no pages: the tiles are one row that scrolls, or rows when expanded.
 
 | Tile | Does | Through |
@@ -214,6 +215,7 @@ Subagents pulses while any runs and carries the number running in its tooltip, s
 | Subagents | Opens every subagent the Job started | A layer. Off, with its reason, where it started none |
 | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
 | Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts a lamp in the key's corner, clear of the glyph, and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. |
+| Workflow | Opens the Job's workflow as lanes: the steps on top, and a lane for each ticket, pull request and deploy they move, with the rules between them. `⌥⇧L` | The side panel on a window narrower than 1800px, and the spine on a wider one, where it is a view like Artifacts and Checks. Drawn only where the Job's Workspace gives it lifecycles |
 
 ## Shaping the flight controls
 
