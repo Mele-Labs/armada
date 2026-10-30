@@ -611,7 +611,7 @@ export function feedbackAt(moment: number): SessionLanes {
     instances,
     fired,
     changes: changed ? CHANGES : [],
-    ...(moment === 2 ? { waiting: ["Waiting on Fix cart rounding, Tidy the PR panel landing: Landed"] } : {}),
+    ...(moment === 2 ? { waiting: ['Waiting on Job "Fix cart rounding", Job "Tidy the PR panel landing": Landed'] } : {}),
     ...(moment === 3 ? { waiting: ["Waiting on Tidy the PR panel landing: Landed"] } : {}),
   };
   const at = [1, 3, 4, 4, 4][moment]!;

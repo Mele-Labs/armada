@@ -185,6 +185,7 @@ WebSocket event stream, read this first.
 | [Triggers leave the wire](protocol/triggers-leave-the-wire.md) |
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |
 | [The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row](protocol/the-job-browser.md) |
+| [Several Jobs started in one call: `jobs` on `start_another_session`](protocol/several-jobs-started-in-one-call.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

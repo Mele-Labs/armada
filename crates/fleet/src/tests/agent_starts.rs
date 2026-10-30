@@ -416,6 +416,42 @@ async fn a_blank_title_or_message_is_refused() {
     }
 }
 
+#[tokio::test]
+async fn a_batch_starts_each_job_linked_under_the_caller_in_order_and_a_bad_one_fails_alone() {
+    let rig = rig(None);
+    let agent = rig.an_agent().await;
+    let titles = ["Reader", "Writer", "Store"];
+    let starts = titles.iter().map(|title| begins(&rig, title, FIRST)).collect();
+    let held: Vec<SessionHeld> = Arc::clone(&rig.fleet)
+        .start_other_sessions(caller(), starts)
+        .await
+        .into_iter()
+        .map(|answered| answered.expect("held"))
+        .collect();
+    assert_eq!(held.iter().map(|one| one.title.as_str()).collect::<Vec<_>>(), titles, "in the order given");
+
+    let record = rig.record(&agent).await;
+    let started_to: Vec<&str> =
+        record.attachments.iter().filter(|one| one.kind == "started_to").map(|one| one.target.as_str()).collect();
+    for one in &held {
+        assert!(started_to.contains(&one.session_id.as_str()), "the caller names {:?}", one.session_id);
+        let child = rig.record(&one.session_id).await;
+        assert_eq!(kind(&child, "started_by").expect("it names its starter").target, agent.as_str());
+        assert_eq!(rig.card_message(&one.session_id).await.as_deref(), Some(FIRST), "held on its card");
+    }
+
+    let answers = Arc::clone(&rig.fleet)
+        .start_other_sessions(caller(), vec![begins(&rig, "Before", FIRST), begins(&rig, "  ", FIRST), begins(&rig, "After", FIRST)])
+        .await;
+    let [before, blank, after] = &answers[..] else { panic!("three answers: {answers:?}") };
+    assert!(format!("{:?}", blank.as_ref().expect_err("refused")).contains("fleet.agent_start_empty"));
+    for (answered, title) in [(before, "Before"), (after, "After")] {
+        let started = answered.as_ref().expect("the others start");
+        assert_eq!(started.title, title);
+        assert!(rig.listed().await.iter().any(|one| one.id == started.session_id), "{title} is listed");
+    }
+}
+
 // ---- Linked Sessions: a group of the plan handed to a Session the caller follows ----------------------
 
 pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
