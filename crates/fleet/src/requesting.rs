@@ -8,7 +8,8 @@
 //! answers into the Job's thread (`serving`).
 //!
 //! **A secret's value is taken out of everything that leaves here**, put back as `{{name}}`: the
-//! answer's address, headers and body, the error, the row and the words a Job is told. A server
+//! answer's address, headers and body, the file an agent's body is saved to, the error, the row
+//! and the words a Job is told. A server
 //! that echoes what it was sent would otherwise hand it to the agent. A value shorter than six
 //! characters is left, since replacing every `dark` in a body would wreck the body and hide
 //! nothing worth hiding. An encoded echo (percent, base64) is not caught.
@@ -20,10 +21,11 @@ mod kept;
 mod saving;
 mod serving;
 
+use std::path::Path;
 use std::time::Duration;
 
 use adapter_traits::{Incoming, Outgoing, RequestSecrets, RequestSender};
-use ipc::{Instant, RequestBy, RequestHeader, RequestSent, SendRequest, SessionRow};
+use ipc::{Instant, RequestBodySaved, RequestBy, RequestHeader, RequestSent, SendRequest, SessionRow};
 
 pub use copying::{copied, NotCopied};
 pub use files::{
@@ -44,6 +46,8 @@ pub const AGENT_ANSWER_CAP: usize = 32 * 1024;
 pub const ROW_CAP: usize = 16 * 1024;
 /// The most a request's own body may be. Its row keeps it whole, so it is bounded where it is sent.
 pub const REQUEST_BODY_CAP: usize = 64 * 1024;
+/// `settings.request-file-cap`: the most of an answer's body an agent's send saves to a file.
+pub const FILE_CAP: usize = 16 * 1024 * 1024;
 
 /// The methods a request may use.
 pub(crate) const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
@@ -63,11 +67,18 @@ pub struct Bounds {
     pub agent_answer: usize,
     pub row: usize,
     pub request_body: usize,
+    pub file: usize,
 }
 
 impl Bounds {
     pub fn shipped() -> Bounds {
-        Bounds { answer: ANSWER_CAP, agent_answer: AGENT_ANSWER_CAP, row: ROW_CAP, request_body: REQUEST_BODY_CAP }
+        Bounds {
+            answer: ANSWER_CAP,
+            agent_answer: AGENT_ANSWER_CAP,
+            row: ROW_CAP,
+            request_body: REQUEST_BODY_CAP,
+            file: FILE_CAP,
+        }
     }
 }
 
@@ -92,9 +103,47 @@ pub struct Sent {
     body: Option<String>,
     response: String,
     response_cut: bool,
+    /// An agent's whole body, secrets hidden, until [`Sent::save_body`] writes it.
+    whole: Option<Whole>,
+}
+
+#[derive(Clone, Debug)]
+struct Whole {
+    text: String,
+    /// Whether the body ran past `cap`, so `text` is its start.
+    cut: bool,
+    cap: usize,
+    json: bool,
 }
 
 impl Sent {
+    /// Write an agent's whole body to `requests/<name>.json` under `folder`, `.txt` where the
+    /// answer names no json, and answer where. **A failed write fails nothing**: `saved` stays
+    /// absent and `note` says why.
+    pub fn save_body(&mut self, folder: &Path, name: &str) {
+        let Some(whole) = self.whole.take() else { return };
+        let into = folder.join("requests");
+        let path = into.join(format!("{name}.{}", if whole.json { "json" } else { "txt" }));
+        match std::fs::create_dir_all(&into).and_then(|()| std::fs::write(&path, &whole.text)) {
+            Ok(()) => {
+                let bytes = whole.text.len() as u64;
+                self.answer.saved =
+                    Some(RequestBodySaved { path: path.to_string_lossy().into_owned(), bytes, truncated: whole.cut });
+                if whole.cut {
+                    self.noted(&format!("The body ran past {} bytes, and the file holds its first {bytes}.", whole.cap));
+                }
+            }
+            Err(why) => self.noted(&format!("The body was not saved: {why}.")),
+        }
+    }
+
+    fn noted(&mut self, more: &str) {
+        self.answer.note = Some(match self.answer.note.take() {
+            Some(note) => format!("{note} {more}"),
+            None => more.to_string(),
+        });
+    }
+
     /// The thread's row, under `id` at `at`.
     pub fn row(&self, id: String, at: Instant) -> SessionRow {
         SessionRow::Requested {
@@ -164,9 +213,9 @@ pub fn host_of(url: &str) -> Result<String, String> {
 }
 
 /// `text` cut to at most `most` bytes on a character's edge, and whether it was.
-fn cut(text: String, most: usize) -> (String, bool) {
+fn cut(text: &str, most: usize) -> (String, bool) {
     if text.len() <= most {
-        return (text, false);
+        return (text.to_string(), false);
     }
     let mut at = most;
     while !text.is_char_boundary(at) {
@@ -236,8 +285,13 @@ pub fn sent(
     let row_body = body.as_deref().map(|body| values.hidden(body));
     let outgoing = Outgoing { method: method.clone(), url: url.clone(), headers, body };
     let started = std::time::Instant::now();
-    // Past the bound by the longest value, so a value straddling the cut is still whole to hide.
-    let came = sender.send(outgoing, bounds.answer.max(most) + values.longest());
+    // An agent's is read to the file's cap, since the file keeps what the answer cannot. Past the
+    // bound by the longest value, so a value straddling the cut is still whole to hide.
+    let read = match by {
+        RequestBy::Owner => bounds.answer,
+        RequestBy::Agent => bounds.file,
+    };
+    let came = sender.send(outgoing, read.max(most) + values.longest());
     let ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let note = (!unfilled.is_empty())
         .then(|| unfilled.iter().map(|name| format!("{{{{{name}}}}} was not filled.")).collect::<Vec<_>>().join(" "));
@@ -250,16 +304,24 @@ pub fn sent(
         truncated: false,
         error: None,
         note,
+        saved: None,
     };
-    let (mut response, mut response_cut) = (String::new(), false);
+    let (mut response, mut response_cut, mut whole) = (String::new(), false, None);
     match came {
         Ok(Incoming { status, headers, body, truncated }) => {
             let text = values.hidden(&String::from_utf8_lossy(&body));
-            (response, response_cut) = cut(text.clone(), bounds.row);
+            (response, response_cut) = cut(&text, bounds.row);
             response_cut |= truncated;
-            let (body, cut_here) = cut(text, most);
+            let (inline, cut_here) = cut(&text, most);
+            if by == RequestBy::Agent && !text.is_empty() {
+                let json = headers.iter().any(|(name, value)| {
+                    name.eq_ignore_ascii_case("content-type") && value.to_ascii_lowercase().contains("json")
+                });
+                let (text, cut_here) = cut(&text, bounds.file);
+                whole = Some(Whole { text, cut: truncated || cut_here, cap: bounds.file, json });
+            }
             answer.status = Some(status);
-            answer.body = body;
+            answer.body = inline;
             answer.truncated = truncated || cut_here;
             answer.headers = headers
                 .into_iter()
@@ -278,5 +340,6 @@ pub fn sent(
         answer,
         response,
         response_cut,
+        whole,
     })
 }

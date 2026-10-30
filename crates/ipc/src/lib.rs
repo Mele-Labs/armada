@@ -508,7 +508,7 @@ pub use rehearsal::{
 };
 pub use requests::{
     DeleteRequestEnvironment, Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
-    RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,
+    RequestBodySaved, RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,
     RequestToSave, RequestToSend, RequestVariable, Requests, RequestsFile, RequestsNotRead,
     SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SavedRequest,
     SavedRequestNamed, SendRequest, VariableRead,
