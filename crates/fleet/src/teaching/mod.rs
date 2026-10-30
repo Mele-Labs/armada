@@ -12,6 +12,7 @@ mod asking;
 pub(crate) mod finding;
 mod forgetting;
 pub(crate) mod link;
+mod ruling;
 mod saving;
 mod serving;
 mod tokens;
@@ -112,6 +113,36 @@ const LAYOUT_BLOCK: &str =
      only a `hideable` one may be; `first` only in a `firstable` region. Leave out a key you do \
      not need.\n{layout}";
 
+const RULE_BLOCK: &str =
+    "- `rule`: something Fleet should do by itself when something happens to a ticket, a pull request, a \
+     deploy or a Job. Give `name`, a few words; `when`, the moment; `if`, a list of conditions that must \
+     all hold, empty where the moment is enough; `do`, a list of acts; `autonomy`, `acts` (Fleet does \
+     it), `asks` (Fleet puts a one-press item in the person's Needs you list) or `off` (the rule is \
+     kept and runs nothing), and null where the person says nothing about it; and `on_failure`, \
+     `{\"retries\": 0 to 5, \"then\": \"tell_agent\" or \"ask_owner\"}`, null where the person says \
+     nothing about it.\n\
+     `when` is one of `{\"kind\": \"enters\", \"lifecycle\": L, \"state\": S}` (an instance of lifecycle L \
+     enters state S), `{\"kind\": \"step_starts\", \"step\": T}`, `{\"kind\": \"step_ends\", \"step\": T}` or \
+     `{\"kind\": \"job\", \"event\": E}` with E one of `started`, `pull_request_opened`, `landed` or `ended`.\n\
+     Instances are picked by `among`: `{\"kind\": \"entered\"}` (the one that entered the state), \
+     `{\"kind\": \"linked_from\", \"lifecycle\": L}` (what the entered one came from, such as the tickets of \
+     a pull request), `{\"kind\": \"linking_to\", \"lifecycle\": L}` or `{\"kind\": \"held\", \"lifecycle\": L}` \
+     (every one of L the Job holds). The first three speak of the entered instance and fit only a `when` of \
+     `enters`. A target is `{\"among\": ..., \"in_state\": S}`, with `in_state` left out for any state.\n\
+     `if` holds only `{\"kind\": \"instances\", \"among\": ..., \"quantity\": Q, \"in_state\": S}` with Q one \
+     of `every`, `any` or `no`; `{\"kind\": \"workflow\", \"workflow\": W}`; `{\"kind\": \"at_step\", \"step\": T}`; \
+     and `{\"kind\": \"pull_request_opened\"}`. Fleet can test no other condition and you must never invent \
+     one: put the person's own words for each other condition they name in `untestable`, a list of \
+     strings, and leave it out of `if`.\n\
+     `do` holds acts, each with an `act` key and only Fleet's own: `tracker_assign` (`to`, `target`), \
+     `tracker_move` (`to`, a state of the ticket's lifecycle, and `target`), `tracker_close` (`target`), \
+     `forge_request_reviewers` (`from`, a list of names, and `target`), `forge_mark_ready`, `forge_merge` \
+     and `forge_auto_merge` (each with `target`), `draft` (`template`, `target`), `start_job` (`prompt`, \
+     and `workflow` where one is named), `start_watch` (`recipe`, `values`), `tell` (`message`), `wake`, \
+     `run_command` (`command`), `run_skill` (`skill`) and `run_drone` (`prompt`). Fleet runs no other act \
+     and you must never invent one.\n\
+     Name only these, as written:\n{rules}";
+
 const SECTIONS_ONE_REPOSITORY: &str =
     "`section` is `repo`, and `kind` is `command`, `gotcha` or `convention`";
 const SECTIONS_EVERY_REPOSITORY: &str =
@@ -131,6 +162,7 @@ fn source_phrase(kind: TeachingSourceKind) -> &'static str {
         TeachingSourceKind::Task => "a task in a Session's plan",
         TeachingSourceKind::Check => "a Check's result",
         TeachingSourceKind::PullRequest => "a pull request",
+        TeachingSourceKind::Ticket => "a ticket in a Job's lanes",
         TeachingSourceKind::Panel => "a panel of Bridge's own interface",
         TeachingSourceKind::Row => "a row of a list in Bridge",
         TeachingSourceKind::TitleBar => "Bridge's title bar",
@@ -138,7 +170,7 @@ fn source_phrase(kind: TeachingSourceKind) -> &'static str {
 }
 
 /// The paragraph that says what may be proposed for a source.
-fn may_propose(kind: TeachingSourceKind, reach: TeachingReach, notice: Option<&str>) -> String {
+fn may_propose(kind: TeachingSourceKind, reach: TeachingReach, notice: Option<&str>, ground: Option<&ruling::Ground>) -> String {
     let may = allowed(kind);
     let sections = match reach {
         TeachingReach::Repository => SECTIONS_ONE_REPOSITORY,
@@ -159,6 +191,9 @@ fn may_propose(kind: TeachingSourceKind, reach: TeachingReach, notice: Option<&s
     }
     if may.layout {
         blocks.push(LAYOUT_BLOCK.replace("{layout}", &tokens::layout_registry()));
+    }
+    if let (true, Some(ground)) = (may.rule, ground) {
+        blocks.push(RULE_BLOCK.replace("{rules}", &ground.listed()));
     }
     format!("These may be proposed, and only these:\n{}", blocks.join("\n"))
 }
@@ -207,11 +242,12 @@ where
             TeachingReach::Repository => "this repository only",
             TeachingReach::Everywhere => "every repository",
         };
+        let ground = allowed(source.kind).rule.then(|| self.rule_ground(root.as_deref()));
         let question = self.prompts().fill(
             PROMPT_TEACHING_READ,
             &[
                 ("source", source_phrase(source.kind)),
-                ("may", &may_propose(source.kind, teach.reach, notice)),
+                ("may", &may_propose(source.kind, teach.reach, notice, ground.as_ref())),
                 ("words", subject),
                 ("message", &teach.message),
                 ("said", said),
@@ -231,6 +267,7 @@ where
             notice_text: (source.kind == TeachingSourceKind::Notice).then_some(subject),
             session: teach.session_id.as_deref(),
             manifest: manifest.as_deref(),
+            rule: ground.as_ref(),
         };
         let mut proposal = answer::read(&heard, &at).map_err(|unfit| {
             let refused = |code, why: String| Refusal::Unacceptable(WireError::raised(code, why, self.run_id()));

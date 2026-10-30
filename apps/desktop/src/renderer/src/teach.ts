@@ -1,8 +1,9 @@
 // What the owner taught Armada, from anything that happens in a Job: selected words, a command, a Fleet notice, a plan task, a
 // Check, a pull request; or from Bridge itself: a panel, a row, the title bar. A teaching can change **Agents** (a note, which becomes
 // a Logbook entry), **Words** (how Bridge shows them: words matching a pattern become links), **Fleet** (what it does with a notice),
-// the **Theme** (a tweak to one shared colour, over whichever theme is chosen) and the **Layout** (a panel hidden). Each change but the
-// note is a mod of its own kind, so a teaching that changes two makes two. A teaching on Bridge's own screen has no note for agents.
+// the **Theme** (a tweak to one shared colour, over whichever theme is chosen), the **Layout** (a panel hidden) and a **Rule** (what Fleet
+// does when a lifecycle moves). Each change but the note and the rule is a mod of its own kind, so a teaching that changes two makes two; a
+// rule is a piece in Kit. A teaching on Bridge's own screen has no note for agents.
 //
 // A pattern is taught once and an address is found per repository, because a Jira site is different in each: Fleet finds it (the
 // repository's own settings, then its recent pull requests) and asks the person only when it finds none.
@@ -16,11 +17,13 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { SessionThreadRow, TeachReach, TeachSourceKind } from "@armada/components";
-import type { FleetInstead } from "@armada/protocol";
+import type { FleetInstead, LifecycleRule, RepositorySummary } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import type { LayoutRegion } from "@armada/shell";
 
 import { useModList } from "./mod-list";
 import { modOpened } from "./open-mod";
+import { rootOfSession } from "./run-places";
 import { openInPanel } from "./shared-panel/store";
 
 /** Where Teach was pressed: what, and in which Job and repository. */
@@ -72,6 +75,8 @@ export type TeachAnswer = {
   fleet?: { mod: string; name: string; match: string; does: FleetDoes; when?: FleetInstead[]; scope: "job" | "repository" | "all" };
   tweak?: Tweak;
   layout?: LayoutChange;
+  /** A lifecycle rule, kept as a rule piece in Kit and not as a mod, with what Fleet could not test in the person's words. */
+  rule?: { rule: LifecycleRule; untestable?: readonly string[] };
 };
 
 /** One thing taught. */
@@ -231,6 +236,18 @@ export function batchNotices(rows: readonly SessionThreadRow[], rules: readonly 
 /** The Job and repository Teach is pressed in. */
 export type TeachHere = { sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string };
 export const TeachHereContext = createContext<TeachHere | null>(null);
+
+/** Where Teach is pressed in a Job: the Job, and the repository it is of by the Manifest it carries or the folder it works in. */
+export function teachHereOf(session: Pick<Session, "id" | "title" | "manifestId" | "cwd">, repositories: readonly RepositorySummary[]): TeachHere {
+  const at = rootOfSession(session, repositories);
+  return {
+    sessionId: session.id,
+    jobTitle: session.title ?? session.id,
+    ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }),
+    ...(at === undefined ? {} : { root: at }),
+    repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!,
+  };
+}
 
 /** Opens the Teach panel on something in this Job, or is absent where the window offers no Teach. */
 export function useTeachFrom(here: TeachHere): ((kind: TeachSourceKind, text: string, at?: string, ids?: string[]) => void) | undefined {

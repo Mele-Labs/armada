@@ -1,6 +1,6 @@
 # Teaching
 
-**What it is:** The owner selects something in Bridge or a Job, presses Teach and says what he wants, and Fleet reads that into a proposal of up to five parts that he checks and saves: a note for agents, a Words mod, a Fleet mod, a theme tweak and a layout change.
+**What it is:** The owner selects something in Bridge or a Job, presses Teach and says what he wants, and Fleet reads that into a proposal of up to six parts that he checks and saves: a note for agents, a Words mod, a Fleet mod, a theme tweak, a layout change and a lifecycle rule.
 
 ---
 
@@ -15,15 +15,17 @@ The mods are files on this machine, so a later Job in another repository finds t
 ## What he presses it on
 
 Teach is on the selection bar, which lists it first, and on a right-click or the ContextMenu key over a row.
+A ticket's head in a Job's lanes is one of those rows.
 
 | Source (`kind`) | Pressed on | May produce |
 |---|---|---|
 | `words` | Words selected in a Job's prose | Note, Words |
 | `command` | A command row | Note, Words |
-| `notice` | A Fleet notice, whose word is `ids[0]` | Note, Fleet |
+| `notice` | A Fleet notice, whose word is `ids[0]` | Note, Fleet, Rule |
 | `task` | A task in a Job's plan | Note, Words |
 | `check` | A Check's result | Note, Words |
-| `pull_request` | A pull request | Note, Words |
+| `pull_request` | A pull request | Note, Words, Rule |
+| `ticket` | A ticket in a Job's lanes, whose key is `ids[0]` | Note, Rule |
 | `panel`, `row`, `title_bar` | One of Bridge's own panels, rows or the title bar | Tweak, Layout |
 
 A part a source cannot make is dropped, and never refused.
@@ -44,6 +46,7 @@ Reach is this repository or every repository, and a reach of one repository need
 | `fleet` | A notice rule: `{notice word, tell, quiet, batch or call, job, repo or everywhere}`, and optionally `matches`, a pattern over the notice's text, and `when`, what to do instead under a condition | A Fleet mod: `fleet.toml`, one rule |
 | `tweak` | Token declarations over whichever theme is chosen, at most 12 | A tweak mod: `tweak.css` |
 | `layout` | The same text a layout mod's `layout.json` holds | A layout mod. [Layout mods](layout-mods.md) |
+| `rule` | A lifecycle rule: when it fires, what it checks, what it does, its autonomy and what it does on failure, and `untestable`, what he named that Fleet cannot test | A rule piece in Kit, not a mod: `rules/<id>.toml`. [Protocol](../practices/protocol.md), *Workspaces, lifecycles and rules, saved* |
 
 At least one part is present, and an answer with none left is refused.
 Fleet fills a tweak's `was` from the token's current value, and its `used_in` and `note` from the tokens file.
@@ -101,16 +104,32 @@ A pattern must work as a link pattern must and find words in the notice he press
 Conditions, their order and what unknown means are in [Mod](mods.md), *fleet.toml*.
 What `tell`, `quiet`, `batch` and `call` do is in [Mod](mods.md), *fleet.toml*.
 
+### A lifecycle rule
+
+"When this is approved, move its tickets to Done" is a rule over the lifecycles of a Job's tickets, pull requests and deploys: When, If and Do, with an autonomy.
+It is not a notice rule: that changes what Fleet does with a notice it sends, and this is what the Workflows page edits.
+
+> **Rule.** A rule is held to what a rule piece is held to when Fleet reads it, and Fleet gives it its scope and its id.
+> Why: a rule Fleet's own read would set aside never runs, and a model that chose where a rule is kept could write over another.
+
+The model is given the lifecycles that apply to the repository with their states, the steps of its workflows and the acts Fleet runs, and can name no others.
+A condition Fleet cannot test comes back in `untestable`, his own words for each, and is not made up; a rule saved with `untestable` is saved without it.
+The scope is the reach: one repository is a rule within it, and every repository is a rule at the Default level.
+The id is made from the name as the Workflows page makes one, with `_2`, `_3` where a rule of that id is kept or applies.
+The panel draws the rule with the Workflows page's own fields, so When, If, Do, its autonomy and what it does on failure change before Save, and Save keeps what is shown.
+Its steps are only those the rule names, because the panel does not read the workflows.
+
 ## Saving
 
-> **Rule.** Everything is checked before anything is written, so a refused part leaves no entry and no mod behind.
+> **Rule.** Everything is checked before anything is written, so a refused part leaves no entry, no mod and no rule behind.
 > Why: a teaching that is half kept would be a Logbook line with no link, or a link with no line.
 
 1. The note becomes a Logbook entry first, through `teach_logbook_entry`, with the Job and the message, notice or Check as its one evidence row. It stands at once.
-2. Each other part is written as a mod, switched on. A name that is taken gets `-2`, `-3`.
+2. Each other part but the rule is written as a mod, switched on. A name that is taken gets `-2`, `-3`.
 3. Each mod's `mod.toml` records `taught_on`, what Teach was pressed on, and `entry`, the Logbook entry's id when the teaching had a note.
-4. Bridge is told the mods moved.
-5. The Job it was taught in is told "From now on: <note>" with the `taught` notice, in Fleet's voice.
+4. A rule is written last, as a rule piece in Kit, and the answer names it. It is not a mod, so it has no `mod.toml`.
+5. Bridge is told the mods moved.
+6. The Job it was taught in is told "From now on: <note>" with the `taught` notice, in Fleet's voice.
    A Job mid-turn has the line queued behind the turn, an idle one is woken, and one that has ended is not told.
    The save does not fail for want of someone to tell.
 
@@ -118,6 +137,7 @@ What `tell`, `quiet`, `batch` and `call` do is in [Mod](mods.md), *fleet.toml*.
 > Why: the entry is the one thing that says the owner taught it and withdrew it.
 
 A mod with no `entry` stays, such as one taught on Bridge's own interface.
+A rule piece records no `entry`, so forgetting the note leaves the rule, and the Workflows page deletes it.
 Switching a mod off in Mods is the way to stop one without forgetting the note.
 
 ## Safety
@@ -139,18 +159,21 @@ Switching a mod off in Mods is the way to stop one without forgetting the note.
 | A notice word no `Notice` has, or a place that does not parse | A rule must name something Fleet sends |
 | A rule's `matches` that breaks any pattern rule above, or finds nothing in the notice it was taught on | It would never apply, or would hang Bridge |
 | A condition outside the four, or one tested twice in a rule | Fleet can test only what it keeps, and the second could never be reached |
+| A rule a read of its file would set aside: a lifecycle or a state that does not apply, or text that does not parse | It would never run |
+| A rule with no name, a name over 60 characters or one on more than one line | Its id is made from the name |
 
+A rule refused is `fleet.teaching_rule_refused`, as a notice rule is.
 The codes, `fleet.teaching_words_refused` and its siblings, are in `crates/ipc/operations/read_teaching.toml`.
 
 ## Teach or Mod
 
 | | Teach | Mod |
 |---|---|---|
-| Press it for | A note, a pattern, a notice rule, a token tweak or a layout change | Anything Teach cannot propose |
+| Press it for | A note, a pattern, a notice rule, a lifecycle rule, a token tweak or a layout change | Anything Teach cannot propose |
 | It is | One press, one model call, a proposal saved in place | A Job he talks with |
 | Conversation | None | Yes |
 
-Teach is the first to press when the ask fits one of its five parts.
+Teach is the first to press when the ask fits one of its six parts.
 Mod is for the rest, and starts a Mod Job: [A Mod Job](mods.md#a-mod-job).
 
 ## What it is not
@@ -158,7 +181,7 @@ Mod is for the rest, and starts a Mod Job: [A Mod Job](mods.md#a-mod-job).
 > **Rule.** A teaching never changes Armada's code.
 > Why: a mod is a file checked against a whitelist, and a sentence read by a model is not safe to turn into a change to Fleet or Bridge.
 
-Teaching changes what agents are told, what Bridge links, how it looks and is arranged, and what Fleet does with a notice it already sends.
+Teaching changes what agents are told, what Bridge links, how it looks and is arranged, what Fleet does with a notice it already sends, and a lifecycle rule over the acts Fleet already runs.
 A new kind of rule, or a different way Fleet works, is a code mod: a Job implements it, and it lands as a pull request like any other change.
 **Code mods are the next plan,** and nothing here depends on them.
 
@@ -170,8 +193,9 @@ A new kind of rule, or a different way Fleet works, is a code mod: a Job impleme
 | The wire | `crates/ipc/src/teaching.rs`, mirrored by `packages/protocol/src/teaching.ts` |
 | Notice words | `crates/ipc/src/notices.rs` |
 | Reading, checking, saving, finding addresses, asking | `crates/fleet/src/teaching/` |
-| The panel | `TeachPanel` in `packages/components/src/compositions/TeachPanel/`, and the walks `teach-anything` and `teach-mods` in the mock |
+| The panel | `TeachPanel` in `packages/components/src/compositions/TeachPanel/`, and the walks `teach-anything`, `teach-mods` and `teach-rule` in the mock |
 | What a Words mod and a Fleet mod hold | [Mod](mods.md) |
+| Reading and keeping a rule | `crates/fleet/src/teaching/ruling.rs`, over `rule_as_read` in `crates/fleet/src/piece_saving.rs` |
 
 Fleet's three operations are built, and Bridge's calls to them are in `apps/desktop/src/main/teaching.ts`.
 No real window provides a Teach source yet, so only the mock draws Teach.
@@ -182,5 +206,6 @@ No real window provides a Teach source yet, so only the mock draws Teach.
 |---|---|---|
 | The note | The Logbook, as a standing entry with its evidence | |
 | A Words, Fleet or tweak mod | `~/Library/Application Support/Armada/mods/<name>/`, `mod.toml` with `taught_on` and `entry` | On |
+| A rule | A rule piece in Kit, `rules/<id>.toml`, within the repository or everywhere | |
 | An address nobody found | A call in Needs you, asked once per mod and repository | |
 | A reading that was not saved | Nowhere | |

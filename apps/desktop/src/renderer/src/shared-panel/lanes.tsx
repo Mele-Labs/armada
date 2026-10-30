@@ -7,10 +7,14 @@ import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { COMMENT_READ, LaneCanvas, Tooltip, jobLanes } from "@armada/components";
 import type { LanePick, TriagedComment } from "@armada/components";
+import { instanceKey } from "@armada/screens/src/session-lanes";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { teachHereOf, useTeachFrom } from "../teach";
+import type { TeachHere } from "../teach";
 import { SidePanel } from "./side";
 import { useBack } from "./panels";
+import { usePanelReads } from "./reads";
 import { AddToJob, JobChanges } from "./lanes-copy";
 import { closePanel, openInPanel } from "./store";
 import type { PanelItem } from "./store";
@@ -52,6 +56,10 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   const session = useSessions().find((one) => one.id === sessionId);
   const copy = useSessionsDraft()?.copy;
   const [picked, setPicked] = useState<LanePick | undefined>();
+  // The panel is drawn outside the Job, so Teach here is told which Job and repository it is pressed in.
+  const listed = usePanelReads()?.repositories?.().listed;
+  const here = useMemo((): TeachHere => (session === undefined ? { sessionId, jobTitle: sessionId, repository: "" } : teachHereOf(session, listed ?? [])), [session, sessionId, listed]);
+  const teach = useTeachFrom(here);
   const lanes = session?.lanes;
   const drawn = useMemo(() => (lanes === undefined ? undefined : jobLanes(lanes.job, lanes)), [lanes]);
   if (session === undefined || lanes === undefined || drawn === undefined) return null;
@@ -68,7 +76,14 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   return (
     <div className="sv-lanes__body">
       {copy === undefined ? null : <AddToJob sessionId={session.id} lanes={lanes} acts={copy} />}
-      <LaneCanvas label="Workflow" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
+      <LaneCanvas
+        label="Workflow"
+        lanes={drawn.lanes}
+        rules={drawn.rules}
+        picked={picked}
+        onPick={pick}
+        {...(teach === undefined ? {} : { onTeach: (lane) => teach("ticket", lane.note === undefined ? lane.title : `${lane.title} ${lane.note}`, undefined, [instanceKey(lane.id)]) })}
+      />
       <JobChanges sessionId={session.id} lanes={lanes} acts={copy} />
       {triage === undefined ? null : (
         <section className="sv-lanes__triage" aria-label={`Comments on ${held}`}>

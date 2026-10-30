@@ -1,5 +1,5 @@
 // Teach opens from everything it is offered on: selected words, a command, a Fleet notice, a plan task, a Check, a pull request, a
-// panel, a row and the title bar. Each one opens the Teach panel on its own source. The walks `teach-anything` and `teach-mods` play
+// ticket in a Job's lanes, a panel, a row and the title bar. Each one opens the Teach panel on its own source. The walks `teach-anything` and `teach-mods` play
 // most of them end to end; this holds each, and the two they do not reach.
 
 import { act } from "react";
@@ -98,4 +98,20 @@ test("Teach on a pull request opens the Teach panel on it, in the Job's reposito
   await vi.waitFor(() => expect(shown.at(-1)).toMatchObject({ kind: "teach", source: "pull_request", sessionId: "01JOB", manifestId: "armada", root: "/code/armada" }));
   await act(async () => root.unmount());
   host.remove();
+});
+
+test("Teach on a ticket in a Job's lanes opens the Teach panel on it, in the side panel and with the keyboard", async () => {
+  mount("workspaces-lanes");
+  await onScreen();
+  act(() => provideTeaching(true));
+  const lanes = inside(dialog("Workflow"), role("group", "Workflow"));
+  await walkThrough([
+    { press: deckRow("Add gift cards to the cart"), say: "" },
+    { press: inside(role("toolbar", "Views"), button("Workflow", { exact: true })), say: "" },
+    { later: lanes, say: "" },
+    { key: "Shift+F10", on: inside(lanes, button(/^Ticket ARM-41/)), say: "" },
+    { press: menuItem, say: "" },
+    { look: inside(panel, region("Ticket", { exact: true })), say: "" },
+    { look: inside(panel, text(/ARM-41/)), say: "" },
+  ]);
 });
