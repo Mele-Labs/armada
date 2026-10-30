@@ -38,7 +38,7 @@ The credential stays where the forge CLI already keeps it, in the operator's own
 | Run, save, edit and forget a query | On ask from Bridge, a saved one run as one tracker call | `crates/fleet/src/issue_queries.rs`, `crates/store/src/issue_queries.rs` |
 
 **Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
-The one exception is a beads backlog, which Fleet syncs and claims in: [Beads](#beads).
+There are two exceptions: a beads backlog, which Fleet syncs and claims in ([Beads](#beads)), and the writes of a rule he saved ([Writes a saved rule makes](#writes-a-saved-rule-makes)).
 A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
 
 ## Rules
@@ -243,6 +243,29 @@ A write that fails is said once and tried again 30 seconds later; none of them h
 Still open:
 
 - Beads reads no links, so a request naming an issue is dispatched as written.
+
+## Writes a saved rule makes
+
+A rule the owner saved may move, assign or close a ticket.
+Under the default, Asks, each waits as one item in Needs you, `Move ARM-41 to In progress`, and Do it makes the write.
+Under Acts it is made at once.
+
+> **Rule.** The only way to write to an issue is a planned act of a saved rule, done at once under Acts or on his Do it under Asks.
+> Why: a rule he saved counts as his say, which is the exception to the 17 Oct rule that Fleet writes nothing on his behalf; any other write stays unasked, and so stays out.
+> The door is `Trackers::writer`, which answers a trait the reader does not have, so a caller holding the reader cannot write.
+
+**A tracker that cannot make a write keeps the act as not carried, with the reason in one sentence, and raises nothing.**
+He is never asked to press what cannot be done.
+What each does:
+
+| Tracker | Move to a status | Assign | Close |
+|---|---|---|---|
+| The forge's issues | Only to `Open` (reopen) and `Closed` (close). A board's column is not written | `gh issue edit --add-assignee` | `gh issue close` |
+| Jira | `acli jira workitem transition --status` | `acli jira workitem assign --assignee`: an email or account id, or `@me` | A transition to the word the Workspace's ticket lifecycle gives Closed. None, and it is not carried |
+| Beads | `bd update --status` for `open`, `in_progress` and `blocked`; `bd close` for `closed` | `bd update --assignee` | `bd close --force`, as a close from the backlog is |
+| A tracker mod | Its `[move]`, if it has one | Its `[assign]` | Its `[close]`, else its `[move]` to that word. [Tracker mods](mods.md#tracker-mods) |
+
+**The status is the Workspace's word and not Armada's.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to.
 
 ## What a person sees
 

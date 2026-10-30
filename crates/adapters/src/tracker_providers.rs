@@ -12,8 +12,8 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    Backlog, IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled, Tracker,
-    TrackerChoice, Trackers,
+    Backlog, IssueAddress, IssueWrite, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled,
+    Tracker, TrackerChoice, TrackerWrites, Trackers,
 };
 
 use crate::beads_tracker::{self, BeadsTracker};
@@ -86,6 +86,10 @@ impl Trackers for TrackersByProvider {
         backlog_over(choice)
     }
 
+    fn writer(&self, choice: &TrackerChoice) -> Arc<dyn TrackerWrites + Send + Sync> {
+        writer_over(choice, None)
+    }
+
     fn install(&self, tool: Tool, in_repo: &str) -> ToolInstalled {
         crate::tool_install::installed(&Process, tool, std::path::Path::new(in_repo))
     }
@@ -96,6 +100,20 @@ pub(crate) fn backlog_over(choice: &TrackerChoice) -> Option<Arc<dyn Backlog + S
     match chosen(choice) {
         Chosen::Beads => Some(Arc::new(BeadsTracker::over())),
         _ => None,
+    }
+}
+
+/// What makes a saved rule's writes to the tracker `choice` names. **The same choice as
+/// [`tracker_over`], and never the reader**: a block that could not be honoured answers with a
+/// writer that says why on every call, and a tracker mod is looked up in `taught`.
+pub(crate) fn writer_over(choice: &TrackerChoice, taught: Option<&Arc<dyn TaughtTrackers>>) -> Arc<dyn TrackerWrites + Send + Sync> {
+    match (chosen(choice), taught) {
+        (Chosen::Forge, _) => Arc::new(IssueTracker),
+        (Chosen::Jira(settings), _) => Arc::new(JiraTracker::over(settings)),
+        (Chosen::Beads, _) => Arc::new(BeadsTracker::over()),
+        (Chosen::Taught { name, unknown }, Some(mods)) => Arc::new(Taught { name, mods: Arc::clone(mods), unknown }),
+        (Chosen::Taught { unknown, .. }, None) => Arc::new(Refusing { why: unknown }),
+        (Chosen::Refused(why), _) => Arc::new(Refusing { why }),
     }
 }
 
@@ -156,6 +174,17 @@ impl Tracker for Refusing {
     /// No language to teach: the guide is why every call is refused.
     fn query_guide(&self) -> QueryGuide {
         QueryGuide { guide: self.why.clone(), ..QueryGuide::default() }
+    }
+}
+
+/// A tracker that could not be built writes nothing, and says why.
+impl TrackerWrites for Refusing {
+    fn can(&self, _write: &IssueWrite<'_>) -> Result<(), String> {
+        Err(self.why.clone())
+    }
+
+    fn write(&self, _in_repo: &str, _reference: &str, write: &IssueWrite<'_>) -> Result<(), NotTracked> {
+        Err(self.no(write.doing()))
     }
 }
 

@@ -1,5 +1,5 @@
-//! `tracker.toml`: how a tracker mod lists, searches and reads, read and checked without running
-//! anything. `docs/concepts/mods.md`, *tracker.toml*.
+//! `tracker.toml`: how a tracker mod lists, searches, reads and, where it teaches them, moves,
+//! assigns and closes, read and checked without running anything. `docs/concepts/mods.md`, *tracker.toml*.
 //!
 //! **Read as a table and walked by hand**, so every problem is said at once and in a sentence,
 //! rather than serde's first. Each call section names its `transport`, and the keys it takes are
@@ -8,10 +8,12 @@
 use adapter_traits::QueryGuide;
 use toml::{Table, Value};
 
+use super::writes::{self, Writes};
+
 /// The most `tracker.toml` may weigh.
 pub const MOST_BYTES: u64 = 32 * 1024;
 
-const SECTIONS: &[&str] = &["guide", "credential", "search", "list", "read", "links"];
+const SECTIONS: &[&str] = &["guide", "credential", "search", "list", "read", "links", "move", "assign", "close"];
 const GUIDE_KEYS: &[&str] = &["language", "guide", "open", "assigned_to_me", "fields"];
 const LINKS_KEYS: &[&str] = &["reference"];
 const TRANSPORTS: &str = "cli, http, mcp";
@@ -23,7 +25,9 @@ const MCP_KEYS: &[&str] = &["transport", "server", "env", "tool", "arguments", "
 pub(crate) const QUERY: &str = "query";
 pub(crate) const REFERENCE: &str = "reference";
 pub(crate) const CREDENTIAL: &str = "credential";
-const PLACEHOLDERS: &[&str] = &[QUERY, REFERENCE, CREDENTIAL];
+pub(crate) const STATUS: &str = "status";
+pub(crate) const ASSIGNEE: &str = "assignee";
+const PLACEHOLDERS: &[&str] = &[QUERY, REFERENCE, CREDENTIAL, STATUS, ASSIGNEE];
 
 /// A tracker taught by a mod, as its file says it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,6 +42,8 @@ pub struct TrackerFile {
     /// How a ticket reference is written in a pull request's words. Absent, a pull request links
     /// nothing to this tracker.
     pub(crate) reference: Option<String>,
+    /// The writes the mod teaches, each absent where it does not. **None of them is run by a try.**
+    pub(crate) writes: Writes,
 }
 
 /// One way of asking, and the `jq` filter that turns its answer into Armada's issues.
@@ -111,8 +117,11 @@ pub fn read(text: &str) -> Result<TrackerFile, Vec<String>> {
             None
         }
     };
+    let writes = writes::read(&table, has_credential, &mut problems);
     match (problems.is_empty(), guide, search, read) {
-        (true, Some(guide), Some(search), Some(read)) => Ok(TrackerFile { guide, credential, search, list, read, reference }),
+        (true, Some(guide), Some(search), Some(read)) => {
+            Ok(TrackerFile { guide, credential, search, list, read, reference, writes })
+        }
         _ => Err(problems),
     }
 }
@@ -186,18 +195,43 @@ fn call_of(name: &str, table: &Table, fills: &[&str], has_credential: bool, prob
             None
         }
     };
+    let transport = transport_of(name, table, fills, Reads::Issues, has_credential, problems)?;
+    (problems.len() == before).then_some(Call { transport, map: map? })
+}
+
+/// Whether a section's answer is read into issues, which is the only thing a `map` is for.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reads {
+    Issues,
+    /// A write: its answer is not read, so it takes no `map`, and its HTTP method is a write's.
+    Nothing,
+}
+
+/// The transport a call section names, with its keys and its placeholders checked. `fills` is what
+/// the section's own act supplies, and each must be used.
+pub(super) fn transport_of(
+    name: &str,
+    table: &Table,
+    fills: &[&str],
+    reads: Reads,
+    has_credential: bool,
+    problems: &mut Vec<String>,
+) -> Option<Transport> {
+    let keys = |known: &'static [&'static str]| -> Vec<&'static str> {
+        known.iter().copied().filter(|key| reads == Reads::Issues || *key != "map").collect()
+    };
     let transport = match table.get("transport") {
         Some(Value::String(word)) => match word.as_str() {
             "cli" => {
-                unknown_keys(name, table, CLI_KEYS, "a cli call", problems);
+                unknown_keys(name, table, &keys(CLI_KEYS), "a cli call", problems);
                 argv_of(name, table, "argv", problems).map(|argv| Transport::Cli { argv })
             }
             "http" => {
-                unknown_keys(name, table, HTTP_KEYS, "an http call", problems);
-                http_of(name, table, problems)
+                unknown_keys(name, table, &keys(HTTP_KEYS), "an http call", problems);
+                http_of(name, table, reads, problems)
             }
             "mcp" => {
-                unknown_keys(name, table, MCP_KEYS, "an mcp call", problems);
+                unknown_keys(name, table, &keys(MCP_KEYS), "an mcp call", problems);
                 mcp_of(name, table, problems)
             }
             other => {
@@ -222,8 +256,11 @@ fn call_of(name: &str, table: &Table, fills: &[&str], has_credential: bool, prob
         let fillable = fills.contains(&word.as_str()) || (word == CREDENTIAL && has_credential);
         if !fillable {
             let why = match word.as_str() {
-                CREDENTIAL => "and there is no `[credential]` to fill it".to_string(),
-                _ => format!("which only `[{}]` can fill", if word == QUERY { "search" } else { "read" }),
+                CREDENTIAL => "and there is no `[credential]` to fill it",
+                QUERY => "which only `[search]` can fill",
+                STATUS => "which only `[move]` can fill",
+                ASSIGNEE => "which only `[assign]` can fill",
+                _ => "which only `[read]` can fill",
             };
             problems.push(format!("`[{name}]` uses `{{{word}}}`, {why}"));
         }
@@ -238,17 +275,19 @@ fn call_of(name: &str, table: &Table, fills: &[&str], has_credential: bool, prob
             problems.push(format!("`[{name}]` names its program with a placeholder; the program is written as it is"));
         }
     }
-    (problems.len() == before).then_some(Call { transport, map: map? })
+    Some(transport)
 }
 
-fn http_of(name: &str, table: &Table, problems: &mut Vec<String>) -> Option<Transport> {
+fn http_of(name: &str, table: &Table, reads: Reads, problems: &mut Vec<String>) -> Option<Transport> {
+    let (allowed, default, said) = match reads {
+        Reads::Issues => (&["GET", "POST"][..], "GET", "`GET` or `POST`: a read section only reads"),
+        Reads::Nothing => (&["POST", "PUT", "PATCH"][..], "POST", "`POST`, `PUT` or `PATCH`: a write section writes"),
+    };
     let method = match table.get("method") {
-        None => "GET".to_string(),
-        Some(Value::String(method)) if ["GET", "POST"].contains(&method.to_ascii_uppercase().as_str()) => {
-            method.to_ascii_uppercase()
-        }
+        None => default.to_string(),
+        Some(Value::String(method)) if allowed.contains(&method.to_ascii_uppercase().as_str()) => method.to_ascii_uppercase(),
         Some(_) => {
-            problems.push(format!("`[{name}]` `method` is `GET` or `POST`: a tracker is only read"));
+            problems.push(format!("`[{name}]` `method` is {said}"));
             return None;
         }
     };
@@ -273,7 +312,7 @@ fn http_of(name: &str, table: &Table, problems: &mut Vec<String>) -> Option<Tran
     }
     let body = match table.get("body") {
         None => None,
-        Some(Value::String(body)) if method == "POST" => Some(body.clone()),
+        Some(Value::String(body)) if method != "GET" => Some(body.clone()),
         Some(Value::String(_)) => {
             problems.push(format!("`[{name}]` has a `body` and is not a `POST`"));
             None
