@@ -326,6 +326,15 @@ An edit left uncommitted in the checkout was what blocked the catch-up on 14 Oct
 **A Job's Auto land flag turns auto-merge on and off for its pull requests.** `set_session_auto_land` keeps the flag per Job in Fleet's store.
 While it is on, Fleet turns auto-merge on for each pull request the Job opens or claims, and for the open ones when the flag is turned on; a forge refusal is a 409 `fleet.auto_merge_refused` after the flag has changed.
 Turning it off runs `gh pr merge --disable-auto` on the Job's open pull requests, and a merged or closed one is left alone (`crates/ipc/operations/set_session_auto_land.toml`).
+**Fleet merge-tests a pull request against the ones ahead of it before it turns auto-merge on** (`crates/fleet/src/session_host/queue_guard.rs`).
+It runs `git merge-tree` of the pull request's head against each pull request ahead of it in the base's merge queue; against the base itself it keeps the forge's own conflict flag.
+On a clash Fleet does not turn auto-merge on: it holds the pull request and tells the Job, once per head commit and blocker, which pull request it waits on and the files that conflict, in the existing Auto land refused notice.
+A held pull request is re-tested on every pull reading and asked for auto-merge once the test is clean, because the blocker merged or left the queue or the Job pushed a resolution; it is never marked as asked, so the once-a-commit rule does not strand it.
+A hold at attach, or when the flag is turned on, is told on the next pull reading, not at once.
+A pull request already queued is re-tested against the entries ahead of it when the queue changes, and one that now clashes is taken out of the queue and off auto-merge and held the same way.
+That ends a loop: a pull request queued behind one it conflicts with is marked unmergeable by the forge, leaves the queue and is queued again.
+**The guard fails open.** Where the queue, git or the pull request's head cannot be read, Fleet turns auto-merge on as before.
+A repository with no merge queue has nothing ahead, so only the base check applies, and a Manifest with no base is not guarded.
 
 ### What Fleet knows about main's CI
 
