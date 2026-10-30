@@ -214,6 +214,14 @@ impl Forge for FakeVcs {
         self.auto_merge_withdrawn(pull_request)
     }
 
+    fn dequeue(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::Dequeued { pull_request: pull_request.to_string() });
+        Ok(())
+    }
+
     fn pull_request_facts(
         &self,
         _in_repo: &str,

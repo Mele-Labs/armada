@@ -697,6 +697,7 @@ async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not
         number: 12,
         position: 1,
         state: adapter_traits::QueueState::Queued,
+        head: None,
     }]));
 
     let now = Arc::clone(&fleet).enable_auto_merge(id, 12).await.expect("as it stands");

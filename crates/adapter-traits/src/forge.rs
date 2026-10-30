@@ -223,6 +223,14 @@ pub trait Forge {
     /// refusal is the forge's own sentence, as that one's is.
     fn disable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
 
+    /// Take a pull request out of the forge's merge queue, where
+    /// [`disable_auto_merge`](Forge::disable_auto_merge) leaves a queued one alone. **A pull
+    /// request not in the queue is done**: nothing to take out.
+    ///
+    /// **Merges nothing**, as [`enable_auto_merge`](Forge::enable_auto_merge) does not. The
+    /// refusal is the forge's own sentence, as that one's is.
+    fn dequeue(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
+
     /// What the forge says about one pull request, whoever opened it: draft or
     /// open or merged or closed, its branch, whether auto-merge is asked for.
     /// **`None` is the forge's silence**, for [`landed`](crate::Delivery::landed)'s

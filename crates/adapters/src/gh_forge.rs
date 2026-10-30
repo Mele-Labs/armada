@@ -157,6 +157,10 @@ impl Forge for GhForge {
         crate::landing::disable_auto_merge(in_repo, pull_request)
     }
 
+    fn dequeue(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
+        crate::landing::dequeue(in_repo, pull_request)
+    }
+
     fn pull_request_facts(
         &self,
         in_repo: &str,

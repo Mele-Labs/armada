@@ -41,7 +41,8 @@ fn asked(server: &Server) -> Vec<String> {
 
 /// The mutations the server saw, by name, in order.
 fn mutations(server: &Server) -> Vec<&'static str> {
-    const NAMES: [&str; 11] = [
+    const NAMES: [&str; 12] = [
+        "dequeuePullRequest(",
         "addPullRequestReviewThreadReply(",
         "addPullRequestReviewThread(",
         "addPullRequestReview(",
@@ -372,6 +373,30 @@ fn auto_merge_is_taken_back_unless_the_pull_request_is_queued() {
     queued.store(true, std::sync::atomic::Ordering::SeqCst);
     forge.disable_auto_merge(&root, "12").unwrap();
     assert_eq!(mutations(&server), vec!["disablePullRequestAutoMerge("], "a queued one is left alone");
+}
+
+#[test]
+fn a_queued_pull_request_is_taken_out_of_the_queue_and_one_not_queued_is_done() {
+    let queued = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = queued.clone();
+    let server = serve(move |seen| {
+        if is_node(seen) {
+            node("OPEN", false, "BLOCKED", flag.load(std::sync::atomic::Ordering::SeqCst), true)
+        } else {
+            ok(r#"{"data":{"clientMutationId":null}}"#)
+        }
+    });
+    let repo = on_github();
+    let root = repo.root_str();
+    let forge = forge(&server);
+
+    forge.dequeue(&root, "12").unwrap();
+    assert_eq!(mutations(&server), Vec::<&str>::new(), "nothing queued, nothing to take out");
+    queued.store(true, std::sync::atomic::Ordering::SeqCst);
+    forge.dequeue(&root, "12").unwrap();
+    assert_eq!(mutations(&server), vec!["dequeuePullRequest("]);
+    let sent = server.seen().iter().map(|seen| seen.body.clone()).find(|body| body.contains("dequeuePullRequest(")).unwrap();
+    assert!(sent.contains(r#""id":"PR_1""#), "{sent}");
 }
 
 #[test]

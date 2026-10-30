@@ -1,6 +1,6 @@
 {"data":{"repository":{"mergeQueue":{"entries":{"nodes":[
-{"position":2,"state":"QUEUED","enqueuedAt":"2026-10-21T10:00:00Z","pullRequest":{"number":21},"headCommit":{"oid":"1"}},
-{"position":1,"state":"AWAITING_CHECKS","enqueuedAt":"2026-10-21T09:00:00Z","pullRequest":{"number":20},"headCommit":{"oid":"2"}},
+{"position":2,"state":"QUEUED","enqueuedAt":"2026-10-21T10:00:00Z","pullRequest":{"number":21},"headCommit":{"oid":"1111111111111111111111111111111111111111"}},
+{"position":1,"state":"AWAITING_CHECKS","enqueuedAt":"2026-10-21T09:00:00Z","pullRequest":{"number":20},"headCommit":{"oid":"2222222222222222222222222222222222222222"}},
 {"position":3,"state":"LOCKED","enqueuedAt":"2026-10-21T11:00:00Z","pullRequest":{"number":22},"headCommit":null},
 {"position":4,"state":"MERGEABLE","enqueuedAt":"2026-10-21T12:00:00Z","pullRequest":null,"headCommit":null}
 ]}}}}}

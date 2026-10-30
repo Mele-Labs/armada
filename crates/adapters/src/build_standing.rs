@@ -94,6 +94,12 @@ pub fn fetch_branch(root: &str, branch: &str, within: Duration) -> Result<(), St
     fetch_within(root, &["fetch", "--quiet", "origin", branch], within)
 }
 
+/// `git fetch origin pull/<number>/head` in `root`: the pull request's current head, reachable here
+/// afterwards (by `FETCH_HEAD`, and by its id).
+pub fn fetch_pull_head(root: &str, number: u64, within: Duration) -> Result<(), String> {
+    fetch_within(root, &["fetch", "--quiet", "origin", &format!("pull/{number}/head")], within)
+}
+
 /// Run `git` with these arguments (a fetch) in `root`, stopped if it is still
 /// running after `within`. Errors with git's own sentence. **No prompt.**
 pub(crate) fn fetch_within(root: &str, args: &[&str], within: Duration) -> Result<(), String> {
