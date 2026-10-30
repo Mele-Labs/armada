@@ -20,7 +20,7 @@ A `walks` step is current from the plan's approval until he approves a window th
 A walk is expected as [Workflow](../workflow.md#walks-and-replies) says.
 It is passed over only when the plan was approved with no walk expected and the Job has pushed.
 Until it pushes, the step stays current, because the mock is still being built.
-A `follows_plan` step after it, or any step that fits a fact, is entered only once it is passed.
+The step after it is entered once it is passed, whatever fact would have entered it: a Job left on the step before the walk is told to show the walk again, and a window shown again voids his approval (30 Oct 2026).
 Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
 
 **A step that ends on a lifecycle state** (29 Oct 2026, "Workspaces, lifecycles and rules") is entered once the Job holds an instance of that lifecycle and left when the state is reached.
