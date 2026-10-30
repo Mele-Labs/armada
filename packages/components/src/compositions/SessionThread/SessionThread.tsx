@@ -1432,7 +1432,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   ));
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} data-jobs={runs.some((run) => run.own !== undefined) || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
       <div className="armada-session-thread__plan-head">
         <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label={aside ? "Plan set aside" : "Plan"} onClick={() => setFolded(!folded)}>
           <ListChecks size={12} strokeWidth={2} aria-hidden />
