@@ -50,6 +50,7 @@ import { StartedRow } from "./StartedRow";
 import { SubagentRow } from "./SubagentRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchPin, SketchRow, type SketchPinProps } from "./SketchRow";
+import { DocumentRow } from "./DocumentRow";
 import type { SketchAnswer, SketchSettled } from "./sketch-answer";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
@@ -231,6 +232,12 @@ type SessionThreadKinds =
    * and `settled` how he answered it.
    */
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true; asked?: true; settled?: SketchSettled }
+  /**
+   * A page the Job wrote under `.armada/documents/`, as its newest revision, at the time Fleet kept it. `page` is the ledger's id
+   * for the page and `revision` the newest revision's number, counted from 1. `asked` is that revision put to him, and `settled`
+   * how he answered it; a new revision asks again.
+   */
+  | { id: string; at: string; kind: "document"; page: string; title: string; revision: number; asked?: true; settled?: SketchSettled }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -369,11 +376,11 @@ export type SessionThreadProps = {
    * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
    * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`,
    * `always_block` or `allow_for_session` press hands back the folder chosen. `reachesTo` says whether
-   * the call reads that path or writes to it, in the card's eyebrow and the Always head. `kind` is the
+   * the call reads that path, writes to it or runs what the guard cannot class, in the card's eyebrow and the Always head. `kind` is the
    * Bash call's program and script: with an `allow_like_this_for_session` offer the card draws a Calls
    * like row, and that press hands back the kind chosen.
    */
-  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write"; kind?: CallKind };
+  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write" | "run"; kind?: CallKind };
   onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string, kind?: CallKind) => void;
   /**
    * A question the agent asked that nobody answered in time, or that was skipped, drawn as the deck under the
@@ -397,6 +404,10 @@ export type SessionThreadProps = {
   onWithdrawDraft?: (rowId: string, reason?: string) => void;
   /** Answers a sketch put to him, by its ledger id. Absent, an asked sketch draws with nothing to press. */
   onAnswerSketch?: (sketch: string, answer: SketchAnswer) => void;
+  /** Opens a page the Job wrote as its document, by its ledger id. Absent, its card is not a press. */
+  onOpenDocument?: (page: string) => void;
+  /** Answers the newest revision of a document put to him, by the page's ledger id. Absent, it draws with nothing to press. */
+  onAnswerDocument?: (page: string, answer: SketchAnswer) => void;
   /**
    * Opens what a note the person sent from a viewer named: the sketch with its parts picked, the file on its lines, the
    * picture with its region drawn. `root` is the Job's checkout, which a file is shown from. Absent, such a message is words.
@@ -899,6 +910,8 @@ function Row({
   onDraft,
   onWithdrawDraft,
   onAnswerSketch,
+  onOpenDocument,
+  onAnswerDocument,
   sessionId,
   agentName = "Agent",
   onOpenRetro,
@@ -915,6 +928,8 @@ function Row({
   onDraft?: (rowId: string, answer: DraftAnswer) => void;
   onWithdrawDraft?: (rowId: string, reason?: string) => void;
   onAnswerSketch?: (sketch: string, answer: SketchAnswer) => void;
+  onOpenDocument?: (page: string) => void;
+  onAnswerDocument?: (page: string, answer: SketchAnswer) => void;
   sessionId?: string;
   onRetry?: (rowId: string) => void;
   /** Start again on a Job whose agent did not start: absent where the host serves none. */
@@ -1008,6 +1023,7 @@ function Row({
   if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
   if (row.kind === "saved") return <SavedRow row={row} />;
   if (row.kind === "sketch") return <SketchRow row={row} keep={sessionId === undefined ? `sketch:${row.id}` : `sketch:${sessionId}:${row.id}`} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} {...(onAnswerSketch === undefined ? {} : { onAnswer: onAnswerSketch })} />;
+  if (row.kind === "document") return <DocumentRow row={row} keep={sessionId === undefined ? `document:${row.id}` : `document:${sessionId}:${row.id}`} {...(onOpenDocument === undefined ? {} : { onOpen: onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswer: onAnswerDocument })} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "divider") return <li className="armada-session-divider" role="separator" />;
@@ -1214,8 +1230,8 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
 /** The answers that carry a folder, and so the picker's choice. */
 const FOLDER_ANSWERS = new Set(["always_allow", "allow_for_session", "always_block"]);
 
-/** The Always head, read with the path under it: "reads of" a path, "writes to" one. */
-const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"] } as const;
+/** The Always head, read with the path under it: "reads of" a path, "writes to" one, "commands on" one. */
+const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"], run: ["commands", "on"] } as const;
 
 /** The answer that allows a kind of call, drawn in the Calls like row and only where the ask names its kind. */
 const LIKE_THIS = "allow_like_this_for_session";
@@ -1252,7 +1268,7 @@ function KindPicker({ kind, wide, onWiden }: { kind: CallKind; wide: boolean; on
  * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
  * by the path, so a new ask opens on its whole path. A card that names its call's kind adds Calls
  * like under it, whose answer can be narrowed to the same folder. */
-function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer, keyed = false }: { reaches: string; reachesTo?: "read" | "write"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"]; /** The card is the thread's target: its refuse draws `⌥X`. */ keyed?: boolean }) {
+function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer, keyed = false }: { reaches: string; reachesTo?: "read" | "write" | "run"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"]; /** The card is the thread's target: its refuse draws `⌥X`. */ keyed?: boolean }) {
   const [folder, setFolder] = useState(reaches);
   const [wide, setWide] = useState(false);
   // Off at the start: the kind alone is the answer's own width, and a folder narrows it only when asked.
@@ -1735,7 +1751,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1854,7 +1870,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || (item.row.kind === "sketch" && item.row.sketch === sketching?.sketch) ? {} : { onAnswerSketch })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || (item.row.kind === "sketch" && item.row.sketch === sketching?.sketch) ? {} : { onAnswerSketch })} {...(onOpenDocument === undefined ? {} : { onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswerDocument })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
             ...cardsAfter(at).map((card) => (

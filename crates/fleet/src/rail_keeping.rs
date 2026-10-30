@@ -8,13 +8,14 @@ use ipc::{
     AskedQuestion, ConcernFrom, ConcernHow, ConcernSettled, DraftHow, Instant, JudgeConcern, JudgeReading, QuestionAnswer,
     SessionRow, SessionVoice, WaitingAct, WaitingActKind, WaitingCite, WaitingItem, WaitingSource,
 };
-use store::{KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, WriteError};
+use store::{Holder, KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, WriteError};
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
 use crate::rail_ends::{self, Waiter};
 use crate::rail_lifecycle::{self, Held, StepBits};
 use crate::session_host::asking::{answers_said, ask_answered};
+use crate::session_host::document_answers::approved_on_newest;
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::sketching::sketch_approved;
 use crate::session_host::walking::walk_approval;
@@ -69,6 +70,10 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             checked: store.session_has_run_a_check(&session.id)?,
             plan_expects_walk: plan.is_some_and(|plan| plan.seen || plan.walk.is_some()),
             messaged: messaged_on(&rows, &rail.visits),
+            document_approved: store
+                .attachments_of(&Holder::session(&session.id))?
+                .iter()
+                .any(|one| one.kind == "artifact" && approved_on_newest(&one.detail)),
             ..thread_facts(&rows, plan_approved_at.as_ref())
         }
     } else {

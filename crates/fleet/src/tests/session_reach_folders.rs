@@ -172,7 +172,11 @@ fn a_script_it_runs_is_read_and_not_written() {
     // What a program is handed is still a write.
     let write = |at: &str| asks_to(Because::ReachesOutside, at, ReachesTo::Write);
     assert_eq!(listed(&bash("cp ~/notes.md ~/elsewhere.md"), &[], &[]), write("/Users/user/notes.md"));
-    assert_eq!(listed(&bash("S=~/bin/x.sh; $S ~/out.txt"), &[], &[]), write("/Users/user/out.txt"));
+    // A script handed a path it may only read is a run, not a write.
+    assert_eq!(
+        listed(&bash("S=~/bin/x.sh; $S ~/out.txt"), &[], &[]),
+        asks_to(Because::ReachesOutside, "/Users/user/out.txt", ReachesTo::Run)
+    );
 }
 
 /// A home on disk holding one program, `~/bin/headless-shell`, for the guard to find there.
@@ -269,7 +273,7 @@ fn a_kind_allowed_for_the_session_lets_its_reach_run() {
     assert_eq!(allowing("node drive.mjs --browser ~/Library/x", &script, &[]), None);
     assert_eq!(
         allowing("node cleanup.mjs ~/code/other-repo", &script, &[]),
-        asks_to(Because::ReachesOutside, "/Users/user/code/other-repo", ReachesTo::Write)
+        asks_to(Because::ReachesOutside, "/Users/user/code/other-repo", ReachesTo::Run)
     );
     let program = [allowed("node", None, None)];
     assert_eq!(allowing("node cleanup.mjs ~/code/other-repo", &program, &[]), None);
@@ -277,7 +281,7 @@ fn a_kind_allowed_for_the_session_lets_its_reach_run() {
     assert_eq!(allowing("node drive.mjs --out ~/Desktop/shot.png", &desktop, &[]), None);
     assert_eq!(
         allowing("node drive.mjs --out ~/code/shot.png", &desktop, &[]),
-        asks_to(Because::ReachesOutside, "/Users/user/code/shot.png", ReachesTo::Write)
+        asks_to(Because::ReachesOutside, "/Users/user/code/shot.png", ReachesTo::Run)
     );
 }
 

@@ -94,7 +94,7 @@ export function rowsOf(session: Session): SessionThreadRow[] {
   return withSketchState(drawn, ledger);
 }
 
-export type Asked = { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write" };
+export type Asked = { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write" | "run" };
 
 /** What the agent is held on, worded as Bridge words it. */
 export function askedOf(session: Session): Asked | undefined {

@@ -2,12 +2,13 @@
 
 import { seedDraft } from "@armada/components";
 import type { ForkPick, SessionThreadRow, SketchAnswer } from "@armada/components";
-import type { AnswerSketch } from "@armada/protocol";
+import type { AnswerDocument, AnswerSketch } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { fileCallOf, sketchCallOf } from "@armada/screens/src/sessions-wire";
 import { sceneOfSketch } from "./session-sketch";
 
 type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
+type DocumentCard = Extract<SessionThreadRow, { kind: "document" }>;
 
 export function threadRowsOf(session: Session): SessionThreadRow[] {
   const rows = threadRowsFrom(session.rows, session.attachments);
@@ -24,6 +25,17 @@ export function sketchAnswerOf(session: Pick<Session, "id" | "attachments">, ske
   const held = session.attachments.find((one) => one.kind === "sketch" && one.id === sketch);
   const drawn = held?.kind === "sketch" ? (held.drawn ?? "") : "";
   const base = { session_id: session.id, sketch, drawn };
+  return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
+}
+
+/**
+ * What a press on a document's Approve or Send back sends. **`revision` is the one the ledger holds now**, which Fleet checks against
+ * the page as it stands; one the ledger never gave is sent empty, which Fleet refuses.
+ */
+export function documentAnswerOf(session: Pick<Session, "id" | "attachments">, page: string, answer: SketchAnswer): AnswerDocument {
+  const held = session.attachments.find((one) => one.kind === "artifact" && one.form === "document" && one.id === page);
+  const revision = held?.kind === "artifact" ? (held.revision ?? "") : "";
+  const base = { session_id: session.id, document: `document:${page}`, revision };
   return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
 }
 
@@ -61,6 +73,42 @@ function fileRowOf(row: { id: string; at: string; text: string }, ledger: readon
 }
 
 /**
+ * The card a Job's document is: its newest revision, read off the artifact and never off a write's tool row, so a page a script
+ * changed has one too. It waits while that revision is asked and not settled. A page whose time the record does not carry has none.
+ */
+function documentCardOf(page: Extract<SessionAttachment, { kind: "artifact" }>): DocumentCard | undefined {
+  if (page.form !== "document" || page.kept === undefined) return undefined;
+  const revision = page.revision === undefined ? (page.revisions?.length ?? 0) : Number(page.revision);
+  if (!Number.isInteger(revision) || revision < 1) return undefined;
+  return {
+    id: `document:${page.id}:r${String(revision)}`,
+    at: page.kept,
+    kind: "document",
+    page: page.id,
+    title: page.title,
+    revision,
+    ...(page.asked === true ? { asked: true as const } : {}),
+    ...(page.settled === undefined ? {} : { settled: page.settled }),
+  };
+}
+
+/**
+ * Each document's card, where its revision was kept: before the first row later than that. **A row whose time does not read as one
+ * is never later**, so the card follows it.
+ */
+function withDocuments(rows: SessionThreadRow[], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
+  const cards = ledger.flatMap((one) => (one.kind === "artifact" ? (documentCardOf(one) ?? []) : []));
+  if (cards.length === 0) return rows;
+  const out = [...rows];
+  for (const card of [...cards].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+    const kept = Date.parse(card.at);
+    const later = out.findIndex((row) => Date.parse(row.at) > kept);
+    out.splice(later < 0 ? out.length : later, 0, card);
+  }
+  return out;
+}
+
+/**
  * A card is replaced where a later card holds the same sketch. What it was drawn against is the latest card before it
  * with the title it names, as it was drawn then, else the sketch the ledger keeps the earlier scene of.
  */
@@ -85,7 +133,7 @@ function withSketchState(rows: SessionThreadRow[], ledger: readonly SessionAttac
 }
 
 export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAttachment[] = []): SessionThreadRow[] {
-  return withSketchState(rowsDrawn(rows, ledger), ledger);
+  return withDocuments(withSketchState(rowsDrawn(rows, ledger), ledger), ledger);
 }
 
 function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {

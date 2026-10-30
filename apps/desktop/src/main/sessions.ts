@@ -38,6 +38,7 @@ import type {
   OpenTerminal,
   StartTerminalRun,
   AnswerSketch,
+  AnswerDocument,
   ApprovePlan,
   ChangeWaiting,
   ClaimIssue,
@@ -835,6 +836,11 @@ export class SessionsHost {
   /** The person approved a sketch or sent it back with a note. Fleet tells the agent and answers the record, which is folded. */
   async answerSketch(answer: AnswerSketch): Promise<SessionActed> {
     return await this.act("POST", "/sessions/sketch/answer", answer);
+  }
+
+  /** The person approved the newest revision of a document or sent it back with a note. Fleet tells the agent and answers the record, which is folded. */
+  async answerDocument(answer: AnswerDocument): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/document/answer", answer);
   }
 
   /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */
