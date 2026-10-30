@@ -75,12 +75,12 @@ where
 {
     async fn rail_moved(self: &Arc<Self>, record: SessionRecord, seen: &mut HashMap<String, Seen>) {
         let id = record.id.as_str().to_string();
-        if !self.workflows_on() {
-            return;
-        }
         let (Some(manifest), Some(workflow)) = (record.manifest_id.as_ref(), record.workflow.as_deref()) else {
             return;
         };
+        if !self.workflow_on(manifest.as_str(), workflow) {
+            return;
+        }
         let Some(steps) = self.rail_steps(manifest.as_str(), workflow) else {
             return;
         };
@@ -224,10 +224,10 @@ where
     /// skipped are said after it. `None` where there is nothing to carry.
     pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
         let said = self.first_step_said(id, hosting, text).await;
-        if hosting.ran || !self.workflows_on() {
+        if hosting.ran {
             return said;
         }
-        let workflow = hosting.workflow.as_deref()?;
+        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
         let steps = self.rail_steps(&hosting.manifest_id, workflow)?;
         let skipped = self.store().lock().await.session_rail(id).map(|kept| kept.skipped).unwrap_or_default();
         let skips = rail::skips_said(&self.workflow_name(&hosting.manifest_id, workflow), &steps, &skipped);
@@ -238,10 +238,10 @@ where
     }
 
     async fn first_step_said(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
-        if hosting.ran || !self.workflows_on() {
+        if hosting.ran {
             return None;
         }
-        let workflow = hosting.workflow.as_deref()?;
+        let workflow = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))?;
         let steps = self.rail_steps(&hosting.manifest_id, workflow)?;
         let (session, from, to) = {
             let mut store = self.store().lock().await;

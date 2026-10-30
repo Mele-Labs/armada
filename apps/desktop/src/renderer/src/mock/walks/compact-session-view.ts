@@ -1,4 +1,4 @@
-// A Job open with less on screen: the Work list, the thread, the Job's story in the right column (Completed, Now, Next), the Field under the Jobs list, Flight control, and a key for the rest. Over the
+// A Job open with less on screen: the Work list, the thread, the Job's story in the right column (Done, Now, Open), the Field under the Jobs list, Flight control, and a key for the rest. Over the
 // `compact-session-view` scenario.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
@@ -6,7 +6,7 @@ import { button, deckRow, inside, region, role, walk } from "../walk";
 const key = (name: string) => button(name, { exact: true });
 
 const compactSessionView = walk("compact-session-view", [
-  { press: deckRow("Retry the slot lease"), say: "A Job open keeps the Jobs list, the thread, the right column's Completed, Now and Next, the Field under the Jobs list, and Flight control. Nothing else" },
+  { press: deckRow("Retry the slot lease"), say: "A Job open keeps the Jobs list, the thread, the right column's Done, Now and Open, the Field under the Jobs list, and Flight control. Nothing else" },
   { look: region("Build", { exact: true }), say: "The workflow's name heads the story and each of its steps is a zone below it; the current step holds the plan. A finished step is folded to a check" },
   { hover: deckRow("Prune the stale branches"), say: "Another Job is calling him, so its row pulses. Hovering the row names the call" },
   { look: button("Needs you", { exact: true }), say: "What waits on him is the Needs you panel on the composer, the question answered where it stands" },

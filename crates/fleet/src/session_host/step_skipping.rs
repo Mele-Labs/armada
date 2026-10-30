@@ -69,10 +69,10 @@ where
                 &format!("job {id} follows no workflow, so it has no step to skip"),
             ));
         };
-        if !self.workflows_on() {
+        if !self.workflow_on(&hosting.manifest_id, workflow) {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
-                "workflows are switched off in Settings, so no Job has a step to skip",
+                "this Job's workflow is switched off in Settings, so it has no step to skip",
             ));
         }
         let Some(steps) = self.rail_steps(&hosting.manifest_id, workflow) else {

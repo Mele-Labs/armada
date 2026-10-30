@@ -52,6 +52,8 @@ pub enum Section {
     /// A prompt, under the sub-heading of its family.
     Prompt(PromptSection),
     Features,
+    /// Which workflows are switched off, apart from the one switch for all of them.
+    Workflows,
     Editor,
     Terminal,
     Links,
@@ -105,7 +107,7 @@ impl Section {
             | Section::Machine
             | Section::Account
             | Section::Store => Group::Fleet,
-            Section::Features => Group::Features,
+            Section::Features | Section::Workflows => Group::Features,
             Section::Editor | Section::Terminal | Section::Links => Group::Tools,
             Section::Spacing | Section::Bridge => Group::Appearance,
         }
@@ -123,6 +125,7 @@ impl Section {
             Section::Plan => "Plan",
             Section::Prompt(section) => section.title(),
             Section::Features => "Features",
+            Section::Workflows => "Workflows",
             Section::Editor => "Editor",
             Section::Terminal => "Terminal",
             Section::Links => "Links",

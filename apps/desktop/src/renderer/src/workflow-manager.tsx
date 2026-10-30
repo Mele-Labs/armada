@@ -34,7 +34,9 @@ import { useDispatching } from "./dispatch-panel/dispatching";
 import { IssueJobCard } from "./issues-tab/marks";
 import { askToOpenSessionInCockpit } from "./open-session";
 import { useSessions } from "./sessions-draft";
+import { saveSetting, useSetting } from "./use-setting";
 import { PieceActs } from "./sharing/PieceActs";
+import { WORKFLOWS_OFF_KEY, switched, workflowsOffOf } from "./workflows-off";
 import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
 
@@ -83,6 +85,9 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const [notice, setNotice] = useState<string | undefined>(undefined);
   // The Jobs the window holds, so a Job a press started is drawn as the shared Job card once Fleet lists it.
   const sessions = useSessions();
+  // `features.workflows` and `workflows.off` in settings.json, Fleet's settings list; saved back with the settings save. Settings draws no row for `workflows.off`; this page is where it is edited.
+  const forJobs = useSetting("features.workflows") !== false;
+  const off = workflowsOffOf(useSetting(WORKFLOWS_OFF_KEY));
   // The copy the changes below belong to, so an answer that comes back after another was picked is let go.
   const asking = useRef<string | null>(null);
 
@@ -205,6 +210,13 @@ function Held({ current, repository, root, served }: { current: string | null; r
   return (
     <WorkflowManager
       repository={repository}
+      switches={{
+        forJobs,
+        onForJobs: (on) => void saveSetting("features.workflows", on),
+        machine: off.machine,
+        repository: current === null ? null : { name: repository, off: off.repositories[current] ?? [] },
+        onSwitch: (workflowId, on) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, current)),
+      }}
       workflows={workflows}
       notice={notice}
       drift={picked === null ? {} : { [picked.id]: readOfPicked?.drift ?? {} }}

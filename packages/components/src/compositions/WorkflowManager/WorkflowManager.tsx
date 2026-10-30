@@ -5,6 +5,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
+import { Switch, SwitchControl } from "../../primitives/Switch/Switch";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -25,6 +26,7 @@ import type {
   WorkflowActAnswer,
   WorkflowRef,
   WorkflowSource,
+  WorkflowSwitches,
 } from "./types";
 
 /**
@@ -77,6 +79,8 @@ export type WorkflowManagerProps = {
   onDismissSuggestion: (one: WorkflowRef, stepId: string) => Promise<WorkflowActAnswer>;
   /** New workflow: opens the sheet for a Job that makes one. Absent draws no button. */
   onNew?: () => void;
+  /** The switch for Jobs at the top and one on each row. Absent draws none. */
+  switches?: WorkflowSwitches;
 };
 
 /** What a row adds to its ref beyond the id and the place: the Manifest it was read under, and the file it was left out at. */
@@ -93,6 +97,20 @@ function replacesOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[]): stri
   if (one.source === "yours" && has("repository")) return "Yours replaces this repository's";
   if (one.source === "yours" && has("armada")) return "Yours replaces Armada's";
   return undefined;
+}
+
+/** A row's switch: the machine's on All, the repository's with one picked, and a badge in its place where the machine has the workflow off. */
+function RowSwitch({ id, switches }: { id: string; switches: WorkflowSwitches }) {
+  const { repository } = switches;
+  const offOnMachine = switches.machine.includes(id);
+  if (repository !== null && offOnMachine) return <span className="armada-wm__off-machine">Off on this machine</span>;
+  const on = repository === null ? !offOnMachine : !repository.off.includes(id);
+  const label = `${on ? "On" : "Off"} ${repository === null ? "on this machine" : `in ${repository.name}`}`;
+  return (
+    <Tooltip label={label}>
+      <SwitchControl size="sm" label={label} checked={on} onChange={(event) => switches.onSwitch(id, event.target.checked)} />
+    </Tooltip>
+  );
 }
 
 const NONE: readonly never[] = [];
@@ -156,6 +174,11 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   return (
     <div className="armada-wm" onKeyDown={onKeyDown}>
       <div className="armada-wm__list" data-col="list">
+        {props.switches === undefined ? null : (
+          <Switch checked={props.switches.forJobs} onChange={(event) => props.switches?.onForJobs(event.target.checked)}>
+            Workflows for Jobs
+          </Switch>
+        )}
         {props.onNew === undefined ? null : (
           <Button variant="primary" size="default" className="armada-wm__new" onClick={props.onNew}>
             <Plus size={16} strokeWidth={2} aria-hidden />
@@ -221,6 +244,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
                           </Tooltip>
                         )}
                       </span>
+                      <span className="armada-wm__switch">{out !== undefined || props.switches === undefined ? null : <RowSwitch id={one.id} switches={props.switches} />}</span>
                     </li>
                   );
                 })}

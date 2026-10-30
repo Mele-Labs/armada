@@ -1,6 +1,6 @@
-// A Job is a story, and the right column tells it in three zones: Completed (what it has made, in the order it made it), Now (what it is doing this minute and
-// what waits on him) and Next (the plan's groups and the workflow's steps still to come, and the outputs still to be made). The plan is the spine: a finished
-// group moves to Completed carrying what it produced, the group being worked is in Now, the rest are in Next. A zone is open at every stage and folds only by a press
+// A Job is a story, and the right column tells it in three zones: Done (what it has made, in the order it made it), Now (what it is doing this minute and
+// what waits on him) and Open (the plan's groups and the workflow's steps still to come, and the outputs still to be made). The plan is the spine: a finished
+// group moves to Done carrying what it produced, the group being worked is in Now, the rest are in Open. A zone is open at every stage and folds only by a press
 // of its band or its key, which is kept per Job. The stage (`stageOf`) is read from data the Job already holds and sizes nothing now; it names where the Job is.
 // The landing kind is the workflow's `lands`, which Fleet resolves; a mock scenario says it in `work.landing`. Whole plan: ⌥N or its button shows every group with its detail in Now.
 
@@ -8,7 +8,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
 
 export type Stage = "blueprint" | "field" | "landing";
-/** The three zones the right column tells a Job in: what it made (drawn as Completed), what it is doing, what comes (`StoryColumn.tsx`). */
+/** The three zones the right column tells a Job in: what it made (drawn as Done), what it is doing, what comes (`StoryColumn.tsx`). */
 export type Zone = "done" | "now" | "next";
 export type Area = Stage | Zone;
 export type Fold = { open: boolean; toggle: () => void; /** The stage is at this panel: it takes the larger share of the column. */ current: boolean };
@@ -177,7 +177,7 @@ export const bandKeyFor = (area: string): string | undefined => BAND_KEYS.find((
 /** Swaps the approved Blueprint between its Now view and the whole plan. */
 export const WHOLE_KEY = { code: "KeyN", cap: "⌥N" } as const;
 
-/** Swaps Completed between By step and By kind. */
+/** Swaps Done between By step and By kind. */
 export const LEDGER_KEY = { code: "KeyL", cap: "⌥L" } as const;
 
 /** Artifacts over the right column. */

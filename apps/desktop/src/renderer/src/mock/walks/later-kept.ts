@@ -1,9 +1,9 @@
-// A Job that said it was done with follow-ups open: Fleet's refusal sits in its thread, and the follow-up left is under Deferred in Next with
+// A Job that said it was done with follow-ups open: Fleet's refusal sits in its thread, and the follow-up left is under Deferred in Open with
 // a Remind and two thumbs. Over the `later-kept` scenario.
 
 import { button, deckRow, inside, region, text, walk } from "../walk";
 
-const landing = region("Next", { exact: true });
+const landing = region("Open", { exact: true });
 const later = inside(landing, button("Deferred"));
 const remind = inside(landing, button(/^Remind/));
 const drop = inside(landing, button(/^Not deferred/));
@@ -17,7 +17,7 @@ const laterKept = walk("later-kept", [
   { press: remind, say: "Remind sends it to the Job" },
   { look: text(/You said: .The Studio icon tooltip is still owed\./), say: "It arrives in the thread" },
   { press: drop, say: "Thumbs down takes it off the list" },
-  { look: landing, say: "Deferred is gone from Next" },
+  { look: landing, say: "Deferred is gone from Open" },
 ]);
 
 export { laterKept as "later-kept" };

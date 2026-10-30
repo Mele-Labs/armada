@@ -25,6 +25,10 @@ pub const AUTOPILOT_PANEL: Flag = Flag("features.autopilotPanel");
 /// `ipc::reach_folders`. Written by an "always" answer on a session's card.
 pub const REACH_FOLDERS: Json = Json("features.reachFolders");
 
+/// The workflows switched off, for this machine and for one repository: `ipc::workflows_off`.
+/// Kept in settings.json and never in a repository's checkout.
+pub const WORKFLOWS_OFF: Json = Json("workflows.off");
+
 pub const EDITOR_COMMAND: Words = Words("editor.command");
 pub const TERMINAL_APP: Words = Words("terminal.app");
 pub const TERMINAL_COMMAND: Words = Words("terminal.command");
@@ -221,6 +225,18 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Nothing,
         applies: Applies::Live,
         row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: WORKFLOWS_OFF.0,
+        section: Section::Workflows,
+        title: "Workflows switched off",
+        description: "Workflows a Job is not offered and cannot be given, on this machine or in one repository.",
+        kind: Kind::Json,
+        shipped: Shipped::Nothing,
+        applies: Applies::Live,
+        row: Some("workflows-switched-off"),
         env: None,
         tip: None,
     },

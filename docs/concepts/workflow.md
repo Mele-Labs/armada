@@ -37,6 +37,7 @@ At the delivering step the agent delivers by the answer it was told.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.
 [The rail](session/the-rail.md) owns how a step is placed; [The judges](judge.md) owns the judge.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.
+**One workflow can be switched off** too, for the machine or for one repository (`workflows.off`, Settings, Workflows): it is not offered, a Job cannot be given it, and a Job already on it runs plain until it is switched back on.
 
 ### `feature` and `bug`
 

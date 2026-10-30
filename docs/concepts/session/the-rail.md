@@ -4,7 +4,7 @@
 
 Since 16 Oct 2026. A Job that follows a workflow has a **current step**, and it is **read off what Fleet observed, never off the agent's word**.
 `SessionRecord.workflow_step` is its index in the workflow's steps; it is derived each time the row is drawn (`rail.rs`, `Fleet::rail_drawn`), so nothing stores it beside the facts it comes from.
-It is absent for a custom Job, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off.
+It is absent for a custom Job, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off or `workflows.off` names its workflow for its repository.
 
 **Three anchors are exact.** A `records_plan` step is current until a plan is approved.
 A `follows_plan` step is current from approval, and stays until a later step is entered.
@@ -75,6 +75,6 @@ A step the owner ends, by a reply or an approval, and a delivering step, which e
 The one message names the step and what ends it, and says to do it or ask the owner what is still open, and to carry on where the Job waits on work it started or he said to wait.
 It is told once for each step in a Job's life (`session_rail.stalled`), and is not kept against the workflow, since it is no drift.
 
-**With `features.workflows` off** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
+**With `features.workflows` off, or a Job's workflow in `workflows.off`** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
 The Job keeps the workflow it has.
 The proposer is shown none and never picks one, and `set_session_workflow` refuses to set one (`fleet.session_workflows_off`) but still clears one.
