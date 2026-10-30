@@ -58,6 +58,8 @@ export type MockDraft = {
   prReview?: ReviewSeed;
   /** Each repository's tracker for the Issues tab, its issues and what the model writes, built into a store per window. Mock only: no route serves the tab yet. */
   issuesTab?: IssuesSeed;
+  /** The bugs agents reported in Armada itself, which the Issues tab's band and the Cockpit's marks read. Mock only: wired to Fleet later. */
+  reportedBugs?: readonly import("../issues-tab/model").ReportedBug[];
   /** Each repository's projects as Fleet lists them, which the mock Fleet answers the Projects routes from. A window with none has no Projects tab. */
   projectsTab?: ProjectsSeed;
   /** The pull requests, issues, tasks and commands the palette lists, and what it starts with pinned and opened. Mock only: Fleet serves the palette none of them yet. */

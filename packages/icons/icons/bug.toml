@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "The Session flight control Report issue, which hands a report about a Session to a new Session. Never an error state, a failed Job or a Check that failed."
   notes = "Proposed 15 Oct 2026 with the Session flight controls. `file_report` is keyed by a Job's id, so a report about a Session starts a new Session instead (`docs/concepts/cockpit.md`). `flag` is reserved to a stopped step and `triangle-alert` to Doctor. Drawn off only where the repository is not known, tooltip `The repository is not known`."
+
+[[icons.bug.usage]]
+  means = "A Job whose agent reported a bug in Armada itself, on its row in the Cockpit's Jobs list"
+  group = "Issues"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `reported-bugs`, tooltip `Reported a bug`. A press opens the report on the Issues tab. It marks a report an agent made, which is the Report issue flight control's own subject seen from the other side, and never an error state, a failed Job or a Check that failed. The owner may rule otherwise."

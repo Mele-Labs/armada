@@ -4,10 +4,11 @@
 // down in a text field and while a dialog is up.
 
 import { useEffect, useRef } from "react";
-import { isPressed, pressedSlot } from "@armada/components";
+import { isPressed, pressedSlot, pressesChord } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
+import { REPORT_CHORDS } from "./key-table";
 import { useIssues, useIssuesStore, type IssuesStore } from "./store";
 
 const ZONES = [".issues-list", ".issues-reader"] as const;
@@ -91,7 +92,7 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
       take();
       return focusList();
     }
-    if (snap.open !== undefined) {
+    if (snap.open !== undefined || snap.openReport !== undefined) {
       take();
       return store.open(undefined);
     }
@@ -110,6 +111,21 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
     if (field === null) return;
     take();
     return field.focus();
+  }
+  // A reported bug: the one in the reader, or the row under focus in the list.
+  const reported = here === ".issues-reader" ? snap.openReport : here === ".issues-list" ? target.closest<HTMLElement>("[data-report]")?.dataset.report : undefined;
+  const report = snap.reports.find((one) => one.id === reported);
+  if (report !== undefined && pressesChord(REPORT_CHORDS.drop, event)) {
+    take();
+    store.dropReport(report.id);
+    window.requestAnimationFrame(focusList);
+    return;
+  }
+  if (report !== undefined && !report.kept && pressesChord(REPORT_CHORDS.keep, event)) {
+    take();
+    store.keepReport(report.id);
+    window.requestAnimationFrame(here === ".issues-reader" ? focusReader : focusList);
+    return;
   }
   if (isPressed("issues_describe", event)) {
     take();

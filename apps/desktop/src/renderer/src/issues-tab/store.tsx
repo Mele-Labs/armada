@@ -7,7 +7,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { SURFACE } from "@armada/shell";
 
-import type { IssuesSource, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "./model";
+import type { IssuesSource, ReportedBug, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "./model";
 
 export type Run = { state: "running" } | { state: "read"; tickets: Ticket[] } | { state: "failed"; said: string; /** The program the tracker could not run: the line offers to install it. */ missing?: string; /** The program the tracker found no project for: the line offers to set it up. */ needsSetup?: string };
 
@@ -24,6 +24,11 @@ export type IssuesSnapshot = {
   installs: Readonly<Record<string, Install>>;
   reads: Readonly<Record<string, Read>>;
   open: { manifestId: string; reference: string } | undefined;
+  /** The bugs agents reported, and which of them this window has opened (an unopened one is unread). */
+  reports: readonly ReportedBug[];
+  seen: readonly string[];
+  /** The report in the reader, by id. It and `open` are never both set. */
+  openReport: string | undefined;
   describing: Describing | undefined;
   /** The saved query being edited by hand, as `manifestId` and its id. */
   editing: { manifestId: string; id: string } | undefined;
@@ -38,7 +43,7 @@ const key = (manifestId: string, rest: string): string => `${manifestId}\n${rest
 export type IssuesStore = ReturnType<typeof createIssuesStore>;
 
 export function createIssuesStore(source: IssuesSource) {
-  let snap: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+  let snap: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, reports: [], seen: [], openReport: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
   const listeners = new Set<() => void>();
   const set = (next: Partial<IssuesSnapshot>) => {
     snap = { ...snap, ...next };
@@ -49,6 +54,7 @@ export function createIssuesStore(source: IssuesSource) {
   const asked = new Set<string>();
   /** What the Jobs said they hold of each repository the last time the list was drawn. */
   const told = new Map<string, string>();
+  let reportsAsked = false;
 
   const savedInto = (manifestId: string, saved: SavedQuery[]) =>
     set({ trackers: (snap.trackers ?? []).map((one) => (one.manifestId === manifestId && one.state === "read" ? { ...one, saved } : one)) });
@@ -121,9 +127,25 @@ export function createIssuesStore(source: IssuesSource) {
       });
     },
     run,
+    /** Reads the reported bugs once, when the tab or the Cockpit first needs them. */
+    readReports: () => {
+      if (reportsAsked || source.reports === undefined) return;
+      reportsAsked = true;
+      void source.reports.list().then((answer) => answer.ok && set({ reports: answer.value }));
+    },
+    /** Opening a report marks it read here, and puts any issue away. */
+    openReport: (id: string | undefined) => set(id === undefined ? { openReport: undefined } : { openReport: id, open: undefined, seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] }),
+    keepReport: (id: string) => {
+      set({ reports: snap.reports.map((one) => (one.id === id ? { ...one, kept: true } : one)), seen: snap.seen.includes(id) ? snap.seen : [...snap.seen, id] });
+      void source.reports?.keep(id);
+    },
+    dropReport: (id: string) => {
+      set({ reports: snap.reports.filter((one) => one.id !== id), ...(snap.openReport === id ? { openReport: undefined } : {}) });
+      void source.reports?.drop(id);
+    },
     open: (manifestId: string | undefined, reference?: string) => {
-      if (manifestId === undefined || reference === undefined) return set({ open: undefined });
-      set({ open: { manifestId, reference } });
+      if (manifestId === undefined || reference === undefined) return set({ open: undefined, openReport: undefined });
+      set({ open: { manifestId, reference }, openReport: undefined });
       const at = key(manifestId, reference);
       if (snap.reads[at] !== undefined) return;
       void source.read(manifestId, reference).then((answer) => set({ reads: { ...snap.reads, [at]: answer.ok ? { state: "read", ticket: answer.value } : { state: "failed", said: answer.said } } }));
@@ -204,7 +226,7 @@ export function useIssuesStore(): IssuesStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+const NEVER: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, reports: [], seen: [], openReport: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
 const NONE = () => () => undefined;
 
 export function useIssues(): IssuesSnapshot {

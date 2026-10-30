@@ -187,7 +187,7 @@ export function mountApp(
   // The Issues tab starts as a window does, with no query chosen and no draft kept from an earlier pass.
   const tracked = chosen.draft?.issuesTab;
   if (tracked !== undefined && seed === undefined) forgetAllKept();
-  const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked));
+  const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked, chosen.draft?.reportedBugs));
   // The Projects tab starts with nothing open, over the mock Fleet's projects routes, whose done asks join the Jobs that carry the same ask (`slices/projects.ts`).
   const listed = chosen.draft?.projectsTab;
   if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();
