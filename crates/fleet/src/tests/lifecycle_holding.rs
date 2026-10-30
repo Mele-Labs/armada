@@ -14,8 +14,7 @@ use ipc::{AllDone, CloseSession, Event, FinishUp, SessionId, StartWatch, WatchSt
 
 use super::rule_acting::notices_in;
 use super::session_host::{rig_placing, Rig};
-
-const CODE: &str = "fleet.lifecycles_in_flight";
+use crate::lifecycles::ending::IN_FLIGHT as CODE;
 
 async fn take_on(rig: &Rig, id: &SessionId, lifecycle: &str, key: &str) {
     let mut store = rig.fleet.store().lock().await;

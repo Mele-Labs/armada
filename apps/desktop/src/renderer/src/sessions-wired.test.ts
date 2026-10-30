@@ -749,7 +749,7 @@ const flying = (id: string): JobLifecycles => ({
   instances: [
     { lifecycle: "deploy", key: "web", label: "Deploy", standing: { kind: "in", state: "rolling_out" }, links: [] },
     { lifecycle: "ticket", key: "ARM-42", label: "ARM-42", standing: { kind: "in", state: "in_review" }, links: [] },
-    { lifecycle: "pr", key: "812", label: "PR #812", standing: { kind: "in", state: "approved" }, links: [] },
+    { lifecycle: "pr", key: "24", label: "PR #24", standing: { kind: "in", state: "approved" }, links: [] },
     { lifecycle: "ticket", key: "ARM-43", label: "ARM-43", standing: { kind: "unmapped", said: "Awaiting QA" }, links: [] },
     { lifecycle: "ticket", key: "ARM-44", label: "ARM-44", standing: { kind: "unread" }, links: [] },
     { lifecycle: "deploy", key: "api", label: "API", standing: { kind: "in", state: "healthy" }, links: [] },
@@ -761,7 +761,7 @@ it("lists what End finds in flight on a real Job, as Fleet read it, and nothing 
   const { store, publish, changed } = await holdingStore(async (id) => ({ ok: true, value: flying(id) }));
   await publish(record("a"));
   const rows = () => inFlight(store.draft.get()[0]!.lanes!.job).map((one) => (one.state === "" ? one.label : `${one.label}: ${one.state}`));
-  expect(rows()).toEqual(["Deploy: Rolling out", "ARM-42: In review", "PR #812: Approved", "ARM-43: Awaiting QA", "ARM-44"]);
+  expect(rows()).toEqual(["Deploy: Rolling out", "ARM-42: In review", "PR #24: Approved", "ARM-43: Awaiting QA", "ARM-44"]);
 
   const ended = flying("a");
   changed({ ...ended, instances: ended.instances.map((one) => (one.standing.kind === "in" && one.standing.state === "healthy" ? one : { ...one, ended_at: AT })) });

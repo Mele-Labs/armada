@@ -20,7 +20,7 @@ use super::holding::rebuilt;
 use super::serving::label_of;
 use crate::daemon::Fleet;
 
-const IN_FLIGHT: &str = "fleet.lifecycles_in_flight";
+pub(crate) const IN_FLIGHT: &str = "fleet.lifecycles_in_flight";
 
 /// One instance no end state has taken.
 #[derive(Clone, Debug, PartialEq, Eq)]
