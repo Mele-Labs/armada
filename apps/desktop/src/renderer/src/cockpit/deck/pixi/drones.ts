@@ -79,6 +79,8 @@ const MEGAPHONE = [
 
 /** How many characters of a reason the label over a marker holds. */
 const REASON_MOST = 30;
+/** Where the reason label's foot stands over the marker's origin, before `Fliers` lifts it clear of another. */
+export const REASON_FOOT = -33 - 17 - 5;
 
 /**
  * The marker of a call he has not opened: a badge over the drone on a stem, amber while it is owed and red while its Check is failing,
@@ -102,7 +104,8 @@ export function callMark(tone: "ask" | "bad", p: Palette, reason?: string): Cont
   if (reason !== undefined) {
     const said = reason.length > REASON_MOST ? `${reason.slice(0, REASON_MOST - 1)}…` : reason;
     const label = name(said, p, p.fg, { x: 0.5, y: 1 });
-    label.position.set(0, -33 - 17 - 5);
+    label.label = "reason";
+    label.position.set(0, REASON_FOOT);
     out.addChild(label);
   }
   return out;

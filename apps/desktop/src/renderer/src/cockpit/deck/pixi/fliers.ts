@@ -5,7 +5,7 @@
 import { Container, type Sprite } from "pixi.js";
 
 import { alongOf } from "../layout";
-import { alphaOf, drawDrone, droneSig, type DroneParts } from "./drones";
+import { alphaOf, drawDrone, droneSig, REASON_FOOT, type DroneParts } from "./drones";
 import { pillarSprite } from "./glow";
 import type { Palette } from "./palette";
 import { project, type View } from "./project";
@@ -110,6 +110,26 @@ export class Fliers {
         pillar.width = 12 * foot.scale;
         pillar.alpha = (spec.leaving ? 0.35 : 1) * arrived;
       }
+    }
+    this.unstack();
+  }
+
+  /** Reason labels that would print over each other are lifted a line at a time, the nearest drone's kept lowest. */
+  private unstack(): void {
+    const labels = [...this.nodes.values()].flatMap(({ root, parts }) => {
+      const said = parts.mark?.getChildByLabel("reason");
+      return root.visible && parts.mark !== undefined && said ? [{ mark: parts.mark, said }] : [];
+    });
+    labels.sort((a, b) => b.mark.y - a.mark.y);
+    const taken: { l: number; r: number; t: number; b: number }[] = [];
+    for (const { mark, said } of labels) {
+      const s = mark.scale.x;
+      const half = (said.width / 2) * s;
+      let foot = REASON_FOOT;
+      const box = () => ({ l: mark.x - half, r: mark.x + half, t: mark.y + (foot - said.height) * s, b: mark.y + foot * s });
+      for (let lift = 0; lift < 6 && taken.some((o) => { const b = box(); return b.l < o.r && b.r > o.l && b.t < o.b && b.b > o.t; }); lift++) foot -= said.height + 2;
+      said.y = foot;
+      taken.push(box());
     }
   }
 
