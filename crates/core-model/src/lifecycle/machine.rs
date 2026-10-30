@@ -9,6 +9,7 @@
 //! not the lifecycle listed that move. Transitions are what a rule's When can name and what an
 //! editor draws; [`Lifecycle::allows`] says whether a move was one the lifecycle expected.
 
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
@@ -74,6 +75,28 @@ pub enum Standing {
     /// nearest state: a rule that wrote to a tracker on a guess about its words has acted on
     /// nothing anyone said. It is not an end, so the instance stays in flight until it is mapped.
     Unmapped(String),
+}
+
+impl Standing {
+    /// The spelling a kept move uses: `unread`, `in:<state>`, or `unmapped:<the word as said>`.
+    pub fn as_wire(&self) -> String {
+        match self {
+            Standing::Unread => String::from("unread"),
+            Standing::In(state) => format!("in:{state}"),
+            Standing::Unmapped(said) => format!("unmapped:{said}"),
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Standing> {
+        if value == "unread" {
+            return Some(Standing::Unread);
+        }
+        match (value.strip_prefix("in:"), value.strip_prefix("unmapped:")) {
+            (Some(state), _) => StateId::new(state).ok().map(Standing::In),
+            (_, Some(said)) => Some(Standing::Unmapped(String::from(said))),
+            _ => None,
+        }
+    }
 }
 
 /// A lifecycle: an id, its states, the moves it expects and the states that end it.

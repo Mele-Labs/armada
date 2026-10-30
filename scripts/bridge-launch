@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#
+# What launchd runs as Bridge: the command it is given, then an exit status that
+# says whether Bridge meant to stop. `scripts/restart` writes the plist that names
+# it, with `KeepAlive={SuccessfulExit:false}`, so a status of 1 reopens Bridge.
+#
+# **`electron-vite preview` exits 0 however Electron ended**: it passes the child's
+# exit code to `process.exit`, and a child ended by a signal has none (29 Oct, a
+# Bridge killed by a closing Job stayed down). So Bridge leaves a mark on a quit
+# the person meant (`apps/desktop/src/main/index.ts`, `will-quit`), and the mark,
+# not the status, is read here.
+#
+# **Three exits within a minute of opening, in a row, and it stays down**, so a
+# Bridge that cannot start does not open and close every ThrottleInterval.
+#
+# Usage: ARMADA_BRIDGE_QUIT_MARK=<file> scripts/bridge-launch <command> [args...]
+
+set -uo pipefail
+
+mark="${ARMADA_BRIDGE_QUIT_MARK:?ARMADA_BRIDGE_QUIT_MARK names the file Bridge marks a quit in}"
+quick="$mark.quick"
+rm -f "$mark"
+
+started=$(date +%s)
+"$@"
+
+if [[ -f "$mark" ]]; then
+  rm -f "$mark" "$quick"
+  exit 0
+fi
+
+if (( $(date +%s) - started < 60 )); then
+  count=$(( $(cat "$quick" 2>/dev/null || echo 0) + 1 ))
+else
+  count=1
+fi
+if (( count >= 3 )); then
+  rm -f "$quick"
+  echo "bridge-launch: Bridge stopped within a minute of opening $count times in a row, so it is left closed" >&2
+  exit 0
+fi
+echo "$count" > "$quick"
+echo "bridge-launch: Bridge stopped without a quit, so launchd reopens it" >&2
+exit 1

@@ -1200,5 +1200,42 @@ class PreviewAdopt(unittest.TestCase):
         self.assertIn("--watch never restarts Fleet", done.stderr)
 
 
+class BridgeLaunch(unittest.TestCase):
+    """`scripts/bridge-launch`: exit 0 on a quit Bridge marked, 1 on any other exit so launchd
+    reopens it, and 0 after three quick exits in a row so it does not open and close forever."""
+
+    LAUNCH = os.path.join(HERE, "scripts", "bridge-launch")
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir)
+        self.mark = os.path.join(self.dir, "bridge-quit")
+
+    def launch(self, *command):
+        env = {**os.environ, "ARMADA_BRIDGE_QUIT_MARK": self.mark}
+        return subprocess.run([self.LAUNCH, *command], env=env, capture_output=True, text=True).returncode
+
+    def test_a_marked_quit_stays_closed(self):
+        self.assertEqual(self.launch("sh", "-c", 'touch "$ARMADA_BRIDGE_QUIT_MARK"'), 0)
+        self.assertFalse(os.path.exists(self.mark), "the mark is spent")
+
+    def test_an_exit_without_the_mark_is_reopened(self):
+        self.assertEqual(self.launch("true"), 1)
+        self.assertEqual(self.launch("false"), 1)
+
+    def test_three_quick_exits_in_a_row_leave_it_closed(self):
+        self.assertEqual([self.launch("true") for _ in range(3)], [1, 1, 0])
+        self.assertEqual(self.launch("true"), 1, "the count starts again after it gives up")
+
+    def test_a_marked_quit_clears_the_quick_exits(self):
+        self.assertEqual([self.launch("true") for _ in range(2)], [1, 1])
+        self.launch("sh", "-c", 'touch "$ARMADA_BRIDGE_QUIT_MARK"')
+        self.assertEqual([self.launch("true") for _ in range(2)], [1, 1])
+
+    def test_a_stale_mark_from_an_earlier_quit_is_not_read(self):
+        open(self.mark, "w").close()
+        self.assertEqual(self.launch("true"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

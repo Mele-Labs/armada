@@ -52,6 +52,8 @@ where
         };
         // A root that has a Manifest by now is a plain start on it, not Setup's.
         let setup = rooted && manifest.is_none();
+        // Only a plain Job in a repository holds lifecycle instances; Helm, a mod and Setup do not.
+        let holds_lifecycles = marked == Marked::Plain && manifest.is_some();
         let id = new_id();
         let now = self.now().as_str().to_string();
         let title = start
@@ -86,7 +88,7 @@ where
                     title,
                     state: store::SessionState::Live,
                     started_at: now.clone(),
-                    last_seen_at: now,
+                    last_seen_at: now.clone(),
                     last_turn_at: None,
                     ended_at: None,
                     end_reason: None,
@@ -121,6 +123,9 @@ where
                     workflow_chosen: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
+            if holds_lifecycles {
+                let _ = store.mark_lifecycle_job(&id, &now);
+            }
         }
         if !held_tasks.is_empty() {
             self.project_tasks_held(&id, &held_tasks).await;

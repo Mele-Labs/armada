@@ -27,6 +27,11 @@ Doctor stays readable when Fleet dies through `armada doctor --json`, a short-li
 - **Startup.** Bridge bootstraps a **launchd job**, plist kept at `~/Library/Application Support/Armada/` — deliberately **outside** `~/Library/LaunchAgents`. launchd only auto-loads from the LaunchAgents directories, so a plist elsewhere is never seen at login: **"does not start at boot" becomes structural rather than configured off**.
   `KeepAlive={SuccessfulExit:false}`, `ThrottleInterval` 2, mode 644. launchd parents Fleet to PID 1 at spawn.
 - **Quitting the app.** Does **not** kill Fleet. Jobs keep running, independent of Bridge, because Fleet is not Electron's descendant.
+- **Bridge stops without a quit, by a crash or a kill.** launchd reopens it.
+  `scripts/restart` runs it through `scripts/bridge-launch`, under `KeepAlive={SuccessfulExit:false}` and `ThrottleInterval` 10.
+  The launcher exits 1 unless Bridge left the mark it writes on `will-quit` for a quit the person meant, because `electron-vite preview` exits 0 however Electron ended.
+  A `SIGTERM` is a kill: Electron quits on one through `will-quit` as on ⌘Q, so Bridge takes the signal itself once ready and leaves no mark (measured 29 Oct, Electron 40).
+  Three exits within a minute of opening, in a row, and it stays down.
 - **Reopening Bridge.** **Reconnects** to the running Fleet rather than spawning a duplicate.
   Bootstrapping is per-login-session, so Bridge bootstraps every login, idempotently — with a `launchctl print` pre-check, because bootstrapping an already-loaded job and bootstrapping a world-writable plist fail with the **identical** error, `Bootstrap failed: 5: Input/output error`.
 - **Fleet crashes — signal or non-zero exit.** launchd restarts it automatically.
