@@ -9,7 +9,7 @@ use ipc::{Instant, SessionRow, SessionVoice};
 
 use super::session_rail::{approved, at, delivers, follows, plan_step, step};
 use crate::rail::{self, Facts, RailStep, Skipped};
-use crate::rail_ends::{self, ends_any, ends_when, End};
+use crate::rail_ends::{self, ends_any, ends_when, End, Waiter};
 use crate::rail_keeping::messaged_on;
 use crate::rail_lifecycle::StepBits;
 
@@ -84,6 +84,7 @@ fn a_step_that_ends_on_a_state_is_the_worlds_to_end_and_raises_no_wait_and_no_st
     let steps = reviewed();
     let ends = rail_ends::ends_of(&steps, 2);
     assert_eq!(ends.len(), 1);
+    assert_eq!(ends[0].waits_on(), Waiter::TheWorld, "{:?}", ends[0]);
     assert!(ends[0].by_the_world(), "{:?}", ends[0]);
     assert!(!ends[0].by_the_job(), "the agent has nothing to do to end it, so it is never nudged as stalled");
     for other in [End::Merged, End::PlanApproved, End::Replied, End::Pushed, End::Edited] {

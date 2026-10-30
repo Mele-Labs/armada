@@ -4,6 +4,7 @@
 use std::borrow::Cow;
 
 use core_model::{LifecycleEnd, StepEnd, Waits};
+use ipc::WaitingSource;
 
 use crate::rail::{Fit, RailStep};
 
@@ -38,6 +39,20 @@ pub(crate) enum End {
 /// `in_review` as `in review`, the way a state reads in a sentence.
 fn spoken(id: impl std::fmt::Display) -> String {
     id.to_string().replace('_', " ")
+}
+
+/// Who a step's end waits on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Waiter {
+    /// The Job's own act ends it.
+    TheJob,
+    /// Its pull request merging, which is nobody's to press.
+    TheMerge,
+    /// A lifecycle reaching a state, which Fleet reads off the world and moves the Job on: neither the
+    /// Job's act nor the person's, so no item waits on him.
+    TheWorld,
+    /// The person, through the item of this source.
+    ThePerson(WaitingSource),
 }
 
 impl End {
@@ -90,26 +105,40 @@ impl End {
         }
     }
 
+    /// Who ends the step, and for the person the item that waits on him while it stands. **Every end
+    /// is named here**, so an end added with no wait behind it does not build. The item is raised off
+    /// what the Job showed or said, never off the agent's `waiting_for`.
+    pub(crate) fn waits_on(&self) -> Waiter {
+        match self {
+            End::Lifecycle(_) => Waiter::TheWorld,
+            // His Approve on the pull request is a forge's; the merge itself is the queue's, never his.
+            End::Merged => Waiter::TheMerge,
+            End::PlanApproved => Waiter::ThePerson(WaitingSource::Plan),
+            End::WalkApproved | End::AnyWalkApproved => Waiter::ThePerson(WaitingSource::Walk),
+            End::Replied => Waiter::ThePerson(WaitingSource::Replied),
+            End::SketchApproved => Waiter::ThePerson(WaitingSource::Sketch),
+            End::DraftApproved => Waiter::ThePerson(WaitingSource::Draft),
+            End::IdeaPicked => Waiter::ThePerson(WaitingSource::AskCard),
+            End::PlanRecorded
+            | End::Pushed
+            | End::WalkShown
+            | End::Edited
+            | End::Checked
+            | End::Committed
+            | End::PrOpened
+            | End::Undelivered => Waiter::TheJob,
+        }
+    }
+
     /// The Job's own act ends the step, so nobody else will: Fleet does not move it, and the person
     /// has nothing to answer.
     pub(crate) fn by_the_job(&self) -> bool {
-        !matches!(
-            self,
-            End::Lifecycle(_)
-                | End::Merged
-                | End::PlanApproved
-                | End::WalkApproved
-                | End::Replied
-                | End::AnyWalkApproved
-                | End::SketchApproved
-                | End::DraftApproved
-                | End::IdeaPicked
-        )
+        self.waits_on() == Waiter::TheJob
     }
 
     /// Fleet reads it off the world and moves the Job, so it raises no wait for the person.
     pub(crate) fn by_the_world(&self) -> bool {
-        matches!(self, End::Lifecycle(_))
+        self.waits_on() == Waiter::TheWorld
     }
 
     fn listed(end: &StepEnd) -> End {

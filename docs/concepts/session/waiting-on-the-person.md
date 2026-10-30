@@ -3,7 +3,7 @@
 **Part of:** [Job](../session.md).
 
 **A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, and optional `steps`, a list of short lines); an empty list clears it.
-Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)).
+Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `sketch:<title>` for a sketch shown with `show_sketch` and not yet answered (*Drawing a sketch*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)).
 **`task_done:<project>` is answered with Mark done or Keep open**, through `answer_waiting`, and the choice settles every task the job asked in that project without sending the agent a message.
 Where an agent item names the same act and target as one of Fleet's, Fleet's stands.
 **`waiting_for` refuses an item that asks the person to walk**, by a `walk` act or in its words, and tells the agent to call `show_window`: the window is the one record of a walk, and its item leaves at his Approve.
@@ -56,6 +56,31 @@ It waits again, with its `since` at that instant, only when the job shows it aga
 It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item leaves the list and the window holds no pending plan, and it ends the walk, so the job's questions are not refused for it.
 Only a window the job showed can be withdrawn.
 Showing the page again with `show_window` lifts the dismissal, so a withdrawn walk waits again, and so does one he dismissed himself.
+**Every sketch a job shows waits until the person answers it.** One item per title, `sketch:<title>`, source `sketch`, its text the title and its act `message` on the job, for each sketch put to him whose `detail.settled` is unset.
+His Approve or Send back on its card settles it, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
+`answer_waiting` on it is refused: the card answers it.
+Drawing the title again lifts the dismissal, so the redrawn sketch waits again.
+A plan's sketch raises none, since it is approved with the plan.
+A job moved into a slot keeps the same id, so its sketches and their items stay.
+
+**Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
+`rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
+
+| The step ends when | The item |
+|---|---|
+| He approves the plan | `plan:<version>` |
+| He approves a walk | `walk:<url>` |
+| He approves a sketch | `sketch:<title>` |
+| He approves a draft | `draft:<row>` |
+| He picks an idea | the open question, `ask:<call>` |
+| He replies | `replied:<turn ended>` |
+| The pull request merges | none: the merge is nobody's to press |
+
+**A step that ends on his reply waits on him at every turn end**, a reply that only reports included.
+Where nothing else waits and the turn is over, the row carries `replied:<turn ended>`, text `<step>: you reply`, until he writes or dismisses it.
+A reply that asks raises its own items under the same id, so dismissing either settles both.
+A paused or done job raises none.
+
 The mod's first-message note tells the agent to keep the list current, to give each item an act, and never to list a page it showed with `show_window`, which waits by itself, and puts these tools ahead of the person's own rules for reporting actions and questions in a reply.
 It also says a decision is asked one way, in the prompt or in `waiting_for` and never both, that a shell command for the owner goes in a block tagged `bash` so Bridge draws its run button, and that a page is shown as a link and never a screenshot.
 **An agent item that carries `steps` is a procedure**: its glyph is Steps, and its row reads its `text`, and its press opens the steps beside the thread in place of its `act`.

@@ -12,6 +12,7 @@ use store::{KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, Wri
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
+use crate::rail_ends::{self, Waiter};
 use crate::rail_lifecycle::{self, Held, StepBits};
 use crate::session_host::asking::{answers_said, ask_answered};
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
@@ -250,8 +251,15 @@ where
     }
 
     /// Draw what the rail and the judges add to a hosted Session's row: the step it is on, whether a
-    /// judge is reading, and the last reading. **A Session that ended has no step.**
-    pub(crate) fn rail_drawn(&self, session: &KeptSession, reads: &RailReads, record: &mut ipc::SessionRecord) {
+    /// judge is reading, and the last reading. **A Session that ended has no step.** A step that ends
+    /// on his reply waits on him from `reply_owed_since`, the turn's end, where nothing else does.
+    pub(crate) fn rail_drawn(
+        &self,
+        session: &KeptSession,
+        reads: &RailReads,
+        reply_owed_since: Option<&str>,
+        record: &mut ipc::SessionRecord,
+    ) {
         if record.hosted.is_none() {
             return;
         }
@@ -277,6 +285,14 @@ where
             let lifecycles = self.lifecycles_that_apply(manifest);
             (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
         }
-        record.workflow_step = rail::current(&steps, &facts).map(|at| at as u32);
+        let at = rail::current(&steps, &facts);
+        record.workflow_step = at.map(|at| at as u32);
+        let waits_on_reply = at.is_some_and(|at| {
+            rail_ends::ends_of(&steps, at).into_iter().any(|end| end.waits_on() == Waiter::ThePerson(WaitingSource::Replied))
+        });
+        let turn_over = matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
+        if let (true, true, true, Some(ended), Some(at)) = (waits_on_reply, turn_over, record.waiting_for.is_empty(), reply_owed_since, at) {
+            record.waiting_for.push(crate::session_host::waiting::step_reply_item(&steps[at].label, ended));
+        }
     }
 }
