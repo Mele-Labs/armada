@@ -261,7 +261,7 @@ Ending a Job ends its live watches `stopped` and tells nothing.
 |---|---|
 | Delivery | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it. Live watches only, and one that ended not ours while its Needs you item is open, until Show ended draws the ended ones, each with Delete |
 | The side panel, on a press | Readings over time, a run that read the same as one row with its count and first and last times, each part with its own link, exact error lines and the end of its log, parts set aside struck through, what a weighing carried as evidence, a broken run's output, a failed reading's whole log in Log with one copy control, the link, and Stop |
-| A Job's row and header | Held open by the watch's name, while only a watch keeps the Job open |
+| A Job's row and header | Held open by the name of each live watch, while only what is not the person keeps the Job open |
 
 The glyphs are `docs/contracts/iconography.md`, *A watch and its states*.
 The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.

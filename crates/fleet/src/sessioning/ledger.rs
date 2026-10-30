@@ -208,7 +208,7 @@ where
             touches: store.session_touches(&session.id).map_err(fault)?,
             pulls,
             later: store.later_of(&session.id).map_err(fault)?,
-            watching: store.first_live_watch_name(&session.id).map_err(fault)?,
+            watching: store.live_watch_names(&session.id).map_err(fault)?,
             start,
             started,
         })
@@ -318,17 +318,19 @@ where
             });
         record.started = reads.started;
         self.rail_drawn(session, &reads.rail, reply_owed_since.as_deref(), &mut record);
-        // Held open only when the watch is all that is left, read once the rail has drawn its wait: a
-        // turn running, an item owed or a command the agent backgrounded each says more than the watch does.
-        record.held_open_by = reads.watching.filter(|_| {
-            session.state == store::SessionState::Live
-                && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
-                && record.waiting_for.is_empty()
-                && !record
-                    .attachments
-                    .iter()
-                    .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing)
-        });
+        // Held open only when what it waits on is all that is left, read once the rail has drawn its wait: a
+        // turn running, an item owed or a command the agent backgrounded each says more than a watch or a pull request does.
+        let between = session.state == store::SessionState::Live
+            && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
+            && record.waiting_for.is_empty()
+            && !record
+                .attachments
+                .iter()
+                .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing);
+        if between {
+            let pulls = record.attachments.iter().filter_map(pull_request_wait);
+            record.held_open_by = reads.watching.into_iter().map(|name| ipc::HeldOpenBy::Watch { name }).chain(pulls).collect();
+        }
         record
     }
 
@@ -428,4 +430,28 @@ where
             self.writes().wrote_in(&who, &manifest, &worktree, inside, &self.now());
         }
     }
+}
+
+/// What an own pull request waits on, read from its attachment's detail as Bridge reads a pull request: open,
+/// its Checks not failed, and in the queue, set to merge or on its Checks. A merged, given back or draft one waits on nothing.
+fn pull_request_wait(one: &ipc::Attachment) -> Option<ipc::HeldOpenBy> {
+    let detail = |key: &str| one.detail.get(key).map(String::as_str);
+    if one.kind != "pull_request" || one.state != ipc::AttachmentState::Standing || matches!(detail("state"), Some("merged" | "draft")) {
+        return None;
+    }
+    let number = one.target.parse().ok()?;
+    let checks = detail("checks");
+    let auto_merge = detail("auto_merge") == Some("true");
+    let on = if checks == Some("failed") {
+        return None;
+    } else if detail("queued") == Some("true") {
+        ipc::PullRequestWait::Queue
+    } else if !matches!(checks, Some("passed")) {
+        ipc::PullRequestWait::Checks { auto_merge }
+    } else if auto_merge {
+        ipc::PullRequestWait::AutoMerge
+    } else {
+        return None;
+    };
+    Some(ipc::HeldOpenBy::PullRequest { number, on })
 }

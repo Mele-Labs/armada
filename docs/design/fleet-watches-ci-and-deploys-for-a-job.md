@@ -154,7 +154,8 @@ Noticing that is a new watch's job, started by whoever needs it.
 
 A live watch is a wait, as an open pull request is (`crates/adapters/src/session_rules.md`): the agent does not call `all_done` while one runs, and ends its turn.
 The watch names the wait itself, so the agent adds no `waiting_for` item for it.
-A Job whose turn has ended, with nothing in `waiting_for` and a live watch, shows as **held open by** the watch's name, with the watch glyph.
+A Job whose turn has ended, with nothing in `waiting_for` and a live watch, shows as **held open by** the name of each live watch, in the order they started, with the watch glyph.
+Fleet lists the Job's own open pull requests in the merge queue, set to merge or on their Checks in the same `held_open_by`, so a surface words the list and derives none of it.
 When the watch ends, whichever way, its notice wakes the agent, which carries on and calls `all_done` once nothing is left.
 The person ends the Job with **End job**, as today (`docs/concepts/session/waiting-on-the-person.md`). Nothing ends a Job on its own.
 A held Job is not a Needs you item: what it waits on is Fleet's wait, not the person's, as with a merge the forge will do (`docs/concepts/fleet.md`).
@@ -165,7 +166,7 @@ A held Job is not a Needs you item: what it waits on is Fleet's wait, not the pe
 |---|---|
 | Delivery | A **Watching** block below the pull requests. A row is the state glyph with its tooltip, the watch's name, its `says` sentence and the reading's age. Under it, the agent's verdict and sentence where there is one |
 | The side panel, on pressing a row | The readings over time, each part and its state, parts set aside struck through with the verdict that set them aside, the last output of a broken reading, the link out, and **Stop** |
-| A Job's row on the Board and its header | **Held open by QA deploy**, with the watch glyph, while only watches keep it open |
+| A Job's row on the Board and its header | **Held open by QA deploy**, with the watch glyph, while only what is not the person keeps it open |
 
 The watch glyph is `radar`, which `docs/contracts/iconography.md` has not assigned.
 `eye` is reserved to Review.
