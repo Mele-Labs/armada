@@ -684,6 +684,33 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** The row is published as any other `SessionRow`; no new event kind.
 
+## A fault in Armada reported: `report_bug`, `list_bug_reports`, `keep_bug_report`, `drop_bug_report` and `bug_reports.changed`
+
+Since 29 Oct 2026. `crates/ipc/src/bug_reports.rs`.
+**Additive only**: four operations, four routes, one event kind and the `bug_reports` table; no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/bug-reports.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `report_bug` (`POST /sessions/report_bug`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `ReportBug` `{ title, what, steps?, errors?, logs?, session_id? }`; answers `BugReported` `{ report_id }`. Refused with `fleet.bug_report_refused` for an empty `title` or `what`; a call that places no job is refused as `all_done` refuses it |
+| `list_bug_reports` (`GET /bug_reports`) | Bridge sends, Fleet answers 200 | `BugReports` `{ reports }`, newest first |
+| `keep_bug_report` (`POST /bug_reports/:report_id/keep`) | Bridge sends, Fleet answers 200 | No body; answers the `BugReport` with `kept` set. 404 `fleet.no_such_bug_report` for an id that names none |
+| `drop_bug_report` (`POST /bug_reports/:report_id/drop`) | Bridge sends, Fleet answers 200 | No body; answers `BugReportDropped` `{ id }`. 404 `fleet.no_such_bug_report` for an id that names none, a second drop too |
+| `bug_reports.changed` (`Event::BugReportsChanged`) | Bridge reads | `BugReports`: every report on this Mac, whole, after one was made, kept or dropped |
+
+**The report is kept in Fleet's store on this Mac and posted nowhere.** Fleet writes to no forge on the owner's behalf: no issue is opened and nothing is commented.
+**The job is the one whose process holds the connection**, as `all_done`'s is, and a terminal job is served.
+The job's title is kept with the report as it stood, so a report reads after its job is gone.
+**`steps`, `errors` and `logs` are each trimmed per line and a blank line is left out.** They may be empty.
+`title` and `what` may not.
+**`kept` is when the owner kept the report and is absent until then.** Keeping one again keeps the first time.
+Whether he has read one is Bridge's own and is not on the wire.
+**The store.** `bug_reports` is additive, `crates/store/migrations/20261029T1600Z-bug_reports.table.sql`, with no foreign key: a report outlives its job.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `bug_reports.changed` is a new kind; a Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
+
 ## Keep on this Mac is gone: `get_kept_on_this_mac`, `set_kept_on_this_mac`
 
 Since 21 Oct 2026. `docs/concepts/kit.md`, *A private repository*; `.claude/decisions/2026-10-21-the-place-rows-are-the-choice.md`.

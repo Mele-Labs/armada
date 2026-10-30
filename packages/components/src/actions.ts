@@ -80,6 +80,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   review: [],
   // The Issues tab's keys: found from Settings → Keyboard and the tab's own caps.
   issues: [],
+  // A reported bug's keys: found from Settings → Keyboard and the caps on its acts.
+  report: [],
   // The Projects tab's keys: found from Settings → Keyboard and the tab's own caps.
   projects: [],
   call: [],

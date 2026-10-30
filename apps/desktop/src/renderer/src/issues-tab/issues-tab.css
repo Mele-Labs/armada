@@ -174,3 +174,27 @@
 /* The fields and each part a tile inside the panel: a hairline and the nested curve, no shadow. */
 .issues-surface .issues-fields,
 .issues-surface .issues-reader__part[aria-label="Description"] { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
+
+/* ---- Reported bugs ------------------------------------------------------------------------------------- */
+
+/* A report is a row on the same panel: its title, a fixed column for its one mark, a fixed column for its age, and the Job it came from under. No lamp: no Job works it. */
+.issues-surface .issues-row[data-report] {
+  grid-template-columns: minmax(0, 1fr) var(--space-4) auto;
+  grid-template-areas: "title mark at" "from from from";
+  padding-inline-start: var(--space-3);
+}
+.issues-surface .issues-row[data-report]::before { content: none; }
+.issues-row__mark { grid-area: mark; display: flex; align-items: center; justify-content: center; color: var(--fg-muted); }
+.issues-mark { display: inline-flex; }
+.issues-row__at { --readout-chars: 7; grid-area: at; justify-self: end; align-self: start; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.issues-row__from { grid-area: from; min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
+
+/* The reader's parts for a report: each a tile like the description, the steps numbered, the errors and paths in mono. */
+.issues-reader__from { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.issues-reader__from-label { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.issues-report__steps { margin: 0; padding-inline-start: var(--space-6); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); }
+.issues-report__lines { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.issues-report__line { margin: 0; overflow-wrap: anywhere; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; }
+.issues-surface .issues-report__part { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
+.issues-surface .issues-report__part[aria-label="Errors"],
+.issues-surface .issues-report__part[aria-label="Logs"] { background: var(--bg-sunken); }

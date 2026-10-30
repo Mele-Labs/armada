@@ -140,7 +140,12 @@ where
     /// The listing is read now, while the agent's tree still stands, and the ending runs on a
     /// blocking thread; a no-op where `ps` will not answer. Call within a runtime.
     pub(crate) fn processes_ended(&self, id: &str, held: &[String]) {
-        let pids: Vec<u32> = self.processes_of(id, held).into_iter().map(|one| one.pid).collect();
+        let processes = self.processes_of(id, held);
+        // Named in the log, so a process that vanished at a close can be traced to it.
+        for one in &processes {
+            eprintln!("job {id}: closed, so pid {} is ended: {}", one.pid, one.command);
+        }
+        let pids: Vec<u32> = processes.into_iter().map(|one| one.pid).collect();
         if !pids.is_empty() {
             tokio::task::spawn_blocking(move || adapters::leasing::end_pids(&pids, GRACE));
         }

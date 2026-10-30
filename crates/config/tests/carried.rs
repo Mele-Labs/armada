@@ -1,7 +1,7 @@
 //! **Every workflow Armada carries resolves in a repository that is not this
 //! one.** #425.
 //!
-//! `shipped.rs` resolves the seven against this repository's own `armada.yml`,
+//! `shipped.rs` resolves the eight against this repository's own `armada.yml`,
 //! which is the one Manifest guaranteed to agree with them. Carried, they meet
 //! every other shape, so they are resolved here against three that share
 //! nothing with it: one declaring no Checks, one whose Checks are all named
@@ -58,8 +58,8 @@ fn gates_only_on_what_the_repository_declares(text: &str) -> Vec<ResolvedWorkflo
     let resolved = carried_against(&manifest);
     assert_eq!(
         resolved.len(),
-        7,
-        "all seven, against {}",
+        8,
+        "all eight, against {}",
         manifest.id().as_str()
     );
     for workflow in &resolved {

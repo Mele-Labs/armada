@@ -9,7 +9,7 @@ import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type Re
 import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import { FIND_A_REPOSITORY, SURFACE, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
@@ -53,6 +53,9 @@ import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { ToolsMarkOf } from "../../tools-fixes";
+import { ReportedMark } from "../../issues-tab/marks";
+import { reportOfJob } from "../../issues-tab/reports";
+import { useIssues, useIssuesStore } from "../../issues-tab/store";
 import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
@@ -224,7 +227,7 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-function List({ subjects, calling, banding, selected, builds, picked, found, onPick, onEarlier, onMove, onAutopilot }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onEarlier: (id: string) => void; onMove: (key: string, target: string, after: boolean) => void; onAutopilot: (root: string) => void }) {
+function List({ subjects, calling, banding, selected, builds, picked, found, onPick, onEarlier, onMove, onAutopilot, onReported }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onEarlier: (id: string) => void; onMove: (key: string, target: string, after: boolean) => void; onAutopilot: (root: string) => void; onReported: (reportId: string) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
@@ -243,7 +246,13 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const earlier = subjects.some((one) => one.earlier !== undefined);
   // The mark of a Job whose agent came up without some tools has a column of its own, kept for every row while one has it.
   const tooled = subjects.some((one) => one.kind === "session" && sessions.find((each) => each.id === one.id)?.toolsMissing !== undefined);
-  const columns = columnsOf(view, earlier, tooled);
+  // The mark of a Job that reported a bug in Armada has a column of its own too, kept for every row while one has it.
+  const issuesStore = useIssuesStore();
+  const { reports, seen } = useIssues();
+  useEffect(() => issuesStore?.readReports(), [issuesStore]);
+  const reportedOf = (id: string) => reportOfJob(reports, seen, id);
+  const reported = subjects.some((one) => one.kind === "session" && reportedOf(one.id) !== undefined);
+  const columns = columnsOf(view, earlier, tooled, reported);
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
     // What a search matched in the Session, in place of its age.
@@ -284,7 +293,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             )}
             {one.title}
           </span>
-          <RowFields view={view} earlier={earlier} tools={tooled} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
+          <RowFields view={view} earlier={earlier} tools={tooled} reported={reported} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
         </button>
         </Inspect>
         {one.earlier === undefined ? null : (
@@ -297,6 +306,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             <ToolsMarkOf session={sessionOf} size={12} open={() => onPick(one)} />
           </span>
         )}
+        {(() => {
+          const report = one.kind === "session" ? reportedOf(one.id) : undefined;
+          return report === undefined ? null : (
+            <span className="deck-row__reported">
+              <ReportedMark onOpen={() => onReported(report.id)} />
+            </span>
+          );
+        })()}
         {one.kind === "pr" || !view.conflicts ? null : (
           <span className="deck-row__clash">
             <ClashMark kind={one.kind} id={one.id} />
@@ -315,7 +332,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight } as CSSProperties}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight, "--deck-reported-right": columns.reportedRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
@@ -1091,6 +1108,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
   const rowView = useRowView();
+  const issuesStore = useIssuesStore();
   // A Job's Lanes open in the spine on a wide window, and the column is as wide as the pull request panel for as long as they are (`session-view/lanes-width.ts`).
   const lanesInSpine = useLayer(onStage ?? "") === "lanes";
   const { columns, resize, reset } = useColumns(grid, layout, restBonus(rowView, false), lanesInSpine ? tokenPx("--w-dialog-wide") : 0);
@@ -1107,7 +1125,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
-          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
+          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
           {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>

@@ -68,8 +68,34 @@ export type ReadTracker = Extract<Tracker, { state: "read" }>;
 /** An answer, or Fleet's words for why there is none. */
 export type Read<T> = { ok: true; value: T } | { ok: false; said: string; /** The program the tracker could not run, as Fleet named it. */ missing?: string; /** The program the tracker ran and found no project for, as Fleet named it. */ needsSetup?: string };
 
+/**
+ * A bug an agent in a Job reported in Armada itself, as Fleet's `BugReport` with `kept` read as whether the owner kept it.
+ * `job_title` is the title of the Job it came from, `at` an RFC 3339 instant, `errors` the exact lines and `logs` the paths
+ * the agent named.
+ */
+export type ReportedBug = {
+  id: string;
+  session_id: string;
+  job_title: string;
+  title: string;
+  what: string;
+  steps: string[];
+  errors: string[];
+  logs: string[];
+  at: string;
+  kept: boolean;
+};
+
 /** What the tab reads and writes. Fleet answers it (`source.ts`), and the mock does in a walk. */
 export type IssuesSource = {
+  /** Reported bugs, the two acts on one, and Fleet telling the whole list again. Absent where no Fleet serves them. */
+  reports?: {
+    list: () => Promise<Read<ReportedBug[]>>;
+    keep: (id: string) => Promise<Read<ReportedBug>>;
+    drop: (id: string) => Promise<Read<void>>;
+    /** Hears `bug_reports.changed` until the returned function is called. */
+    follow: (onChanged: (reports: ReportedBug[]) => void) => () => void;
+  };
   /** The tracker of each of these repositories, by Manifest id. One Fleet does not serve is left out. */
   trackers: (manifestIds: readonly string[]) => Promise<Read<Tracker[]>>;
   /** The issues a query matches. Runs the query as written: no model is called. */

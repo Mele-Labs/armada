@@ -94,6 +94,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The bug reports agents made of Armada, whole, after one was made, kept or dropped.
+    Route {
+        operation: "bug_reports.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A background act failed after its reply.
     Route {
         operation: "act.failed",

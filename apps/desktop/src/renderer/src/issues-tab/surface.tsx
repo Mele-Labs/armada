@@ -13,7 +13,8 @@ import { SpendDialog } from "../pr-review/flight";
 import { bandsIn, type Band } from "./bands";
 import { IssuesKeys } from "./keys";
 import { IssuesList } from "./list";
-import type { TicketRead } from "./model";
+import type { ReportedBug, TicketRead } from "./model";
+import { armadaIn, briefOf } from "./reports";
 import { IssuesReader } from "./reader";
 import { useIssues, useIssuesStore } from "./store";
 import "../cockpit/cockpit.css";
@@ -42,6 +43,12 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
     dispatching.choose("session");
     dispatching.openSheet(`${tag.title} `, band.root, [tag]);
   };
+  // A kept report is the brief of a Job in the armada repository, in the sheet an issue's Start a Job opens.
+  const startReport = (root: string, report: ReportedBug) => {
+    if (dispatching === undefined) return;
+    dispatching.choose("session");
+    dispatching.openSheet(briefOf(report), root, []);
+  };
   const teach = (band: Band) => {
     if (dispatching === undefined || band.tracker.state !== "refused") return;
     const named = band.tracker.named === undefined ? "" : `${band.tracker.named.charAt(0).toUpperCase()}${band.tracker.named.slice(1)} `;
@@ -58,7 +65,7 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
-            <IssuesReader bands={bands} onOpenLink={onOpenLink} onOpenSession={onOpenSession} onStart={start} />
+            <IssuesReader bands={bands} armada={armadaIn(repositories)} onOpenLink={onOpenLink} onOpenSession={onOpenSession} onStart={start} onStartReport={startReport} />
           </div>
         </div>
       </div>
