@@ -47,6 +47,30 @@ describe("Workspaces, lifecycles and rules", () => {
     ]);
   });
 
+  it("send a piece to save or delete as a POST with the body as it was given", async () => {
+    const bodies: string[] = [];
+    const server = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk: Buffer) => chunks.push(chunk));
+      request.on("end", () => {
+        bodies.push(`${request.method} ${request.url} ${Buffer.concat(chunks).toString()}`);
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ kind: "rule", id: "progress", scope: { kind: "everywhere" }, file: "/k/rules/progress.toml", replaced: false }));
+      });
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    servers.push(server);
+    const host = new LifecyclesHost(() => (server.address() as AddressInfo).port);
+    const rule = { id: "progress", name: "Start the ticket", scope: { kind: "everywhere" as const }, when: { kind: "job" as const, event: "started" }, conditions: [], does: [], on_failure: { retries: 0, then: "ask_owner" } };
+    expect(await host.save({ piece: { kind: "rule", rule }, overwrite: true })).toMatchObject({ ok: true, value: { id: "progress" } });
+    await host.remove({ kind: "rule", id: "progress", scope: { kind: "everywhere" } });
+    expect(bodies).toEqual([
+      `POST /lifecycles/pieces/save ${JSON.stringify({ piece: { kind: "rule", rule }, overwrite: true })}`,
+      `POST /lifecycles/pieces/delete ${JSON.stringify({ kind: "rule", id: "progress", scope: { kind: "everywhere" } })}`,
+    ]);
+  });
+
   it("are refused in Fleet's own words where Fleet serves no such repository", async () => {
     const fleet = await serving(422, { code: "fleet.unacceptable_proposal", message: "This Fleet serves no such repository", run_id: "r", fields: {}, chain: [] });
     const done = await new LifecyclesHost(() => fleet.port).lifecycles("01NOWHERE");

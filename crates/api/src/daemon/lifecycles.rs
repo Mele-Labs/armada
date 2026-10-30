@@ -1,12 +1,16 @@
-//! Workspaces, lifecycles and rules, read: what applies to a repository, and where a Job's tickets,
-//! pull requests, deploys and started Jobs stand. Nothing here saves a piece or moves an instance.
+//! Workspaces, lifecycles and rules: what applies to a repository, where a Job's tickets, pull
+//! requests, deploys and started Jobs stand, and saving or deleting one piece in Kit. Nothing here
+//! moves an instance.
 //!
 //! **Its own surface**, for [`Watches`](super::Watches)' reason: whole on its own, and the Job's read
 //! is placed by the connection as a watch's is.
 
 use std::future::Future;
 
-use ipc::{JobLifecycles, ManifestId, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SessionId};
+use ipc::{
+    DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
+    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
+};
 
 use crate::daemon::Refusal;
 
@@ -38,4 +42,21 @@ pub trait Lifecycles: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         session_id: Option<SessionId>,
     ) -> impl Future<Output = Result<JobLifecycles, Refusal>> + Send;
+
+    /// `save_lifecycle_piece` — write one Workspace, lifecycle, rule or autonomy default in Kit's
+    /// folder, as the file its parser reads. **Checked with that parser before anything is
+    /// written**: [`Refusal::Unacceptable`] with the parser's own sentence where the piece does not
+    /// parse, and where Kit already holds the kind, id and scope and `overwrite` was not set.
+    /// [`Refusal::Fault`] where the file cannot be written.
+    fn save_lifecycle_piece(
+        &self,
+        save: SaveLifecyclePiece,
+    ) -> impl Future<Output = Result<LifecyclePieceSaved, Refusal>> + Send;
+
+    /// `delete_lifecycle_piece` — delete the Kit file that declares one piece.
+    /// [`Refusal::Unacceptable`] where Kit holds none.
+    fn delete_lifecycle_piece(
+        &self,
+        delete: DeleteLifecyclePiece,
+    ) -> impl Future<Output = Result<LifecyclePieceDeleted, Refusal>> + Send;
 }

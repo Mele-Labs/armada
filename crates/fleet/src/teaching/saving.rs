@@ -12,12 +12,13 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
-    AddressFound, Does, FleetFile, FleetRule, LogbookSection, ModKind, SaveTeaching, SavedTeaching, TeachLogbookEntry,
-    TeachSource, TeachingLayout, TeachingReach, TeachingSource, TeachingWords, WireError, WordsAddress, WordsFile,
+    AddressFound, Does, FleetFile, FleetRule, LifecyclePiece, LifecycleRule, LogbookSection, ModKind, SaveLifecyclePiece, SaveTeaching,
+    SavedTeaching, TeachLogbookEntry, TeachSource, TeachingLayout, TeachingReach, TeachingSource, TeachingWords, WireError, WordsAddress,
+    WordsFile,
 };
 
 use super::finding::Wanted;
-use super::{answer, link, INPUT_REFUSED, LAYOUT_REFUSED, NOTE_REFUSED, RULE_REFUSED, TWEAK_REFUSED, WORDS_REFUSED};
+use super::{answer, link, ruling, INPUT_REFUSED, LAYOUT_REFUSED, NOTE_REFUSED, RULE_REFUSED, TWEAK_REFUSED, WORDS_REFUSED};
 use crate::daemon::Fleet;
 use crate::mods::scaffold::{self, Taught};
 use crate::mods::{self, fleet_rules, manifest, slug_problem, words};
@@ -31,6 +32,8 @@ struct Plan {
     fleet: Option<FleetRule>,
     tweak: Vec<(String, String)>,
     layout: Option<TeachingLayout>,
+    /// The rule piece to write in Kit, as a read of its file would answer it.
+    rule: Option<LifecycleRule>,
     taught_on: Option<String>,
     entry: Option<String>,
 }
@@ -212,7 +215,7 @@ where
 
     /// Every part of `save` held to what `read_teaching` holds a proposal to. The plan to write, with
     /// no entry yet.
-    fn teaching_planned(&self, save: &SaveTeaching, manifest: Option<&str>) -> Result<Plan, Refusal> {
+    fn teaching_planned(&self, save: &SaveTeaching, root: Option<&str>, manifest: Option<&str>) -> Result<Plan, Refusal> {
         let proposal = &save.proposal;
         if let Some(note) = &proposal.note {
             if let Some(why) = answer::note_fault(note.section, note.kind, &note.text, save.reach) {
@@ -247,11 +250,22 @@ where
                 return Err(self.teaching_refused(LAYOUT_REFUSED, why));
             }
         }
+        // A rule is placed by the reach and named from its name, whatever the proposal carried, and
+        // held to a read of its file against the lifecycles that apply where it was taught.
+        let rule = match &proposal.rule {
+            Some(one) => {
+                let ground = self.rule_ground(root);
+                let kept = ruling::kept(&one.rule, save.reach, manifest, &ground);
+                Some(kept.map_err(|why| self.teaching_refused(RULE_REFUSED, why))?)
+            }
+            None => None,
+        };
         Ok(Plan {
             words: proposal.words.clone().map(|one| (one, manifest.unwrap_or("*").to_string())),
             fleet: proposal.fleet.as_ref().map(|one| one.rule.clone()),
             tweak,
             layout: proposal.layout.clone(),
+            rule,
             taught_on: save.source.as_ref().map(taught_on).filter(|text| !text.is_empty()),
             entry: None,
         })
@@ -266,6 +280,7 @@ where
             && proposal.fleet.is_none()
             && proposal.tweak.is_empty()
             && proposal.layout.is_none()
+            && proposal.rule.is_none()
         {
             return Err(self.teaching_refused(INPUT_REFUSED, "There is nothing to keep."));
         }
@@ -275,7 +290,7 @@ where
         }
         // A rule for a repository is held to the repository's Manifest id.
         let manifest = root.as_deref().and_then(|root| self.manifest_id_at(root));
-        let mut plan = self.teaching_planned(&save, manifest.as_deref())?;
+        let mut plan = self.teaching_planned(&save, root.as_deref(), manifest.as_deref())?;
         let entry = match &save.proposal.note {
             Some(note) => {
                 let taught = TeachLogbookEntry {
@@ -296,6 +311,7 @@ where
         plan.entry = entry.clone();
         // Words kept for one repository with no address yet are looked for, off this request.
         let unaddressed = plan.words.as_ref().filter(|(one, key)| one.address.is_none() && key != "*").map(|(_, key)| key.clone());
+        let rule = plan.rule.take();
         let switches = self.mod_switches_read().await?;
         let dir = self.mods_dir();
         let written = tokio::task::spawn_blocking(move || write(&dir, &switches, &plan))
@@ -305,6 +321,10 @@ where
         if !written.is_empty() {
             self.mods_announced().await?;
         }
+        let rule = match rule {
+            Some(rule) => Some(self.lifecycle_piece_saved(SaveLifecyclePiece { piece: LifecyclePiece::Rule { rule }, overwrite: false })?),
+            None => None,
+        };
         if let (Some(manifest), Some(mod_name)) = (unaddressed, written.first()) {
             let wanted = Wanted { mod_name: mod_name.clone(), manifest, session_id: save.session_id.clone() };
             tokio::spawn(Arc::clone(&self).address_wanted(wanted));
@@ -314,7 +334,7 @@ where
         if let (Some(session), Some(note)) = (&save.session_id, &save.proposal.note) {
             let _ = self.told_news_by_fleet(session, &format!("From now on: {}", note.text.trim()), ipc::Notice::Taught).await;
         }
-        Ok(SavedTeaching { entry, mods: written })
+        Ok(SavedTeaching { entry, mods: written, rule })
     }
 }
 

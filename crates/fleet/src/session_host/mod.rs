@@ -100,6 +100,7 @@ pub(crate) mod readiness;
 pub(crate) mod walking;
 pub(crate) mod walk_asks;
 pub(crate) mod step_skipping;
+pub(crate) mod job_copying;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

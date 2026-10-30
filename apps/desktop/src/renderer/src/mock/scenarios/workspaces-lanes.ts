@@ -1,10 +1,11 @@
 // The Workspace `my-store` and three Jobs in it: the Workflows page draws the `feature` workflow over the Ticket, PR and Deploy lanes, and a Job's Lanes view draws
 // the same lanes with one for each ticket, pull request and deploy it holds, moment by moment as a walk's `later` lets time pass. The third Job goes through app feedback:
-// it changes its own copy of the workflow, starts two Jobs that each get a lane, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. Mock only:
-// no Fleet serves a Workspace, a lifecycle or a rule yet. The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it.
+// it changes its own copy of the workflow, starts two Jobs that each get a lane, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. The Workspace is the page's own mock
+// (`workspaces-pieces` is the one a Fleet serves). The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
-import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
+import type { JobCopyActs, Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
+import type { JobChange, SessionLanes } from "@armada/components";
 import { repository, workflow } from "@armada/screens/src/fixtures/repository";
 
 import { connected } from "../moment";
@@ -147,7 +148,7 @@ const FEEDBACK_VISITS = [
 
 /** The feedback Job at a moment: its lanes, its workflow as the rail draws it and what it has said. */
 const feedbackAtMoment = (n: number) => (one: Session): Session => {
-  const lanes = lanesOfFeedback(n);
+  const lanes = withOwn(FEEDBACK, lanesOfFeedback(n));
   const doing = FEEDBACK_WORKING[n];
   const { account, ...rest } = one;
   void account;
@@ -163,6 +164,31 @@ const feedbackAtMoment = (n: number) => (one: Session): Session => {
     },
   };
 };
+
+/** What the person added to a Job's own copy from its lanes: a mock's memory, laid over the fixture's lanes each time they are drawn. */
+type Own = { steps: { id: string; label: string; after: string | undefined }[]; changes: JobChange[] };
+const OWN = new Map<string, Own>();
+
+/** The Job's lanes with what was added to its copy: each step after the one it names, the step the Job is at kept, and the change marked as made by the person. */
+function withOwn(id: string, lanes: SessionLanes): SessionLanes {
+  const mine = OWN.get(id);
+  if (mine === undefined) return lanes;
+  const steps = [...lanes.job.copy.steps];
+  let { at } = lanes;
+  let skipped = lanes.skipped;
+  for (const one of mine.steps) {
+    const index = one.after === undefined ? 0 : steps.findIndex((step) => step.id === one.after) + 1;
+    steps.splice(index, 0, { id: one.id, label: one.label, col: index });
+    if (index <= at) at += 1;
+    skipped = skipped?.map((step) => (index <= step ? step + 1 : step));
+  }
+  return {
+    ...lanes,
+    at,
+    ...(skipped === undefined ? {} : { skipped }),
+    job: { ...lanes.job, copy: { ...lanes.job.copy, steps: steps.map((step, col) => ({ ...step, col })) }, changes: [...lanes.job.changes, ...mine.changes] },
+  };
+}
 
 const ASK_ID = `draft:${ASK_DRAFT}`;
 /** The card is the rule's own: it is named for the rule, and says where it goes and to whom. */
@@ -185,8 +211,9 @@ function sessions() {
   let only: readonly Session[] = [];
   /** The Job at a moment: its lanes, the step the rail is on, its pull request, and whether it is done. */
   const at = (n: number) => (one: Session): Session => {
-    const lanes = lanesOfA(n, sent);
-    const step = Math.max(0, Math.min(lanes.at, STEPS.length));
+    const lanes = withOwn(JOB, lanesOfA(n, sent));
+    const labels = OWN.has(JOB) ? lanes.job.copy.steps.map((one) => one.label) : STEPS;
+    const step = Math.max(0, Math.min(lanes.at, labels.length));
     const { done, standing, account, ...rest } = one;
     void done;
     void standing;
@@ -199,11 +226,17 @@ function sessions() {
       ...(doing === undefined ? {} : { account: { for: brief.id, done: doing.done, now: doing.now, at: new Date().toISOString() } }),
       lanes,
       attachments: [...one.attachments.filter((it) => it.kind !== "pull_request"), ...(n >= 2 ? [pull(812, prAt(n))] : [])],
-      work: { ...one.work, workflow: { name: "feature", steps: STEPS, at: step, visits: VISITS.slice(0, Math.min(step, STEPS.length - 1) + 1) } },
+      work: { ...one.work, workflow: { name: "feature", steps: labels, at: step, visits: VISITS.slice(0, Math.min(step, labels.length - 1) + 1) } },
       // The deploy is healthy and the tickets are closed: nothing is left, and the row reads done.
       standing: n >= 7 ? "done" : "replied",
       ...(n >= 7 ? { done: { since: local("13:52") } } : {}),
     };
+  };
+  /** A Job drawn again at the moment it is on, after the person changed its copy. */
+  const redrawn = (id: string): void => {
+    if (id === JOB) store.edit(JOB, at(moment));
+    else if (id === FEEDBACK) store.edit(FEEDBACK, feedbackAtMoment(feedback));
+    else store.edit(id, (one) => ({ ...one, lanes: withOwn(id, throughWire(id, jobB())) }));
   };
   /** The review ask is sent: its card settles and the item goes. */
   const settled = (one: Session): Session => ({
@@ -259,6 +292,33 @@ function sessions() {
       if (!sent.includes(comment)) sent.push(comment);
       store.edit(id, at(moment));
     },
+    // The person adds to a Job's own copy from its lanes: the lanes draw it at once and mark it as made by them. Keep for every Job is taken, and the mock holds no Workflows proposal for it.
+    copy: {
+      step: async (id, change) => {
+        if (change.kind !== "add") return "The mock adds a step and nothing else";
+        const mine = OWN.get(id) ?? { steps: [], changes: [] };
+        const stepId = change.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+        const after = change.after;
+        const at = new Date().toISOString();
+        const on = (store.get().find((one) => one.id === id)?.lanes?.job.copy.steps ?? []).find((one) => one.id === after)?.label;
+        OWN.set(id, {
+          steps: [...mine.steps, { id: stepId, label: change.label.trim(), after }],
+          changes: [...mine.changes, { id: `workflow:${stepId}:${at}`, lane: "workflow", item: stepId, text: `Added ${on === undefined ? "first" : `after ${on}`} by you`, at }],
+        });
+        redrawn(id);
+        return undefined;
+      },
+      piece: async (id, kind, piece, text) => {
+        const declared = /^(?:rule_id|lifecycle_id|id):\s*(\S+)/m.exec(text ?? "")?.[1] ?? piece;
+        if (text === undefined || declared === "") return "The file declares no id";
+        const mine = OWN.get(id) ?? { steps: [], changes: [] };
+        const at = new Date().toISOString();
+        OWN.set(id, { ...mine, changes: [...mine.changes, { id: `${kind}:${declared}:${at}`, lane: kind === "rule" ? "rule" : declared, item: kind === "rule" ? declared : "", text: "Added by you", at }] });
+        redrawn(id);
+        return undefined;
+      },
+      keep: async () => undefined,
+    } satisfies JobCopyActs,
     // The person tells this Job to skip the deploy watch: the Deploy lane marks the change. The message and the reply are stamped on the mock's clock.
     send: (id: string, message: Parameters<typeof store.send>[1]) => {
       const had = new Set((store.get().find((one) => one.id === id)?.rows ?? []).map((row) => row.id));

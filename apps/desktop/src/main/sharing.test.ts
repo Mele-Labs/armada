@@ -17,6 +17,16 @@ describe("a piece's selector", () => {
     expect(pieceOf({ kind: "manifest" })).toEqual({ kind: "manifest" });
     expect(pieceOf({ kind: "theme", id: "x" })).toBeNull();
   });
+
+  it("takes a Workspace, lifecycle, rule or autonomy default by its id, and the scope its file declares", () => {
+    expect(pieceOf({ kind: "workspace", id: "my-store" })).toEqual({ kind: "workspace", id: "my-store" });
+    expect(pieceOf({ kind: "lifecycle", id: "ticket" })).toEqual({ kind: "lifecycle", id: "ticket" });
+    expect(pieceOf({ kind: "lifecycle_rule", id: "progress", scope: { kind: "within", id: "my-store" } })).toEqual({ kind: "lifecycle_rule", id: "progress", scope: { kind: "within", id: "my-store" } });
+    expect(pieceOf({ kind: "autonomy", id: "defaults", scope: { kind: "everywhere", extra: 1 } })).toEqual({ kind: "autonomy", id: "defaults", scope: { kind: "everywhere" } });
+    expect(pieceOf({ kind: "lifecycle", id: "ticket", scope: { kind: "within" } })).toBeNull();
+    expect(pieceOf({ kind: "lifecycle", id: "ticket", scope: "everywhere" })).toBeNull();
+    expect(pieceOf({ kind: "lifecycle" })).toBeNull();
+  });
 });
 
 describe("the bodies", () => {
@@ -28,6 +38,13 @@ describe("the bodies", () => {
     expect(commitOf({ repository: "/r", piece: { kind: "manifest" } })).toEqual({ repository: "/r", piece: { kind: "manifest" } });
     expect(commitOf({ repository: "/r", piece, overwrite: "yes" })).toBeNull();
     expect(commitOf({ piece })).toBeNull();
+  });
+
+  it("a removal is sent only when it is one, since a Fleet older than the field refuses a body that has it", () => {
+    const piece = { kind: "lifecycle", id: "ticket" };
+    expect(commitOf({ repository: "/r", piece, remove: true })).toEqual({ repository: "/r", piece, remove: true });
+    expect(commitOf({ repository: "/r", piece, remove: false })).toEqual({ repository: "/r", piece });
+    expect(commitOf({ repository: "/r", piece, remove: "yes" })).toBeNull();
   });
 
   it("a share holds at least one piece, each with its repository", () => {

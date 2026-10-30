@@ -213,10 +213,42 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn set_session_workflow(self: Arc<Self>, _set: SetSessionWorkflow) -> Result<SessionRecord, Refusal> {
-        Err(nothing_hosted())
+        self.session_row.lock().expect("session row").clone().ok_or_else(nothing_hosted)
     }
 
     async fn skip_session_step(self: Arc<Self>, _skip: ipc::SkipSessionStep) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    /// A Job's copy with a rule long enough to show whether a door's answer carries the text of a piece.
+    async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
+        let step = |id: &str| ipc::JobCopyStep { id: id.into(), label: id.into(), about: None, instructions: None, ends_on: Vec::new(), skipped: false };
+        Ok(ipc::JobCopy {
+            session_id: change.session_id,
+            workflow: Some(ipc::WorkflowId::carried("bug")),
+            own: true,
+            steps: vec![step("plan"), step("dispatch"), step("handoff")],
+            lifecycles: Vec::new(),
+            rules: vec![ipc::JobCopyPiece { id: "deploy_watch".into(), text: "version: 1\n".repeat(200) }],
+            changes: vec![ipc::JobCopyChange {
+                lane: "workflow".into(),
+                item: "dispatch".into(),
+                text: "Added after plan by the Job".into(),
+                by: ipc::ChangedBy::Job,
+                at: ipc::Instant::carried("2026-10-30T09:00:00.000Z"),
+            }],
+        })
+    }
+
+    async fn change_job_copy(self: Arc<Self>, _change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn get_job_copy(self: Arc<Self>, _session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn keep_job_workflow(self: Arc<Self>, _keep: ipc::KeepJobWorkflow) -> Result<ipc::WorkflowChange, Refusal> {
         Err(nothing_hosted())
     }
 

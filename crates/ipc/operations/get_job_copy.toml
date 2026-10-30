@@ -1,0 +1,14 @@
+[operations.get_job_copy]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What this job holds of its workflow, lifecycles and rules, and what was changed in it: the steps with their ids, words and ends, which are skipped, the lifecycle and rule files, and each change with who made it. Read it before changing your copy with change_session_steps or change_job_copy"
+notes = """
+`GET /sessions/copy?session_id=`, since 30 Oct 2026. Answers 200 with `JobCopy` `{ session_id, workflow?, own?, steps[], lifecycles[], rules[], changes[] }`.
+
+**`steps`** are the steps the rail reads for the Job, each `{ id, label, about?, instructions?, ends_on[], skipped? }`, in order; `own` is true once the Job has changed one, and until then they are the workflow as the repository holds it. **`lifecycles` and `rules`** are the files in the Job's copy, each `{ id, text }`, the lifecycles Armada carries not among them. **`changes`** are what the lanes mark, each `{ lane, item, text, by, at }`, `by` being `job` or `you`.
+
+**The Job is the one the connection places** when Fleet hosts it, else `session_id`; 422 `fleet.job_copy_unplaced` where nothing places one, 404 `fleet.no_such_session` where Fleet holds no such Job.
+
+`agent_access` is `Yes`: an agent reads its own copy to name a step by its id.
+"""

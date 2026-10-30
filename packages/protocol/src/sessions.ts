@@ -13,6 +13,7 @@ import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
+import type { WorkflowSummary } from "./setup";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
 import type { SessionWait, StartAfter } from "./session-waits";
@@ -211,6 +212,11 @@ export type SessionRecord = {
    * the step lists that has not come, in the order the step lists them. Absent where the step waits on no lifecycle, and once an end has come.
    */
   workflow_waiting_on?: string[];
+  /**
+   * The Job's own copy of its workflow, once it changed a step of it (`change_session_steps`): what the rail and the lanes read
+   * in place of the repository's. Absent until then. Since 30 Oct 2026.
+   */
+  workflow_copy?: WorkflowSummary;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */

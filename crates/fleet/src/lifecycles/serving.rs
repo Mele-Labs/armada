@@ -44,6 +44,33 @@ pub(super) fn label_of(store: &Store, subject: &InstanceRef) -> String {
     }
 }
 
+/// The rules `session` froze, as the file each was read from says them. **Where it was kept is read from the
+/// path**: a file under a repository's `.armada` is the repository's, and any other is Kit's.
+fn copy_rules(store: &Store, session: &str) -> Vec<AppliedRule> {
+    let Some(copy) = store.job_copy_of(session).ok().flatten() else { return Vec::new() };
+    copy.pieces
+        .iter()
+        .filter(|piece| piece.kind == store::PieceKind::Rule)
+        .filter_map(|piece| {
+            let rule = config::parse_rule(Path::new(&piece.path), &piece.text).ok()?;
+            let source = if piece.path.contains("/.armada/") { "repository" } else { "kit" };
+            let reach = match rule.scope() {
+                core_model::LifecycleScope::Everywhere => "everywhere",
+                core_model::LifecycleScope::Within(_) => "repository",
+            };
+            Some(AppliedRule {
+                rule: wire::rule(&rule),
+                kept: ipc::PieceKept {
+                    rank: ipc::PieceRank { reach: reach.to_string(), source: source.to_string(), home: false },
+                    path: Some(piece.path.clone()),
+                    overridden_by: None,
+                    hides: None,
+                },
+            })
+        })
+        .collect()
+}
+
 /// What `session` holds, as the wire spells it. **Empty** for a Job that holds nothing, which is every
 /// Job that began before lifecycles existed, and for one in no repository. **`applying` is
 /// `Fleet::lifecycles_that_apply`**, passed in because the pieces it reads are Fleet's and not the store's.
@@ -54,7 +81,11 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
         instances: Vec::new(),
         moves: Vec::new(),
         acts: Vec::new(),
+        rules: Vec::new(),
+        changes: Vec::new(),
     };
+    held.changes = store.job_copy_marks(session).unwrap_or_default().iter().map(crate::session_host::job_copying::mark_wire).collect();
+    held.rules = copy_rules(store, session);
     let Some(manifest) = store.session(session).ok().flatten().and_then(|kept| kept.manifest_id) else {
         return held;
     };
@@ -129,13 +160,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Tell Bridge what `session` holds now. **A Job that holds nothing publishes nothing.**
+    /// Tell Bridge what `session` holds now. **A Job that holds nothing, and has changed nothing in its copy,
+    /// publishes nothing.**
     pub(crate) async fn job_lifecycles_published(&self, session: &str) {
         let held = {
             let store = self.store().lock().await;
             job_lifecycles_of(&store, session, &|manifest| self.lifecycles_that_apply(manifest))
         };
-        if !held.instances.is_empty() {
+        if !held.instances.is_empty() || !held.changes.is_empty() {
             self.publish(ipc::Event::JobLifecyclesChanged(held));
         }
     }
@@ -254,5 +286,13 @@ where
         let job = self.lifecycles_job(caller, session_id.as_ref()).await?;
         let store = self.store().lock().await;
         Ok(job_lifecycles_of(&store, &job, &|manifest| self.lifecycles_that_apply(manifest)))
+    }
+
+    async fn save_lifecycle_piece(&self, save: ipc::SaveLifecyclePiece) -> Result<ipc::LifecyclePieceSaved, Refusal> {
+        self.lifecycle_piece_saved(save)
+    }
+
+    async fn delete_lifecycle_piece(&self, delete: ipc::DeleteLifecyclePiece) -> Result<ipc::LifecyclePieceDeleted, Refusal> {
+        self.lifecycle_piece_deleted(delete)
     }
 }

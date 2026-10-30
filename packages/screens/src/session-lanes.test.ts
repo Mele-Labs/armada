@@ -5,7 +5,7 @@ import type { AppliedRule, HeldInstance, InstanceMove, JobLifecycles, LifecycleD
 import { inFlight, jobLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 import { nodeId } from "@armada/components/src/compositions/LaneCanvas/model";
 
-import { columnsOf, instanceId, lanesOfJob, ruleOfWire } from "./session-lanes";
+import { columnsOf, instanceId, instanceKey, lanesOfJob, ruleOfWire } from "./session-lanes";
 
 const AT = "2026-10-29T12:00:00.000Z";
 
@@ -102,6 +102,18 @@ it("names where each lane's states are read from, and Fleet for what Fleet's own
 
 it("keeps a key with a slash in one lane id", () => {
   expect(instanceId("ticket", "web/ARM-41")).not.toContain("/");
+});
+
+it("gives back the key a lane id was made of, as Teach on a ticket names it", () => {
+  expect(instanceKey(instanceId("ticket", "ARM-41"))).toBe("ARM-41");
+  expect(instanceKey(instanceId("ticket", "web/ARM-41"))).toBe("web/ARM-41");
+});
+
+it("marks the lane of a tracker's lifecycle as a ticket's, and no other", () => {
+  const lanes = lanesOfJob({ held: WITH_PULL, working: true })!;
+  const drawn = jobLanes(lanes.job, lanes).lanes;
+  expect(drawn).toHaveLength(2);
+  expect(drawn.filter((lane) => lane.ticket === true).map((lane) => lane.id)).toEqual([instanceId("ticket", "ARM-41")]);
 });
 
 it("leaves no state lit for an instance whose source said something no state claims, and says so on the lane", () => {
@@ -355,4 +367,34 @@ it("draws no edge for a rule whose node is not drawn", () => {
 it("draws no act where Fleet sends none, and keeps the lanes as they were", () => {
   const lanes = lanesOfJob({ held: WITH_TICKET, rules: [MOVES_TICKET], working: false })!;
   expect(lanes.job.fired).toEqual([]);
+});
+
+// ---- The Job's own copy -----------------------------------------------------------------------------------------------------
+
+it("draws the rules the Job's copy holds in place of the repository's, and marks what it changed", () => {
+  const own = { ...WITH_PULL, rules: [ASKS], changes: [{ lane: "rule", item: "ask-review", text: "Added by you", by: "you", at: AT }] };
+  const lanes = lanesOfJob({ held: own, rules: [MOVES_TICKET], working: false })!;
+  expect(lanes.job.copy.rules.map((one) => one.id)).toEqual(["ask-review"]);
+  const lone = lanesOfJob({ held: WITH_PULL, rules: [MOVES_TICKET], working: false })!;
+  expect(lone.job.copy.rules.map((one) => one.id)).toEqual(["move-ticket"]);
+  expect(lanes.job.changes).toEqual([{ id: `rule:ask-review:${AT}`, lane: "rule", item: "ask-review", text: "Added by you", at: AT }]);
+});
+
+it("marks a step, a rule and a lifecycle lane that the Job's copy changed, each with who made the change", () => {
+  const own: JobLifecycles = {
+    ...WITH_PULL,
+    rules: [ASKS_AT_LAND],
+    changes: [
+      { lane: "workflow", item: "plan", text: "Added after Propose by the Job", by: "job", at: AT },
+      { lane: "rule", item: "ask-at-land", text: "Added by you", by: "you", at: AT },
+      { lane: "ticket", item: "", text: "Changed by the Job", by: "job", at: AT },
+    ],
+  };
+  const lanes = lanesOfJob({ held: own, working: false, workflow: { name: "feature", steps: STEPS, at: 0, began: true } })!;
+  const drawn = jobLanes(lanes.job, lanes);
+  expect(drawn.lanes[0]!.nodes.find((node) => node.label === "Plan")).toMatchObject({ changed: "Added after Propose by the Job" });
+  expect(drawn.lanes[0]!.nodes.find((node) => node.label === "Land")?.changed).toBeUndefined();
+  expect(drawn.lanes.find((lane) => lane.title === "ARM-41")).toMatchObject({ changed: "Changed by the Job" });
+  expect(drawn.lanes.find((lane) => lane.title.startsWith("PR"))?.changed).toBeUndefined();
+  expect(drawn.rules.find((rule) => rule.rule === "ask-at-land")).toMatchObject({ changed: "Added by you" });
 });

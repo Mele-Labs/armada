@@ -8,7 +8,7 @@
 import type { AppliedRule, HeldInstance, InstanceMove, JobLifecycles, LifecycleDefinition, LifecycleRule, RuleActReading, RuleTarget } from "@armada/protocol";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 import { CURRENT_STEP } from "@armada/components/src/compositions/LaneCanvas/model";
-import type { Autonomy, Fired, FiredAct, Instance, JobLanes, Kept, LaneStep, Lifecycle, LifecycleKind, LifecycleState, Rule } from "@armada/components/src/compositions/LaneCanvas/model";
+import type { Autonomy, Fired, FiredAct, Instance, JobChange, JobLanes, Kept, LaneStep, Lifecycle, LifecycleKind, LifecycleState, Rule } from "@armada/components/src/compositions/LaneCanvas/model";
 
 /** What the lanes are read from. */
 export type LaneInput = {
@@ -26,7 +26,10 @@ export type LaneInput = {
     /** When each step began, as the record has it, so an act is placed on the step the Job was on when it was planned. */
     visits?: readonly { step: number; since: string }[];
   };
-  /** The rules that apply to the Job's repository (`list_lifecycle_rules`). Without them the acts that were planned have no edge to be drawn on. */
+  /**
+   * The rules that apply to the Job's repository (`list_lifecycle_rules`). Without them the acts that were planned have no edge to be drawn on.
+   * **The rules the Job's copy holds win** (`JobLifecycles.rules`): they are the ones that run for it.
+   */
   rules?: readonly AppliedRule[];
   /** The agent is working on its step now. */
   working: boolean;
@@ -36,6 +39,9 @@ export type LaneInput = {
 
 /** The id an instance is drawn under: its lifecycle's, and its key as its source calls it. A key can hold a slash, which a node id cannot. */
 export const instanceId = (lifecycle: string, key: string): string => `${lifecycle}:${encodeURIComponent(key)}`;
+
+/** The key an instance's id was made of: `ARM-41` for `ticket:ARM-41`. */
+export const instanceKey = (id: string): string => decodeURIComponent(id.slice(id.indexOf(":") + 1));
 
 /** Where a lifecycle's states are read from, in a word under the lane's title. */
 const SOURCE: Readonly<Record<string, { kind: LifecycleKind; said: string }>> = {
@@ -225,7 +231,7 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
   if (held.instances.length === 0) return undefined;
   const steps = (workflow?.steps ?? []).map((step, col): LaneStep => ({ id: step.id, label: step.label, col }));
   const waiting = input.waiting === undefined || input.waiting.length === 0 ? undefined : input.waiting;
-  const read = (input.rules ?? []).flatMap((one) => readRule(one, held.lifecycles) ?? []);
+  const read = (held.rules ?? input.rules ?? []).flatMap((one) => readRule(one, held.lifecycles) ?? []);
   const rules = read.map((one) => one.rule);
   const landsOn = new Map(read.flatMap((one) => (one.landsOn === undefined ? [] : [[one.rule.id, one.landsOn] as const])));
   const job: JobLanes = {
@@ -233,7 +239,7 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
     copy: { steps, lifecycles: held.lifecycles.map(lifecycleOf), rules },
     instances: held.instances.map((one) => instanceOf(one, held.moves)),
     fired: firedOf(held.acts ?? [], rules, landsOn, steps, workflow?.visits ?? []),
-    changes: [],
+    changes: (held.changes ?? []).map((one): JobChange => ({ id: `${one.lane}:${one.item}:${one.at}`, lane: one.lane, item: one.item, text: one.text, at: one.at })),
     ...(waiting === undefined ? {} : { waiting }),
   };
   // `at` is -1 before a step starts and the step count once every one has ended; Fleet names no step in either case.

@@ -1,5 +1,5 @@
-// The Workspace the Workflows page draws as lanes. Draft, mock-only: no Fleet serves a Workspace, a lifecycle or a rule yet, so a scenario hands
-// its Workspace (`draft.workspace`) and this keeps it for the window, changed by the acts on it. A window with none draws the column of steps.
+// The Workspace the Workflows page draws as lanes where a scenario hands one (`draft.workspace`): this keeps it for the window, changed by the acts on it, and its proposals answer
+// what an agent is told. Mock-only. A window without one draws the lifecycles and rules Fleet keeps (`lifecycle-editing/`), and a repository with none draws the column of steps.
 
 import { createContext, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";

@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use api::Refusal;
 use ipc::{
-    Condition, Does, Instead, LogbookKind, LogbookSection, ReadTeaching, RuleScope, TeachingProposal, TeachingReach, TeachingSource,
-    TeachingSourceKind,
+    Condition, Does, Instead, LogbookKind, LogbookSection, PieceScope, ReadTeaching, RuleAct, RuleAmong, RuleCondition, RuleScope,
+    RuleWhen, TeachingProposal, TeachingReach, TeachingSource, TeachingSourceKind,
 };
 use testkit::FakeJudge;
 
@@ -329,4 +329,145 @@ async fn a_pattern_over_the_notice_is_kept_only_if_it_works_and_finds_words_in_t
         let refused = read(&rig, pressed(&rig, TeachingSourceKind::Notice, text, &["pr_checks_failed"])).await;
         assert_eq!(refused, Err((422, "fleet.teaching_rule_refused".to_string())), "{bad}");
     }
+}
+
+/// "When this is approved, move its tickets to Done", as a model would answer it for the built-in
+/// lifecycles: `Done` is the ticket's `closed`.
+const APPROVED_CLOSES_TICKETS: &str = r#"{"rule":{"name":"Close the tickets when a pull request is approved","when":{"kind":"enters","lifecycle":"pr","state":"approved"},"if":[],"do":[{"act":"tracker_move","to":"closed","target":{"among":{"kind":"linked_from","lifecycle":"ticket"}}}],"autonomy":null,"on_failure":null}}"#;
+
+fn rule_answer(rule: &str) -> String {
+    format!(r#"{{"rule":{rule}}}"#)
+}
+
+async fn rule_refused(answer: &str, why: &str) {
+    let (rig, _) = rig_saying(answer);
+    let said = read(&rig, pressed(&rig, TeachingSourceKind::PullRequest, "#812 Add the store page", &["812"])).await;
+    assert_eq!(said, Err((422, "fleet.teaching_rule_refused".to_string())), "{why}");
+}
+
+#[tokio::test]
+async fn a_pull_request_teaching_proposes_a_rule_placed_by_the_reach_and_named_from_its_name() {
+    let (rig, judge) = rig_saying(APPROVED_CLOSES_TICKETS);
+    let manifest = rig.fleet.manifest_id_at(&rig.root).expect("the rig's repository has a manifest");
+    let mut teach = pressed(&rig, TeachingSourceKind::PullRequest, "#812 Add the store page", &["812"]);
+    teach.said = "When this is approved, move its tickets to Done".to_string();
+    let proposal = read(&rig, teach).await.expect("read");
+
+    let rule = proposal.rule.expect("a rule").rule;
+    assert_eq!(rule.id, "close_the_tickets_when_a_pull_request_is_approved");
+    assert_eq!(rule.scope, PieceScope::Within { id: manifest }, "the repository reach");
+    assert_eq!(rule.when, RuleWhen::Enters { lifecycle: "pr".to_string(), state: "approved".to_string() });
+    assert!(matches!(&rule.does[0].what, RuleAct::TrackerMove { to, target } if to == "closed" && target.among == RuleAmong::LinkedFrom { lifecycle: "ticket".to_string() }));
+    assert_eq!((rule.does[0].kind.as_str(), rule.does[0].autonomy.as_str()), ("tracker_write", "asks"), "worked out as a read of the file works it out");
+    assert_eq!((rule.autonomy, rule.on_failure.retries, rule.on_failure.then.as_str()), (None, 2, "ask_owner"), "the defaults a file would get");
+    assert!(proposal.note.is_none() && proposal.words.is_none());
+
+    let asked = &judge.asked()[0];
+    assert!(asked.contains("ticket (Ticket): todo (To do), in_progress (In progress), in_review (In review), closed (Closed)"), "{asked}");
+    assert!(asked.contains("pr (Pull request): draft (Draft)") && asked.contains("approved (Approved)"), "the states are named");
+    assert!(asked.contains("Workflows, each with its steps"), "the workflows are listed");
+    for act in ["tracker_move", "forge_merge", "start_watch", "run_drone", "wake"] {
+        assert!(asked.contains(act), "the acts Fleet runs are named, missing {act}");
+    }
+}
+
+#[tokio::test]
+async fn the_steps_of_the_repositorys_workflows_are_given_to_the_model() {
+    let (rig, judge) = rig_saying(APPROVED_CLOSES_TICKETS);
+    let listed = api::Queries::list_workflows(&*rig.fleet).await.expect("listed");
+    let workflow = listed.first().expect("the rig holds a workflow");
+    let step = workflow.steps.first().expect("with a step");
+    read(&rig, pressed(&rig, TeachingSourceKind::PullRequest, "#812", &["812"])).await.expect("read");
+    let asked = &judge.asked()[0];
+    assert!(asked.contains(&format!("- {} ({}): ", workflow.id.as_str(), workflow.name)), "{asked}");
+    assert!(asked.contains(&format!("{} ({})", step.step_id.as_str(), step.label)), "{asked}");
+}
+
+#[tokio::test]
+async fn a_rule_for_every_repository_is_at_the_default_level() {
+    let (rig, _) = rig_saying(APPROVED_CLOSES_TICKETS);
+    let mut teach = pressed(&rig, TeachingSourceKind::PullRequest, "#812", &["812"]);
+    teach.reach = TeachingReach::Everywhere;
+    teach.repository = None;
+    let rule = read(&rig, teach).await.expect("read").rule.expect("a rule").rule;
+    assert_eq!(rule.scope, PieceScope::Everywhere);
+}
+
+#[tokio::test]
+async fn a_notice_and_a_ticket_may_make_a_rule_and_a_ticket_may_make_a_note_but_not_words() {
+    let both = r#"{"rule":{"name":"Tell the agent","when":{"kind":"job","event":"pull_request_opened"},"do":[{"act":"tell","message":"Say when the checks pass."}]},"note":{"section":"repo","kind":"convention","text":"Tickets close when their pull request is approved."},"words":{"name":"Key","pattern":"STORE-\\d+","address":null}}"#;
+    for (kind, text, ids) in [(TeachingSourceKind::Ticket, "STORE-12 Add the store page", &["STORE-12"][..]), (TeachingSourceKind::Notice, "#7 is approved", &["pr_checks_failed"][..])] {
+        let (rig, _) = rig_saying(both);
+        let proposal = read(&rig, pressed(&rig, kind, text, ids)).await.expect("read");
+        assert!(proposal.rule.is_some() && proposal.note.is_some(), "{kind:?}");
+        assert!(proposal.words.is_none(), "{kind:?} makes no words");
+    }
+    let (rig, judge) = rig_saying(both);
+    read(&rig, pressed(&rig, TeachingSourceKind::Ticket, "STORE-12 Add the store page", &["STORE-12"])).await.expect("read");
+    assert!(judge.asked()[0].contains("a ticket in a Job's lanes") && judge.asked()[0].contains("STORE-12 Add the store page"));
+}
+
+#[tokio::test]
+async fn a_source_that_cannot_make_a_rule_drops_it_and_an_answer_of_only_a_rule_is_nothing() {
+    for kind in [TeachingSourceKind::Words, TeachingSourceKind::Command, TeachingSourceKind::Task, TeachingSourceKind::Check, TeachingSourceKind::Row] {
+        let (rig, _) = rig_saying(APPROVED_CLOSES_TICKETS);
+        let said = read(&rig, pressed(&rig, kind, "something", &[])).await;
+        assert_eq!(said, Err((422, "fleet.teaching_nothing_read".to_string())), "{kind:?}");
+    }
+    let (rig, judge) = rig_saying(APPROVED_CLOSES_TICKETS);
+    read(&rig, pressed(&rig, TeachingSourceKind::Check, "lint", &[])).await.ok();
+    assert!(!judge.asked()[0].contains("tracker_move"), "the model is not offered a rule it may not make");
+}
+
+#[tokio::test]
+async fn a_condition_fleet_cannot_test_comes_back_untestable_and_none_is_made_up() {
+    let answer = rule_answer(
+        r#"{"name":"Merge when approved","when":{"kind":"enters","lifecycle":"pr","state":"approved"},"if":[{"kind":"pull_request_opened"},"when the build is green"],"do":[{"act":"forge_merge","target":{"among":{"kind":"entered"}}}],"untestable":["when it is not a Friday"]}"#,
+    );
+    let (rig, _) = rig_saying(&answer);
+    let proposal = read(&rig, pressed(&rig, TeachingSourceKind::PullRequest, "#812", &["812"])).await.expect("read");
+    let rule = proposal.rule.expect("a rule");
+    assert_eq!(rule.rule.conditions, [RuleCondition::PullRequestOpened], "only a condition Fleet can test");
+    assert_eq!(rule.untestable, ["when it is not a Friday", "when the build is green"]);
+    let wire = ipc::encode(&rule).expect("plain data");
+    assert!(wire.contains(r#""untestable":["when it is not a Friday","when the build is green"]"#) && wire.contains(r#""id":"merge_when_approved""#), "{wire}");
+}
+
+#[tokio::test]
+async fn a_rule_a_rule_piece_would_not_load_is_refused() {
+    let enters = r#""when":{"kind":"enters","lifecycle":"pr","state":"approved"}"#;
+    let moves = r#"{"act":"tracker_move","to":"closed","target":{"among":{"kind":"linked_from","lifecycle":"ticket"}}}"#;
+    let cases = [
+        ("a state its lifecycle lacks", format!(r#"{{"name":"A","when":{{"kind":"enters","lifecycle":"pr","state":"aproved"}},"do":[{moves}]}}"#)),
+        ("a lifecycle that does not apply", format!(r#"{{"name":"A","when":{{"kind":"enters","lifecycle":"release","state":"out"}},"do":[{moves}]}}"#)),
+        ("a state of the ticket that is not there", format!(r#"{{"name":"A",{enters},"do":[{{"act":"tracker_move","to":"done","target":{{"among":{{"kind":"linked_from","lifecycle":"ticket"}}}}}}]}}"#)),
+        ("nothing to do", format!(r#"{{"name":"A",{enters},"do":[]}}"#)),
+        ("the entered instance of a job event", r#"{"name":"A","when":{"kind":"job","event":"landed"},"do":[{"act":"forge_merge","target":{"among":{"kind":"entered"}}}]}"#.to_string()),
+        ("a quantity it has no word for", format!(r#"{{"name":"A",{enters},"if":[{{"kind":"instances","among":{{"kind":"held","lifecycle":"ticket"}},"quantity":"most","in_state":"closed"}}],"do":[{moves}]}}"#)),
+        ("a word for autonomy it lacks", format!(r#"{{"name":"A",{enters},"do":[{moves}],"autonomy":"sometimes"}}"#)),
+        ("more retries than the cap", format!(r#"{{"name":"A",{enters},"do":[{moves}],"on_failure":{{"retries":9,"then":"ask_owner"}}}}"#)),
+        ("reviewers from nobody", format!(r#"{{"name":"A",{enters},"do":[{{"act":"forge_request_reviewers","from":[],"target":{{"among":{{"kind":"entered"}}}}}}]}}"#)),
+        ("a blank name", format!(r#"{{"name":"  ",{enters},"do":[{moves}]}}"#)),
+    ];
+    for (why, rule) in cases {
+        rule_refused(&rule_answer(&rule), why).await;
+    }
+}
+
+#[tokio::test]
+async fn the_id_is_made_from_the_name_and_a_rule_beside_it_is_not_replaced() {
+    let rule = |name: &str| rule_answer(&format!(r#"{{"name":{name:?},"when":{{"kind":"enters","lifecycle":"pr","state":"approved"}},"do":[{{"act":"forge_merge","target":{{"among":{{"kind":"entered"}}}}}}]}}"#));
+    let (rig, _) = rig_saying(&rule("2 tickets: Done!"));
+    let first = read(&rig, pressed(&rig, TeachingSourceKind::PullRequest, "#812", &["812"])).await.expect("read").rule.expect("rule").rule;
+    assert_eq!(first.id, "rule_2_tickets_done", "an id starts with a letter");
+
+    let folder = std::path::Path::new(&rig.fleet.host().kit_home).join("rules");
+    std::fs::create_dir_all(&folder).expect("made");
+    std::fs::write(
+        folder.join("mine.yml"),
+        "version: 1\nrule_id: rule_2_tickets_done\nname: Mine\nscope: elsewhere\nwhen: { enters: { lifecycle: pr, state: merged } }\ndo:\n  - tell_agent: { wake: true }\n",
+    )
+    .expect("written");
+    let second = read(&rig, pressed(&rig, TeachingSourceKind::PullRequest, "#812", &["812"])).await.expect("read").rule.expect("rule").rule;
+    assert_eq!(second.id, "rule_2_tickets_done_2", "an id Kit already keeps, at any scope, is taken");
 }

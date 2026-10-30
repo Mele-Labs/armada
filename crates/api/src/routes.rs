@@ -147,6 +147,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::propose_new_workflow::<D>),
         )
         .route(
+            "/workflows/changes/propose",
+            post(crate::repositories::propose_workflow_change::<D>),
+        )
+        .route(
             "/workflows/changes/suggest",
             post(crate::repositories::suggest_workflow_change::<D>),
         )
@@ -545,6 +549,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::skip_session_step::<D>),
         )
         .route(
+            "/sessions/workflow/steps",
+            post(crate::hosted_sessions::change_session_steps::<D>),
+        )
+        .route(
+            "/sessions/copy",
+            get(crate::hosted_sessions::get_job_copy::<D>).post(crate::hosted_sessions::change_job_copy::<D>),
+        )
+        .route(
+            "/sessions/copy/keep",
+            post(crate::hosted_sessions::keep_job_workflow::<D>),
+        )
+        .route(
             "/sessions/begin",
             post(crate::hosted_sessions::begin_session::<D>),
         )
@@ -712,6 +728,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/workspaces", get(crate::lifecycles::list_repository_workspaces::<D>))
         .route("/lifecycles", get(crate::lifecycles::list_lifecycles::<D>))
         .route("/lifecycles/rules", get(crate::lifecycles::list_lifecycle_rules::<D>))
+        .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
+        .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
         .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))
         .route("/app_runs/draft", get(crate::app_runs::get_app_run_draft::<D>))

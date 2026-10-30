@@ -54,6 +54,8 @@ mod widening;
 mod workflow;
 /// A Workspace means a set of repositories here, and not the Manifest's monorepo unit.
 mod workspace;
+/// A piece as the YAML text its file holds.
+mod writing;
 mod yaml;
 
 #[cfg(test)]
@@ -90,8 +92,12 @@ pub use watches::{
     Written as WatchRecipeWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{head_of, names_no_lifecycle, EndFault, MechanicalCheck, NamesNoLifecycle, Step, WorkflowDef, WorkflowHead};
+pub use workflow::{
+    edit_steps, head_of, names_no_lifecycle, EditFault, Edited, EndFault, MechanicalCheck, NamesNoLifecycle, NewStep, Step, StepEdit, WorkflowDef,
+    WorkflowHead,
+};
 pub use workspace::{parse_workspace, WorkspaceError, WorkspaceFile, Workspaces};
+pub use writing::piece_text;
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that

@@ -85,6 +85,10 @@ pub enum TimelineKind {
     /// last as `done`.
     #[serde(rename = "session.step")]
     SessionStep,
+    /// A step, a lifecycle or a rule was changed in a Job's own copy of its workflow, lifecycles and rules.
+    /// `says` names what changed (`step added: Dispatch`), and `detail` is `by the Job` or `by you`.
+    #[serde(rename = "session.copy")]
+    SessionCopy,
     /// A Session's turn started on a different model than the turn before. `says` is `model: old → new`.
     #[serde(rename = "session.model")]
     SessionModel,

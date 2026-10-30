@@ -7,7 +7,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::WorkflowId;
+use crate::lifecycles::PieceScope;
 use crate::sessions::SessionId;
+
+fn everywhere() -> PieceScope {
+    PieceScope::Everywhere
+}
 
 /// `commit_to_repository`'s body. `POST /repositories/commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,6 +24,11 @@ pub struct CommitToRepository {
     /// Replace what the repository's base already holds under the same id. Refused without it.
     #[serde(default)]
     pub overwrite: bool,
+    /// Take the piece out of the repository instead of copying it in: the file on the base branch
+    /// that declares it is deleted by the same kind of Job, with a pull request. Only the
+    /// Workspace, lifecycle, rule and autonomy kinds can be removed.
+    #[serde(default)]
+    pub remove: bool,
 }
 
 /// Which of the person's own pieces is copied, by the id its concept already uses.
@@ -49,6 +59,29 @@ pub enum PieceToCommit {
         collections: Vec<String>,
         #[serde(default)]
         environments: Vec<String>,
+    },
+    /// A lifecycle from Kit's `~/.armada/lifecycles/`, found by the id and scope its file declares,
+    /// copied into `.armada/lifecycles/`.
+    Lifecycle {
+        id: String,
+        #[serde(default = "everywhere")]
+        scope: PieceScope,
+    },
+    /// A lifecycle rule from Kit's `~/.armada/rules/`, copied into `.armada/rules/`.
+    LifecycleRule {
+        id: String,
+        #[serde(default = "everywhere")]
+        scope: PieceScope,
+    },
+    /// A Workspace (a set of repositories) from Kit's `~/.armada/workspaces/`, copied into
+    /// `.armada/workspaces/`. Its id is its identity, so it has no scope.
+    Workspace { id: String },
+    /// A layer of autonomy defaults from Kit's `~/.armada/autonomy/`, copied into
+    /// `.armada/autonomy/`.
+    Autonomy {
+        id: String,
+        #[serde(default = "everywhere")]
+        scope: PieceScope,
     },
 }
 

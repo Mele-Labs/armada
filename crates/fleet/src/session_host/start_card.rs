@@ -150,6 +150,8 @@ pub(crate) fn usual_of(picks: &[DeliveryChoice]) -> Option<DeliveryChoice> {
 pub(crate) struct StartReads {
     first: Option<FirstTurn>,
     usual: Option<DeliveryChoice>,
+    /// The Job's own copy of its workflow, where it changed a step before it started.
+    own: Option<store::KeptWorkflowCopy>,
 }
 
 /// A kept first turn read back. One that will not read is none: the card shows an empty box.
@@ -168,7 +170,7 @@ pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartRe
         }
         None => None,
     };
-    Ok(StartReads { first, usual })
+    Ok(StartReads { first, usual, own: store.job_workflow_copy(&hosting.session_id)? })
 }
 
 /// Another Job's message, held for the agent to read as `said`.
@@ -188,19 +190,19 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Whether the Job's workflow has a step that asks how the work lands.
-    fn asks_delivery_of(&self, hosting: &KeptHosting) -> bool {
+    fn asks_delivery_of(&self, hosting: &KeptHosting, own: Option<&store::KeptWorkflowCopy>) -> bool {
         hosting
             .workflow
             .as_deref()
             .filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow))
-            .and_then(|workflow| self.rail_steps(&hosting.manifest_id, workflow))
+            .and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own))
             .is_some_and(|steps| steps.iter().any(|step| step.asks_delivery))
     }
 
     /// The card's facts. The landing the first message names beats the usual one, and Auto land
     /// stands in for both where the card asks. `queued` is read by the caller, which holds the runtime.
     pub(crate) fn start_wire(&self, hosting: &KeptHosting, reads: StartReads, queued: bool) -> StartHeld {
-        let asks_delivery = self.asks_delivery_of(hosting);
+        let asks_delivery = self.asks_delivery_of(hosting, reads.own.as_ref());
         let named = reads.first.as_ref().and_then(|first| named_delivery(&first.text));
         let picked = named
             .map(|choice| DeliveryPicked { choice, from: DeliveryPickedFrom::Named })
@@ -483,7 +485,8 @@ where
         if !hosting.start_held {
             return Err(self.settled_already());
         }
-        let delivery = match (self.asks_delivery_of(&hosting), begin.delivery) {
+        let own = self.store().lock().await.job_workflow_copy(id).map_err(|why| self.ledger_fault(why))?;
+        let delivery = match (self.asks_delivery_of(&hosting, own.as_ref()), begin.delivery) {
             (true, None) => {
                 return Err(self.hosted_refusal("fleet.session_waiting_empty", "how the work is delivered is chosen before the job starts"));
             }

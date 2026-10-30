@@ -1213,6 +1213,11 @@ pub struct SessionRecord {
     /// Empty where the step waits on no lifecycle, and once an end has come. Since 30 Oct 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflow_waiting_on: Vec<String>,
+    /// The Job's own copy of its workflow, once a step of it was changed: the steps the rail and the lanes
+    /// draw, in place of the ones the repository's definition lists. Absent for a Job that changed none.
+    /// Since 30 Oct 2026. `change_session_steps`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_copy: Option<crate::WorkflowSummary>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.
