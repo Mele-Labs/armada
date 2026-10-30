@@ -163,7 +163,15 @@ test("a message that did not arrive leaves the notes held", async () => {
   await userEvent.type(note(), "Why twelve?{Meta>}{Enter}{/Meta}");
 
   await expect.poll(() => send.mock.calls.length).toBe(1);
-  await expect.element(page.getByRole("status", { name: "Marks" })).toHaveTextContent("1:Why twelve?");
+  await expect.element(note()).toHaveValue("Why twelve?");
+});
+
+test("the note being written keeps its mark unchanged as it is typed, so the viewer does not redraw per keystroke", async () => {
+  draw({ jobs: [], send }, "job-1");
+  await addNote("first");
+  await userEvent.type(note(), "Why twelve?");
+  await expect.element(page.getByRole("status", { name: "Marks" })).toHaveTextContent("1:");
+  await expect.element(page.getByRole("status", { name: "Marks" })).not.toHaveTextContent("Why twelve?");
 });
 
 test("Esc closes the box and keeps what was typed for the next open", async () => {
