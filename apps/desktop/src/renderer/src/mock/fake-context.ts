@@ -42,6 +42,7 @@ export type SliceName =
   | "planUsage"
   | "modelDownshift"
   | "projects"
+  | "bugReports"
   | "agentSignIn"
   | "clashes"
   | "reviews"

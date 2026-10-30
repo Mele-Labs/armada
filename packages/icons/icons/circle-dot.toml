@@ -32,3 +32,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Replaces the earlier use of this glyph for where an instance stands (that is `map-pin`). A node on a Job's lanes the agent is on now, in `--step-running`, tooltip `Working`. Fleet reads it from the turn; the agent does not claim it. Never a running Job, which is the Job state mark."
+
+[[icons.circle-dot.usage]]
+  means = "A reported bug on the Issues tab that nobody has opened yet, in the muted ink"
+  group = "Issues"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 29 Oct 2026 on the walk `reported-bugs`, which the owner walked and approved. Tooltip `Unread`. It asks nothing of the owner, so it is neither a pulse nor the awaiting review hue, and it goes once the report is opened. Borrowed and not minted: `reply` is a reply the agent made, and `mail` is reserved to a stranded slot."

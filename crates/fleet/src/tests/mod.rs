@@ -117,6 +117,7 @@ mod session_annotation_done;
 mod session_note_artifacts;
 mod pull_request_notes;
 mod session_dispute;
+mod bug_reports;
 mod claim_disputes;
 mod session_dispute_reading;
 mod session_done;

@@ -358,6 +358,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/defer_later", post(crate::sessions::defer_later::<D>))
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
+        .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
+        .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
+        .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
+        .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))
         .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))
         .route("/sessions/annotation_done", post(crate::sessions::mark_annotation_done::<D>))
         .route(

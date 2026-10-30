@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Stamp, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
@@ -14,9 +14,10 @@ import { jobIdOf } from "@armada/shell";
 import { useSessions } from "../sessions-draft";
 import { askedOf, bandsIn, issueHoldings, readable, savedNames, type Asked, type Band } from "./bands";
 import { ISSUES_KEYS, capOf } from "./key-table";
-import { JobMark, jobTitle, toneOfHolders, useHolders } from "./marks";
+import { JobMark, KeptMark, UnreadMark, jobTitle, toneOfHolders, useHolders } from "./marks";
 import { ASSIGNED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
-import type { ReadTracker, Ticket } from "./model";
+import type { ReadTracker, ReportedBug, Ticket } from "./model";
+import { reportsShown } from "./reports";
 import { useIssues, useIssuesStore } from "./store";
 
 const BUILT_INS = [
@@ -76,6 +77,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, holdingsKey]);
 
+  const shown = reportsShown(picked, repositories);
   const only = picked === null ? undefined : bands[0];
   const here = boxed || describing?.phase === "written" ? DESCRIBE : choice;
   const entries: DropdownMenuEntry[] = [
@@ -133,11 +135,13 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
               {describing?.phase === "written" ? <SaveWritten key={describing.words} words={describing.words} onSaved={(name) => choose(savedChoice(name))} /> : null}
               {only !== undefined ? (
                 <>
+                  {shown ? <Reported narrow={narrow} alone /> : null}
                   {asked[0]?.asked === undefined ? null : <QueryHead band={only} asked={asked[0].asked} />}
                   <Rows band={only} asked={asked[0]?.asked} narrow={narrow} />
                 </>
               ) : (
                 <ul className="deck-list__rows issues-list__rows">
+                  {shown ? <Reported narrow={narrow} /> : null}
                   {asked.map(({ band, asked: one }) =>
                     band.tracker.state === "read" && one === undefined ? null : (
                       <li key={band.manifestId} className="deck-list__band" aria-label={band.label}>
@@ -163,6 +167,48 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
         </>
       )}
     </section>
+  );
+}
+
+/** Whether a report answers the words in the bar: its title or the Job it came from. */
+const reportMatches = (report: ReportedBug, words: string): boolean => {
+  const wanted = words.trim().toLowerCase();
+  return wanted === "" || [report.title, report.job_title].some((one) => one.toLowerCase().includes(wanted));
+};
+
+/** The bugs agents reported in Armada, in a band over the repositories' issues. With no report, nothing is drawn. */
+function Reported({ narrow, alone = false }: { narrow: string; alone?: boolean }) {
+  const store = useIssuesStore()!;
+  const snap = useIssues();
+  useEffect(() => store.readReports(), [store]);
+  const reports = snap.reports.filter((one) => reportMatches(one, narrow));
+  if (reports.length === 0) return null;
+  const band = (
+    <li className="deck-list__band" aria-label="Reported bugs">
+      <h3 className="issues-list__repository">Reported bugs</h3>
+      <ul className="deck-list__group">
+        {reports.map((report) => (
+          <ReportRow key={report.id} report={report} unread={!report.kept && !snap.seen.includes(report.id)} open={snap.openReport === report.id} />
+        ))}
+      </ul>
+    </li>
+  );
+  return alone ? <ul className="deck-list__rows issues-list__rows">{band}</ul> : band;
+}
+
+function ReportRow({ report, unread, open }: { report: ReportedBug; unread: boolean; open: boolean }) {
+  const store = useIssuesStore()!;
+  return (
+    <li className="deck-list__item">
+      <button type="button" className="issues-row" data-report={report.id} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${report.title}, from ${report.job_title}`} onClick={() => store.openReport(report.id)}>
+        <span className="issues-row__title">{report.title}</span>
+        <span className="issues-row__mark">{report.kept ? <KeptMark /> : unread ? <UnreadMark /> : null}</span>
+        <Readout fixed className="issues-row__at">
+          <Stamp still first="age" at={report.at} />
+        </Readout>
+        <span className="issues-row__from">{report.job_title}</span>
+      </button>
+    </li>
   );
 }
 

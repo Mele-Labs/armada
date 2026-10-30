@@ -544,6 +544,37 @@ impl Sessions for FakeDaemon {
         Ok(ipc::FleetDisputed { dispute_id: String::from("dispute"), review_session_id: None, joined: false })
     }
 
+    async fn report_bug(
+        &self,
+        _caller: Option<crate::Caller>,
+        _report: ipc::ReportBug,
+    ) -> Result<ipc::BugReported, Refusal> {
+        Ok(ipc::BugReported { report_id: String::from("report") })
+    }
+
+    async fn list_bug_reports(&self) -> Result<ipc::BugReports, Refusal> {
+        Ok(ipc::BugReports { reports: Vec::new() })
+    }
+
+    async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
+        Ok(ipc::BugReport {
+            id: report_id,
+            session_id: String::from("session"),
+            job_title: String::new(),
+            title: String::from("Title"),
+            what: String::from("What"),
+            steps: Vec::new(),
+            errors: Vec::new(),
+            logs: Vec::new(),
+            at: ipc::Instant::carried("2026-10-29T09:00:00Z"),
+            kept: None,
+        })
+    }
+
+    async fn drop_bug_report(&self, report_id: String) -> Result<ipc::BugReportDropped, Refusal> {
+        Ok(ipc::BugReportDropped { id: report_id })
+    }
+
     async fn defer_later(
         &self,
         _caller: Option<crate::Caller>,

@@ -453,6 +453,27 @@ pub trait Sessions: Send + Sync + 'static {
         dispute: ipc::DisputeFleet,
     ) -> impl Future<Output = Result<ipc::FleetDisputed, Refusal>> + Send;
 
+    /// `report_bug` — the agent says Armada itself got something wrong. `caller` places a session as
+    /// `all_done`'s does, a terminal one included. [`Refusal::Unacceptable`] for a call that places none, or an
+    /// empty `title` or `what`.
+    fn report_bug(
+        &self,
+        caller: Option<crate::Caller>,
+        report: ipc::ReportBug,
+    ) -> impl Future<Output = Result<ipc::BugReported, Refusal>> + Send;
+
+    /// `list_bug_reports` — every report on this Mac, newest first.
+    fn list_bug_reports(&self) -> impl Future<Output = Result<ipc::BugReports, Refusal>> + Send;
+
+    /// `keep_bug_report` — the owner keeps one. [`Refusal::NotFound`] for an id that names none.
+    fn keep_bug_report(&self, report_id: String) -> impl Future<Output = Result<ipc::BugReport, Refusal>> + Send;
+
+    /// `drop_bug_report` — the owner deletes one. [`Refusal::NotFound`] for an id that names none, the second time too.
+    fn drop_bug_report(
+        &self,
+        report_id: String,
+    ) -> impl Future<Output = Result<ipc::BugReportDropped, Refusal>> + Send;
+
     /// `finish_up` — the agent gives back the slots, merged branches and servers it is finished with.
     /// `caller` places a hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places
     /// no session, and a refusal for a session in a terminal.

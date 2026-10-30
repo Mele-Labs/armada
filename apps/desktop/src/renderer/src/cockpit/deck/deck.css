@@ -350,6 +350,23 @@
   pointer-events: none;
 }
 .deck-row__tools > * { pointer-events: auto; }
+/* The reported-a-bug mark is a button as well, over its column. */
+.deck-row__reported {
+  position: absolute;
+  inset-block: 0;
+  right: var(--deck-reported-right, calc(var(--space-3) + var(--space-4) + var(--space-1)));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+.deck-row__reported > * { pointer-events: auto; }
+.deck-row__reported-mark { display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; cursor: pointer; }
+.deck-row__reported-mark:hover { background: var(--surface-row-hover); color: var(--fg-default); }
+.deck-row__reported-mark:focus-visible { outline: var(--focus-ring); }
+.deck-list__rows:is([data-now], [data-pr]) .deck-row__reported { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 .deck-list__rows:is([data-now], [data-pr]) .deck-row__tools { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 .deck-row__clash { flex-direction: row-reverse; pointer-events: none; }
 .deck-row__clash > * { pointer-events: auto; }

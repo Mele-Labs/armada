@@ -218,3 +218,52 @@ async fn at_one_scope_the_homes_copy_is_the_one_a_member_sees_and_yours_still_wi
     let applying = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
     assert!(ticket_words(&applying).contains("Mine"));
 }
+
+/// A rule that moves the Job's tickets into `to` when planning starts.
+fn moves_tickets(scope: Option<&str>, to: &str) -> String {
+    let scope = scope.map(|one| format!("scope: {one}\n")).unwrap_or_default();
+    format!(
+        "version: 1\nrule_id: plan_moves_tickets\nname: Move tickets\n{scope}when: {{ step_starts: plan }}\ndo:\n  - tracker_write: {{ move: {to}, on: {{ held: ticket }} }}\n"
+    )
+}
+
+#[tokio::test]
+async fn a_repository_with_no_rule_files_has_no_rules_and_a_job_started_in_it_is_handed_none() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let rules = fleet.rules_applying_to(&id_of(&first(&fleet))).expect("read");
+    assert!(rules.files().is_empty() && rules.left_out().is_empty());
+    assert!(rules.frozen().is_empty());
+    let nobody = ManifestId::carried(core_model::Ulid::carried("01NOBODY"));
+    assert!(fleet.rules_applying_to(&nobody).is_err());
+}
+
+#[tokio::test]
+async fn yours_in_kit_runs_over_the_repositorys_rule_and_a_members_reads_its_homes() {
+    let home = TempDir::new();
+    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    write(armada(web.root(), "rules", "moves.yml"), &moves_tickets(Some("my-store"), "closed"));
+
+    let member = fleet.rules_applying_to(&id_of(&api)).expect("read");
+    let [shared] = member.files() else { panic!("the home's, once: {:?}", member.files()) };
+    assert!(shared.rank().home && shared.path().starts_with(web.root()), "read from the home, not copied");
+
+    write(kit(&home, "rules", "moves.yml"), &moves_tickets(Some("my-store"), "in_progress"));
+    let mine = fleet.rules_applying_to(&id_of(&api)).expect("read");
+    let [first, second] = mine.files() else { panic!("both are listed: {:?}", mine.files()) };
+    assert_eq!(first.rank().source, PieceSource::Kit);
+    assert_eq!(first.hides(), Some(PieceSource::Repository));
+    assert_eq!(second.overridden_by(), Some(first.rank()));
+}
+
+#[tokio::test]
+async fn a_rule_naming_a_state_the_repositorys_lifecycle_lacks_is_set_aside_with_the_sentence() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    write(kit(&home, "rules", "typo.yml"), &moves_tickets(None, "in_progres"));
+
+    let rules = fleet.rules_applying_to(&id_of(&first(&fleet))).expect("read");
+    assert!(rules.files().is_empty());
+    let [left] = rules.left_out() else { panic!("one set aside: {:?}", rules.left_out()) };
+    assert!(left.said().contains("names the state `in_progres`, which the `ticket` lifecycle does not have"), "{}", left.said());
+}

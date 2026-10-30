@@ -19,6 +19,7 @@ import { accounts } from "./slices/accounts";
 import { planUsage } from "./slices/plan-usage";
 import { modelDownshift } from "./slices/model-downshift";
 import { projects } from "./slices/projects";
+import { bugReports } from "./slices/bug-reports";
 import { agentSignIn } from "./slices/agent-sign-in";
 import { clashes } from "./slices/clashes";
 import { reviews } from "./slices/reviews";
@@ -48,7 +49,7 @@ import { pullRequestNotes } from "./slices/pull-request-notes";
 export type AnySlice = Slice<Partial<BridgeApi>, Partial<BridgeState>>;
 
 /** **A `Record` over every name**, so a surface with no entry here fails typecheck. */
-const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, sessionSystem, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
+const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, dispatch, checks, lessons, sessions, sleep, accounts, planUsage, modelDownshift, projects, bugReports, agentSignIn, clashes, reviews, territory, timeline, actFailed, bayHistory, sessionSystem, usageSummary, issues, autopilot, sketchShare, attachments, files, flightControls, onboarding, requests, sharing, logbook, teaching, pullRequestNotes } satisfies Record<
   SliceName,
   AnySlice
 >;

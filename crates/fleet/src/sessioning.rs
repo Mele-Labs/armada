@@ -886,6 +886,26 @@ where
         self.fleet_disputed(caller, dispute).await
     }
 
+    async fn report_bug(
+        &self,
+        caller: Option<api::Caller>,
+        report: ipc::ReportBug,
+    ) -> Result<ipc::BugReported, Refusal> {
+        self.bug_reported(caller, report).await
+    }
+
+    async fn list_bug_reports(&self) -> Result<ipc::BugReports, Refusal> {
+        self.bug_reports_listed().await
+    }
+
+    async fn keep_bug_report(&self, report_id: String) -> Result<ipc::BugReport, Refusal> {
+        self.bug_report_kept(report_id).await
+    }
+
+    async fn drop_bug_report(&self, report_id: String) -> Result<ipc::BugReportDropped, Refusal> {
+        self.bug_report_dropped(report_id).await
+    }
+
     async fn finish_up(
         &self,
         caller: Option<api::Caller>,
