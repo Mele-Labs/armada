@@ -100,10 +100,10 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         .collect();
     assert_eq!(
         steps,
-        vec!["find_the_cause", "fix", "short_walk", "tests", "deliver"],
-        "the five steps the owner chose on 27 Oct 2026: the walk comes before \
-         the tests, and `tests` carries the test Check itself rather than \
-         handing off to a separate `verify` step"
+        vec!["find_the_cause", "fix", "tests", "deliver"],
+        "the steps the owner chose on 27 Oct 2026, with the walk folded into \
+         `fix` on 30 Oct: the walk comes before the tests, and `tests` carries \
+         the test Check itself rather than handing off to a separate `verify` step"
     );
 }
 
@@ -350,7 +350,7 @@ fn the_designed_bug_workflow_is_refused_for_a_reason_a_later_milestone_removes()
 fn the_designed_definition_and_m1s_reduced_form_are_not_the_same_workflow() {
     let setup =
         Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    assert_eq!(bug(&setup).steps().len(), 5);
+    assert_eq!(bug(&setup).steps().len(), 4);
 
     let designed = repository()
         .join("crates/core-model/domain/workflow-samples")
