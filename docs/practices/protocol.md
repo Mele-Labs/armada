@@ -1168,6 +1168,47 @@ It is raised when a Job takes an instance on and when a read finds one somewhere
 It carries the Job's definitions each time, a few KB at a handful per Job, so a Bridge that missed one needs only the next, or `get_job_lifecycles` on the resync that follows a `Missed`.
 **It makes the unbounded WebSocket sink a little worse and does nothing about it.** The load is small and rare next to a Drone's rows, and the bounded broadcast with drop-oldest is still the fix.
 
+## A Job's own copy: `get_job_copy`, `change_session_steps`, `change_job_copy`, `keep_job_workflow` and `propose_workflow_change`
+
+Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*, *Changing one Job*; `crates/ipc/src/job_copy.rs`, `crates/fleet/src/session_host/job_copying.rs`.
+**Additive**: five operations, five routes, `set_session_workflow` and `skip_session_step` opened to the agent, and four fields on existing types.
+The agent changes its own Job's copy of its workflow, lifecycles and rules with a tool, the owner does the same from the Job's lanes, and both go through the same operations.
+**A change applies to that Job at once and to no other**: the files in the repository and in Kit, and every other Job's copy, stay as they are.
+Only Keep for every Job proposes it for the others, and that waits on the owner's Approve.
+Bridge's half is `packages/protocol/src/job-copy.ts`, written by hand, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_job_copy` (`GET /sessions/copy?session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `JobCopy` `{ session_id, workflow?, own?, steps[], lifecycles[], rules[], changes[] }`; a `JobCopyStep` is `{ id, label, about?, instructions?, ends_on[], skipped? }`, a `JobCopyChange` `{ lane, item, text, by, at }` |
+| `change_session_steps` (`POST /sessions/workflow/steps`, `Yes`) | Bridge or an agent sends | `ChangeSessionSteps` `{ session_id, change }`, a `StepChange` tagged by `kind`: `add`, `move`, `reword` or `drop`. Answers the `JobCopy` |
+| `change_job_copy` (`POST /sessions/copy`, `Yes`) | Bridge or an agent sends | `ChangeJobCopy` `{ session_id, kind, id, text? }`, `kind` `lifecycle` or `rule`; a blank `id` with a `text` takes the id the file declares, and no `text` drops the piece. Answers the `JobCopy` |
+| `keep_job_workflow` (`POST /sessions/copy/keep`, Bridge only) | Bridge sends | `KeepJobWorkflow` `{ session_id, source? }`. Answers the `WorkflowChange` kept, `origin` `{ kind: "job" }`, `state` `ready` |
+| `propose_workflow_change` (`POST /workflows/changes/propose?manifest_id=`, `Yes`) | An agent sends | `ProposeWorkflowChange` `{ workflow_id, source, definition }`. Answers the `WorkflowChange` kept |
+| `set_session_workflow`, `skip_session_step` | `Yes` now | An agent calls them on its own Job; the answer is a receipt (`workflow`, `workflow_step`, `skipped_steps`) |
+| `JobLifecycles.rules`, `JobLifecycles.changes` | Fleet writes | The rules the Job's copy holds, which are the ones that run for it, and what was changed in the copy, for the lanes to mark. Both are left out when empty |
+| `SessionRecord.workflow_copy` | Fleet writes | The Job's own `WorkflowSummary` once it changed a step. The rail and the lanes read it in place of the repository's |
+| `TimelineKind` `session.copy` | Fleet writes | `says` names the change (`step added: Dispatch after Approve plan`, `rule dropped: deploy_watch`), `detail` is `by the Job` or `by you` |
+| `ChangeOrigin` `{ kind: "job" }` | Fleet writes | A drafted change a Job proposed, with no model behind it |
+
+**The Job is the one the connection places**, as a watch's is, and the person's request names it.
+A call through the agent door that places no Job is refused 422 `fleet.job_copy_unplaced`; every other caller is the owner and `session_id` names the Job.
+**A workflow is copied at the first change to its steps**, as the file the Job followed read then, so the Job keeps that text while the repository's changes; until then it follows the repository's.
+A lifecycle or a rule is changed in the copy the Job froze on start (`job_copies`); 422 `fleet.job_holds_no_copy` for a Job started before copies were kept.
+A step is edited as text and the result is read by the loader again, so an edit that does not fit is refused with the loader's own sentence (422 `fleet.job_workflow_unfit`, `fleet.job_copy_step_refused`, `fleet.job_copy_piece_refused`) and the Job keeps what it had.
+The rail keeps a step's state by its index, so an edit remaps what it kept by step id: a skip stays on its step when one is added before it, and a step taken out is forgotten.
+Switching the workflow gives up the copy and the marks with it.
+
+**A mark is kept with who made it**, `job` or `you`, on `job_copy_marks`: a step is marked as `workflow` with its id, a rule as `rule` with its id, and a lifecycle by its own id with no item.
+A step or a rule that was dropped has no node to draw, so its mark is listed under the lanes and drawn on nothing.
+`job_lifecycles.changed` is raised after each change, and `session.changed` carries `workflow_copy`, so a Bridge re-reads nothing of its own.
+
+**Keep for every Job is the workflow half.** `keep_job_workflow` and `propose_workflow_change` keep a `workflow_changes` row `ready` at once, with a `draft` row on the Job, and the owner's Approve saves it as any drafted change.
+`send_back_workflow_change` refuses it (422 `fleet.workflow_change_not_sendable`), since no model drafted it.
+**A rule or a lifecycle cannot be kept for every Job yet**, since saving one is the Workflows page editor's operations, which have not landed.
+Fleet writes nothing to a tracker or a forge for any of this.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
