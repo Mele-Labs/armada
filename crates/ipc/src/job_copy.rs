@@ -83,7 +83,9 @@ pub enum CopyPieceKind {
 pub struct ChangeJobCopy {
     pub session_id: SessionId,
     pub kind: CopyPieceKind,
-    /// The id the piece's file declares. A piece already in the copy under it is replaced.
+    /// The id the piece's file declares. A piece already in the copy under it is replaced. Blank with a `text`
+    /// takes the id the file declares.
+    #[serde(default)]
     pub id: String,
     /// The whole file, as the loader reads one. Absent takes the piece out of the copy.
     #[serde(default, skip_serializing_if = "Option::is_none")]

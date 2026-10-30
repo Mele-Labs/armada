@@ -131,6 +131,14 @@ fn edit_of(change: &StepChange) -> StepEdit {
     }
 }
 
+/// The id a piece file declares, or the loader's sentence for one that does not read.
+fn declared_id(kind: PieceKind, path: &str, text: &str) -> Result<String, String> {
+    match kind {
+        PieceKind::Lifecycle => config::parse_lifecycle(Path::new(path), text).map(|one| one.id().as_str().to_string()).map_err(|why| why.to_string()),
+        PieceKind::Rule => config::parse_rule(Path::new(path), text).map(|one| one.id().as_str().to_string()).map_err(|why| why.to_string()),
+    }
+}
+
 /// The steps of a copy as `get_job_copy` answers them.
 fn steps_wire(steps: &[RailStep], skipped: &[u32]) -> Vec<JobCopyStep> {
     steps
@@ -341,14 +349,20 @@ where
     pub(crate) async fn piece_changed(self: &Arc<Self>, change: ChangeJobCopy) -> Result<JobCopy, Refusal> {
         let (id, by) = self.copy_placed(Some(&change.session_id))?;
         let (session, _) = self.copy_hosted(&id).await?;
-        let piece_id = change.id.trim().to_string();
-        if piece_id.is_empty() {
-            return Err(self.hosted_refusal(JOB_COPY_PIECE_REFUSED, "the `id` is blank; name the lifecycle or the rule"));
-        }
         let (kind, said) = match change.kind {
             CopyPieceKind::Lifecycle => (PieceKind::Lifecycle, "lifecycle"),
             CopyPieceKind::Rule => (PieceKind::Rule, "rule"),
         };
+        let mut piece_id = change.id.trim().to_string();
+        if piece_id.is_empty() {
+            // A file given whole names its own id, so a blank `id` takes it; a drop has no file to ask.
+            if let Some(text) = change.text.as_deref().map(str::trim).filter(|text| !text.is_empty()) {
+                piece_id = declared_id(kind, &format!("(job copy)/{said}s/new.yml"), text).map_err(|why| self.hosted_refusal(JOB_COPY_PIECE_REFUSED, &why))?;
+            }
+        }
+        if piece_id.is_empty() {
+            return Err(self.hosted_refusal(JOB_COPY_PIECE_REFUSED, "the `id` is blank; name the lifecycle or the rule"));
+        }
         let held = self
             .store()
             .lock()
@@ -369,11 +383,7 @@ where
                     return Err(self.hosted_refusal(JOB_COPY_PIECE_REFUSED, &format!("the {said} text is blank; leave `text` out to drop it")));
                 }
                 let path = existing.map_or_else(|| format!("(job copy)/{said}s/{piece_id}.yml"), |piece| piece.path.clone());
-                let read = match kind {
-                    PieceKind::Lifecycle => config::parse_lifecycle(Path::new(&path), text).map(|one| one.id().as_str().to_string()).map_err(|why| why.to_string()),
-                    PieceKind::Rule => config::parse_rule(Path::new(&path), text).map(|one| one.id().as_str().to_string()).map_err(|why| why.to_string()),
-                };
-                match read {
+                match declared_id(kind, &path, text) {
                     Ok(declared) if declared == piece_id => {}
                     Ok(declared) => {
                         return Err(self.hosted_refusal(

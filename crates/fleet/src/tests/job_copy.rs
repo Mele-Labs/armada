@@ -337,3 +337,19 @@ async fn a_rule_in_a_jobs_copy_is_changed_dropped_and_marked_on_the_lanes() {
     assert!(refused_with(&again, "fleet.job_copy_piece_refused"), "{again:?}");
     assert!(says_of_copy(&rig).await.iter().any(|(says, by)| says == "rule dropped: deploy_watch" && by.as_deref() == Some("by you")));
 }
+
+#[tokio::test]
+async fn a_piece_given_whole_with_no_id_takes_the_id_it_declares() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    frozen_with_a_rule(&rig, &id).await;
+    let added = RULE.replace("rule_id: deploy_watch", "rule_id: ask_for_review");
+    let blank = ChangeJobCopy { session_id: id.clone(), kind: CopyPieceKind::Rule, id: "  ".into(), text: Some(added) };
+    let copy = rig.fleet.piece_changed(blank).await.expect("added under the id it declares");
+    assert!(copy.rules.iter().any(|rule| rule.id == "ask_for_review"), "{:?}", copy.rules);
+    assert_eq!(copy.changes.last().map(|one| (one.lane.as_str(), one.item.as_str(), one.text.as_str())), Some(("rule", "ask_for_review", "Added by you")));
+    let nothing = ChangeJobCopy { session_id: id.clone(), kind: CopyPieceKind::Rule, id: String::new(), text: None };
+    assert!(refused_with(&rig.fleet.piece_changed(nothing).await, "fleet.job_copy_piece_refused"), "a drop still names its piece");
+    let unreadable = ChangeJobCopy { session_id: id, kind: CopyPieceKind::Rule, id: String::new(), text: Some("not a rule".into()) };
+    assert!(refused_with(&rig.fleet.piece_changed(unreadable).await, "fleet.job_copy_piece_refused"), "and a file that does not read says so");
+}
