@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { Check, ChevronLeft } from "lucide-react";
 import { Button, COMMENT_READ, LaneCanvas, Tooltip, jobLanes } from "@armada/components";
 import type { LanePick, LaneView, TriagedComment } from "@armada/components";
+import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 import { instanceKey } from "@armada/screens/src/session-lanes";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -69,6 +70,23 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
     // Focus goes back to the head that opened it.
     window.requestAnimationFrame(() => host.current?.querySelector<HTMLElement>(`[data-lane="${CSS.escape(from ?? "")}"]`)?.focus({ preventScroll: true }));
   };
+  // **While a Job's own Workflow is open, Esc is Back wherever focus is.** The panel defers to `data-holds-esc` and the layer to a press taken, and this runs ahead of the layer's own listener.
+  // Only the deepest open one answers, and a menu, the palette or a confirmation over it keeps its own Esc. The canvas has had its press first: a pick let go is not Back.
+  const latest = useRef(back);
+  latest.current = back;
+  const open = child !== undefined;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || popupIsOpen() || document.querySelector('.armada-palette, .armada-dialog, [role="alertdialog"]') !== null) return;
+      if (host.current?.querySelectorAll(".sv-lanes__into").length !== 1) return;
+      event.preventDefault();
+      event.stopPropagation();
+      latest.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
   return (
     <div ref={host} className="sv-lanes__host">
       <OwnLanes sessionId={sessionId} away={child !== undefined} onOpen={(lane) => setInto({ job: instanceKey(lane.id), lane: lane.id })} />
@@ -82,26 +100,16 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
 }
 
 /**
- * A Job's own Workflow opened from a lane on its parent's: the way back and its title over its lanes. Focus goes to its canvas, as it does when the lanes open. **Esc is Back** while focus is in it,
- * after the canvas has had its own (a pick let go); `data-keeps-esc` tells the panel the press is this one's, and the layer's own listener sees it taken. On the top level Esc closes as it did.
+ * A Job's own Workflow opened from a lane on its parent's: the way back and its title over its lanes. **Focus goes to Back**, so Enter, Tab and Esc work from the first moment: the canvas draws its
+ * nodes a frame later, and the head that was pressed is hidden. `data-holds-esc` tells the panel that Esc is this one's (`LanesBody`).
  */
 function Into({ back, title, children }: { back: { label: string; onBack: () => void }; title: string; children: ReactNode }) {
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => root.current?.querySelector<HTMLElement>("[data-node]")?.focus({ preventScroll: true }), []);
+  const way = useRef<HTMLButtonElement>(null);
+  useEffect(() => way.current?.focus({ preventScroll: true }), []);
   return (
-    <div
-      ref={root}
-      className="sv-lanes__into"
-      data-keeps-esc=""
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.defaultPrevented) return;
-        event.preventDefault();
-        event.stopPropagation();
-        back.onBack();
-      }}
-    >
+    <div className="sv-lanes__into" data-holds-esc="">
       <header className="sv-lanes__into-head">
-        <Button variant="ghost" size="sm" title={back.label} onClick={back.onBack}>
+        <Button ref={way} variant="ghost" size="sm" title={back.label} onClick={back.onBack}>
           <ChevronLeft size={12} strokeWidth={2} aria-hidden="true" />
           {back.label}
         </Button>
