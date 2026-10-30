@@ -307,6 +307,8 @@ export type LaneNodeView = {
   ended?: boolean;
   /** Who the instance in this state is assigned to, drawn on the node. */
   who?: string;
+  /** The ticket the Job on this lane was started for and now holds, drawn on the node the Job stands at, as `who` is. */
+  ticket?: CarriedTicket;
   /** What is known of the instance at this state, one line each in the node's tooltip: the reviewers on a pull request. */
   facts?: readonly string[];
   /** The Job's own copy changed here, and how. */
@@ -366,6 +368,9 @@ export type RuleView = {
 
 // ---- A Job's lanes -------------------------------------------------------------------------------------------------------
 
+/** A ticket a started Job holds for the Job that started it: its key, its title and the name of the state it stands in, as the lifecycle names it. */
+export type CarriedTicket = { label: string; title: string; state: string };
+
 /** One thing a Job holds: a ticket, its pull request, a deploy. */
 export type Instance = {
   id: string;
@@ -375,6 +380,8 @@ export type Instance = {
   label: string;
   /** A ticket's own title. */
   title?: string;
+  /** For a Job this one started: the ticket it was started for. That Job holds the ticket and its rules move it, so this Job has no lane for it and reads it from there. */
+  ticket?: CarriedTicket;
   /** `""` where it stands in no state: not read yet, or a status its lifecycle lists none for. */
   state: string;
   /** The word its source used, for a status no state lists. It is in flight until the lifecycle maps it. */

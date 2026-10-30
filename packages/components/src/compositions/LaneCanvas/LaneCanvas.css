@@ -245,6 +245,24 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+/* The ticket a Job holds for the Job that started it, in the line a ticket's assignee takes: the glyph, the key and the pin. A key longer than the node is cut, and the tooltip names it whole. */
+.armada-lane-item__ticket {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-lane-item__ticket > svg { flex: none; }
+.armada-lane-item__ticket > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Where the workflow starts and ends: a small circle, filled where it starts and a ring round a dot where it ends. A Job that has begun fills the start in the advanced hue, and one that has finished
    marks the end as a place. */

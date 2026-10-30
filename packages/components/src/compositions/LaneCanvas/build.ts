@@ -214,6 +214,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
             ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
             ...(state.end === true ? { end: true as const } : {}),
             ...(state.id === instance.state && instance.assignee !== undefined ? { who: instance.assignee } : {}),
+            ...(state.id === instance.state && instance.ticket !== undefined ? { ticket: instance.ticket } : {}),
             ...(says === undefined ? {} : { facts: [says] }),
             ...(changed === undefined ? {} : { changed }),
           };

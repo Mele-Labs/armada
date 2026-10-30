@@ -1,7 +1,7 @@
 // The Workspace `my-store` and three Jobs in it: the Workflows page draws the `feature` workflow over the Ticket, PR and Deploy lanes, and a Job's Lanes view draws
 // the same lanes with one for each ticket, pull request and deploy it holds, moment by moment as a walk's `later` lets time pass. The third Job goes through app feedback:
-// it changes its own copy of the workflow, starts two Jobs that each get a lane, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. The Workspace is the page's own mock
-// (`workspaces-pieces` is the one a Fleet serves). The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it.
+// it changes its own copy of the workflow, starts two Jobs that each get a lane, one of them carrying the ticket it was started for, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. The Workspace is the page's own mock
+// (`workspaces-pieces` is the one a Fleet serves). The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it, and `ticket-on-job-lane` plays its second row.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { JobCopyActs, Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
@@ -201,11 +201,12 @@ const reply = (id: string, at: string, text: string): SessionRow => ({ id, at, k
 /** The pull request's state at a moment: a draft when it opens, open once reviewers are on, merged when Land is done. */
 const prAt = (moment: number) => (moment >= 6 ? "merged" : moment >= 3 ? "open" : "draft");
 
-function sessions() {
-  const store = sessionsStore([jobA, jobOther, jobFeedback]);
+/** `begin` is the moment the feedback Job opens at, which `later` carries on from. */
+function sessions(begin = 0) {
+  const store = sessionsStore([jobA, jobOther, begin === 0 ? jobFeedback : feedbackAtMoment(begin)(jobFeedback)]);
   const mine = new Set([JOB, OTHER, FEEDBACK]);
   let moment = 0;
-  let feedback = 0;
+  let feedback = begin;
   const sent: string[] = [];
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
@@ -346,8 +347,8 @@ function sessions() {
   };
 }
 
-function build(): Scenario {
-  const base: Scenario = { name: "workspaces-lanes", says: "The Workspace my-store: the feature and planning workflows over their lanes, edited by hand in the side panel, and a Job drawing the same lanes as its tickets, pull request and deploy move", state: connected([workflow()], [STORE_WEB, STORE_API]) };
+function build(name: string, says: string, begin = 0): Scenario {
+  const base: Scenario = { name, says, state: connected([workflow()], [STORE_WEB, STORE_API]) };
   return {
     ...base,
     state: { ...base.state, repository: STORE_WEB.root, health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting", workflows_left_out: false } } },
@@ -356,7 +357,7 @@ function build(): Scenario {
       ...workflowsServed(() => fleet.state().holds.repositories?.find((one) => one.root === fleet.state().repository)?.manifest?.id ?? null, { definitions: STORE_DEFINITIONS, ends: STORE_ENDS, nudges: [] }),
       readManifestFile: manifesting().behaves?.(fleet).readManifestFile!,
     }),
-    draft: { sessions, workspace: { workspace: MY_STORE, proposals: PROPOSALS }, sharedPanel: panelReads },
+    draft: { sessions: () => sessions(begin), workspace: { workspace: MY_STORE, proposals: PROPOSALS }, sharedPanel: panelReads },
   };
 }
 
@@ -403,4 +404,10 @@ function panelReads(): PanelReads {
   };
 }
 
-export const workspacesLanes: Scenario = build();
+export const workspacesLanes: Scenario = build(
+  "workspaces-lanes",
+  "The Workspace my-store: the feature and planning workflows over their lanes, edited by hand in the side panel, and a Job drawing the same lanes as its tickets, pull request and deploy move",
+);
+
+/** The feedback Job from the moment it has started two Jobs, one of them for a ticket: `ticket-on-job-lane`. */
+export const workspacesLanesTicket: Scenario = build("ticket-on-job-lane", "The feedback Job with two Jobs started: one carries the ticket it was started for on its lane, and a ticket nobody started a Job for keeps a lane of its own", 2);

@@ -1,6 +1,6 @@
 // The mock Jobs' lanes as Fleet would serve them. `workspaces-lanes-data.ts` models what the Jobs hold; this turns it into `get_job_lifecycles` and the sentences
 // `workflow_waiting_on` words, and draws the lanes from those by the same function a real Job's are (`lanesOfJob`), so a change to how they are read shows on the walks.
-// **What the wire does not carry yet stays the fixtures'**: a ticket's title and assignee, who is on a pull request, the changes a Job made to its own copy, the comments
+// **What the wire does not carry yet stays the fixtures'**: a ticket's title and assignee, the ticket a started Job holds for its parent, who is on a pull request, the changes a Job made to its own copy, the comments
 // under a pull request, the steps' own waits, the card a rule asked, and the rules that start a Job or mark a document, which land on a lane of their own that no rule names. Each is
 // laid over what the wire gave, and goes when a read carries it. **The rules that move a ticket, hand to a step or take a deploy on, and what they did, go over the wire**: as
 // `list_lifecycle_rules` and `acts`.
@@ -165,7 +165,7 @@ export function throughWire(sessionId: string, fixture: SessionLanes): SessionLa
   };
   const extras = (one: Instance): Instance => {
     const own = mine.get(one.id);
-    return { ...one, ...(own?.title === undefined ? {} : { title: own.title }), ...(own?.assignee === undefined ? {} : { assignee: own.assignee }), ...(own?.says === undefined ? {} : { says: own.says }) };
+    return { ...one, ...(own?.title === undefined ? {} : { title: own.title }), ...(own?.assignee === undefined ? {} : { assignee: own.assignee }), ...(own?.ticket === undefined ? {} : { ticket: own.ticket }), ...(own?.says === undefined ? {} : { says: own.says }) };
   };
   return {
     ...drawn,

@@ -14,7 +14,7 @@ import {
   type NodeProps,
   type Viewport,
 } from "@xyflow/react";
-import { Ban, Check, CircleDot, Clock, Drone, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Trash2, UserCheck, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleDot, Clock, Drone, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Ticket, Trash2, UserCheck, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -54,7 +54,8 @@ import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
  *
  * **Every node is the shape of what it is** (`NodeKind`): a step a rounded box, a state the tracker or the forge reads a pill, a wait or a watch a hexagon, a Job another Job started a card with the drone glyph, and
  * where the workflow starts and ends small circles; a rule's chip leads with a diamond. Each kind has its own faint tint from `kinds.css`, which is never a status: what a node stands in is its frame and its mark.
- * A wait is reached by a dashed edge, a transition by a solid one.
+ * A wait is reached by a dashed edge, a transition by a solid one. **A Job that was started for a ticket holds it**, so its card, at the state the Job stands in, leads the ticket's key with the ticket
+ * glyph and ends it with the pin that says where an instance stands; the ticket's title, its state's name and who holds it are in the card's tooltip. The Job that started it has no lane for that ticket.
  *
  * **Edited by hand where `editing` is given.** What is picked shows a toolbar over it: Edit, Tell an agent, Add after and Delete; a hovered node shows connectors, and one dragged
  * to another node is `onConnect`. Edit takes the person to the picked thing's fields in the side panel, which are live; the first change on Armada's workflow makes the person's own copy, and nothing here says so.
@@ -311,12 +312,13 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const shape = SHAPE[node.kind];
   const connectable = hold.editing !== undefined && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
-  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ended === true ? ", ended" : ""}`;
+  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ticket === undefined ? "" : `, ticket ${node.ticket.label}, ${node.ticket.state}`}${node.ended === true ? ", ended" : ""}`;
   const lines = [
     node.label,
     ...(node.waiting ?? (mark === undefined ? [] : [mark.said])),
     ...(node.facts ?? []),
     ...(node.who === undefined ? [] : [`Assigned to ${node.who}`]),
+    ...(node.ticket === undefined ? [] : [`Ticket ${node.ticket.label}: ${node.ticket.title}`, `Ticket state: ${node.ticket.state}`, `Held by ${lane.title}`]),
     ...(node.differs === undefined ? [] : [differsSaid(node.differs)]),
     ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub]),
   ];
@@ -400,6 +402,13 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
           <span className="armada-lane-item__who" aria-hidden="true">
             <UserCheck size={14} strokeWidth={2} />
             <span>{node.who}</span>
+          </span>
+        )}
+        {node.ticket === undefined ? null : (
+          <span className="armada-lane-item__ticket" aria-hidden="true">
+            <Ticket size={14} strokeWidth={2} />
+            <span>{node.ticket.label}</span>
+            <MapPin size={14} strokeWidth={2} />
           </span>
         )}
         {shape !== "card" || mark === undefined ? null : (
@@ -644,7 +653,7 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
 }
 
 /** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
-const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.changed, node.differs, node.sub].map(String).join("|");
+const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.ticket?.label, node.ticket?.state, node.changed, node.differs, node.sub].map(String).join("|");
 const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs].map(String).join("|");
 
 export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy, onTeach }: LaneCanvasProps) {
