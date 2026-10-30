@@ -72,6 +72,8 @@ test("a rule or a state is not told to an agent, which drafts changes to steps, 
 });
 
 test("a rule the person keeps offers Commit to repository, and one the repository committed does not", async () => {
+  // Wide enough that the rule the repository committed stands in the canvas once the panel is closed, which puts the canvas back where it was.
+  await page.viewport(1800, 900);
   await lanes();
   const region = page.getByRole("region", { name: "Workflow", exact: true });
   await region.getByRole("button", { name: "Start the ticket", exact: true }).click();

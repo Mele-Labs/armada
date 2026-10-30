@@ -255,7 +255,7 @@ export function WorkspaceEditor({
   /** Edit goes to the first field of what is picked, in the panel, once the panel shows it. */
   const toFields = () => {
     setMode("fields");
-    window.setTimeout(() => panel.slot?.querySelector<HTMLElement>("input:not([type='radio']), textarea, select")?.focus(), 0);
+    window.setTimeout(() => panel.slot?.querySelector<HTMLElement>("input:not([type='radio']), textarea, select")?.focus({ preventScroll: true }), 0);
   };
 
   const addAfter = (at: LanePick) => {

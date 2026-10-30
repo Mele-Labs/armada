@@ -10,6 +10,7 @@ const RUNS_IN = group("Runs in");
 const tab = (name: string) => inside(RUNS_IN, role("tab", name, { exact: true }));
 const kept = inside(PANEL, group("Where it is kept"));
 
+// Played in a wide window, so each rule's label stands in the canvas beside the panel and a ring never lands on what the panel covers.
 const pieces = walk("workspaces-pieces", [
   ...toSystemPage("Workflows", "Workflows, from System"),
   { look: LANES, say: "The feature workflow over a lane each for Ticket, Pull request and Deploy, read from the lifecycles Fleet keeps" },
@@ -24,11 +25,15 @@ const pieces = walk("workspaces-pieces", [
   { look: inside(PANEL, button("Use my-store's", { exact: true })), say: "The tab now differs from the level above, and one press goes back to it" },
   { press: inside(kept, button("Commit to repository", { exact: true })), say: "Commit to repository starts a Job of its own, with a pull request" },
   { look: inside(PANEL, text("Job started")), say: "The Job is started" },
-  { press: inside(LANES, button("Close the ticket", { exact: true })), say: "A rule store-web committed is the repository's: nothing to commit" },
+  { press: inside(PANEL, button("Close")), say: "Closed" },
+  { press: inside(LANES, button("Close the ticket", { exact: true })), say: "A rule from store-web's repository" },
+  { look: PANEL, say: "A rule store-web committed is the repository's: nothing to commit" },
+  { press: inside(PANEL, button("Close")), say: "Closed" },
   { press: button("Add lifecycle", { exact: true }), say: "A lifecycle is added on this tab, as a piece for store-web alone" },
   { type: "Incident", into: inside(PANEL, role("textbox", "Name", { exact: true })), say: "Named in the field, saved as it is left" },
   { press: inside(PANEL, button("Delete", { exact: true })), say: "Delete takes its file out of your Kit" },
+  { press: tab("All of my-store"), say: "All of my-store's tab" },
   { press: inside(LANES, button("Mark ready", { exact: true })), say: "A rule for my-store alone" },
-]);
+], { width: 2000, height: 1200 });
 
 export { pieces as "workspaces-pieces" };

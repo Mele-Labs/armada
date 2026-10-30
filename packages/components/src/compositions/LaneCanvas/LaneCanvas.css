@@ -347,6 +347,9 @@
 
 /* ---- A rule's chip, on its edge ------------------------------------------------------------------------------------ */
 
+/* The canvas draws in the lanes' own area: what a pan leaves under the heads, a chip or a line included, is cut at their edge. */
+.armada-lane-canvas .react-flow__renderer { clip-path: inset(0 0 0 var(--lane-head)); }
+
 /* The chips are drawn in React Flow's label layer, which sits before the nodes in the document: lifted above them, a chip over a node is still pressable. */
 .armada-lane-surface .react-flow__edgelabel-renderer { z-index: 5; }
 

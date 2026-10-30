@@ -130,10 +130,10 @@ const whenOf = (value: string): RuleWhen | undefined => {
   return kind === "ends" ? { kind: "step_ends", step: a } : undefined;
 };
 
-/** What the instances of a set are called in a row: `ticket that entered`, `pull request it came from`. */
-function amongSaid(among: RuleAmong, lifecycles: readonly RuleFormLifecycle[], when: RuleWhen): string {
-  const name = noun(lifecycles.find((one) => one.id === lifecycleOf(among, when))?.name ?? lifecycleOf(among, when) ?? "instance");
-  return among.kind === "entered" ? `${name} that entered` : among.kind === "linked_from" ? `${name} it came from` : among.kind === "linking_to" ? `${name} that came from it` : `${name} the Job holds`;
+/** What the instances of a set are called in a row: `ticket that entered`, `pull request it came from`. **`bare` leaves the lifecycle out**, where the act before it names the thing: `Move a ticket`, `the Job holds`. */
+function amongSaid(among: RuleAmong, lifecycles: readonly RuleFormLifecycle[], when: RuleWhen, bare = false): string {
+  const name = bare ? "" : `${noun(lifecycles.find((one) => one.id === lifecycleOf(among, when))?.name ?? lifecycleOf(among, when) ?? "instance")} `;
+  return among.kind === "entered" ? `${name}that entered` : among.kind === "linked_from" ? `${name}it came from` : among.kind === "linking_to" ? `${name}that came from it` : `${name}the Job holds`;
 }
 
 /** An instance that entered, and those linked to it, mean something only to a rule that fires on a state entered: with the moment changed they become the ones the Job holds. */
@@ -160,9 +160,11 @@ function withWhen(rule: LifecycleRule, now: RuleWhen): LifecycleRule {
 /** Where a target may be: the instances that entered where the rule fires on one, what is linked to it, and what the Job holds, of the lifecycles the act is done to. */
 function instancesFor(kinds: readonly (LifecycleKind | undefined)[] | undefined, lifecycles: readonly RuleFormLifecycle[], when: RuleWhen): Choice[] {
   const ours = lifecycles.filter((one) => kinds === undefined || kinds.includes(one.kind));
+  // Where an act names the thing and one lifecycle is of that kind, the lifecycle is not said again.
+  const bare = kinds !== undefined && ours.length === 1;
   const entered = when.kind === "enters" ? ours.filter((one) => one.id === when.lifecycle) : [];
   const linked = when.kind === "enters" ? ours.flatMap((one): RuleAmong[] => [{ kind: "linked_from", lifecycle: one.id }, { kind: "linking_to", lifecycle: one.id }]) : [];
-  return [...entered.map((): RuleAmong => ({ kind: "entered" })), ...linked, ...ours.map((one): RuleAmong => ({ kind: "held", lifecycle: one.id }))].map((one) => ({ value: amongValue(one), label: amongSaid(one, lifecycles, when) }));
+  return [...entered.map((): RuleAmong => ({ kind: "entered" })), ...linked, ...ours.map((one): RuleAmong => ({ kind: "held", lifecycle: one.id }))].map((one) => ({ value: amongValue(one), label: amongSaid(one, lifecycles, when, bare) }));
 }
 
 const targetsFor = (act: RuleAct["act"], lifecycles: readonly RuleFormLifecycle[], when: RuleWhen): Choice[] => instancesFor(TARGETS[act], lifecycles, when);
@@ -237,6 +239,14 @@ function Clause({ children, remove }: { children: ReactNode; remove?: { name: st
 
 const Word = ({ children }: { children: string }) => <span className="armada-wm-clause__word">{children}</span>;
 
+/** A word with the control it leads, held together so a line breaks before the word and never between it and its control. */
+const Led = ({ word, children }: { word: string; children: ReactNode }) => (
+  <span className="armada-wm-clause__led">
+    <Word>{word}</Word>
+    {children}
+  </span>
+);
+
 export type RuleFormProps = {
   /** The piece as this tab runs it. */
   rule: LifecycleRule;
@@ -284,25 +294,28 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
   const whenOpen = !whenGroups.some((group) => group.items.some((one) => one.value === whenHeld));
 
   /** A target: which instances, and in which state. Drawn by calling it, so the fields in it keep what is typed as the form changes. */
-  const aim = ({ act, target, onTarget, label }: { act: RuleAct["act"]; target: RuleTarget; onTarget: (next: RuleTarget) => void; label: string }) => {
+  const aim = ({ act, target, onTarget, label, lead }: { act: RuleAct["act"]; target: RuleTarget; onTarget: (next: RuleTarget) => void; label: string; lead: string }) => {
     const lifecycle = lifecycleOf(target.among, rule.when);
     return (
       <>
-        <Pick name={`${label} on`} value={amongValue(target.among)} items={targetsFor(act, lifecycles, rule.when)} onChange={(value) => onTarget({ among: amongOf(value) })} />
-        <Word>in</Word>
-        <Pick name={`${label} state`} value={target.in_state ?? ""} blank items={stateItems(lifecycle)} onChange={(value) => onTarget({ among: target.among, ...(value === "" ? {} : { in_state: value }) })} />
+        <Led word={lead}>
+          <Pick name={`${label} on`} value={amongValue(target.among)} items={targetsFor(act, lifecycles, rule.when)} onChange={(value) => onTarget({ among: amongOf(value) })} />
+        </Led>
+        <Led word="in">
+          <Pick name={`${label} state`} value={target.in_state ?? ""} blank="any state" items={stateItems(lifecycle)} onChange={(value) => onTarget({ among: target.among, ...(value === "" ? {} : { in_state: value }) })} />
+        </Led>
       </>
     );
   };
 
   /** The fields of one act, which change it through `change`. */
-  const fields = ({ what, change, name }: { what: RuleAct; change: (next: RuleAct) => void; name: string }) => {
+  const fields = ({ what, change, name, lead }: { what: RuleAct; change: (next: RuleAct) => void; name: string; lead: string }) => {
     const key = `${id}-${name}`;
     switch (what.act) {
       case "tracker_assign":
         return (
           <>
-            {aim({ act: what.act, target: what.target, label: name, onTarget: (target) => change({ ...what, target }) })}
+            {aim({ act: what.act, target: what.target, label: name, lead, onTarget: (target) => change({ ...what, target }) })}
             <Field label="Assignee" value={what.to} onCommit={(to) => change({ ...what, to })} />
           </>
         );
@@ -310,9 +323,10 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
         const lifecycle = lifecycleOf(what.target.among, rule.when);
         return (
           <>
-            {aim({ act: what.act, target: what.target, label: name, onTarget: (target) => change({ ...what, target, to: lifecycleOf(target.among, rule.when) === lifecycle ? what.to : (stateItems(lifecycleOf(target.among, rule.when))[0]?.value ?? "") }) })}
-            <Word>to</Word>
-            <Pick name={`${name} to`} value={what.to} items={stateItems(lifecycle)} onChange={(to) => change({ ...what, to })} />
+            {aim({ act: what.act, target: what.target, label: name, lead, onTarget: (target) => change({ ...what, target, to: lifecycleOf(target.among, rule.when) === lifecycle ? what.to : (stateItems(lifecycleOf(target.among, rule.when))[0]?.value ?? "") }) })}
+            <Led word="to">
+              <Pick name={`${name} to`} value={what.to} items={stateItems(lifecycle)} onChange={(to) => change({ ...what, to })} />
+            </Led>
           </>
         );
       }
@@ -320,24 +334,25 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
       case "forge_mark_ready":
       case "forge_merge":
       case "forge_auto_merge":
-        return aim({ act: what.act, target: what.target, label: name, onTarget: (target) => change({ ...what, target }) });
+        return aim({ act: what.act, target: what.target, label: name, lead, onTarget: (target) => change({ ...what, target }) });
       case "forge_request_reviewers":
         return (
           <>
-            {aim({ act: what.act, target: what.target, label: name, onTarget: (target) => change({ ...what, target }) })}
+            {aim({ act: what.act, target: what.target, label: name, lead, onTarget: (target) => change({ ...what, target }) })}
             <Field label="Reviewers, comma separated" value={what.from.join(", ")} onCommit={(text) => change({ ...what, from: text.split(",").map((one) => one.trim()).filter((one) => one !== "") })} />
           </>
         );
       case "draft":
         return (
           <>
-            {aim({ act: what.act, target: what.target, label: name, onTarget: (target) => change({ ...what, target }) })}
+            {aim({ act: what.act, target: what.target, label: name, lead, onTarget: (target) => change({ ...what, target }) })}
             <Wrapped label="Message" keep={`workflows:draft:${key}`} value={what.template} onCommit={(template) => change({ ...what, template })} />
           </>
         );
       case "start_job":
         return (
           <>
+            <Word>{lead}</Word>
             <Pick name={`${name} workflow`} value={what.workflow ?? ""} blank items={workflows.map((one) => ({ value: one, label: one }))} onChange={(workflow) => change({ act: what.act, prompt: what.prompt, ...(workflow === "" ? {} : { workflow }) })} />
             <Wrapped label="Prompt" keep={`workflows:prompt:${key}`} value={what.prompt} onCommit={(prompt) => change({ ...what, prompt })} />
           </>
@@ -345,21 +360,42 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
       case "start_watch":
         return (
           <>
+            <Word>{lead}</Word>
             <Field label="Recipe" value={what.recipe} onCommit={(recipe) => change({ ...what, recipe })} />
             <Lines label="Values, name=value" keep={`workflows:values:${key}`} lines={Object.entries(what.values).map(([name, value]) => `${name}=${value}`)} onCommit={(lines) => change({ ...what, values: Object.fromEntries(lines.flatMap((line) => (line.includes("=") ? [[line.slice(0, line.indexOf("=")).trim(), line.slice(line.indexOf("=") + 1).trim()] as const] : []))) })} />
             <Field label="Deploy" value={what.deploy ?? ""} onCommit={(deploy) => change({ act: what.act, recipe: what.recipe, values: what.values, ...(deploy === "" ? {} : { deploy }) })} />
           </>
         );
       case "tell":
-        return <Wrapped label="Message" keep={`workflows:tell:${key}`} value={what.message} onCommit={(message) => change({ ...what, message })} />;
+        return (
+          <>
+            <Word>{lead}</Word>
+            <Wrapped label="Message" keep={`workflows:tell:${key}`} value={what.message} onCommit={(message) => change({ ...what, message })} />
+          </>
+        );
       case "wake":
-        return null;
+        return <Word>{lead}</Word>;
       case "run_command":
-        return <Field label="Command" mono value={what.command} onCommit={(command) => change({ ...what, command })} />;
+        return (
+          <>
+            <Word>{lead}</Word>
+            <Field label="Command" mono value={what.command} onCommit={(command) => change({ ...what, command })} />
+          </>
+        );
       case "run_skill":
-        return <Field label="Skill" value={what.skill} onCommit={(skill) => change({ ...what, skill })} />;
+        return (
+          <>
+            <Word>{lead}</Word>
+            <Field label="Skill" value={what.skill} onCommit={(skill) => change({ ...what, skill })} />
+          </>
+        );
       case "run_drone":
-        return <Wrapped label="Prompt" keep={`workflows:drone:${key}`} value={what.prompt} onCommit={(prompt) => change({ ...what, prompt })} />;
+        return (
+          <>
+            <Word>{lead}</Word>
+            <Wrapped label="Prompt" keep={`workflows:drone:${key}`} value={what.prompt} onCommit={(prompt) => change({ ...what, prompt })} />
+          </>
+        );
     }
   };
 
@@ -472,16 +508,14 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
           {rule.does.map((one, at) => (
             <li key={`${one.what.act}-${at}`}>
               <Clause remove={rule.does.length === 1 ? undefined : { name: "Remove act", onPress: () => keep({ ...rule, does: rule.does.filter((_, index) => index !== at) }) }}>
-                <Word>{said(one.what.act)}</Word>
-                {fields({ what: one.what, name: `${said(one.what.act)} ${at + 1}`, change: (next) => !missing(next) && setAct(at, next) })}
+                {fields({ what: one.what, name: `${said(one.what.act)} ${at + 1}`, lead: said(one.what.act), change: (next) => !missing(next) && setAct(at, next) })}
               </Clause>
             </li>
           ))}
           {making === undefined ? null : (
             <li key={making.key}>
               <Clause remove={{ name: "Remove act", onPress: () => setMaking(undefined) }}>
-                <Word>{said(making.act.act)}</Word>
-                {fields({ what: making.act, name: said(making.act.act), change: completed })}
+                {fields({ what: making.act, name: said(making.act.act), lead: said(making.act.act), change: completed })}
               </Clause>
             </li>
           )}

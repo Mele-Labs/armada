@@ -12,6 +12,7 @@ import {
   type EdgeProps,
   type Node,
   type NodeProps,
+  type Viewport,
 } from "@xyflow/react";
 import { Ban, Check, CircleDot, Clock, Drone, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Trash2, UserCheck, type LucideIcon } from "lucide-react";
 import {
@@ -23,6 +24,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
@@ -558,20 +560,42 @@ function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
 /** A pan asked for: the rectangles to bring into view, and whether they are what changed. */
 type Pan = { n: number; rects: readonly Rect[]; follow: boolean };
 
-/** Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met. */
-function Pans({ pan, content, covered }: { pan: Pan | undefined; content: { width: number; height: number }; covered: number }) {
+/**
+ * Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met.
+ * **A pan made for a pick is put back when the pick is let go** (`open` turns false), where the person has not moved the canvas since: it moved only to clear the panel.
+ */
+function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: { width: number; height: number }; covered: number; open: boolean }) {
   const flow = useReactFlow();
   const width = useStore((state) => state.width);
   const height = useStore((state) => state.height);
   const done = useRef(0);
+  /** Where the canvas stood before the first pan made while something was picked, and where the last pan here left it. */
+  const home = useRef<Viewport | undefined>(undefined);
+  const left = useRef<Viewport | undefined>(undefined);
   useEffect(() => {
     if (pan === undefined || pan.n === done.current || width === 0 || height === 0) return;
     done.current = pan.n;
-    const next = panTo(pan.rects, flow.getViewport(), { width: Math.max(1, width - covered), height }, content, pan.follow);
-    if (next !== undefined) void flow.setViewport(next);
+    const was = flow.getViewport();
+    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow);
+    if (next === undefined) return;
+    if (open && home.current === undefined) home.current = was;
+    left.current = next;
+    void flow.setViewport(next);
     // The request is what runs it: a resize or new lanes leave the view where the person put it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow, pan, width, height, covered]);
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (wasOpen.current && !open) {
+      const back = home.current;
+      const mine = left.current;
+      home.current = undefined;
+      left.current = undefined;
+      const at = flow.getViewport();
+      if (back !== undefined && mine !== undefined && at.zoom === mine.zoom && Math.abs(at.x - mine.x) < 1 && Math.abs(at.y - mine.y) < 1) void flow.setViewport(back);
+    }
+    wasOpen.current = open;
+  }, [flow, open]);
   return null;
 }
 
@@ -862,7 +886,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   return (
     <Hold.Provider value={hold}>
-      <div ref={frame} className="armada-lane-canvas" data-own-arrows="" role="group" aria-label={label} onKeyDown={keys}>
+      <div ref={frame} className="armada-lane-canvas" data-own-arrows="" role="group" aria-label={label} style={{ "--lane-head": `${GEO.head}px` } as CSSProperties} onKeyDown={keys}>
         <GraphCanvas<CanvasNode, CanvasEdge>
           surface="armada-lane-surface"
           label={label}
@@ -875,7 +899,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
           panOnScroll
           {...(connectable ? { onConnect: connect, isValidConnection: joinable } : {})}
         >
-          <Pans pan={pan} covered={covered} content={{ width: placement.width, height: placement.height }} />
+          <Pans pan={pan} covered={covered} open={picked !== undefined} content={{ width: placement.width, height: placement.height }} />
           <Heads lanes={lanes} placement={placement} />
         </GraphCanvas>
       </div>
