@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use adapter_traits::TicketState;
 use api::Next;
 use ipc::{Event, SessionId};
 use store::rule_act_standing as standing;
@@ -176,7 +177,7 @@ async fn a_write_the_tracker_cannot_make_is_kept_as_not_carried_with_why_and_rai
 #[tokio::test]
 async fn a_move_to_a_state_the_ticket_lifecycle_gives_no_tracker_word_is_not_carried_and_says_so() {
     let tracker = Arc::new(FakeTracker::empty());
-    // Armada's own ticket lifecycle lists no tracker word for any state: the Workspace says what its tracker calls them.
+    // This tracker declares no words, so Armada's own ticket lifecycle lists none for In progress: the Workspace says what its tracker calls it.
     // No tracker word reads a ticket into To do either, so the rule names any ticket the Job holds.
     let rig = rig_with(&tracker, MOVES_ANY_TICKET, false);
     let job = rig.start().await;
@@ -189,6 +190,25 @@ async fn a_move_to_a_state_the_ticket_lifecycle_gives_no_tracker_word_is_not_car
     assert_eq!(moved.len(), 1, "{rows:?}");
     assert_eq!((moved[0].1.as_str(), moved[0].3.as_str()), (standing::NOT_CARRIED, "The ticket lifecycle names no tracker word for In progress"));
     assert!(items(&rig, &job).await.iter().all(|one| one.text != "Move ARM-41 to In progress"), "and nothing is asked");
+}
+
+#[tokio::test]
+async fn a_move_writes_the_word_the_trackers_own_set_gives_where_no_lifecycle_lists_one() {
+    let tracker = Arc::new(FakeTracker::empty());
+    let held = Arc::clone(&tracker);
+    let fixed: &'static [(TicketState, &str)] = &[(TicketState::InProgress, "in_progress")];
+    let rig = rig_fitted(move |fittings| fittings.trackers = Arc::new(FakeTrackers::empty().tracker(held).ticket_words(fixed)));
+    kit_file(&rig, "rules", "write.yml", &MOVES_ANY_TICKET.replace("do:", "autonomy: acts\ndo:"));
+    let job = rig.start().await;
+    let at = rig.fleet.now().as_str().to_string();
+    rig.fleet.store().lock().await.take_on_lifecycle_instance(job.as_str(), "ticket", "ARM-41", &[], &at).expect("taken on");
+    approved(&rig, &job).await;
+    assert_eq!(states(&kept(&rig, &job).await), [standing::PLANNED]);
+
+    Arc::clone(&rig.fleet).rule_acts_carried_out().await;
+    let done = kept(&rig, &job).await;
+    assert_eq!((done[0].1.as_str(), done[0].3.as_str()), (standing::DONE, "Moved ARM-41 to in_progress"));
+    assert_eq!(tracker.writes(), [IssueWritten::Moved { reference: "ARM-41".into(), status: "in_progress".into() }]);
 }
 
 #[tokio::test]

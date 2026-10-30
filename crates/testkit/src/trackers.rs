@@ -79,6 +79,12 @@ impl FakeTrackers {
         self
     }
 
+    /// These words for the ticket's states, declared for a Manifest that names no provider.
+    pub fn ticket_words(self, words: &'static [(TicketState, &'static str)]) -> FakeTrackers {
+        self.ticket_words.lock().expect("not poisoned").insert(None, words);
+        self
+    }
+
     /// These words for the ticket's states, declared by the Manifests that name `provider`.
     pub fn ticket_words_named(self, provider: &str, words: &'static [(TicketState, &'static str)]) -> FakeTrackers {
         self.ticket_words.lock().expect("not poisoned").insert(Some(provider.to_string()), words);
