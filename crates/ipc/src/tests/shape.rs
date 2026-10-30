@@ -52,7 +52,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("show_file", shape::of::<crate::ShowFile>()),
         ("show_sketch", shape::of::<crate::ShowSketch>()),
         ("show_window", shape::of::<crate::ShowWindow>()),
-        ("start_another_session", shape::of::<crate::StartAnotherSession>()),
+        ("start_another_session", shape::of::<crate::StartAnotherSessions>()),
         ("start_watch", shape::of::<crate::StartWatch>()),
         ("stop_process", shape::of::<crate::StopProcess>()),
         ("stop_watch", shape::of::<crate::StopWatch>()),

@@ -245,3 +245,34 @@ test("a Words mod that is switched off asks Fleet for nothing, and links nothing
   expect(list).not.toHaveBeenCalled();
   expect(words(seen.at(-1)!, `Cite ${KEY}`)).toEqual([]);
 });
+
+/** A thread in the `store` repository whose tracker lists an issue at `listedUrl`, drawn until Fleet's rules and that list have arrived. */
+async function pressTaught(address: string, listedUrl: string) {
+  const list = wordRulesFrom(() => [{ address: "https://store.atlassian.net/browse/{match}" }]);
+  const listIssues = vi.fn(async () => ({ ok: true as const, value: { issues: [{ reference: "STORE-1", url: listedUrl }] } }));
+  (window as unknown as { armada: object }).armada = { ...(window as unknown as { armada: object }).armada, listIssues };
+  const openLink = vi.fn();
+  const thread = { ...session("01STOREJOB0000000000000000", "Job in store"), manifestId: "store" } as Session;
+  const { seen, render } = draw([thread], thread);
+  await act(async () => render({ ...hostOf(() => undefined), repositories: REPOSITORIES, openLink }));
+  await act(async () => {
+    await vi.waitFor(() => expect(list).toHaveBeenCalled());
+    await vi.waitFor(() => expect(listIssues).toHaveBeenCalled());
+    await new Promise((done) => setTimeout(done, 50));
+  });
+  vi.mocked(openInPanel).mockClear();
+  seen.at(-1)!.open({ kind: "link", id: address, title: KEY });
+  return { openLink };
+}
+
+test("a taught link at a host the repository's issues are also listed at opens the side panel as an issue, and not the browser", async () => {
+  const { openLink } = await pressTaught("https://store.atlassian.net/browse/STORE-1234", "https://store.atlassian.net/browse/STORE-1");
+  expect(openInPanel).toHaveBeenCalledWith({ kind: "issue", number: KEY, address: "https://store.atlassian.net/browse/STORE-1234", root: "/code/store", manifestId: "store" });
+  expect(openLink).not.toHaveBeenCalled();
+});
+
+test("a taught link at a host no listed issue uses opens in the browser, and not the side panel", async () => {
+  const { openLink } = await pressTaught("https://elsewhere.atlassian.net/browse/STORE-1234", "https://store.atlassian.net/browse/STORE-1");
+  expect(openLink).toHaveBeenCalledWith("https://elsewhere.atlassian.net/browse/STORE-1234");
+  expect(openInPanel).not.toHaveBeenCalled();
+});

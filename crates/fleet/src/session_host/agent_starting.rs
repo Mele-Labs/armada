@@ -18,14 +18,13 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, HostedSessions, Refusal};
 use ipc::{
     ForkFrom, ForkThisSession, Instant, ManifestId, SessionHeld, SessionLink, SessionRecord, SessionRow,
-    StartAnotherSession, StartSession, WaitingAct, WaitingActKind, WaitingItem, WaitingSource,
+    StartAnotherSession, StartSession, WaitingAct, WaitingActKind, WaitingItem, WaitingSource, AGENT_START_UNPLACED,
 };
 use store::{AttachmentState, Holder, KeptAttachment, Store};
 
 use super::linking::GROUP;
 use crate::daemon::Fleet;
 
-const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
 const AGENT_START_EMPTY: &str = "fleet.agent_start_empty";
 
 /// On the new Session, naming the one whose agent started it; and on that one, naming the new.
