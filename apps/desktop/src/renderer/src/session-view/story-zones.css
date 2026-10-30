@@ -1,4 +1,4 @@
-/* The Job's story: Completed, Now and Next (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. The zones sit on one scrolling timeline, the spine. */
+/* The Job's story: Done, Now and Open (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. The zones sit on one scrolling timeline, the spine. */
 
 /* ---- The rows --------------------------------------------------------------------------------------------- */
 
@@ -42,7 +42,7 @@
 .sv-made__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-made__age { color: var(--fg-subtle); font-size: var(--text-2xs); }
 
-/* By kind: a short list under each kind's name. The name is a sub-heading to Completed's strip: on the strip's own left edge, in sentence case and the quiet ink, with a
+/* By kind: a short list under each kind's name. The name is a sub-heading to Done's strip: on the strip's own left edge, in sentence case and the quiet ink, with a
    gap above each after the first. */
 .sv-kind { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .sv-kind + .sv-kind { margin-block-start: var(--space-2); }
@@ -60,7 +60,7 @@
 
 .sv-panel__body > .sv-workflow { padding-block: var(--space-1); }
 
-/* How Completed is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
+/* How Done is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
 .sv-ledger-view { display: inline-flex; align-items: center; gap: var(--space-1); }
 
 /* ---- The spine ------------------------------------------------------------------------------------------------ */
@@ -73,13 +73,13 @@
 .sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel.sv-panel:is([data-area="now"], [data-area="step-now"])[data-area]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
 .sv-spine .sv-panel.sv-panel:is([data-area="next"], [data-area="step-next"])[data-area]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
-/* The line starts at Completed's first marker. The bands hold at the column's top while their zone passes under them, so each has the column's ground to cover it. */
+/* The line starts at Done's first marker. The bands hold at the column's top while their zone passes under them, so each has the column's ground to cover it. */
 .sv-spine .sv-panel:is([data-area="brief"], [data-area="done"])::before { inset-block-start: calc(var(--legend-h) / 2); }
-/* Folded, the Brief keeps a stretch of line under it down to Completed. */
+/* Folded, the Brief keeps a stretch of line under it down to Done. */
 .sv-spine .sv-panel[data-area="brief"] { padding-block-end: var(--space-3); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: sticky; inset-block-start: 0; z-index: 2; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: var(--ground); box-shadow: none; color: var(--fg-muted); }
-/* The marker on the line: a hollow dot for Completed and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
+/* The marker on the line: a hollow dot for Done and Open, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
 .sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1)); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--ground); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band { color: var(--fg-default); }
 .sv-spine .sv-panel:is([data-area="now"], [data-area="step-now"]) > .sv-panel__band::after { inset-inline-start: calc(var(--line) + var(--border-width) / 2 - var(--space-2) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }
@@ -107,9 +107,9 @@
 .sv-nav .sv-flight__open { padding-inline: 0; }
 .sv-nav .sv-flight__open > .sv-group__tasks { padding-inline: 0; }
 
-/* ---- The Brief: the first beat on the spine, above Completed -------------------------------------------------- */
+/* ---- The Brief: the first beat on the spine, above Done -------------------------------------------------- */
 
-/* Its band is one press across the width: the label, the first line of the brief, a caret that turns when it is open. Its band covers the line above its marker as the other bands do, and Completed's runs on from the Brief's. */
+/* Its band is one press across the width: the label, the first line of the brief, a caret that turns when it is open. Its band covers the line above its marker as the other bands do, and Done's runs on from the Brief's. */
 .sv-panel__body[hidden] { display: none; }
 .sv-brief__press { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-3); min-width: 0; min-height: var(--legend-h); padding: 0 var(--space-2) 0 0; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: start; cursor: pointer; }
 .sv-brief__press:hover { color: var(--fg-default); }

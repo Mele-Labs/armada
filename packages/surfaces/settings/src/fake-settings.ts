@@ -9,7 +9,7 @@ type Extra = Partial<Pick<Setting, "saved" | "applies" | "pending_restart" | "ov
 /** Each section's group, as `config::settings` names it. */
 const GROUP: Record<string, string> = {
   Limits: "Fleet", Timeouts: "Fleet", Retention: "Fleet", Machine: "Fleet", Account: "Fleet", Store: "Fleet", Harness: "Agents", Model: "Agents", Effort: "Agents", Plan: "Agents", Prompts: "Prompts",
-  Features: "Features", Editor: "Tools", Terminal: "Tools", Links: "Tools", Spacing: "Appearance", Bridge: "Appearance",
+  Features: "Features", Workflows: "Features", Editor: "Tools", Terminal: "Tools", Links: "Tools", Spacing: "Appearance", Bridge: "Appearance",
 };
 
 function row(section: string, key: string, title: string, description: string, kind: SettingKind, shipped: SettingValue, extra: Extra = {}): Setting {
@@ -81,6 +81,8 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Plan", "plan.contextHandoff", "Large context", "", { kind: "choice", options: ["ask", "carry on automatically", "never"] }, "ask", { tip: "Context limit" }),
     row("Prompts", "prompts.droneBaseline", "Drone baseline", "What every drone is told before its step's own brief.", PROMPT, BASELINE),
     row("Prompts", "prompts.proposer", "Job proposer", "What the job proposer is told before the request.", PROMPT, PROPOSER),
+    row("Features", "features.workflows", "Workflows for Jobs", "A Job follows a workflow's steps. Off, every Job is a plain Job.", BOOLEAN, true),
+    row("Workflows", "workflows.off", "Workflows switched off", "Workflows a Job is not offered and cannot be given, on this machine or in one repository.", { kind: "json" }, { machine: [], repositories: {} }),
     row("Features", "features.helmCanAct", "Helm can act", "Helm may redirect a job itself. Off, Helm reads one and suggests it.", BOOLEAN, true, { applies: "at_restart" }),
     row("Features", "features.disputeReviews", "Dispute reviews", "A job that disputes a Fleet notice starts a review job in Armada, and Fleet reads replies for pushback. Off, the dispute is kept and nothing starts.", BOOLEAN, false),
     row("Features", "features.draftPullRequests", "Draft pull requests", "A pull request is opened as a draft unless the repository, the workflow or the job says otherwise.", BOOLEAN, false),

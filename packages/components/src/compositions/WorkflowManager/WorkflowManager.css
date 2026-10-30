@@ -83,10 +83,10 @@
   list-style: none;
 }
 
-/* The name, and a column the replaces glyph keeps whether a row has one or not. */
+/* The name, a column the replaces glyph keeps whether a row has one or not, and the column the switch keeps. */
 .armada-wm__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--space-6);
+  grid-template-columns: minmax(0, 1fr) var(--space-6) auto;
   align-items: center;
 }
 
@@ -124,6 +124,21 @@
   align-items: center;
   justify-content: center;
   color: var(--fg-subtle);
+}
+
+/* The switch's column is as wide as a switch whether a row has one or not, so the switches stand in a line. A workflow off on the machine says so in its place. */
+.armada-wm__switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--space-12);
+  padding-right: var(--space-2);
+}
+.armada-wm__off-machine {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
 }
 
 /* ---- The picked workflow -------------------------------------------------------------------- */

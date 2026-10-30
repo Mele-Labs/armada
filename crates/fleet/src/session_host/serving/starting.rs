@@ -118,6 +118,7 @@ where
                     auto_land: false,
                     mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                     start_held: held,
+                    workflow_chosen: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }

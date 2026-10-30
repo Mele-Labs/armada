@@ -30,19 +30,19 @@ test("a hidden Activity, Bays or Flight control is not drawn, and the Jobs list 
   await expect.element(list()).toBeVisible();
 });
 
-test("a layout hides an open Job's Next, and cannot hide Now", async () => {
+test("a layout hides an open Job's Open, and cannot hide Now", async () => {
   mount("one-session-view");
   await onScreen();
   await expect.element(list()).toBeVisible();
   install('{"version":1,"job.panels":{"hidden":["next","now"]}}');
-  // A Job with no workflow, whose story is Completed, Now and Next.
+  // A Job with no workflow, whose story is Done, Now and Open.
   await list().getByRole("button", { name: "Name the store migrations", exact: true }).click();
   await expect.poll(() => panels("Now").length).toBe(1);
-  expect(panels("Completed")).toHaveLength(1);
-  expect(panels("Next")).toHaveLength(0);
+  expect(panels("Done")).toHaveLength(1);
+  expect(panels("Open")).toHaveLength(0);
 });
 
-test("a layout that hides Next hides a workflow's steps to come, and cannot hide its current step", async () => {
+test("a layout that hides Open hides a workflow's steps to come, and cannot hide its current step", async () => {
   mount("one-session-view");
   await onScreen();
   await expect.element(list()).toBeVisible();

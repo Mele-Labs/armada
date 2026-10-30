@@ -1,5 +1,5 @@
-// The Job's story with every zone full, to see whether Completed, Now and Next balance: the real Job of `job-real-issues-tab` (ten marks in progress, in two groups), its three
-// finished groups each carrying an issue and a pull request, a dozen more things it made (documents, sketches, issues, pull requests), and Next with four groups. Mock only;
+// The Job's story with every zone full, to see whether Done, Now and Open balance: the real Job of `job-real-issues-tab` (ten marks in progress, in two groups), its three
+// finished groups each carrying an issue and a pull request, a dozen more things it made (documents, sketches, issues, pull requests), and Open with four groups. Mock only;
 // the `jobStoryFull` walk and `?scenario=job-story-full&take=` open it.
 
 import type { Session, SessionAttachment, WorkGroup, WorkTask } from "@armada/screens/src/draft/sessions";
@@ -22,7 +22,7 @@ const sketch = (title: string): SessionAttachment => ({
   drawing: scene([box("a", 0, 0, "Tab", "Reads the query", { icon: "globe", step: 1 }), box("b", 360, 0, "Fleet", "Asks the tracker", { icon: "server", step: 2 })], [arrow("a", "b", "search", undefined, 2)]),
 });
 
-/** The first groups the real Job has finished each worked an issue; naming it puts the issue and its pull request under the group in Completed. */
+/** The first groups the real Job has finished each worked an issue; naming it puts the issue and its pull request under the group in Done. */
 const ISSUE_OF: Record<string, string> = { g2: "3001", g6: "3002", g3: "3003" };
 
 const task = (id: string, text: string): WorkTask => ({ id, text, state: "open" });
@@ -45,7 +45,7 @@ const LEDGER: readonly SessionAttachment[] = [
   doc("mod-kinds", "The tracker kind of mod"),
   sketch("Query path"),
   sketch("Mod lifecycle"),
-  // A picture it wrote for him, and two a test run and a look in the browser left behind, which Completed does not list.
+  // A picture it wrote for him, and two a test run and a look in the browser left behind, which Done does not list.
   { kind: "artifact", form: "image", id: "docs/images/issues-tab.png", title: "issues-tab.png" },
   { kind: "artifact", form: "image", id: "apps/desktop/src/renderer/src/mock/__screenshots__/walks-1of4.test.tsx/the-walk-issues-tab-plays-to-its-last-step-1.png", title: "the-walk-issues-tab-plays-to-its-last-step-1.png" },
   { kind: "artifact", form: "image", id: ".playwright-mcp/check-issues.png", title: "check-issues.png" },
@@ -58,7 +58,7 @@ const WALKS = WALK_TITLES.map((title, i) => ({ id: `full-walk-${i}`, at: `2026-1
 export const s334JobStoryFull: Scenario = {
   ...base,
   name: "job-story-full",
-  says: "The real Job with every zone full: Completed holds three finished groups and a dozen things made, Now has ten marks in progress, Next has four groups",
+  says: "The real Job with every zone full: Done holds three finished groups and a dozen things made, Now has ten marks in progress, Open has four groups",
   draft: {
     ...base.draft,
     sessions: (control) => {

@@ -1,15 +1,15 @@
-// The Job's right column as one story in three zones. **Completed** is what the Job has made, in the order it made it (`ledger.ts`), read By step (each finished
+// The Job's right column as one story in three zones. **Done** is what the Job has made, folded until pressed, in the order it made it (`ledger.ts`), read By step (each finished
 // group or workflow step with its outputs beneath it) or By kind (Documents, Pull requests, Issues and Artifacts, newest first). **Now** is what it is doing
 // this minute: the agent, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
-// which pulses. **Next** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
+// which pulses. **Open** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
 // ci, the merge queue, main; a document; a mod and its Check; findings) and the follow-ups not yet settled. The plan is the spine: a finished group moves to
-// Completed carrying what it produced, and a pending output moves there when its data arrives.
+// Done carrying what it produced, and a pending output moves there when its data arrives.
 //
 // With a workflow whose step the Job is at, the zones are the workflow's steps instead: one for each, a check on the line for a finished step (folded until pressed, holding what
-// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Next holds about landing. ⌥1, ⌥2 and ⌥3
-// then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Completed, Now and Next.
+// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Open holds about landing. ⌥1, ⌥2 and ⌥3
+// then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Done, Now and Open.
 //
-// The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
+// The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Done, Now and Open and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Done's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
@@ -68,11 +68,12 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const everything = useWhole(id);
   const flow = work.workflow?.steps ?? acts?.workflows.find((one) => one.id === work.proposal?.workflow)?.steps ?? [];
   const at = work.workflow?.at;
-  // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Completed, Now and Next.
+  // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Done, Now and Open.
   const stepped = work.railOff !== true && flow.length > 0 && at !== undefined;
   const openShown = useOpenGroupShown();
   const [openOpen, setOpenOpen] = useState(true);
-  const doneFold = useFold(session, "done", stepped);
+  // Done starts folded, as a finished step of a workflow does, with a workflow or without.
+  const doneFold = useFold(session, "done", true);
   const nowFold = useFold(session, "now");
   const nextFold = useFold(session, "next");
   // A finished step opened or shut by itself; ⌥1 sets them all and clears these.
@@ -85,7 +86,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const planned = plan !== undefined && ed !== undefined;
   const drafting = planned && !plan.approved;
   const approved = planned && plan.approved;
-  // The plan stands whole in Now, to edit, while it is drafted or has marks on it; its groups are not drawn again in Completed and Next. **Whole plan** on
+  // The plan stands whole in Now, to edit, while it is drafted or has marks on it; its groups are not drawn again in Done and Open. **Whole plan** on
   // an approved plan leaves each group in its own zone and opens every one, so finished work never reads as Now.
   const editing = planned && (drafting || ed.marks.length > 0);
   const whole = planned && (editing || everything.whole);
@@ -161,7 +162,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // A zone with nothing in it is its band alone: an empty slot stays empty.
   const hasDone = view === "step" ? workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
   const done = (
-    <SvPanel label="Completed" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
+    <SvPanel label="Done" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
       {!hasDone ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {view === "step" ? (
@@ -279,7 +280,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 
   const hasNext = upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0 || kept.length > 0;
   const next = (
-    <SvPanel label="Next" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
+    <SvPanel label="Open" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
       {!hasNext ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {upcoming.length === 0 ? null : <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
@@ -351,7 +352,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     return <div className="sv-nav" onKeyDown={arrowsIn}><ol className="sv-beats" aria-label="Done">{rows}</ol></div>;
   };
 
-  // What Next held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
+  // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
   const landing =
     ahead.length === 0 && kept.length === 0 ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
@@ -476,7 +477,7 @@ export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"):
   return true;
 }
 
-/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Completed is above, to scroll back to, and Next below. */
+/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Done is above, to scroll back to, and Open below. */
 function Spine({ session, children }: { session: Session; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
