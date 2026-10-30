@@ -7,7 +7,8 @@ import { page } from "vitest/browser";
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import "./styles/index.css";
-import { askToEnd } from "./end-job";
+import { useEffect } from "react";
+import { askToEnd, dropAsk } from "./end-job";
 import { SessionsFrom, useSessionsDraft } from "./sessions-draft";
 
 let mounted: { root: Root; host: HTMLElement }[] = [];
@@ -86,4 +87,26 @@ test("a Job holding nothing in flight ends at once, with no list", async () => {
   expect(close).toHaveBeenCalledWith("s-1");
   expect(then).toHaveBeenCalledTimes(1);
   expect(document.querySelector(".sv-inflight")).toBeNull();
+});
+
+test("the list shuts when the Job it was asked on leaves the screen", async () => {
+  const close = vi.fn();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  mounted.push({ root, host });
+  // The Job's view, as `sessions.tsx` drops the ask when it unmounts.
+  const View = () => {
+    useEffect(() => () => dropAsk("s-1"), []);
+    return <End then={() => undefined} />;
+  };
+  const render = (shown: boolean) => root.render(<SessionsFrom held={serving(HOLDING, close)}>{shown ? <View /> : null}</SessionsFrom>);
+  render(true);
+
+  await page.getByRole("button", { name: "End", exact: true }).click();
+  await expect.element(page.getByText("Deploy: Rolling out")).toBeVisible();
+
+  render(false);
+  await expect.element(page.getByText("Deploy: Rolling out")).not.toBeInTheDocument();
+  expect(close).not.toHaveBeenCalled();
 });
