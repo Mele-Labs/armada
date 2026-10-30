@@ -62,7 +62,7 @@ pub use amending::{
 };
 pub use applying::{LifecycleFile, Lifecycles, Rank, Reach};
 pub use catalogue::{
-    carried, fit, fit_naming, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
+    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
     CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};

@@ -126,8 +126,9 @@ fn checked(
     // definition has said what it is.
     let unnamed = dir.join("(definition).json");
     let fitted =
-        config::fit_naming(&unnamed, text, roster, manifest, &fleet::lifecycles::lifecycles_that_apply(manifest.id().as_str()))
-            .map_err(|why| WorkflowNotSaved::Unfit { why: why.to_string() })?;
+        config::fit(&unnamed, text, roster, manifest).map_err(|why| WorkflowNotSaved::Unfit {
+            why: why.to_string(),
+        })?;
     let id = fitted.as_str().to_string();
     if id.is_empty()
         || !id

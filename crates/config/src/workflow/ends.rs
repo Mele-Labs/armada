@@ -4,14 +4,13 @@
 //! map `{ pr: approved }` that an unquoted `- pr: approved` is, and for the first of several
 //! instances `any ticket: closed`, which an unquoted line reads as the map `{ "any ticket": closed }`.
 //! Whether the lifecycle exists is not asked here: a file is read before anyone knows which apply to
-//! the repository, and [`names_no_lifecycle`] asks it once they are known.
+//! the repository, and [`names_no_lifecycle`] asks it once Fleet does.
 
 use std::fmt;
 
 use core_model::{Lifecycle, LifecycleEnd, NotALifecycleEnd, StepEnd};
 use serde_yaml_ng::Value;
 
-use super::step::Step;
 use crate::error::{Fault, Refusal};
 use crate::yaml;
 
@@ -148,19 +147,23 @@ impl fmt::Display for NamesNoLifecycle {
     }
 }
 
-/// Every lifecycle end in `steps` that `lifecycles` cannot reach, in the order written.
-pub fn names_no_lifecycle(steps: &[Step], lifecycles: &[Lifecycle]) -> Vec<NamesNoLifecycle> {
+/// Every lifecycle end among `steps` (each a step's id and what ends it) that `lifecycles` cannot
+/// reach, in the order written.
+pub fn names_no_lifecycle<'a>(
+    steps: impl IntoIterator<Item = (&'a str, &'a [StepEnd])>,
+    lifecycles: &[Lifecycle],
+) -> Vec<NamesNoLifecycle> {
     let known = || lifecycles.iter().map(|one| one.id().to_string()).collect::<Vec<_>>();
     let mut refused = Vec::new();
-    for step in steps {
-        for end in step.ends_on().iter().filter_map(StepEnd::lifecycle) {
+    for (step, ends) in steps {
+        for end in ends.iter().filter_map(StepEnd::lifecycle) {
             let found = lifecycles.iter().find(|one| one.id() == end.lifecycle());
             let states = match found {
                 Some(one) if one.state(end.state()).is_some() => continue,
                 Some(one) => Some(one.states().iter().map(|state| state.id().to_string()).collect()),
                 None => None,
             };
-            refused.push(NamesNoLifecycle { step: step.id().as_str().to_string(), end: end.clone(), states, lifecycles: known() });
+            refused.push(NamesNoLifecycle { step: step.to_string(), end: end.clone(), states, lifecycles: known() });
         }
     }
     refused

@@ -195,16 +195,31 @@ where
         if !ran {
             return Some((kept, ran));
         }
+        let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
+        let workflow = record.workflow.as_deref().unwrap_or("");
+        let name = self.workflow_name(manifest, workflow);
+        // A step that waited on a lifecycle state and got it wakes the agent with what happened, in
+        // the same message as the next step's instructions.
+        let woken = match from.and_then(|from| steps.get(from)) {
+            Some(left) => self.lifecycle_woken(id, left, &name, manifest).await,
+            None => None,
+        };
         // The step's own instructions go once on each entry, so a move back is told again.
-        if let Some((at, step)) = to.and_then(|at| steps.get(at).map(|step| (at, step))) {
-            let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
-            let workflow = record.workflow.as_deref().unwrap_or("");
+        let instructed = match to.and_then(|at| steps.get(at).map(|step| (at, step))) {
             // A step that asks how the work is delivered holds its instructions until the answer,
             // which sends them with it.
-            let held = step.asks_delivery && self.delivery_entered(id).await;
-            if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), steps, at).filter(|_| !held) {
-                let _ = self.told_by_fleet(id, &words, ipc::Notice::RailStep).await;
+            Some((at, step)) => {
+                let held = step.asks_delivery && self.delivery_entered(id).await;
+                rail::instructed(&name, steps, at).filter(|_| !held)
             }
+            None => None,
+        };
+        let said = match (woken, instructed) {
+            (Some(woken), Some(words)) => Some(format!("{woken}\n\n{words}")),
+            (woken, words) => woken.or(words),
+        };
+        if let Some(said) = said {
+            let _ = self.told_by_fleet(id, &said, ipc::Notice::RailStep).await;
         }
         Some((kept, ran))
     }

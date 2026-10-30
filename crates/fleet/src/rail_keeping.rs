@@ -68,7 +68,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
 /// notices and other Jobs' words are not his.
-fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> StepBits {
+pub(crate) fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> StepBits {
     let wrote = |since: &str| {
         rows.iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, at, .. } if at.as_str() >= since))
     };
@@ -274,7 +274,7 @@ where
         };
         let mut facts = Facts::of(record, reads.extra);
         if steps.iter().any(RailStep::has_lifecycle_end) {
-            let lifecycles = crate::lifecycles::lifecycles_that_apply(manifest);
+            let lifecycles = self.lifecycles_that_apply(manifest);
             (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
         }
         record.workflow_step = rail::current(&steps, &facts).map(|at| at as u32);

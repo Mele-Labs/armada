@@ -285,14 +285,18 @@ notes = """
 """
 
 [fields.ends_on]
-type = "array[enum]"
+type = "array[enum | lifecycle_state]"
 concern = "Gating"
 parent = "steps[]"
-purpose = "What the person does that ends this step, any one of them. Optional, and absent means nothing he does ends it."
+purpose = "What ends this step, any one of them: something the person does, or a lifecycle reaching a state. Optional, and absent means nothing he does ends it."
 notes = """
 **The owner's, 28 Oct 2026**: a step can end on any of several things. Fleet reads each off the Job's thread, never off the agent's word. `awaits_reply: true` means `["replied"]`, and the two spellings are read as one list. A word outside the set is refused at load, naming the set.
 
 **Placed as `awaits_reply` is.** A step before the recording step is current until a plan is recorded or any listed end holds. A walk approved before the plan was approved ends such a step and never passes a later `walks` step, which counts only an approval at or after the plan's.
+
+**A lifecycle state is an end too** (29 Oct 2026, "Workspaces, lifecycles and rules"). `pr: approved`, `ticket: closed` and `job: landed` are written as a map or as text, `any ticket: closed` for the first of several, and read beside the words. A step that lists one holds the Job until instances of that lifecycle reach the state: **every one the Job holds** unless the item says `any`, and `job: landed` waits for every Job it started. Fleet moves the Job on when a move kept for an instance satisfies it, so the agent is told to end its turn and the step raises no wait for the person. A state once reached stays reached, and an instance that is over has reached every state of its lifecycle. **The person writing on the step, or skipping it, moves the Job on too.**
+
+**Refused where it is read**, each with a sentence that names it: a lifecycle or state that is not written as a pair; a lifecycle end on a step that `delivers`, `walks`, `follows_plan` or `records_plan`, whose place is fixed by something else, so the wait goes on the step before; and, once the repository's lifecycles are known, one it does not have (`pull: approved` where the repository has `pr`, or `pr: accepted` where `pr` has no such state). A workflow refused that way is left out with the sentence, and a definition about to be saved is refused with it.
 """
 
 [fields.ends_on.values]
@@ -301,6 +305,7 @@ walk_approved = "The person approves a window the Job showed with show_window"
 sketch_approved = "The person approves a sketch the Job showed with show_sketch"
 draft_approved = "The person approves a draft the Job proposed with propose_draft, as written or with his own text. Sent back or withdrawn does not count"
 idea_picked = "The person answers the Job's AskUserQuestion by picking an option it gave a preview. Typed words, an option without a preview and Fleet's own questions do not count"
+lifecycle_state = "A lifecycle and one of its states, such as `pr: approved`. Every instance of it the Job holds must have reached the state; `any pr: approved` needs one. Read from the moves Fleet keeps for the Job's instances, never from the agent"
 
 [fields.for_requests]
 type = "string"

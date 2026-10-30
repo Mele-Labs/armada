@@ -345,7 +345,9 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
             && steps[..at].iter().enumerate().all(|(earlier, one)| !one.walks || passed(steps, earlier, facts));
     }
     if step.delivers {
-        return facts.pushed;
+        // A step that waits on a lifecycle holds the Job past the push, as a walk holds a refine step.
+        return facts.pushed
+            && steps[..at].iter().enumerate().all(|(earlier, one)| !one.has_lifecycle_end() || passed(steps, earlier, facts));
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
@@ -370,7 +372,9 @@ pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
     }
     let facts = &facts.waived(steps);
     if let Some(delivering) = steps.iter().position(|step| step.delivers).filter(|_| facts.landed) {
-        return (delivering + 1..steps.len()).find(|at| !facts.skipped.has(*at));
+        // A step after it that waits on a lifecycle is left when its end has come.
+        let over = |at: usize| facts.skipped.has(at) || (steps[at].has_lifecycle_end() && facts.any_ended(at, &steps[at].ends_on));
+        return (delivering + 1..steps.len()).find(|at| !over(*at));
     }
     // The last step waited on a lifecycle and its end has come: nothing follows it.
     let last = steps.len() - 1;

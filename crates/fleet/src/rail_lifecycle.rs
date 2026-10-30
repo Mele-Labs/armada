@@ -107,8 +107,10 @@ fn label(lifecycle: &Lifecycle, state: &StateId) -> String {
     lifecycle.state(state).map_or_else(|| state.to_string(), |one| one.label().as_str().to_string())
 }
 
-/// What the rail says of a step that waits: `Waiting on PR #812: Approved`. **Those not there yet**,
+/// What the rail says of a step that waits: `Waiting on PR #812: Approved`. **Built ahead of the wire**:
+/// a Job's row carries no sentence yet, and the Operations and TypeScript mirror task adds the field. **Those not there yet**,
 /// and `any of` where one is enough; with none held yet, the lifecycle by its name.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn waiting_on(end: &LifecycleEnd, lifecycle: &Lifecycle, reading: &Reading<'_>, name: &dyn Fn(&KeptInstance) -> String) -> String {
     let state = label(lifecycle, end.state());
     let pending: Vec<String> = match end.waits() {
