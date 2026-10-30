@@ -38,7 +38,7 @@ pub(crate) fn port(gateway: &Gateway) -> Result<u16, Response> {
 
 /// A read of Fleet, decoded as the type Fleet sends. `Ok(None)` is Fleet
 /// saying the thing is not there.
-async fn read<T: DeserializeOwned>(
+pub(crate) async fn read<T: DeserializeOwned>(
     gateway: &Gateway,
     path: &str,
     what: &'static str,

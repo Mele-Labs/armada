@@ -181,6 +181,8 @@ export type Item = { mac: Mac; session: PhoneSession };
 export type Home = {
   /** More than one Mac is paired, so each row names its Mac. */
   several: boolean;
+  /** Held on their start cards, newest first. */
+  drafts: Item[];
   needs: Item[];
   running: Item[];
   /** Macs that need the owner: not paired any more, or not answering. */
@@ -194,8 +196,9 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
   const all = (pick: (mac: Mac) => PhoneSession[]) => paired.flatMap((mac) => pick(mac).map((session) => ({ mac, session })));
   return {
     several: macs.length > 1,
-    needs: all((mac) => mac.needs).sort((a, b) => time(a.session.waiting_since ?? a.session.started_at) - time(b.session.waiting_since ?? b.session.started_at)),
-    running: all((mac) => mac.live.filter((session) => !session.waiting)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
+    drafts: all((mac) => mac.live.filter((session) => session.held)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
+    needs: all((mac) => mac.needs.filter((session) => !session.held)).sort((a, b) => time(a.session.waiting_since ?? a.session.started_at) - time(b.session.waiting_since ?? b.session.started_at)),
+    running: all((mac) => mac.live.filter((session) => !session.waiting && !session.held)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };
 }
