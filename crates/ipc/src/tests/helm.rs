@@ -168,7 +168,7 @@ fn a_helm_record() -> SessionRecord {
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
-        workflow_waiting_on: None,
+        workflow_waiting_on: Vec::new(),
     }
 }
 

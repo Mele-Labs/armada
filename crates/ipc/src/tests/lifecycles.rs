@@ -297,10 +297,10 @@ fn a_rows_waiting_on_line_is_left_out_when_absent_and_read_back_when_there() {
 
     let mut record = row(None);
     assert!(!encode(&record).expect("encodes").contains("workflow_waiting_on"));
-    record.workflow_waiting_on = Some("Waiting on PR #812: Approved".to_string());
+    record.workflow_waiting_on = vec!["Waiting on PR #812: Approved".to_string(), "Waiting on ARM-41: Closed".to_string()];
     let bytes = encode(&record).expect("encodes");
-    assert!(bytes.contains(r#""workflow_waiting_on":"Waiting on PR #812: Approved""#), "{bytes}");
+    assert!(bytes.contains(r#""workflow_waiting_on":["Waiting on PR #812: Approved","Waiting on ARM-41: Closed"]"#), "{bytes}");
     let read: SessionRecord = decode("a row", bytes.as_bytes()).expect("reads back");
-    assert_eq!(read.workflow_waiting_on.as_deref(), Some("Waiting on PR #812: Approved"));
-    assert!(include_str!("../../../../packages/protocol/src/sessions.ts").contains("workflow_waiting_on?: string;"));
+    assert_eq!(read.workflow_waiting_on, record.workflow_waiting_on, "in the order the step lists them");
+    assert!(include_str!("../../../../packages/protocol/src/sessions.ts").contains("workflow_waiting_on?: string[];"));
 }

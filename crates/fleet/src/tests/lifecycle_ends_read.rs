@@ -159,19 +159,19 @@ fn a_step_says_what_it_waits_on_while_it_waits_and_nothing_once_an_end_has_come(
     let said = |step: &RailStep, held: &Held| rail_lifecycle::waiting(step, &lifecycles, held, &called);
     let review = RailStep { ends_on: vec![end("pr: approved")], ..step("Review") };
     let one = Held { instances: vec![instance("pr", "812")], moves: Vec::new() };
-    assert_eq!(said(&review, &one).as_deref(), Some("Waiting on PR #812: Approved"));
+    assert_eq!(said(&review, &one), ["Waiting on PR #812: Approved"]);
     let got = Held { instances: vec![instance("pr", "812")], moves: vec![moved("pr", "812", "in:approved")] };
-    assert_eq!(said(&review, &got), None, "an end that has come is not waited on");
+    assert!(said(&review, &got).is_empty(), "an end that has come is not waited on");
 
     let both = RailStep { ends_on: vec![end("pr: approved"), end("ticket: closed")], ..step("Review") };
     let held = Held { instances: vec![instance("pr", "812"), instance("ticket", "ARM-41")], moves: Vec::new() };
-    assert_eq!(said(&both, &held).as_deref(), Some("Waiting on PR #812: Approved; Waiting on ARM-41: Closed"), "one sentence for each end");
+    assert_eq!(said(&both, &held), ["Waiting on PR #812: Approved", "Waiting on ARM-41: Closed"], "one sentence for each end, in the order the step lists them");
     let closed = Held { moves: vec![moved("ticket", "ARM-41", "in:closed")], ..held };
-    assert_eq!(said(&both, &closed), None, "any one of the ends ends the step");
+    assert!(said(&both, &closed).is_empty(), "any one of the ends ends the step");
 
-    assert_eq!(said(&step("Implement"), &one), None, "a step that waits on no lifecycle");
+    assert!(said(&step("Implement"), &one).is_empty(), "a step that waits on no lifecycle");
     let unknown = RailStep { ends_on: vec![end("release: shipped")], ..step("Ship") };
-    assert_eq!(said(&unknown, &one), None, "nor one whose lifecycle the Job does not have");
+    assert!(said(&unknown, &one).is_empty(), "nor one whose lifecycle the Job does not have");
 }
 
 #[test]

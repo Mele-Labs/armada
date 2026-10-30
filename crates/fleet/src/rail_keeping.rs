@@ -292,7 +292,7 @@ where
         let at = rail::current(&steps, &facts);
         record.workflow_step = at.map(|at| at as u32);
         let name = |one: &store::KeptInstance| rail_lifecycle::named(one, reads.titles.get(&one.key).map(String::as_str));
-        record.workflow_waiting_on = at.and_then(|at| rail_lifecycle::waiting(&steps[at], &lifecycles, &reads.held, &name));
+        record.workflow_waiting_on = at.map(|at| rail_lifecycle::waiting(&steps[at], &lifecycles, &reads.held, &name)).unwrap_or_default();
         let waits_on_reply = at.is_some_and(|at| {
             rail_ends::ends_of(&steps, at).into_iter().any(|end| end.waits_on() == Waiter::ThePerson(WaitingSource::Replied))
         });

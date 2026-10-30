@@ -112,7 +112,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
-        workflow_waiting_on: None,
+        workflow_waiting_on: Vec::new(),
     }
 }
 

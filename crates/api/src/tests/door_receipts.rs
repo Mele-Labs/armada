@@ -129,7 +129,7 @@ fn long_lived() -> SessionRecord {
         started: None,
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
-        workflow_waiting_on: None,
+        workflow_waiting_on: Vec::new(),
     }
 }
 

@@ -125,24 +125,24 @@ pub(crate) fn waiting_on(end: &LifecycleEnd, lifecycle: &Lifecycle, reading: &Re
 }
 
 /// What a step that waits on a lifecycle says while it waits: one `waiting_on` sentence for each of its
-/// ends, joined by `; `. **`None` once any end has come**, since any one ends the step, and `None` for a
-/// step that lists no lifecycle end or only ones the Job's lifecycles do not have.
+/// ends, in the order the step lists them. **Empty once any end has come**, since any one ends the step,
+/// and empty for a step that lists no lifecycle end or only ones the Job's lifecycles do not have.
 pub(crate) fn waiting(
     step: &RailStep,
     lifecycles: &[Lifecycle],
     held: &Held,
     name: &dyn Fn(&KeptInstance) -> String,
-) -> Option<String> {
+) -> Vec<String> {
     let mut said = Vec::new();
     for end in step.lifecycle_ends() {
         let Some(lifecycle) = lifecycles.iter().find(|one| one.id() == end.lifecycle()) else { continue };
         let reading = read(end, lifecycle, held);
         if reading.met(end.waits()) {
-            return None;
+            return Vec::new();
         }
         said.push(waiting_on(end, lifecycle, &reading, name));
     }
-    (!said.is_empty()).then(|| said.join("; "))
+    said
 }
 
 /// The one line that wakes the agent: what got there, and which step that ended, or, for a delivering

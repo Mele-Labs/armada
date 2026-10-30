@@ -208,9 +208,9 @@ export type SessionRecord = {
   skipped_steps?: number[];
   /**
    * What the step the Job is on waits for, as the rail words it: `Waiting on PR #812: Approved`. One sentence for each lifecycle end
-   * the step lists that has not come, joined by `; `. Absent where the step waits on no lifecycle, and once an end has come.
+   * the step lists that has not come, in the order the step lists them. Absent where the step waits on no lifecycle, and once an end has come.
    */
-  workflow_waiting_on?: string;
+  workflow_waiting_on?: string[];
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
