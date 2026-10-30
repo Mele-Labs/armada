@@ -1,5 +1,5 @@
 // A Job's Workflow view: the workflow and the tickets, pull request and deploy it holds (`LaneCanvas`), with the comments on the pull request under the canvas as a monitor.
-// **The body is one**: `LanesBody` is drawn in the app's side panel on a window narrower than `WIDE_WINDOW_PX`, and as a layer in the Job's spine on a wider one (`session-view/LanesLayer.tsx`), the same press or Esc closing either. The panel is the pull request panel's width. **A mock's view**: the lanes are fixtures.
+// **The body is one**: `LanesBody` is drawn in the app's side panel on a window narrower than `WIDE_WINDOW_PX`, and as a layer in the Job's spine on a wider one (`session-view/LanesLayer.tsx`), the same press or Esc closing either. The panel is the pull request panel's width. The lanes are read from what Fleet serves of the Job; the comments under them are a mock's.
 // A comment here shows that it came in and what the agent made of it; pressing it opens the pull request at that comment, where the acts on it are. A rule waiting on the person opens
 // what it needs (`rule.tsx`).
 
@@ -58,9 +58,10 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   const pull = session.attachments.find((one) => one.kind === "pull_request");
   const pick = (next: LanePick | undefined) => {
     setPicked(next);
-    // A rule waiting on the person opens what it needs.
+    // A rule waiting on the person opens what it needs; one with acts Fleet kept opens what each is.
     const needs = next?.kind === "rule" ? drawn.rules.find((one) => one.rule === next.id && one.needs !== undefined)?.needs : undefined;
     if (next !== undefined && needs !== undefined) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id, row: needs });
+    else if (next?.kind === "rule" && lanes.job.fired.some((one) => one.rule === next.id && (one.acts?.length ?? 0) > 0)) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id });
   };
   return (
     <div className="sv-lanes__body">

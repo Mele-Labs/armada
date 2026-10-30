@@ -43,9 +43,11 @@ fn crossing(lifecycles: &[Lifecycle], held: &HeldInstances) -> JobLifecycles {
                     .iter()
                     .map(|link| InstanceLink { lifecycle: link.lifecycle().as_str().to_string(), key: link.key().to_string() })
                     .collect(),
+                ended_at: None,
             })
             .collect(),
         moves: Vec::new(),
+        acts: Vec::new(),
     }
 }
 
@@ -70,7 +72,7 @@ fn what_a_job_holds_crosses_the_wire_as_its_own_types_and_reads_back_whole() {
 
 #[test]
 fn a_job_that_holds_nothing_is_three_empty_lists_and_a_newer_field_does_not_break_an_older_reader() {
-    let empty = JobLifecycles { session_id: SessionId::carried("01JOB"), lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new() };
+    let empty = JobLifecycles { session_id: SessionId::carried("01JOB"), lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new() };
     let bytes = ipc::encode(&empty).expect("encodes");
     assert!(bytes.contains(r#""lifecycles":[]"#) && bytes.contains(r#""instances":[]"#) && bytes.contains(r#""moves":[]"#), "{bytes}");
 

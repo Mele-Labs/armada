@@ -6,7 +6,7 @@ import { basename, join } from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
 import type { IpcMain } from "electron";
 
-import type { AddPackage, BindUnboundPiece, CommitToRepository, Outcome, PieceToCommit, SharePieces } from "@armada/protocol";
+import type { AddPackage, BindUnboundPiece, CommitToRepository, Outcome, PieceScope, PieceToCommit, SharePieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -63,25 +63,38 @@ export class SharingHost {
 const named = (value: unknown): value is string => typeof value === "string" && value.trim() !== "";
 const ids = (value: unknown): value is string[] | undefined => value === undefined || (Array.isArray(value) && value.every(named));
 
+/** A scope as the wire spells it, or `null`. Absent is everywhere. */
+const scopeOf = (scope: unknown): PieceScope | undefined | null => {
+  if (scope === undefined) return undefined;
+  if (typeof scope !== "object" || scope === null) return null;
+  const { kind, id } = scope as Record<string, unknown>;
+  if (kind === "everywhere") return { kind };
+  return kind === "within" && named(id) ? { kind, id } : null;
+};
+
 /** One piece's selector, or `null` for anything else. What it names is Fleet's to refuse. */
 export function pieceOf(piece: unknown): PieceToCommit | null {
   if (typeof piece !== "object" || piece === null) return null;
-  const { kind, job, deck, workflow_id, id } = piece as Record<string, unknown>;
+  const { kind, job, deck, workflow_id, id, scope } = piece as Record<string, unknown>;
   if (kind === "flight_controls" && ids(job) && ids(deck)) return { kind, ...(job === undefined ? {} : { job }), ...(deck === undefined ? {} : { deck }) };
   if (kind === "workflow" && named(workflow_id)) return { kind, workflow_id };
   if (kind === "review_tool" && named(id)) return { kind, id };
   if (kind === "manifest") return { kind };
+  if (kind === "workspace" && named(id)) return { kind, id };
+  const at = scopeOf(scope);
+  if ((kind === "lifecycle" || kind === "lifecycle_rule" || kind === "autonomy") && named(id) && at !== null) return { kind, id, ...(at === undefined ? {} : { scope: at }) };
   return null;
 }
 
 export function commitOf(body: unknown): CommitToRepository | null {
   if (typeof body !== "object" || body === null) return null;
-  const { repository, piece, overwrite } = body as Record<string, unknown>;
+  const { repository, piece, overwrite, remove } = body as Record<string, unknown>;
   const chosen = pieceOf(piece);
   if (!named(repository) || chosen === null) return null;
   if (overwrite !== undefined && typeof overwrite !== "boolean") return null;
-  // No Job is named: Fleet starts one for the commit, and refuses a body that names one.
-  return { repository, piece: chosen, ...(overwrite === undefined ? {} : { overwrite }) };
+  if (remove !== undefined && typeof remove !== "boolean") return null;
+  // No Job is named: Fleet starts one for the commit, and refuses a body that names one. `remove` is sent only when true: a Fleet older than it refuses the field.
+  return { repository, piece: chosen, ...(overwrite === undefined ? {} : { overwrite }), ...(remove === true ? { remove } : {}) };
 }
 
 export function shareOf(body: unknown): SharePieces | null {

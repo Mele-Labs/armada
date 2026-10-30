@@ -346,7 +346,7 @@ function Detail({ workflow, armada, drafts, setDrafts, drift, agent, suggestions
       first={at === 0 && acts.workspace === undefined}
       step={step}
       keep={rows?.keep ?? `${key}/${step.id}`}
-      editable={editable || lanes}
+      editable={(editable || lanes) && rows?.fixed !== true}
       live={lanes}
       {...(rows === undefined ? {} : { rows })}
       draft={drafts[`${key}/${step.id}`]}
@@ -637,7 +637,7 @@ function Step({
       )}
 
       <dl className="armada-wm-step__facts">
-        {rows === undefined ? null : (
+        {rows?.name === undefined ? null : (
           <>
             <dt id={`${id}-name`}>Name</dt>
             <dd>{rows.name(`${id}-name`)}</dd>
@@ -654,7 +654,7 @@ function Step({
               </ul>
             </dd>
           </>
-        ) : rows !== undefined ? (
+        ) : rows?.ends !== undefined ? (
           <>
             <dt id={`${id}-ends`}>Ends when</dt>
             <dd>{rows.ends(`${id}-ends`)}</dd>

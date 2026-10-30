@@ -20,6 +20,7 @@ fn instance(lifecycle: &str, key: &str) -> KeptInstance {
         seen: String::new(),
         watch_id: String::new(),
         taken_on_at: "2026-10-29T09:00:00.000Z".into(),
+        ended_at: String::new(),
     }
 }
 

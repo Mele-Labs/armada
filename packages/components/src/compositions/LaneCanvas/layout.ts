@@ -68,7 +68,7 @@ export function place(lanes: readonly LaneView[], height: number): Placement {
   lanes.forEach((lane, at) => {
     const y = at * laneH;
     // A step that names what it waits on (several Jobs, by title) is as tall as its words need.
-    const lines = lane.kind === "workflow" ? Math.max(0, ...lane.nodes.map((node) => Math.ceil((node.waiting ?? node.sub ?? "").length / GEO.subChars) - 2)) : 0;
+    const lines = lane.kind === "workflow" ? Math.max(0, ...lane.nodes.map((node) => (node.waiting ?? [node.sub ?? ""]).reduce((sum, said) => sum + Math.ceil(said.length / GEO.subChars), 0) - 2)) : 0;
     const h = (lane.kind === "workflow" ? GEO.stepH : GEO.stateH) + lines * GEO.subLine;
     bands.set(lane.id, { x: 0, y, w: width, h: laneH });
     for (const node of lane.nodes) {
@@ -168,9 +168,9 @@ export type View = { x: number; y: number; zoom: number };
 /**
  * The view that brings `rects` into the frame, or `undefined` where they already are, at the zoom they are in. The lane heads stand over the left of the frame, so what is
  * brought in clears them. **A set wider than the frame keeps its newest**: the leftmost is let go until the rest fits. `follow` puts the set at the left where it fits, so the
- * earliest of what changed is the context the person reads from; without it the pan is the least that brings the set into view, as a step by key wants.
+ * earliest of what changed is the context the person reads from; without it the pan is the least that brings the set into view, as a step by key wants. `down` moves it up or down only.
  */
-export function panTo(rects: readonly Rect[], view: View, frame: { width: number; height: number }, content: { width: number; height: number }, follow: boolean): View | undefined {
+export function panTo(rects: readonly Rect[], view: View, frame: { width: number; height: number }, content: { width: number; height: number }, follow: boolean, down = false): View | undefined {
   if (rects.length === 0 || frame.width === 0 || frame.height === 0) return undefined;
   const { zoom } = view;
   const left = GEO.head + GEO.pad;
@@ -197,6 +197,7 @@ export function panTo(rects: readonly Rect[], view: View, frame: { width: number
   const top = at.y * zoom + view.y;
   const bottom = (at.y + at.h) * zoom + view.y;
   if (top < gap || bottom > frame.height - gap) y = top < gap || at.h * zoom > frame.height - gap * 2 ? gap - at.y * zoom : frame.height - gap - (at.y + at.h) * zoom;
+  if (down) x = view.x;
   // Never past the lanes: nothing is left of the first column or right of the last.
   x = Math.min(0, content.width * zoom > frame.width ? Math.max(x, frame.width - content.width * zoom) : 0);
   y = Math.min(0, content.height * zoom > frame.height ? Math.max(y, frame.height - content.height * zoom) : 0);

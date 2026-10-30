@@ -11,6 +11,7 @@
 mod absent;
 mod bug_reports;
 mod lifecycles;
+mod piece_saving;
 mod accounts;
 mod notice_mutes;
 mod annotations;

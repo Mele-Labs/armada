@@ -712,6 +712,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/workspaces", get(crate::lifecycles::list_repository_workspaces::<D>))
         .route("/lifecycles", get(crate::lifecycles::list_lifecycles::<D>))
         .route("/lifecycles/rules", get(crate::lifecycles::list_lifecycle_rules::<D>))
+        .route("/lifecycles/pieces/save", post(crate::lifecycles::save_lifecycle_piece::<D>))
+        .route("/lifecycles/pieces/delete", post(crate::lifecycles::delete_lifecycle_piece::<D>))
         .route("/sessions/lifecycles", get(crate::lifecycles::get_job_lifecycles::<D>))
         .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))
         .route("/app_runs/draft", get(crate::app_runs::get_app_run_draft::<D>))

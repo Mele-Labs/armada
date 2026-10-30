@@ -86,6 +86,10 @@ function heldOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): W
   return workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
 }
 
+/** The steps of the workflow the Session follows, each with the id a rule names it by. Empty where Fleet does not hold the workflow. */
+export const stepsWithIds = (record: SessionRecord, workflows: readonly WorkflowSummary[]): { id: string; label: string }[] =>
+  heldOf(record, workflows)?.steps.map((step) => ({ id: step.step_id, label: step.label })) ?? [];
+
 /** What the Session's workflow lands in, as Fleet resolves it. Absent where Fleet does not say. */
 const landsOf = (record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkLanding | undefined => heldOf(record, workflows)?.lands;
 

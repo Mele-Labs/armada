@@ -1,8 +1,18 @@
 // Workspaces, lifecycles and rules, and where a Job's tickets, pull requests, deploys and started Jobs stand: the four reads,
-// and the event that carries a Job's whole. Reads only; nothing here saves a piece or moves an instance. A slice imports
-// protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
+// and the event that carries a Job's whole. Beside them, the two writes of one piece in Kit's folder; a piece in a repository's goes by
+// `commitToRepository`. Nothing here moves an instance. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { JobLifecycles, Outcome, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces } from "@armada/protocol";
+import type {
+  DeleteLifecyclePiece,
+  JobLifecycles,
+  LifecyclePieceDeleted,
+  LifecyclePieceSaved,
+  Outcome,
+  RepositoryLifecycleRules,
+  RepositoryLifecycles,
+  RepositoryWorkspaces,
+  SaveLifecyclePiece,
+} from "@armada/protocol";
 
 /** What a read came to: what Fleet answered with, or the refusal to word. */
 export type LifecyclesActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -14,6 +24,10 @@ export type LifecyclesApi = {
   listLifecycles: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycles>>;
   /** The rules that apply to one repository, where each was kept, and the files set aside. `GET /lifecycles/rules`. */
   listLifecycleRules: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycleRules>>;
+  /** `POST /lifecycles/pieces/save`: write one piece to Kit's folder, checked by Fleet's own parser first. */
+  saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
+  /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
+  deleteLifecyclePiece: (body: DeleteLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceDeleted>>;
   /** What one Job holds and where it stands, with its moves oldest first. A Job that holds nothing answers three empty lists. */
   getJobLifecycles: (sessionId: string) => Promise<LifecyclesActed<JobLifecycles>>;
   /** `job_lifecycles.changed`: one Job's lifecycles, whole, after an instance was taken on or moved. */
@@ -24,6 +38,8 @@ export const LIFECYCLES_CHANNELS = {
   listRepositoryWorkspaces: "bridge:list-repository-workspaces",
   listLifecycles: "bridge:list-lifecycles",
   listLifecycleRules: "bridge:list-lifecycle-rules",
+  saveLifecyclePiece: "bridge:save-lifecycle-piece",
+  deleteLifecyclePiece: "bridge:delete-lifecycle-piece",
   getJobLifecycles: "bridge:get-job-lifecycles",
   /** Main to every window, not a request. */
   jobLifecyclesChanged: "bridge:job-lifecycles-changed",

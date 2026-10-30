@@ -5,10 +5,13 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{InstanceStanding, JobLifecycles, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces};
+use ipc::{
+    InstanceStanding, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, PieceScope,
+    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, WireError,
+};
 use tower::ServiceExt;
 
-use crate::tests::fake::{FakeDaemon, THE_LIFECYCLE_JOB};
+use crate::tests::fake::{FakeDaemon, THE_KEPT_PIECE, THE_LIFECYCLE_JOB};
 use crate::tests::shapes::{run_id, THE_MANIFEST};
 use crate::{offered, router, Broadcaster, Served};
 
@@ -82,5 +85,76 @@ fn the_door_offers_the_jobs_read_and_none_of_the_repository_reads() {
     assert!(tools.contains(&("get_job_lifecycles", "/sessions/lifecycles", &["session_id"][..])), "{tools:?}");
     for bridge_only in ["list_repository_workspaces", "list_lifecycles", "list_lifecycle_rules"] {
         assert!(tools.iter().all(|(operation, ..)| *operation != bridge_only), "{bridge_only} reached the agent's tool set");
+    }
+}
+
+async fn post(app: &Router, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
+    let request = Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .expect("a well-formed request");
+    let response = app.clone().oneshot(request).await.expect("an answer");
+    let status = response.status();
+    let bytes = response.into_body().collect().await.expect("a body").to_bytes();
+    (status, bytes.to_vec())
+}
+
+fn workspace_to_save(id: &str) -> String {
+    format!(r#"{{"piece":{{"kind":"workspace","workspace":{{"id":"{id}","name":"My store","repositories":["01ABC"]}}}}}}"#)
+}
+
+#[tokio::test]
+async fn a_piece_saved_reaches_the_daemon_whole_and_is_answered_with_the_file_written() {
+    let (status, bytes) = post(&wired(), "/lifecycles/pieces/save", &workspace_to_save("my-store")).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let saved: LifecyclePieceSaved = ipc::decode("a save", &bytes).expect("reads");
+    assert_eq!((saved.kind, saved.id.as_str(), saved.scope, saved.replaced), (LifecyclePieceKind::Workspace, "my-store", PieceScope::Everywhere, false));
+    assert_eq!(saved.file, "/kit/my-store.yml");
+}
+
+#[tokio::test]
+async fn replacing_a_piece_is_refused_unless_the_save_says_overwrite() {
+    let app = wired();
+    let (status, bytes) = post(&app, "/lifecycles/pieces/save", &workspace_to_save(THE_KEPT_PIECE)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let error: WireError = ipc::decode("an error", &bytes).expect("an error body");
+    assert_eq!(error.code, "fleet.piece_exists");
+
+    let said = format!(r#"{{"overwrite":true,{}"#, &workspace_to_save(THE_KEPT_PIECE)[1..]);
+    let (status, bytes) = post(&app, "/lifecycles/pieces/save", &said).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let saved: LifecyclePieceSaved = ipc::decode("a save", &bytes).expect("reads");
+    assert!(saved.replaced);
+}
+
+#[tokio::test]
+async fn a_piece_deleted_is_named_by_kind_id_and_scope_and_one_kit_does_not_hold_is_the_callers_to_correct() {
+    let app = wired();
+    let said = format!(r#"{{"kind":"rule","id":"{THE_KEPT_PIECE}","scope":{{"kind":"within","id":"my-store"}}}}"#);
+    let (status, bytes) = post(&app, "/lifecycles/pieces/delete", &said).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let deleted: LifecyclePieceDeleted = ipc::decode("a delete", &bytes).expect("reads");
+    assert_eq!((deleted.kind, deleted.scope), (LifecyclePieceKind::Rule, PieceScope::Within { id: "my-store".to_string() }));
+
+    let (status, _) = post(&app, "/lifecycles/pieces/delete", r#"{"kind":"rule","id":"absent"}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn a_piece_that_is_not_a_known_kind_is_the_callers_fault_and_says_so() {
+    let (status, bytes) = post(&wired(), "/lifecycles/pieces/save", r#"{"piece":{"kind":"template"}}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let error: WireError = ipc::decode("an error", &bytes).expect("an error body");
+    assert_eq!(error.code, "api.undecodable_request");
+}
+
+/// The pieces are Bridge's to write: the agent's tool set has neither.
+#[test]
+fn the_door_offers_neither_the_save_nor_the_delete() {
+    let tools: Vec<_> = offered().into_iter().map(|shape| shape.operation).collect();
+    for bridge_only in ["save_lifecycle_piece", "delete_lifecycle_piece"] {
+        assert!(!tools.contains(&bridge_only), "{bridge_only} reached the agent's tool set");
     }
 }

@@ -8,6 +8,8 @@
 //! no Job behind; the checkout is read and never written. **A pull request that does not open
 //! loses nothing**: the Job keeps the commit on its branch, and the stream says why.
 
+mod pieces;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -17,12 +19,13 @@ use config::KitRead;
 use core_model::WorkflowSource;
 use ipc::{
     BackgroundAct, CommitToRepository, CommittedToRepository, FlightControl, FlightControlsRead,
-    PieceToCommit, ReviewToolScope, SessionId, WireError,
+    LifecyclePieceKind, PieceScope, PieceToCommit, ReviewToolScope, SessionId, WireError,
 };
 
 use crate::daemon::Fleet;
 use crate::flight_controls::repository::{check_repository, parse_repository, IN_REPOSITORY};
 use crate::flight_controls::read_at;
+use crate::piece_saving::identity::Identity;
 use crate::repositories::Served;
 use crate::requesting::{self, NotCopied};
 use crate::run_memory::JobTree;
@@ -46,10 +49,11 @@ const REVIEW_TOOLS: &str = ".armada/review-tools";
 /// The Manifest, at the workspace root.
 const MANIFEST: &str = "armada.yml";
 
-/// What one piece comes to on the branch: each file's path in the tree and its text, the commit's
-/// message, and the title the Job and its pull request carry.
+/// What one piece comes to on the branch: each file's path in the tree and its text, the paths it
+/// deletes, the commit's message, and the title the Job and its pull request carry.
 struct Copy {
     files: Vec<(String, String)>,
+    removals: Vec<String>,
     message: String,
     title: String,
 }
@@ -96,6 +100,7 @@ where
         })?;
         let main = JobTree { path: root.clone(), branch: served.manifest().base().unwrap_or("main").to_string() };
         let copy = match &asked.piece {
+            _ if asked.remove => self.piece_removed(&main, &asked.piece)?,
             PieceToCommit::FlightControls { job, deck } => self.tiles_copied(&root, &main, job, deck, asked.overwrite).await?,
             PieceToCommit::Workflow { workflow_id } => self.workflow_copied(&root, &main, workflow_id.as_str(), asked.overwrite)?,
             PieceToCommit::ReviewTool { id } => self.review_tool_copied(&main, id, asked.overwrite)?,
@@ -103,10 +108,22 @@ where
             PieceToCommit::Requests { collections, environments } => {
                 self.requests_copied(&root, &main, collections, environments, asked.overwrite).await?
             }
+            PieceToCommit::Lifecycle { id, scope } => {
+                self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Lifecycle, id, scope.clone()), asked.overwrite)?
+            }
+            PieceToCommit::LifecycleRule { id, scope } => {
+                self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Rule, id, scope.clone()), asked.overwrite)?
+            }
+            PieceToCommit::Workspace { id } => {
+                self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Workspace, id, PieceScope::Everywhere), asked.overwrite)?
+            }
+            PieceToCommit::Autonomy { id, scope } => {
+                self.piece_copied(&root, &main, Identity::of(LifecyclePieceKind::Autonomy, id, scope.clone()), asked.overwrite)?
+            }
         };
-        let paths: Vec<String> = copy.files.iter().map(|(path, _)| path.clone()).collect();
+        let paths: Vec<String> = copy.files.iter().map(|(path, _)| path.clone()).chain(copy.removals.iter().cloned()).collect();
         let held = |(at, text): &(String, String)| std::fs::read_to_string(Path::new(&root).join(at)).is_ok_and(|on| &on == text);
-        if copy.files.iter().all(held) {
+        if copy.removals.is_empty() && copy.files.iter().all(held) {
             return Err(self.commit_refusal(EXISTS, format!("{} on {} already holds this as written.", paths.join(", "), main.branch)));
         }
         let (session_id, tree) = match self.job_of_its_own(&served, copy.title.clone()).await? {
@@ -126,7 +143,7 @@ where
     /// What follows the reply: the commit on the Job's branch, its push and its pull request. A pull
     /// request that does not open is a failure of this act, **the commit and the push standing**.
     async fn copy_finished(&self, served: &Served, session_id: &SessionId, tree: &JobTree, copy: Copy, paths: &[String]) -> Result<(), Refusal> {
-        self.committed_in(tree, &copy.files, &copy.message).await.map_err(|why| self.commit_refusal(UNWRITABLE, why))?.ok_or_else(|| {
+        self.committed_in_removing(tree, &copy.files, &copy.removals, &copy.message).await.map_err(|why| self.commit_refusal(UNWRITABLE, why))?.ok_or_else(|| {
             self.commit_refusal(UNWRITABLE, format!("git found nothing to commit for {} on {}.", paths.join(", "), tree.branch))
         })?;
         let body = format!("{}.\n\nMade by Commit to repository, as a Job of its own: {}.", copy.message, paths.join(", "));
@@ -178,6 +195,7 @@ where
         let noun = if added.len() == 1 { "tile" } else { "tiles" };
         Ok(Copy {
             files: vec![(IN_REPOSITORY.to_string(), text)],
+            removals: Vec::new(),
             message: format!("Add the {noun} {}", added.join(", ")),
             title: format!("Commit the {noun} {}", named.join(", ")),
         })
@@ -214,6 +232,7 @@ where
         let named: Vec<&str> = collections.iter().chain(environments).map(String::as_str).collect();
         Ok(Copy {
             files: vec![(held.to_string(), text)],
+            removals: Vec::new(),
             message: format!("Add the requests {}", named.join(", ")),
             title: format!("Commit the requests {}", named.join(", ")),
         })
@@ -237,7 +256,7 @@ where
         let named = format!("{WORKFLOWS}/{name}");
         let held = defined.or_else(|| in_tree.join(&named).exists().then(|| named.clone()));
         let path = self.free_or_overwritten(held, named, id, tree, overwrite)?;
-        Ok(Copy { files: vec![(path, kit.text().to_string())], message: format!("Add the workflow {id}"), title: format!("Commit the workflow {id}") })
+        Ok(Copy { files: vec![(path, kit.text().to_string())], removals: Vec::new(), message: format!("Add the workflow {id}"), title: format!("Commit the workflow {id}") })
     }
 
     /// A review tool from the person's Kit, as its file is written, into `.armada/review-tools/`.
@@ -251,7 +270,7 @@ where
             .review_tool_held(&in_tree.join(REVIEW_TOOLS), ReviewToolScope::Repository, id)
             .and_then(|path| path.strip_prefix(in_tree).ok().map(|path| path.to_string_lossy().to_string()));
         let path = self.free_or_overwritten(held, format!("{REVIEW_TOOLS}/{id}.md"), id, tree, overwrite)?;
-        Ok(Copy { files: vec![(path, text)], message: format!("Add the review tool {id}"), title: format!("Commit the review tool {id}") })
+        Ok(Copy { files: vec![(path, text)], removals: Vec::new(), message: format!("Add the review tool {id}"), title: format!("Commit the review tool {id}") })
     }
 
     /// The person's own `armada.yml` for the repository, from the place their Kit keeps it, as the
@@ -269,7 +288,7 @@ where
         }
         config::Manifest::parse(Path::new(MANIFEST), &text)
             .map_err(|why| self.commit_refusal(REFUSED, format!("{} is not a whole Manifest: {why}", label.display())))?;
-        Ok(Copy { files: vec![(MANIFEST.to_string(), text)], message: format!("Add {MANIFEST}"), title: format!("Commit {MANIFEST}") })
+        Ok(Copy { files: vec![(MANIFEST.to_string(), text)], removals: Vec::new(), message: format!("Add {MANIFEST}"), title: format!("Commit {MANIFEST}") })
     }
 
     /// The path a copy is written to: the file the branch already holds it in, only with
