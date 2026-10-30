@@ -1,28 +1,31 @@
-// The Job's right column as one story in three zones. **Completed** is what the Job has made, in the order it made it (`ledger.ts`), read By step (each finished
+// The Job's right column as one story in three zones. **Done** is what the Job has made, folded until pressed, in the order it made it (`ledger.ts`), read By step (each finished
 // group or workflow step with its outputs beneath it) or By kind (Documents, Pull requests, Issues and Artifacts, newest first). **Now** is what it is doing
 // this minute: the agent, the group being worked with its live line, subagents, Checks, watches, and whatever waits on him,
-// which pulses. **Next** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
+// which pulses. **Open** is the plan's groups still to come, the workflow's steps still to come, the outputs the route still owes (a pull request, its
 // ci, the merge queue, main; a document; a mod and its Check; findings) and the follow-ups not yet settled. The plan is the spine: a finished group moves to
-// Completed carrying what it produced, and a pending output moves there when its data arrives.
+// Done carrying what it produced, and a pending output moves there when its data arrives.
 //
 // With a workflow whose step the Job is at, the zones are the workflow's steps instead: one for each, a check on the line for a finished step (folded until pressed, holding what
-// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Next holds about landing. ⌥1, ⌥2 and ⌥3
-// then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Completed, Now and Next.
+// was made during it), the current step open with what Now holds, and the steps to come empty until reached, the last of them holding what Open holds about landing. ⌥1, ⌥2 and ⌥3
+// then fold the finished steps, the current step and the steps to come. A Job with no workflow, or with workflows off, keeps Done, Now and Open.
 //
-// The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
+// The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Done, Now and Open and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Done's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
-import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
+import { Button, TaskMark, Tooltip, waitingSaid, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
-import { owesOf, type Session, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
+import { owesOf, type AgentTask, type Session, type SessionTodo, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
+
+const TODO_OF: Record<AgentTask["state"], SessionTodo["state"]> = { open: "todo", working: "doing", done: "done" };
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
 import { useSessionsDraft } from "../sessions-draft";
+import { openInPanel } from "../shared-panel/store";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -41,7 +44,7 @@ import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
-import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
+import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WaitBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
 import { SkipStep, skipMenu } from "./StepSkip";
 import { SvPanel, type PanelState } from "./SvPanel";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
@@ -53,6 +56,13 @@ import "./progress-takes.css";
 import "./story.css";
 import "./story-zones.css";
 
+/** The rule a waiting item is the ask of, and its card in the thread: an item `draft:<card>` that a rule on the Job's lanes left. Absent where no rule did. */
+function ruleOf(session: Session, itemId: string): { rule: string; row: string } | undefined {
+  const row = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
+  const fired = row === undefined ? undefined : session.lanes?.job.fired.find((one) => one.needs === row);
+  return row === undefined || fired === undefined ? undefined : { rule: fired.rule, row };
+}
+
 export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
   const layout = useLayout("job.panels").all;
@@ -60,11 +70,12 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const everything = useWhole(id);
   const flow = work.workflow?.steps ?? acts?.workflows.find((one) => one.id === work.proposal?.workflow)?.steps ?? [];
   const at = work.workflow?.at;
-  // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Completed, Now and Next.
+  // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Done, Now and Open.
   const stepped = work.railOff !== true && flow.length > 0 && at !== undefined;
   const openShown = useOpenGroupShown();
   const [openOpen, setOpenOpen] = useState(true);
-  const doneFold = useFold(session, "done", stepped);
+  // Done starts folded, as a finished step of a workflow does, with a workflow or without.
+  const doneFold = useFold(session, "done", true);
   const nowFold = useFold(session, "now");
   const nextFold = useFold(session, "next");
   // A finished step opened or shut by itself; ⌥1 sets them all and clears these.
@@ -77,7 +88,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const planned = plan !== undefined && ed !== undefined;
   const drafting = planned && !plan.approved;
   const approved = planned && plan.approved;
-  // The plan stands whole in Now, to edit, while it is drafted or has marks on it; its groups are not drawn again in Completed and Next. **Whole plan** on
+  // The plan stands whole in Now, to edit, while it is drafted or has marks on it; its groups are not drawn again in Done and Open. **Whole plan** on
   // an approved plan leaves each group in its own zone and opens every one, so finished work never reads as Now.
   const editing = planned && (drafting || ed.marks.length > 0);
   const whole = planned && (editing || everything.whole);
@@ -117,11 +128,20 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const owed = owesOf(session).filter((one) => !(drafting && one.source === "plan") && !(one.source === "walk" && one.act?.kind === "walk" && walkUrls.has(one.act.target)));
   // A question the agent is held on is a call on him as well; it is asked in the thread, and here it is the lamp.
   const asking = session.asked?.questions?.[0]?.question ?? (session.asked === undefined ? undefined : session.asked.command);
-  const tasks = planned ? [] : (work.tasks ?? []);
   const atWork = planned ? [] : subagentsAtWork(session);
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
+  // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
+  const lanes = session.lanes?.job;
+  const waiting = lanes === undefined ? undefined : waitingSaid(lanes, lanes.copy.lifecycles);
+  // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
+  // Fleet holds the live list in memory only; after a restart the build record's copy stands in until the agent next changes it.
+  const reported = session.activity?.todos ?? [];
+  const todos = reported.length > 0 ? reported.filter((one) => one.task === undefined) : (work.tasks ?? []).map((one): SessionTodo => ({ text: one.subject, state: TODO_OF[one.state] }));
+  const list = todos.length === 0 ? null : <AgentTasks todos={todos} working={working_} />;
+  // With a workflow and a plan group being worked, the list follows the plan's tasks; otherwise it stands under the Agent row.
+  const afterPlan = stepped && working.length > 0;
 
   const prs = made.filter((one) => one.shape === "pr");
   const landed = prs.length > 0 && prs.every((one) => one.shape === "pr" && one.pr.state === "merged");
@@ -150,7 +170,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // A zone with nothing in it is its band alone: an empty slot stays empty.
   const hasDone = view === "step" ? workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
   const done = (
-    <SvPanel label="Completed" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
+    <SvPanel label="Done" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
       {!hasDone ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {view === "step" ? (
@@ -205,9 +225,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     <div className="sv-nav" onKeyDown={arrowsIn}>
       <ul className="sv-beats" aria-label="Now">
         {asking === undefined ? null : <AskBeat said="Waiting on you" text={asking} />}
-        {owed.map((one) => (
-          <AskBeat key={one.id} said="Waiting on you" text={one.text} />
-        ))}
+        {owed.map((one) => {
+          const rule = ruleOf(session, one.id);
+          return <AskBeat key={one.id} said="Waiting on you" text={one.text} {...(rule === undefined ? {} : { onOpen: () => openInPanel({ kind: "rule", sessionId: session.id, ...rule }) })} />;
+        })}
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
         <WorkBeat
           mark={<TaskMark state={working_ ? "working" : "open"} />}
@@ -216,13 +237,14 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           line={working.length === 0 ? now : undefined}
         />
         {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
+        {waiting === undefined ? null : <WaitBeat text={waiting} />}
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}
         {checking.map((one) => (one.kind === "check" ? <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system /> : null))}
         {failedCheck === undefined ? null : <WorkBeat mark={<Mark state="failed" />} name={failedCheck.name} system />}
       </ul>
-      {tasks.length === 0 ? null : <AgentTasks tasks={tasks} />}
+      {afterPlan ? null : list}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
       {session.live === undefined || live === undefined ? null : (
         <div className="sv-field__now">
@@ -230,6 +252,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         </div>
       )}
       {working.length === 0 ? null : <FlightRows all={all} groups={working} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
+      {afterPlan ? list : null}
       {!editing ? null : (
         <div className="sv-plan" data-drafting={drafting || undefined}>
           {drafting && plan.summary !== undefined ? <p className="sv-blueprint__summary">{plan.summary}</p> : null}
@@ -266,7 +289,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 
   const hasNext = upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0 || kept.length > 0;
   const next = (
-    <SvPanel label="Next" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
+    <SvPanel label="Open" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
       {!hasNext ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {upcoming.length === 0 ? null : <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
@@ -338,7 +361,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     return <div className="sv-nav" onKeyDown={arrowsIn}><ol className="sv-beats" aria-label="Done">{rows}</ol></div>;
   };
 
-  // What Next held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
+  // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
   const landing =
     ahead.length === 0 && kept.length === 0 ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
@@ -463,7 +486,7 @@ export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"):
   return true;
 }
 
-/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Completed is above, to scroll back to, and Next below. */
+/** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Done is above, to scroll back to, and Open below. */
 function Spine({ session, children }: { session: Session; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {

@@ -1,4 +1,4 @@
-// How Completed is read, kept per machine: `step` lists each finished group or step with what it made beneath it, `kind` lists Documents, Pull requests,
+// How Done is read, kept per machine: `step` lists each finished group or step with what it made beneath it, `kind` lists Documents, Pull requests,
 // Issues and Artifacts, newest first.
 
 import { useCallback, useSyncExternalStore } from "react";

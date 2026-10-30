@@ -25,3 +25,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `child-job-start`, tooltip `Started`. Beside `eye`, `power` and `git-merge` on the same row: a Job running is this glyph's own meaning."
+
+[[icons.circle-dot.usage]]
+  means = "The step the agent is working on, on a lane"
+  group = "Workspace lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Replaces the earlier use of this glyph for where an instance stands (that is `map-pin`). A node on a Job's lanes the agent is on now, in `--step-running`, tooltip `Working`. Fleet reads it from the turn; the agent does not claim it. Never a running Job, which is the Job state mark."

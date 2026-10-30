@@ -13,6 +13,7 @@
   min-height: 0;
 }
 
+
 /* ---- The list ------------------------------------------------------------------------------- */
 
 .armada-wm__list {
@@ -61,6 +62,18 @@
   background: var(--head-rule, var(--border-subtle));
 }
 
+/* One caption over the list says what its groups are: where each workflow is kept. */
+.armada-wm__kept {
+  margin: 0;
+  padding: 0 var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
 .armada-wm__rows {
   display: flex;
   flex-direction: column;
@@ -70,10 +83,10 @@
   list-style: none;
 }
 
-/* The name, and a column the replaces glyph keeps whether a row has one or not. */
+/* The name, a column the replaces glyph keeps whether a row has one or not, and the column the switch keeps. */
 .armada-wm__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--space-6);
+  grid-template-columns: minmax(0, 1fr) var(--space-6) auto;
   align-items: center;
 }
 
@@ -111,6 +124,21 @@
   align-items: center;
   justify-content: center;
   color: var(--fg-subtle);
+}
+
+/* The switch's column is as wide as a switch whether a row has one or not, so the switches stand in a line. A workflow off on the machine says so in its place. */
+.armada-wm__switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--space-12);
+  padding-right: var(--space-2);
+}
+.armada-wm__off-machine {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
 }
 
 /* ---- The picked workflow -------------------------------------------------------------------- */
@@ -172,10 +200,20 @@
   text-transform: uppercase;
 }
 
+/* The acts are a toolbar of glyphs in three groups, each its own run: Armada's copy, where the piece is kept, and Delete, set apart at the end. */
 .armada-wm__acts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+}
+.armada-wm__acts-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.armada-wm__acts > [data-end] {
+  margin-inline-start: var(--space-4);
 }
 
 .armada-wm__said {
@@ -623,4 +661,93 @@
 
 .armada-wm__new {
   align-self: flex-start;
+}
+
+/* ---- The Workspace's lanes ------------------------------------------------------------------- */
+
+/* The canvas takes the column's width and a height of its own; the inspector sits under it, so the canvas is never narrowed by what is picked. */
+.armada-wm-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.armada-wm-lanes > .armada-lane-canvas {
+  flex: none;
+  /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
+  height: calc(var(--space-12) * 11);
+}
+/* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
+.armada-wm-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.armada-wm-scope__label {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-scope__says {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+/* What is picked is drawn in the app's side panel. */
+.armada-wm-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+/* Two dropdowns on one row that set one fact, side by side and as wide as the row lets them be. */
+.armada-wm-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
+  gap: var(--space-2);
+}
+/* Text a screen reader reads and nothing draws: the second dropdown of a pair is told from the first by it. */
+.armada-wm-hidden {
+  position: absolute;
+  width: var(--space-4);
+  height: var(--space-4);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A value a repository overrides: the split's glyph and the words, and the way back to the Workspace's beside them. */
+.armada-wm-step__facts > .armada-wm-inspector__changed {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.armada-wm-inspector__differs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-default);
+}
+.armada-wm-inspector__differs > [role="img"] {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+.armada-wm-tell {
+  min-width: 0;
+}
+
+/* A rule the proposed change adds: its leading edge wears the diff's hue, as an added step card does. */
+.armada-wm-step[data-added] {
+  border-inline-start: calc(var(--border-width) * 3) solid var(--diff-add-fg);
 }

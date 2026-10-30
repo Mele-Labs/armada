@@ -32,6 +32,7 @@ mod error;
 mod fields;
 mod gating;
 mod judge;
+mod lifecycle;
 mod live;
 mod loops;
 mod manifest;
@@ -62,6 +63,7 @@ pub use catalogue::{
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
 pub use fields::{workflow_fields, Field};
 pub use gating::{gating, owner, Gate, GateWhy};
+pub use lifecycle::{parse as parse_lifecycle, LifecycleError};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
     AppRun, BadSeedPath, Check, Command, FromKit, Harness, kit_copy_fault, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,

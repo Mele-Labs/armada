@@ -12,3 +12,17 @@
   size = "12px"
   status = "Specified"
   notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Drawn at 14px, stroke 2. The same claim as the reservation above, an agent asking the person, one level down: the workflow that tells the agent to ask. Kept by the owner's ruling on 27 Oct 2026 on the same walk."
+
+[[icons.message-circle-question.usage]]
+  means = "A rule that asks: its item in the Job's Needs you, and a rule set to Asks in the editor"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. An Asks rule puts a one-press item in Needs you, which is an item with choices. Tooltips `Asked` on a Job and `Asks` in the editor."
+
+[[icons.message-circle-question.usage]]
+  means = "A rule on a Job's lanes waiting on the person: its chip, and the card it opens in the side panel"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Waiting on you`. The rule's draft is answered in the panel, where its button says Send."

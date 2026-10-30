@@ -1,0 +1,461 @@
+/* The lanes of a Workspace or a Job. The canvas, its rail and the React Flow mapping are GraphCanvas.css. Weight is in the frame: a lane is a
+   mono-caps head on a raised ground beside an open body, a lit state is framed in the running hue, and state is a registry glyph. No
+   gradient, glow or fill that is not a state. */
+
+.armada-lane-canvas {
+  flex: 1 1 auto;
+  min-height: calc(var(--space-12) * 7);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+/* ---- A lane ---------------------------------------------------------------------------------------------------- */
+
+/* A lane's own line, under its nodes. The workflow is the heaviest lane: its line is the strong one. */
+.armada-lane {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  pointer-events: none;
+}
+.armada-lane[data-kind="workflow"] { border-bottom-color: var(--border-strong); }
+
+/* The surface is the positioning context of the heads. */
+.armada-lane-surface { position: relative; }
+
+/* The heads stand over the left of the frame, above the canvas and its chips, so a pan to a later column keeps each lane named. Weight is in the frame: a mono-caps title on a raised ground. */
+.armada-lane-heads {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.armada-lane__head {
+  position: absolute;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border-right: var(--border-width) solid var(--border-default);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+  pointer-events: auto;
+}
+.armada-lane__head[data-kind="workflow"] { border-right-color: var(--border-strong); border-bottom-color: var(--border-strong); background: var(--bg-base); }
+
+.armada-lane__title {
+  overflow: hidden;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.armada-lane__source {
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- A step or a state ------------------------------------------------------------------------------------------- */
+
+.armada-lane-item {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
+/* A node is the shape of what it is (`NodeKind`): a box for a step, a pill for a state the tracker, the forge or a document reads, a hexagon for a wait or a watch, a card for a Job another Job
+   started, a circle for where the workflow starts and ends. **Its kind is a faint tint of the ground from `kinds.css`, which carries no status**: what a node stands in is its frame and its mark,
+   set below. `--ground` is what fills the shape and `--frame` what outlines it, so a shape drawn as a box or as a hexagon wears a state the same way. */
+.armada-lane-item__main {
+  --hue: var(--fg-subtle);
+  --kind: var(--kind-step);
+  --frame: var(--border-strong);
+  --ground: color-mix(in srgb, var(--kind) 8%, var(--bg-raised));
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: var(--space-6) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  border: var(--border-width) solid var(--frame);
+  border-radius: var(--radius-md);
+  background: var(--ground);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+}
+.armada-lane-item__main:hover { --ground: color-mix(in srgb, var(--kind) 8%, var(--bg-hover)); }
+.armada-lane-item__main:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+
+/* The kinds' tints: the work is indigo, a gate the work waits at is lilac, the tracker's states and a document's are teal, and the forge's are olive. */
+.armada-lane-item[data-kind="step"] .armada-lane-item__main,
+.armada-lane-item[data-kind="job"] .armada-lane-item__main { --kind: var(--kind-step); }
+.armada-lane-item[data-kind="wait"] .armada-lane-item__main,
+.armada-lane-item[data-kind="watch"] .armada-lane-item__main { --kind: var(--kind-gate); }
+.armada-lane-item[data-kind="tracker"] .armada-lane-item__main,
+.armada-lane-item[data-kind="document"] .armada-lane-item__main { --kind: var(--kind-setup); }
+.armada-lane-item[data-kind="forge"] .armada-lane-item__main { --kind: var(--kind-delivery); }
+
+/* A pill: a state read from outside, rounded end to end. */
+.armada-lane-item[data-shape="pill"] .armada-lane-item__main {
+  padding-inline: var(--space-2) var(--space-3);
+  border-radius: calc(var(--space-12) * 2);
+}
+
+/* A card: a Job another Job started, square at the corners with a leading edge in its kind's tint, the drone in its mark and where it stands at its end. */
+.armada-lane-item[data-shape="card"] .armada-lane-item__main {
+  grid-template-columns: var(--space-6) minmax(0, 1fr) auto;
+  border-radius: var(--radius-sm);
+  border-inline-start: calc(var(--border-width) * 3) solid var(--kind);
+}
+.armada-lane-item[data-shape="card"] .armada-lane-item__mark { color: var(--kind); }
+.armada-lane-item__status {
+  display: grid;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  place-items: center;
+  padding-inline-start: var(--space-1);
+  color: var(--hue);
+}
+
+/* A hexagon: a wait or a watch. The outline is a polygon drawn behind the words, so it can be dashed as a frame is. */
+.armada-lane-item[data-shape="hexagon"] .armada-lane-item__main {
+  padding-inline: var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.armada-lane-item__shape {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.armada-lane-item__shape polygon {
+  fill: var(--ground);
+  stroke: var(--frame);
+  stroke-width: var(--border-width);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  transition: fill var(--duration-fast) var(--ease), stroke var(--duration-fast) var(--ease);
+}
+
+.armada-lane-item__mark {
+  display: grid;
+  grid-row: 1 / span 2;
+  place-items: center;
+  color: var(--hue);
+}
+.armada-lane-item__label {
+  grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.armada-lane-item__sub {
+  grid-column: 2;
+  min-width: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}
+.armada-lane-item__who {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* Where the workflow starts and ends: a small circle, filled where it starts and a ring round a dot where it ends. A Job that has begun fills the start in the advanced hue, and one that has finished
+   marks the end as a place. */
+.armada-lane-item[data-shape="dot"] { --frame: var(--fg-subtle); }
+.armada-lane-item[data-shape="dot"][data-passed] { --frame: var(--step-advanced); }
+.armada-lane-item[data-shape="dot"][data-here] { --frame: var(--fg-default); }
+.armada-lane-item__dot {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: calc(var(--border-width) * 2) solid var(--frame);
+  border-radius: 50%;
+  background: var(--frame);
+  cursor: default;
+}
+.armada-lane-item[data-kind="end"] .armada-lane-item__dot { box-shadow: inset 0 0 0 var(--space-1) var(--bg-sunken); }
+
+/* **Where an instance stands is a place, drawn still**: a heavier neutral frame and ground and a pin. The running hue below is for the step the agent is working on, and for nothing else. */
+.armada-lane-item[data-here] .armada-lane-item__main {
+  --hue: var(--fg-default);
+  --frame: var(--fg-muted);
+  --ground: var(--bg-hover);
+  box-shadow: inset 0 0 0 var(--border-width) var(--fg-muted);
+  font-weight: var(--weight-heading);
+}
+
+/* What the agent is working on is framed in the running hue; where a step waits, in the waiting one; what it went through is a tick in the advanced one, and its frame follows. */
+.armada-lane-item[data-passed] .armada-lane-item__main { --hue: var(--step-advanced); --frame: color-mix(in srgb, var(--step-advanced) 45%, var(--border-strong)); color: var(--fg-muted); }
+.armada-lane-item[data-lit] .armada-lane-item__main {
+  --hue: var(--step-running);
+  --frame: var(--step-running);
+  --ground: color-mix(in srgb, var(--step-running) 10%, var(--bg-raised));
+  font-weight: var(--weight-heading);
+}
+.armada-lane-item[data-waiting] .armada-lane-item__main {
+  --hue: var(--status-awaiting-review);
+  --frame: var(--status-awaiting-review);
+  --ground: color-mix(in srgb, var(--status-awaiting-review) 10%, var(--bg-raised));
+}
+.armada-lane-item[data-waiting] .armada-lane-item__sub { color: var(--status-awaiting-review); }
+.armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
+.armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
+
+/* A state this Job's own copy changed: a dashed frame in the waiting hue and the comparison's glyph on its corner. */
+.armada-lane-item[data-changed] .armada-lane-item__main { border-style: dashed; --frame: var(--status-awaiting-review); }
+.armada-lane-item[data-changed] .armada-lane-item__shape polygon,
+.armada-lane-item[data-connecting] .armada-lane-item__shape polygon { stroke-dasharray: var(--space-1) var(--space-1); }
+.armada-lane-item__changed {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: calc(var(--space-2) * -1);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--status-awaiting-review);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--status-awaiting-review);
+  cursor: default;
+}
+
+/* A node a repository maps differently: the split's glyph on its corner, neutral, beside the comparison's when both are there. */
+.armada-lane-item__differs {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: calc(var(--space-2) * -1);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  cursor: default;
+}
+.armada-lane-item__differs[data-beside] { right: calc(var(--space-6) - var(--space-1)); }
+
+/* What is picked is a shape: the text colour's frame on the picked ground, and the heading weight. */
+.armada-lane-item__main[data-picked] {
+  --frame: var(--select-edge);
+  --ground: var(--select-ground);
+  box-shadow: inset 0 0 0 var(--border-width) var(--select-edge);
+  font-weight: var(--weight-heading);
+}
+.armada-lane-item[data-shape="hexagon"] .armada-lane-item__main[data-picked] { box-shadow: none; }
+.armada-lane-item[data-shape="hexagon"] .armada-lane-item__main[data-picked] .armada-lane-item__shape polygon { stroke-width: calc(var(--border-width) * 2); }
+
+/* ---- Edges -------------------------------------------------------------------------------------------------------- */
+
+/* A transition is a solid line, and a way to a wait is dashed: the thing it leads to is not there yet. */
+.armada-lane-surface .armada-lane-move__line { stroke: var(--border-strong); stroke-width: var(--border-width); }
+.armada-lane-surface .armada-lane-move[data-wait] .armada-lane-move__line { stroke-dasharray: var(--space-1) var(--space-1); }
+.armada-lane-move__head { fill: var(--border-strong); }
+
+.armada-lane-edge { --hue: var(--fg-muted); }
+.armada-lane-surface .armada-lane-edge__line { stroke: var(--hue); stroke-width: calc(var(--border-width) * 1.5); }
+.armada-lane-edge__head { fill: var(--hue); }
+.armada-lane-edge[data-tone="acted"] { --hue: var(--step-advanced); }
+.armada-lane-edge[data-tone="asked"] { --hue: var(--status-awaiting-review); }
+.armada-lane-edge[data-tone="waiting"] .armada-lane-edge__line,
+.armada-lane-edge[data-tone="proposed"] .armada-lane-edge__line { stroke-dasharray: var(--space-2) var(--space-1); }
+.armada-lane-edge[data-tone="proposed"] { --hue: var(--step-advanced); }
+.armada-lane-edge[data-autonomy="off"] { --hue: var(--border-strong); }
+.armada-lane-edge[data-autonomy="off"] .armada-lane-edge__line { stroke-dasharray: var(--border-width) var(--space-1); }
+.armada-lane-edge[data-picked] { --hue: var(--fg-default); }
+.armada-lane-surface .armada-lane-edge[data-picked] .armada-lane-edge__line { stroke-width: calc(var(--border-width) * 2.5); }
+
+/* ---- A rule's chip, on its edge ------------------------------------------------------------------------------------ */
+
+/* The chips are drawn in React Flow's label layer, which sits before the nodes in the document: lifted above them, a chip over a node is still pressable. */
+.armada-lane-surface .react-flow__edgelabel-renderer { z-index: 5; }
+
+/* A rule is a decision, so its chip leads with a diamond: the diamond wears the rule's status, and the words sit beside it on the overlay ground so they read over the edge they are on. */
+.armada-lane-chip {
+  --hue: var(--fg-muted);
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  height: calc(var(--space-6) + var(--space-1));
+  padding: 0 var(--space-2) 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: all;
+  transition: background var(--duration-fast) var(--ease);
+}
+.armada-lane-chip:hover { background: var(--bg-hover); }
+.armada-lane-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+.armada-lane-chip[data-tone="acted"] { --hue: var(--step-advanced); }
+.armada-lane-chip[data-tone="asked"] { --hue: var(--status-awaiting-review); }
+.armada-lane-chip[data-tone="proposed"] { --hue: var(--step-advanced); }
+.armada-lane-chip[data-autonomy="off"] { color: var(--fg-subtle); }
+.armada-lane-chip[data-quiet] { width: calc(var(--space-6) + var(--space-1)); justify-content: center; padding: 0; background: transparent; }
+.armada-lane-chip__diamond {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  color: var(--hue);
+}
+.armada-lane-chip__diamond svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.armada-lane-chip__diamond polygon {
+  fill: var(--bg-overlay);
+  stroke: color-mix(in srgb, var(--hue) 70%, var(--border-default));
+  stroke-width: calc(var(--border-width) * 1.5);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.armada-lane-chip[data-quiet] .armada-lane-chip__diamond polygon { fill: var(--bg-raised); }
+.armada-lane-chip[data-tone="proposed"] .armada-lane-chip__diamond polygon,
+.armada-lane-chip[data-tone="waiting"] .armada-lane-chip__diamond polygon,
+.armada-lane-chip[data-needs] .armada-lane-chip__diamond polygon { stroke-dasharray: var(--space-1) var(--space-1); }
+.armada-lane-chip__mark { position: relative; flex: none; color: var(--hue); }
+.armada-lane-chip__differs { flex: none; color: var(--fg-muted); }
+/* A rule waiting on the person wears the waiting hue, as a row that needs them does. */
+.armada-lane-chip[data-needs] { --hue: var(--status-awaiting-review); }
+.armada-lane-chip__meta {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-lane-chip[data-picked] {
+  background: var(--select-ground);
+  box-shadow: inset 0 0 0 var(--border-width) var(--select-edge);
+  font-weight: var(--weight-heading);
+}
+
+/* ---- Editing by hand ------------------------------------------------------------------------------------------------ */
+
+/* What is picked carries its acts above it. */
+.armada-lane-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  pointer-events: all;
+}
+.armada-lane-toolbar-at { position: absolute; pointer-events: none; }
+
+/* A connector is a dot on a node's side, drawn while the node is hovered or a connector starts from it, and a node a connector is dragged over takes it by its whole face. */
+.armada-lane-item[data-connectable]:hover .react-flow__handle,
+.armada-lane-item[data-connecting] .react-flow__handle {
+  width: var(--space-2);
+  height: var(--space-2);
+  min-width: var(--space-2);
+  min-height: var(--space-2);
+  border: var(--border-width) solid var(--fg-muted);
+  background: var(--bg-raised);
+  opacity: 1;
+  cursor: crosshair;
+}
+.armada-lane-item[data-connecting] .armada-lane-item__main { border-style: dashed; --frame: var(--fg-default); }
+.armada-lane-item .react-flow__handle.armada-lane-item__drop {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  transform: none;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+.armada-lane-item[data-dropping] .react-flow__handle.armada-lane-item__drop { pointer-events: all; }
+.armada-lane-item[data-dropping] .armada-lane-item__main { --frame: var(--fg-default); --ground: var(--select-ground); }
+
+/* ---- The tooltip, in the body ---------------------------------------------------------------------------------------- */
+
+.armada-lane-tip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  inline-size: max-content;
+  max-inline-size: calc(var(--w-tooltip) + var(--space-3));
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font: var(--weight-body) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  text-wrap: pretty;
+  pointer-events: none;
+}
+.armada-lane-tip__line { overflow-wrap: anywhere; color: var(--fg-muted); }
+.armada-lane-tip__line[data-first] { color: var(--fg-default); }

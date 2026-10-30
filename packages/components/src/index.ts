@@ -187,7 +187,10 @@ export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
-export { forRequestsOf, stepsOfDefinition, withWords } from "./compositions/WorkflowManager/definition";
+export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export { DraftRow } from "./compositions/SessionThread/DraftRow";
+export type { DraftAnswer, DraftThreadRow } from "./compositions/SessionThread/DraftRow";
+export { forRequestsOf, stepsOfDefinition, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "./compositions/WorkflowManager/definition";
 export type { DefinitionStep } from "./compositions/WorkflowManager/definition";
 
 export * from "./compositions/ManifestNotice/ManifestNotice";
@@ -423,7 +426,8 @@ export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/P
 export { PullRequestFilesView } from "./compositions/PullRequestPanel/PullRequestFiles";
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
-export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";
+export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize, COMMENT_READ } from "./compositions/PullRequestPanel/PullRequestTabs";
+export type { EntryTriage } from "./compositions/PullRequestPanel/PullRequestTabs";
 export type { FileReach, FilesReach, ReachSource, ReachTest } from "./compositions/PullRequestPanel/PullRequestReach";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/ModRules/ModRules";
@@ -457,6 +461,12 @@ export * from "./compositions/LinkPanel/LinkOffer";
 
 // A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
 export * from "./compositions/ArtifactGraph/ArtifactGraph";
+
+// The lanes of a Workspace or a Job: the workflow's steps over a lane for each lifecycle, rules as edges between them. A mock's model.
+export * from "./compositions/LaneCanvas/LaneCanvas";
+export * from "./compositions/LaneCanvas/model";
+export * from "./compositions/LaneCanvas/build";
+export * from "./compositions/LaneCanvas/edit";
 
 // Notes on a sketch, a file or a picture being read, held on it and sent to a Job as one message.
 export { NoteNumber, ViewerNotesFrom, useViewerNotes } from "./compositions/ViewerNotes/ViewerNotes";

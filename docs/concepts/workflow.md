@@ -37,6 +37,7 @@ At the delivering step the agent delivers by the answer it was told.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.
 [The rail](session/the-rail.md) owns how a step is placed; [The judges](judge.md) owns the judge.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.
+**One workflow can be switched off** too, for the machine or for one repository (`workflows.off`, Settings, Workflows): it is not offered, a Job cannot be given it, and a Job already on it runs plain until it is switched back on.
 
 ### `feature` and `bug`
 
@@ -188,7 +189,7 @@ The page carries none of the gate boxes, retries or passes the old editor offere
 |---|---|
 | Change a step's words | Edits them where they stand, and the page saves them in the place that copy is |
 | Change a workflow's shape | Types the change under *Tell an agent what to change*; an agent drafts the whole definition, the page shows it beside what it was, and he approves it, sends it back with notes, or dismisses it. Nothing saves without his Approve |
-| Change one Armada carries | Presses Make my copy, which writes it to Kit under the same id for every repository on this Mac; or Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install. Armada's rows are read-only |
+| Change one Armada carries | In the Workspace's lanes, changes it where it stands: the first change makes his own copy, written to Kit under the same id for every repository on this Mac, and nothing says copy. In the column of steps Armada's rows are read-only, and he presses Make my copy, which writes the same file. Or he presses Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install |
 | See how a copy differs | Presses Compare with Armada's, and each step's words show beside Armada's |
 | Go back to Armada's | Presses Reset to Armada's on a copy, which replaces the file with Armada's definition |
 | Remove a copy | Presses Delete, which removes that one file. A copy that was left out is deleted by its file, since it may declare no id Fleet can read |
@@ -201,7 +202,7 @@ Not a drift stops one counting and leaves it listed.
 An agent drafts new words for that step and nothing else.
 The step shows a card with the words before and after, and Approve and Dismiss.
 A step with drift and no suggestion has *Suggest a change*, which asks for one sooner.
-Armada's own rows get none; a change to one is Make my copy or Propose to Armada.
+Armada's own rows get none; a change to one is made in the lanes, which makes a copy, or is Make my copy or Propose to Armada.
 Approve saves the drafted definition, as it does for a typed change.
 
 ## What is not a workflow

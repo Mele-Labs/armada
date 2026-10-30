@@ -229,7 +229,7 @@ test("a change typed to an agent shows it working, then the draft, and Approve s
   await expect.element(page.getByRole("img", { name: "The agent is working" }).first()).toBeVisible();
   const region = page.getByRole("region", { name: "Proposed change" });
   await expect.element(region).toBeVisible();
-  await expect.element(region.getByRole("group", { name: "After" }).getByText("Wire", { exact: true })).toBeVisible();
+  await expect.element(region.getByRole("group", { name: "Wire", exact: true })).toBeVisible();
   await region.getByRole("button", { name: "Approve", exact: true }).click();
   await expect.element(stepCard("Wire")).toBeVisible();
   await expect.element(stepCard("Tests")).toBeVisible();

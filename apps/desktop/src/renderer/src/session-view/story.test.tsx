@@ -199,7 +199,7 @@ test("⌥N is the whole-blueprint key, and only ⌥ alone", () => {
   expect(bandOf(keydown({ altKey: true, code: "KeyN" }))).toBeUndefined();
 });
 
-test("⌥L is the Completed view key, and only ⌥ alone", () => {
+test("⌥L is the Done view key, and only ⌥ alone", () => {
   expect(isLedgerKey(keydown({ altKey: true, code: "KeyL" }))).toBe(true);
   expect(isLedgerKey(keydown({ code: "KeyL" }))).toBe(false);
   expect(isLedgerKey(keydown({ altKey: true, shiftKey: true, code: "KeyL" }))).toBe(false);

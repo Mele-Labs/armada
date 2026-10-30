@@ -26,7 +26,7 @@ test("the Brief and the workflow's steps are drawn in that order in the open Ses
   const zones = [...document.querySelector(".sv-spine")!.children].filter((one) => one.matches("section.sv-panel")).map((one) => one.getAttribute("aria-label"));
   expect(zones[0]).toBe("Brief");
   expect(zones.length).toBeGreaterThan(2);
-  expect(zones).not.toContain("Completed");
+  expect(zones).not.toContain("Done");
   expect(document.querySelector('.deck-left [aria-label="Field"]')).not.toBeNull();
   expect(document.querySelector('.deck-right [aria-label="Field"]')).toBeNull();
   expect(document.querySelector('section[aria-label="Ledger"], section[aria-label="Status"]')).toBeNull();

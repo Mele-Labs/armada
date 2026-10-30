@@ -39,3 +39,10 @@
   size = "16px"
   status = "Specified"
   notes = "Approved 16 Oct 2026 on the walk `compactSessionView`. The same meaning as the ledger row, here as the key that opens the whole list. The Field draws only the ones at work. Tooltip `Subagents`."
+
+[[icons.split.usage]]
+  means = "A state, step or rule that a Workspace or one repository maps or runs differently from the level above, on its node or chip, beside its value in the panel, and on a Runs in tab that differs"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Differs in store-api` on a node or chip, naming the levels, and `Changed for store-api` in the panel and on the tab. One line becoming two: one value, and another below it. A tab that keeps the level above has no mark."

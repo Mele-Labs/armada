@@ -1,5 +1,5 @@
 // The Job that rotates the audit log, for the scenarios `field-expand-plan` and `job-walk-on-the-spine`: five groups, one done, three under way, one not begun,
-// and drones over the files they write. It also holds what the Job has made, for Completed: two pull requests (one merged, one in the queue), two documents,
+// and drones over the files they write. It also holds what the Job has made, for Done: two pull requests (one merged, one in the queue), two documents,
 // two issues and a sketch (`auditLedger`), and the walks it shows and he approves (`walkActs`). Not a scenario: `scenarios/` takes one export a file.
 
 import type { Session, SessionAttachment, SessionRow, WorkFile, WorkGroup } from "@armada/screens/src/draft/sessions";

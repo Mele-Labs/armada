@@ -5,8 +5,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { WorkflowManager, forRequestsOf, keyOf, withWords } from "@armada/components";
-import type { DriftedJob, ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } from "@armada/components";
+import { WorkflowManager, forRequestsOf, keyOf, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "@armada/components";
+import type { AgentState, DriftedJob, ManagedStep, ManagedWorkflow, StepsChange, WorkflowActAnswer, WorkflowRef } from "@armada/components";
 import type { Outcome, WorkflowChange } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { Boundary } from "@armada/shell";
@@ -34,7 +34,11 @@ import { useDispatching } from "./dispatch-panel/dispatching";
 import { IssueJobCard } from "./issues-tab/marks";
 import { askToOpenSessionInCockpit } from "./open-session";
 import { useSessions } from "./sessions-draft";
+import { useLanePanel } from "./shared-panel/store";
 import { PieceActs } from "./sharing/PieceActs";
+import { saveSetting, useSetting } from "./use-setting";
+import { WORKFLOWS_OFF_KEY, switched, workflowsOffOf } from "./workflows-off";
+import { useWorkspaceHeld } from "./workspace-draft";
 import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
 
@@ -45,6 +49,9 @@ type Served = { manifestId: string; name: string; root: string };
 
 /** How often the changes are read again while an agent is drafting one. */
 const POLL_MS = 1000;
+
+/** How long an agent takes over a change to the Workspace's rules, which the mock draws up itself. */
+const RULING_MS = 1200;
 
 /** What was read of one copy: its steps, the Jobs Fleet nudged at them, and the line it says it is for. */
 type Read = { steps: readonly ManagedStep[]; drift: Readonly<Record<string, readonly DriftedJob[]>>; forRequests: string };
@@ -83,6 +90,15 @@ function Held({ current, repository, root, served }: { current: string | null; r
   const [notice, setNotice] = useState<string | undefined>(undefined);
   // The Jobs the window holds, so a Job a press started is drawn as the shared Job card once Fleet lists it.
   const sessions = useSessions();
+  // The Workspace the lanes are drawn in, where the window holds one, and a change to its rules an agent has drawn up.
+  const workspace = useWorkspaceHeld();
+  const lanePanel = useLanePanel();
+  const [ruled, setRuled] = useState<AgentState | undefined>(undefined);
+  const ruling = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(ruling.current), []);
+  // `features.workflows` and `workflows.off` in settings.json, Fleet's settings list; saved back with the settings save. Settings draws no row for `workflows.off`; this page is where it is edited.
+  const forJobs = useSetting("features.workflows") !== false;
+  const off = workflowsOffOf(useSetting(WORKFLOWS_OFF_KEY));
   // The copy the changes below belong to, so an answer that comes back after another was picked is let go.
   const asking = useRef<string | null>(null);
 
@@ -202,21 +218,54 @@ function Held({ current, repository, root, served }: { current: string | null; r
     return answer.ok ? undefined : refusalWords(answer.outcome);
   };
 
+  /** A change to the steps themselves, written to the definition the copy is read from: its labels, which steps it has and the order they run in. */
+  const writeSteps = (one: WorkflowRef, change: StepsChange) => {
+    void (async () => {
+      const held = await readWorkflowDefinition(one.id, wireOf(one), manifestFor(one));
+      if (!held.ok) return setNotice(refusalWords(held.outcome));
+      const text = held.definition.definition;
+      const definition =
+        change.kind === "label"
+          ? withLabel(text, change.id, change.label)
+          : change.kind === "add"
+            ? withStepAdded(text, change.after, { id: change.id, label: change.label })
+            : change.kind === "remove"
+              ? withStepRemoved(text, change.id)
+              : withStepOrder(text, change.ids);
+      if (definition === undefined) return setNotice(`${held.definition.file} has no step to change`);
+      const saved = await saveWorkflow({ manifestId: manifestFor(one), body: { scope: one.source === "repository" ? "repository" : "kit", definition, overwrite: true } });
+      if (!saved.ok) return setNotice(refusalWords(saved.outcome));
+      await refresh(one);
+    })();
+  };
+
   return (
     <WorkflowManager
       repository={repository}
+      switches={{
+        forJobs,
+        onForJobs: (on) => void saveSetting("features.workflows", on),
+        machine: off.machine,
+        repository: current === null ? null : { name: repository, off: off.repositories[current] ?? [] },
+        onSwitch: (workflowId, on) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, current)),
+      }}
       workflows={workflows}
       notice={notice}
       drift={picked === null ? {} : { [picked.id]: readOfPicked?.drift ?? {} }}
       picked={picked}
-      onPick={(one) => open(one, armadaOf(rows, one.id))}
-      agent={agentOf(changes, known)}
+      onPick={(one) => {
+        window.clearTimeout(ruling.current);
+        setRuled(undefined);
+        open(one, armadaOf(rows, one.id));
+      }}
+      agent={ruled ?? agentOf(changes, known)}
+      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onChange: workspace.change, panel: lanePanel, onSteps: writeSteps } })}
       suggestions={picked === null ? {} : { [picked.id]: suggestions }}
       suggesting={suggesting}
       actsFor={(one) => {
         // The copy's own repository: on All there is no pick to share under.
         const at = served.find((each) => each.manifestId === one.manifestId)?.root ?? root;
-        return at === null ? null : <PieceActs repository={at} piece={{ kind: "workflow", workflow_id: one.id }} />;
+        return at === null ? null : <PieceActs icons repository={at} piece={{ kind: "workflow", workflow_id: one.id }} />;
       }}
       onMakeCopy={async (one) => {
         const armada = await readWorkflowDefinition(one.id, "armada", manifestFor(one));
@@ -267,13 +316,34 @@ function Held({ current, repository, root, served }: { current: string | null; r
         return undefined;
       }}
       onAsk={async (one, text) => {
+        const rule = workspace?.ask(text);
+        if (rule !== undefined) {
+          setRuled({ phase: "working", asked: text });
+          window.clearTimeout(ruling.current);
+          // A rule is never sent back, so it is drawn as a thing nothing held before.
+          ruling.current = window.setTimeout(() => setRuled({ phase: "proposed", before: known, after: known, asked: text, fresh: true, rules: [rule] }), RULING_MS);
+          return undefined;
+        }
         const answer = await askWorkflowChange({ manifestId: manifestFor(one), body: { workflow_id: one.id, source: wireOf(one), text } });
         if (!answer.ok) return refusalWords(answer.outcome);
         await loadChanges(one);
         return undefined;
       }}
-      onApprove={(one) => onChange(one, askedChange(changes), approveWorkflowChange)}
-      onDismiss={(one) => onChange(one, askedChange(changes), dismissWorkflowChange)}
+      onApprove={async (one) => {
+        if (ruled?.phase === "proposed") {
+          ruled.rules?.forEach((rule) => workspace?.add(rule));
+          setRuled(undefined);
+          return undefined;
+        }
+        return onChange(one, askedChange(changes), approveWorkflowChange);
+      }}
+      onDismiss={async (one) => {
+        if (ruled !== undefined) {
+          setRuled(undefined);
+          return undefined;
+        }
+        return onChange(one, askedChange(changes), dismissWorkflowChange);
+      }}
       onSendBack={async (one, notes) => {
         const change = askedChange(changes);
         if (change === undefined) return undefined;

@@ -27,6 +27,8 @@ export function Radio({ children, ...rest }: RadioProps) {
 export type RadioGroupProps = {
   /** Sentence case, no Wh- opener. Names what the set chooses between. */
   label?: string;
+  /** The id of the text that already names the set, such as the row's own label. The set then draws no label of its own. */
+  labelledBy?: string;
   children: ReactNode;
 };
 
@@ -34,9 +36,9 @@ export type RadioGroupProps = {
  * The set a radio belongs to. It carries the group label and the stacking,
  * because one radio on its own is a choice with nothing to choose against.
  */
-export function RadioGroup({ label, children }: RadioGroupProps) {
+export function RadioGroup({ label, labelledBy, children }: RadioGroupProps) {
   return (
-    <div className="armada-radio-group" role="radiogroup" aria-label={label}>
+    <div className="armada-radio-group" role="radiogroup" aria-label={label} aria-labelledby={labelledBy}>
       {label !== undefined && <span className="armada-radio-group__label">{label}</span>}
       {children}
     </div>

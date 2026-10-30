@@ -1,5 +1,5 @@
 // A Job mid-build with its plan in progress, for the walk `fieldExpandPlan`: five groups, one done, three under way, one not begun, and
-// drones over the files they write. Over the `one-session-view` scenario, with its busy Session given the plan and the Field. Its Completed holds what
+// drones over the files they write. Over the `one-session-view` scenario, with its busy Session given the plan and the Field. Its Done holds what
 // the Job has made and a walk approved, and a second walk is shown and waiting in Now (`../audit-job.ts`).
 
 import type { Scenario } from "../moment";
@@ -9,7 +9,7 @@ import { s261OneSessionView as base } from "./one-session-view";
 export const s274FieldExpandPlan: Scenario = {
   ...base,
   name: "field-expand-plan",
-  says: "A Job mid-build: its plan in progress along the Field, what it has made in Completed, and a walk waiting in Now",
+  says: "A Job mid-build: its plan in progress along the Field, what it has made in Done, and a walk waiting in Now",
   draft: {
     ...base.draft,
     sessions: (control) => {

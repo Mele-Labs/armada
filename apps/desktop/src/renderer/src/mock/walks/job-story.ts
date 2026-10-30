@@ -1,10 +1,10 @@
-// A Job's right column tells its story top to bottom in three zones: Completed, Now and Next. The plan is drafted whole in Now. The Job's
+// A Job's right column tells its story top to bottom in three zones: Done, Now and Open. The plan is drafted whole in Now. The Job's
 // issues are the plan's: a group that works one carries it on a meta line under its title, and the group being worked carries its issue under its live line. An issue the Job claimed
-// and the ones it filed for later stand in Completed, and the follow-ups the agent kept stand in Deferred, in Next. Approved, Now lists the group being worked with its tasks and the turn's
+// and the ones it filed for later stand in Done, and the follow-ups the agent kept stand in Deferred, in Open. Approved, Now lists the group being worked with its tasks and the turn's
 // live line, a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into.
 // The head's Artifacts icon opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
-// Job's own page, from Completed and from where its thread names it. `job-story-design-plan` is a doc landing that opened a pull request.
+// Job's own page, from Done and from where its thread names it. `job-story-design-plan` is a doc landing that opened a pull request.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -40,11 +40,11 @@ const story = walk("job-story", [
   { look: inside(verifyStep, role("list", "Pull requests")), say: "Two pull requests, each framed in its state's hue with a heavier edge: the number in that hue and the title, then the branch as a mono chip, the Checks and the queue state as filled chips. The act stands in a fixed column at the right, centred on its row" },
   { look: inside(verifyStep, role("img", "In the merge queue, merges when its turn comes")), say: "The first is in the merge queue and has no act, its column kept. The second is not queued: its Checks run, and its act is an icon button" },
   { look: inside(verifyStep, button(/^Issue .*2395/)), say: "An issue the Job claimed stands among the step's pull requests as a row of its own, and a press opens it" },
-  { press: inside(pullRequestStep, button("Deferred")), say: "Deferred, in Next, opens the follow-up the agent kept" },
+  { press: inside(pullRequestStep, button("Deferred")), say: "Deferred, in Open, opens the follow-up the agent kept" },
   { look: inside(verifyStep, button(/^Issue .*2402/)), say: "An issue the Job filed for later stands with the other issues in the step, and a press opens it" },
   { press: button("Artifacts", { exact: true }), say: "The Artifacts icon in the Job's head" },
   { look: inside(artifacts, role("group", "View")), say: "List and Graph are two icon toggles beside the search, each with a tooltip naming it and V. Back is at the far right of the head" },
-  { look: inside(artifacts, button(/^Pull request #2391/)), say: "Every row has two lines: the title, which wraps before it is cut, and under it the branch or path, the kind and its states. A pull request is the same row as in Completed" },
+  { look: inside(artifacts, button(/^Pull request #2391/)), say: "Every row has two lines: the title, which wraps before it is cut, and under it the branch or path, the kind and its states. A pull request is the same row as in Done" },
   { key: "Escape", on: artifacts, say: "Esc" },
   { look: verifyStep, say: "The story is back as it was" },
 ]);
@@ -70,7 +70,7 @@ const report = walk("job-story", [
   { look: region("Document", { exact: true }), say: "It opens in a panel over the Job" },
 ]);
 
-// A Job that lands a pull request and also wrote a page with the document skill: the page stands in its Completed beside the pull requests.
+// A Job that lands a pull request and also wrote a page with the document skill: the page stands in its Done beside the pull requests.
 const page = walk("job-story", [
   { press: deckRow("Retry the slot lease"), say: "A Job whose workflow lands a pull request" },
   { press: inside(planStep, button("Approve")), say: "Approve" },
@@ -87,7 +87,7 @@ const page = walk("job-story", [
   { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
 ]);
 
-// A Job whose workflow lands a doc and which opened a pull request too: both stand in Completed, the doc under the step that wrote it.
+// A Job whose workflow lands a doc and which opened a pull request too: both stand in Done, the doc under the step that wrote it.
 const design = walk("job-story", [
   { press: deckRow("Design how a watch ends"), say: "A design plan Job: its workflow lands a doc, and it opened a pull request beside it" },
   { press: inside(zone("Write the design"), button(/Write the design/)), say: "Write the design is done, folded until pressed" },

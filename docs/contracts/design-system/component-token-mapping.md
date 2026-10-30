@@ -140,7 +140,7 @@ spoken for as a *status*. Kill is deliberate, not alarming.
 **An icon toggle is a ghost and a lamp.**
 A ghost icon button that is on keeps its transparent ground and border, and draws a 6px lamp (`--lamp`) in its top-right corner in `--fg-default`, with `aria-pressed` set.
 Never `--accent`, which a theme may put beside the needs-you amber.
-This is one rule for every icon toggle in the app: a Job's Artifacts, Checks, Subagents and Bays, a ledger's kind filters, Whole plan, Changes and Capture.
+This is one rule for every icon toggle in the app: a Job's Artifacts, Checks, Subagents, Bays and Workflow, a ledger's kind filters, Whole plan, Changes and Capture.
 Each carries a tooltip naming it and its key.
 Why: a Job's head drew two of its seven icon buttons bordered and filled, and the owner read them as on.
 They were disabled, because there was nothing to open, and disabled drew a box.

@@ -3,5 +3,5 @@
   group = "Session"
   size = "16px"
   status = "Proposed"
-  reserved = "The By kind reading of a Job's Completed zone, one of its two icon toggles beside `milestone`. Never a label on an issue or a branch."
+  reserved = "The By kind reading of a Job's Done zone, one of its two icon toggles beside `milestone`. Never a label on an issue or a branch."
   notes = "Proposed 26 Oct 2026 with the Job's spine, walked as `job-walk-on-the-spine`. Tooltip `By kind`, with ⌥L. Refused: `layout-grid`, reserved to the Dashboard's Grid view; `shapes` and `group`, reserved to the whiteboard."

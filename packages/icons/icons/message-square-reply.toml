@@ -1,0 +1,14 @@
+[icons.message-square-reply]
+  means = "A speech bubble with an arrow turned back on itself: a comment that wants an answer"
+  group = "Job lanes"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A human comment's triage on a Job's pull request lane, when the agent reads it as wanting an answer and no change, and nothing else."
+  notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`, the comments under a Job's Lanes view. Tooltip `Answer only`. It draws in `--fg-muted`. Refused: `reply`, reserved to answering a Waiting on you row."
+
+[[icons.message-square-reply.usage]]
+  means = "The same triage mark on a human comment in the pull request panel, where the Job's agent read it as an answer only"
+  group = "Job lanes"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Answer only`."

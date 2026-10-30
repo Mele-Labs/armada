@@ -1,5 +1,5 @@
-// A walk is an output of the Job, and its whole life is on the Job's story: pending in Next, shown in Now as a call on him, and approved in Completed. Over
-// `job-walk-on-the-spine`, with the story's walk notes on the way: Completed's items and toggle, the workflow readout, the Bays clash, the calls line, ⌥M, Field
+// A walk is an output of the Job, and its whole life is on the Job's story: pending in Open, shown in Now as a call on him, and approved in Done. Over
+// `job-walk-on-the-spine`, with the story's walk notes on the way: Done's items and toggle, the workflow readout, the Bays clash, the calls line, ⌥M, Field
 // and the Jobs list; then Now on a real Job, whose plan, marks and calls are its own.
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";

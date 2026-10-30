@@ -1,4 +1,4 @@
-// A Session selected on the Cockpit is drawn compact: the Brief and a zone for each step of its workflow (Completed, Now and Next for a Job with no workflow) share the right column on one line, and there is no Ledger, Status, Plan
+// A Session selected on the Cockpit is drawn compact: the Brief and a zone for each step of its workflow (Done, Now and Open for a Job with no workflow) share the right column on one line, and there is no Ledger, Status, Plan
 // or Incoming calls panel and no Field in the foot. A Session calling him pulses its row in Work, and its tooltip names the call. Through
 // `App` on `one-session-view` and `compact-session-view`.
 
@@ -29,14 +29,14 @@ test("the Brief and a zone for each step of the workflow share the right column 
   await expect.poll(() => panels("Plan").length).toBe(1);
   const spine = document.querySelector(".sv-spine")!;
   expect(labels(spine)).toEqual(["Brief", "Plan", "Build", "Verify", "Pull request"]);
-  for (const gone of ["Completed", "Now", "Next", "Blueprint", "Delivery", "Workflow", "Ledger", "Status", "Incoming calls"]) expect(panels(gone), gone).toHaveLength(0);
+  for (const gone of ["Done", "Now", "Open", "Blueprint", "Delivery", "Workflow", "Ledger", "Status", "Incoming calls"]) expect(panels(gone), gone).toHaveLength(0);
   expect(document.querySelector(".sv-slot[data-place='foot']")).toBeNull();
 });
 
-test("a Job with no workflow keeps Completed, Now and Next in that order", async () => {
+test("a Job with no workflow keeps Done, Now and Open in that order", async () => {
   await open("one-session-view", "Name the store migrations");
   await expect.poll(() => panels("Now").length).toBe(1);
-  expect(labels(document.querySelector(".sv-spine")!)).toEqual(["Completed", "Now", "Next"]);
+  expect(labels(document.querySelector(".sv-spine")!)).toEqual(["Done", "Now", "Open"]);
 });
 
 test("the workflow heads the story as its name alone, its steps are the zones, and the current one carries the plan's groups", async () => {

@@ -30,6 +30,8 @@ pub(crate) struct Tuning {
     pub(crate) helm_authority: crate::helm::Authority,
     /// Whether a Session may follow a workflow: `features.workflows`.
     pub(crate) workflows: bool,
+    /// The workflows switched off for the machine and for single repositories: `workflows.off`.
+    pub(crate) workflows_off: ipc::workflows_off::WorkflowsOff,
     /// Whether a disputed notice starts a review and replies are read for one: `features.disputeReviews`.
     pub(crate) dispute_reviews: bool,
     pub(crate) judge_model: Model,
@@ -67,6 +69,10 @@ impl Tuning {
                 None => self.helm_authority,
             },
             workflows: settings.chosen(keys::WORKFLOWS).unwrap_or(self.workflows),
+            workflows_off: settings.chosen(keys::WORKFLOWS_OFF).map_or_else(
+                || self.workflows_off.clone(),
+                |saved| saved.map(|value| ipc::workflows_off::WorkflowsOff::read(&value.to_json_text())).unwrap_or_default(),
+            ),
             dispute_reviews: settings.chosen(keys::DISPUTE_REVIEWS).unwrap_or(self.dispute_reviews),
             judge_model: model(keys::MODELS_JUDGE, keys::EFFORT_JUDGE, &self.judge_model),
             proposer_model: model(keys::MODELS_PROPOSER, keys::EFFORT_PROPOSER, &self.proposer_model),
@@ -108,6 +114,7 @@ impl<H, V, W> crate::daemon::Fittings<H, V, W> {
             run_log_retention: self.run_log_retention,
             helm_authority: self.helm_authority,
             workflows: true,
+            workflows_off: Default::default(),
             dispute_reviews: false,
             judge_model: self.judge_model.clone(),
             proposer_model: self.proposer_model.clone(),

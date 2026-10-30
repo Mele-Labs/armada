@@ -1,4 +1,4 @@
-// A right press on a pull request chip, in the Cockpit's merge line or in the Job's Completed, offers Refresh: Fleet reads the pull request
+// A right press on a pull request chip, in the Cockpit's merge line or in the Job's Done, offers Refresh: Fleet reads the pull request
 // from the forge now. Success shows only as the chip changing, by Fleet's events; a refusal is a toast. The walk `pull-chip-refresh`
 // shows how it reads.
 
@@ -26,13 +26,15 @@ function rightPress(target: Element): void {
 
 const toast = (headline: string) => page.getByText(headline, { exact: true }).first();
 
-test("a right press on the merge line chip offers Refresh under the pull request's number, and nothing else", async () => {
+test("a right press on the merge line chip offers Refresh, Open in browser and Copy link under the pull request's number, and nothing else", async () => {
   await open();
   await expect.element(chip()).toBeVisible();
   rightPress(chip().element());
   await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
-  await expect.element(page.getByRole("menuitem")).toHaveLength(1);
+  await expect.element(page.getByRole("menuitem")).toHaveLength(3);
   await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Open in browser" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
 });
 
 test("Refresh on the merge line chip asks Fleet once, by the repository's Manifest, and the chip reads failed from Fleet's events", async () => {
@@ -62,11 +64,17 @@ test("a refused Refresh is a toast in Fleet's words, and the chip stays as it wa
   await expect.element(chip()).toHaveAccessibleName(/ci running/);
 });
 
-const landingChip = () => page.getByRole("region", { name: "Completed", exact: true }).getByRole("button", { name: /^Pull request #2290 / });
+// Done is folded until pressed, and a press toggles it: a fold an earlier test opened stays open, so press only a folded one.
+const openDone = async () => {
+  const done = page.getByRole("region", { name: "Done", exact: true });
+  if (done.element().hasAttribute("data-collapsed")) await userEvent.click(done.getByRole("heading", { name: "Done" }));
+};
+const landingChip = () => page.getByRole("region", { name: "Done", exact: true }).getByRole("button", { name: /^Pull request #2290 / });
 
-test("Refresh on the pull request in Completed asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
+test("Refresh on the pull request in Done asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
   const fleet = await open();
   await toSession("Who sees your config");
+  await openDone();
   await expect.element(landingChip().getByRole("img", { name: /^Checks running/ })).toBeVisible();
   rightPress(landingChip().element());
   await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
@@ -75,9 +83,10 @@ test("Refresh on the pull request in Completed asks Fleet once, and its Checks m
   await expect.element(landingChip().getByRole("img", { name: "Checks failed: ci / test" })).toBeVisible();
 });
 
-test("a refused Refresh in Completed is a toast too", async () => {
+test("a refused Refresh in Done is a toast too", async () => {
   const fleet = await open();
   await toSession("Who sees your config");
+  await openDone();
   fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
   rightPress(landingChip().element());
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));

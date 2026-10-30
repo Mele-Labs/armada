@@ -7,13 +7,14 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
 import { baysOf } from "../../session-view/slot-trouble";
+import { useLayer } from "../../session-view/layers";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
@@ -1090,7 +1091,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
   const rowView = useRowView();
-  const { columns, resize, reset } = useColumns(grid, layout, restBonus(rowView, false));
+  // A Job's Lanes open in the spine on a wide window, and the column is as wide as the pull request panel for as long as they are (`session-view/lanes-width.ts`).
+  const lanesInSpine = useLayer(onStage ?? "") === "lanes";
+  const { columns, resize, reset } = useColumns(grid, layout, restBonus(rowView, false), lanesInSpine ? tokenPx("--w-dialog-wide") : 0);
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);

@@ -32,6 +32,7 @@ Nudges are those `workflow_nudges` keeps for that step in that place's definitio
 | `fleet.workflow_unwritable` (500) | delete, where a file cannot be removed |
 
 **Make my copy needs no route.** `get_workflow` with `source=armada` reads Armada's text and `save_workflow` with `scope: kit` and `overwrite: false` writes it under the same id; 422 `fleet.workflow_exists` where Kit already holds one.
+In the Workspace's lanes the first change to one of Armada's makes the same copy, once, and the change is written to it; the column of steps keeps its row read-only.
 It is checked against the Checks of the repository Armada's row was listed under, as every save is.
 
 **Each copy is read and acted on under the Manifest Fleet listed it under**, the `manifest_id` on its `WorkflowSummary`, and not the pick's.
@@ -100,7 +101,7 @@ He dismisses the draft and asks again.
 
 **A suggestion is begun on its own** when a nudge is kept and at least two still count inside seven days at that step in that place, the place is the repository or Kit, and the step has no open change.
 A nudge marked not a drift does not count.
-Armada's own definitions get none: they are read-only, and a change to one is Propose to Armada or Make my copy.
+Armada's own definitions get none: they are read-only, and a change to one is Propose to Armada, Make my copy, or a first change in the lanes, which makes the copy.
 Suggest a change asks for one sooner, from the nudges that count then.
 
 **Propose to Armada** starts a Job on the repository Fleet serves as `armada`, the manifest id a retro's fix in Armada also looks for, with `start_session` and a brief that says to set the carried `.armada/workflows/` file for the id to the definition and land it as a pull request.
@@ -129,3 +130,23 @@ Fleet holds no marker of which repository is Armada's, and a machine that serves
 | `fleet.workflow_change_not_kept` (500) | the store would not answer |
 
 **Agents.** `list_workflow_changes` is `Yes`, `get_workflow_steps`' terms. The seven acts are `Bridge only`: each spends a model run, writes a definition, or starts a Job, on his press.
+
+## The switches: `features.workflows` and `workflows.off`
+
+Since 29 Oct 2026. The page holds **Workflows for Jobs** at the top and a switch on each row.
+**No operation, route or field is new.** Bridge reads both settings from the `get_settings` list it already holds and writes them with `save_settings`, the save every setting takes.
+
+| Setting | Shape | Switch |
+| --- | --- | --- |
+| `features.workflows` | A boolean, on unless Fleet says off | Workflows for Jobs, the same setting as Settings › Features |
+| `workflows.off` | A `Json` value, `{ "machine": ["<workflow id>"], "repositories": { "<manifest id>": ["<workflow id>"] } }` | A row's switch: the machine's list on All, the picked repository's list with one picked |
+
+**The save is the whole value.** A row's press sends `workflows.off` with that one id added to or taken out of the list it concerns, and every other list as it was.
+A repository whose last workflow is switched back on has no entry left, and a value that is absent, null or does not read is nothing off (`apps/desktop/src/renderer/src/workflows-off.ts`).
+**A workflow off on the machine is off in every repository**, so with one picked its row says `Off on this machine` in place of a switch, and only the machine's switch turns it back on.
+
+**Where it is edited.** Settings draws no row for `workflows.off`: a Json setting is never drawn by the generic form (`drawn` in `packages/surfaces/settings/src/sections.ts`), and the Workflows section that holds nothing else is not offered.
+This page is the one place it is edited.
+
+**What reads it.** The start card's Workflow picker leaves out a workflow that is off for the machine or for the Job's repository, and keeps None.
+Fleet's half, the proposer, `set_session_workflow` and the rail, is `crates/config/settings.toml`, *Workflows switched off*.
