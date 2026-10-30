@@ -1,3 +1,5 @@
+import type { ButtonHTMLAttributes } from "react";
+
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { RepositoryChip } from "../RepositoryChip/RepositoryChip";
 import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
@@ -12,7 +14,7 @@ export type JobTone = "ask" | "bad" | "live" | "calm";
 export const jobToneOf = (state: SessionState): JobTone =>
   state === "waiting" || state === "done" || state === "draft" || state === "unstarted" ? "ask" : state === "stuck" || state === "failing" ? "bad" : state === "working" ? "live" : "calm";
 
-export type JobCardProps = {
+export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type" | "title"> & {
   title: string;
   /** The Job's state, drawn as its registry glyph. */
   state: SessionState;
@@ -25,7 +27,7 @@ export type JobCardProps = {
   /** The repository it works in. Absent, no chip: a surface that already names the repository leaves it out. */
   repository?: string;
   selected?: boolean;
-  /** Opens the Job. */
+  /** Opens the Job. Other props, a roving tab stop's, go to the button. */
   onOpen: () => void;
 };
 
@@ -34,9 +36,9 @@ export type JobCardProps = {
  * and the left edge**, in the hue `jobToneOf` gives it, and its glyph with a tooltip; then the title, the last line it
  * said, its age and its repository. A press opens the Job.
  */
-export function JobCard({ title, state, said, says, at, repository, selected = false, onOpen }: JobCardProps) {
+export function JobCard({ title, state, said, says, at, repository, selected = false, onOpen, ...rest }: JobCardProps) {
   return (
-    <button type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
+    <button {...rest} type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
       <span className="armada-job-card__title">{title}</span>
       <span className="armada-job-card__mark">
         <SessionMark state={state} said={said} />

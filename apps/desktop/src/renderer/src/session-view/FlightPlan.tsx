@@ -3,10 +3,11 @@
 // opens to its tasks and the live line, and a press opens or shuts any. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { LinkedSession, LinkedSessionChip, Tooltip } from "@armada/components";
+import { LinkedSession, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
+import { ChildJob } from "./ChildJob";
 import { GroupPullRequests, issueOfGroup } from "./IssuesBlock";
 import { childrenOf, linkedPropsOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
@@ -75,13 +76,9 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
       <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} data-nav="" onClick={flip}>
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
-        {open || child !== undefined ? null : <TaskTrack tasks={group.tasks} />}
+        {open ? null : <TaskTrack tasks={group.tasks} />}
       </button>
-      {open || child === undefined ? null : (
-        <span className="sv-flight__job">
-          <LinkedSessionChip {...linkedPropsOf(child, onOpenSession)} />
-        </span>
-      )}
+      {open || child === undefined ? null : <ChildJob child={child} manifestId={manifestId} onOpen={onOpenSession} />}
       {!open ? null : (
         <div className="sv-flight__open">
           {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}

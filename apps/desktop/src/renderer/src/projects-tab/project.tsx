@@ -8,11 +8,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleDashed, CircleDot, File, Folder, GitPullRequest, ListTree, MessageCircleQuestion, Send, SquareTerminal, Ticket, Trash2, X, type LucideIcon } from "lucide-react";
-import { Button, DropdownMenu, Kbd, PullRequestChip, Readout, RepositoryChip, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Button, DropdownMenu, JobChip, Kbd, PullRequestChip, Readout, RepositoryChip, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
-import { JobMark } from "../issues-tab/marks";
+import { jobTitle } from "../issues-tab/marks";
+import { stateOf } from "../session-state";
 import { PullRequestMenuOn } from "../pull-request-menu";
 import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
@@ -229,7 +230,7 @@ function Card({ row, sub, repository, movable, adding, editing, state, sessions,
         <span className="projects-row__holder">
           {row.job === undefined ? null : (
             <span className="projects-row__linked">
-              <JobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />
+              <ProjectJobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />
               {row.kind === "task" ? <Unlink said={`Unlink ${row.job.title}`} onUnlink={() => store.unlinkJob(row.id)} /> : null}
             </span>
           )}
@@ -277,17 +278,11 @@ function IssueChips({ issues }: { issues: readonly Linked[] }) {
 }
 
 /** The Job holding a row, as a chip: its live state's glyph and its title; a press opens it. One that has ended reads by the title it was sent with. */
-function JobChip({ job, sessions, onOpen }: { job: Holder; sessions: readonly Session[]; onOpen: (id: string) => void }) {
+function ProjectJobChip({ job, sessions, onOpen }: { job: Holder; sessions: readonly Session[]; onOpen: (id: string) => void }) {
   const session = sessions.find((one) => one.id === job.id);
   const title = session?.title ?? job.title;
-  return (
-    <Tooltip label="Open the Job" shortcut={PROJECTS_KEYS.openJob} asChild>
-    <button type="button" tabIndex={-1} className="projects-row__job" data-job aria-label={`Open ${title}`} onClick={() => onOpen(job.id)}>
-      {session === undefined ? <SessionMark state="ended" said={`${job.title}: Ended`} /> : <JobMark session={session} />}
-      <span className="projects-row__job-title">{title}</span>
-    </button>
-    </Tooltip>
-  );
+  const { state, said } = session === undefined ? { state: "ended" as const, said: `${job.title}: Ended` } : { ...stateOf(session), said: `${jobTitle(session)}: ${stateOf(session).said}` };
+  return <JobChip title={title} state={state} said={said} shortcut={PROJECTS_KEYS.openJob} tabIndex={-1} data-job="" onOpen={() => onOpen(job.id)} />;
 }
 
 /** What the composer's buttons put at the caret: `@` opens the Jobs and files, `#` the issues and pull requests. */

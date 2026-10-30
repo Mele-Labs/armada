@@ -94,32 +94,3 @@
   color: var(--fg-muted);
   font-size: var(--text-2xs);
 }
-
-/* The compact form: three fixed columns, so an empty pull request keeps its width and the marks line up down a list. */
-.armada-linked-chip {
-  display: grid;
-  grid-template-columns: var(--space-4) calc(var(--space-8) * 2 + var(--space-2)) var(--h-control-sm);
-  align-items: center;
-  column-gap: var(--space-1);
-  font-family: var(--font-mono);
-}
-
-.armada-linked-chip__state {
-  justify-content: center;
-}
-
-.armada-linked-chip__pr {
-  justify-content: flex-end;
-}
-
-.armada-linked-chip[data-tone="ask"] .armada-linked__state {
-  color: var(--status-awaiting-review);
-}
-
-.armada-linked-chip[data-tone="bad"] .armada-linked__state {
-  color: var(--status-completed-failed);
-}
-
-.armada-linked-chip[data-tone="done"] .armada-linked__state {
-  color: var(--step-advanced);
-}

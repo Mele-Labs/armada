@@ -1,6 +1,5 @@
 import { Link } from "lucide-react";
 
-import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { sessionGlyphOf, type SessionState } from "../SessionFrame/SessionFrame";
 import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "../SessionLedger/PullRequestMarks";
@@ -57,36 +56,5 @@ export function LinkedSession({ title, group, state, said, pr, onOpen }: LinkedS
         )}
       </span>
     </button>
-  );
-}
-
-/**
- * The same Job as one row of fixed columns, for a plan group whose row is shut: the state mark, the pull request, the press that opens it. The group's own title stands
- * beside it, so this carries none. **An empty pull request cell keeps its width**, so the marks line up down the list. Its press is a button of its own: put it beside a row, never inside one.
- */
-export function LinkedSessionChip({ title, state, said, pr, onOpen }: Omit<LinkedSessionProps, "group">) {
-  const Glyph = sessionGlyphOf(state);
-  return (
-    <span className="armada-linked-chip" data-tone={TONE[state]}>
-      <Tooltip label={said}>
-        <span className="armada-session-mark armada-linked__state armada-linked-chip__state" role="img" aria-label={said} data-pulsing={state === "working" || undefined}>
-          <Glyph size={12} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-      <span className="armada-linked__pr armada-linked-chip__pr">
-        {pr === undefined ? null : (
-          <>
-            <code>#{pr.number}</code>
-            <PullRequestStateMark merged={pr.merged} />
-            <PullRequestChecksMark checks={pr.checks} said={pr.checksSaid} />
-          </>
-        )}
-      </span>
-      <Tooltip label="Open Job">
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Open ${title}`} data-nav="" onClick={onOpen}>
-          <Link size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    </span>
   );
 }

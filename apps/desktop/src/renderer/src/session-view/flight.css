@@ -27,8 +27,14 @@
 .sv-flight__row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; grid-row: 1; align-items: center; column-gap: var(--space-2); padding: var(--space-2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); line-height: var(--leading-sm); text-align: start; cursor: pointer; }
 .sv-flight__row:hover { background: var(--bg-hover); }
 .sv-flight__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-/* A shut group's Job stands in the last column over its row, as a sibling of the press that opens the group. */
-.sv-flight__job { grid-column: 3; grid-row: 1; z-index: 1; justify-self: end; align-self: center; }
+/* A shut group's Job stands under its title, a sibling of the press that opens the group. The card is the shared Job card with its pull request under it; the chip is the shared Job chip and pull request chip on one line, each in the soft frame the Projects tab gives them. */
+.sv-flight__job { grid-column: 2 / -1; grid-row: 2; display: flex; min-width: 0; padding: 0 0 var(--space-2); }
+.sv-flight__job[data-take="card"] { flex-direction: column; gap: var(--space-1); }
+.sv-flight__job[data-take="chip"] { flex-wrap: wrap; gap: var(--space-2); }
+.sv-flight__linked { display: inline-flex; align-items: center; min-width: 0; height: var(--h-control-sm); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
+.sv-flight__linked .armada-pull-chip { width: auto; max-width: calc(var(--space-12) * 8); height: 100%; border: 0; background: transparent; box-shadow: none; }
+.sv-flight__linked > .armada-job-chip { height: 100%; }
+.sv-flight__linked > .armada-job-chip:not(:hover) { background: transparent; }
 .sv-flight__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .sv-flight__group[data-step="done"] .sv-flight__title,
 .sv-flight__group[data-step="upcoming"] .sv-flight__title { color: var(--fg-muted); font-weight: var(--weight-body); }

@@ -1,0 +1,21 @@
+/* A Job as a chip: its state's glyph and its title on a soft fill, one press. Tokens only. */
+.armada-job-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  height: var(--h-control-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+.armada-job-chip:hover { background: color-mix(in srgb, var(--fg-default) 14%, transparent); }
+.armada-job-chip .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
+.armada-job-chip__title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
