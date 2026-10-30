@@ -9,6 +9,7 @@ import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { RefText } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useKept } from "../../keep";
 import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
@@ -221,7 +222,7 @@ export function QuestionDeck({
             </button>
           </header>
           <div className="armada-question-deck__body" hidden={flat ? false : !open}>
-            <p className="armada-question-deck__ask">{one.question}</p>
+            <p className="armada-question-deck__ask"><RefText text={one.question} /></p>
             <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
               {one.options.map((option, index) => {
                 const on = (picked[front] ?? []).includes(option.label);
@@ -244,7 +245,7 @@ export function QuestionDeck({
                     <kbd>{index + 1}</kbd>
                     <span className="armada-question-deck__option">
                       <span>{option.label}</span>
-                      {option.description === "" ? null : <span className="armada-question-deck__description">{option.description}</span>}
+                      {option.description === "" ? null : <span className="armada-question-deck__description"><RefText text={option.description} /></span>}
                     </span>
                   </button>
                 );
