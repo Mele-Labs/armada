@@ -88,10 +88,17 @@ The order is the owner's, 29 Oct 2026.
 Three step keys place a Job around the owner.
 `crates/core-model/domain/workflowdef-fields.toml` carries them.
 
-**`ends_on`** lists what the owner does that ends the step, any one of them: `replied`, `walk_approved`, `sketch_approved`, `draft_approved` and `idea_picked`.
+**`ends_on`** lists what ends the step, any one of them: what the owner does (`replied`, `walk_approved`, `sketch_approved`, `draft_approved` and `idea_picked`) or a lifecycle reaching a state.
 The agent stops until one holds.
 `feature` sets it on `propose`, without `replied`: Propose ends on an approval, never on prose.
 `idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
+
+**A lifecycle state** is written `pr: approved`, `ticket: closed` or `job: landed`, and `any ticket: closed` for the first of several (29 Oct 2026).
+Every instance of the lifecycle the Job holds must have reached the state, so `job: landed` waits for every Job this one started.
+Fleet moves the Job on when a move it kept for an instance satisfies the end, and wakes the agent with one line.
+It is the world's to bring about, so the step raises no wait for the owner; if he writes on the step or skips it, the Job moves on without the line.
+A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `walks`, `follows_plan` or `records_plan` takes none: put the wait on the step before or after it.
+On a step that `delivers` the state gates the merge instead (Land waits on `pr: approved`): the agent opens the pull request, ends its turn and does not merge, and Fleet wakes it with one line when the state comes.
 
 **`awaits_reply: true`** is `ends_on: ["replied"]`.
 

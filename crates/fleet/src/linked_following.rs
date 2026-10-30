@@ -9,6 +9,9 @@
 //! standing. **Each is told once**: `done` and `merged` are kept in the store, so a restart does not
 //! tell them again.
 //!
+//! **Merged is the forge's word**, read as `after_following` reads it: a `pr` row the mod spent while
+//! its detail still says open is not a merge. A `merged` kept off such a row is forgotten at start.
+//!
 //! Every Session with a `started_by` row is followed, whether or not it was handed a plan group.
 
 use std::sync::Arc;
@@ -53,6 +56,7 @@ where
         }
     });
     tokio::spawn(async move {
+        let _ = fleet.store().lock().await.forget_linked_merged_misread();
         while let Some(record) = heard.recv().await {
             fleet.linked_moved(record).await;
         }
@@ -77,7 +81,7 @@ where
         if record.state == ipc::SessionState::Ended && self.linked_once(&child, "done", "").await {
             self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended")).await;
         }
-        for pull in record.attachments.iter().filter(|one| one.kind == "pr" && one.state == ipc::AttachmentState::Spent) {
+        for pull in record.attachments.iter().filter(|one| one.kind == "pr" && crate::after_following::merged(one)) {
             if self.linked_once(&child, "merged", &pull.target).await {
                 self.linked_told(&parent, &child, &title, LinkedEvent::Merged, said(&format!("had its pull request #{} merged", pull.target))).await;
             }
