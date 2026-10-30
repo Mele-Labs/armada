@@ -1,7 +1,7 @@
 // What Done lists as made: a walk shown again stands once, where it was shown last, and the pictures a test run or a look in a browser leave
 // behind are scratch, not things made for him.
 
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { madeOf } from "./ledger";
@@ -29,4 +29,22 @@ test("a test run's screenshots and a browser check's pictures are not made", () 
     ],
   } as unknown as Session;
   expect(titles(one)).toEqual(["issues-tab.png"]);
+});
+
+describe("a Job's document in Done", () => {
+  const PAGE = "/work/.armada/documents/script.html";
+  const job = (change: Record<string, unknown>) =>
+    ({ id: "j", rows: [], attachments: [{ kind: "artifact", form: "document", id: PAGE, title: "Video script", revisions: ["/s/r1.html"], asked: true, revision: "1", ...change }] }) as unknown as Session;
+
+  test("is not made while its newest revision waits on him", () => {
+    expect(titles(job({}))).not.toContain("Video script");
+  });
+
+  test("is made once he approved it", () => {
+    expect(titles(job({ settled: { how: "approved", at: "2026-10-30T10:05:00Z" } }))).toContain("Video script");
+  });
+
+  test("is made where Fleet never asked", () => {
+    expect(titles(job({ asked: undefined, revision: undefined }))).toContain("Video script");
+  });
 });

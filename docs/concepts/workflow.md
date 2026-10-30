@@ -88,10 +88,11 @@ The order is the owner's, 29 Oct 2026.
 Three step keys place a Job around the owner.
 `crates/core-model/domain/workflowdef-fields.toml` carries them.
 
-**`ends_on`** lists what ends the step, any one of them: what the owner does (`replied`, `walk_approved`, `sketch_approved`, `draft_approved` and `idea_picked`) or a lifecycle reaching a state.
+**`ends_on`** lists what ends the step, any one of them: what the owner does (`replied`, `walk_approved`, `sketch_approved`, `draft_approved`, `idea_picked` and `document_approved`) or a lifecycle reaching a state.
 The agent stops until one holds.
 `feature` sets it on `propose`, without `replied`: Propose ends on an approval, never on prose.
 `idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
+`document_approved` counts only his approval of a page's newest revision, read off the page Fleet kept.
 
 **A lifecycle state** is written `pr: approved`, `ticket: closed` or `job: landed`, and `any ticket: closed` for the first of several (29 Oct 2026).
 Every instance of the lifecycle the Job holds must have reached the state, so `job: landed` waits for every Job this one started.

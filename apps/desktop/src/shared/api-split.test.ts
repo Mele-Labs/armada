@@ -144,7 +144,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, ReopenWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, ReopenWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -399,6 +399,7 @@ type OldBridgeApi = {
     confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
     confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
     answerSketch: (answer: AnswerSketch) => Promise<SessionActed>;
+    answerDocument: (answer: AnswerDocument) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
     judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
@@ -734,6 +735,7 @@ const OLD_CHANNELS = {
     confirmLater: "bridge:confirm-later",
     confirmWaiting: "bridge:confirm-waiting",
     answerSketch: "bridge:answer-sketch",
+    answerDocument: "bridge:answer-document",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",
     judgeSession: "bridge:judge-session",

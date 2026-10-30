@@ -388,3 +388,19 @@ test("with no list reported, the build record's tasks draw in its place", () => 
     expect([...agentList(host).querySelectorAll(".armada-task-mark")].map((one) => one.getAttribute("data-state"))).toEqual(["done", "working", "open"]);
   }
 });
+
+test("a document waiting on his answer stands in Now and not in Done, and under Done once he approved it", () => {
+  const PAGE = "/work/.armada/documents/script.html";
+  const page = { kind: "artifact", form: "document", id: PAGE, title: "Video script", revisions: ["/s/r1.html"], asked: true, revision: "1", kept: "2026-10-27T10:30:00Z" };
+  const item = { id: `document:${PAGE}`, text: "Video script", since: "2026-10-27T10:30:00Z", source: "document", act: { kind: "message", target: ID } };
+
+  const waiting = mount({ railOff: true, attachments: [page], extra: { waitingFor: [item] } as Partial<Session> });
+  act(() => band(zone(waiting, "Done")).click());
+  expect(zone(waiting, "Now").textContent).toContain("Video script");
+  expect(zone(waiting, "Done").textContent).not.toContain("Video script");
+
+  const approved = mount({ railOff: true, attachments: [{ ...page, settled: { how: "approved", at: "2026-10-27T10:35:00Z" } }] });
+  act(() => band(zone(approved, "Done")).click());
+  expect(zone(approved, "Now").textContent).not.toContain("Video script");
+  expect(zone(approved, "Done").textContent).toContain("Video script");
+});
