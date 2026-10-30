@@ -1,7 +1,17 @@
 // Workspaces, lifecycles and rules, as main asks Fleet for them: one request per read, and the stream's
 // `job_lifecycles.changed`, passed on to every window. Nothing is kept here, since the event carries a Job's whole.
 
-import type { JobLifecycles, Outcome, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces } from "@armada/protocol";
+import type {
+  ChangeJobCopy,
+  ChangeSessionSteps,
+  JobCopy,
+  JobLifecycles,
+  Outcome,
+  RepositoryLifecycleRules,
+  RepositoryLifecycles,
+  RepositoryWorkspaces,
+  WorkflowChange,
+} from "@armada/protocol";
 import type { LifecyclesActed } from "../shared/api/lifecycles";
 import { ask } from "./request";
 
@@ -45,10 +55,37 @@ export class LifecyclesHost {
     return this.read(`/sessions/lifecycles?session_id=${encodeURIComponent(sessionId)}`);
   }
 
+  /** `GET /sessions/copy?session_id=`. */
+  copy(sessionId: string): Promise<LifecyclesActed<JobCopy>> {
+    return this.read(`/sessions/copy?session_id=${encodeURIComponent(sessionId)}`);
+  }
+
+  /** `POST /sessions/workflow/steps`. The Job's lanes change by `job_lifecycles.changed` and its row by `session.changed`. */
+  steps(change: ChangeSessionSteps): Promise<LifecyclesActed<JobCopy>> {
+    return this.act("/sessions/workflow/steps", change);
+  }
+
+  /** `POST /sessions/copy`. */
+  piece(change: ChangeJobCopy): Promise<LifecyclesActed<JobCopy>> {
+    return this.act("/sessions/copy", change);
+  }
+
+  /** `POST /sessions/copy/keep`. Saves nothing: the change waits on the owner's Approve. */
+  keep(sessionId: string): Promise<LifecyclesActed<WorkflowChange>> {
+    return this.act("/sessions/copy/keep", { session_id: sessionId });
+  }
+
   private async read<T>(path: string): Promise<LifecyclesActed<T>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", path);
+    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+  }
+
+  private async act<T>(path: string, body: unknown): Promise<LifecyclesActed<T>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", path, body);
     return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
   }
 }

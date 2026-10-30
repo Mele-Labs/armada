@@ -196,6 +196,20 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
           >
             <span className="armada-lane__title">{lane.title}</span>
             <span className="armada-lane__source">{lane.ended === true ? "Ended" : lane.source}</span>
+            {lane.changed === undefined ? null : (
+              <span
+                className="armada-lane__changed"
+                role="img"
+                aria-label={`Changed on this Job: ${lane.changed}`}
+                onMouseEnter={(event) => {
+                  event.stopPropagation();
+                  hold.tip(["Changed on this Job", lane.changed!], event.currentTarget);
+                }}
+                onMouseLeave={() => hold.tip(undefined)}
+              >
+                <GitCompare size={14} strokeWidth={2} aria-hidden="true" />
+              </span>
+            )}
           </div>
         );
       })}
@@ -393,6 +407,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
     rule.label,
     ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did ?? [])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : rule.did),
     ...(rule.meta === undefined ? [] : [rule.meta]),
+    ...(rule.changed === undefined ? [] : ["Changed on this Job", rule.changed]),
     ...(rule.differs === undefined ? [] : [differsSaid(rule.differs)]),
   ];
   const name = `${rule.proposed === true ? "Proposed: " : ""}${rule.label}${rule.quiet === true ? `, ${target}` : ""}`;
@@ -445,6 +460,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
               {rule.meta === undefined ? null : <code className="armada-lane-chip__meta">{rule.meta}</code>}
             </>
           )}
+          {rule.changed === undefined ? null : <GitCompare className="armada-lane-chip__changed" size={14} strokeWidth={2} aria-hidden="true" />}
           {rule.differs === undefined ? null : <Split className="armada-lane-chip__differs" size={14} strokeWidth={2} aria-hidden="true" />}
         </button>
         {picked && hold.editing !== undefined && rule.quiet !== true && rule.proposed !== true ? (
@@ -545,7 +561,7 @@ function Pans({ pan, content, covered }: { pan: Pan | undefined; content: { widt
 
 /** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
 const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.changed, node.differs, node.sub].map(String).join("|");
-const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.differs].map(String).join("|");
+const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs].map(String).join("|");
 
 export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();

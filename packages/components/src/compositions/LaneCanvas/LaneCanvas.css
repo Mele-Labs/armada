@@ -64,6 +64,17 @@
   white-space: nowrap;
 }
 
+/* A lifecycle this Job's own copy changed: the comparison's glyph in the waiting hue, on the head's corner. */
+.armada-lane__changed {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: grid;
+  place-items: center;
+  color: var(--status-awaiting-review);
+  cursor: default;
+}
+
 .armada-lane__source {
   overflow: hidden;
   color: var(--fg-subtle);
@@ -385,6 +396,8 @@
 .armada-lane-chip[data-needs] .armada-lane-chip__diamond polygon { stroke-dasharray: var(--space-1) var(--space-1); }
 .armada-lane-chip__mark { position: relative; flex: none; color: var(--hue); }
 .armada-lane-chip__differs { flex: none; color: var(--fg-muted); }
+/* A rule this Job's own copy changed: the comparison's glyph in the waiting hue, as a changed state wears it. */
+.armada-lane-chip__changed { flex: none; color: var(--status-awaiting-review); }
 /* A rule waiting on the person wears the waiting hue, as a row that needs them does. */
 .armada-lane-chip[data-needs] { --hue: var(--status-awaiting-review); }
 .armada-lane-chip__meta {
