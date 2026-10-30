@@ -77,6 +77,9 @@ const rule = (id: string, name: string, when: LifecycleRule["when"], does: Lifec
   ...more,
 });
 
+/** Armada's own Ticket, Pull request and Deploy and nothing else: no Workspace, no rule, no lifecycle of a repository's own. */
+export const builtInPieces = (): PiecesSeed => ({ workspaces: [], lifecycles: [held(TICKET), held(PULL_REQUEST), held(DEPLOY)], rules: [] });
+
 /**
  * The Workspace `my-store`, whose home is the first repository: Armada's Ticket, Pull request and Deploy for everywhere; the first repository's own Ticket, which it names In review as In QA; a rule
  * of the person's own that starts the ticket, one the repository committed that closes it on merge, and one for the Workspace alone that brings the pull request to Ready.

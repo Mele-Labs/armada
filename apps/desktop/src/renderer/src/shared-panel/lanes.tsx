@@ -10,9 +10,11 @@ import type { LanePick, TriagedComment } from "@armada/components";
 import { instanceKey } from "@armada/screens/src/session-lanes";
 
 import { useSessions } from "../sessions-draft";
-import { useTeach } from "../teach";
+import { teachHereOf, useTeachFrom } from "../teach";
+import type { TeachHere } from "../teach";
 import { SidePanel } from "./side";
 import { useBack } from "./panels";
+import { usePanelReads } from "./reads";
 import { closePanel, openInPanel } from "./store";
 import type { PanelItem } from "./store";
 import "../session-view/lanes.css";
@@ -52,7 +54,10 @@ function CommentRow({ comment, onOpen }: { comment: TriagedComment; onOpen: () =
 export function LanesBody({ sessionId }: { sessionId: string }) {
   const session = useSessions().find((one) => one.id === sessionId);
   const [picked, setPicked] = useState<LanePick | undefined>();
-  const teach = useTeach();
+  // The panel is drawn outside the Job, so Teach here is told which Job and repository it is pressed in.
+  const listed = usePanelReads()?.repositories?.().listed;
+  const here = useMemo((): TeachHere => (session === undefined ? { sessionId, jobTitle: sessionId, repository: "" } : teachHereOf(session, listed ?? [])), [session, sessionId, listed]);
+  const teach = useTeachFrom(here);
   const lanes = session?.lanes;
   const drawn = useMemo(() => (lanes === undefined ? undefined : jobLanes(lanes.job, lanes)), [lanes]);
   if (session === undefined || lanes === undefined || drawn === undefined) return null;
