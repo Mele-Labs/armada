@@ -627,7 +627,7 @@ export type Session = {
   /** The name of the live watch that alone keeps it open. `SessionRecord.held_open_by`. */
   heldOpenBy?: string;
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
-  done?: { since: string };
+  done?: { since: string; summary?: string };
   /**
    * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**
    * the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not

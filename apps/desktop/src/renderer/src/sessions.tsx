@@ -150,7 +150,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
-import { askToEnd } from "./end-job";
+import { askToEnd, dropAsk } from "./end-job";
 import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -839,6 +839,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   useEffect(() => setEndPanel(undefined), [session.id]);
+  useEffect(() => () => dropAsk(session.id), [session.id]);
   const [failedAway, setFailedAway] = useState<string | undefined>();
   const dispatchFailure = useDispatchFailureHere();
   const centre = useRef<HTMLDivElement>(null);
@@ -1130,6 +1131,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     : {
         onEnd: end,
         made,
+        summary: session.done?.summary,
         onKeep: () => {
           setKept(session.done?.since);
           // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.

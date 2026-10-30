@@ -105,6 +105,7 @@ fn long_lived() -> SessionRecord {
             waiting("draft:9", "Pull request description for the label", WaitingSource::Draft, None),
         ],
         done_since: Some(at()),
+        done_summary: None,
         standing: None,
         held_until: None,
         context_breakdown: None,

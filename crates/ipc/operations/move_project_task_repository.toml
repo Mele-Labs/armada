@@ -1,0 +1,10 @@
+[operations.move_project_task_repository]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Move a task to another repository, with its subtasks"
+notes = """
+`POST /projects/rows/:row/repository`, body `MoveProjectTaskRepository`: `manifest_id`, the repository Fleet serves that the task goes to. A top-level task, and its subtasks with it: a subtask has no repository of its own. It keeps its project, its place and its state, and a Job holding it keeps it. **Its issues and pull requests keep the repository each was linked in**, and each says so in its own `manifest_id` on `TaskIssue` and `TaskPull`. Moving it to the repository it is in changes nothing. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 422 `fleet.project_subtask_too_deep` for a subtask, a 422 `fleet.project_row_not_a_task` for an issue row, whose repository is where it was linked, a 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve, and a 404 `fleet.no_such_project_row` for a `row` there is none of.
+"""

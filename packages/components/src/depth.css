@@ -562,6 +562,8 @@
   font-size: var(--text-sm);
   transition: background-color var(--duration-fast) var(--ease);
 }
+/* A stacked row, a dispatch row carrying chips, grows to its two lines. */
+:root[data-look="new"] .armada-palette__row--stacked { height: auto; min-height: var(--palette-row); padding-block: var(--space-2); }
 :root[data-look="new"] .armada-palette__row:not(.armada-palette__row--dormant):hover { background: var(--bg-step); }
 /* The row under the cursor is one neutral rounded fill, as Raycast draws it (the owner, 27 Oct 2026): no edge bar
  * and no accent, so the highlight reads as where you are rather than as a state. */

@@ -511,3 +511,31 @@ async fn a_plan_set_aside_holds_nothing_and_the_next_version_waits_again() {
     rig.send(&id, &format!("Approved: {ONE}")).await;
     assert_eq!(call(&rig, &id).await.expect("asked again").id, "plan:2");
 }
+
+fn document(target: &str, detail: &[(&str, &str)]) -> ipc::Attachment {
+    ipc::Attachment {
+        kind: "artifact".into(),
+        manifest_id: None,
+        target: target.into(),
+        state: ipc::AttachmentState::Standing,
+        detail: [("form", "document")].iter().chain(detail).map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        since: ipc::Instant::carried("2026-01-01T00:00:00Z"),
+        changed_at: ipc::Instant::carried("2026-01-01T00:00:00Z"),
+    }
+}
+
+/// **A page put to him holds the plan until he answers it**, and a page the Job never asked holds nothing.
+#[test]
+fn a_page_put_to_him_holds_a_pending_plan_until_he_settles_it() {
+    const PAGE: &str = "/r/.armada/documents/lease.html";
+    let held = |page: ipc::Attachment| crate::session_host::planning::plan_holds("2026-01-02T00:00:00Z", None, &[page], &[], &[]);
+
+    let open = held(document(PAGE, &[("asked", "true")]));
+    assert_eq!(open.held_by, [ipc::PlanHold { url: PAGE.into(), why: ipc::PlanHoldWhy::Unapproved }]);
+
+    let answered = held(document(PAGE, &[("asked", "true"), ("settled", "approved"), ("settled_at", "2026-01-03T00:00:00Z")]));
+    assert!(answered.held_by.is_empty(), "{:?}", answered.held_by);
+    assert_eq!(answered.since, ipc::Instant::carried("2026-01-03T00:00:00Z"), "his answer is when it became askable");
+
+    assert!(held(document(PAGE, &[])).held_by.is_empty(), "a page never asked holds nothing");
+}

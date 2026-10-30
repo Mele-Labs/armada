@@ -31,7 +31,7 @@ async fn holding_a_deploy_and_a_pull_request(rig: &Rig, id: &SessionId) {
 }
 
 fn done(id: &SessionId) -> AllDone {
-    AllDone { session_id: Some(id.clone()) }
+    AllDone { session_id: Some(id.clone()), summary: None }
 }
 
 fn finish(id: &SessionId) -> FinishUp {

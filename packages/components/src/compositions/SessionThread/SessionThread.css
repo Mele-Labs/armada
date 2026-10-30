@@ -234,6 +234,14 @@
 .armada-session-thread__plan .armada-session-sketch__band { display: none; }
 .armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row-unit) * 3); }
 
+/* The Job's own words on what it delivered, above what it made. */
+.armada-session-done__summary {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
 /* What the agent made, in the Session end panel: many rows scroll so End session stays in view. */
 .armada-session-done__made {
   display: flex;
@@ -250,6 +258,9 @@
   display: flex;
   gap: var(--space-2);
 }
+
+/* The ⌥ keys still answer the row as its target; it takes no ring. */
+.armada-session-done__acts[data-thread-target] { outline: none; }
 
 .armada-session-thread__eyebrow {
   font-size: var(--text-2xs);

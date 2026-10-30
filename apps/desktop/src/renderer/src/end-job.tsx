@@ -43,6 +43,11 @@ export function askToEnd(draft: SessionsDraft, id: string, then?: () => void): v
   ask({ draft, id, then });
 }
 
+/** Drop the ask for Job `id`, as its view leaves the screen: a list for a Job nobody is looking at is one nobody can answer. */
+export function dropAsk(id: string): void {
+  if (asked?.id === id) ask(undefined);
+}
+
 /**
  * The list over whatever is on screen. It shuts when the Job holds nothing in flight any more, ended or not.
  * **Only the mount of the Sessions the press was made on answers it**: the mock nests one served mount in another that serves none, and an
