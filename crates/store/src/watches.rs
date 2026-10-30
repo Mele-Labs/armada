@@ -322,18 +322,19 @@ impl Store {
         self.watches_where("live = 1 ORDER BY rowid", None)
     }
 
-    /// The name of the live watch of `session` that started first, for a row that says what holds the
+    /// The names of the live watches of `session`, the oldest first, for a row that says what holds the
     /// Job open. It reads no readings: a row is drawn far more often than a watch is read.
-    pub fn first_live_watch_name(&self, session: &str) -> Result<Option<String>, WriteError> {
-        Ok(self
+    pub fn live_watch_names(&self, session: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading a Job's live watches";
+        let mut asking = self
             .conn
-            .query_row(
-                "SELECT name FROM watches WHERE session_id = ?1 AND live = 1 ORDER BY rowid LIMIT 1",
-                [session],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(fault("reading a Job's first live watch"))?)
+            .prepare("SELECT name FROM watches WHERE session_id = ?1 AND live = 1 ORDER BY rowid")
+            .map_err(fault(doing))?;
+        let names = asking
+            .query_map([session], |row| row.get(0))
+            .and_then(|rows| rows.collect::<Result<Vec<String>, _>>())
+            .map_err(fault(doing))?;
+        Ok(names)
     }
 
     /// Forget `id` and everything kept of it: readings, set-asides, verdicts and notices. `false`

@@ -59,8 +59,8 @@ pub(crate) struct LedgerReads {
     wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
     /// The follow-ups its agent keeps for itself, still open.
     later: Vec<store::KeptLater>,
-    /// The name of the live watch that started first, if it holds one.
-    watching: Option<String>,
+    /// The names of its live watches, the oldest first.
+    watching: Vec<String>,
     /// What the start card is drawn from, for a Job that waits on it.
     start: Option<crate::session_host::start_card::StartReads>,
 }

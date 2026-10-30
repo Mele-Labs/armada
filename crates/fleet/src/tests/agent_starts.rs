@@ -463,6 +463,7 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
         issue: None,
         gives: None,
         lands_in: None,
+        own_job: false,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: (*one).into() }).collect(),
     };
     RecordPlan {

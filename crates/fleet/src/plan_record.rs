@@ -174,6 +174,7 @@ pub(crate) fn recorded(
             title: group.title.clone(),
             gives: group.gives.clone(),
             lands_in: group.lands_in.clone(),
+            own_job: group.own_job,
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
@@ -690,6 +691,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                     label: group.lands_in.clone().unwrap_or_else(|| FIRST_PULL_REQUEST.to_string()),
                     pull_request: None,
                 },
+                own_job: group.own_job,
                 tasks: group
                     .tasks
                     .iter()

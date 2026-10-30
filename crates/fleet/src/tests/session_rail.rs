@@ -240,6 +240,7 @@ pub(super) fn plan(id: &SessionId) -> RecordPlan {
             issue: None,
             gives: None,
             lands_in: None,
+            own_job: false,
             tasks: vec![PlanTaskInput { id: None, title: "Stop at the end".into() }],
         }],
         sketch: None,

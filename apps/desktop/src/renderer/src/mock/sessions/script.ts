@@ -540,8 +540,8 @@ export function sessionsStore(
       edit(id, (one) => {
         const watches = (one.watches ?? []).map((it) => (it.id === watch ? { ...it, state: "stopped" as const, live: false } : it));
         const { heldOpenBy, ...rest } = one;
-        const held = watches.find((it) => it.live && it.name === heldOpenBy);
-        return { ...rest, watches, ...(held === undefined ? {} : { heldOpenBy: held.name }) };
+        const held = (heldOpenBy ?? []).filter((it) => it.kind !== "watch" || watches.some((live) => live.live && live.name === it.name));
+        return { ...rest, watches, ...(held.length === 0 ? {} : { heldOpenBy: held }) };
       }),
     // As Fleet does: an ended watch goes, and a live one stays, since Fleet refuses it.
     deleteWatch: (id, watch) => edit(id, (one) => ({ ...one, watches: (one.watches ?? []).filter((it) => it.id !== watch || it.live) })),

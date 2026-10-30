@@ -200,6 +200,14 @@ button.armada-session-frame__context:focus-visible {
   align-items: center;
 }
 
+/* The five buckets, one hue each, wherever the mark is drawn: amber needs him, blue works, teal waits on something
+   that is not him, grey is idle and a draft is the dormant grey. */
+.armada-session-mark[data-bucket="needs"] { color: var(--status-awaiting-review); }
+.armada-session-mark[data-bucket="working"] { color: var(--status-running); }
+.armada-session-mark[data-bucket="waiting"] { color: var(--status-handed-in); }
+.armada-session-mark[data-bucket="idle"] { color: var(--fg-muted); }
+.armada-session-mark[data-bucket="draft"] { color: var(--status-not-started); }
+
 /* The tools mark as a button: the mark's own look, with a focus ring and a pointer. */
 .armada-tools-mark {
   padding: 0;

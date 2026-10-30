@@ -1,5 +1,6 @@
-// Open work in one place: the pull requests, issues and follow-ups still to settle, drawn after the last step so a folded step never hides them. A right press on the
-// group hides it for every Job; Settings, Bridge has it back.
+// Open work in one place: the pull requests, issues and follow-ups still to settle, drawn after the last step so a folded step never hides them. An issue a plan group
+// still to come or being worked draws, with its pull requests, is left out: the group holds it. A right press on the group hides it for every Job, and the current step
+// lists the open work instead; Settings, Bridge has it back.
 
 import { useState, type ReactNode } from "react";
 import { EyeOff } from "lucide-react";

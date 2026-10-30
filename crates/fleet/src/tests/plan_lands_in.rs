@@ -18,6 +18,7 @@ fn group(title: &str, lands_in: Option<&str>) -> PlanGroupInput {
         issue: None,
         gives: None,
         lands_in: lands_in.map(String::from),
+        own_job: false,
         tasks: vec![PlanTaskInput { id: None, title: format!("Do {title}") }],
     }
 }
@@ -87,4 +88,18 @@ fn a_group_handed_to_a_job_reads_that_jobs_pull_request() {
     let plan = kept(&[group("Store", Some("PR 1")), group("Fleet", Some("PR 2"))]);
     let handed = PlanPull { handed: Some(plan.groups[1].id.clone()), ..pull(9, None) };
     assert_eq!(read(&plan, &[handed]).iter().map(|one| one.1).collect::<Vec<_>>(), [None, Some(9)]);
+}
+
+#[test]
+fn a_group_that_goes_to_its_own_job_says_so_on_the_wire_until_the_plan_is_recorded_again_without_it() {
+    let own = PlanGroupInput { own_job: true, ..group("Fleet", Some("PR 2")) };
+    let groups = [group("Store", None), own];
+    let first = kept(&groups);
+    let marks = |plan: &KeptPlan| wire(plan).groups.iter().map(|one| one.own_job).collect::<Vec<_>>();
+    assert_eq!(marks(&first), [false, true]);
+    let second = recorded(Some(&first), &groups, None, None, false, "You get it.".into(), NOW);
+    assert_eq!(marks(&second), [false, true], "recording it again with the mark keeps it");
+    let plain = [group("Store", None), group("Fleet", Some("PR 2"))];
+    let third = recorded(Some(&second), &plain, None, None, false, "You get it.".into(), NOW);
+    assert_eq!(marks(&third), [false, false], "the new recording's, as the label is");
 }

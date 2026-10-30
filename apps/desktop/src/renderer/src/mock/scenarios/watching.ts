@@ -149,7 +149,7 @@ const held: Session = {
   ],
   attachments: [{ kind: "branch", name: "api/upload-limit", slot: 3 }, pr(408, "Raise the upload limit to 50 MB", "api/upload-limit", "merged")],
   work: { proposal: { workflow: null } },
-  heldOpenBy: "Staging deploy",
+  heldOpenBy: [{ kind: "watch", name: "Staging deploy" }],
   watches: [
     watch("w-staging", HELD_ID, "Staging deploy", {
       command: ["scripts/watch/deploy-state", "9b71d03", "staging"],

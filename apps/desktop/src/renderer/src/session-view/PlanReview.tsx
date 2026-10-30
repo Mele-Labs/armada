@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, FindingNotes, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type PlanRevision } from "@armada/components";
+import { Button, FindingNotes, JobCard, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type JobCardIssue, type PlanRevision, type SessionState } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -13,7 +13,7 @@ import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing 
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, revision, ed, findings, pullRequests, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({ open, plan, revision, ed, findings, pullRequests, jobOf, issueOf, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** The Job a group was handed to, which heads the group that goes to a Job of its own in place of the placeholder. */ jobOf?: (group: string) => { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void } | undefined; /** The issue a group works, the chip on its Job's card. */ issueOf?: (group: string) => JobCardIssue | undefined; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
   const unchanged = useUnchanged(revision);
@@ -63,6 +63,22 @@ export function PlanReview({ open, plan, revision, ed, findings, pullRequests, o
                     <GroupEditor group={group} ed={ed} {...(pins === undefined ? {} : { pins })} />
                   </section>
                 ));
+                // A group that goes to a Job of its own is that Job's card alone, its issue a chip in it: a placeholder until it is handed, then the Job. The Job plans its own
+                // tasks, so the group has no editor here.
+                if (run.own !== undefined) {
+                  const job = jobOf?.(run.own.id);
+                  const issue = issueOf?.(run.own.id);
+                  const chip = issue === undefined ? {} : { issue };
+                  return (
+                    <div key={run.key} className="sv-review__landing" role="group" aria-label={run.own.title}>
+                      {job === undefined ? (
+                        <JobCard placeholder={run.own.title} {...chip} />
+                      ) : (
+                        <JobCard title={job.title} state={job.state} said={job.said} handedFrom={run.own.title} {...chip} {...(job.at === undefined ? {} : { at: job.at })} onOpen={job.onOpen} />
+                      )}
+                    </div>
+                  );
+                }
                 return run.landsIn === undefined ? (
                   editors
                 ) : (

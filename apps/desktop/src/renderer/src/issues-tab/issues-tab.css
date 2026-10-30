@@ -16,8 +16,8 @@
 .issues-reader[data-tone="live"] { --hue: var(--status-running); }
 .issues-row[data-tone="ask"],
 .issues-reader[data-tone="ask"] { --hue: var(--status-awaiting-review); }
-.issues-row[data-tone="bad"],
-.issues-reader[data-tone="bad"] { --hue: var(--status-completed-failed); }
+.issues-row[data-tone="wait"],
+.issues-reader[data-tone="wait"] { --hue: var(--status-handed-in); }
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
@@ -116,7 +116,7 @@
 .issues-surface .issues-row::before { content: ""; position: absolute; inset-inline-start: var(--space-3); inset-block-start: calc(var(--space-2) + var(--leading-xs) / 2 - var(--lamp, var(--dot)) / 2); width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--lamp-hue); pointer-events: none; }
 .issues-surface .issues-row[data-tone="live"] { --lamp-hue: var(--status-running); }
 .issues-surface .issues-row[data-tone="ask"] { --lamp-hue: var(--status-awaiting-review); background: color-mix(in srgb, var(--status-awaiting-review) 6%, var(--chip)); }
-.issues-surface .issues-row[data-tone="bad"] { --lamp-hue: var(--status-completed-failed); }
+.issues-surface .issues-row[data-tone="wait"] { --lamp-hue: var(--status-handed-in); }
 .issues-surface .issues-row[data-tone="ask"]::before { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .issues-surface .issues-row[data-tone="ask"]::before { animation: none; } }
 .issues-surface .issues-row:hover { background: var(--chip-hover); }

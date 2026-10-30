@@ -23,7 +23,7 @@ import { stampOf, timeFormat } from "../../time-format";
  * pull request's Checks red, and ended is nothing listening, whether it was ended
  * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
  * (`link`, the Queued reason's upstream that has not finished), draft is a Job holding a first message nobody has sent (`message-square-dashed`), and
- * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip). `[conventions.session_state_borrowing]` and
+ * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch, or its own pull request in the queue or on its Checks, all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
 export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after" | "draft" | "held" | "paused" | "unstarted";
@@ -53,6 +53,21 @@ const MARK: Record<SessionState, LucideIcon> = {
   unstarted: X,
 };
 
+/**
+ * The five a row sorts every state into at a glance, each its own hue on the mark: **needs** him (amber, and only it
+ * pulses), **working**, **waiting** on something that is not him (a pull request in the queue or on its Checks, a
+ * watch, the plan's limit, another Job), **idle**, and a **draft** not started.
+ */
+export type JobBucket = "needs" | "working" | "waiting" | "idle" | "draft";
+
+export function bucketOf(state: SessionState): JobBucket {
+  if (state === "waiting" || state === "done" || state === "unstarted" || state === "stuck" || state === "failing") return "needs";
+  if (state === "working") return "working";
+  if (state === "held" || state === "limited" || state === "after") return "waiting";
+  if (state === "draft" || state === "blank") return "draft";
+  return "idle";
+}
+
 /** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */
 export const sessionGlyphOf = (state: SessionState): LucideIcon => MARK[state];
 
@@ -62,7 +77,7 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
   if (state === "limited") return <LimitMark said={said} />;
   return (
     <Tooltip label={said}>
-      <span className="armada-session-mark" role="img" aria-label={said} data-pulsing={state === "working" || undefined}>
+      <span className="armada-session-mark" role="img" aria-label={said} data-bucket={bucketOf(state)} data-pulsing={state === "working" || undefined}>
         <Glyph size={16} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
@@ -73,7 +88,7 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
 export function LimitMark({ said, size = 16 }: { said: string; size?: 12 | 16 }) {
   return (
     <Tooltip label={said}>
-      <span className="armada-session-mark armada-limit-mark" role="img" aria-label={said}>
+      <span className="armada-session-mark armada-limit-mark" role="img" aria-label={said} data-bucket="waiting">
         <BatteryLow size={size} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>

@@ -197,10 +197,11 @@ export type SessionRecord = {
    */
   later?: SessionLater[];
   /**
-   * The name of the live watch that is all that keeps the Session open: its turn has ended and nothing is in `waiting_for`.
-   * Absent otherwise.
+   * Everything that is not the person that keeps the Session open, in the order it reads: each live watch in the order it started,
+   * then each of its own pull requests in the queue, set to merge or on its Checks. Set once its turn has ended and nothing is in
+   * `waiting_for`. Absent or empty is none.
    */
-  held_open_by?: string;
+  held_open_by?: HeldOpenBy[];
   /**
    * How the Job was started, as it stood when its process first ran: a later change of model, effort or mode does not rewrite it.
    * Absent for a Job started before Fleet kept it and for a terminal session.
@@ -339,6 +340,12 @@ export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "wind
  * nothing is owed. One answer for every surface that draws a Session. Since 23.86.
  */
 export type SessionStanding = "working" | "stuck" | "replied" | "done" | "idle";
+
+/** One thing, not the person, that keeps a Session open: a fact, never a sentence. `crates/ipc/src/sessions.rs`. */
+export type HeldOpenBy = { kind: "watch"; name: string } | { kind: "pull_request"; number: number; on: PullRequestWait };
+
+/** What an open pull request of the Session waits on: the merge queue, auto-merge, or its Checks (`auto_merge` says it merges once they pass). */
+export type PullRequestWait = { kind: "queue" } | { kind: "auto_merge" } | { kind: "checks"; auto_merge: boolean };
 
 /** One choice of an item or a question, with what choosing it means where the asker said. */
 export type WaitingOption = { label: string; description?: string };

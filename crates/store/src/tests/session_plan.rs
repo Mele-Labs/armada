@@ -39,6 +39,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             id: "g1".to_string(),
             gives: Some("The page itself.".to_string()),
             lands_in: Some("PR 2".to_string()),
+            own_job: false,
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
             paths: vec!["crates/store".to_string(), "docs".to_string()],
@@ -68,6 +69,23 @@ fn a_plan_survives_a_reopen_with_its_order_paths_and_changes() {
     store.keep_session_plan("s1", &kept).unwrap();
     drop(store);
     assert_eq!(open(&dir).session_plan("s1").unwrap(), Some(kept));
+}
+
+#[test]
+fn a_group_that_goes_to_its_own_job_is_kept_so_and_the_others_are_not() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut kept = plan(1, &[("t1", "One")]);
+    let mut own = kept.groups[0].clone();
+    own.id = "g2".to_string();
+    own.own_job = true;
+    own.tasks = vec![task("t2", "Two")];
+    kept.groups.push(own);
+    store.keep_session_plan("s1", &kept).unwrap();
+    drop(store);
+    let read = open(&dir).session_plan("s1").unwrap().expect("a plan");
+    assert_eq!(read.groups.iter().map(|one| one.own_job).collect::<Vec<_>>(), [false, true]);
+    assert_eq!(read, kept);
 }
 
 /// A tracker's key is kept as written, beside the number a forge names its issues by. A group kept

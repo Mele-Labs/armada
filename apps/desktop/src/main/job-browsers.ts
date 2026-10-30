@@ -1,7 +1,7 @@
 // Each Job's browser: one page per Job, which its agent drives through `browser.request` and the owner may take over.
 // **One view for the Job's life in Bridge**, moved between the side panel and a window of its own, so the page keeps its
 // history, its sign-in and what was typed. The page is a `pageView` (`capture/views.ts`): no preload, sandboxed, every
-// permission refused, in its repository's session. Main places it over the rect the pane reports, as `SessionPages` does.
+// permission refused bar local network access while the owner drives, in its repository's session. Main places it over the rect the pane reports, as `SessionPages` does.
 //
 // `docs/practices/protocol/the-job-browser.md` is the wire. What may cross back from the page is the bounded answers there.
 
@@ -20,6 +20,7 @@ import { burnRing, type Burn } from "./capture/burn";
 import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
 import { sessionNoteBody } from "./capture/pinned-note";
+import { reachesLocalNetwork, whileOwnerDrives } from "./capture/permissions";
 import { pageView } from "./capture/views";
 import { actOn, LOAD_MS, type ActsHost, type JobPage } from "./job-browser-acts";
 import { boundsOf } from "./session-page-bounds";
@@ -30,7 +31,7 @@ export type Host = object;
 type Chord = "capture" | "back" | "forward" | "reload";
 
 /** What a page tells its holder. */
-export type PageTold = { changed: () => void; chord: (chord: Chord) => void };
+export type PageTold = { changed: () => void; chord: (chord: Chord) => void; driving: () => boolean };
 
 /** One Job's page, as `JobBrowsers` moves it. */
 export type BrowserPage = JobPage & {
@@ -111,6 +112,7 @@ export class JobBrowsers {
     if (standing !== undefined) return standing;
     const page = this.make.page(sessionId, {
       changed: () => this.told(sessionId),
+      driving: () => this.held.get(sessionId)?.driver === "owner",
       chord: (chord) => {
         const host = page.hostOf();
         if (chord === "capture") {
@@ -277,6 +279,8 @@ export function evaluateSource(expression: string): string {
 export function makeBrowserPage(manifestId: string | null, parkIn: () => BrowserWindow | null, told: PageTold): BrowserPage {
   const view: WebContentsView = pageView({ run: "", name: "", origin: "", url: "about:blank", manifestId, through: [] });
   const contents = view.webContents;
+  // The pin names no origin, so `pageView` gave it no local network access: a sign-in app on this machine is reachable only by the owner's hand.
+  reachesLocalNetwork(contents, whileOwnerDrives(told.driving, () => contents.getURL()));
   // Its acts wait on frames, which a hidden page would otherwise stop drawing.
   contents.setBackgroundThrottling(false);
   // A page that opens another opens it here, and only on the web.

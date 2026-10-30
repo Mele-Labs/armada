@@ -1070,6 +1070,28 @@ pub struct ToolsMissing {
     pub missing: Vec<ToolMissing>,
 }
 
+/// One thing, not the person, that keeps a Job open: a fact, never a sentence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HeldOpenBy {
+    /// A live watch of the Job, by its name.
+    Watch { name: String },
+    /// A pull request of its own that is open and whose Checks have not failed.
+    PullRequest { number: u64, on: PullRequestWait },
+}
+
+/// What an open pull request waits on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PullRequestWait {
+    /// In the base branch's merge queue.
+    Queue,
+    /// Auto-merge is on and its Checks have passed or are not yet read.
+    AutoMerge,
+    /// Its Checks are running; `auto_merge` says it merges once they pass.
+    Checks { auto_merge: bool },
+}
+
 /// A session and everything it holds. Answered by `report_session`, listed by
 /// `list_sessions`, and published whole as `session.changed`, so a client
 /// replaces the row rather than patching it.
@@ -1202,11 +1224,12 @@ pub struct SessionRecord {
     /// `all_done` is refused while any is open.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub later: Vec<SessionLater>,
-    /// The name of the live watch that started first, set while it is all that keeps the Job open: its
-    /// turn has ended, nothing is in `waiting_for`, and nothing of its own runs in the background. Absent
-    /// otherwise. Not a Needs you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub held_open_by: Option<String>,
+    /// Everything that is not the person that keeps the Job open, in the order it reads: each live watch
+    /// in the order it started, then each of its own pull requests in the queue, set to merge or on its
+    /// Checks. Set only once its turn has ended, nothing is in `waiting_for`, and nothing of its own runs
+    /// in the background. Empty otherwise. Not a Needs you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held_open_by: Vec<HeldOpenBy>,
     /// How the Job was started, as it stood when its process first ran, so a later change of model,
     /// effort or mode does not rewrite it. Absent for a Job started before Fleet kept it, and for a
     /// terminal session.

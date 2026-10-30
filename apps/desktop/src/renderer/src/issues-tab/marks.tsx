@@ -29,7 +29,7 @@ export function IssueJobCard({ session, onOpen }: { session: Session; onOpen: (i
   return <JobCard title={jobTitle(session)} state={state} said={said} {...(says === undefined ? {} : { says })} {...(session.lastTurnAt === undefined ? {} : { at: session.lastTurnAt })} onOpen={() => onOpen(session.id)} />;
 }
 
-const LOUD: readonly JobTone[] = ["bad", "ask", "live", "calm"];
+const LOUD: readonly JobTone[] = ["ask", "live", "wait", "calm"];
 
 /** The hue an issue's row wears: the loudest state among the Jobs working it. None working, none. */
 export function toneOfHolders(holders: readonly Session[]): JobTone | undefined {

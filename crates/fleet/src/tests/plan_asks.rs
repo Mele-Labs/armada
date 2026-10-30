@@ -67,6 +67,7 @@ pub(super) fn plan(id: &SessionId) -> RecordPlan {
             issue: None,
             gives: None,
             lands_in: None,
+            own_job: false,
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,

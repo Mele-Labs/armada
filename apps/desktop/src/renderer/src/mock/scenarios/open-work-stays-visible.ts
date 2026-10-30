@@ -1,5 +1,5 @@
 // Work still open is never filed under a finished step. Over `spine-top-brief`, a Job at Walk whose second pull request is a draft with a failed check, whose third is
-// waiting on its review, and which has a follow-up not yet settled: they show in the current step, and again in the Open group after the last step. Mock only; the
+// waiting on its review, and which has a follow-up not yet settled: they show in the Open group after the last step, and in the current step instead where that group is hidden. Mock only; the
 // `openWorkStaysVisible` walk and `?scenario=open-work-stays-visible` open it.
 
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -19,7 +19,7 @@ const reopened = (one: SessionAttachment): SessionAttachment => {
 export const s336OpenWorkStaysVisible: Scenario = {
   ...base,
   name: "open-work-stays-visible",
-  says: "A Job at Walk with a draft pull request and an open one from finished steps, and a follow-up to settle: they stand in the current step and in the Open group, never under a done step.",
+  says: "A Job at Walk with a draft pull request and an open one from finished steps, and a follow-up to settle: they stand in the Open group, never under a done step.",
   draft: {
     ...base.draft,
     sessions: (control) => {

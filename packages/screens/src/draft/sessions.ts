@@ -14,7 +14,7 @@ import type { SketchSettled } from "@armada/components/src/compositions/SessionT
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
-import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, HeldOpenBy, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
@@ -172,7 +172,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean; /** When the agent last changed this task's mark, RFC 3339. A mark the agent has not touched in a long while reads its age and dims. */ changedAt?: string; /** Fleet set the state itself, and this is its proof ("commit 1a2b3c4 names it"). */ marked?: string; /** In progress, and Fleet reads the work as elsewhere: why, and since when (RFC 3339). */ stale?: { why: string; since: string } };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */ landsIn?: PlanLandsIn; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */ landsIn?: PlanLandsIn; /** The group goes to a Job of its own, started with the group. Until it is handed, Bridge draws it as that Job, not started yet. Fleet sets it from the agent's `own_job`. */ ownJob?: true; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
@@ -624,8 +624,8 @@ export type Session = {
   later?: readonly { id: string; text: string; at: string; /** The person marked it Deferred: Fleet was right to keep it, and its thumbs are gone. */ confirmed?: boolean }[];
   /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
   watches?: readonly WatchSummary[];
-  /** The name of the live watch that alone keeps it open. `SessionRecord.held_open_by`. */
-  heldOpenBy?: string;
+  /** Everything that is not him that keeps it open, in the order it reads. `SessionRecord.held_open_by`. */
+  heldOpenBy?: readonly HeldOpenBy[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string; summary?: string };
   /**

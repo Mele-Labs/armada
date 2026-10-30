@@ -41,3 +41,29 @@ export const Selected: Story = { args: { selected: true } };
 
 /** On a surface that already names the repository, the chip is left out. */
 export const NoRepository: Story = { args: { repository: undefined } };
+
+const ISSUE = { label: "ABC-12", title: "A start_job rule act ignores the workflow it names" };
+const issuePressed = fn();
+
+/** A group of a plan that goes to a Job of its own, before the Job is started: a group named for its title, the card itself read and never pressed, and its issue a chip that opens the issue. */
+export const NotStarted: Story = {
+  render: () => <JobCard placeholder="Start the Job on the workflow a rule names" issue={{ ...ISSUE, onOpen: issuePressed }} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("group", { name: "Start the Job on the workflow a rule names, not started yet" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: /^Job / })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: `Issue ${ISSUE.label} ${ISSUE.title}` }));
+    await expect(issuePressed).toHaveBeenCalledOnce();
+  },
+};
+
+/** On a Job's own card the issue is a mark, and the card is what a press opens: a chip pressed inside a button would be two stops in one. */
+export const WorksAnIssue: Story = {
+  args: { issue: ISSUE },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("img", { name: `Issue ${ISSUE.label} ${ISSUE.title}` })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: /^Issue / })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Job Fix the coupon expiry check" })).toBeVisible();
+  },
+};
