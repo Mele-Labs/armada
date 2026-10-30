@@ -51,7 +51,7 @@ export function startPaymentsLogin(command: string, print: (text: string) => voi
           if (typed === "") continue;
           asking = false;
           out("\r\nSigned in to the payments sandbox as relay-api\r\n");
-          later(150, () => finish(0));
+          later(1600, () => finish(0));
           return;
         }
         if (key === KEY.backspace) {
