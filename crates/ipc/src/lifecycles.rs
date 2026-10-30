@@ -349,14 +349,45 @@ pub struct InstanceMove {
     pub at: Instant,
 }
 
+/// One act a Job's rules planned, and where it stands.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuleActReading {
+    /// The id of the rule that planned it.
+    pub rule: String,
+    /// The one line the owner reads for it, as it was kept.
+    pub text: String,
+    /// How far it goes on its own: `acts` or `asks`.
+    pub course: String,
+    /// Where it stands: `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`.
+    pub standing: String,
+    /// What failed, how it was settled or why nothing here carries it. Left out where there is
+    /// nothing to say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
+    /// When it was planned.
+    pub at: Instant,
+    /// When it was settled. Left out until it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled_at: Option<Instant>,
+    /// The instance it is done to. Left out for an act done to none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<InstanceLink>,
+    /// The instance whose entering a state set it off, where one did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entered: Option<InstanceLink>,
+}
+
 /// `get_job_lifecycles`, and the `job_lifecycles.changed` event: what a Job holds and where it stands.
 ///
 /// **Whole**, so a client replaces what it holds for the Job. `lifecycles` are those the Job's
-/// instances are of, and `moves` are theirs, oldest first.
+/// instances are of, and `moves` are theirs, oldest first. `acts` are those its rules planned,
+/// oldest first, and are left out where there are none.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobLifecycles {
     pub session_id: SessionId,
     pub lifecycles: Vec<LifecycleDefinition>,
     pub instances: Vec<HeldInstance>,
     pub moves: Vec<InstanceMove>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub acts: Vec<RuleActReading>,
 }
