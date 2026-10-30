@@ -194,3 +194,51 @@ async fn a_job_and_a_draft_a_rule_acts_on_are_started_and_proposed_through_their
         "the draft waits for the owner to say its words are right"
     );
 }
+
+/// A rig whose repository holds the `bug` and `feature` workflows.
+fn a_rig_with_workflows() -> Rig {
+    rig_fitted(|fittings| {
+        fittings.locating = Arc::new(Planted::nothing());
+        fittings.starting().workflows =
+            ["bug", "feature"].into_iter().map(super::daemon::workflow_named).map(|one| (one.id().clone(), one)).collect();
+    })
+}
+
+fn starts_on(workflow: &str) -> String {
+    format!("version: 1\nrule_id: hand_off\nname: Hand off\nwhen: {{ enters: {{ lifecycle: pr, state: approved }} }}\nautonomy: acts\ndo:\n  - start_job: {{ workflow: {workflow}, prompt: Look at the deploy }}\n")
+}
+
+async fn started_from(rig: &Rig, job: &SessionId) -> Vec<SessionId> {
+    let rows = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("a session").rows;
+    rows.into_iter().filter_map(|row| match row {
+        SessionRow::Started { session, .. } => Some(session.id),
+        _ => None,
+    }).collect()
+}
+
+#[tokio::test]
+async fn a_job_a_rule_starts_follows_the_workflow_the_rule_names() {
+    let rig = a_rig_with_workflows();
+    save(&rig, "hand_off.yml", &starts_on("bug"));
+    let job = rig.start().await;
+    approved(&rig, &job).await;
+
+    Arc::clone(&rig.fleet).rule_acts_carried_out().await;
+    assert_eq!(acts(&rig, &job).await.iter().map(|one| one.1.as_str()).collect::<Vec<_>>(), [standing::DONE]);
+    let started = started_from(&rig, &job).await;
+    assert_eq!(started.len(), 1, "one Job");
+    let record = Arc::clone(&rig.fleet).get_session(started[0].clone()).await.expect("the new Job").session;
+    assert_eq!(record.workflow.as_deref(), Some("bug"));
+}
+
+#[tokio::test]
+async fn a_rule_naming_a_workflow_the_repository_does_not_hold_starts_no_job() {
+    let rig = a_rig_with_workflows();
+    save(&rig, "hand_off.yml", &starts_on("nowhere"));
+    let job = rig.start().await;
+    approved(&rig, &job).await;
+
+    Arc::clone(&rig.fleet).rule_acts_carried_out().await;
+    assert_ne!(acts(&rig, &job).await[0].1, standing::DONE);
+    assert!(started_from(&rig, &job).await.is_empty(), "nothing is started");
+}

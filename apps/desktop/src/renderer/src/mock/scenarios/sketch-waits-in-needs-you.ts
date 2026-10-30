@@ -14,6 +14,8 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 
 const TITLE = "Pause on the row";
 const SKETCH = `sketch:${TITLE}`;
+const EARLIER_TITLE = "Pause on the row, first take";
+const EARLIER_SKETCH = `sketch:${EARLIER_TITLE}`;
 
 const DRAWING = scene(
   [
@@ -44,10 +46,18 @@ const SESSION: Session = {
     { id: "k1i", at: "09:13:05", kind: "message", from: { kind: "you" }, text: "And it should show Resume once it is paused." },
     { id: "k1j", at: "09:13:09", kind: "tool", text: "Read crates/fleet/src/session_host/pausing.rs" },
     { id: "k1k", at: "09:13:14", kind: "message", from: { kind: "agent" }, text: "Fleet already holds the next turn on Pause and lifts it on Resume, so the row only swaps the press." },
+    { id: "k1l", at: "09:13:16", kind: "tool", text: `show_sketch ${JSON.stringify({ title: EARLIER_TITLE, scene: DRAWING })}` },
     { id: "k2", at: "09:13:20", kind: "tool", text: `show_sketch ${JSON.stringify({ title: TITLE, scene: DRAWING })}` },
   ],
-  attachments: [{ kind: "sketch", id: SKETCH, title: TITLE, by: "agent", drawing: DRAWING, asked: true, drawn: "drawn-1" }],
-  waitingFor: [{ id: SKETCH, text: TITLE, since: ago(1), source: "sketch", act: { kind: "message", target: "s47" } }],
+  // Fleet sends the ledger newest first: the sketch drawn last is the first, and an earlier one he has not answered follows it.
+  attachments: [
+    { kind: "sketch", id: SKETCH, title: TITLE, by: "agent", drawing: DRAWING, asked: true, drawn: "drawn-2" },
+    { kind: "sketch", id: EARLIER_SKETCH, title: EARLIER_TITLE, by: "agent", drawing: DRAWING, asked: true, drawn: "drawn-1" },
+  ],
+  waitingFor: [
+    { id: SKETCH, text: TITLE, since: ago(1), source: "sketch", act: { kind: "message", target: "s47" } },
+    { id: EARLIER_SKETCH, text: EARLIER_TITLE, since: ago(5), source: "sketch", act: { kind: "message", target: "s47" } },
+  ],
 };
 
 function build(): Scenario {
