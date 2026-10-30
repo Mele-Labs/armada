@@ -9,8 +9,8 @@ use core_model::{FleetFact, ForgeFact, Lifecycle, Observed, StepId};
 
 /// What a tracker calls an issue's state: the `Status` it names, else its own `Open` or `Closed`.
 ///
-/// **The words of the tracker and not Armada's**, whatever the tracker spells them: Jira's Code
-/// Review stays that, and the lifecycle that lists it maps it to In review.
+/// **The words of the tracker and not Armada's**, however it spells them: a `Code Review` stays
+/// that, and the lifecycle that lists it maps it to In review.
 pub fn tracker_word(issue: &ReadIssue) -> String {
     issue
         .fields
