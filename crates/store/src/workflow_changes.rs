@@ -47,6 +47,10 @@ pub struct KeptWorkflowChange {
     /// A Job proposed `after_text`, by its own tool or at the owner's press: ready from the start, with
     /// `before_text` the file's text then, or empty where the place held none.
     pub from_job: bool,
+    /// `rule` or `lifecycle` where the change proposes that piece for Kit rather than a workflow: `workflow_id`
+    /// is then the piece's id, `source` is `kit`, and `before_text` and `after_text` are the piece's file. Empty
+    /// on a change to a workflow.
+    pub piece: String,
 }
 
 /// What a change is begun with.
@@ -61,7 +65,7 @@ pub struct NewWorkflowChange<'a> {
 }
 
 const COLUMNS: &str = "id, manifest_id, workflow_id, source, step_id, asked, nudges, before_text, after_text, state, \
-                       failed_because, notes, created_at, changed_at, missing, is_new, from_job";
+                       failed_because, notes, created_at, changed_at, missing, is_new, from_job, piece";
 
 fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
     let nudges: String = row.get(6)?;
@@ -83,6 +87,7 @@ fn read(row: &Row<'_>) -> rusqlite::Result<KeptWorkflowChange> {
         missing: row.get::<_, String>(14)?.lines().map(str::to_string).collect(),
         is_new: row.get::<_, i64>(15)? != 0,
         from_job: row.get::<_, i64>(16)? != 0,
+        piece: row.get(17)?,
     })
 }
 
@@ -144,6 +149,28 @@ impl Store {
         Ok(self.conn.last_insert_rowid())
     }
 
+    /// Keep a Job's proposal of a rule or a lifecycle for Kit as a change that is ready at once. Its id. `before` is
+    /// the file Kit holds for it now, or empty where Kit holds none, and then it is new.
+    pub fn begin_proposed_piece_change(
+        &mut self,
+        manifest_id: &str,
+        piece: &str,
+        piece_id: &str,
+        before: &str,
+        after: &str,
+        at: &str,
+    ) -> Result<i64, WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO workflow_changes (manifest_id, workflow_id, source, before_text, after_text, state, is_new, from_job, piece, created_at, changed_at)
+                 VALUES (?1, ?2, 'kit', ?3, ?4, ?5, ?6, 1, ?7, ?8, ?8)",
+                params![manifest_id, piece_id, before, after, READY, i64::from(before.is_empty()), piece, at],
+            )
+            .map_err(fault("beginning a change a job proposed to a piece"))
+            .map_err(WriteError::Database)?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
     /// The ids of every change that is ready now, for deciding which proposals still wait on the owner.
     pub fn ready_workflow_change_ids(&self) -> Result<Vec<i64>, WriteError> {
         let doing = "reading the ready workflow changes";
@@ -182,7 +209,7 @@ impl Store {
             .conn
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM workflow_changes
-                 WHERE workflow_id = ?1 AND source = ?2 AND state IN (?3, ?4, ?5, ?7) AND (source <> 'repository' OR manifest_id = ?6)
+                 WHERE workflow_id = ?1 AND source = ?2 AND piece = '' AND state IN (?3, ?4, ?5, ?7) AND (source <> 'repository' OR manifest_id = ?6)
                  ORDER BY id"
             ))
             .map_err(fault(doing))
