@@ -45,3 +45,19 @@
 .armada-job-card__says { grid-column: 2; grid-row: 2; min-width: 0; min-height: var(--leading-xs); overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .armada-job-card__at { grid-column: 3; grid-row: 2; justify-self: end; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .armada-job-card__repository { grid-column: 1 / -1; grid-row: 3; display: flex; min-width: 0; margin-top: var(--space-1); }
+
+/* Not started yet, a plan group that goes to a Job of its own: the same frame with the outline dashed in the quiet border and no fill, both glyphs muted, as a pull
+   request not opened yet is. It is read, never pressed. What the surface keeps for the Job stands under the title, inside the frame. */
+.armada-job-card[data-placeholder] {
+  --hue: var(--fg-subtle);
+  row-gap: var(--space-2);
+  border: var(--border-width) dashed var(--border-strong);
+  background: none;
+  box-shadow: none;
+  cursor: default;
+}
+.armada-job-card[data-placeholder]:hover { background: none; }
+.armada-job-card[data-placeholder] .armada-job-card__kind { grid-row: 1; color: var(--fg-subtle); }
+.armada-job-card[data-placeholder] .armada-job-card__title { overflow: visible; overflow-wrap: anywhere; white-space: normal; }
+.armada-job-card__end { grid-column: 3; grid-row: 1; display: inline-flex; align-items: center; justify-self: end; gap: var(--space-2); }
+.armada-job-card__body { grid-column: 2 / -1; grid-row: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }

@@ -1,11 +1,11 @@
 // A plan group, as the Blueprint lists it. Approved, it is its title over a line for each task, the one being worked lit with what the turn is doing
 // under it. Drafted, it is its title over its tasks, editable. Either way the subagent type opens with the group, by its chevron or its pencil, and the
-// title of a group that works an issue opens the issue.
+// title of a group that works an issue opens the issue. A group that goes to a Job of its own is that Job's placeholder card until it is handed, and then the Job's card.
 // Edits Fleet saw are marked on the group. Nothing here blocks.
 
 import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Dot, PencilLine, Ticket } from "lucide-react";
-import { TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
+import { PlaceholderJobCard, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -106,7 +106,8 @@ function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
 /**
  * A group is a row that opens: closed it is its title, the issue it works on a line of its own, and a line for each task; open it shows the type of subagent and its tasks in full.
  * A group of a plan being drafted (`opened`) keeps its tasks up to edit; its chevron, or its pencil, brings the subagent type in.
- * **A group handed to a Job is that Job's card** (`ChildJob.tsx`). Only the agent hands a group off; the owner's press is not drawn.
+ * **A group handed to a Job is that Job's card** (`ChildJob.tsx`). Only the agent hands a group off; the owner's press is not drawn. A group marked `ownJob` that is
+ * not handed yet is a placeholder Job card (`PlaceholderJobCard`), its issue and tasks inside it.
  */
 export function Group({ group, now, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; /** What the turn is doing in this group, in his words, drawn under the task being worked. */ now?: string; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   // A group stands shut until he presses it, and a press is kept. A drafted group's tasks are up either way: what opens is its head and its paths.
@@ -131,6 +132,40 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
     return (
       <section className="sv-group" data-group={group.id} data-step={step} data-handed="" aria-label={group.title}>
         <ChildJob child={child} group={group.title} manifestId={manifestId} onOpen={onOpenSession} />
+      </section>
+    );
+  }
+  const prs = named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
+    <div className="sv-group__prs">
+      <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
+    </div>
+  );
+  // A group that goes to a Job of its own and has none yet stands as that Job, not started: its title, issue and tasks stay inside the card, since he reviews them before approving.
+  if (group.ownJob === true) {
+    return (
+      <section className="sv-group" data-group={group.id} data-step={step} data-open={open || undefined} data-placeholder="" aria-label={group.title}>
+        <PlaceholderJobCard
+          label={group.title}
+          title={opened ? <EditText label="Group" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, { group: group.id }, to))} /> : group.title}
+          acts={
+            <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Subagent type and paths of ${group.title}`} onClick={() => setPressed(!open)}>
+              {seen}
+              <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
+            </button>
+          }
+        >
+          {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
+          {open || opened ? (
+            <div className="sv-expand">
+              <div className="sv-group__body">
+                <GroupEditor group={group} ed={ed} titled={false} head={!opened || open} {...(opened ? { onEdit: () => setPressed(true) } : {})} />
+              </div>
+            </div>
+          ) : (
+            <Tasks group={group} now={now} />
+          )}
+        </PlaceholderJobCard>
+        {prs}
       </section>
     );
   }
@@ -183,11 +218,7 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
           </div>
         </div>
       ) : null}
-      {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
-        <div className="sv-group__prs">
-          <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
-        </div>
-      )}
+      {prs}
     </section>
   );
 }

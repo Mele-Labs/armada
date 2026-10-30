@@ -24,7 +24,7 @@ import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
-import { useSessionsDraft } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
@@ -32,6 +32,7 @@ import { artifactsOf } from "./artifacts";
 import { Mark } from "./DeliveryRoute";
 import { BriefZone } from "./BriefZone";
 import { briefOf, FlightRows } from "./FlightPlan";
+import { childrenOf } from "./linked";
 import { LaterBlock } from "./LaterBlock";
 import { OpenGroupMenu, useOpenGroupShown } from "./OpenGroup";
 import { WALK_STEP, byKind, madeOf, reportOf, stepOf, type Made } from "./ledger";
@@ -65,6 +66,7 @@ function ruleOf(session: Session, itemId: string): { rule: string; row: string }
 
 export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
+  const sessions = useSessions();
   const layout = useLayout("job.panels").all;
   const [view, setView] = useLedgerView();
   const everything = useWhole(id);
@@ -335,7 +337,11 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   };
   // A pull request not yet merged and an issue not yet closed are work in hand, so they never stand under a finished step.
   const stillOpen = (one: Made) => (one.shape === "pr" && one.pr.state !== "merged") || (one.shape === "issue" && one.issue.state === "open");
-  const openMade = made.filter(stillOpen);
+  // A group still to come or being worked draws its own issue and that issue's pull requests, so Open leaves them out: each is drawn once. One whose group is handed to a Job,
+  // or finished, or that no group names, stays. A plan stood whole to edit draws every group that is not handed.
+  const handed = new Set(childrenOf(sessions, session).map((one) => one.group));
+  const drawnByGroup = new Set(groups.filter((group) => !handed.has(group.id) && (editing || steps.get(group.id) !== "done")).map((group) => group.id));
+  const openMade = made.filter((one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)));
   const keptBlock = kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />;
   type Done = { time: string | undefined; group: (typeof finished)[number] } | { time: string | undefined; made: Made };
   const finishedThings: Done[] = [
@@ -433,7 +439,8 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
                     <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />
                   </div>
                 )}
-                {openMade.length === 0 ? null : (
+                {/* Open work stands here only while the pinned Open group is hidden, so it is drawn once. */}
+                {openShown || openMade.length === 0 ? null : (
                   <div className="sv-nav" onKeyDown={arrowsIn}>
                     <ol className="sv-beats" aria-label="Open">
                       <li className="sv-beat sv-beat--made">
@@ -458,6 +465,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           </SvPanel>
         );
       });
+  // Open work in one place after the last step, so a folded step never hides it (`OpenGroup.tsx`). Hidden, the current step lists it instead.
   const pinned =
     !stepped || !openShown || (openMade.length === 0 && kept.length === 0) ? null : (
       <OpenGroupMenu>

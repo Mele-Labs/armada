@@ -1,4 +1,4 @@
-// Work still open is never filed under a finished step: a draft or open pull request and a follow-up not yet settled stand in the current step and in the Open group.
+// Work still open is never filed under a finished step: a draft or open pull request and a follow-up not yet settled stand in the Open group, and in the current step instead where that group is hidden.
 // The owner, 28 Oct 2026: two open pull requests sat under Propose, folded away as if they were done.
 
 import { expect, test } from "vitest";
@@ -17,10 +17,10 @@ async function open() {
   await expect.element(step("Walk")).toBeVisible();
 }
 
-test("an open pull request stands in the current step, and not under a finished one", async () => {
+test("an open pull request stands in the Open group, and not under a finished step or the current one", async () => {
   await open();
-  await expect.element(step("Walk").getByText("armada/change-3012").first()).toBeInTheDocument();
-  for (const finished of ["Propose", "Discuss", "Approve plan"]) await expect.element(step(finished).getByText("armada/change-3012")).not.toBeInTheDocument();
+  await expect.element(step("Open").getByText("armada/change-3012").first()).toBeInTheDocument();
+  for (const other of ["Propose", "Discuss", "Approve plan", "Walk"]) await expect.element(step(other).getByText("armada/change-3012")).not.toBeInTheDocument();
 });
 
 test("a merged pull request stays under the step that made it", async () => {

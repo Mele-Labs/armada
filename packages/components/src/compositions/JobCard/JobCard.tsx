@@ -1,5 +1,5 @@
 import { Bot } from "lucide-react";
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -60,5 +60,44 @@ export function JobCard({ title, state, said, says, handedFrom, at, repository, 
         </span>
       )}
     </button>
+  );
+}
+
+/** What a placeholder's state glyph says: the Job it stands for has not been started. */
+export const NOT_STARTED = "Not started yet";
+
+export type PlaceholderJobCardProps = {
+  /** The Job's title as the plan names it, or the editable stand-in a plan being drafted puts there. */
+  title: ReactNode;
+  /** The title in words, which names the card. */
+  label: string;
+  /** A surface's own control, at the title's right and before the state glyph: the chevron that opens a plan group. */
+  acts?: ReactNode;
+  /** What the surface keeps for the Job until it starts, under the title and inside the frame: a plan group's issue and its tasks. */
+  children?: ReactNode;
+};
+
+/**
+ * A Job that is not started yet, standing where its plan group is: the Job card's frame with the outline dashed, the bot glyph and the state glyph muted, as
+ * `PullRequestChip` draws a pull request not opened yet. The state is `unstarted`, its tooltip **Not started yet**. It has no age and no repository, is read and
+ * never pressed, so it is no button and no stop for Tab. Once the Job starts it is a `JobCard` in its place.
+ */
+export function PlaceholderJobCard({ title, label, acts, children }: PlaceholderJobCardProps) {
+  return (
+    <div className="armada-job-card" data-placeholder="" role="group" aria-label={`${label}, ${NOT_STARTED.toLowerCase()}`}>
+      <Tooltip label="Job">
+        <span className="armada-job-card__kind" role="img" aria-label="Job">
+          <Bot size={14} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+      <span className="armada-job-card__title">{title}</span>
+      <span className="armada-job-card__end">
+        {acts}
+        <span className="armada-job-card__mark">
+          <SessionMark state="unstarted" said={NOT_STARTED} />
+        </span>
+      </span>
+      {children === undefined ? null : <div className="armada-job-card__body">{children}</div>}
+    </div>
   );
 }

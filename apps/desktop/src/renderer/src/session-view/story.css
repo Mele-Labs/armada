@@ -49,6 +49,16 @@
 .sv-group__task[data-stale] > .armada-task-mark, .sv-group__task[data-stale] > .sv-group__task-age { opacity: 0.6; }
 .sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 
+/* A group that goes to a Job of its own is that Job's placeholder card (`PlaceholderJobCard`), and the card is the frame: the group adds none. Its issue, its tasks and
+   its editor stand in the card's body under the title, as wide as the title. */
+.sv-group[data-placeholder] { border: 0; background: none; }
+.sv-group[data-placeholder] .armada-job-card .sv-group__tasks,
+.sv-group[data-placeholder] .armada-job-card .sv-group__body,
+.sv-plan .sv-group[data-placeholder][data-step] .sv-group__body,
+.sv-flight__job .armada-job-card .sv-group__tasks { padding: 0; }
+.sv-group[data-placeholder] > .sv-group__prs { padding-inline: 0; border-top: 0; }
+.armada-job-card[data-placeholder] .armada-job-card__body > .sv-issue { align-self: flex-start; }
+
 /* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
 
 .sv-field__now { flex: none; padding: var(--space-3); }

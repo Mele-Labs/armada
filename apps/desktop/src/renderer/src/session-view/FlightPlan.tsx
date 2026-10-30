@@ -1,9 +1,10 @@
 // The pieces the Job's story is read with (`StoryColumn.tsx`): the brief the Job was dispatched with, a row for each plan group (`FlightRows`) with its state glyph, its title
 // and, while folded, one slim track of segments for its tasks on the right (`TaskTrack`), and the head with the workflow's picker and steps (`FlightHead`). A group
-// opens to its tasks and the live line, and a press opens or shuts any. A group handed to a Job is that Job's card instead (`ChildJob.tsx`). The whole plan, with its subagent types and paths, is the whole-plan view in Now.
+// opens to its tasks and the live line, and a press opens or shuts any. A group handed to a Job is that Job's card instead (`ChildJob.tsx`), and one that goes to a Job
+// of its own and is not handed yet is that Job's placeholder card. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { Tooltip } from "@armada/components";
+import { PlaceholderJobCard, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -79,6 +80,25 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
       </li>
     );
   }
+  const prs = named === undefined || group.issue === undefined || named.prs.length === 0 ? null : <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />;
+  // A group that goes to a Job of its own and has none yet is that Job, not started, open or shut: its issue and tasks stay inside the card, since he reviews them before approving.
+  if (group.ownJob === true) {
+    return (
+      <li className="sv-flight__group" data-group={group.id} data-step={step} data-placeholder="">
+        <span className="sv-flight__job">
+          <PlaceholderJobCard label={group.title} title={group.title}>
+            {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
+            <ul className="sv-group__tasks" aria-label="Tasks">
+              {group.tasks.map((task) => (
+                <TaskLine key={task.id} task={task} here={task.id === here} now={now} />
+              ))}
+            </ul>
+          </PlaceholderJobCard>
+          {prs}
+        </span>
+      </li>
+    );
+  }
   return (
     <li className="sv-flight__group" data-group={group.id} data-step={step} data-open={open || undefined}>
       <button type="button" className="sv-flight__row" aria-expanded={open} aria-label={group.title} data-nav="" onClick={flip}>
@@ -94,7 +114,7 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
               <TaskLine key={task.id} task={task} here={task.id === here} now={now} />
             ))}
           </ul>
-          {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />}
+          {prs}
         </div>
       )}
     </li>
