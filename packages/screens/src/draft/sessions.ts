@@ -14,7 +14,7 @@ import type { SketchSettled } from "@armada/components/src/compositions/SessionT
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
-import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, HeldOpenBy, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
@@ -624,8 +624,8 @@ export type Session = {
   later?: readonly { id: string; text: string; at: string; /** The person marked it Deferred: Fleet was right to keep it, and its thumbs are gone. */ confirmed?: boolean }[];
   /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
   watches?: readonly WatchSummary[];
-  /** The name of the live watch that alone keeps it open. `SessionRecord.held_open_by`. */
-  heldOpenBy?: string;
+  /** Everything that is not him that keeps it open, in the order it reads. `SessionRecord.held_open_by`. */
+  heldOpenBy?: readonly HeldOpenBy[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string; summary?: string };
   /**

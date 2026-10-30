@@ -54,7 +54,7 @@ where
         lines.extend(background(&note));
         let ahead = brief.map(|brief| format!("{brief}\n\n")).unwrap_or_default();
         // A blank line after his words, so the lines Fleet adds read as about the note, not as more of it.
-        let instead = format!("{ahead}{text}\n\n{}\n{HANDOFF}", lines.join("\n"));
+        let instead = format!("{ahead}{text}\n\n{}", lines.join("\n"));
         let sent = SendSessionMessage {
             session_id,
             text,
@@ -103,7 +103,7 @@ where
             blocks.push(block);
             candidates.push(found.candidates);
         }
-        let instead = format!("{}\n\n{HANDOFF}", blocks.join("\n\n"));
+        let instead = blocks.join("\n\n");
         let sent = SendSessionMessage {
             session_id,
             text: said.join("\n"),
@@ -209,9 +209,6 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
         .collect();
     located(place, &files)
 }
-
-/// How to deliver is the owner's answer to the delivery question, never something to assume here.
-const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
 
 /// Heads what Fleet adds to a note, so the agent reads his words as the request and these as where to look.
 const WHERE_LEAD: &str = "Where he pointed, to find the code; not the request:";
