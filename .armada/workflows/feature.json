@@ -29,7 +29,7 @@
       "label": "Propose",
       "about": "Shows what it took the request to mean as a sketch, or a rough walk for a look, with two lines at most, then stops until you approve it.",
       "instructions": "Show what you took the request to mean and a first idea as a sketch with show_sketch, or a rough walk with show_window where the idea is about how something looks, with at most two lines of text beside it. No paragraphs, no lists of options in prose. Read only what that needs. Then stop and wait for the person to approve it. Where there are several ideas, ask which with AskUserQuestion and give each option a preview.",
-      "ends_on": ["walk_approved", "sketch_approved", "draft_approved", "idea_picked"],
+      "ends_on": ["walk_approved", "sketch_approved", "draft_approved", "idea_picked", "document_approved"],
       "asks_delivery": true,
       "delivers": false,
       "advance_gate": "auto"
