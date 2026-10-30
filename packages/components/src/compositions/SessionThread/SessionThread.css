@@ -232,6 +232,13 @@
 .armada-session-thread__plan .armada-session-sketch__band { display: none; }
 .armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row-unit) * 3); }
 
+/* The Job's own words on what it delivered, above what it made. */
+.armada-session-done__summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
 /* What the agent made, in the Session end panel: many rows scroll so End session stays in view. */
 .armada-session-done__made {
   display: flex;

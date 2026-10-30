@@ -1119,6 +1119,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     : {
         onEnd: end,
         made,
+        summary: session.done?.summary,
         onKeep: () => {
           setKept(session.done?.since);
           // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
