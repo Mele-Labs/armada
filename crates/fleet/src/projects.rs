@@ -98,30 +98,32 @@ fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>)
 type SaidBy = BTreeMap<String, BTreeMap<String, Said>>;
 type PulledBy = BTreeMap<String, BTreeMap<u64, PullSaid>>;
 
+/// A row on the wire. A task's links are read from the repository each was linked in, which is not
+/// its task's once the task has moved.
 fn row_on_the_wire(row: KeptProjectRow, said_by: &SaidBy, pulled_by: &PulledBy) -> ProjectRow {
-    let (said, pulled) = (said_by.get(&row.manifest_id), pulled_by.get(&row.manifest_id));
-    let manifest_id = ManifestId::carried(row.manifest_id);
+    let manifest_id = ManifestId::carried(row.manifest_id.clone());
     match row.item {
         KeptRowItem::Task { title, notes, state, parent, issues, pulls } => {
             let (state, held_by) = task_state(state);
             let issues = issues
                 .into_iter()
-                .map(|issue| {
-                    let read = said.and_then(|said| said.get(&issue));
-                    TaskIssue { title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state), issue }
+                .map(|link| {
+                    let read = said_by.get(&link.manifest_id).and_then(|said| said.get(&link.reference));
+                    TaskIssue { title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state), issue: link.reference }
                 })
                 .collect();
             let pulls = pulls
                 .into_iter()
-                .map(|number| {
-                    let read = pulled.and_then(|pulled| pulled.get(&number));
+                .map(|link| {
+                    let read = pulled_by.get(&link.manifest_id).and_then(|pulled| pulled.get(&link.number));
+                    let number = link.number;
                     TaskPull { number, title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state) }
                 })
                 .collect();
             ProjectRow::Task { id: row.id, manifest_id, title, notes, state, held_by, parent, issues, pulls }
         }
         KeptRowItem::Issue { reference } => {
-            let read = said.and_then(|said| said.get(&reference));
+            let read = said_by.get(&row.manifest_id).and_then(|said| said.get(&reference));
             ProjectRow::Issue {
                 id: row.id,
                 manifest_id,
@@ -137,15 +139,18 @@ fn rows_of(kept: &KeptProjects) -> impl Iterator<Item = &KeptProjectRow> {
     kept.projects.iter().flat_map(|project| &project.rows).chain(&kept.loose)
 }
 
-/// The references of the issues linked in `kept`, by the repository each row is in.
+/// The references of the issues in `kept`, by the repository each issue row is in or each link was made in.
 fn issue_references(kept: &KeptProjects) -> BTreeMap<String, Vec<String>> {
     let mut by: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for row in rows_of(kept) {
-        let references = match &row.item {
-            KeptRowItem::Issue { reference } => vec![reference.clone()],
-            KeptRowItem::Task { issues, .. } => issues.clone(),
-        };
-        by.entry(row.manifest_id.clone()).or_default().extend(references);
+        match &row.item {
+            KeptRowItem::Issue { reference } => by.entry(row.manifest_id.clone()).or_default().push(reference.clone()),
+            KeptRowItem::Task { issues, .. } => {
+                for link in issues {
+                    by.entry(link.manifest_id.clone()).or_default().push(link.reference.clone());
+                }
+            }
+        }
     }
     for references in by.values_mut() {
         references.sort_unstable();
@@ -154,12 +159,14 @@ fn issue_references(kept: &KeptProjects) -> BTreeMap<String, Vec<String>> {
     by
 }
 
-/// The numbers of the pull requests linked in `kept`, by the repository each row is in.
+/// The numbers of the pull requests linked in `kept`, by the repository each was linked in.
 fn pull_numbers(kept: &KeptProjects) -> BTreeMap<String, Vec<u64>> {
     let mut by: BTreeMap<String, Vec<u64>> = BTreeMap::new();
     for row in rows_of(kept) {
         if let KeptRowItem::Task { pulls, .. } = &row.item {
-            by.entry(row.manifest_id.clone()).or_default().extend(pulls.iter().copied());
+            for link in pulls {
+                by.entry(link.manifest_id.clone()).or_default().push(link.number);
+            }
         }
     }
     for numbers in by.values_mut() {
@@ -381,6 +388,18 @@ where
         let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects.clone()));
         Ok(projects)
+    }
+
+    /// Move a top-level task and its subtasks to the repository `manifest_id`, which Fleet serves. **The
+    /// issues and pull requests linked to them stay the repository's they were linked in**, and a Job
+    /// holding the task keeps it. Moving it to the repository it is in changes nothing.
+    pub async fn move_project_task_repository(&self, row: String, manifest_id: ManifestId) -> Result<ipc::Projects, Refusal> {
+        self.served_named(Some(&manifest_id))?;
+        self.projects_written(|store, kept| {
+            self.top_level_task_in(kept, &row)?;
+            store.move_project_task_repository(&row, manifest_id.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
+        })
+        .await
     }
 }
 

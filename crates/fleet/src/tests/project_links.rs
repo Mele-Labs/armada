@@ -13,7 +13,7 @@ use ipc::{
 use store::{KeptSession, SessionState};
 
 use super::project_holds::{a_project, held, id_of, rows_of, start};
-use super::projects::code_of;
+use super::projects::{a_second_repository, code_of};
 use super::pull_notices::{a_rig, Rig};
 
 fn job_link(job: &SessionId) -> LinkTaskJob {
@@ -316,4 +316,18 @@ async fn linking_a_pull_request_that_already_merged_asks_about_an_open_or_held_t
     assert_eq!(held(&rows_of(&again, 0)[0]).0, ProjectTaskState::Open, "linking it again changes nothing, so it does not ask twice");
     merged(&rig, 5, None).await;
     assert_eq!(held(&rows_of(&read(&rig).await, 0)[0]).0, ProjectTaskState::Open, "nor does the sweep");
+}
+
+#[tokio::test]
+async fn a_pull_request_merging_asks_by_the_repository_it_was_linked_in_after_its_task_moved() {
+    let rig = a_rig();
+    let second = a_second_repository(&rig.fleet, &rig._home);
+    let (_project, rows) = a_project(&rig, &["Sign the build"]).await;
+    rig.fleet.link_task_pull(rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
+    rig.fleet.move_project_task_repository(rows[0].clone(), second.clone()).await.expect("moved");
+
+    assert!(!rig.fleet.tasks_asked_by_linked_pull(second.as_str(), 5, "Another").await, "the second repository's 5 is another pull request");
+    assert_eq!(held(&rows_of(&read(&rig).await, 0)[0]).0, ProjectTaskState::Open);
+    merged(&rig, 5, None).await;
+    assert_eq!(held(&rows_of(&read(&rig).await, 0)[0]), (ProjectTaskState::Asked, None), "the first's 5 asks, though the task moved");
 }
