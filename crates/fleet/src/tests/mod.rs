@@ -146,6 +146,7 @@ mod auto_land;
 mod lifecycle_keeping;
 mod lifecycle_reading;
 mod rule_acting;
+mod rule_asking;
 mod rule_running;
 mod rule_saying;
 mod attached_line;

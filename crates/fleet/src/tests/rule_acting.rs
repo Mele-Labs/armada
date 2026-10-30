@@ -29,30 +29,30 @@ fn qa_deploy() -> config::WatchRecipeWritten {
     )
 }
 
-fn a_rig() -> Rig {
+pub(super) fn a_rig() -> Rig {
     let planted = Arc::new(Planted::nothing());
     planted.will_offer_recipes(vec![qa_deploy()]);
     rig_fitted(move |fittings| fittings.locating = planted)
 }
 
-fn save(rig: &Rig, name: &str, text: &str) {
+pub(super) fn save(rig: &Rig, name: &str, text: &str) {
     let folder = Path::new(&rig.fleet.host().kit_home).join("rules");
     std::fs::create_dir_all(&folder).expect("a folder");
     std::fs::write(folder.join(name), text).expect("a rule file");
 }
 
-async fn approved(rig: &Rig, job: &SessionId) {
+pub(super) async fn approved(rig: &Rig, job: &SessionId) {
     let at = rig.fleet.now().as_str().to_string();
     rig.fleet.store().lock().await.take_on_lifecycle_instance(job.as_str(), "pr", "812", &[], &at).expect("taken on");
     assert!(rig.fleet.lifecycle_seen(job.as_str(), "pr", "812", Observed::Forge(ForgeFact::Approved)).await.is_some());
 }
 
-async fn acts(rig: &Rig, job: &SessionId) -> Vec<(String, String, u32)> {
+pub(super) async fn acts(rig: &Rig, job: &SessionId) -> Vec<(String, String, u32)> {
     let kept = rig.fleet.store().lock().await.rule_acts_of(job.as_str()).expect("reads");
     kept.into_iter().map(|one| (one.text, one.state, one.attempts)).collect()
 }
 
-async fn notices_in(rig: &Rig, job: &SessionId) -> Vec<(Option<String>, String)> {
+pub(super) async fn notices_in(rig: &Rig, job: &SessionId) -> Vec<(Option<String>, String)> {
     let rows = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("a session").rows;
     rows.into_iter()
         .filter_map(|row| match row {
@@ -107,7 +107,7 @@ async fn a_watch_for_a_deploy_is_started_followed_and_its_readings_move_the_depl
     );
 }
 
-fn failing(then: &str, retries: u32) -> String {
+pub(super) fn failing(then: &str, retries: u32) -> String {
     format!(
         "version: 1\nrule_id: watch_nothing\nname: Watch a recipe nobody wrote\nwhen: {{ enters: {{ lifecycle: pr, state: approved }} }}\ndo:\n  - start_watch: {{ recipe: nope, values: {{}} }}\non_failure: {{ retries: {retries}, then: {then} }}\n"
     )

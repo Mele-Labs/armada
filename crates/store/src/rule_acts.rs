@@ -210,6 +210,18 @@ impl Store {
             .map_err(failing(doing))
     }
 
+    /// The acts of the Job that wait on the owner: asked about first, or failed past their retries
+    /// where the rule says to ask. Oldest first.
+    pub fn rule_acts_asking(&self, session_id: &str) -> Result<Vec<KeptRuleAct>, WriteError> {
+        let doing = "reading the acts a job's rules ask the owner about";
+        self.conn
+            .prepare(&format!("SELECT {COLUMNS} FROM rule_acts WHERE session_id = ?1 AND state IN ('asked', 'stuck') ORDER BY id"))
+            .map_err(failing(doing))?
+            .query_map(params![session_id], kept)
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(failing(doing))
+    }
+
     /// Begin a try, and say how many have been begun. **Counted before it is made**, so a try a
     /// crash cut short is one of the rule's retries and not a free one.
     pub fn begin_rule_attempt(&mut self, id: i64) -> Result<u32, WriteError> {
