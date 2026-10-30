@@ -181,6 +181,31 @@ export function ReferenceLink({ reference, children }: { reference: ProseReferen
   );
 }
 
+/**
+ * Words with the host's references linked and nothing else: no markdown, no block, so it sits inside a line or a control.
+ * **A press on a link is its own**: it does not reach the control around it, so a ticket in an option opens and does not pick it.
+ */
+export function RefText({ text }: { text: string }) {
+  const refs = useContext(ProseRefs);
+  if (refs === null) return <>{text}</>;
+  const spans = [...refs.scan(text)].sort((a, b) => a.from - b.from);
+  if (spans.length === 0) return <>{text}</>;
+  const out: ReactNode[] = [];
+  let at = 0;
+  for (const { from, to, ref } of spans) {
+    if (from < at) continue;
+    out.push(text.slice(at, from));
+    out.push(
+      <span key={from} onClick={(event) => event.stopPropagation()}>
+        <ReferenceLink reference={ref}>{text.slice(from, to)}</ReferenceLink>
+      </span>,
+    );
+    at = to;
+  }
+  out.push(text.slice(at));
+  return <>{out}</>;
+}
+
 const keepRef = (url: string): string => (url.startsWith(REF) ? url : defaultUrlTransform(url));
 
 /**

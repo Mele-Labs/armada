@@ -18,7 +18,9 @@ import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../shared/bridge";
+import { classifyLink } from "../../shared/classify-link";
 import { useHelmSession } from "./helm-session";
+import { useTrackerHosts } from "./link-routes";
 import { useNumbered } from "./numbered";
 import { showLayer } from "./session-view/layers";
 import { openInPanel } from "./shared-panel/store";
@@ -61,6 +63,8 @@ type Scope = { manifestId: string | undefined; session: Session | undefined };
 function useRefs({ repositories, openSession, openLink }: Host, { manifestId, session: thread }: Scope): ProseReferences {
   const root = repositories.find((one) => jobIdOf(one) === manifestId)?.root;
   const numbered = useNumbered(manifestId);
+  // The hosts this repository's tracker serves tickets from, so a taught `/browse/KEY` link is known for a ticket.
+  const trackerHosts = useTrackerHosts(repositories.filter((one) => jobIdOf(one) === manifestId));
   const sessions = useSessions();
   const [looked, setLooked] = useState<Record<string, NumberedHit | null>>({});
   // The repository's own `owner/name`, read off the addresses it already holds.
@@ -131,8 +135,12 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
       scan,
       open: (ref: ProseReference) => {
         if (ref.kind === "session") return openers.current.openSession(ref.id);
-        // A taught link's id is its address, which opens in the browser as any web address does.
-        if (ref.kind === "link") return openers.current.openLink(ref.id);
+        // A taught link's id is its address. A tracker's ticket opens in the side panel as an issue does; any other address opens in the browser.
+        if (ref.kind === "link") {
+          const ticket = classifyLink(ref.id, trackerHosts);
+          if (ticket.kind === "issue") return openInPanel({ kind: "issue", number: ticket.number, address: ticket.address, ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }) });
+          return openers.current.openLink(ref.id);
+        }
         if (ref.kind === "document") return sessionId === undefined ? undefined : showLayer(sessionId, "document", ref.id);
         if (ref.kind === "file") return openInPanel({ kind: "file", path: ref.id, from: "session", ...(sessionId === undefined ? {} : { sessionId }) });
         // Another repository's number is only a page on the forge.
@@ -142,7 +150,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
         else openInPanel({ kind: "issue", number: ref.id, ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) });
       },
     };
-  }, [world, scan, manifestId, root, sessionId]);
+  }, [world, scan, manifestId, root, sessionId, trackerHosts]);
 }
 
 /** What Helm's thread links, read in its repository and from its own Session. */

@@ -940,13 +940,59 @@ pub(crate) async fn take_main_red<D: Sessions>(
 
 /// A Session's agent starts a Session, held for the person. 200 with `SessionHeld`; 422 for a call that
 /// places no hosted Session, a blank title or message, or a repository Fleet does not serve.
+///
+/// **With `jobs`, several**: 200 with `SessionsHeld`, each Job's answer in the order given, a refused
+/// one carrying the refusal a call of its own would have answered; the one-Job call's 422 for a caller
+/// that places no hosted Session, with no Job tried.
 pub(crate) async fn start_another_session<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartAnotherSession = match ipc::decode_body("a job to start", &body) {
-        Ok(start) => start,
+    const EXPECTED: &str = "a job to start";
+    let starts: ipc::StartAnotherSessions = match ipc::decode_body(EXPECTED, &body) {
+        Ok(starts) => starts,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let unreadable = |why: &str| {
+        let why = ipc::Undecodable {
+            expected: EXPECTED,
+            why: why.to_string(),
+            shape: Some(ipc::shape::of::<ipc::StartAnotherSessions>()),
+        };
+        undecodable(&why.to_string(), served.run_id())
+    };
+    let ipc::StartAnotherSessions { manifest_id, title, message, group, after, jobs } = starts;
+    if !jobs.is_empty() {
+        if manifest_id.is_some() || title.is_some() || message.is_some() || group.is_some() || after.is_some() {
+            return unreadable("one Job's fields and `jobs` together; give one Job at the top or every Job in `jobs`");
+        }
+        // Placement is the caller's, not a Job's: a first Job refused unplaced means none would start,
+        // so the batch answers the one 422 a one-Job call would and tries no other.
+        let caller = crate::acting::asking();
+        let mut rest = jobs;
+        let first = rest.remove(0);
+        let first = match served.shared().start_another_session(caller, first).await {
+            Err(refusal) if refusal.error().code == ipc::AGENT_START_UNPLACED => return refused(refusal),
+            answered => answered,
+        };
+        let mut answers = vec![first];
+        answers.extend(served.shared().start_other_sessions(caller, rest).await);
+        let jobs = answers
+            .into_iter()
+            .map(|answered| match answered {
+                Ok(held) => ipc::HeldOrRefused { held: Some(held), refused: None },
+                Err(refusal) => ipc::HeldOrRefused { held: None, refused: Some(refusal.error().clone()) },
+            })
+            .collect();
+        return answer(StatusCode::OK, &ipc::SessionsHeld { jobs }, served.run_id());
+    }
+    let start = match (manifest_id, title, message) {
+        (Some(manifest_id), Some(title), Some(message)) => {
+            ipc::StartAnotherSession { manifest_id, title, message, group, after }
+        }
+        (None, _, _) => return unreadable("missing field `manifest_id`"),
+        (_, None, _) => return unreadable("missing field `title`"),
+        (_, _, None) => return unreadable("missing field `message`"),
     };
     match served
         .shared()
