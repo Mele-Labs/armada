@@ -270,6 +270,7 @@ where
             record.proposal = (reading || !picked.is_empty())
                 .then_some(ipc::SessionProposal { reading, picked });
         }
+        let picks = reads.hosting.as_ref().map(|hosting| (hosting.workflow.clone(), hosting.model.clone(), hosting.effort.clone()));
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting, reads.start));
@@ -320,7 +321,11 @@ where
         record.waits = reads
             .wait
             .filter(|_| session.state == store::SessionState::Live)
-            .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
+            .map(|(wait, title, part)| {
+                let mut wire = crate::session_host::after::wait_wire(&wait, title, part);
+                (wire.workflow, wire.model, wire.effort) = picks.unwrap_or_default();
+                wire
+            });
         record.started = reads.started;
         self.rail_drawn(session, &reads.rail, &mut record);
         record

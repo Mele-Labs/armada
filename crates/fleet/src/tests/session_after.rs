@@ -388,7 +388,7 @@ async fn the_agent_changes_the_condition_and_both_threads_show_it() {
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
 
     let changed = Arc::clone(&rig.fleet)
-        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrPushed), base: Some(StartBase::Branch) })
+        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrPushed), base: Some(StartBase::Branch), held: None, workflow: None, model: None, effort: None })
         .await
         .expect("changed");
 
@@ -413,7 +413,7 @@ async fn the_person_changes_it_and_the_agent_waited_on_is_told() {
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
 
     let changed = Arc::clone(&rig.fleet)
-        .change_waiting(None, ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrLands), base: None })
+        .change_waiting(None, ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrLands), base: None, held: None, workflow: None, model: None, effort: None })
         .await
         .expect("changed");
 
@@ -436,7 +436,7 @@ async fn a_change_to_a_condition_already_met_starts_it() {
     rig.eventually(&waiting.id, "the pull request named", |one| one.waits.as_ref().is_some_and(|wait| wait.pull.is_some())).await;
 
     Arc::clone(&rig.fleet)
-        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrPushed), base: None })
+        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrPushed), base: None, held: None, workflow: None, model: None, effort: None })
         .await
         .expect("changed");
 
@@ -451,12 +451,12 @@ async fn a_plan_part_the_other_session_does_not_hold_is_refused() {
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
 
     let refused = Arc::clone(&rig.fleet)
-        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::GroupDone { group: "g9".into() }), base: None })
+        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::GroupDone { group: "g9".into() }), base: None, held: None, workflow: None, model: None, effort: None })
         .await;
     assert!(format!("{refused:?}").contains("fleet.wait_part_unknown"), "{refused:?}");
 
     let held = Arc::clone(&rig.fleet)
-        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::GroupDone { group: "g1".into() }), base: None })
+        .change_waiting(caller(), ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::GroupDone { group: "g1".into() }), base: None, held: None, workflow: None, model: None, effort: None })
         .await
         .expect("a group it holds");
     assert_eq!(held.condition, StartCondition::GroupDone { group: "g1".into() });
@@ -470,7 +470,7 @@ async fn a_session_that_has_started_cannot_be_changed() {
     Arc::clone(&rig.fleet).start_waiting_now(StartWaitingNow { session_id: waiting.id.clone() }).await.expect("started");
 
     let refused = Arc::clone(&rig.fleet)
-        .change_waiting(None, ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrLands), base: None })
+        .change_waiting(None, ChangeWaiting { waiting_session: waiting.id.clone(), condition: Some(StartCondition::PrLands), base: None, held: None, workflow: None, model: None, effort: None })
         .await;
     assert!(format!("{refused:?}").contains("fleet.wait_over"), "{refused:?}");
 }
@@ -638,4 +638,90 @@ async fn a_session_waiting_on_a_workflow_gets_no_step_prompt_before_its_conditio
     let sent = rig.sent_to(processes);
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert!(sent[0].contains("Record the plan before editing.") && sent[0].contains(BRIEF), "{}", sent[0]);
+}
+
+// ---- The person approves a waiting Job and picks what it starts on ----
+
+fn approving(waiting: &SessionId) -> ChangeWaiting {
+    ChangeWaiting {
+        waiting_session: waiting.clone(),
+        condition: None,
+        base: None,
+        held: Some(false),
+        workflow: Some("rail".into()),
+        model: Some("opus".into()),
+        effort: Some("high".into()),
+    }
+}
+
+#[tokio::test]
+async fn an_approval_and_the_picks_are_kept_and_published_on_the_wait() {
+    let rig = super::agent_starts::rig_on_the_rail();
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
+    assert!(rig.record(&waiting.id).await.waits.is_some_and(|wait| !wait.held), "a Job the person made waits unheld until he says otherwise");
+
+    let changed = Arc::clone(&rig.fleet).change_waiting(None, approving(&waiting.id)).await.expect("changed");
+    assert!(!changed.held);
+    assert_eq!((changed.workflow.as_deref(), changed.model.as_deref(), changed.effort.as_deref()), (Some("rail"), Some("opus"), Some("high")));
+
+    let wait = rig.record(&waiting.id).await.waits.expect("still waiting");
+    assert!(!wait.held, "approved is read back from the record");
+    assert_eq!((wait.model.as_deref(), wait.effort.as_deref()), (Some("opus"), Some("high")), "and so are the picks");
+
+    let withdrawn = ChangeWaiting { held: Some(true), model: Some(String::new()), workflow: None, effort: None, ..approving(&waiting.id) };
+    let changed = Arc::clone(&rig.fleet).change_waiting(None, withdrawn).await.expect("withdrawn");
+    assert!(changed.held, "withdrawing the approval holds it again");
+    assert_eq!((changed.model, changed.effort.as_deref()), (None, Some("high")), "an empty pick clears it and a key left out stays");
+    assert_eq!(rig.told("The person changed"), 0, "approving is not a change of when it starts");
+}
+
+#[tokio::test]
+async fn an_agent_cannot_approve_what_waits_on_it() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
+
+    let refused = Arc::clone(&rig.fleet).change_waiting(caller(), approving(&waiting.id)).await.expect_err("the person's to set");
+    assert!(format!("{refused:?}").contains("wait_not_yours"), "{refused:?}");
+    assert!(rig.record(&waiting.id).await.waits.is_some_and(|wait| !wait.held && wait.model.is_none()), "nothing was kept");
+}
+
+#[tokio::test]
+async fn an_approved_wait_starts_unheld_on_its_picks() {
+    let rig = super::agent_starts::rig_on_the_rail();
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
+    Arc::clone(&rig.fleet).change_waiting(None, approving(&waiting.id)).await.expect("approved");
+    let processes = rig.processes();
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let started = rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+    assert!(started.hosted.as_ref().and_then(|hosted| hosted.start.as_ref()).is_none(), "approved is not held for him");
+    assert_eq!(started.workflow.as_deref(), Some("rail"));
+    rig.processes_reach(processes + 1).await;
+    let start = rig.stand_in.starts().pop().expect("the process");
+    assert_eq!((start.model.as_deref(), start.effort.as_deref()), (Some("opus"), Some("high")), "it runs on what he picked");
+    assert!(rig.sent_to(processes).iter().any(|text| text.contains(BRIEF)), "and the brief went out unheld");
+}
+
+#[tokio::test]
+async fn an_unapproved_wait_is_held_for_him_as_it_was() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
+    let approve_then_withdraw = [Some(false), Some(true)];
+    for held in approve_then_withdraw {
+        let change = ChangeWaiting { held, workflow: None, model: None, effort: None, ..approving(&waiting.id) };
+        Arc::clone(&rig.fleet).change_waiting(None, change).await.expect("changed");
+    }
+    let processes = rig.processes();
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let met = rig.eventually(&waiting.id, "the condition met", |one| one.waits.is_none()).await;
+    let unsent = met.hosted.and_then(|hosted| hosted.start).and_then(|start| start.message).expect("held: its first message waits for him");
+    assert!(unsent.trim_end().ends_with(BRIEF), "{unsent}");
+    assert_eq!(rig.processes(), processes, "and nothing runs until he sends it");
 }
