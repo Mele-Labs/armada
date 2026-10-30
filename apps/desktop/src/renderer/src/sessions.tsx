@@ -548,6 +548,18 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
 
+type BeginChild = (id: string, delivery: DeliveryChoice | undefined) => void;
+
+/**
+ * The Start a Job held on its start card is given, by the Needs you row of the Job whose agent started it and by that Job's Started row in its
+ * parent's thread, so the two press alike. While the proposer reads, no landing goes and Fleet takes the reading's; once read, the landing the child's card has ready.
+ */
+function startOfHeldJob(child: Session | undefined, begin: BeginChild | undefined): NonNullable<LedgerEntry["start"]> | undefined {
+  const held = child?.start;
+  if (child === undefined || held === undefined || begin === undefined) return undefined;
+  return { starting: held.queued === true, onStart: () => begin(child.id, child.work?.proposal?.reading === true || !held.asksDelivery ? undefined : (held.picked?.choice ?? "auto_land")) };
+}
+
 export function entriesOf(
   session: Session,
   goes: LedgerGoes,
@@ -563,7 +575,7 @@ export function entriesOf(
   removeWaiting?: (itemId: string, reason: string) => void,
   release?: LedgerRelease["rowOf"],
   scopes: ProposedScopes = new Map(),
-  begin?: (id: string, delivery: DeliveryChoice | undefined) => void,
+  begin?: BeginChild,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, a judge's concern, a draft and a sketch put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
@@ -574,7 +586,7 @@ export function entriesOf(
     const restart = restartOf(act);
     // A message act naming another Job opens it: a Job this one's agent started, held on its start card.
     const other = act?.kind === "message" && act.target !== session.id ? sessions.find((that) => that.id === act.target) : undefined;
-    const childStart = one.source === "held_child" ? other?.start : undefined;
+    const childStart = startOfHeldJob(one.source === "held_child" ? other : undefined, begin);
     const proposed = one.source === "draft" ? proposedOf(session, one.id, scopes) : undefined;
     // Fleet's offer of a restart reads its sentence, with the key beside it and Skip at its end.
     const offer = one.source === "preview_offer" && restart !== undefined;
@@ -619,10 +631,7 @@ export function entriesOf(
       ...(one.source === "walk" || (one.source === "replied" && act?.kind === "approve_pr") ? { onDismiss: () => void dismissWaiting(session.id, one.id) } : {}),
       // Fleet's offer is skipped the same way, and the agent is told nothing.
       ...(offer ? { onDismiss: () => void dismissWaiting(session.id, one.id), dismissSaid: "Skip" } : {}),
-      // While the proposer reads, no landing goes and Fleet takes the reading's; once read, the landing the child's card has ready.
-      ...(childStart === undefined || other === undefined || begin === undefined
-        ? {}
-        : { start: { starting: childStart.queued === true, onStart: () => begin(other.id, other.work?.proposal?.reading === true || !childStart.asksDelivery ? undefined : (childStart.picked?.choice ?? "auto_land")) } }),
+      ...(childStart === undefined ? {} : { start: childStart }),
       onOpen: () => {
         if (other !== undefined) return open(other.id);
         if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
@@ -895,7 +904,17 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const teachOpen = useTeachFrom(teachHere);
   const noticeRules = useNoticeRules(session.id, session.manifestId);
   const scopes = useProposedScopes(session);
+  const beginChild = useMemo((): BeginChild | undefined => (draft?.begin === undefined ? undefined : (childId, delivery) => void draft.begin?.(childId, delivery)), [draft?.begin]);
   const batched = useMemo(() => batchNotices(withWorkflowCards(shown, session, scopes), noticeRules), [shown, session, scopes, noticeRules]);
+  // A Job this one's agent started, still held on its start card, is started from its row in this thread as from Needs you.
+  const withStarts = useMemo(
+    () =>
+      batched.map((row): SessionThreadRow => {
+        const start = row.kind === "started" ? startOfHeldJob(sessions.find((one) => one.id === row.session.id), beginChild) : undefined;
+        return row.kind === "started" && start !== undefined ? { ...row, start } : row;
+      }),
+    [batched, sessions, beginChild],
+  );
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
@@ -996,7 +1015,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
     released.rowOf,
     scopes,
-    draft.begin === undefined ? undefined : (childId, delivery) => void draft.begin?.(childId, delivery),
+    beginChild,
     ),
     ...closedOf(session, draft.reopenWaiting === undefined ? undefined : (itemId) => void draft.reopenWaiting?.(id, itemId)),
   ];
@@ -1237,7 +1256,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SavedOpen.Provider value={openSaved}>
           <SessionThread
             sessionId={session.id}
-            rows={batched}
+            rows={withStarts}
             {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             {...(inlineCards.length === 0 ? {} : { inline: inlineCards })}

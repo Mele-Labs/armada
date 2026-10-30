@@ -1,7 +1,20 @@
 /* A Session this one's agent started or forked: one filled line in the inverse
-   neutral like the person's acts, pressable, and filled in the accent under the pointer. */
+   neutral like the person's acts, pressable, and filled in the accent under the pointer.
+   The row is the fill. Its open press is a button that covers the row from behind, so a Start
+   before the chevron is a button of its own above it, and the whole row still opens the Job. */
 .armada-session-started {
+  position: relative;
   display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline-end: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--fg-default);
+  color: var(--fg-inverse);
+}
+
+.armada-session-started:hover {
+  background: var(--accent);
 }
 
 .armada-session-started__press {
@@ -10,23 +23,40 @@
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) 0 var(--space-2) var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
-  background: var(--fg-default);
-  color: var(--fg-inverse);
+  background: none;
+  color: inherit;
   font: inherit;
   text-align: start;
   cursor: pointer;
 }
 
-.armada-session-started__press:hover {
-  background: var(--accent);
+.armada-session-started__press::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
 }
 
 .armada-session-started__press:focus-visible {
+  outline: none;
+}
+
+.armada-session-started__press:focus-visible::after {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
+}
+
+/* Start, or Starting, drawn as the Needs you row draws it: above the press, on the row's own ink. */
+.armada-session-started > .armada-needs-panel__start {
+  position: relative;
+  z-index: 1;
+  margin-inline-end: 0;
+}
+
+.armada-session-started .armada-needs-panel__starting {
+  color: inherit;
 }
 
 .armada-session-started__eyebrow {
@@ -47,7 +77,10 @@
   overflow-wrap: anywhere;
 }
 
+/* Above the covering press so its tooltip still shows; a press on it is still one on the button. */
 .armada-session-started__at {
+  position: relative;
+  z-index: 1;
   flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -58,6 +91,6 @@
   flex: none;
 }
 
-.armada-session-started__press:hover .armada-session-started__go {
+.armada-session-started:hover .armada-session-started__go {
   transform: translateX(var(--space-1));
 }
