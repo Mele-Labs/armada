@@ -5,6 +5,8 @@
 // the card and puts Documents on the list Settings, Features, Folders sessions reach shows, beside the
 // blocked `~/.ssh` already there. A second Session is held on a write to `~/Desktop/drafts/notes.md`,
 // whose card says it is a write; Always allow for this session settles it and lists nothing. #2441.
+// A third is held on a node script handed `~/code/other-repo`, which the guard cannot class as a read
+// or a write, so its card says run and shows the command (the owner, 30 Oct 2026).
 // Mock data only.
 
 import type { HelmCallInFlight, RepositorySummary } from "@armada/protocol";
@@ -17,6 +19,7 @@ import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const SESSION = "01SESSIONREACHOUTSIDEAAAAA";
 const WRITER = "01SESSIONREACHWRITESAAAAAA";
+const RUNNER = "01SESSIONREACHRUNSAAAAAAAA";
 const AT = "2026-10-16T13:05:00.000Z";
 const PATH = "/Users/user/Documents/handoffs/HANDOFF.md";
 
@@ -53,10 +56,28 @@ const writing: HelmCallInFlight = {
   reaches_to: "write",
 };
 
+const RUNNING = "node scripts/tidy.mjs ~/code/other-repo --dry-run";
+
+const running: HelmCallInFlight = {
+  call: "helm-9",
+  manifest_id: "armada",
+  asked_at: AT,
+  tool: "Bash",
+  detail: RUNNING,
+  truncated: false,
+  rule: "Bash(node:*)",
+  offers: ["allow_once", "refuse", "always_allow", "allow_for_session", "allow_like_this_for_session", "always_block"],
+  holding_for_seconds: 300,
+  reaches: "/Users/user/code/other-repo",
+  reaches_to: "run",
+  kind: { program: "node", script: "tidy.mjs" },
+};
+
 function fleet(): FakeSessionsFleet {
   const records = [
     hosted(SESSION, { title: "Custom margins", attachments: [held("slot", "4")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: reaching } }),
     hosted(WRITER, { title: "Release notes", attachments: [held("slot", "5")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: writing } }),
+    hosted(RUNNER, { title: "Tidy other repo", attachments: [held("slot", "6")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: running } }),
   ];
   const thread = {
     [SESSION]: [
@@ -66,6 +87,10 @@ function fleet(): FakeSessionsFleet {
     [WRITER]: [
       { kind: "message" as const, id: "m2", at: AT, from: { kind: "you" as const }, text: "Draft the release notes on my Desktop, in drafts/notes.md." },
       { kind: "ask" as const, id: `ask-${writing.call}-${WRITER}`, at: AT, ask: writing, state: "waiting" as const },
+    ],
+    [RUNNER]: [
+      { kind: "message" as const, id: "m3", at: AT, from: { kind: "you" as const }, text: "See what the tidy script would change in ~/code/other-repo." },
+      { kind: "ask" as const, id: `ask-${running.call}-${RUNNER}`, at: AT, ask: running, state: "waiting" as const },
     ],
   };
   return new FakeSessionsFleet(records, thread);
@@ -79,7 +104,7 @@ function build(): Scenario {
   return {
     ...fleet().scenario(board),
     name: "session-reach-outside",
-    says: "A Session's read and another's write outside their slots, each put to you with a folder picker, and the folder list in Settings",
+    says: "A Session's read, another's write and a third's run outside their slots, each put to you with a folder picker, and the folder list in Settings",
     behaves: (handle) => fleet().scenario(board).behaves!(handle),
   };
 }

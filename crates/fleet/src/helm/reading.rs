@@ -279,6 +279,37 @@ fn only_reads(said: &str) -> bool {
     (READERS.contains(&program) && !find_acts) || (program == "sed" && !sed_edits) || reads_a_database
 }
 
+/// [`writes`] for a segment as it was written, read as [`reaches_into_owners_files`] reads it.
+pub(super) fn segment_writes(said: &str) -> bool {
+    writes(&literal_text(said).replace("\\ ", "\u{0}"))
+}
+
+/// Whether a segment is known to change files: a redirect into one, a program that writes or
+/// removes what it is handed, or an editor told to edit in place. **What is neither this nor
+/// [`only_reads`] asks to run**, never to write (the owner, 30 Oct 2026).
+fn writes(said: &str) -> bool {
+    const WRITERS: &[&str] = &[
+        "cp", "mv", "install", "ln", "tee", "touch", "rsync", "dd", "truncate", "ditto", "rm", "rmdir",
+        "unlink", "shred", "mkdir", "chmod", "chown",
+    ];
+    if truncating_redirect(said) || said.contains(">>") {
+        return true;
+    }
+    let Some((program, arguments)) = command_of(said) else {
+        return false;
+    };
+    let in_place = arguments.iter().any(|word| {
+        word.starts_with("--in-place") || (word.starts_with('-') && !word.starts_with("--") && word[1..].contains('i'))
+    });
+    let find_acts = program == "find"
+        && arguments.iter().any(|word| {
+            matches!(*word, "-delete" | "-exec" | "-execdir" | "-ok" | "-okdir")
+                || word.starts_with("-fprint")
+                || *word == "-fls"
+        });
+    WRITERS.contains(&program) || (matches!(program, "sed" | "perl") && in_place) || find_acts
+}
+
 /// The words in front of a segment's program: a leading `env` or `command`, and the keywords that
 /// open a clause.
 const KEYWORDS: &[&str] = &[
