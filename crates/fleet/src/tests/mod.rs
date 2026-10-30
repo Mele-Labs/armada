@@ -82,6 +82,7 @@ mod notice_rules;
 mod session_import;
 mod session_limit;
 mod peer;
+mod piece_places;
 mod ports;
 mod preferences;
 mod process;
