@@ -29,6 +29,7 @@ import type { PlanUsageApi } from "./api/plan-usage";
 import type { ModelDownshiftApi } from "./api/model-downshift";
 import type { ProjectsApi } from "./api/projects";
 import type { BugReportsApi } from "./api/bug-reports";
+import type { LifecyclesApi } from "./api/lifecycles";
 import type { AgentSignInApi } from "./api/agent-sign-in";
 import type { ClashesApi } from "./api/clashes";
 import type { ReviewsApi } from "./api/reviews";
@@ -73,6 +74,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   ModelDownshiftApi &
   ProjectsApi &
   BugReportsApi &
+  LifecyclesApi &
   AgentSignInApi &
   ClashesApi &
   ReviewsApi &
