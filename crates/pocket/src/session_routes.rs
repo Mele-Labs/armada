@@ -8,13 +8,13 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use ipc::{
-    AnswerSessionAsk, HelmCallAnswer, ManifestSummary, QuestionAnswer, SessionList, SessionOrigin,
-    SessionRecord, SessionState, StartSession, WireError,
+    AnswerSessionAsk, ForkFrom, HelmCallAnswer, ManifestId, ManifestSummary, QuestionAnswer, SendSessionMessage,
+    SessionList, SessionOrigin, SessionRecord, SessionState, SessionThread, StartSession, WireError,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::phone_sessions::{held_ask, PhoneSession};
-use crate::reads::{json, port, refusal, repositories, required, NOT_ANSWERING, NOT_READABLE};
+use crate::reads::{json, port, read, refusal, repositories, required, NOT_ANSWERING, NOT_READABLE};
 use crate::{fleet_client, Gateway};
 
 const NO_SUCH_SESSION: &str = "That Job is not here.";
@@ -24,6 +24,7 @@ const ASK_MOVED_ON: &str = "That question has been answered or has changed. Open
 const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open it again.";
 const UNREADABLE_REQUEST: &str = "Armada could not read that from this phone. Update the app.";
 const NO_SUCH_REPOSITORY: &str = "Armada does not know that repository. Pick one from the list.";
+const NO_REPOSITORY_TO_FORK: &str = "That Job has no repository, so Armada cannot copy it. Fork it in Armada on your Mac.";
 
 /// The live Sessions. The phone has no list of ended ones.
 pub async fn sessions(State(gateway): State<Gateway>) -> Response {
@@ -55,13 +56,17 @@ struct Sessions {
 /// Fleet's refusal as a sentence the phone shows: its status and its message,
 /// and not its cause chain, fields or ids.
 fn passed(answer: &fleet_client::Answer) -> Response {
+    said(answer).into_response()
+}
+
+fn said(answer: &fleet_client::Answer) -> (StatusCode, String) {
     let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
     if !status.is_client_error() {
-        return refusal(StatusCode::BAD_GATEWAY, NOT_ANSWERING);
+        return (StatusCode::BAD_GATEWAY, NOT_ANSWERING.to_string());
     }
     match ipc::decode::<WireError>("a refusal", &answer.body) {
-        Ok(error) => (status, error.message).into_response(),
-        Err(_) => refusal(status, NOT_ANSWERING),
+        Ok(error) => (status, error.message),
+        Err(_) => (status, NOT_ANSWERING.to_string()),
     }
 }
 
@@ -198,38 +203,109 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
                 .into_response()
         }
     };
+    // `request` only names the Job and picks its workflow; the words reach the agent as its
+    // first message, which Fleet holds while the proposal is read. Bridge starts the same way.
     let start = StartSession {
-        manifest_id: manifest.id.clone(),
+        request: Some(dispatching.text.clone()),
+        ..starting(manifest.id.clone())
+    };
+    let record = match started(&gateway, &start).await {
+        Ok(record) => record,
+        Err(refused) => return refused,
+    };
+    let message = SendSessionMessage {
+        session_id: record.id.clone(),
+        text: dispatching.text,
+        attachments: Vec::new(),
+        mentions: Vec::new(),
+    };
+    let Ok(sent) = ipc::encode(&message) else {
+        return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
+    };
+    let (status, why) = match post(&gateway, "/sessions/message", sent).await {
+        Ok(answer) if (200..300).contains(&answer.status) => {
+            return made(&record, Some(manifest.repository.as_str()), &gateway);
+        }
+        Ok(answer) => said(&answer),
+        Err(_) => (StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING.to_string()),
+    };
+    (status, format!("The Job started, but your message did not reach it. {why}")).into_response()
+}
+
+/// A `StartSession` for a Manifest with nothing else chosen.
+fn starting(manifest_id: ManifestId) -> StartSession {
+    StartSession {
+        manifest_id,
         title: None,
         model: None,
         effort: None,
         mode: None,
         fork: None,
         root: None,
-        request: Some(dispatching.text),
+        request: None,
         after: None,
         held: false,
         project_rows: Vec::new(),
+    }
+}
+
+/// Fleet's record of the Job it started, or its refusal for the phone.
+async fn started(gateway: &Gateway, start: &StartSession) -> Result<SessionRecord, Response> {
+    let Ok(sent) = ipc::encode(start) else {
+        return Err(refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE));
     };
-    let Ok(sent) = ipc::encode(&start) else {
-        return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
+    let answer = post(gateway, "/sessions/start", sent).await?;
+    if answer.status != 200 {
+        return Err(passed(&answer));
+    }
+    ipc::decode::<SessionRecord>("a job", &answer.body).map_err(|_| refusal(StatusCode::BAD_GATEWAY, NOT_READABLE))
+}
+
+/// 201 with the new Job as the phone sees it.
+fn made(record: &SessionRecord, repository: Option<&str>, gateway: &Gateway) -> Response {
+    let session = PhoneSession::of(record, repository, gateway.pairing.now());
+    let mut made = json(&Dispatched { session });
+    *made.status_mut() = StatusCode::CREATED;
+    made
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Forking {
+    session_id: String,
+}
+
+/// A new Job copying the whole of an ended one, in the old Job's own repository, as Bridge's
+/// `fork` does. Copying up to a row is not offered from the phone.
+pub async fn fork(State(gateway): State<Gateway>, body: Bytes) -> Response {
+    let Ok(forking) = ipc::decode::<Forking>("a fork", &body) else {
+        return refusal(StatusCode::BAD_REQUEST, UNREADABLE_REQUEST);
     };
-    let answer = match post(&gateway, "/sessions/start", sent).await {
-        Ok(answer) => answer,
+    // The id goes into a query, so nothing but an id's own characters is sent on.
+    let plain = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
+    if forking.session_id.is_empty() || !forking.session_id.chars().all(plain) {
+        return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION);
+    }
+    let path = format!("/sessions/one?session_id={}", forking.session_id);
+    let old = match read::<SessionThread>(&gateway, &path, "a job").await {
+        Ok(Some(thread)) => thread.session,
+        Ok(None) => return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION),
         Err(refused) => return refused,
     };
-    if answer.status != 200 {
-        return passed(&answer);
-    }
-    match ipc::decode::<SessionRecord>("a job", &answer.body) {
-        Ok(record) => {
-            let session = PhoneSession::of(&record, Some(manifest.repository.as_str()), gateway.pairing.now());
-            let mut made = json(&Dispatched { session });
-            *made.status_mut() = StatusCode::CREATED;
-            made
-        }
-        Err(_) => refusal(StatusCode::BAD_GATEWAY, NOT_READABLE),
-    }
+    let Some(manifest_id) = old.manifest_id.clone() else {
+        return refusal(StatusCode::CONFLICT, NO_REPOSITORY_TO_FORK);
+    };
+    let start = StartSession {
+        fork: Some(ForkFrom { session_id: old.id.clone(), at: None }),
+        ..starting(manifest_id)
+    };
+    let record = match started(&gateway, &start).await {
+        Ok(record) => record,
+        Err(refused) => return refused,
+    };
+    let labels = repositories(&gateway).await;
+    let repository = record.manifest_id.as_ref().and_then(|id| labels.get(id.as_str())).map(String::as_str);
+    made(&record, repository, &gateway)
 }
 
 #[derive(Serialize)]
