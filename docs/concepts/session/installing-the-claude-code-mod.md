@@ -32,14 +32,14 @@ A terminal job still loads only an installed copy.
 **A hosted Job a restart of Fleet left running moves onto the new copy by itself.**
 A process Fleet adopted across the restart keeps the mod it loaded when it started and reports it once, so no report says it fell behind.
 The sweep that already walks every hosted process between turns, every thirty seconds, compares the version each Job reported with the `version` in the copy.
-A Job whose version is older has its process restarted onto the copy, by the restart *Restart the agent* uses ([A Job that came up without its tools](a-job-that-came-up-without-its-tools.md)), once it has no turn running, none on its way, no question waiting, and no subagent or background task working.
+A Job whose version is older has its process let go, as a quiet spell lets one go, once it has no turn running, none on its way, no question waiting, and no subagent or background task working.
+Its next line, from the person or from Fleet, starts the replacement, which resumes the conversation on the copy.
 A Job with a turn running waits for it to end, so no turn is cut, and the sweep asks again.
 A Job that is paused or waiting to be moved into a slot is left as it is, since the move and the resume start a process that loads the copy.
 A Job that reported no version is left too: its process may not have said so yet, and one that came up without the mod is the mend's.
-The restart is once for each version of the copy, so a replacement that still reports an older one does not loop, and a newer copy is a new reason.
-The replacement resumes the conversation and pays for it again, and is told `Fleet restarted your process onto armada mod 0.3.53 from 0.3.52. Nothing is asked of you.`
-That word is news, kept from any mute or rule, because a restart with no unfinished line has no turn to start in without it.
-A process that goes quiet is let go after the quiet spell and resumes on the copy at the next message, so the move reaches only a process that stays up.
+The move is once for each version of the copy, so a replacement that still reports an older one does not loop, and a newer copy is a new reason.
+**Fleet starts no replacement and says nothing in the thread**, so an idle Job spends no turn on the move: a word to start one would cost every idle Job a resumed turn on each refresh.
+The move reaches only a process that is still up, since the quiet spell has already let the rest go.
 
 **The mod ships an output style, `Armada`** (`plugins/armada/output-styles/armada.md`), found from the folder with no entry in `plugin.json`, and picked with `/output-style` as `armada:Armada`.
 It keeps the coding instructions (`keep-coding-instructions: true`), states the job rules and sets plain, concise replies.

@@ -3,8 +3,9 @@
 //!
 //! **A restart of Fleet refreshes the copy and leaves the processes it adopted on the mod they
 //! loaded when they started**, and an adopted process reports its mod once, so no report says it
-//! fell behind. The sweep that already walks every hosted process between turns asks it, and
-//! restarts a process whose reported version is older, as the person's own press does.
+//! fell behind. The sweep that already walks every hosted process between turns asks it, and lets
+//! a process whose reported version is older go, as a quiet spell does: the Job's next line starts
+//! its replacement on the copy, so an idle Job spends no turn on the move.
 
 use std::sync::Arc;
 
@@ -24,7 +25,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Restart each hosted process between turns whose mod is older than Fleet's copy. **Called on
+    /// Let go each hosted process between turns whose mod is older than Fleet's copy. **Called on
     /// the quiet sweep's timer, and by a test**, which would not wait for one. A process with a turn
     /// running is asked again at the next call, so a turn is never cut. **Boxed**, as `listening` is:
     /// the restart starts a process, whose start spawns the timer that calls this, and a future that
@@ -51,7 +52,7 @@ where
         })
     }
 
-    /// One Job's process, restarted when its reported mod is older than `current`. **Once for each
+    /// One Job's process, let go when its reported mod is older than `current`. **Once for each
     /// version of the copy**, so a replacement that reports an older one is left as it is. A Job that
     /// reported none is not read as older: its process may not have said so yet, and one that came up
     /// without the mod is `tools_healed`'s.
@@ -60,18 +61,14 @@ where
         let Ok((session, hosting)) = self.session_and_hosting(id).await else {
             return;
         };
-        let Some(had) = session
-            .mod_version
-            .as_deref()
-            .filter(|had| crate::sessioning::mod_is_older(Some(had), current))
-        else {
+        if !session.mod_version.as_deref().is_some_and(|had| crate::sessioning::mod_is_older(Some(had), current)) {
             return;
-        };
+        }
         if session.state == store::SessionState::Ended || hosting.paused_at.is_some() || self.work_beyond_the_turn(id).await {
             return;
         }
         let runtime = self.hosts().of(id);
-        if self.restarted_onto_mod(id, &runtime, false, Restart::Moved { to: current, from: had }).await {
+        if self.restarted_onto_mod(id, &runtime, false, Restart::Moved { to: current }).await {
             let _ = self.published_hosted(id).await;
         }
     }

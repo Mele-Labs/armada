@@ -47,31 +47,29 @@ fn lines_of(rig: &Rig, index: usize) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn an_idle_job_on_an_older_mod_is_restarted_and_told_what_changed() {
+async fn an_idle_job_on_an_older_mod_is_let_go_and_its_next_line_starts_it_on_the_copy() {
     let rig = rig_placing(None);
     let id = idle_on(&rig, "0.3.50").await;
 
     // No copy declares a version yet: nothing to be older than.
     rig.fleet.processes_moved_onto_mod().await;
-    assert_eq!(rig.stand_in.starts().len(), 1);
+    assert!(!rig.stand_in.process(0).ended.load(Ordering::SeqCst));
 
     copy_declares(&rig, "0.3.52");
     rig.fleet.processes_moved_onto_mod().await;
 
     assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst), "the old process was let go");
-    assert_eq!(rig.stand_in.starts().len(), 2);
-    let sent = lines_of(&rig, 1);
-    assert_eq!(sent.len(), 1, "{sent:?}");
-    assert!(
-        sent[0].contains("Fleet restarted your process onto armada mod 0.3.52 from 0.3.50. Nothing is asked of you."),
-        "{}",
-        sent[0]
-    );
+    assert_eq!(rig.stand_in.starts().len(), 1, "an idle Job spends no turn on the move");
     let rows = rig.rows(&id).await;
     assert!(
-        rows.iter().any(|row| matches!(row, ipc::SessionRow::Message { text, notice: None, .. } if text.contains("onto armada mod 0.3.52"))),
-        "the thread draws Fleet's word: {rows:?}"
+        !rows.iter().any(|row| matches!(row, ipc::SessionRow::Message { text, .. } if text.contains("armada mod"))),
+        "Fleet says nothing in the thread: {rows:?}"
     );
+
+    rig.send(&id, "next").await;
+    assert_eq!(rig.stand_in.starts().len(), 2);
+    assert!(rig.stand_in.starts()[1].resuming, "the same conversation, on the copy");
+    assert_eq!(lines_of(&rig, 1).len(), 1);
 }
 
 #[tokio::test]
@@ -85,35 +83,34 @@ async fn a_job_with_a_turn_running_is_left_until_the_turn_ends() {
 
     rig.fleet.processes_moved_onto_mod().await;
     assert!(!rig.stand_in.process(0).ended.load(Ordering::SeqCst), "a turn is never cut");
-    assert_eq!(rig.stand_in.starts().len(), 1);
 
     rig.stand_in.finishes(0, "done");
     eventually(|| async { matches!(rig.turn(&id).await, ipc::SessionTurn::Idle) }).await;
     rig.fleet.processes_moved_onto_mod().await;
     assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
-    assert_eq!(rig.stand_in.starts().len(), 2);
+    assert_eq!(rig.stand_in.starts().len(), 1);
 }
 
 #[tokio::test]
-async fn a_replacement_that_still_reports_the_older_mod_is_restarted_once_for_each_copy() {
+async fn a_replacement_that_still_reports_the_older_mod_is_let_go_once_for_each_copy() {
     let rig = rig_placing(None);
     copy_declares(&rig, "0.3.52");
     let id = idle_on(&rig, "0.3.50").await;
     rig.fleet.processes_moved_onto_mod().await;
-    assert_eq!(rig.stand_in.starts().len(), 2);
+    assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
 
-    // The replacement says the same old version and finishes its turn on Fleet's word.
+    // The next line starts a replacement, which says the same old version and finishes its turn.
+    rig.send(&id, "next").await;
     mod_says(&rig, &id, "0.3.50").await;
     rig.stand_in.init(1);
     rig.stand_in.finishes(1, "noted");
     eventually(|| async { matches!(rig.turn(&id).await, ipc::SessionTurn::Idle) }).await;
     rig.fleet.processes_moved_onto_mod().await;
-    assert_eq!(rig.stand_in.starts().len(), 2, "the same copy does not loop");
+    assert!(!rig.stand_in.process(1).ended.load(Ordering::SeqCst), "the same copy does not loop");
 
     copy_declares(&rig, "0.3.53");
     rig.fleet.processes_moved_onto_mod().await;
-    assert_eq!(rig.stand_in.starts().len(), 3, "a newer copy is a new reason");
-    assert!(lines_of(&rig, 2)[0].contains("onto armada mod 0.3.53 from 0.3.50"));
+    assert!(rig.stand_in.process(1).ended.load(Ordering::SeqCst), "a newer copy is a new reason");
 }
 
 #[tokio::test]

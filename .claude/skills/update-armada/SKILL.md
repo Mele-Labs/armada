@@ -22,8 +22,8 @@ at the first that fails and report it; `preview-app` has the known failures
 here.** It copies the mod to `~/Library/Application Support/Armada/mod`, then
 runs `claude plugin marketplace update armada-local` and
 `claude plugin update armada@armada-local`. A warning it prints for either is
-the one thing to report. Fleet restarts each hosted job's process onto the copy
-once its turn ends. A terminal job loads the plugin when `/reload-plugins` runs
+the one thing to report. Fleet lets each hosted job's process go once its turn
+ends, and its next message starts it on the copy. A terminal job loads the plugin when `/reload-plugins` runs
 in it. Claude Code caches the plugin by version, so a mod change bumps
 `MOD_VERSION` and `plugin.json` together. A version that did not change is not
 a failure: say so in the report.

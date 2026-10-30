@@ -128,8 +128,8 @@ changes.
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
 `Armada/` touched), then runs `claude plugin marketplace update armada-local`
 and `claude plugin update armada@armada-local`, which fail soft with one
-warning. Hosted jobs load the mod from the copy and Fleet restarts each onto it
-once its turn ends. A terminal job loads the updated plugin when the owner runs
+warning. Hosted jobs load the mod from the copy, and Fleet lets each process go
+once its turn ends so its next message starts it on the copy. A terminal job loads the updated plugin when the owner runs
 `/reload-plugins` in it, and he pulls nothing. The one-time install is in
 `docs/concepts/session.md`, "Installing the Claude Code mod".
 
