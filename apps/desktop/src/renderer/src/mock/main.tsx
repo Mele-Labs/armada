@@ -44,6 +44,10 @@ if (script !== undefined) {
   meetEveryGuide();
 }
 
+// `?take=arc|wrap|dash` draws the Cockpit's flight controls as that take of a console (`cockpit/deck/console.tsx`); without it they draw as in the app.
+const take = query.get("take");
+if (take !== null) document.documentElement.dataset.consoleTake = take;
+
 // `?step=<n>` starts a walk on step n, the steps before it run straight through: what Back does.
 const startStep = (of: number) => Math.min(Math.max(Number(query.get("step") ?? 1) || 1, 1), of) - 1;
 

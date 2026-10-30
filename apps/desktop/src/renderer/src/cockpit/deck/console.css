@@ -1,0 +1,110 @@
+/* The mock's console takes of the flight controls (`console.tsx`). Nothing here matches in the app: only `?take=` sets `data-console`. */
+
+/* Dispatch is the console's middle key, so its own panel beside the controls is not drawn. */
+.deck-foot:has(> .deck-controls[data-console]) > .deck-dispatch { display: none; }
+
+/* How far the edge drops: read back in pixels by `useEdge`, so it is registered as a length. */
+@property --console-rise {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* Three sections side by side: the left keys, Dispatch, the right keys. Each key is one share of the width. */
+.deck-controls__block.deck-console__block {
+  display: grid;
+  grid-template-columns: var(--l) var(--console-core, 1fr) var(--r);
+  grid-auto-rows: auto;
+  gap: 0;
+  padding: calc(var(--space-2) + var(--console-rise)) 0 var(--space-3);
+}
+.deck-console__wing,
+.deck-console__core {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  min-width: 0;
+}
+.deck-console__wing[data-side="left"] { padding-inline-start: calc(var(--space-3) - var(--space-1)); }
+.deck-console__wing[data-side="right"] { padding-inline-end: calc(var(--space-3) - var(--space-1)); }
+.deck-console__seat {
+  display: grid;
+  min-width: 0;
+  padding-inline: var(--space-1);
+  translate: 0 var(--lift, 0px);
+  rotate: var(--tilt, 0deg);
+}
+.deck-console__seat > .deck-tile { height: var(--tile); }
+/* The arrows move focus by script, which `:focus-visible` does not always count as the keyboard's. */
+.deck-console__block .deck-tile:focus { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* ---- arc and dash: the panel's glass is cut to the outline `useEdge` draws, and the rim is that outline -------------------------------- */
+
+:root .deck-foot > .deck-controls:is([data-console="arc"], [data-console="dash"]) {
+  overflow: visible;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  &::before {
+    background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+    clip-path: var(--console-clip, none);
+  }
+}
+.deck-console__edge {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.deck-console__rim {
+  fill: none;
+  stroke: var(--glass-edge);
+  stroke-width: var(--border-width);
+  transition: stroke var(--duration-base) var(--ease);
+}
+.deck-controls[data-console]:focus-within .deck-console__rim { stroke: var(--glass-edge-lifted); }
+
+/* arc: the top edge dips once, as deep as half a key, and each key sits on it and leans with it. */
+.deck-console__block[data-take="arc"] { --console-rise: calc(var(--tile) / 2); }
+
+/* dash: the sides stand level and the middle steps down into a tray; Dispatch sits in it, the curves either side of it in its section. */
+.deck-console__block[data-take="dash"] {
+  --console-rise: calc(var(--tile) / 2);
+  --console-core: 1.75fr;
+}
+.deck-console__block[data-take="dash"] .deck-console__core { padding-inline: 16%; }
+
+/* ---- wrap: the three sections are panels of their own, the two outer ones turned in towards the middle -------------------------------- */
+
+:root .deck-foot > .deck-controls[data-console="wrap"] {
+  overflow: visible;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  &::before { content: none; }
+}
+.deck-controls__block.deck-console__block[data-take="wrap"] {
+  --console-core: 1.5fr;
+  gap: var(--deck-gutter);
+  /* The outer ends come forward, so they draw wider and taller than their boxes: the padding is the room they come into. */
+  padding: var(--space-3) calc(var(--space-12) * 1.75);
+}
+.deck-console__block[data-take="wrap"] :is(.deck-console__wing, .deck-console__core) {
+  align-items: center;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--glass-edge);
+  border-radius: var(--glass-radius);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  box-shadow: var(--bezel), var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+}
+.deck-console__block[data-take="wrap"] .deck-console__wing[data-side="left"] { transform-origin: right center; transform: perspective(calc(var(--space-12) * 27)) rotateY(32deg); }
+.deck-console__block[data-take="wrap"] .deck-console__wing[data-side="right"] { transform-origin: left center; transform: perspective(calc(var(--space-12) * 27)) rotateY(-32deg); }
+.deck-controls[data-console="wrap"]:focus-within :is(.deck-console__wing, .deck-console__core):focus-within { border-color: var(--glass-edge-lifted); }
+
+/* Edit would sit on the last key's corner. Editing draws the tiles as in the app, so it is left to the app. */
+.deck-controls[data-console] > .deck-band > .armada-tooltip:has(> .deck-band__edit) { display: none; }
