@@ -19,7 +19,7 @@ import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
-import { SessionMark } from "../SessionFrame/SessionFrame";
+import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 import { notedOf } from "../ViewerNotes/compose";
 import { NotedMessage, NotedOpens, type NotedOpen } from "../ViewerNotes/NotedMessage";
 import { splitDebugInfo } from "./debug-info";
@@ -42,6 +42,7 @@ import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
 import { landingsOf, type PlanLandsIn } from "./lands-in";
 import { LandsInChip } from "./LandsInChip";
+import { JobCard, type JobCardIssue } from "../JobCard/JobCard";
 import { FleetTurn, noticeEntries } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
@@ -293,7 +294,7 @@ export type PlanApproval = {
   version?: number;
   /** The plan in his words, read first. Present, the groups fold under Details; absent, the card draws the groups as it always did. */
   summary?: string;
-  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; tasks: readonly { id: string; text: string }[] }[];
+  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; /** It goes to a Job of its own, which lands its own pull request: `landsIn` is ignored and the group is that Job's card alone, a placeholder until it is handed. */ ownJob?: true; /** The issue it works, the card's chip. */ issue?: JobCardIssue; /** The Job it was handed to, which then stands as the card and opens on a press. */ job?: { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void }; tasks: readonly { id: string; text: string }[] }[];
   /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
   opensPullRequests?: true;
   /** Opens a pull request a chip names. */
@@ -1393,15 +1394,25 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   );
   // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
   const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
+  // A group that goes to a Job of its own is that Job's card alone, in the place of a pull request chip: a placeholder until it is handed, then the Job. The Job plans its
+  // own tasks, so the group's line is not drawn under it.
   const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
-    runs.length === 1 && runs[0]!.landsIn === undefined ? (
+    runs.length === 1 && runs[0]!.landsIn === undefined && runs[0]!.own === undefined ? (
       list(runs[0]!.groups)
     ) : (
       <div className="armada-session-thread__landings">
         {runs.map((run) => (
-          <section key={run.key} className="armada-session-thread__landing" aria-label={`Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
-            {run.landsIn === undefined ? null : <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />}
-            {list(run.groups)}
+          <section key={run.key} className="armada-session-thread__landing" aria-label={run.own !== undefined ? run.own.title : `Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+            {run.own !== undefined ? (
+              run.own.job === undefined ? (
+                <JobCard placeholder={run.own.title} {...(run.own.issue === undefined ? {} : { issue: run.own.issue })} />
+              ) : (
+                <JobCard title={run.own.job.title} state={run.own.job.state} said={run.own.job.said} handedFrom={run.own.title} {...(run.own.issue === undefined ? {} : { issue: run.own.issue })} {...(run.own.job.at === undefined ? {} : { at: run.own.job.at })} onOpen={run.own.job.onOpen} />
+              )
+            ) : run.landsIn === undefined ? null : (
+              <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />
+            )}
+            {run.own !== undefined ? null : list(run.groups)}
           </section>
         ))}
       </div>
@@ -1438,7 +1449,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   ));
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} data-jobs={runs.some((run) => run.own !== undefined) || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
       <div className="armada-session-thread__plan-head">
         <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label={aside ? "Plan set aside" : "Plan"} onClick={() => setFolded(!folded)}>
           <ListChecks size={12} strokeWidth={2} aria-hidden />
