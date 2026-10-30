@@ -120,7 +120,7 @@ function Into({ back, title, children }: { back: { label: string; onBack: () => 
   );
 }
 
-/** One Job's lanes and the comments under them. `away` is a Job's own Workflow drawn over it: it stays mounted and is hidden, and `onOpen` opens one. */
+/** One Job's lanes and the comments under them. `away` is a Job's own Workflow drawn over it: it stays mounted, hidden and inert (the canvas draws each node visible whatever holds it), and `onOpen` opens one. */
 function OwnLanes({ sessionId, away, onOpen }: { sessionId: string; away: boolean; onOpen: (lane: LaneView) => void }) {
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === sessionId);
@@ -154,7 +154,7 @@ function OwnLanes({ sessionId, away, onOpen }: { sessionId: string; away: boolea
     else if (next?.kind === "rule" && lanes.job.fired.some((one) => one.rule === next.id && (one.acts?.length ?? 0) > 0)) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id });
   };
   return (
-    <div className="sv-lanes__body" data-away={away || undefined}>
+    <div className="sv-lanes__body" data-away={away || undefined} inert={away}>
       {copy === undefined ? null : <AddToJob sessionId={session.id} lanes={lanes} acts={copy} />}
       <LaneCanvas
         label="Workflow"

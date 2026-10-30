@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MessageSquare } from "lucide-react";
 import { useState } from "react";
+import type { ComponentProps } from "react";
 import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
 import { Button } from "../Button/Button";
 import { Sheet } from "./Sheet";
@@ -229,5 +230,39 @@ export const EachKindKeepsItsWidth: Story = {
     await close("Job log");
     await open("task");
     await expect(await width("T5")).toBe(taskAtRest + 64);
+  },
+};
+
+/** A sheet holding something that holds Esc, until its Back is pressed. */
+function Holding(props: ComponentProps<typeof Sheet>) {
+  const [held, setHeld] = useState(true);
+  return (
+    <Sheet {...props}>
+      {held ? (
+        <div data-holds-esc="">
+          <Button onClick={() => setHeld(false)}>Back</Button>
+        </div>
+      ) : (
+        "Nothing holds Esc"
+      )}
+    </Sheet>
+  );
+}
+
+/**
+ * Something drawn in the sheet can hold Esc for as long as it is drawn: a Job's Workflow opened over its parent's, where Esc is Back. The sheet leaves the press alone
+ * wherever focus is, and closes on it once nothing in it holds Esc.
+ */
+export const HoldsEsc: Story = {
+  render: (args) => <Holding {...args} />,
+  args: { kind: "story-sheet", open: true, side: "right", title: "Workflow", onClose: fn() },
+  play: async ({ args, canvas, userEvent }) => {
+    // Focus is on the sheet's close, not on what holds Esc: it is held wherever focus is.
+    await expect(canvas.getByRole("button", { name: "Close" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(args.onClose).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await userEvent.keyboard("{Escape}");
+    await expect(args.onClose).toHaveBeenCalledTimes(1);
   },
 };

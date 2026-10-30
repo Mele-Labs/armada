@@ -3,7 +3,7 @@
   group = "View"
   size = "16px"
   status = "Specified"
-  reserved = "Two marks on the flight deck only: a bay whose history Bridge cannot read (state Unknown) and a mission pin whose step is asking a person. Never a help control, never a Job status, which is `megaphone` for escalated, and never a tooltip trigger, which is the `?` that opens longer explanations."
+  reserved = "Three marks only: on the flight deck, a bay whose history Bridge cannot read (state Unknown) and a mission pin whose step is asking a person; on a Job's lane card, a ticket in a state no glyph names, below. Never a help control, never a Job status, which is `megaphone` for escalated, and never a tooltip trigger, which is the `?` that opens longer explanations."
   notes = "Added 14 Oct 2026. `circle-dot` shares its ring at 12px and collides there; both uses are 16px and carry a word beside or a tooltip."
 
 [[icons.circle-help.usage]]
