@@ -2,10 +2,22 @@
 // and every reply the phone makes to it, each sent to that Mac.
 
 import { useEffect, useState } from "react";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, SendPlanChanges, SendSessionMessage, SessionThread as WireThread } from "@armada/protocol";
+import type {
+  AnswerSessionAsk,
+  AnswerWaiting,
+  ApprovePlan,
+  BeginSession,
+  DismissWaiting,
+  SendPlanChanges,
+  SendSessionMessage,
+  SessionThread as WireThread,
+  StartSessionRun,
+  TuneSession,
+} from "@armada/protocol";
 
 import { call, getJson, refusal } from "./client";
 import { loadLists, onChange } from "./fleet";
+import type { ForkedBody, JobOnly, PhoneSession } from "./gateway";
 import type { Machine } from "./machines";
 
 export type JobRead = { thread?: WireThread; error?: string };
@@ -41,6 +53,16 @@ export type Acts = {
   approvePlan: (body: ApprovePlan) => Promise<void>;
   planChanges: (body: SendPlanChanges) => Promise<void>;
   message: (body: SendSessionMessage) => Promise<void>;
+  dismissWaiting: (body: DismissWaiting) => Promise<void>;
+  begin: (body: BeginSession) => Promise<void>;
+  stop: (body: JobOnly) => Promise<void>;
+  pause: (body: JobOnly) => Promise<void>;
+  resume: (body: JobOnly) => Promise<void>;
+  close: (body: JobOnly) => Promise<void>;
+  tune: (body: TuneSession) => Promise<void>;
+  run: (body: StartSessionRun) => Promise<void>;
+  /** Answers the new Job. */
+  fork: (body: JobOnly) => Promise<PhoneSession>;
 };
 
 /** The replies, each posted to `machine` and followed by a read of its lists and of the Job. */
@@ -56,6 +78,19 @@ export function actsOn(machine: Machine, reread: () => void): Acts {
     approvePlan: send("/api/sessions/plan/approve"),
     planChanges: send("/api/sessions/plan/changes"),
     message: send("/api/sessions/message"),
+    dismissWaiting: send("/api/sessions/waiting/dismiss"),
+    begin: send("/api/sessions/begin"),
+    stop: send("/api/sessions/stop"),
+    pause: send("/api/sessions/pause"),
+    resume: send("/api/sessions/resume"),
+    close: send("/api/sessions/close"),
+    tune: send("/api/sessions/tune"),
+    run: send("/api/sessions/run/start"),
+    fork: async (body) => {
+      const { session } = (await (await call(machine, "/api/sessions/fork", { method: "POST", body })).json()) as ForkedBody;
+      void loadLists(machine.origin);
+      return session;
+    },
   };
 }
 

@@ -119,3 +119,50 @@ async fn a_picture_the_job_showed_reaches_the_phone_as_its_bytes() {
     let (status, _) = send(&phone, Method::GET, "/api/sessions/shown?session_id=h1&path=%2Fetc%2Fhosts", "").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+/// Every method, path-and-query and body the Fleet below was sent.
+type Heard = Arc<Mutex<Vec<(String, String, String)>>>;
+
+async fn recording_fleet(heard: Heard) -> u16 {
+    let app = Router::new().fallback(move |method: Method, uri: axum::http::Uri, body: String| async move {
+        let target = uri.path_and_query().map_or(uri.path().to_string(), |p| p.as_str().to_string());
+        heard.lock().unwrap().push((method.to_string(), target, body));
+        (StatusCode::OK, r#"{"from":"fleet"}"#)
+    });
+    let listener = crate::bind(0).await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    port
+}
+
+#[tokio::test]
+async fn the_routes_the_job_screens_use_are_signed_and_reach_fleet_without_api() {
+    let heard = Heard::default();
+    let phone = phone_on(recording_fleet(heard.clone()).await).await;
+    let body = r#"{"session_id":"h1"}"#;
+    let posts = [
+        "/sessions/begin",
+        "/sessions/stop",
+        "/sessions/pause",
+        "/sessions/resume",
+        "/sessions/close",
+        "/sessions/tune",
+        "/sessions/run/start",
+        "/sessions/waiting/dismiss",
+    ];
+    for path in posts {
+        let (status, said) = send(&phone, Method::POST, &format!("/api{path}"), body).await;
+        assert_eq!((status, said.as_str()), (StatusCode::OK, r#"{"from":"fleet"}"#), "{path}");
+        // A signature on another path, or none, opens nothing.
+        assert_eq!(call(&phone.rig.app, Method::POST, &format!("/api{path}"), &[], body).await.0, StatusCode::BAD_REQUEST, "{path}");
+    }
+    for path in ["/plan_usage", "/models"] {
+        let (status, said) = send(&phone, Method::GET, &format!("/api{path}"), "").await;
+        assert_eq!((status, said.as_str()), (StatusCode::OK, r#"{"from":"fleet"}"#), "{path}");
+        assert_eq!(call(&phone.rig.app, Method::GET, &format!("/api{path}"), &[], "").await.0, StatusCode::BAD_REQUEST, "{path}");
+    }
+    let mut want: Vec<(String, String, String)> =
+        posts.iter().map(|path| ("POST".to_string(), path.to_string(), body.to_string())).collect();
+    want.extend(["/plan_usage", "/models"].map(|path| ("GET".to_string(), path.to_string(), String::new())));
+    assert_eq!(*heard.lock().unwrap(), want, "each reached Fleet once, on its own path, with its body as signed");
+}
