@@ -3,17 +3,25 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
+import { openInPanel } from "../shared-panel/store";
 import { FlightRows } from "./FlightPlan";
 import { TaskLine } from "./PlanGroup";
 import type { ViewGroup } from "./plan-marks";
+
+// The Jobs the window holds: a group handed to one draws it, found by the parent's ledger.
+const held: { sessions: Session[] } = { sessions: [] };
+vi.mock("../sessions-draft", async (original) => ({ ...(await original<typeof import("../sessions-draft")>()), useSessions: () => held.sessions }));
+vi.mock("../shared-panel/store", async (original) => ({ ...(await original<typeof import("../shared-panel/store")>()), openInPanel: vi.fn(() => true) }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const roots: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
+  held.sessions = [];
+  vi.mocked(openInPanel).mockClear();
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
     host.remove();
@@ -94,4 +102,38 @@ test("a task that is not in progress carries no age", () => {
   );
   expect(host.querySelector(".sv-group__task-age")).toBeNull();
   expect(host.querySelector<HTMLElement>("li.sv-group__task")!.dataset["stale"]).toBeUndefined();
+});
+
+const handed = { id: "s1", attachments: [{ kind: "started_to", id: "c1", group: "one" }], rows: [], turn: { state: "idle" } } as unknown as Session;
+const child = {
+  id: "c1",
+  title: "Migrations get names",
+  attachments: [{ kind: "pull_request", number: 2412, title: "Name the migrations", branch: "armada/names", address: "https://forge/pull/2412", checks: { state: "pending" }, state: "open", auto: false }],
+  rows: [],
+  turn: { state: "working" },
+  standing: "working",
+  lastTurnAt: ago(1),
+} as unknown as Session;
+
+test("a shut group handed to a Job draws that Job as a card with its state and its pull request, and each press opens its own", () => {
+  held.sessions = [handed, child];
+  const opened: string[] = [];
+  const host = show(<FlightRows calm groups={[group("one", "open"), group("two", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={(id) => opened.push(id)} />);
+  const shut = rowOf(host, "one");
+  expect(shut.dataset["open"]).toBeUndefined();
+  const card = shut.querySelector<HTMLElement>("button.armada-job-card")!;
+  expect(card.getAttribute("aria-label")).toBe("Job Migrations get names");
+  expect(card.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Working");
+  act(() => card.click());
+  expect(opened).toEqual(["c1"]);
+  act(() => shut.querySelector<HTMLElement>("button.armada-pull-chip")!.click());
+  expect(vi.mocked(openInPanel)).toHaveBeenCalledWith({ kind: "pr", number: 2412, address: "https://forge/pull/2412" });
+});
+
+test("a group handed to no Job draws no card and no pull request", () => {
+  held.sessions = [handed, child];
+  const host = show(<FlightRows calm groups={[group("one", "open"), group("two", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={() => undefined} />);
+  const none = rowOf(host, "two");
+  expect(none.querySelector(".armada-job-card, .armada-pull-chip")).toBeNull();
+  expect(none.querySelectorAll(TRACK)).toHaveLength(1);
 });

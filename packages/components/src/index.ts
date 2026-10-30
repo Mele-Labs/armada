@@ -397,7 +397,6 @@ export * from "./compositions/SessionRepository/SessionRepository";
 export * from "./compositions/RepositoryChip/RepositoryChip";
 // A Job as a card, framed in its state, where a surface names one.
 export * from "./compositions/JobCard/JobCard";
-export * from "./compositions/JobChip/JobChip";
 // A pull request as a Job's Progress lists it, or framed as a chip among cards.
 export * from "./compositions/PullRequestChip/PullRequestChip";
 // A task of his projects, its state glyph, title and project, quiet or framed as a chip among cards.
