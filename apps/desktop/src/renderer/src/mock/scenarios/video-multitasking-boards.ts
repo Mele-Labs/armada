@@ -1,5 +1,6 @@
-// The hi-fi boards for the multitasking film: the real Bridge shell on a demo product, Relay, in the state of each shot. Four tasks in the
-// project Relay 2.4 become four Jobs through the Dispatch sheet, and nine `later` moments carry the film: the drones lift off, Flight 2
+// The hi-fi boards for the multitasking film: the real Bridge shell on a demo product, Relay, in the state of each shot. Relay is four
+// repositories (web, api, app and docs) and one project, Relay 2.4, holds a task in each. The four tasks become four Jobs through the
+// Dispatch sheet, one sheet for each repository, and nine `later` moments carry the film: the drones lift off, Flight 2
 // asks, Flight 3 shows a screen, Flight 4 starts by itself, and four pull requests (#412 to #415) land on a green main.
 //
 // **The cast is fixed by order.** The first Job the sheet starts is Flight 1, the second Flight 2, and so on, whatever the sheet was
@@ -17,25 +18,25 @@ import { sessionsStore } from "../sessions/script";
 import type { BayControl, SessionsStore } from "../sessions/script";
 import { projectsLink } from "../slices/projects";
 
-const RELAY = "relay";
-const ROOT = "/Users/user/code/relay";
+const rootOf = (repo: string) => `/Users/user/code/${repo}`;
 const FORGE = "https://git.example/relay/pull/";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const now = () => new Date().toISOString();
 
-const REPOSITORY: RepositorySummary = {
-  root: ROOT,
-  records_root: "/records/relay",
-  manifest: { ...repository().manifest!, id: RELAY, repository: RELAY, path: "relay/armada.yml" },
-};
+const served = (id: string): RepositorySummary => ({
+  root: rootOf(id),
+  records_root: `/records/${id}`,
+  manifest: { ...repository().manifest!, id, repository: id, path: `${id}/armada.yml` },
+});
+const REPOSITORIES = ["relay-web", "relay-api", "relay-app", "relay-docs"].map(served);
 
 /** The four Jobs, in the order the cards are dispatched. */
-type Flight = { title: string; branch: string; slot: number; pull: number; files: string[] };
+type Flight = { title: string; repo: string; branch: string; slot: number; pull: number; files: string[] };
 const FLIGHTS: readonly Flight[] = [
-  { title: "Fix the flaky checkout test", branch: "fix/flaky-checkout-test", slot: 1, pull: 412, files: ["tests/checkout/checkout.spec.ts", "tests/checkout/helpers.ts"] },
-  { title: "Upgrade the payments SDK", branch: "chore/payments-sdk-v4", slot: 2, pull: 413, files: ["payments/sdk/client.ts", "payments/sdk/config.ts", "payments/webhooks/register.ts"] },
-  { title: "Dark mode for Settings", branch: "feat/settings-dark-mode", slot: 3, pull: 414, files: ["settings/ui/Theme.tsx", "settings/ui/tokens.css"] },
-  { title: "Release notes for 2.4", branch: "docs/release-notes-2-4", slot: 4, pull: 415, files: ["docs/releases/2.4.md"] },
+  { title: "Fix the flaky checkout test", repo: "relay-web", branch: "fix/flaky-checkout-test", slot: 1, pull: 412, files: ["tests/checkout/checkout.spec.ts", "tests/checkout/helpers.ts"] },
+  { title: "Upgrade the payments SDK", repo: "relay-api", branch: "chore/payments-sdk-v4", slot: 1, pull: 413, files: ["payments/sdk/client.ts", "payments/sdk/config.ts", "payments/webhooks/register.ts"] },
+  { title: "Dark mode for Settings", repo: "relay-app", branch: "feat/settings-dark-mode", slot: 1, pull: 414, files: ["settings/ui/Theme.tsx", "settings/ui/tokens.css"] },
+  { title: "Release notes for 2.4", repo: "relay-docs", branch: "docs/release-notes-2-4", slot: 1, pull: 415, files: ["releases/2.4/notes.md"] },
 ];
 
 /** The ids the store gave the four Jobs as the sheet started them. Emptied with each window. */
@@ -43,45 +44,57 @@ const ids: string[] = [];
 
 // ---- The project --------------------------------------------------------------------------------------------------------------
 
-const task = (id: string, title: string) => ({ kind: "task" as const, id, manifest_id: RELAY, title, notes: "", state: "open" as const });
+const task = (id: string, flight: Flight) => ({ kind: "task" as const, id, manifest_id: flight.repo, title: flight.title, notes: "", state: "open" as const });
 const PROJECTS: Projects = {
   projects: [
     {
       id: "relay-2-4",
       name: "Relay 2.4",
       rows: [
-        task("task-checkout", FLIGHTS[0]!.title),
-        task("task-payments", FLIGHTS[1]!.title),
-        task("task-dark", FLIGHTS[2]!.title),
-        task("task-notes", FLIGHTS[3]!.title),
+        task("task-checkout", FLIGHTS[0]!),
+        task("task-payments", FLIGHTS[1]!),
+        task("task-dark", FLIGHTS[2]!),
+        task("task-notes", FLIGHTS[3]!),
       ],
     },
   ],
   loose: [],
 };
 
-// ---- Relay's directories, two deep: the slabs of its territory ----------------------------------------------------------------
+// ---- Each repository's directories, two deep: the slabs of its territory ---------------------------------------------------------
 
-const AREAS: readonly Area[] = [
-  { dir: "tests", kids: [["checkout", 34], ["cart", 21], ["search", 18]] },
-  { dir: "payments", kids: [["sdk", 40], ["webhooks", 26]] },
-  { dir: "settings", kids: [["ui", 38], ["store", 15]] },
-  { dir: "docs", kids: [["releases", 12], ["guides", 24]] },
-];
+const AREAS: Readonly<Record<string, readonly Area[]>> = {
+  [rootOf("relay-web")]: [
+    { dir: "tests", kids: [["checkout", 34], ["cart", 21], ["search", 18]] },
+    { dir: "src", kids: [["routes", 40], ["components", 52]] },
+  ],
+  [rootOf("relay-api")]: [
+    { dir: "payments", kids: [["sdk", 40], ["webhooks", 26]] },
+    { dir: "src", kids: [["routes", 36], ["models", 28]] },
+  ],
+  [rootOf("relay-app")]: [
+    { dir: "settings", kids: [["ui", 38], ["store", 15]] },
+    { dir: "src", kids: [["screens", 60], ["nav", 18]] },
+  ],
+  [rootOf("relay-docs")]: [
+    { dir: "releases", kids: [["2.4", 6], ["2.3", 9], ["2.2", 8]] },
+    { dir: "guides", kids: [["setup", 14], ["billing", 11]] },
+  ],
+};
 
 // ---- Bays ---------------------------------------------------------------------------------------------------------------------
 
-const bay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}): WorktreeSlot => ({
-  manifest_id: RELAY,
+const bay = (repo: string, slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}): WorktreeSlot => ({
+  manifest_id: repo,
   slot,
-  path: `${ROOT}/.armada/slots/slot-${slot}`,
+  path: `${rootOf(repo)}/.armada/slots/slot-${slot}`,
   base: "main",
   warm: true,
   behind: 0,
   held,
   ...rest,
 });
-const freeBays = (): WorktreesHeld => ({ slots: [1, 2, 3, 4].map((slot) => bay(slot, { state: "free" })) });
+const freeBays = (): WorktreesHeld => ({ slots: FLIGHTS.flatMap((one) => [1, 2].map((slot) => bay(one.repo, slot, { state: "free" }))) });
 
 // ---- Rows a Job writes --------------------------------------------------------------------------------------------------------
 
@@ -134,13 +147,13 @@ const ASKED: NonNullable<Session["asked"]> = {
 
 function sessions(control: BayControl): SessionsStore {
   ids.length = 0;
-  const store = sessionsStore([], [], new Map([[ROOT, RELAY]]), []);
+  const store = sessionsStore([], [], new Map(REPOSITORIES.map((one) => [one.root, one.manifest!.id] as const)), []);
   // The store gives ids s7 to s16 a fixture script of their own (a window that opens, takes, a sketch): ten starts are spent here and
   // kept off the list, so the four Jobs the sheet starts land on ids with none.
   const spent = new Set<unknown>(Array.from({ length: 10 }, () => store.start()));
   let bays = freeBays();
-  const setBay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}) => {
-    bays = { slots: (bays.slots ?? []).map((one) => (one.slot === slot ? bay(slot, held, rest) : one)) };
+  const setBay = (repo: string, slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}) => {
+    bays = { slots: (bays.slots ?? []).map((one) => (one.manifest_id === repo && one.slot === slot ? bay(repo, slot, held, rest) : one)) };
     control.pool?.set(bays);
   };
   const flight = (at: number, change: (one: Session) => Session) => {
@@ -150,12 +163,12 @@ function sessions(control: BayControl): SessionsStore {
   const hold = (at: number) => {
     const id = ids[at];
     const one = FLIGHTS[at]!;
-    if (id !== undefined) setBay(one.slot, { state: "hosted_session", session_id: id, session_title: one.title }, { branch: one.branch, since: now() });
+    if (id !== undefined) setBay(one.repo, one.slot, { state: "hosted_session", session_id: id, session_title: one.title }, { branch: one.branch, since: now() });
   };
   const land = (at: number) => {
     const one = FLIGHTS[at]!;
     flight(at, (it) => ({ ...withPull(it, pullOf(one, "merged", { state: "passed" }, false)), dead: "ended" as const, turn: { state: "idle" }, standing: "done", lastTurnAt: now() }));
-    setBay(one.slot, { state: "free" });
+    setBay(one.repo, one.slot, { state: "free" });
   };
 
   let moment = 0;
@@ -240,7 +253,7 @@ function sessions(control: BayControl): SessionsStore {
       if (typeof id !== "string" || one === undefined) return id;
       ids.push(id);
       const branch: SessionAttachment = { kind: "branch", name: one.branch, slot: one.slot };
-      store.edit(id, (it) => ({ ...it, title: one.title, manifestId: RELAY, ...(after === undefined ? { attachments: [branch] } : {}) }));
+      store.edit(id, (it) => ({ ...it, title: one.title, manifestId: one.repo, ...(after === undefined ? { attachments: [branch] } : {}) }));
       if (after === undefined) hold(ids.length - 1);
       if (projectRows !== undefined) projectsLink.hold?.(id, one.title, projectRows);
       return id;
@@ -257,14 +270,14 @@ function sessions(control: BayControl): SessionsStore {
 // ---- What Fleet did, for the battlefield --------------------------------------------------------------------------------------
 
 let count = 0;
-type Who = { subject: TimelineEvent["subject"]; title: string };
-const jobWho = (at: number): Who | undefined => (ids[at] === undefined ? undefined : { subject: { kind: "session", id: ids[at]! }, title: FLIGHTS[at]!.title });
-const pullWho = (at: number): Who => ({ subject: { kind: "pull_request", number: FLIGHTS[at]!.pull, url: `${FORGE}${FLIGHTS[at]!.pull}` }, title: FLIGHTS[at]!.title });
+type Who = { subject: TimelineEvent["subject"]; title: string; repo: string };
+const jobWho = (at: number): Who | undefined => (ids[at] === undefined ? undefined : { subject: { kind: "session", id: ids[at]! }, title: FLIGHTS[at]!.title, repo: FLIGHTS[at]!.repo });
+const pullWho = (at: number): Who => ({ subject: { kind: "pull_request", number: FLIGHTS[at]!.pull, url: `${FORGE}${FLIGHTS[at]!.pull}` }, title: FLIGHTS[at]!.title, repo: FLIGHTS[at]!.repo });
 
 function event(minutes: number, who: Who | undefined, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, rest: { detail?: string; items?: string[]; live?: boolean; over?: boolean } = {}): TimelineEvent[] {
   if (who === undefined) return [];
   count += 1;
-  return [{ id: count, at: ago(minutes), kind, subject: who.subject, title: who.title, tone, says, manifest_id: RELAY, ...rest }];
+  return [{ id: count, at: ago(minutes), kind, subject: who.subject, title: who.title, tone, says, manifest_id: who.repo, ...rest }];
 }
 const started = (at: number) => [
   ...event(0.8, jobWho(at), "slot.leased", "idle", `Slot ${FLIGHTS[at]!.slot} leased`, { detail: `slot-${FLIGHTS[at]!.slot}` }),
@@ -298,65 +311,54 @@ const EVENTS_LATER: NonNullable<NonNullable<Scenario["draft"]>["eventsLater"]> =
 const COMMIT = "9f3c1d2e4b5a69788796a5b4c3d2e1f001122334";
 const GREEN: MainStanding = { state: "green", commit: COMMIT, read_at: new Date().toISOString() };
 
-/** Where each pull request stands at each moment: not yet open, running its Checks, queued at a place, or merged. */
-type PullAt = "none" | "running" | "merged" | number;
+/** Where each pull request stands at each moment: not yet open, running its Checks, queued in its repository's line, or merged. */
+type PullAt = "none" | "running" | "queued" | "merged";
 const PULLS_AT: readonly (readonly [PullAt, PullAt, PullAt, PullAt])[] = [
   ["none", "none", "none", "none"],
   ["none", "none", "none", "none"],
   ["none", "none", "none", "none"],
   ["none", "none", "none", "none"],
-  [1, "running", "none", "none"],
-  [1, 2, 3, "none"],
-  ["merged", 1, 2, "running"],
-  ["merged", "merged", 1, 2],
-  ["merged", "merged", "merged", 1],
+  ["queued", "running", "none", "none"],
+  ["queued", "queued", "queued", "none"],
+  ["merged", "queued", "queued", "running"],
+  ["merged", "merged", "queued", "queued"],
+  ["merged", "merged", "merged", "queued"],
   ["merged", "merged", "merged", "merged"],
 ];
 
+/** Each repository's own line and main light, with the one pull request of the film in it and an older one landed before. */
 function lines(at: number): MergeLines {
   const stood = PULLS_AT[Math.min(at, PULLS_AT.length - 1)]!;
-  const open: HubPullRequest[] = FLIGHTS.flatMap((one, i): HubPullRequest[] => {
-    const here = stood[i]!;
-    if (here === "none" || here === "merged") return [];
-    return [
-      {
-        number: one.pull,
-        title: one.title,
-        branch: one.branch,
-        url: `${FORGE}${one.pull}`,
-        ci: here === "running" ? "running" : "passed",
-        opened_at: ago(2),
-        updated_at: ago(0.5),
-        ...(here === "running" ? {} : { queue: { state: "queued", position: here } }),
-      },
-    ];
-  });
-  const landed: HubMerged[] = FLIGHTS.flatMap((one, i): HubMerged[] =>
-    stood[i] === "merged" ? [{ number: one.pull, title: one.title, branch: one.branch, url: `${FORGE}${one.pull}`, merged_at: ago(i === 0 ? 0.4 : 0.2), main_run: { state: "passed" } }] : [],
-  ).reverse();
   return {
-    lines: [
-      {
-        root: ROOT,
-        line: [],
-        off: [],
-        landed: [],
-        sent_back: [],
-        hub: {
-          main: GREEN,
-          pull_requests: open,
-          merged: [...landed, { number: 411, title: "Bump the lint config", branch: "chore/bump-lint-config", url: `${FORGE}411`, merged_at: ago(240), main_run: { state: "passed" } }],
-        },
-      },
-    ],
+    lines: FLIGHTS.map((one, i) => {
+      const here = stood[i]!;
+      const open: HubPullRequest[] =
+        here === "none" || here === "merged"
+          ? []
+          : [
+              {
+                number: one.pull,
+                title: one.title,
+                branch: one.branch,
+                url: `${FORGE}${one.pull}`,
+                ci: here === "running" ? "running" : "passed",
+                opened_at: ago(2),
+                updated_at: ago(0.5),
+                ...(here === "queued" ? { queue: { state: "queued", position: 1 } } : {}),
+              },
+            ];
+      const landed: HubMerged[] = here === "merged" ? [{ number: one.pull, title: one.title, branch: one.branch, url: `${FORGE}${one.pull}`, merged_at: ago(0.3), main_run: { state: "passed" } }] : [];
+      const older: HubMerged = { number: 408 + (3 - i), title: "Bump the lint config", branch: "chore/bump-lint-config", url: `${FORGE}${408 + (3 - i)}`, merged_at: ago(240), main_run: { state: "passed" } };
+      return { root: rootOf(one.repo), line: [], off: [], landed: [], sent_back: [], hub: { main: GREEN, pull_requests: open, merged: [...landed, older] } };
+    }),
   };
 }
 
 function build(): Scenario {
   const base = holding(
     "video-multitasking-boards",
-    "Relay 2.4 with four open tasks, dispatched as four Jobs that fly, call, wait on each other and land through the merge queue",
-    [REPOSITORY],
+    "Relay 2.4 across four repositories, one task each, dispatched as four Jobs that fly, call, wait on each other and land through their merge lines",
+    REPOSITORIES,
   );
   return {
     ...base,
@@ -367,7 +369,7 @@ function build(): Scenario {
       sessions: (control) => sessions(control),
       events: [],
       eventsLater: EVENTS_LATER,
-      areas: (root) => (root === ROOT ? AREAS : []),
+      areas: (root) => AREAS[root] ?? [],
       projectsTab: PROJECTS,
     },
   };
