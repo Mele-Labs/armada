@@ -29,6 +29,7 @@ fn every_end_the_person_gives_names_the_item_that_waits_for_it() {
         (End::SketchApproved, WaitingSource::Sketch),
         (End::DraftApproved, WaitingSource::Draft),
         (End::IdeaPicked, WaitingSource::AskCard),
+        (End::DocumentApproved, WaitingSource::Document),
     ];
     for (end, source) in person {
         assert_eq!(end.waits_on(), Waiter::ThePerson(source), "{end:?}");
@@ -106,6 +107,51 @@ async fn a_job_on_a_step_ending_on_a_sketch_waits_in_needs_you_from_the_sketch_u
     Arc::clone(&rig.fleet).answer_sketch(answer).await.expect("approved");
     let after = record(&rig, &id).await;
     assert!(needs(&after).iter().all(|(item, _)| *item != TARGET), "approved, it is off: {:?}", needs(&after));
+    eventually(|| async { record(&rig, &id).await.workflow_step == Some(1) }).await;
+}
+
+#[tokio::test]
+async fn a_step_ending_on_a_document_ends_only_when_he_approves_its_newest_revision() {
+    let (rig, id) = on("document_approved").await;
+    let work = super::tmp::TempDir::new();
+    let file = work.path().join(".armada/documents/plan.html");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let path = file.to_string_lossy().into_owned();
+    // Each write waits for its revision, so the file holds the bytes its Write call meant.
+    for (n, body) in ["first", "second"].into_iter().enumerate() {
+        std::fs::write(&file, format!("<title>Plan</title><p>{body}</p>")).unwrap();
+        let call = format!("toolu_{n}");
+        rig.stand_in.says(
+            0,
+            vec![
+                adapter_traits::DroneEvent::Called {
+                    tool: "Write".into(),
+                    call: call.clone(),
+                    detail: adapter_traits::CallDetail::of(&format!("{path} +1")),
+                },
+                adapter_traits::DroneEvent::Answered { call, failed: false },
+            ],
+        );
+        let kept = (n + 1).to_string();
+        eventually(|| async {
+            let record = record(&rig, &id).await;
+            record.attachments.iter().any(|one| one.target == path && one.detail.get("revision") == Some(&kept))
+        })
+        .await;
+    }
+    let item = format!("document:{path}");
+    assert!(needs(&record(&rig, &id).await).contains(&(item.as_str(), "Plan")), "the newest revision waits on him");
+
+    let read = |revision: &str| ipc::AnswerDocument {
+        session_id: id.clone(),
+        document: item.clone(),
+        revision: revision.into(),
+        how: ipc::DocumentHow::Approved,
+        words: None,
+    };
+    assert!(Arc::clone(&rig.fleet).answer_document(read("1")).await.is_err(), "the first revision is not the newest");
+    assert_eq!(record(&rig, &id).await.workflow_step, Some(0), "an older revision approved ends nothing");
+    Arc::clone(&rig.fleet).answer_document(read("2")).await.expect("approved");
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(1) }).await;
 }
 

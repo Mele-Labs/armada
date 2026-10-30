@@ -375,7 +375,7 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
 /// walks before it tests".
 #[test]
 fn feature_and_bug_run_the_steps_the_owner_chose() {
-    use core_model::StepEnd::{DraftApproved, IdeaPicked, SketchApproved, WalkApproved};
+    use core_model::StepEnd::{DocumentApproved, DraftApproved, IdeaPicked, SketchApproved, WalkApproved};
     let steps_of = |name: &str| -> Vec<(String, bool, Vec<core_model::StepEnd>)> {
         let (path, text) = shipped()
             .into_iter()
@@ -394,7 +394,7 @@ fn feature_and_bug_run_the_steps_the_owner_chose() {
     assert_eq!(
         steps_of("feature"),
         expect(&[
-            ("propose", false, &[WalkApproved, SketchApproved, DraftApproved, IdeaPicked]),
+            ("propose", false, &[WalkApproved, SketchApproved, DraftApproved, IdeaPicked, DocumentApproved]),
             ("discuss", false, &[]),
             ("approve_plan", false, &[]),
             ("walk", true, &[]),
