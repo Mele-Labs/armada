@@ -65,6 +65,9 @@
       "label": "Oversee",
       "about": "Follows the Jobs it started and steps in when one is stuck or fails. It may start more. It moves on once every one has merged or been ended.",
       "instructions": "Fleet tells you when a Job you started ends or has its pull request merged. End your turn between notices; never poll.\nWhen a Job is stuck, failing, or has asked you something, read its thread and message it. End it and start another only when it cannot recover.\nStart another Job whenever the work shows one is needed, such as a group that split or a fix a landed Job exposed. Tell the person why in a line.\nA Job that needs the person shows on its own row. Do not repeat its question.\nThis step ends when every Job you started has merged or been ended.",
+      "ends_on": [
+        "job: landed"
+      ],
       "delivers": false,
       "advance_gate": "auto"
     },

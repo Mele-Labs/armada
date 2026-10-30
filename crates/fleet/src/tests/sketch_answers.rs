@@ -1,5 +1,5 @@
 //! The claim, written before the code: **every sketch a job shows is put to the person on its card,
-//! never in a list. Approve or a note sent back reaches the job as his message and settles the
+//! and waits in Needs you as `sketch:<title>` until he answers it there. Approve or a note sent back reaches the job as his message and settles the
 //! sketch on the ledger, and only the drawing he read can be answered.**
 //! `crates/ipc/operations/answer_sketch.toml`.
 
@@ -64,7 +64,7 @@ async fn shown(rig: &Rig) -> (SessionId, String) {
 }
 
 #[tokio::test]
-async fn a_sketch_shown_is_asked_on_its_card_and_waits_in_no_list() {
+async fn a_sketch_shown_is_asked_on_its_card_and_waits_as_one_item() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     let record = rig.fleet.show_sketch(None, drawn(&id, "Fleet")).await.unwrap();
@@ -73,7 +73,8 @@ async fn a_sketch_shown_is_asked_on_its_card_and_waits_in_no_list() {
     assert_eq!(sketch.detail.get("asked").map(String::as_str), Some("true"), "{:?}", sketch.detail);
     assert!(sketch.detail.get("drawn").is_some_and(|one| !one.is_empty()), "{:?}", sketch.detail);
     assert!(!sketch.detail.contains_key("settled"), "open until he answers it");
-    assert!(record.waiting_for.iter().all(|one| !one.id.contains("sketch")), "not a Needs you item: {:?}", record.waiting_for);
+    let waits: Vec<_> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str(), one.source)).collect();
+    assert_eq!(waits, [(TARGET, TITLE, ipc::WaitingSource::Sketch)], "one Needs you item, its title");
 }
 
 #[tokio::test]

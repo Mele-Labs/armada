@@ -14,7 +14,7 @@ import type { Scenario } from "../moment";
 import { sessionsStore } from "./script";
 import type { SessionsStore } from "./script";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+export const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const OWNER = "armada";
 
 const PARENT = "linked-1";
@@ -24,12 +24,12 @@ const RECORD = "linked-4";
 const OTHER = "linked-5";
 const SORT = "linked-6";
 
-const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
-const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
-const tool = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "tool", text });
+export const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+export const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
+export const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
+export const tool = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "tool", text });
 
-const task = (id: string, text: string, state: WorkTask["state"]): WorkTask => ({ id, text, state, seen: state !== "open" });
+export const task = (id: string, text: string, state: WorkTask["state"]): WorkTask => ({ id, text, state, seen: state !== "open" });
 
 /** The plan's groups, with the last of them still the parent's own. `merged` is the third group's pull request landing. */
 const groups = (merged: boolean): WorkGroup[] => [
@@ -45,7 +45,7 @@ const filler: SessionRow[] = reads.flatMap((file, at): SessionRow[] => [
   agent(`p-n${at}`, `13:${String(20 + at).padStart(2, "0")}:30`, `${file} is read by one caller. Its order comes from the version number.`),
 ]);
 
-const started = (id: string, at: string, session: string, title: string): SessionRow => ({ id, at, kind: "started", session: { id: session, title }, fork: false });
+export const started = (id: string, at: string, session: string, title: string): SessionRow => ({ id, at, kind: "started", session: { id: session, title }, fork: false });
 
 const parent = (): Session => ({
   id: PARENT,
@@ -83,7 +83,7 @@ const parent = (): Session => ({
   work: { railOff: true, plan: { scope: ["crates/store", "apps/desktop"], approved: true, groups: groups(false) } },
 });
 
-const pull = (number: number, title: string, branch: string, rest: Partial<Extract<SessionAttachment, { kind: "pull_request" }>>): SessionAttachment => ({
+export const pull = (number: number, title: string, branch: string, rest: Partial<Extract<SessionAttachment, { kind: "pull_request" }>>): SessionAttachment => ({
   kind: "pull_request",
   number,
   title,
@@ -95,7 +95,7 @@ const pull = (number: number, title: string, branch: string, rest: Partial<Extra
   ...rest,
 });
 
-const child = (id: string, title: string, group: string | undefined, slot: number, branch: string, brief: string, more: SessionAttachment[], by = PARENT): Session => ({
+export const child = (id: string, title: string, group: string | undefined, slot: number, branch: string, brief: string, more: SessionAttachment[], by = PARENT): Session => ({
   id,
   title,
   manifestId: OWNER,

@@ -39,6 +39,8 @@ mod loops;
 mod manifest;
 mod piece;
 mod resolve;
+mod resolving;
+mod rule;
 /// The review tools a pull request is asked with, from Armada, Kit and the repository.
 pub mod review_tools;
 mod roster;
@@ -71,6 +73,7 @@ pub use gating::{gating, owner, Gate, GateWhy};
 pub use lifecycle::{parse as parse_lifecycle, LifecycleError};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use piece::{LeftOut as PieceLeftOut, Written as PieceWritten};
+pub use rule::{parse as parse_rule, RuleError, RuleFile, Rules};
 pub use manifest::{
     AppRun, BadSeedPath, Check, Command, FromKit, Harness, kit_copy_fault, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,
     Preparation, Seed, Server, TrackerBlock, DEFAULT_CI_GATE,
@@ -85,7 +88,7 @@ pub use watches::{
     Written as WatchRecipeWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{head_of, MechanicalCheck, Step, WorkflowDef, WorkflowHead};
+pub use workflow::{head_of, names_no_lifecycle, EndFault, MechanicalCheck, NamesNoLifecycle, Step, WorkflowDef, WorkflowHead};
 pub use workspace::{parse_workspace, WorkspaceError, WorkspaceFile, Workspaces};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
