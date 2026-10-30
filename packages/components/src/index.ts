@@ -188,6 +188,8 @@ export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
 export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export type { AutonomyEditing, AutonomyKind, AutonomyLayer, AutonomyTake } from "./compositions/WorkflowManager/Autonomy";
+export type { WorkspaceKept, WorkspacesEditing, WorkspaceTake } from "./compositions/WorkflowManager/WorkspaceForm";
 export { autonomyOfWire } from "./compositions/WorkflowManager/RuleForm";
 export type { RuleFormLifecycle } from "./compositions/WorkflowManager/RuleForm";
 export { DraftRow } from "./compositions/SessionThread/DraftRow";
