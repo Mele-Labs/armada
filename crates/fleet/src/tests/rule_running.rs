@@ -13,8 +13,9 @@ use std::sync::Arc;
 
 use testkit::FakeJudge;
 
+use super::job_copy::{change, dispatch, rigged};
 use super::session_host::{rig_placing, Rig};
-use super::session_rail::{ruled_on, workflow};
+use super::session_rail::{on_the_rail, record, ruled_on, workflow};
 use crate::lifecycles::copying::copy_of;
 
 const TELLS_ON_APPROVAL: &str = "version: 1
@@ -151,6 +152,26 @@ async fn a_step_starting_and_ending_and_the_pull_request_opening_are_found_by_co
         ["tell_on_leaving", "tell_on_steps", "tell_on_opening"],
         "the opening is heard once, and its If reads the step the look left the Job on"
     );
+}
+
+#[tokio::test]
+async fn a_rule_reads_the_step_a_job_added_to_its_own_copy() {
+    let rig = rigged();
+    save(
+        &rig,
+        "dispatch.yml",
+        "version: 1\nrule_id: tell_on_dispatch\nname: Tell on dispatch\nwhen: { step_starts: dispatch }\ndo:\n  - tell_agent: { message: \"Dispatch\" }\n",
+    );
+    let job = on_the_rail(&rig).await;
+    change(&rig, &job, dispatch()).await.expect("added after plan");
+
+    let mut row = record(&rig, &job).await;
+    row.workflow_step = Some(0);
+    rig.fleet.rules_looked_at(&row).await;
+    row.workflow_step = Some(1);
+    rig.fleet.rules_looked_at(&row).await;
+    let rules = planned(&rig, &job).await.into_iter().map(|one| one.0).collect::<Vec<_>>();
+    assert_eq!(rules, ["tell_on_dispatch"], "the Job's second step is the one it added, not the repository's second");
 }
 
 const TICKETS: &str = "version: 1\nlifecycle_id: ticket\nname: Ticket\nstates:\n  \
