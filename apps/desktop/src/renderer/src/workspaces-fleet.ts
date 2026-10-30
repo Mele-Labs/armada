@@ -1,7 +1,7 @@
 // What System > Workspaces asks of Fleet (armada-cwj): the Workspaces across the repositories this window serves, the autonomy layers that apply to them, and the saves and deletes a press on the
 // page comes to. **Fleet is the authority on every refusal**: what it will not keep comes back in its own words and nothing is written. The pure parts are here so they are tried without a window.
 //
-// `readWorkspaces` is the one place the Workspaces are read from. Fleet answers `list_repository_workspaces` for one repository at a time, so the window asks for each it serves and keeps each id once.
+// `readWorkspaces` is the one place the Workspaces are read from: Fleet's `list_workspaces`, every Workspace across the repositories it serves, each id kept once.
 
 import type { Autonomy, AutonomyKind, AutonomyLayer, AutonomyLayers, Repository, WorkspaceRow } from "@armada/components";
 import type { AutonomyLayer as WireLayer, LifecyclePiece, LifecyclePieceKind, Outcome, PieceScope, RepositorySummary, WorkspaceOfRepositories } from "@armada/protocol";
@@ -11,7 +11,7 @@ import type { BridgeApi } from "../../shared/api";
 import { missing } from "./lifecycle-editing/fleet-pieces";
 
 /** The calls the page uses. */
-export type WorkspacesApi = Pick<BridgeApi, "deleteLifecyclePiece" | "listAutonomyDefaults" | "listRepositoryWorkspaces" | "saveLifecyclePiece">;
+export type WorkspacesApi = Pick<BridgeApi, "deleteLifecyclePiece" | "listAutonomyDefaults" | "listWorkspaces" | "saveLifecyclePiece">;
 
 /** The repositories with a Manifest, which are the ones a Workspace can hold: the Manifest's id and the repository's name. */
 export function servedOf(repositories: readonly RepositorySummary[]): Repository[] {
@@ -33,15 +33,11 @@ export function uniqueWorkspaces(answers: readonly (readonly WorkspaceOfReposito
 
 export type WorkspacesRead = { ok: true; workspaces: WorkspaceOfRepositories[] } | { ok: false; outcome: Outcome };
 
-/** Every Workspace that holds any repository this window serves. The first refusal is the answer where one is refused. */
-export async function readWorkspaces(api: Pick<WorkspacesApi, "listRepositoryWorkspaces">, repositories: readonly Repository[]): Promise<WorkspacesRead> {
-  const answers = await Promise.all(repositories.map((one) => api.listRepositoryWorkspaces(one.id)));
-  const lists: WorkspaceOfRepositories[][] = [];
-  for (const answer of answers) {
-    if (!answer.ok) return { ok: false, outcome: answer.outcome };
-    lists.push(answer.value.workspaces);
-  }
-  return { ok: true, workspaces: uniqueWorkspaces(lists) };
+/** Every Workspace Fleet holds, or its refusal. */
+export async function readWorkspaces(api: Pick<WorkspacesApi, "listWorkspaces">): Promise<WorkspacesRead> {
+  const answer = await api.listWorkspaces();
+  if (!answer.ok) return { ok: false, outcome: answer.outcome };
+  return { ok: true, workspaces: uniqueWorkspaces([answer.value.workspaces]) };
 }
 
 /** A Workspace as the page lists it: only the repositories this window serves, which are the ones a person can tick. */

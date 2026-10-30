@@ -81,15 +81,15 @@ describe("the Workspaces read across the repositories", () => {
     expect(uniqueWorkspaces([[running], [replaced]])[0]).toBe(running);
   });
 
-  it("is each Workspace once, though store-api is asked about and is in both", async () => {
-    const answer = await readWorkspaces(fleet(), SERVED);
+  it("is each Workspace once, though store-api is in both", async () => {
+    const answer = await readWorkspaces(fleet());
     expect(answer.ok && answer.workspaces.map((each) => each.id)).toEqual(["my-store", "platform"]);
   });
 
-  it("is the refusal where Fleet refuses one of the reads", async () => {
+  it("is the refusal where Fleet refuses the read", async () => {
     const error = { code: "fleet.piece_unfit", message: "no", run_id: "r", fields: {}, chain: [] };
-    const api = { ...fleet(), listRepositoryWorkspaces: async () => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error } }) };
-    const answer = await readWorkspaces(api, SERVED);
+    const api = { ...fleet(), listWorkspaces: async () => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error } }) };
+    const answer = await readWorkspaces(api);
     expect(answer.ok).toBe(false);
   });
 
@@ -206,10 +206,10 @@ describe("the acts sent to the mock Fleet and read back", () => {
   it("creates a Workspace, which every repository in it then reads, and saves it again over itself", async () => {
     const api = fleet();
     expect(await perform(api, [workspaceAct({ id: "mobile", name: "mobile", repositories: ["01NONE", "01WEB"] }, false)])).toEqual({ ok: true });
-    const first = await readWorkspaces(api, SERVED);
+    const first = await readWorkspaces(api);
     expect(first.ok && first.workspaces.find((each) => each.id === "mobile")?.repositories).toEqual(["01NONE", "01WEB"]);
     expect(await perform(api, [workspaceAct({ id: "mobile", name: "mobile apps", repositories: ["01NONE"] }, true)])).toEqual({ ok: true });
-    const second = await readWorkspaces(api, SERVED);
+    const second = await readWorkspaces(api);
     expect(second.ok && second.workspaces.find((each) => each.id === "mobile")).toMatchObject({ name: "mobile apps", repositories: ["01NONE"] });
   });
 
@@ -217,7 +217,7 @@ describe("the acts sent to the mock Fleet and read back", () => {
     const api = fleet();
     const done = await perform(api, [workspaceAct({ id: "01WEB", name: "web", repositories: ["01WEB"] }, false)]);
     expect(done).toEqual({ ok: false, said: expect.stringContaining("a scope could not say which it meant") });
-    const read = await readWorkspaces(api, SERVED);
+    const read = await readWorkspaces(api);
     expect(read.ok && read.workspaces.map((each) => each.id)).toEqual(["my-store", "platform"]);
   });
 
@@ -225,14 +225,14 @@ describe("the acts sent to the mock Fleet and read back", () => {
     const api = fleet();
     const done = await perform(api, [{ act: "delete", kind: "workspace", id: "platform" }, workspaceAct({ id: "late", name: "late", repositories: ["01WEB"] }, false)]);
     expect(done.ok).toBe(false);
-    const read = await readWorkspaces(api, SERVED);
+    const read = await readWorkspaces(api);
     expect(read.ok && read.workspaces.map((each) => each.id)).not.toContain("late");
   });
 
   it("removes a Workspace Kit holds, and not one a repository committed", async () => {
     const api = fleet();
     expect(await perform(api, removalActs(await reads(api), "my-store"))).toEqual({ ok: true });
-    const read = await readWorkspaces(api, SERVED);
+    const read = await readWorkspaces(api);
     expect(read.ok && read.workspaces.map((each) => each.id)).toEqual(["platform"]);
     expect(layersOf(await reads(api))["workspace:my-store"]).toBeUndefined();
   });

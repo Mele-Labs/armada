@@ -43,7 +43,7 @@ export function useWorkspaces(api: () => WorkspacesApi, repositories: readonly R
   const refresh = useCallback(async (said?: string): Promise<void> => {
     const mine = ++reading.current;
     const among = now.current.served;
-    const [workspaces, autonomy] = await Promise.all([readWorkspaces(api(), among), readAutonomy(api(), among)]);
+    const [workspaces, autonomy] = await Promise.all([readWorkspaces(api()), readAutonomy(api(), among)]);
     if (mine !== reading.current) return;
     const failed = !workspaces.ok ? workspaces.outcome : !autonomy.ok ? autonomy.outcome : undefined;
     if (failed !== undefined) {
