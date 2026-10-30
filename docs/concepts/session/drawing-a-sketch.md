@@ -29,7 +29,7 @@ Through the door the answer is a receipt of `session_id` and `sketch`.
 
 **Every sketch shown is put to the person on its card**, with `detail.asked` `"true"` and `detail.drawn`, an id new on every draw.
 He approves it, or sends it back with a note, and `answer_sketch` tells the job as his message, as a draft's answer does: `Approved sketch: <title>`, or `Sent back sketch: <title>` with the note and to draw it again under the same title.
-It is never a Needs you item.
+Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiting on the person](waiting-on-the-person.md)); the job never lists it in `waiting_for`.
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.
 A plan's sketch is not asked, because it is approved with the plan.

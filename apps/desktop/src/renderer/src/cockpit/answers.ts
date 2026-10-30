@@ -360,6 +360,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : void openInPanel({ kind: "pr", number: Number(number), address })))];
       }
       if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
+      // A sketch is approved on its card in the Job's thread, so the key goes there.
+      if (given.source === "sketch") return [oneTap("Open the Job", () => hosts.onOpenSession(waiting.sessionId))];
       return [];
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.

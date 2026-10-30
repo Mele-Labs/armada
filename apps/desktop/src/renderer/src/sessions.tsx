@@ -442,6 +442,11 @@ export function ReadingSheet({
               : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   // The agent's sketch is a scene, which wants the width.
+  // A sketch put to him and not yet answered carries the thread card's Approve and Send back.
+  const answer =
+    one?.kind === "sketch" && one.asked === true && one.settled === undefined && draft?.answerSketch !== undefined
+      ? { sketch: one.id, keep: `sketch:${sessionId}:${one.id}`, onAnswer: (sketch: string, given: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf({ id: sessionId, attachments: [one] }, sketch, given)) }
+      : undefined;
   const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
   const background = one?.kind === "background" ? one : undefined;
   const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
@@ -478,7 +483,7 @@ export function ReadingSheet({
         <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
-          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} {...(marked?.parts === undefined ? {} : { marked: marked.parts })} />
+          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} {...(marked?.parts === undefined ? {} : { marked: marked.parts })} {...(answer === undefined ? {} : { answer })} />
         ) : (
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )
@@ -562,8 +567,8 @@ export function entriesOf(
   begin?: (id: string, delivery: DeliveryChoice | undefined) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan, a judge's concern and a draft are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  // A recorded plan, a judge's concern, a draft and a sketch put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "sketch" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -1088,6 +1093,12 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
   const opensPrs = opensPullRequests(session);
+  // A sketch put to him and not yet answered is pinned after the plan, where the plan waits.
+  const put = draft.answerSketch === undefined ? undefined : [...attachmentsOf(session, "sketch")].reverse().find((one) => one.asked === true && one.settled === undefined);
+  const sketching =
+    put === undefined
+      ? undefined
+      : { ...readingOfSketch(put), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
@@ -1256,6 +1267,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               setFocusFor({ key: session.id, at: Date.now() });
             } })}
             {...(approval === undefined ? {} : { approval })}
+            {...(sketching === undefined ? {} : { sketching })}
             {...(session.asked === undefined ? {} : { waitingOnYou: true })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}

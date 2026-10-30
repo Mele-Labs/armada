@@ -14,9 +14,9 @@
 //!
 //! | Proved | Not proved, and the build task that carries it |
 //! |---|---|
-//! | A ticket reads in the words of the Workspace's tracker, a status no state lists is unmapped, and a step's move (To do to In progress) is one the lifecycle expects | That a deploy is taken on when a rule's watch starts it. Its watch's reading already reaches it, and taking it on has no start until a rule starts the watch. Carried by Rules engine |
-//! | Fleet reads a ticket's status from the tracker, a pull request's state from the forge, a deploy's from a watch and a Job's from its own events, and keeps a move only when the standing changed (`lifecycles/readers.rs`) | That a step starting moves the ticket: a rule whose When is the step starting, whose If reads the linked instances and whose Do is the move. Carried by Rules engine |
-//! | | That the move waits as one item in Needs you while the rule's autonomy is Asks, which is the default for a write to the tracker or the forge, and is made at once when the rule is set to Acts. Carried by Autonomy and Asks in Needs you |
+//! | A ticket reads in the words of the Workspace's tracker, a status no state lists is unmapped, and a step's move (To do to In progress) is one the lifecycle expects | That a deploy is taken on when a rule's watch starts it. Its watch's reading already reaches it, and taking it on has no start until a rule starts the watch. Carried by Autonomy and Asks in Needs you |
+//! | Fleet reads a ticket's status from the tracker, a pull request's state from the forge, a deploy's from a watch and a Job's from its own events, and keeps a move only when the standing changed (`lifecycles/readers.rs`) | That the planned move is done: it waits as one item in Needs you while the rule's autonomy is Asks, which is the default for a write to the tracker or the forge, and is made at once when the rule is set to Acts. Carried by Autonomy and Asks in Needs you |
+//! | A step starting plans the ticket move: a rule read from its file, whose When is the step starting, whose If reads the tickets the Job holds and whose Do is the move, plans it once for each ticket still in To do, and under the default it is planned as Asks | |
 //! | Approval is a state of the pull request read from the forge alone, reaching it is reported once, it is not an end, and a pull request knows its tickets | That a step ends on `pr: approved`, that the agent is stopped while it waits, and that Fleet wakes it on the transition. Carried by `ends_on` lifecycle states and waking |
 //! | A Job a Job starts is an instance of the Job lifecycle, linked to the Job that started it, and landing ends it | That Bridge and the agent's tools can see lifecycles, instances and rules: that they cross the wire and are mirrored in TypeScript. Carried by Operations and the TypeScript mirror |
 //! | What is in flight is what no end state has taken, and a status nobody can place keeps its instance there | That End lists them before it ends the Job. Carried by End listing live instances |
@@ -31,13 +31,15 @@ mod readers;
 
 use std::path::Path;
 
+use core_model::rule::{Act, ActKind, Autonomy, AutonomyDefaults, Course, RanOnce, Target, TrackerWrite};
 use core_model::{
-    FleetFact, ForgeFact, HeldInstances, Lifecycle, LifecycleScope, MalformedLifecycle, Observed, ReadingState,
-    ScopeId, Standing, StateRead,
+    FleetFact, ForgeFact, HeldInstances, Lifecycle, LifecycleId, LifecycleScope, MalformedLifecycle, Observed,
+    ReadingState, ScopeId, Standing, StateRead,
 };
 
 use bench::lifecycles::{
-    at, in_state, keys, lifecycle, see, state, taken_on, the_jobs_copy, BACK_OFFICE_TICKETS, MY_STORE_TICKETS,
+    a_job_holding_three_tickets, at, in_state, keys, lifecycle, plan_step_start, rules_from, see, state, taken_on,
+    the_jobs_copy, BACK_OFFICE_TICKETS, MOVES_TICKETS, MY_STORE_TICKETS,
 };
 
 // ---------------------------------------------------------------------------
@@ -90,6 +92,45 @@ fn a_ticket_reads_in_the_words_of_the_workspace_it_is_in_and_a_word_nobody_liste
         panic!("a ticket is read from the tracker");
     };
     assert_eq!(words.as_slice(), ["In Progress"]);
+}
+
+#[test]
+fn a_step_starting_plans_the_ticket_move_and_under_the_default_it_is_planned_as_asks() {
+    let rules = rules_from(&[MOVES_TICKETS]);
+    assert!(rules.left_out().is_empty(), "{:?}", rules.left_out());
+    let (rules, held) = (rules.frozen(), a_job_holding_three_tickets());
+
+    let planned = plan_step_start("plan", "10:00", &rules, &AutonomyDefaults::new(), &held, &mut RanOnce::new());
+    // The two tickets in To do move, under either of the tracker's names; the one in progress stays.
+    assert_eq!(planned.iter().filter_map(|one| one.on()).map(|on| on.key()).collect::<Vec<_>>(), ["ARM-41", "ARM-42"]);
+    let ticket = LifecycleId::new("ticket").expect("an id");
+    let moves = Act::Tracker {
+        write: TrackerWrite::Move { to: state("in_progress") },
+        target: Target::held(ticket).standing_in(state("todo")),
+    };
+    assert!(planned.iter().all(|one| one.act() == &moves && one.act().kind() == ActKind::TrackerWrite));
+    // A write to the tracker asks until someone says otherwise, and the move is the same when they do.
+    assert!(planned.iter().all(|one| one.course() == Course::Asks));
+    let acting = AutonomyDefaults::new().setting(ActKind::TrackerWrite, Autonomy::Acts);
+    let planned = plan_step_start("plan", "10:00", &rules, &acting, &held, &mut RanOnce::new());
+    assert!(planned.iter().all(|one| one.course() == Course::Acts && one.act() == &moves));
+}
+
+#[test]
+fn a_rule_plans_nothing_until_it_is_saved_nothing_for_a_job_that_holds_nothing_and_nothing_twice() {
+    let (rules, held) = (rules_from(&[MOVES_TICKETS]).frozen(), a_job_holding_three_tickets());
+    let (defaults, mut ran) = (AutonomyDefaults::new(), RanOnce::new());
+    let step = |step: &str, when: &str, rules: &[core_model::rule::Rule], held: &HeldInstances, ran: &mut RanOnce| {
+        plan_step_start(step, when, rules, &defaults, held, ran).len()
+    };
+    assert_eq!(step("plan", "10:00", &rules_from(&[]).frozen(), &held, &mut RanOnce::new()), 0, "no rule file");
+    assert_eq!(step("plan", "10:00", &rules, &HeldInstances::new(), &mut RanOnce::new()), 0, "a Job from before instances");
+    assert_eq!(step("build", "10:00", &rules, &held, &mut RanOnce::new()), 0, "another step");
+    assert_eq!(step("plan", "10:00", &rules, &held, &mut ran), 2);
+    assert_eq!(step("plan", "10:00", &rules, &held, &mut ran), 0, "the same transition read again");
+    let mut after_a_restart: RanOnce = ran.iter().map(|(rule, key)| (rule.clone(), key.clone())).collect();
+    assert_eq!(step("plan", "10:00", &rules, &held, &mut after_a_restart), 0, "Fleet kept what ran, and the replay finds it");
+    assert_eq!(step("plan", "10:20", &rules, &held, &mut after_a_restart), 2, "the step entered again is another transition");
 }
 
 // ---------------------------------------------------------------------------

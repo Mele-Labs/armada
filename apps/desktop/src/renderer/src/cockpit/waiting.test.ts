@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { callsFromWaiting, lastOwnerMessageAt, permissionOf, sessionIdOf, touchedAt, waitingOf } from "./waiting";
+import { callKindOf, callsFromWaiting, lastOwnerMessageAt, permissionOf, sessionIdOf, touchedAt, waitingOf } from "./waiting";
 
 type Held = Parameters<typeof waitingOf>[0];
 
@@ -207,6 +207,18 @@ describe("a draft put to the person", () => {
   test("calls him while the turn goes on, as a question does", () => {
     const one = session("w", { turn: { state: "working" }, waitingFor: [{ id: "draft:d1", text: "Description for the queue pull request", since: AT, source: "draft", options: [{ label: "Approve" }] }] });
     expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["draft:d1"]);
+  });
+});
+
+describe("a sketch put to the person", () => {
+  const AT = "2026-10-29T09:00:00.000Z";
+  const sketch = { id: "sketch:Store clock", text: "Store clock", since: AT, source: "sketch", act: { kind: "message", target: "w" } };
+
+  test("calls him while the turn goes on, and reads as a Job sketch", () => {
+    const one = session("w", { turn: { state: "working" }, waitingFor: [sketch] });
+    const calls = callsFromWaiting([one]);
+    expect(calls.map((call) => call.item.id)).toEqual(["sketch:Store clock"]);
+    expect(callKindOf("sketch")).toBe("Job sketch");
   });
 });
 
