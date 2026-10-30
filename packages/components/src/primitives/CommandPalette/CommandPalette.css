@@ -308,7 +308,7 @@
 }
 
 /* A dispatch row carrying chips is stacked: the words on the first line, with the glyph and the kind; the chips on a
- * second, whole, starting under the words. A row with no chips stays one line. */
+ * second, whole, starting under the first word. A row with no chips stays one line. */
 .armada-palette__row--stacked {
   align-items: flex-start;
   height: auto;
@@ -339,14 +339,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-}
-
-/* Holds the offer's width and draws nothing. Its spaces are kept, so the first chip lines up under the opening quote. */
-.armada-palette__indent {
-  flex: none;
-  margin-inline-end: calc(var(--space-1) * -1);
-  visibility: hidden;
-  white-space: pre;
 }
 
 .armada-palette__chip {

@@ -103,7 +103,7 @@ export type DrawnChip = { chip: PaletteChip; label: string; open: boolean };
 
 /**
  * What was typed, as the row that dispatches it. A row carrying chips is stacked (the owner, 30 Oct 2026): the words on the
- * first line, the chips whole on a second, starting under the words.
+ * first line, the chips whole on a second, starting under the line's first word.
  */
 export function DispatchRow({
   words,
@@ -148,10 +148,6 @@ export function DispatchRow({
         </span>
         {chips.length === 0 ? null : (
           <span className="armada-palette__chips">
-            {/* The offer again, unseen, so the chips start where the words do, in whatever font draws them. */}
-            <span className="armada-palette__indent" aria-hidden>
-              {OFFER[kind]}
-            </span>
             {chips.map(({ chip, label, open }) => (
               <Chip key={chip.id} chip={chip} label={label} open={open} onOpen={() => onChip?.(chip.id)} />
             ))}
