@@ -361,6 +361,10 @@ where
     /// run's whole output, as a file.
     pub(crate) async fn watch_read_ending(self: &Arc<Self>, id: &str, taken: KeptWatchTaken, last: bool, log: Option<String>) {
         let now = self.now();
+        let read_state = match &taken {
+            KeptWatchTaken::Read { state, .. } => core_model::ReadingState::from_wire(state),
+            KeptWatchTaken::Broken { .. } => None,
+        };
         let job = {
             let mut store = self.store().lock().await;
             let Ok(Some(kept)) = store.watch_whole(id) else { return };
@@ -413,6 +417,9 @@ where
             (next.session_id, moved, next.live != kept.watch.live)
         };
         let (job, moved, ended) = job;
+        if let Some(state) = read_state {
+            self.lifecycle_watch_seen(id, state).await;
+        }
         // Recorded on a change too, so the five minutes run from the last thing Bridge was sent.
         if self.watches().may_republish(id, &now) | moved {
             self.watches_published(&job).await;

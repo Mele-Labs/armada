@@ -347,6 +347,7 @@ where
                     workflow_chosen: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
+            let _ = store.mark_lifecycle_job(&id, &now);
             // `spent`, not `standing`: the old session ending gives back what
             // it holds, and the link is a fact that stays.
             for (holder, kind, target) in [(&id, FORKED_FROM, &old_id), (&old_id, FORKED_TO, &id)] {
