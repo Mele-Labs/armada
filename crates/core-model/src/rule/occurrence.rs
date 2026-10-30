@@ -11,7 +11,6 @@
 //! and finds its key already there.
 
 use alloc::collections::BTreeSet;
-use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
@@ -100,8 +99,8 @@ impl Occurrence {
                     String::from("entered"),
                     String::from(instance.lifecycle().as_str()),
                     String::from(instance.key()),
-                    spelled(&moved.from),
-                    spelled(&moved.to),
+                    moved.from.as_wire(),
+                    moved.to.as_wire(),
                 ]);
             }
             Happening::StepStarted(step) => parts.extend([String::from("step_started"), String::from(step.as_str())]),
@@ -110,14 +109,6 @@ impl Occurrence {
         }
         parts.push(self.at.clone());
         OccurrenceKey(parts)
-    }
-}
-
-fn spelled(standing: &Standing) -> String {
-    match standing {
-        Standing::Unread => String::from("unread"),
-        Standing::In(state) => format!("in:{state}"),
-        Standing::Unmapped(word) => format!("unmapped:{word}"),
     }
 }
 
