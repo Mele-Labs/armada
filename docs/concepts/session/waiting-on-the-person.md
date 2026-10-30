@@ -62,6 +62,11 @@ His Approve or Send back on its card settles it, and so does `dismiss_waiting`, 
 Drawing the title again lifts the dismissal, so the redrawn sketch waits again.
 A plan's sketch raises none, since it is approved with the plan.
 A job moved into a slot keeps the same id, so its sketches and their items stay.
+**Every revision Fleet keeps of a page a job wrote under `.armada/documents/` waits until the person answers it.** One item per page, `document:<path>`, source `document`, its text the page's title and its act `message` on the job, while the newest revision's `detail.asked` is `true` and `detail.settled` is unset.
+It is read off the page Fleet kept, never off the tool call ([Document](../document.md)).
+His Approve or Send back (`answer_document`) settles that revision, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
+`answer_waiting` on it is refused.
+A new revision asks again and lifts the dismissal; the same bytes written again ask nothing.
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
@@ -71,6 +76,7 @@ A job moved into a slot keeps the same id, so its sketches and their items stay.
 | He approves the plan | `plan:<version>` |
 | He approves a walk | `walk:<url>` |
 | He approves a sketch | `sketch:<title>` |
+| He approves a document's newest revision | `document:<path>` |
 | He approves a draft | `draft:<row>` |
 | He picks an idea | the open question, `ask:<call>` |
 | He replies | `replied:<turn ended>` |
