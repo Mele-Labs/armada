@@ -18,7 +18,7 @@
 //! | Fleet reads a ticket's status from the tracker, a pull request's state from the forge, a deploy's from a watch and a Job's from its own events, and keeps a move only when the standing changed (`lifecycles/readers.rs`) | That the planned move is done: it waits as one item in Needs you while the rule's autonomy is Asks, which is the default for a write to the tracker or the forge, and is made at once when the rule is set to Acts. Carried by Autonomy and Asks in Needs you |
 //! | A step starting plans the ticket move: a rule read from its file, whose When is the step starting, whose If reads the tickets the Job holds and whose Do is the move, plans it once for each ticket still in To do, and under the default it is planned as Asks | |
 //! | Approval is a state of the pull request read from the forge alone, reaching it is reported once, it is not an end, and a pull request knows its tickets | That a step ends on `pr: approved`, that the agent is stopped while it waits, and that Fleet wakes it on the transition. Carried by `ends_on` lifecycle states and waking |
-//! | A Job a Job starts is an instance of the Job lifecycle, linked to the Job that started it, and landing ends it | That Bridge and the agent's tools can see lifecycles, instances and rules: that they cross the wire and are mirrored in TypeScript. Carried by Operations and the TypeScript mirror |
+//! | A Job a Job starts is an instance of the Job lifecycle, linked to the Job that started it, and landing ends it. Bridge and the agent's tools can see lifecycles, instances and rules: they cross the wire as the wire's own types, are served at four read routes with one agent tool for a Job's own, and are spelled the same in TypeScript (`lifecycles/wire.rs`) | |
 //! | What is in flight is what no end state has taken, and a status nobody can place keeps its instance there | That End lists them before it ends the Job. Carried by End listing live instances |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
@@ -28,6 +28,10 @@ mod bench;
 // The readers' half of the claim, in a file of its own to keep this one short.
 #[path = "lifecycles/readers.rs"]
 mod readers;
+
+// The wire's half: what Bridge and the agent's tools can see.
+#[path = "lifecycles/wire.rs"]
+mod wire;
 
 use std::path::Path;
 
