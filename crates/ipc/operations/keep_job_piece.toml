@@ -1,0 +1,14 @@
+[operations.keep_job_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Propose one rule or lifecycle a Job changed in its own copy for every Job, as a file in Kit within the Job's repository, waiting on the owner's Approve"
+notes = """
+`POST /sessions/copy/keep_piece`, body `KeepJobPiece`: `session_id`, `kind` (`rule` or `lifecycle`) and `id`, the id the piece declares. Since 30 Oct 2026. Answers a `JobPieceProposed` `{ change, kind, id, scope, replaces }`: `scope` is `{ "kind": "within", "id": <the Job's repository> }`, the repository's own level, and `replaces` is true where Kit already holds a file for the kind, id and scope.
+
+**Nothing is saved.** Fleet keeps the proposal in the `workflow_changes` row a workflow's is kept in, `ready` at once with `piece` set, `source` `kit`, `before` the file Kit holds now (empty where it holds none) and `after` the Job's piece as `save_lifecycle_piece` would write it, and raises a `draft` row on the Job, named for the piece and carrying that change, so the Job's Needs-you list asks him. His Approve writes it through `save_lifecycle_piece`'s own save, replacing the file there only where the row began from it; his Dismiss drops it. `save_lifecycle_piece` has no held form of its own, so this is the only place a piece waits. `list_workflow_changes` never lists it, and `approve_workflow_change` and `dismiss_workflow_change` answer 404 for it: a piece is approved from the Job's draft. Fleet writes nothing to a tracker or a forge.
+
+422 `fleet.job_copy_piece_refused` where the copy holds no such piece (a dropped piece is not kept), the piece is as it was frozen, or Kit already holds this file, 422 `fleet.piece_unfit` where the piece no longer parses, 422 `fleet.job_holds_no_copy` where the Job froze no lifecycles or rules, 422 `fleet.session_command_refused` for a terminal Job, and 404 `fleet.no_such_session`.
+
+`agent_access` is `Bridge only`: the owner pressed Keep on a row. What every Job here does and asks is his to decide.
+"""

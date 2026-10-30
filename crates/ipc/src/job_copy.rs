@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, SessionId, WorkflowId};
+use crate::{Instant, PieceScope, SessionId, WorkflowId};
 
 /// Who made a change to a Job's copy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,6 +155,29 @@ pub struct KeepJobWorkflow {
     /// from, and `repository` for one Armada carries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+}
+
+/// `keep_job_piece`: propose one rule or lifecycle the Job's copy holds and changed for every Job, as a file in
+/// Kit within the Job's repository. Answers the `JobPieceProposed` kept, which waits on the owner's Approve.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeepJobPiece {
+    pub session_id: SessionId,
+    pub kind: CopyPieceKind,
+    /// The id the piece declares.
+    pub id: String,
+}
+
+/// What `keep_job_piece` kept: a proposal on the owner's Needs-you list, and nothing written.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobPieceProposed {
+    /// The change the owner's Approve saves and his Dismiss drops. The Job's draft names it.
+    pub change: i64,
+    pub kind: CopyPieceKind,
+    pub id: String,
+    /// Where Kit would keep it: within the repository the Job works in.
+    pub scope: PieceScope,
+    /// Kit already holds a file for this kind, id and scope, and Approve replaces it.
+    pub replaces: bool,
 }
 
 /// `propose_workflow_change`: a Job proposes new text for a workflow, for the owner to approve.

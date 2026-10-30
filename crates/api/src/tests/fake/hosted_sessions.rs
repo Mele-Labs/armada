@@ -252,6 +252,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn keep_job_piece(self: Arc<Self>, _keep: ipc::KeepJobPiece) -> Result<ipc::JobPieceProposed, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn begin_session(self: Arc<Self>, _begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }

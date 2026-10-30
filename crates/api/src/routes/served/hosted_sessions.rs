@@ -146,6 +146,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/copy/keep",
     },
     Route {
+        operation: "keep_job_piece",
+        method: "POST",
+        path: "/sessions/copy/keep_piece",
+    },
+    Route {
         operation: "begin_session",
         method: "POST",
         path: "/sessions/begin",

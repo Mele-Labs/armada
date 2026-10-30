@@ -185,7 +185,7 @@ where
     }
 
     /// The hosted Job a copy is changed on. A terminal Job has no workflow, and one that ended is closed.
-    async fn copy_hosted(&self, id: &str) -> Result<(KeptSession, KeptHosting), Refusal> {
+    pub(super) async fn copy_hosted(&self, id: &str) -> Result<(KeptSession, KeptHosting), Refusal> {
         if self.terminal_session(id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,

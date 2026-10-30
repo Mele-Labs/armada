@@ -3,6 +3,9 @@
 //! keeping it for every Job is a proposal that waits on the owner's Approve.**
 //! `docs/practices/protocol.md`, *A Job's own copy*.
 //!
+//! A rule or a lifecycle a Job changed is kept for every Job one piece at a time, as a file in Kit within the
+//! Job's repository, and waits on the owner's Approve on the Job's draft; nothing is written before.
+//!
 //! The first half is the rail's bookkeeping, pure. The second drives a Fleet with the `rail` workflow planted
 //! as a file, so the Job's copy has a text to start from.
 
@@ -10,8 +13,9 @@ use std::sync::Arc;
 
 use api::{Authoring, HostedSessions, Lifecycles, Refusal};
 use ipc::{
-    ChangeJobCopy, ChangeOrigin, ChangeSessionSteps, ChangeState, ChangedBy, CopyPieceKind, JobCopy, KeepJobWorkflow,
-    ProposeWorkflowChange, SessionId, SetSessionWorkflow, SkipSessionStep, StepChange, WorkflowId,
+    AnswerWaiting, ChangeJobCopy, ChangeOrigin, ChangeSessionSteps, ChangeState, ChangedBy, CopyPieceKind, JobCopy, KeepJobPiece,
+    KeepJobWorkflow, PieceScope, ProposeWorkflowChange, SessionId, SetSessionWorkflow, SkipSessionStep, StepChange, WaitingSource,
+    WorkflowId,
 };
 use store::{KeptPiece, PieceKind};
 use testkit::FakeJudge;
@@ -352,4 +356,168 @@ async fn a_piece_given_whole_with_no_id_takes_the_id_it_declares() {
     assert!(refused_with(&rig.fleet.piece_changed(nothing).await, "fleet.job_copy_piece_refused"), "a drop still names its piece");
     let unreadable = ChangeJobCopy { session_id: id, kind: CopyPieceKind::Rule, id: String::new(), text: Some("not a rule".into()) };
     assert!(refused_with(&rig.fleet.piece_changed(unreadable).await, "fleet.job_copy_piece_refused"), "and a file that does not read says so");
+}
+
+// ---- Keep for every Job, for a rule or a lifecycle ----
+
+const TICKET: &str = "version: 1
+lifecycle_id: ticket
+name: Ticket
+scope: everywhere
+states:
+  - { id: todo, label: To do, read: { tracker: [] } }
+  - { id: closed, label: Closed, read: { tracker: [] } }
+transitions:
+  - { from: todo, to: closed }
+ends: [closed]
+";
+
+fn keep_piece(id: &SessionId, kind: CopyPieceKind, piece: &str) -> KeepJobPiece {
+    KeepJobPiece { session_id: id.clone(), kind, id: piece.into() }
+}
+
+/// What Kit holds in its folder for one kind of piece.
+fn in_kit(rig: &Rig, folder: &str) -> Vec<std::path::PathBuf> {
+    let mut files: Vec<_> = std::fs::read_dir(rig.fleet.kit_pieces(folder)).map(|found| found.flatten().map(|one| one.path()).collect()).unwrap_or_default();
+    files.sort();
+    files
+}
+
+/// The proposal on the Job's Needs-you list.
+async fn proposal_waiting(rig: &Rig, id: &SessionId) -> Option<ipc::WaitingItem> {
+    Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session.waiting_for.into_iter().find(|one| one.source == WaitingSource::Draft)
+}
+
+async fn answered(rig: &Rig, id: &SessionId, item: &str, choice: u32) -> Result<ipc::SessionRecord, Refusal> {
+    Arc::clone(&rig.fleet)
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None })
+        .await
+}
+
+/// A Job holding `deploy_watch` that it changed, so there is something of its own to keep.
+async fn changed_a_rule(rig: &Rig, id: &SessionId) {
+    frozen_with_a_rule(rig, id).await;
+    rig.fleet.piece_changed(rule_change(id, Some(&RULE.replace("retries: 3", "retries: 1")))).await.expect("changed");
+}
+
+#[tokio::test]
+async fn keeping_a_changed_rule_for_every_job_waits_on_the_owner_and_writes_nothing_until_he_approves() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    frozen_with_a_rule(&rig, &id).await;
+    let untouched = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await;
+    assert!(refused_with(&untouched, "fleet.job_copy_piece_refused"), "as it was frozen there is nothing of the Job's to keep: {untouched:?}");
+    let unknown = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "nothing")).await;
+    assert!(refused_with(&unknown, "fleet.job_copy_piece_refused"), "{unknown:?}");
+
+    rig.fleet.piece_changed(rule_change(&id, Some(&RULE.replace("retries: 3", "retries: 1")))).await.expect("changed");
+    let kept = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+    assert_eq!(kept.scope, PieceScope::Within { id: rig.manifest.as_str().to_string() }, "at the repository's own level");
+    assert!(!kept.replaces, "Kit holds none yet");
+    assert!(in_kit(&rig, "rules").is_empty(), "nothing is written before he approves");
+
+    let item = proposal_waiting(&rig, &id).await.expect("the Job's draft asks him");
+    assert_eq!(item.text, "Rule deploy_watch");
+    assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Approve", "Dismiss"]);
+    let held = rig.fleet.store().lock().await.workflow_change(kept.change).unwrap().expect("held");
+    assert_eq!((held.piece.as_str(), held.source.as_str(), held.state.as_str()), ("rule", "kit", store::CHANGE_READY));
+    assert!(held.after_text.as_deref().is_some_and(|text| text.contains("retries: 1")), "the Job's change, not the frozen rule");
+
+    let listed = rig.fleet.list_workflow_changes(WorkflowId::carried("deploy_watch"), "kit".into(), None).await.expect("listed");
+    assert!(listed.changes.is_empty(), "a workflow's page never lists a piece");
+    let approved = rig.fleet.workflow_change_approved(ipc::WorkflowChangeRef { change: kept.change }).await;
+    assert!(matches!(&approved, Err(Refusal::NotFound(_))), "a piece is approved from the Job's draft: {approved:?}");
+
+    answered(&rig, &id, &item.id, 0).await.expect("approved");
+    let files = in_kit(&rig, "rules");
+    assert_eq!(files.len(), 1, "Kit holds the rule now: {files:?}");
+    let written = config::parse_rule(&files[0], &std::fs::read_to_string(&files[0]).expect("read")).expect("a rule its parser reads");
+    assert_eq!(written.id().as_str(), "deploy_watch");
+    assert_eq!(written.scope(), &core_model::LifecycleScope::Within(core_model::ScopeId::new(rig.manifest.as_str()).expect("a scope")));
+    assert_eq!(written.on_failure().retries.times(), 1);
+    assert_eq!(rig.fleet.store().lock().await.workflow_change(kept.change).unwrap().unwrap().state, store::CHANGE_APPROVED);
+    assert!(proposal_waiting(&rig, &id).await.is_none(), "the item leaves the list");
+}
+
+#[tokio::test]
+async fn dismissing_the_proposal_of_a_piece_writes_nothing() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    let kept = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+    let item = proposal_waiting(&rig, &id).await.expect("waits").id;
+    answered(&rig, &id, &item, 1).await.expect("dismissed");
+    assert!(in_kit(&rig, "rules").is_empty());
+    assert_eq!(rig.fleet.store().lock().await.workflow_change(kept.change).unwrap().unwrap().state, store::CHANGE_DISMISSED);
+    assert!(proposal_waiting(&rig, &id).await.is_none());
+}
+
+#[tokio::test]
+async fn a_dropped_rule_is_not_kept() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    rig.fleet.piece_changed(rule_change(&id, None)).await.expect("dropped");
+    let refused = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await;
+    assert!(refused_with(&refused, "fleet.job_copy_piece_refused"), "{refused:?}");
+    assert!(proposal_waiting(&rig, &id).await.is_none(), "nothing waits on him");
+}
+
+#[tokio::test]
+async fn a_rule_kit_already_holds_is_replaced_only_if_kit_still_holds_what_the_proposal_began_from() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    let within = RULE.replace("scope: everywhere", &format!("scope: {}", rig.manifest.as_str()));
+    let held = rig.fleet.kit_pieces("rules").join("deploy_watch.yml");
+    std::fs::create_dir_all(rig.fleet.kit_pieces("rules")).expect("folder");
+    std::fs::write(&held, &within).expect("planted");
+
+    let kept = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+    assert!(kept.replaces, "Kit holds a file for it already");
+    assert_eq!(std::fs::read_to_string(&held).expect("read"), within, "and it is as it was");
+    let item = proposal_waiting(&rig, &id).await.expect("waits").id;
+
+    std::fs::write(&held, within.replace("retries: 3", "retries: 2")).expect("edited meanwhile");
+    let stale = answered(&rig, &id, &item, 0).await;
+    assert!(matches!(&stale, Err(Refusal::IllegalMove(why)) if why.code == "fleet.workflow_changed_since"), "{stale:?}");
+    assert!(std::fs::read_to_string(&held).expect("read").contains("retries: 2"), "his edit is not overwritten");
+
+    std::fs::write(&held, &within).expect("put back");
+    answered(&rig, &id, &item, 0).await.expect("approved");
+    assert!(std::fs::read_to_string(&held).expect("read").contains("retries: 1"), "the file that declared it is replaced in place");
+    assert_eq!(in_kit(&rig, "rules").len(), 1);
+}
+
+#[tokio::test]
+async fn keeping_what_kit_already_holds_is_refused() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    changed_a_rule(&rig, &id).await;
+    Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await.expect("kept");
+    let item = proposal_waiting(&rig, &id).await.expect("waits").id;
+    answered(&rig, &id, &item, 0).await.expect("approved");
+    let again = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Rule, "deploy_watch")).await;
+    assert!(refused_with(&again, "fleet.job_copy_piece_refused"), "Kit holds this exactly now: {again:?}");
+}
+
+#[tokio::test]
+async fn a_lifecycle_a_job_added_is_kept_within_its_repository_as_a_rule_is() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    frozen_with_a_rule(&rig, &id).await;
+    let added = ChangeJobCopy { session_id: id.clone(), kind: CopyPieceKind::Lifecycle, id: String::new(), text: Some(TICKET.into()) };
+    rig.fleet.piece_changed(added).await.expect("added");
+
+    let kept = Arc::clone(&rig.fleet).keep_job_piece(keep_piece(&id, CopyPieceKind::Lifecycle, "ticket")).await.expect("kept");
+    assert_eq!((kept.kind, kept.id.as_str()), (CopyPieceKind::Lifecycle, "ticket"));
+    assert_eq!(kept.scope, PieceScope::Within { id: rig.manifest.as_str().to_string() });
+    assert!(in_kit(&rig, "lifecycles").is_empty());
+    let item = proposal_waiting(&rig, &id).await.expect("waits");
+    assert_eq!(item.text, "Lifecycle ticket");
+    answered(&rig, &id, &item.id, 0).await.expect("approved");
+    let files = in_kit(&rig, "lifecycles");
+    assert_eq!(files.len(), 1, "{files:?}");
+    let written = config::parse_lifecycle(&files[0], &std::fs::read_to_string(&files[0]).expect("read")).expect("a lifecycle its parser reads");
+    assert_eq!(written.scope(), &core_model::LifecycleScope::Within(core_model::ScopeId::new(rig.manifest.as_str()).expect("a scope")));
 }

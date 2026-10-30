@@ -51,6 +51,16 @@ fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
     std::fs::write(&staged, text).and_then(|()| std::fs::rename(&staged, path))
 }
 
+/// The kind of a piece and the text of the file a save would write for it.
+pub(crate) fn written_as(piece: &LifecyclePiece) -> (LifecyclePieceKind, Result<String, String>) {
+    match piece {
+        LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, text::lifecycle(lifecycle)),
+        LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, text::rule(rule)),
+        LifecyclePiece::Workspace { workspace } => (LifecyclePieceKind::Workspace, text::workspace(workspace)),
+        LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, text::autonomy(autonomy)),
+    }
+}
+
 /// A name in `folder` that no file holds: `<stem>.yml`, else `<stem>-2.yml` and on.
 fn free_name(folder: &Path, declared: &Identity) -> PathBuf {
     let stem = declared.file_stem();
@@ -90,12 +100,7 @@ where
 
     /// Check one piece with its own parser, then write it in Kit's folder.
     pub(crate) fn lifecycle_piece_saved(&self, asked: SaveLifecyclePiece) -> Result<LifecyclePieceSaved, Refusal> {
-        let (kind, written) = match &asked.piece {
-            LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, text::lifecycle(lifecycle)),
-            LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, text::rule(rule)),
-            LifecyclePiece::Workspace { workspace } => (LifecyclePieceKind::Workspace, text::workspace(workspace)),
-            LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, text::autonomy(autonomy)),
-        };
+        let (kind, written) = written_as(&asked.piece);
         let text = written.map_err(|why| {
             self.piece_refusal(PIECE_UNFIT, format!("The {} could not be written as a file: {why}", kind.as_wire()), None)
         })?;

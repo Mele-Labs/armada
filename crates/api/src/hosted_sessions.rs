@@ -603,6 +603,19 @@ pub(crate) async fn keep_job_workflow<D: HostedSessions>(State(served): State<Se
     }
 }
 
+/// The owner presses Keep on a rule or a lifecycle the Job changed: it is proposed as a file in Kit. 200 with
+/// the `JobPieceProposed` kept.
+pub(crate) async fn keep_job_piece<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let keep: ipc::KeepJobPiece = match ipc::decode_body("a job's piece to keep", &body) {
+        Ok(keep) => keep,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().keep_job_piece(keep).await {
+        Ok(proposed) => answer(StatusCode::OK, &proposed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn begin_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
