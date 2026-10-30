@@ -65,7 +65,7 @@ export type WorkspaceEditing = {
   panel: LanePanel;
   /** The workflow's own steps changed: written to its definition. */
   onSteps: (one: WorkflowRef, change: StepsChange) => void;
-  /** The lifecycles and rules are pieces the host keeps apart from the workflow: a change to them makes no copy of an Armada workflow, and a change to its steps does. */
+  /** The lifecycles and rules are pieces the host keeps apart from the workflow: a change to them makes no copy of an Armada workflow, and a change to its steps does. Only a step can be told to an agent, which drafts changes to steps. */
   pieces?: true;
   /** Nothing a change could be saved to: the lanes are drawn, and no field or handle changes them. */
   readOnly?: true;
@@ -297,6 +297,8 @@ export function WorkspaceEditor({
 
   const handles: LaneEditing = {
     canDelete,
+    // An agent drafts a change to the workflow's steps, so where the lifecycles and rules are pieces kept apart from it, only a step can be told.
+    ...(editing.pieces === true ? { canTell: (at: LanePick) => at.kind === "node" && refOf(at.id).lane === "workflow" } : {}),
     onEdit: toFields,
     onTell: () => setMode("tell"),
     onAddAfter: addAfter,

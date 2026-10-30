@@ -34,7 +34,11 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
   const waiting = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const open = useRef(true);
-  useEffect(() => () => void (open.current = false), []);
+  // Set again on mount: a strict render mounts, unmounts and mounts once more.
+  useEffect(() => {
+    open.current = true;
+    return () => void (open.current = false);
+  }, []);
 
   /** Reads Fleet again and keeps what it said. Returns whether it could be read. */
   const reload = useCallback(

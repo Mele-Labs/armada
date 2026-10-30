@@ -66,6 +66,8 @@ export type LanePick = { kind: "node"; id: string } | { kind: "rule"; id: string
 export type LaneEditing = {
   /** Whether the pick can be deleted where the canvas is drawn: a tab deletes only what it added. Absent, anything can. */
   canDelete?: (pick: LanePick) => boolean;
+  /** Whether the pick can be told to an agent. Absent, anything can. */
+  canTell?: (pick: LanePick) => boolean;
   /** Takes the person to the picked thing's fields, which the side panel draws live. */
   onEdit: (pick: LanePick) => void;
   onTell: (pick: LanePick) => void;
@@ -157,7 +159,7 @@ function Toolbar({ pick, name, rule }: { pick: LanePick; name: string; rule: boo
           Edit
         </Button>
       </Tooltip>
-      {ACTS.filter((one) => !(rule && one.id === "add") && !(one.id === "delete" && editing.canDelete?.(pick) === false)).map((one) => (
+      {ACTS.filter((one) => !(rule && one.id === "add") && !(one.id === "delete" && editing.canDelete?.(pick) === false) && !(one.id === "tell" && editing.canTell?.(pick) === false)).map((one) => (
         <Tooltip key={one.id} label={one.said} shortcut={one.key}>
           <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`${one.said} ${name}`} onClick={() => run[one.id](pick)}>
             <one.Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -786,7 +788,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     // pressed ends.
     if (editing !== undefined && picked !== undefined) {
       const removable = editing.canDelete?.(picked) !== false ? editing.onDelete : undefined;
-      const act = { e: editing.onEdit, t: editing.onTell, a: picked.kind === "node" ? editing.onAddAfter : undefined, Backspace: removable, Delete: removable }[event.key] as ((pick: LanePick) => void) | undefined;
+      const act = { e: editing.onEdit, t: editing.canTell?.(picked) === false ? undefined : editing.onTell, a: picked.kind === "node" ? editing.onAddAfter : undefined, Backspace: removable, Delete: removable }[event.key] as ((pick: LanePick) => void) | undefined;
       if (act !== undefined) {
         event.preventDefault();
         act(picked);

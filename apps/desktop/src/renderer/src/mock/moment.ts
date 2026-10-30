@@ -36,7 +36,7 @@ export { unanswered };
  */
 export type MockDraft = {
   sessions?: (board: BayControl, more?: readonly Session[]) => SessionsStore;
-  /** The Workspace the Workflows page draws as lanes, and the changes an agent comes back with for it. Mock only: no Fleet serves a Workspace yet. */
+  /** The Workspace the Workflows page draws as lanes, and the changes an agent comes back with for it. The page's own mock: with it the page does not read what Fleet keeps (`pieces`). */
   workspace?: import("../workspace-draft").WorkspaceSeed;
   /** The Workspaces, lifecycles and rules the mock Fleet keeps, which the lifecycle reads answer and a save changes. The page draws them as Fleet's, and a scenario with `workspace` as well is drawn from that. */
   pieces?: import("./pieces-seed").PiecesSeed;

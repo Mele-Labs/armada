@@ -174,7 +174,7 @@ describe("what a change comes to", () => {
   it("refuses a connector to a state no act brings anything to, and one set off by leaving a state", async () => {
     const { read, workspace } = await opened();
     const toDeploy = ruleBetween(workspace, "feature", { lane: "pull_request", item: "merged" }, { lane: "deploy", item: "healthy" }, { from: "Merged", to: "Healthy", lane: "Deploy" });
-    expect(opsFrom(read, workspace, withNewRule(workspace, toDeploy))).toEqual([{ op: "refuse", said: "Fleet has no act that brings Deploy to healthy" }]);
+    expect(opsFrom(read, workspace, withNewRule(workspace, toDeploy))).toEqual([{ op: "refuse", said: "Fleet has no act that brings deploy to Healthy" }]);
     const leaving = { ...ruleBetween(workspace, "feature", { lane: "ticket", item: "todo" }, { lane: "ticket", item: "in_progress" }, { from: "To do", to: "In progress", lane: "Ticket" }), at: "leaves" as const };
     expect(opsFrom(read, workspace, withNewRule(workspace, leaving))).toEqual([{ op: "refuse", said: "Fleet runs no rule on leaving a state" }]);
   });

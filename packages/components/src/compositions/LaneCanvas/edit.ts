@@ -1,5 +1,5 @@
 // Editing the lanes by hand: what a press on a node's toolbar, a field in its panel or a connector dragged between two nodes comes to. Each is a pure change to the
-// Workspace, so the editor can draw what it makes and the host holds it. **A mock's edits**: no Fleet serves a Workspace yet.
+// Workspace, so the editor can draw what it makes and the host holds it. The host saves what they change as pieces (`apps/desktop/src/renderer/src/lifecycle-editing/`).
 
 import { DEFAULT, levelsOf, nodeId, ruleAt, stateLabelAt } from "./model";
 import type { AddedStep, LaneStep, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";

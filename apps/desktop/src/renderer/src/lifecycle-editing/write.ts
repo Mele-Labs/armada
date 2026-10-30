@@ -141,7 +141,7 @@ function ruleBetween(rule: Rule, after: Workspace, workspace: string | undefined
   if (lane.kind === "tracker") [what, kind] = [{ act: "tracker_move", to: rule.to.item, target }, "tracker_write"];
   else if (lane.kind === "forge" && rule.to.item === "merged") [what, kind] = [{ act: "forge_merge", target }, "forge_write"];
   else if (lane.kind === "forge" && rule.to.item === "ready") [what, kind] = [{ act: "forge_mark_ready", target }, "forge_write"];
-  else return `Fleet has no act that brings ${lane.label} to ${rule.to.item}`;
+  else return `Fleet has no act that brings ${lane.label.toLowerCase()} to ${lane.states.find((one) => one.id === rule.to.item)?.label ?? rule.to.item}`;
   return {
     id: rule.id,
     name: rule.label,
