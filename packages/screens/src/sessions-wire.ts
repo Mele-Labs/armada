@@ -741,7 +741,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }), ...(hosted.start.queued === true ? { queued: true } : {}) } }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
     ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at, ...(one.confirmed === true ? { confirmed: true } : {}) })) }),
-    ...(ended || record.held_open_by === undefined ? {} : { heldOpenBy: record.held_open_by }),
+    ...(ended || (record.held_open_by?.length ?? 0) === 0 ? {} : { heldOpenBy: record.held_open_by }),
     ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
     ...(work === undefined ? {} : { work }),

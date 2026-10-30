@@ -20,6 +20,7 @@ import {
   askText,
   HandoffBand,
   ToolsBand,
+  WaitingBand,
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
@@ -138,7 +139,7 @@ import { bangOf, dockRunKey, hostedCommands, opensMcp, runnerOf, waitingRunKey }
 import { useJobDock } from "./job-shell-dock";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { useCompactAct } from "./cockpit/deck/compact-act";
-import { holdsDelivery, stateOf } from "./session-state";
+import { holdsDelivery, stateOf, waitsOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import type { LoadoutAt } from "./session-loadout";
 import { changeLines } from "./session-view/plan-marks";
@@ -834,6 +835,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // Whether the Needs you panel on the composer is up, and for which Session.
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
+  const [waitPanel, setWaitPanel] = useState<{ id: string; open: boolean } | undefined>();
   useEffect(() => setEndPanel(undefined), [session.id]);
   useEffect(() => () => dropAsk(session.id), [session.id]);
   const [failedAway, setFailedAway] = useState<string | undefined>();
@@ -1162,6 +1164,11 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const toolsFixing = useToolsFixes(session, terminal?.dock);
   const toolsAway = useToolsBand(session);
   const toolsBand = toolsFixing !== undefined && toolsAway.shown;
+  // Waiting on something that is not him: a band of its own, drawn only where no other band is.
+  const waitingOn = state === "held" && !waits && !endShown && !failedShown && !toolsBand ? waitsOf(session) : [];
+  const waitingBand = waitingOn.length > 0;
+  // Folded until he presses it: a wait is not his to act on.
+  const waitOpen = waitingBand && waitPanel?.id === session.id && waitPanel.open;
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1299,7 +1306,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           </RequestOpen.Provider>
           {docked.pane}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown || failedShown || toolsBand ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown || toolsBand || waitingBand ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-wait-open={waitOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
           <div className="sv-bands">
           {toolsBand && session.toolsMissing !== undefined && toolsFixing !== undefined ? <ToolsBand said={toolsMissingSaid(session.toolsMissing)} {...toolsFixing} onDismiss={toolsAway.dismiss} /> : null}
           <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} cards={notOurs} />
@@ -1312,6 +1319,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
+          {waitingBand ? <WaitingBand waits={waitingOn} open={waitOpen} onOpen={(open) => setWaitPanel({ id: session.id, open })} /> : null}
           </div>
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {session.dead !== undefined ? null : (

@@ -5,9 +5,10 @@
 // Session since it ended (`cockpit/viewed.ts`), and then the Session stands as it would without one.
 
 import { limitHeldSaid } from "@armada/components";
-import type { SessionState } from "@armada/components";
+import type { SessionState, WaitingLine } from "@armada/components";
 import { attachmentsOf, isBlank, owesOf, standingOf } from "@armada/screens/src/draft/sessions";
 import type { Session } from "@armada/screens/src/draft/sessions";
+import type { HeldOpenBy } from "@armada/protocol";
 import { startsWhenSaid } from "@armada/screens/src/session-waits";
 
 import { viewedAt } from "./cockpit/viewed";
@@ -17,6 +18,23 @@ const readSince = (session: Session): boolean => session.lastTurnAt !== undefine
 
 /** Whether the delivery question is what he is asked, so the Needs you card opens on it without a click. */
 export const holdsDelivery = (session: Session): boolean => owesOf(session).some((one) => one.source === "delivery");
+
+/** One thing that keeps the Job open, as the words its mark's tooltip says. Fleet derives what; this only words it. */
+function waitOf(one: HeldOpenBy): WaitingLine {
+  if (one.kind === "watch") return { kind: "watch", said: `Held open by ${one.name}` };
+  const { number, on } = one;
+  if (on.kind === "queue") return { kind: "merge", said: `#${number} in the merge queue` };
+  if (on.kind === "checks") return { kind: "checks", said: on.auto_merge ? `#${number} to auto-merge once Checks pass` : `Checks running on #${number}` };
+  return { kind: "merge", said: `#${number} to auto-merge` };
+}
+
+/**
+ * Everything a Job waits on that is not him, in the order Fleet derived it: each live watch, then each of its own pull requests in the
+ * queue, set to merge, or on its Checks. Fleet sets it only once its turn has ended and nothing waits on him (`stateOf`).
+ */
+export function waitsOf(session: Session): WaitingLine[] {
+  return (session.heldOpenBy ?? []).map(waitOf);
+}
 
 /** Parked by him: nothing is asked of him, whatever it was waiting on, until he resumes it. An ended or unreachable Job reads as that. */
 export function stateOf(session: Session): { state: SessionState; said: string } {
@@ -51,8 +69,9 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   // A question nobody answered in time, or kept for a walk, waits on him as an item does: Fleet keeps no item for it.
   if (owesOf(session).length > 0 || session.lapsed !== undefined) return { state: "waiting", said: "Waiting on you" };
-  // Fleet names the watch only while its turn has ended, nothing waits on him and a live watch is all that keeps it open.
-  if (session.heldOpenBy !== undefined) return { state: "held", said: `Held open by ${session.heldOpenBy}` };
+  // Fleet lists what holds it open only while its turn has ended and nothing waits on him: a watch, or its own pull request in the queue, set to merge, or on its Checks.
+  const waits = waitsOf(session);
+  if (waits.length > 0) return { state: "held", said: waits.map((one) => one.said).join(" · ") };
   if (standing === "replied" && !readSince(session)) return { state: "replied", said: "Unread reply" };
   if (standing === "done") return { state: "done", said: "Done" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
