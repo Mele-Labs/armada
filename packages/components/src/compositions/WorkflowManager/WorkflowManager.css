@@ -674,8 +674,8 @@
 }
 .armada-wm-lanes > .armada-lane-canvas {
   flex: none;
-  /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it. */
-  height: calc(var(--space-12) * 11);
+  /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it; a lane more makes it taller by that much, so every lane stands in it. */
+  height: max(calc(var(--space-12) * 11), calc(var(--lanes, 4) * var(--lane-min) + var(--border-width) * 2));
 }
 /* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
 .armada-wm-scope {

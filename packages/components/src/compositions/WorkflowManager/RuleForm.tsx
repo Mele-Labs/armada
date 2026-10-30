@@ -353,7 +353,6 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
         return (
           <>
             <Word>{lead}</Word>
-            <Pick name={`${name} workflow`} value={what.workflow ?? ""} blank items={workflows.map((one) => ({ value: one, label: one }))} onChange={(workflow) => change({ act: what.act, prompt: what.prompt, ...(workflow === "" ? {} : { workflow }) })} />
             <Wrapped label="Prompt" keep={`workflows:prompt:${key}`} value={what.prompt} onCommit={(prompt) => change({ ...what, prompt })} />
           </>
         );

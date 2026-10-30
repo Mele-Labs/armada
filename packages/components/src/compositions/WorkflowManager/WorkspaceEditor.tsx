@@ -1,6 +1,6 @@
 import { Clock, ListPlus, Plus, Split, Trash2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { LifecycleRule } from "@armada/protocol";
 
@@ -507,7 +507,7 @@ export function WorkspaceEditor({
   const acts = piece === undefined ? null : (editing.pieceActs?.(piece, scope) ?? null);
 
   return (
-    <section className="armada-wm-lanes" aria-label="Workflow">
+    <section className="armada-wm-lanes" aria-label="Workflow" style={{ "--lanes": drawn.lanes.length } as CSSProperties}>
       <div className="armada-wm-scope" role="group" aria-label="Runs in">
         <span className="armada-wm-scope__label" aria-hidden="true">
           Runs in

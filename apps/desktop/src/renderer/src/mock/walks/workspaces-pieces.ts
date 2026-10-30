@@ -30,6 +30,7 @@ const pieces = walk("workspaces-pieces", [
   { look: PANEL, say: "A rule store-web committed is the repository's: nothing to commit" },
   { press: inside(PANEL, button("Close")), say: "Closed" },
   { press: button("Add lifecycle", { exact: true }), say: "A lifecycle is added on this tab, as a piece for store-web alone" },
+  { look: inside(LANES, button("New lifecycle Tracker", { exact: true })), say: "The new lane stands under Deploy" },
   { type: "Incident", into: inside(PANEL, role("textbox", "Name", { exact: true })), say: "Named in the field, saved as it is left" },
   { press: inside(PANEL, button("Delete", { exact: true })), say: "Delete takes its file out of your Kit" },
   { press: tab("All of my-store"), say: "All of my-store's tab" },

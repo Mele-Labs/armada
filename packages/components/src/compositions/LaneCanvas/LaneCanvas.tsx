@@ -558,7 +558,7 @@ function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
 }
 
 /** A pan asked for: the rectangles to bring into view, and whether they are what changed. */
-type Pan = { n: number; rects: readonly Rect[]; follow: boolean };
+type Pan = { n: number; rects: readonly Rect[]; follow: boolean; down?: true };
 
 /**
  * Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met.
@@ -572,11 +572,16 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
   /** Where the canvas stood before the first pan made while something was picked, and where the last pan here left it. */
   const home = useRef<Viewport | undefined>(undefined);
   const left = useRef<Viewport | undefined>(undefined);
+  /** The last request met: where the canvas stood before it and how tall the frame was. A pan up or down is met again where the frame has since grown, from where the canvas stood. */
+  const ran = useRef<{ was: Viewport; height: number } | undefined>(undefined);
   useEffect(() => {
-    if (pan === undefined || pan.n === done.current || width === 0 || height === 0) return;
+    if (pan === undefined || width === 0 || height === 0) return;
+    const again = pan.n === done.current && pan.down === true && ran.current !== undefined && ran.current.height !== height;
+    if (pan.n === done.current && !again) return;
     done.current = pan.n;
-    const was = flow.getViewport();
-    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow);
+    const was = again ? ran.current!.was : flow.getViewport();
+    ran.current = { was, height };
+    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow, pan.down === true) ?? (again ? was : undefined);
     if (next === undefined) return;
     if (open && home.current === undefined) home.current = was;
     left.current = next;
@@ -685,10 +690,18 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     if (ids.size > 0) reveal([...ids], true);
   }, [lanes, rules, reveal]);
 
+  /** A lane that stands below or above the frame is brought into it, with the canvas left where it is across. */
+  const revealLane = (id: string) => {
+    const band = geometry.current.placement.bands.get(id);
+    if (band === undefined) return;
+    asked.current += 1;
+    setPan({ n: asked.current, rects: [band], follow: false, down: true });
+  };
+
   // What is picked is brought into view with its toolbar: a rule with its chips and the nodes it joins. It is a pan, so the canvas keeps its width and the panel covers only what is past it.
   const revealPick = () => {
     if (picked === undefined) return;
-    if (picked.kind === "lane") return;
+    if (picked.kind === "lane") return revealLane(picked.id);
     if (picked.kind === "node") return reveal([picked.id], false, [picked.id]);
     const edges = rules.filter((rule) => rule.rule === picked.id);
     reveal(edges.flatMap((rule) => [rule.id, rule.from, rule.to]), false, edges.map((rule) => rule.id));
@@ -886,7 +899,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
 
   return (
     <Hold.Provider value={hold}>
-      <div ref={frame} className="armada-lane-canvas" data-own-arrows="" role="group" aria-label={label} style={{ "--lane-head": `${GEO.head}px` } as CSSProperties} onKeyDown={keys}>
+      <div ref={frame} className="armada-lane-canvas" data-own-arrows="" role="group" aria-label={label} style={{ "--lane-head": `${GEO.head}px`, "--lane-min": `${GEO.laneMin}px` } as CSSProperties} onKeyDown={keys}>
         <GraphCanvas<CanvasNode, CanvasEdge>
           surface="armada-lane-surface"
           label={label}

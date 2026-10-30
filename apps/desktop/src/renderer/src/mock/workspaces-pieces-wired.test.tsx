@@ -120,6 +120,21 @@ test("a lifecycle is added on the tab, named, and deleted, each kept as its own 
   expect(deleted.mock.calls[0]![0]).toMatchObject({ kind: "lifecycle", id: "new_lifecycle", scope: { kind: "everywhere" } });
 });
 
+test("a lifecycle added stands in the frame, panel open or closed, since the frame grows with its lanes", async () => {
+  await lanes();
+  await page.getByRole("button", { name: "Add lifecycle", exact: true }).click();
+  const head = region().getByRole("button", { name: "New lifecycle Tracker", exact: true });
+  const inside = () => {
+    const frame = region().getByRole("group", { name: "feature workflow" }).element().getBoundingClientRect();
+    const box = head.element().getBoundingClientRect();
+    return box.top >= frame.top && box.bottom <= frame.bottom;
+  };
+  await expect.element(head).toBeVisible();
+  expect(inside()).toBe(true);
+  await PANEL.getByRole("button", { name: "Close" }).click();
+  await expect.poll(inside).toBe(true);
+});
+
 test("what Fleet cannot run is not offered: no add on a forge lifecycle, no delete on Armada's, no step edits below the default", async () => {
   await lanes();
   await region().getByRole("button", { name: "Pull request: Draft", exact: true }).click();
@@ -146,4 +161,31 @@ test("a rule the repository committed that is deleted stays, marked with when it
   expect(committed.mock.calls[0]![0]).toMatchObject({ remove: true, piece: { id: "close-on-merge" } });
   await region().getByRole("button", { name: "Close the ticket", exact: true }).hover();
   await expect.element(page.getByText("Removed from the repository when its pull request merges")).toBeVisible();
+});
+
+test("a Start a Job rule that names a workflow keeps it when its prompt is changed, and the workflow is not offered", async () => {
+  const seed = workspacesPieces.draft!.pieces!;
+  const kick = {
+    rule: {
+      id: "kick",
+      name: "Kick it off",
+      scope: { kind: "everywhere" as const },
+      when: { kind: "enters" as const, lifecycle: "ticket", state: "in_review" },
+      conditions: [{ kind: "at_step" as const, step: "build" }],
+      does: [{ kind: "start_job", autonomy: "acts" as const, what: { act: "start_job" as const, workflow: "feature", prompt: "Look at it" } }],
+      on_failure: { retries: 2, then: "ask_owner" as const },
+      autonomy: "acts" as const,
+    },
+    kept: { rank: { reach: "everywhere" as const, source: "kit" as const }, path: "/Users/user/.armada/rules/kick.toml" },
+  };
+  const app = mount({ ...workspacesPieces, draft: { pieces: { ...seed, rules: [...seed.rules, kick] } } });
+  await onScreen();
+  await toSystemPage("Workflows");
+  const saved = vi.spyOn(app.api, "saveLifecyclePiece");
+  await region().getByRole("button", { name: "Kick it off", exact: true }).click();
+  expect(PANEL.getByRole("combobox", { name: /workflow/i }).elements()).toHaveLength(0);
+  await PANEL.getByRole("textbox", { name: "Prompt" }).fill("Look again");
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => saved.mock.calls.length).toBe(1);
+  expect(saved.mock.calls[0]![0]).toMatchObject({ piece: { rule: { id: "kick", does: [{ what: { act: "start_job", workflow: "feature", prompt: "Look again" } }] } } });
 });
