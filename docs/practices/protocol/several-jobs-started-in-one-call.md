@@ -15,7 +15,8 @@ Bridge's half is `StartAnotherSessions`, `SessionsHeld` and `HeldOrRefused` in `
 
 **A body without `jobs` is answered as before**, with `SessionHeld` and the same refusals.
 **Each Job in `jobs` is started by `start_another_session` itself**, one after another, through `Sessions::start_other_sessions`, a provided method on the daemon trait: the same placing of the caller, the same linking (`started_by` and `started_to`) and the same refusals.
-**A refused Job leaves the others started**, so the call itself answers 200 whatever its Jobs answered, and a call that places no hosted Job answers 200 with every Job refused `fleet.agent_start_unplaced`.
+**A refused Job leaves the others started**, so the call answers 200 whatever its Jobs answered, with one exception.
+**A call that places no hosted Job is refused whole**, with the 422 `fleet.agent_start_unplaced` a one-Job call gets. Placement is the caller's, so the route reads it off the first Job's refusal and tries no other. The code is declared once, as `ipc::AGENT_START_UNPLACED`, for the route to match on.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream is neither better nor worse.** Each Job publishes what one call's Job publishes, so a batch of N is N calls' events arriving together, as N calls in a row would send them.

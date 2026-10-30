@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 use crate::ids::ManifestId;
 use crate::sessions::SessionId;
 
+/// The refusal of a start or fork whose call places no hosted Session. Here because the route answers a
+/// whole batch with it where its first Job is refused so.
+pub const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
+
 /// `start_another_session`: a new Session in `manifest_id`'s repository, with the agent's first message
 /// held for the person. Answered with [`SessionHeld`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -607,7 +607,7 @@ pub use sketch::{
 };
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,
-    StartAnotherSessions,
+    StartAnotherSessions, AGENT_START_UNPLACED,
 };
 pub use session_waits::{
     ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition,

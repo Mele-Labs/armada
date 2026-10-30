@@ -942,7 +942,8 @@ pub(crate) async fn take_main_red<D: Sessions>(
 /// places no hosted Session, a blank title or message, or a repository Fleet does not serve.
 ///
 /// **With `jobs`, several**: 200 with `SessionsHeld`, each Job's answer in the order given, a refused
-/// one carrying the refusal a call of its own would have answered.
+/// one carrying the refusal a call of its own would have answered; the one-Job call's 422 for a caller
+/// that places no hosted Session, with no Job tried.
 pub(crate) async fn start_another_session<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
@@ -965,7 +966,17 @@ pub(crate) async fn start_another_session<D: Sessions>(
         if manifest_id.is_some() || title.is_some() || message.is_some() || group.is_some() || after.is_some() {
             return unreadable("one Job's fields and `jobs` together; give one Job at the top or every Job in `jobs`");
         }
-        let answers = served.shared().start_other_sessions(crate::acting::asking(), jobs).await;
+        // Placement is the caller's, not a Job's: a first Job refused unplaced means none would start,
+        // so the batch answers the one 422 a one-Job call would and tries no other.
+        let caller = crate::acting::asking();
+        let mut rest = jobs;
+        let first = rest.remove(0);
+        let first = match served.shared().start_another_session(caller, first).await {
+            Err(refusal) if refusal.error().code == ipc::AGENT_START_UNPLACED => return refused(refusal),
+            answered => answered,
+        };
+        let mut answers = vec![first];
+        answers.extend(served.shared().start_other_sessions(caller, rest).await);
         let jobs = answers
             .into_iter()
             .map(|answered| match answered {
