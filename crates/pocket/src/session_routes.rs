@@ -9,7 +9,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use ipc::{
     AnswerSessionAsk, ForkFrom, HelmCallAnswer, ManifestId, ManifestSummary, QuestionAnswer, SendSessionMessage,
-    SessionList, SessionOrigin, SessionRecord, SessionState, SessionThread, StartSession, WireError,
+    SessionList, SessionOrigin, SessionRecord, SessionRow, SessionState, SessionThread, SessionVoice, StartSession,
+    WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,7 @@ const ASK_MOVED_ON: &str = "That question has been answered or has changed. Open
 const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open it again.";
 const UNREADABLE_REQUEST: &str = "Armada could not read that from this phone. Update the app.";
 const NO_SUCH_REPOSITORY: &str = "Armada does not know that repository. Pick one from the list.";
+const NOTHING_TO_FORK_YET: &str = "That Job has not answered yet, so there is nothing to copy. Try again once it has.";
 const NO_REPOSITORY_TO_FORK: &str = "That Job has no repository, so Armada cannot copy it. Fork it in Armada on your Mac.";
 
 /// The live Sessions. The phone has no list of ended ones.
@@ -275,8 +277,8 @@ struct Forking {
     session_id: String,
 }
 
-/// A new Job copying the whole of an ended one, in the old Job's own repository, as Bridge's
-/// `fork` does. Copying up to a row is not offered from the phone.
+/// A new Job copying an old one, in the old Job's own repository, as Bridge's `fork` does:
+/// the whole of an ended one, a live one up to its agent's last message.
 pub async fn fork(State(gateway): State<Gateway>, body: Bytes) -> Response {
     let Ok(forking) = ipc::decode::<Forking>("a fork", &body) else {
         return refusal(StatusCode::BAD_REQUEST, UNREADABLE_REQUEST);
@@ -287,16 +289,30 @@ pub async fn fork(State(gateway): State<Gateway>, body: Bytes) -> Response {
         return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION);
     }
     let path = format!("/sessions/one?session_id={}", forking.session_id);
-    let old = match read::<SessionThread>(&gateway, &path, "a job").await {
-        Ok(Some(thread)) => thread.session,
+    let SessionThread { session: old, rows } = match read::<SessionThread>(&gateway, &path, "a job").await {
+        Ok(Some(thread)) => thread,
         Ok(None) => return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION),
         Err(refused) => return refused,
     };
     let Some(manifest_id) = old.manifest_id.clone() else {
         return refusal(StatusCode::CONFLICT, NO_REPOSITORY_TO_FORK);
     };
+    // A live Job is copied up to a row, or Fleet refuses it. Fleet cuts only at a message, so
+    // this is its agent's last one, the point Fleet itself picks when a fork names none.
+    let at = if old.state == SessionState::Live {
+        let last = rows.iter().rev().find_map(|row| match row {
+            SessionRow::Message { id, from: SessionVoice::Agent, .. } => Some(id.clone()),
+            _ => None,
+        });
+        match last {
+            Some(id) => Some(id),
+            None => return refusal(StatusCode::CONFLICT, NOTHING_TO_FORK_YET),
+        }
+    } else {
+        None
+    };
     let start = StartSession {
-        fork: Some(ForkFrom { session_id: old.id.clone(), at: None }),
+        fork: Some(ForkFrom { session_id: old.id.clone(), at }),
         ..starting(manifest_id)
     };
     let record = match started(&gateway, &start).await {
