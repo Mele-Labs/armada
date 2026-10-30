@@ -228,6 +228,8 @@ mod pull_requesting;
 mod pull_refreshing;
 /// The issues a Session works on: named by the person, or closed by its pull requests.
 mod session_issues;
+/// What a Job holds, standing in the states of its lifecycles, and the readers that say where.
+pub mod lifecycles;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.

@@ -308,6 +308,7 @@ where
             let Ok(Ok(Some(read))) = read else {
                 continue;
             };
+            self.lifecycle_ticket_seen(manifest_id, issue.as_str(), &read).await;
             let fresh = [
                 ("title", read.title.as_written()),
                 ("state", if read.closed { "closed" } else { "open" }),
