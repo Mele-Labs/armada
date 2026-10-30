@@ -1,5 +1,5 @@
-// What a Session is doing, read off `Session.activity` for the three places that draw it: a list row's
-// line, the band over the box, and a Cockpit tile. Todos are the agent's report and `now` is what Fleet
+// What a Session is doing, read off `Session.activity` for the two places that draw it from a running turn: a list row's
+// line and a Cockpit tile. The Job's spine draws the whole list from `activity.todos` itself. Todos are the agent's report and `now` is what Fleet
 // detected, so the todos only ever add to `now`. Nothing is drawn for a Session whose turn is not
 // running: an idle agent is doing nothing, whatever its list last said.
 
@@ -8,7 +8,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 const running = (session: Session): boolean => session.dead === undefined && session.turn.state === "working";
 
-/** The todos in the order the band draws them: the one being done, then those still to do, then those done. */
+/** The todos of a running turn: the one being done first, then those still to do, then those done. */
 export function todosOf(session: Session): WorkingTodo[] {
   if (!running(session)) return [];
   const todos = (session.activity?.todos ?? []).map((one, at): WorkingTodo => ({ key: `${at}`, ...one }));

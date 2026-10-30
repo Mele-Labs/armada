@@ -472,6 +472,35 @@ async fn an_exact_item_keeps_its_task_when_a_longer_one_also_carries_the_words()
     );
 }
 
+/// What Bridge reads to draw the agent's own list once: an item that is a plan task carries that task's id,
+/// so the plan's row shows it and the list does not.
+#[tokio::test]
+async fn an_item_of_the_agents_list_carries_the_id_of_the_plan_task_it_says_and_one_that_says_nothing_of_the_plan_carries_none() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let write = r#"{"todos":[
+        {"content":"add  the TABLES","status":"in_progress","activeForm":"Adding"},
+        {"content":"Run the tests","status":"pending","activeForm":"Running"},
+        {"content":"Record it","status":"completed","activeForm":"Recording"}]}"#;
+    let marks = |record: SessionRecord| record.activity.expect("a list was heard").todos.into_iter().map(|one| (one.text, one.task)).collect::<Vec<_>>();
+
+    // With no plan, nothing is a plan task's.
+    rig.gate(&id, "TodoWrite", write).await;
+    assert_eq!(
+        marks(read(&rig, &id).await),
+        [("add  the TABLES".into(), None), ("Run the tests".into(), None), ("Record it".into(), None)],
+        "no plan, no id on any item"
+    );
+
+    // The same list read against a recorded plan: the two that say a task carry its id, in the list's own order.
+    recorded(&rig, first(&id)).await;
+    assert_eq!(
+        marks(read(&rig, &id).await),
+        [("add  the TABLES".into(), Some("t1".into())), ("Run the tests".into(), None), ("Record it".into(), Some("t3".into()))],
+        "the matched items name their plan task; the unmatched one stays None"
+    );
+}
+
 #[tokio::test]
 async fn an_edit_seen_under_a_groups_paths_marks_the_group_worked_and_makes_its_completion_done() {
     let rig = rig_placing(None);
