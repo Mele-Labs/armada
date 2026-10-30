@@ -23,6 +23,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         id: id.to_string(),
         gives: None,
         lands_in: None,
+        own_job: false,
         agent: "rust-engineer".to_string(),
         title: id.to_string(),
         paths: Vec::new(),

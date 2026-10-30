@@ -13,6 +13,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
         issue: None,
         gives: None,
         lands_in: None,
+        own_job: false,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: one.to_string() }).collect(),
     }
 }
@@ -162,4 +163,35 @@ fn a_group_lands_in_a_short_label_or_none() {
     assert_eq!(with(None).unwrap().groups[0].lands_in, None);
     let why = with(Some(&"x".repeat(25))).expect_err("refused");
     assert!(why.contains("groups[0] `lands_in` is longer than 24 characters"), "{why}");
+}
+
+#[test]
+fn a_group_goes_to_a_job_of_its_own_when_it_says_so_and_the_wire_leaves_it_out_otherwise() {
+    let own: PlanGroupInput = crate::decode(
+        "a group",
+        br#"{"title":"Store","agent":"rust-engineer","own_job":true,"tasks":[{"title":"Add the tables"}]}"#,
+    )
+    .unwrap();
+    let absent: PlanGroupInput =
+        crate::decode("a group", br#"{"title":"Fleet","agent":"rust-engineer","tasks":[{"title":"Serve it"}]}"#).unwrap();
+    assert!(own.own_job);
+    assert!(!absent.own_job, "absent reads false");
+    assert!(crate::encode(&own).unwrap().contains(r#""own_job":true"#));
+    assert!(!crate::encode(&absent).unwrap().contains("own_job"), "false is not sent");
+
+    let checked = plan(vec![own, absent]).checked().unwrap();
+    assert_eq!(checked.groups.iter().map(|one| one.own_job).collect::<Vec<_>>(), [true, false], "checking keeps it");
+}
+
+#[test]
+fn a_plan_group_on_the_wire_carries_own_job_only_when_it_is_true() {
+    let bare = br#"{"id":"g1","agent":"rust-engineer","title":"Store","paths":[],"tasks":[]}"#;
+    let mut group: crate::SessionPlanGroup = crate::decode("a plan group", bare).unwrap();
+    assert!(!group.own_job, "a group from before the mark reads false");
+    assert!(!crate::encode(&group).unwrap().contains("own_job"));
+    group.own_job = true;
+    let wire = crate::encode(&group).unwrap();
+    assert!(wire.contains(r#""own_job":true"#), "{wire}");
+    let back: crate::SessionPlanGroup = crate::decode("a plan group", wire.as_bytes()).unwrap();
+    assert!(back.own_job);
 }
