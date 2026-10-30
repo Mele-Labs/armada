@@ -629,25 +629,24 @@ where
         set: SetSessionWorkflow,
     ) -> Result<SessionRecord, Refusal> {
         let (id, by) = self.copy_placed(Some(&set.session_id))?;
-        if self.terminal_session(&id).await?.is_some() {
-            return Err(self.hosted_refusal(
-                SESSION_COMMAND_REFUSED,
-                &format!("job {id} is a terminal job, and only a hosted one has a workflow"),
-            ));
-        }
-        let (session, hosting) = self.session_and_hosting(&id).await?;
-        if session.state == store::SessionState::Ended {
-            return Err(self.closed(&id));
-        }
+        self.workflow_put(&id, set.workflow, by).await
+    }
+
+    /// The workflow a Job of the repository `manifest` may follow, trimmed and none where blank, with the
+    /// repository's workflows. Refused where it holds no such workflow, or it is switched off.
+    pub(crate) fn workflow_checked(
+        &self,
+        manifest: &str,
+        workflow: Option<String>,
+    ) -> Result<(Option<String>, Arc<std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>>), Refusal> {
         let held = self
-            .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
+            .served_named(Some(&ManifestId::carried(manifest)))
             .map(|served| served.workflows())
             .unwrap_or_default();
-        let workflow = set
-            .workflow
+        let workflow = workflow
             .map(|named| named.trim().to_string())
             .filter(|named| !named.is_empty());
-        if let Some(named) = workflow.as_deref().filter(|named| !self.workflow_on(&hosting.manifest_id, named)) {
+        if let Some(named) = workflow.as_deref().filter(|named| !self.workflow_on(manifest, named)) {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
                 &format!("workflow `{named}` is switched off in Settings for this repository, so no Job can follow it"),
@@ -661,6 +660,28 @@ where
                 ));
             }
         }
+        Ok((workflow, held))
+    }
+
+    /// Job `id` follows `workflow`, or none, as `by` chose.
+    pub(crate) async fn workflow_put(
+        self: &Arc<Self>,
+        id: &str,
+        workflow: Option<String>,
+        by: ipc::ChangedBy,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = id.to_string();
+        if self.terminal_session(&id).await?.is_some() {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                &format!("job {id} is a terminal job, and only a hosted one has a workflow"),
+            ));
+        }
+        let (session, hosting) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(&id));
+        }
+        let (workflow, held) = self.workflow_checked(&hosting.manifest_id, workflow)?;
         {
             let mut store = self.store().lock().await;
             let mut fresh = store
