@@ -36,7 +36,7 @@ where
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let fleet = Arc::clone(&self);
         tokio::task::spawn_blocking(move || {
-            let held = fleet.held_directories(&id, &served, &hosting);
+            let held = fleet.process_directories(&id, &served, &hosting);
             let processes = fleet.processes_of(&id, &held);
             let slot = Self::directory_of(&served, &hosting);
             let load = fleet.load_of(&processes, &slot);
@@ -108,7 +108,7 @@ where
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let fleet = Arc::clone(&self);
         let found = tokio::task::spawn_blocking(move || {
-            let held = fleet.held_directories(&id, &served, &hosting);
+            let held = fleet.process_directories(&id, &served, &hosting);
             fleet
                 .processes_of(&id, &held)
                 .into_iter()

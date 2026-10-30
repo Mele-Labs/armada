@@ -6,6 +6,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 
 import type { JobBrowserApi, JobBrowserState } from "../../../shared/api/job-browser";
+import { viewingNow } from "../cockpit/viewed";
 import { openInPanel } from "../shared-panel/store";
 
 /** Who is driving the page: the agent through Armada's tools, or the person, who took it over. */
@@ -39,6 +40,8 @@ let held: Readonly<Record<string, JobBrowser>> = {};
 /** The mock's history for each Job, which main keeps for the app. */
 const visits = new Map<string, { visited: string[]; at: number }>();
 const listeners = new Set<() => void>();
+/** Jobs whose browser the person pressed open, which main answers with a show. */
+const asked = new Set<string>();
 
 function told(): void {
   listeners.forEach((hear) => hear());
@@ -77,7 +80,10 @@ export function wireJobBrowsers(api: Wired): () => void {
   };
   void api.list().then((all) => all.forEach(fold));
   const offChanged = api.onChanged(fold);
-  const offShow = api.onShow((sessionId) => openInPanel({ kind: "browser", sessionId }));
+  // An agent's open reaches here as a press does. Only the person's press, or a Job he has open, opens the panel: the rest wait behind the Job's Browser tile.
+  const offShow = api.onShow((sessionId) => {
+    if (asked.delete(sessionId) || viewingNow(sessionId)) openInPanel({ kind: "browser", sessionId });
+  });
   return () => {
     offChanged();
     offShow();
@@ -150,6 +156,7 @@ export const showThread = (sessionId: string, shown: boolean) => edit(sessionId,
 /** The Job browser in Bridge's side panel, out of any window it had. Main makes an empty one where the Job has none. */
 export function openBrowser(sessionId: string): void {
   if (wired !== undefined) {
+    asked.add(sessionId);
     void wired.show(sessionId);
     return;
   }
