@@ -374,6 +374,8 @@ export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 
+// Which revision of a document or a sketch is shown, newest first.
+export * from "./compositions/RevisionMenu/RevisionMenu";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";

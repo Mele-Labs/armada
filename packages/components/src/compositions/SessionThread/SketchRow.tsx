@@ -1,5 +1,5 @@
 import { BadgeCheck, BellRing, ChevronDown, ChevronRight, Maximize2, PencilRuler, Reply } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card, CardFooter } from "../../primitives/Card/Card";
@@ -7,6 +7,7 @@ import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { forgetKept, readKept } from "../../keep";
+import { RevisionMenu } from "../RevisionMenu/RevisionMenu";
 import { SketchScene } from "../SketchScene/SketchScene";
 import type { Scene } from "../SketchScene/scene";
 import type { ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
@@ -79,12 +80,43 @@ export function ApprovalAnswers({ id, keep, settled, open, onAnswer }: { id: str
   );
 }
 
+type Against = { title: string; scene: Scene };
+
+/**
+ * What a sketch with `revisions` reads as at revision `picked`, the newest where none is: **each revision against the one before
+ * it**, and the first plain. The newest keeps the sketch the agent named as `against` where it named one (`named`), found or not. `earlier` is a revision
+ * before the newest, read only: a note on it, or an answer, would be about a drawing that no longer stands.
+ */
+export function sketchAtRevision(revisions: readonly Scene[] | undefined, picked: number | undefined, newest: { scene: Scene; against?: Against; named?: boolean }): { revision?: number; scene: Scene; against?: Against; earlier: boolean } {
+  if (revisions === undefined || revisions.length < 2) return { ...newest, earlier: false };
+  const count = revisions.length;
+  const revision = Math.min(picked ?? count, count);
+  const before = revision > 1 ? revisions[revision - 2] : undefined;
+  const previous = before === undefined ? {} : { against: { title: `Revision ${String(revision - 1)}`, scene: before } };
+  const own = newest.against === undefined ? {} : { against: newest.against };
+  if (revision === count) return { revision, scene: newest.scene, ...(newest.named === true || newest.against !== undefined ? own : previous), earlier: false };
+  return { revision, scene: revisions[revision - 1] ?? newest.scene, ...previous, earlier: true };
+}
+
+/** The revision a sketch's menu shows, `undefined` for the newest, and the menu itself where the sketch has more than one. */
+function useSketchRevision(revisions: readonly Scene[] | undefined, align: "start" | "end") {
+  const [picked, setPicked] = useState<number | undefined>(undefined);
+  const count = revisions?.length ?? 0;
+  const menu =
+    count < 2 ? null : (
+      <RevisionMenu count={count} revision={Math.min(picked ?? count, count)} align={align} onPick={(revision) => setPicked(revision === count ? undefined : revision)} />
+    );
+  return { picked, menu };
+}
+
 /**
  * A sketch the agent drew, where in the thread it did: a header band over the drawing itself, shrunk (`SketchScene`'s
  * `preview`, so the frames, icons, colours and edges are the panel's), and a
  * press that opens the sketch in the panel. It plays the sketch's steps while it is pointed at or focused. **A card whose sketch was replaced is dashed and stands
  * back**, because its press opens the sketch that took its place. A sketch put to the person (`asked`) is answered under
  * it as a draft card is: Approve, and Send back with a note, then how it ended. `keep` names it for the note he types.
+ * **The newest card of a sketch drawn more than once offers each revision** at its top right; an earlier one is drawn as a
+ * change to the one before it, and Approve and Send back still answer the newest.
  */
 export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<SessionThreadRow, { kind: "sketch" }>; keep?: string; onOpen?: (sketch: string) => void; onAnswer?: (sketch: string, answer: SketchAnswer) => void }) {
   // The steps loop while the card is pointed at or focused, and the card is a still drawing the rest of the time.
@@ -92,6 +124,10 @@ export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sessio
   const [focused, setFocused] = useState(false);
   const settled = row.settled;
   const open = row.asked === true && settled === undefined && row.replaced !== true && onAnswer !== undefined;
+  const revisions = row.replaced === true ? undefined : row.revisions;
+  const { picked, menu } = useSketchRevision(revisions, "end");
+  // The agent's own `against` is a card it named; the revisions' is the drawing before. The first wins on the newest, as it always has.
+  const shown = sketchAtRevision(revisions, picked, { scene: row.drawing, named: row.against !== undefined, ...(row.against === undefined || row.againstScene === undefined ? {} : { against: { title: row.against, scene: row.againstScene } }) });
   const press = (
     <button
       type="button"
@@ -107,23 +143,26 @@ export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sessio
         <PencilRuler size={12} strokeWidth={2} aria-hidden />
         <span className="armada-session-sketch__title">{row.title}</span>
         {row.replaced === true ? <span className="armada-session-sketch__state">Replaced</span> : null}
-        {row.against === undefined ? null : <span className="armada-session-sketch__state">Against {row.against}</span>}
+        {row.against === undefined || shown.earlier ? null : <span className="armada-session-sketch__state">Against {row.against}</span>}
         <Stamp still at={row.at} className="armada-session-sketch__at" />
       </span>
       <span className="armada-session-sketch__glass">
-        <SketchScene scene={row.drawing} {...(row.againstScene === undefined ? {} : { against: row.againstScene })} preview playing={pointed || focused} />
+        <SketchScene key={shown.revision} scene={shown.scene} {...(shown.against === undefined ? {} : { against: shown.against.scene })} preview playing={pointed || focused} />
       </span>
     </button>
   );
+  // The menu is a button of its own, so it stands over the press's band and never inside the press.
+  const revision = menu === null ? null : <span className="armada-session-sketch__revision">{menu}</span>;
   if (row.asked !== true && settled === undefined) {
     return (
-      <li className="armada-session-sketch" data-replaced={row.replaced || undefined}>
+      <li className="armada-session-sketch" data-replaced={row.replaced || undefined} data-revisions={menu === null ? undefined : ""}>
         {press}
+        {revision}
       </li>
     );
   }
   return (
-    <li className="armada-session-sketch" data-replaced={row.replaced || undefined} data-asked>
+    <li className="armada-session-sketch" data-replaced={row.replaced || undefined} data-revisions={menu === null ? undefined : ""} data-asked>
       <div className="armada-session-sketch__asked" role="article" aria-label={`Sketch: ${row.title}`} data-settled={settled?.how}>
         {press}
         {!open && settled === undefined ? null : (
@@ -132,6 +171,7 @@ export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sessio
           </div>
         )}
       </div>
+      {revision}
     </li>
   );
 }
@@ -139,23 +179,26 @@ export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<Sessio
 /**
  * A sketch read in the panel, read-only: pan, zoom and the steps, drawn by `SketchScene`. **Given
  * the sketch it was drawn against, it is read as a change to it** (added green, removed red,
- * changed amber), and a band offers the whole drawing instead.
+ * changed amber), and a band offers the whole drawing instead. `menu`, a revision menu, ends the band.
  */
-export function SketchReading({ scene, title, against, notes, marked, answer }: { scene: unknown; title?: string; against?: { title: string; scene: unknown }; notes?: ViewerNotesScope; marked?: readonly string[]; /** Present while the sketch waits on him: the same Approve and Send back the thread card has. */ answer?: { sketch: string; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void } }) {
+export function SketchReading({ scene, title, against, notes, marked, answer, menu }: { scene: unknown; title?: string; against?: { title: string; scene: unknown }; notes?: ViewerNotesScope; marked?: readonly string[]; /** Present while the sketch waits on him: the same Approve and Send back the thread card has. */ answer?: { sketch: string; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void }; menu?: ReactNode }) {
   const [changes, setChanges] = useState(true);
   return (
     <div className="armada-session-sketch-read">
-      {against === undefined ? null : (
+      {against === undefined && menu === undefined ? null : (
         <div className="armada-session-sketch-read__band">
-          <span className="armada-session-sketch-read__against">Against {against.title}</span>
-          <span className="armada-session-sketch-read__reads" role="group" aria-label="Read as">
-            <Button size="sm" variant={changes ? "secondary" : "ghost"} aria-pressed={changes} onClick={() => setChanges(true)}>
-              Changes
-            </Button>
-            <Button size="sm" variant={changes ? "ghost" : "secondary"} aria-pressed={!changes} onClick={() => setChanges(false)}>
-              Whole
-            </Button>
-          </span>
+          <span className="armada-session-sketch-read__against">{against === undefined ? null : `Against ${against.title}`}</span>
+          {against === undefined ? null : (
+            <span className="armada-session-sketch-read__reads" role="group" aria-label="Read as">
+              <Button size="sm" variant={changes ? "secondary" : "ghost"} aria-pressed={changes} onClick={() => setChanges(true)}>
+                Changes
+              </Button>
+              <Button size="sm" variant={changes ? "ghost" : "secondary"} aria-pressed={!changes} onClick={() => setChanges(false)}>
+                Whole
+              </Button>
+            </span>
+          )}
+          {menu}
         </div>
       )}
       <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} {...(notes === undefined ? {} : { notes })} {...(marked === undefined ? {} : { marked })} />
@@ -169,7 +212,7 @@ export function SketchReading({ scene, title, against, notes, marked, answer }: 
 }
 
 /** A sketch waiting on the person, pinned as the plan to approve is. */
-export type SketchPinProps = { sketch: string; title: string; scene: Scene; against?: { title: string; scene: Scene }; /** Where his notes on it are held, and the key the note he types is kept under. */ notes?: ViewerNotesScope; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void; /** Opens it in the side panel, bigger, as the thread card's press does. */ onOpen?: (sketch: string) => void };
+export type SketchPinProps = { sketch: string; title: string; scene: Scene; against?: { title: string; scene: Scene }; /** Where his notes on it are held, and the key the note he types is kept under. */ notes?: ViewerNotesScope; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void; /** Opens it in the side panel, bigger, as the thread card's press does. */ onOpen?: (sketch: string) => void; /** Each drawing kept under the title, oldest first, the newest `scene`: offered at the header's right. */ revisions?: readonly Scene[] };
 
 /**
  * A sketch put to the person, as the thread's last card where the plan to approve stands: the drawing with the canvas's own pan, zoom
@@ -177,8 +220,10 @@ export type SketchPinProps = { sketch: string; title: string; scene: Scene; agai
  * **A chevron folds it to its header line**, the glyph, the title and the bell with the keys at its end, as the plan folds to its band.
  * Folded, Send back opens the note under that line, and the drawing stays folded.
  */
-export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer, onOpen }: SketchPinProps) {
+export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer, onOpen, revisions }: SketchPinProps) {
   const [folded, setFolded] = useState(false);
+  const { picked, menu } = useSketchRevision(revisions, "end");
+  const shown = sketchAtRevision(revisions, picked, { scene, ...(against === undefined ? {} : { against }) });
   const Fold = folded ? ChevronRight : ChevronDown;
   const said = folded ? "Unfold" : "Fold";
   return (
@@ -193,6 +238,7 @@ export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer
             </span>
           </Tooltip>
           <span className="armada-session-sketch-pin__tools">
+            {menu}
             {onOpen === undefined ? null : (
               <Tooltip label="Open in the panel">
                 <Button className="armada-session-sketch-pin__open" variant="ghost" size="sm" iconOnly aria-label="Open in the panel" onClick={() => onOpen(sketch)}>
@@ -210,7 +256,7 @@ export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer
       </div>
       {folded ? null : (
         <div className="armada-session-sketch-pin__read">
-          <SketchReading scene={scene} title={title} {...(against === undefined ? {} : { against })} {...(notes === undefined ? {} : { notes })} />
+          <SketchReading key={shown.revision} scene={shown.scene} title={title} {...(shown.against === undefined ? {} : { against: shown.against })} {...(notes === undefined || shown.earlier ? {} : { notes })} />
         </div>
       )}
       <div className="armada-session-sketch__answers">

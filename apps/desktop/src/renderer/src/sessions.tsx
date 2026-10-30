@@ -42,6 +42,8 @@ import {
   SketchPad,
   SketchPreview,
   SketchReading,
+  RevisionMenu,
+  sketchAtRevision,
   StepsPanel,
   SubagentMarks,
   useCodeRun,
@@ -78,7 +80,7 @@ import { chooseFolder, openLink, readRetro, readWorkflowChanges, searchFiles } f
 import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } from "./session-view/watch-marks";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
-import { readingOfSketch } from "./session-sketch";
+import { readingOfSketch, sceneOfSketch, useSketchRevisions, withSketchRevisions } from "./session-sketch";
 import { documentAnswerOf, forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
 import { askToReportJob } from "./report";
 import { backgroundEntryOf } from "./session-background";
@@ -447,6 +449,17 @@ export function ReadingSheet({
       ? { sketch: one.id, keep: `sketch:${sessionId}:${one.id}`, onAnswer: (sketch: string, given: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf({ id: sessionId, attachments: [one] }, sketch, given)) }
       : undefined;
   const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
+  // A sketch drawn more than once offers each drawing, as the thread card does, at the end of the reading's band.
+  const sketch = one?.kind === "sketch" ? one : undefined;
+  const revisions = useSketchRevisions(draft, sessionId, sketch === undefined ? NO_ATTACHMENTS : [sketch]).get(sketch?.id ?? "");
+  const [picked, setPicked] = useState<{ id: string; revision: number } | undefined>(undefined);
+  const [revising, setRevising] = useState(false);
+  const reading = sketch === undefined ? undefined : readingOfSketch(sketch);
+  const shown = reading === undefined ? undefined : sketchAtRevision(revisions, picked?.id === sketch?.id ? picked?.revision : undefined, reading);
+  const revisionMenu =
+    revisions === undefined || shown?.revision === undefined || sketch === undefined ? undefined : (
+      <RevisionMenu count={revisions.length} revision={shown.revision} align="end" open={revising} onOpenChange={setRevising} onPick={(revision) => setPicked(revision === revisions.length ? undefined : { id: sketch.id, revision })} />
+    );
   const background = one?.kind === "background" ? one : undefined;
   const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
   return (
@@ -475,6 +488,7 @@ export function ReadingSheet({
         : {})}
       closeLabel="Close"
       closeBinding="Esc"
+      under={revising}
       onClose={onClose}
     >
       {steps !== undefined ? (
@@ -482,7 +496,7 @@ export function ReadingSheet({
         <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
-          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} {...(marked?.parts === undefined ? {} : { marked: marked.parts })} {...(answer === undefined ? {} : { answer })} />
+          <SketchReading key={shown?.revision} scene={shown?.scene ?? sceneOfSketch(one.drawing)} title={one.title} {...(shown?.against === undefined ? {} : { against: shown.against })} {...(shown?.earlier === true ? {} : { notes: { key: `sketch:${sessionId}:${one.id}`, job: sessionId } })} {...(marked?.parts === undefined || shown?.earlier === true ? {} : { marked: marked.parts })} {...(answer === undefined ? {} : { answer })} {...(revisionMenu === undefined ? {} : { menu: revisionMenu })} />
         ) : (
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )
@@ -786,6 +800,7 @@ function handoffFailure(session: Session): DebugPayload {
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
+const NO_ATTACHMENTS: readonly SessionAttachment[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
@@ -843,7 +858,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const [answeredLapse, setAnsweredLapse] = useState<string | undefined>();
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
-  const threadRows = useThreadRows(session);
+  const sketchRevisions = useSketchRevisions(draft, session.id, session.attachments);
+  const threadRows = withSketchRevisions(useThreadRows(session), sketchRevisions);
   const openRetro = useOpenRetro(session);
   const { onWant } = held;
   const { id } = session;
@@ -1085,7 +1101,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const sketching =
     put === undefined
       ? undefined
-      : { ...readingOfSketch(put), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
+      : { ...readingOfSketch(put), ...(sketchRevisions.has(put.id) ? { revisions: sketchRevisions.get(put.id)! } : {}), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
