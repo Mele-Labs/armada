@@ -10,7 +10,7 @@ import { DockHandle, forgetKept, useKept } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
 import { useColumns } from "../cockpit/deck/columns";
-import { useDispatching } from "../dispatch-panel/dispatching";
+import { useDispatching, type SheetRequest } from "../dispatch-panel/dispatching";
 import { issueHit } from "../numbered";
 import { Column } from "./column";
 import { ProjectsKeys } from "./keys";
@@ -73,9 +73,9 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
   // sent without its parent (`parentOf`) rides as its own title, then `Part of:` and the parent's title and notes, and the
   // parent's issues as tags: the parent is context, and the Job holds the subtask only. The rows sent stand in one
   // repository, which the sheet opens on.
-  const send = (rows: readonly ProjectRow[]) => {
+  const requestOf = (rows: readonly ProjectRow[]): SheetRequest | undefined => {
     const first = rows[0];
-    if (dispatching === undefined || first === undefined) return;
+    if (first === undefined) return undefined;
     const root = bands.find((one) => one.manifestId === first.manifestId)?.root;
     const issues = rows.flatMap((row) => (row.kind === "issue" ? [row] : (parentOf(snap, row.id)?.issues ?? row.issues ?? [])));
     const tags = [...new Map(issues.map((one) => [one.reference, issueHit({ reference: one.reference, title: one.title, url: one.url }).tag] as const)).values()];
@@ -87,30 +87,12 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
       return [row.title, `Part of: ${parent.title}`, ...(notes === "" ? [] : [notes]), "Only the subtask is to be done."];
     });
     const words = [...lines, ...tags.map((tag) => tag.title)].join("\n");
-    dispatching.choose("session");
-    dispatching.openSheet(
-      `${words} `,
-      root,
-      tags,
-      rows.flatMap((row) => store.refOf(row.id) ?? []),
-    );
+    return { words: `${words} `, root, tags, rows: rows.flatMap((row) => store.refOf(row.id) ?? []) };
   };
-  // One request for each repository: the first opens now, and each next opens when the one before starts or is put away.
-  const later = useRef<ProjectRow[][]>([]);
+  // One request for each repository, queued in the dispatching provider: it outlives this page, which the Cockpit replaces once the first Job starts.
   const dispatch = (rows: readonly ProjectRow[]) => {
-    const [first, ...rest] = byRepository(rows);
-    later.current = rest;
-    if (first !== undefined) send(first);
+    dispatching?.openSheets(byRepository(rows).flatMap((one) => requestOf(one) ?? []));
   };
-  const sheet = dispatching?.sheet === true;
-  const was = useRef(false);
-  useEffect(() => {
-    if (was.current && !sheet) {
-      const next = later.current.shift();
-      if (next !== undefined) send(next);
-    }
-    was.current = sheet;
-  });
   const dispatchRow = (rowId: string) => {
     const row = allRows({ rows: [...snap.loose, ...snap.projects.flatMap((one) => one.rows)] }).find((one) => one.id === rowId);
     if (row !== undefined) dispatch([row]);
