@@ -22,6 +22,7 @@ mod from_nothing;
 mod gating;
 mod harness;
 mod kit_manifest;
+mod autonomy;
 mod lifecycle;
 mod live;
 mod loops;

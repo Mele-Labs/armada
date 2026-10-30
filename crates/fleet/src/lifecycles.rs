@@ -13,14 +13,20 @@
 //! where the issue ledger already reads it, a watch where its reading is kept, and Fleet's events
 //! from the tap that already hears every Job's row change.
 
+pub mod copying;
+mod following;
 pub mod holding;
 mod keeping;
+pub mod looking;
 mod polling;
 pub mod reading;
+pub mod ruling;
+pub mod saying;
 pub(crate) mod taking_on;
 
 use core_model::Lifecycle;
 
+pub use following::keep_the_rules;
 pub use keeping::keep_the_lifecycles;
 
 /// The lifecycles that apply to a Job in the repository `manifest_id`.

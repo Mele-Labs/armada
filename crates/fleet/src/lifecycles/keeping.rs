@@ -173,7 +173,7 @@ where
         let subject = subject_of(&held, lifecycle, key)?;
         let transition = read_instance(&mut held, &lifecycles, &subject, &seen, &at)?;
         let (from, to) = (transition.moved.from.as_wire(), transition.moved.to.as_wire());
-        store
+        let kept = store
             .keep_lifecycle_read(&KeptRead {
                 session_id: session,
                 lifecycle,
@@ -184,6 +184,11 @@ where
                 at: &at,
             })
             .ok()?;
+        drop(store);
+        // The Job's rules hear the move once it is kept, outside the hold that kept it.
+        if let Some(move_id) = kept {
+            self.rules_heard_move(session, &transition, move_id).await;
+        }
         Some(transition)
     }
 }

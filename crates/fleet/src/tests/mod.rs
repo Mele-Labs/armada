@@ -143,6 +143,7 @@ mod workflow_proposal_waits;
 mod auto_land;
 mod lifecycle_keeping;
 mod lifecycle_reading;
+mod rule_running;
 mod attached_line;
 mod session_pause;
 mod session_pause_waiting;
