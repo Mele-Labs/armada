@@ -55,7 +55,7 @@ import { provideTeaching } from "../teach";
 import { createFleetTaught, NO_TAUGHT } from "../fleet-taught";
 import { NO_TWEAKS, createFleetTweaks } from "../fleet-tweaks";
 import { TweakSourceProvider, TweaksApplied } from "../tweaks";
-import { seedTaught } from "./teach";
+import { seedJiraKey, seedTaught } from "./teach";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
@@ -153,10 +153,11 @@ export function mountApp(
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
-    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule");
+    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule" || chosen.name === "question-ticket-links");
   }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);
+  if (shared === undefined && chosen.name === "question-ticket-links") seedJiraKey(repository().root, "ops", "acme.atlassian.net");
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
   // A run kept past its card belongs to the Fleet that ran it.
