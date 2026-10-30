@@ -9,7 +9,7 @@ import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/
 import { useSessions } from "../sessions-draft";
 import { ChildJob } from "./ChildJob";
 import { GroupPullRequests, issueOfGroup } from "./IssuesBlock";
-import { childrenOf } from "./linked";
+import { childrenOf, inHandOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
 import type { ViewGroup } from "./plan-marks";
@@ -107,7 +107,8 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
  */
 export function FlightRows({ groups, workingGroup, now, session, manifestId, onOpenSession, calm = false, all = false }: { calm?: boolean; /** Whole plan: every group open. */ all?: boolean; groups: readonly ViewGroup[]; workingGroup: string | undefined; now: string | undefined; session: Session; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
   const [pressed, setPressed] = useState<Readonly<Record<string, boolean>>>({});
-  const steps = stepsOf(groups, true, workingGroup);
+  const sessions = useSessions();
+  const steps = stepsOf(groups, true, workingGroup, inHandOf(sessions, session));
   // `calm` opens none by default: the groups still to come, which are read as titles.
   // Every group being worked stands open, since marks that lag can leave several in progress at once.
   const current = calm ? [] : groups.filter((group) => steps.get(group.id) === "current");
