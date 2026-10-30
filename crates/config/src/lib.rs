@@ -28,6 +28,7 @@
 /// Editing `armada.yml` a key at a time, every other byte left where it was.
 mod amending;
 mod applying;
+mod autonomy;
 mod catalogue;
 mod error;
 mod fields;
@@ -63,6 +64,7 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRun, NewRunner, NotAmended, PortEdit, RunEdit, Unplaceable,
 };
 pub use applying::{LifecycleFile, Lifecycles, Rank, Reach};
+pub use autonomy::{parse as parse_autonomy, AutonomyFile, AutonomyPiece, Autonomies};
 pub use catalogue::{
     carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
     CARRIED_AT,

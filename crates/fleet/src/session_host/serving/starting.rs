@@ -101,7 +101,7 @@ where
                     session_id: id.clone(),
                     // Empty is Setup's session or a Mod Job in the mods folder, which have no
                     // Manifest to name.
-                    manifest_id: manifest.unwrap_or_default(),
+                    manifest_id: manifest.clone().unwrap_or_default(),
                     model: start.model.filter(|model| !model.trim().is_empty()),
                     effort: start.effort.filter(|effort| !effort.trim().is_empty()),
                     mode: mode_text(start.mode.unwrap_or_default()).to_string(),
@@ -126,6 +126,9 @@ where
             if holds_lifecycles {
                 let _ = store.mark_lifecycle_job(&id, &now);
             }
+        }
+        if let Some(repository) = manifest.as_deref().filter(|_| holds_lifecycles) {
+            self.job_copy_frozen(&id, repository).await;
         }
         if !held_tasks.is_empty() {
             self.project_tasks_held(&id, &held_tasks).await;

@@ -102,6 +102,8 @@ pub struct Fleet<H, V, W> {
     /// Everything that happened, entered as it did, for the Cockpit's timeline. Minted here: it
     /// holds the queue the writer reads. See [`mod@crate::timeline`].
     timeline: crate::timeline::Timeline,
+    /// Wakes the worker that does what a Job's rules planned. In memory: a Fleet that starts finds the acts in the store. See [`crate::lifecycles::acting`].
+    rule_acts: crate::lifecycles::acting::Owed,
     machine: Arc<dyn Machine>,
     /// The headroom in force: shipped, or what a person saved. A `std` lock
     /// for `drones`' reason — never held across an `.await`. See

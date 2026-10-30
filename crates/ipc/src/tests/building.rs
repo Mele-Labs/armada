@@ -129,3 +129,19 @@ fn an_offer_to_refresh_the_preview_crosses_as_preview_offer_with_its_command() {
     assert_eq!(read.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((WaitingActKind::Run, "scripts/preview --restart")));
     assert_eq!(serde_json::to_value(&read).unwrap(), item);
 }
+
+#[test]
+fn an_act_a_rule_asks_about_crosses_as_rule_act_with_its_two_options() {
+    let item = serde_json::json!({
+        "id": "rule_act:12",
+        "text": "Move ARM-41 to In progress",
+        "since": "2026-10-29T09:00:00Z",
+        "source": "rule_act",
+        "act": {"kind": "answer", "target": "rule_act:12"},
+        "options": [{"label": "Do it"}, {"label": "Skip"}]
+    });
+    let read: WaitingItem = serde_json::from_value(item.clone()).unwrap();
+    assert_eq!(read.source, WaitingSource::RuleAct);
+    assert_eq!(read.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Do it", "Skip"]);
+    assert_eq!(serde_json::to_value(&read).unwrap(), item);
+}
