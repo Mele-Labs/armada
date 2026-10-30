@@ -195,6 +195,17 @@ impl Workspaces {
         self.files.iter().filter(|file| file.overridden_by.is_none()).map(|file| &file.workspace)
     }
 
+    /// Where the Workspace `id` that runs is kept, if it is committed to a repository. **That
+    /// repository is its home**: the others that belong to it read what is scoped to it from there.
+    /// Absent for one that is Kit's, which has none.
+    pub fn kept_at(&self, id: &ScopeId) -> Option<&Path> {
+        self.files
+            .iter()
+            .find(|file| file.overridden_by.is_none() && file.workspace.id() == id)
+            .filter(|file| file.source == PieceSource::Repository)
+            .map(|file| file.path.as_path())
+    }
+
     /// The Workspaces that hold `repository`.
     pub fn holding(&self, repository: &ManifestId) -> Vec<&Workspace> {
         self.running().filter(|workspace| workspace.holds(repository)).collect()

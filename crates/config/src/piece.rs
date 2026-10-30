@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use core_model::PieceSource;
+use core_model::{PieceSource, ScopeId};
 
 /// One piece file, as text, and the place it was read from.
 ///
@@ -17,17 +17,25 @@ pub struct Written {
     source: PieceSource,
     path: PathBuf,
     text: String,
+    home_of: Option<ScopeId>,
 }
 
 impl Written {
     /// A file read from Kit's folder.
     pub fn in_kit(path: PathBuf, text: String) -> Written {
-        Written { source: PieceSource::Kit, path, text }
+        Written { source: PieceSource::Kit, path, text, home_of: None }
     }
 
     /// A file read from a repository's own `.armada/`.
     pub fn in_repository(path: PathBuf, text: String) -> Written {
-        Written { source: PieceSource::Repository, path, text }
+        Written { source: PieceSource::Repository, path, text, home_of: None }
+    }
+
+    /// A file read from the repository that **holds the Workspace** `workspace`, for a repository
+    /// that belongs to it. Only a file scoped to that Workspace is the member's to read; the home
+    /// repository's own, and those scoped to another Workspace, stay the home's.
+    pub fn in_home_of(workspace: ScopeId, path: PathBuf, text: String) -> Written {
+        Written { source: PieceSource::Repository, path, text, home_of: Some(workspace) }
     }
 
     pub fn source(&self) -> PieceSource {
@@ -40,6 +48,11 @@ impl Written {
 
     pub fn text(&self) -> &str {
         &self.text
+    }
+
+    /// The Workspace whose home repository this was read from, where it was.
+    pub fn home_of(&self) -> Option<&ScopeId> {
+        self.home_of.as_ref()
     }
 }
 

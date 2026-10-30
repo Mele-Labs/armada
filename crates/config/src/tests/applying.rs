@@ -108,7 +108,7 @@ fn the_narrower_scope_wins_whichever_place_kept_it() {
             (Reach::Everywhere, PieceSource::Armada)
         ]
     );
-    let winner = Rank { reach: Reach::Repository, source: PieceSource::Repository };
+    let winner = Rank { reach: Reach::Repository, source: PieceSource::Repository, home: false };
     assert!(applying.files().iter().filter(|file| file.lifecycle().id() == &id("ticket")).skip(1).all(|file| file.overridden_by() == Some(winner)));
 }
 
@@ -172,4 +172,53 @@ fn a_file_that_does_not_parse_is_left_out_for_every_repository_and_says_why() {
         assert!(left.path().ends_with("broken.yml") && left.said().contains("name"), "{to}: {left:?}");
         assert_eq!(applying.get(&id("ticket")), Some(&Lifecycle::ticket()));
     }
+}
+
+/// A file read from the home of `my-store`, the repository the Workspace is committed to.
+fn from_the_home(file: &str, text: String) -> Written {
+    let workspace = core_model::ScopeId::new("my-store").expect("a scope");
+    Written::in_home_of(workspace, PathBuf::from("store-web/.armada/lifecycles").join(file), text)
+}
+
+#[test]
+fn a_member_takes_from_the_home_only_what_is_scoped_to_the_workspace() {
+    let from_home = |scope: Option<&str>| applying("store-api", vec![from_the_home("tickets.yml", ticket(scope, "Home"))]);
+    let shared = from_home(Some("my-store"));
+    assert!(running_words(&shared).contains("Home"));
+    for stays_the_homes in [None, Some("store-web"), Some("store-api"), Some("another-workspace")] {
+        let applying = from_home(stays_the_homes);
+        assert_eq!(applying.get(&id("ticket")), Some(&Lifecycle::ticket()), "{stays_the_homes:?}");
+        assert_eq!(applying.files().len(), 4, "{stays_the_homes:?} is not listed, as nothing here applies");
+        assert!(applying.left_out().is_empty(), "{stays_the_homes:?} is not a fault either");
+    }
+}
+
+#[test]
+fn among_committed_copies_at_one_scope_the_homes_is_the_one_a_member_sees() {
+    let applying = applying(
+        "store-api",
+        vec![
+            in_repository("store-api", "tickets.yml", ticket(Some("my-store"), "Own")),
+            from_the_home("tickets.yml", ticket(Some("my-store"), "Home")),
+        ],
+    );
+    assert!(running_words(&applying).contains("Home"));
+    assert!(applying.left_out().is_empty(), "two committed copies at one scope are not a fault when one is the home's");
+    let own = applying
+        .files()
+        .iter()
+        .find(|file| file.path().is_some_and(|path| path.starts_with("store-api")))
+        .expect("the member's own copy is still listed");
+    assert_eq!(own.overridden_by().map(|rank| (rank.source, rank.home)), Some((PieceSource::Repository, true)));
+}
+
+#[test]
+fn yours_in_kit_still_wins_over_the_homes() {
+    let applying = applying(
+        "store-api",
+        vec![from_the_home("tickets.yml", ticket(Some("my-store"), "Home")), in_kit("tickets.yml", ticket(Some("my-store"), "Mine"))],
+    );
+    assert!(running_words(&applying).contains("Mine"));
+    let home = applying.files().iter().find(|file| file.rank().home).expect("the home's copy is listed");
+    assert!(home.overridden_by().is_some_and(|rank| rank.source == PieceSource::Kit));
 }

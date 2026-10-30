@@ -138,3 +138,83 @@ async fn a_repository_nobody_serves_is_refused() {
     let nobody = ManifestId::carried(core_model::Ulid::carried("01NOBODY"));
     assert!(fleet.lifecycles_applying_to(&nobody).is_err());
 }
+
+/// store-web is the home of `my-store`, which holds it and store-api. The home commits a ticket
+/// scoped to the Workspace, one scoped to itself, one that applies everywhere and one scoped to a
+/// Workspace of someone else's, each with words of its own so a test can tell which ran.
+fn a_workspace_with_a_home(home: &TempDir) -> (Fixture, Served, Served, Served) {
+    let fleet = a_fleet(home, FakeWorkProduct::changed(&[]));
+    let (web, api, back_office) = (first(&fleet), another(&fleet, home, "store-api"), another(&fleet, home, "back-office"));
+    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&id_of(&web), &id_of(&api)]));
+    (fleet, web, api, back_office)
+}
+
+fn ticket_file(name: &str) -> String {
+    format!("{name}.yml")
+}
+
+#[tokio::test]
+async fn a_member_sees_the_lifecycle_its_home_scopes_to_the_workspace() {
+    let home = TempDir::new();
+    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    write(armada(web.root(), "lifecycles", &ticket_file("shared")), &ticket(Some("my-store"), "Shared"));
+
+    let applying = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
+    assert!(ticket_words(&applying).contains("Shared"));
+    let file = applying.files().iter().find(|file| file.rank().home).expect("listed as the home's");
+    assert!(file.path().is_some_and(|path| path.starts_with(web.root())), "read from the home, not copied");
+    assert_eq!(file.rank().reach, Reach::Workspace);
+
+    // And the home sees it as its own file, once, with no second copy read from itself.
+    let at_home = fleet.lifecycles_applying_to(&id_of(&web)).expect("read");
+    assert!(ticket_words(&at_home).contains("Shared"));
+    assert!(at_home.left_out().is_empty(), "{:?}", at_home.left_out());
+}
+
+#[tokio::test]
+async fn a_member_does_not_see_what_its_home_keeps_for_itself_or_for_another_workspace() {
+    let home = TempDir::new();
+    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    write(armada(web.root(), "lifecycles", &ticket_file("itself")), &ticket(Some(id_of(&web).as_str()), "Itself"));
+    write(armada(web.root(), "lifecycles", &ticket_file("elsewhere")), &ticket(Some("another-workspace"), "Elsewhere"));
+    write(armada(web.root(), "lifecycles", &ticket_file("everywhere")), &ticket(None, "Everywhere"));
+
+    let at_home = fleet.lifecycles_applying_to(&id_of(&web)).expect("read");
+    assert!(ticket_words(&at_home).contains("Itself"), "the home still runs its own");
+
+    let member = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
+    let words = ticket_words(&member);
+    for kept in ["Itself", "Elsewhere", "Everywhere"] {
+        assert!(!words.contains(kept), "{kept} stays the home's: {words}");
+    }
+    assert_eq!(member.files().len(), 4, "nothing of the home's is listed");
+    assert!(member.left_out().is_empty());
+}
+
+#[tokio::test]
+async fn a_repository_outside_the_workspace_sees_nothing_of_its_homes() {
+    let home = TempDir::new();
+    let (fleet, web, _, back_office) = a_workspace_with_a_home(&home);
+    write(armada(web.root(), "lifecycles", &ticket_file("shared")), &ticket(Some("my-store"), "Shared"));
+    write(armada(web.root(), "lifecycles", &ticket_file("itself")), &ticket(Some(id_of(&web).as_str()), "Itself"));
+
+    let outside = fleet.lifecycles_applying_to(&id_of(&back_office)).expect("read");
+    let words = ticket_words(&outside);
+    assert!(!words.contains("Shared") && !words.contains("Itself"), "{words}");
+    assert_eq!(outside.files().len(), 4);
+}
+
+#[tokio::test]
+async fn at_one_scope_the_homes_copy_is_the_one_a_member_sees_and_yours_still_wins() {
+    let home = TempDir::new();
+    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    write(armada(web.root(), "lifecycles", &ticket_file("tickets")), &ticket(Some("my-store"), "Home"));
+    write(armada(api.root(), "lifecycles", &ticket_file("tickets")), &ticket(Some("my-store"), "Own"));
+    let applying = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
+    assert!(ticket_words(&applying).contains("Home"), "{}", ticket_words(&applying));
+    assert!(applying.left_out().is_empty(), "{:?}", applying.left_out());
+
+    write(kit(&home, "lifecycles", "tickets.yml"), &ticket(Some("my-store"), "Mine"));
+    let applying = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
+    assert!(ticket_words(&applying).contains("Mine"));
+}

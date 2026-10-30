@@ -11,6 +11,12 @@
 //! does not hold this repository is another repository's. A file that will not parse belongs to
 //! none, so it is left out for every repository and says why.
 //!
+//! **A Workspace committed to one repository is kept in that repository, its home, and the others
+//! read it from there.** That covers what is scoped to the Workspace as well as the Workspace's
+//! file: a member is handed the home's lifecycle files ([`Written::in_home_of`]) and takes only
+//! those scoped to that Workspace. The home's files scoped to itself, or to another Workspace,
+//! stay the home's.
+//!
 //! The Workspaces that hold the repository are read first ([`Workspaces`]); a scope that is the
 //! repository's own id is the repository's, and any other must be a Workspace that holds it.
 
@@ -36,11 +42,16 @@ pub enum Reach {
     Repository,
 }
 
-/// What decides which of two lifecycles with one id runs: the scope first, then the place.
+/// What decides which of two lifecycles with one id runs: the scope first, then the place, then
+/// whether it came from the home of the Workspace it is scoped to.
+///
+/// **Among committed copies at one scope, the home repository's is the one a member sees**, so
+/// `home` is last and a copy a member kept itself loses to it. Kit's still wins over both.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Rank {
     pub reach: Reach,
     pub source: PieceSource,
+    pub home: bool,
 }
 
 /// One lifecycle that applies, and what became of it.
@@ -105,14 +116,19 @@ impl Lifecycles {
         let mut left_out = Vec::new();
         let mut placed: BTreeMap<(LifecycleId, Rank), Vec<(Lifecycle, Option<PathBuf>)>> = BTreeMap::new();
         for built in Lifecycle::built_in() {
-            let rank = Rank { reach: Reach::Everywhere, source: PieceSource::Armada };
+            let rank = Rank { reach: Reach::Everywhere, source: PieceSource::Armada, home: false };
             placed.entry((built.id().clone(), rank)).or_default().push((built, None));
         }
         for one in written {
             match parse(one.path(), one.text()) {
                 Ok(lifecycle) => {
+                    // A file from a Workspace's home is the member's only where it is scoped to it.
+                    let theirs = |home: &ScopeId| lifecycle.scope() == &LifecycleScope::Within(home.clone());
+                    if one.home_of().is_some_and(|home| !theirs(home)) {
+                        continue;
+                    }
                     if let Some(reach) = reach_of(lifecycle.scope()) {
-                        let rank = Rank { reach, source: one.source() };
+                        let rank = Rank { reach, source: one.source(), home: one.home_of().is_some() };
                         placed
                             .entry((lifecycle.id().clone(), rank))
                             .or_default()
@@ -127,7 +143,7 @@ impl Lifecycles {
         for ((id, rank), mut defs) in placed {
             if defs.len() > 1 {
                 let paths: Vec<&Path> = defs.iter().filter_map(|(_, path)| path.as_deref()).collect();
-                let said = format!("`{}` is written twice at one scope in one place, in {}", id.as_str(), named(&paths));
+                let said = format!("`{}` is written more than once for this repository in one place, in {}", id.as_str(), named(&paths));
                 if let Some(first) = defs.swap_remove(0).1 {
                     left_out.push(LeftOut::new(rank.source, first, said));
                 }

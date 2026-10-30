@@ -7,15 +7,17 @@
 //!
 //! The two folders are Kit's on this Mac, `lifecycles` and `workspaces`, and the same names under
 //! each repository's `.armada/`. **The files of every repository Fleet serves are read for the
-//! Workspaces**, because one that spans several is committed to a single repository and the others
-//! read it from there. What merges, and which of two with one id wins, is `config`'s.
+//! Workspaces**, because one that spans several is committed to a single repository, its home, and
+//! the others read it from there. They read from there what is scoped to it too: a repository that
+//! belongs to a Workspace is also handed the lifecycle files its home holds, and `config` keeps
+//! only those scoped to that Workspace. What merges, and which of two with one id wins, is `config`'s.
 
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::{Lifecycles, PieceWritten, Workspaces};
-use core_model::ManifestId;
+use core_model::{ManifestId, ScopeId};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -30,7 +32,7 @@ const EXTENSIONS: &[&str] = &["json", "yml", "yaml"];
 /// Every piece file in `folder`, by name. A folder that is not there holds none, and a file that
 /// will not read is skipped: a person cannot be told what is not readable except as a file that
 /// did not fit, and that sentence needs text.
-fn files_in(folder: &Path, place: fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
+fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };
@@ -84,8 +86,28 @@ where
                 held: self.held_manifests(),
             })
         })?;
+        let workspaces = self.workspaces_read();
         let mut written = files_in(&self.kit_pieces(LIFECYCLES), PieceWritten::in_kit);
         written.extend(files_in(&in_repository(served.root(), LIFECYCLES), PieceWritten::in_repository));
-        Ok(Lifecycles::applying_to(served.manifest().id(), &self.workspaces_read(), written))
+        for workspace in workspaces.holding(served.manifest().id()) {
+            let Some(home) = self.home_of(&workspaces, workspace.id()) else { continue };
+            // A repository's own folder is read above, and is no less its own for being the home.
+            if home != served.root() {
+                let folder = in_repository(&home, LIFECYCLES);
+                written.extend(files_in(&folder, |path, text| PieceWritten::in_home_of(workspace.id().clone(), path, text)));
+            }
+        }
+        Ok(Lifecycles::applying_to(served.manifest().id(), &workspaces, written))
+    }
+
+    /// The root of the repository a Workspace is committed to, where it is: the served one whose
+    /// `.armada/workspaces/` holds the file that runs.
+    fn home_of(&self, workspaces: &Workspaces, id: &ScopeId) -> Option<String> {
+        let kept = workspaces.kept_at(id)?.parent()?;
+        self.repositories()
+            .hosted()
+            .into_iter()
+            .find(|one| in_repository(one.root(), WORKSPACES) == kept)
+            .map(|one| one.root().to_string())
     }
 }
