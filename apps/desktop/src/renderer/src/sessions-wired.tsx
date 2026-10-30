@@ -274,11 +274,23 @@ export class WiredStore {
     events: this.events,
     ...(this.inputs?.sessionWatches[id] === undefined ? {} : { watches: this.inputs.sessionWatches[id] }),
     ...(this.lifecyclesHeld.has(id) ? { lifecycles: this.lifecyclesHeld.get(id)! } : {}),
+    ...this.startedBy(id),
     ...(this.rulesFor(id) === undefined ? {} : { lifecycleRules: this.rulesFor(id)! }),
     ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
     ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
     ...(this.reviewRefused.has(id) ? { reviewRefused: this.reviewRefused.get(id)! } : {}),
   });
+
+  /**
+   * What the Jobs a Job started hold, for the tickets handed to them: each instance the Job holds whose key is a Job with lifecycles read, with that Job's record, whose ledger holds the
+   * issues it was handed. **The same read the Job's own lanes are drawn from**, so a started Job's `job_lifecycles.changed` draws the Job that started it again, and one not read yet is left out.
+   */
+  private startedBy(id: string): Pick<Beside, "started"> {
+    const instances = this.lifecyclesHeld.get(id)?.instances;
+    const records = this.inputs?.sessions.state === "read" ? this.inputs.sessions.sessions : [];
+    const read = instances?.flatMap((one) => (one.links.length > 0 && this.lifecyclesHeld.has(one.key) ? [[one.key, { held: this.lifecyclesHeld.get(one.key)!, record: records.find((each) => each.id === one.key) }] as const] : [])) ?? [];
+    return read.length === 0 ? {} : { started: new Map(read) };
+  }
 
   /** The rules that apply to a Job's repository, where they have been read. */
   private rulesFor(id: string): readonly AppliedRule[] | undefined {
