@@ -14,7 +14,6 @@ const relay = region("Project Relay 2.4");
 const jobs = region("Jobs", { exact: true });
 const map = role("listbox", "Map");
 const bays = region("Bays");
-const queue = region("Merge queue");
 const needs = region("Needs you");
 const sheet = role("textbox", "Request");
 const ask = role("article", "Waiting on you");
@@ -85,17 +84,22 @@ export const BEATS: readonly Beat[] = [
   beat("T+00:56", "FLIGHT 4 · CLEARED", { look: row(NOTES), say: "The Flight 4 row stops saying after and starts on its own. Nobody presses anything. Voice over: Jobs can wait on each other, so you don't have to." }),
   beat("T+00:58", "FLIGHT 4 · CLEARED", { look: bays, say: `Flight 4 takes a bay in ${REPOS[3]}.` }),
 
-  // Shot 7, 1:00 to 1:20
-  beat("T+01:00", undefined, { later: queue, say: "1:00 to 1:20, shot 7, landing. The pull requests slide into their repositories' merge lines, one row for each repository with its own main light. Voice over: Each one goes through the merge queue on a green main." }),
-  beat("T+01:02", undefined, { look: queue, say: "#412 is queued in relay-web, #413 in relay-api and #414 in relay-app. Every main is green." }),
-  beat("T+01:03", undefined, { later: queue, say: "#412 is at the front of relay-web's line." }),
-  beat("T+01:05", "FLIGHT 1 · TOUCHDOWN", { look: queue, say: "#412 merges in relay-web and its row clears. Its bay is free. relay-web's main stays green. #415 opens in relay-docs." }),
-  beat("T+01:06", "FLIGHT 1 · TOUCHDOWN", { later: queue, say: "#413 is at the front of relay-api's line." }),
-  beat("T+01:07", "FLIGHT 2 · TOUCHDOWN", { look: queue, say: "#413 merges in relay-api. Its bay is free. #415 is queued in relay-docs." }),
-  beat("T+01:10", "FLIGHT 2 · TOUCHDOWN", { later: queue, say: "#414 is at the front of relay-app's line." }),
-  beat("T+01:12", "FLIGHT 3 · TOUCHDOWN", { look: queue, say: "#414 merges in relay-app. Its bay is free." }),
-  beat("T+01:15", "FLIGHT 3 · TOUCHDOWN", { later: queue, say: "#415 is at the front of relay-docs' line." }),
-  beat("T+01:17", "FLIGHT 4 · TOUCHDOWN", { look: queue, say: "#415 merges in relay-docs. Its bay is free. Every main is green." }),
-  beat("T+01:17", undefined, { look: bays, say: "The deck at rest: every bay is free." }),
-  beat("T+01:17", undefined, { look: jobs, say: "The four Jobs have ended. The mission clock stops at T+01:17." }),
+  // Shot 7, 1:00 to 1:20: touchdown on the battlefield, one drone and one pull request at a time
+  beat("T+01:00", undefined, { later: map, say: "1:00 to 1:20, shot 7, touchdown. The pull requests ride their routes to their repositories' flags. Voice over: Each one goes through the merge queue on a green main." }),
+  beat("T+01:02", undefined, { look: map, say: "#412, #413 and #414 are on their way, each to its own territory. Every main is green." }),
+  beat("T+01:03", undefined, { later: map, say: "#412 reaches the front of relay-web's line." }),
+  beat("T+01:05", "FLIGHT 1 · TOUCHDOWN", { look: map, say: "#412 merges in relay-web. Its bay is free. relay-web's main stays green." }),
+  beat("T+01:06", undefined, { later: map, say: "#413 reaches the front of relay-api's line." }),
+  beat("T+01:08", "FLIGHT 2 · TOUCHDOWN", { look: map, say: "#413 merges in relay-api. Its bay is free." }),
+  beat("T+01:10", undefined, { later: map, say: "#414 reaches the front of relay-app's line." }),
+  beat("T+01:12", "FLIGHT 3 · TOUCHDOWN", { look: map, say: "#414 merges in relay-app. Its bay is free." }),
+  beat("T+01:14", undefined, { later: map, say: "#415 reaches the front of relay-docs' line." }),
+  beat("T+01:17", "FLIGHT 4 · TOUCHDOWN", { look: map, say: "#415 merges in relay-docs. Its bay is free. Every main is green." }),
+
+  // The bookend: the Projects tab, where the four cards that opened the film now ask whether they are done
+  beat("T+01:17", undefined, { press: place("Projects"), say: "A cut back to the Projects tab." }),
+  beat("T+01:17", undefined, { look: relay, say: "Relay 2.4. Each of the four cards now asks whether it is done, since its pull request merged." }),
+  beat("T+01:17", undefined, { press: button("Show done", { exact: true }), say: "Show done, so a card stays where it is once it is answered." }),
+  ...[CHECKOUT, PAYMENTS, DARK, NOTES].map((title) => beat("T+01:17", undefined, { press: inside(card(title), button("Mark done", { exact: true })), say: `Mark done: ${title}.` })),
+  beat("T+01:17", undefined, { look: relay, say: "All four cards read done. The mission clock stops at T+01:17." }),
 ];

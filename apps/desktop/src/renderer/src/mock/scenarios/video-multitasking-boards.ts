@@ -169,6 +169,8 @@ function sessions(control: BayControl): SessionsStore {
     const one = FLIGHTS[at]!;
     flight(at, (it) => ({ ...withPull(it, pullOf(one, "merged", { state: "passed" }, false)), dead: "ended" as const, turn: { state: "idle" }, standing: "done", lastTurnAt: now() }));
     setBay(one.repo, one.slot, { state: "free" });
+    const id = ids[at];
+    if (id !== undefined) projectsLink.ask?.(id);
   };
 
   let moment = 0;

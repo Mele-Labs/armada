@@ -30,6 +30,8 @@ export const projectsLink: {
   settle?: (job: string, projectId: string, done: boolean) => void;
   /** A Job started with these rows holds each written task among them, as Fleet's start does. */
   hold?: (job: string, title: string, rows: readonly ProjectRowRef[]) => void;
+  /** A Job's pull request merged: each task it holds is asked about, as Fleet does. */
+  ask?: (job: string) => void;
 } = {};
 
 type Task = Extract<ProjectRow, { kind: "task" }>;
@@ -156,6 +158,12 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
           row.state = done ? "done" : "open";
           delete row.held_by;
         }
+      });
+    };
+
+    projectsLink.ask = (job) => {
+      void write(() => {
+        for (const list of lists()) for (const row of list.rows) if (row.kind === "task" && row.state === "held" && row.held_by?.session_id === job) row.state = "asked";
       });
     };
 
