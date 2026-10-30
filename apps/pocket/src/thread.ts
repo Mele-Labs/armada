@@ -132,9 +132,22 @@ export function approvalOf(session: Session, onApprove: () => void): PlanApprova
 export const asksOf = (session: Session): readonly WaitingItem[] =>
   session.dead === undefined ? (session.waitingFor ?? []).filter((one) => one.source === "agent" && one.act?.kind !== "run") : [];
 
-/** The items whose act is a command to run on the Mac, each a Run card beside the thread. */
-export const runsOf = (session: Session): readonly { item: WaitingItem; command: string }[] =>
-  session.dead === undefined ? (session.waitingFor ?? []).flatMap((one) => (one.act?.kind === "run" ? [{ item: one, command: one.act.target }] : [])) : [];
+export type RunItem = { item: WaitingItem; command: string; /** A run of the command ended after the item was put: its exit code, absent where it was stopped. */ ran?: { code?: number } };
+
+/**
+ * The items whose act is a command to run on the Mac, each a Run card beside the thread. Fleet writes a `ran` row when a run
+ * ends and the agent clears the item itself, so an item a newer `ran` row answers is drawn as ran until it goes.
+ */
+export function runsOf(session: Session, wire: WireThread): readonly RunItem[] {
+  if (session.dead !== undefined) return [];
+  return (session.waitingFor ?? []).flatMap((one) => {
+    if (one.act?.kind !== "run") return [];
+    const command = one.act.target;
+    const since = Date.parse(one.since);
+    const ran = [...(wire.rows ?? [])].reverse().find((row) => row.kind === "ran" && row.command.trim() === command.trim() && Date.parse(row.at) > since);
+    return [{ item: one, command, ...(ran?.kind === "ran" ? { ran: ran.code === undefined ? {} : { code: ran.code } } : {}) }];
+  });
+}
 
 export type OpenDraft = { id: string; title: string; text: string; before?: string };
 

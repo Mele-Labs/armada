@@ -4,7 +4,7 @@
 // thread's end too; the header carries the context figure, the Jobs this one is linked to, and the Job's other acts.
 
 import { useEffect, useState } from "react";
-import { CirclePause, CornerDownRight, GitFork, Link as Linked, Play, PowerOff, Square } from "lucide-react";
+import { Check, CirclePause, CornerDownRight, GitFork, Link as Linked, Play, PowerOff, Square } from "lucide-react";
 import {
   AskCards,
   Button,
@@ -85,8 +85,11 @@ function PlanChanges({ keep, send }: { keep: string; send: (text: string) => Pro
   );
 }
 
-/** A command the agent asked the owner to run on the Mac: run there from here, and its exit and tail come back as a `ran` row. */
-function RunCard({ item, command, run }: { item: WaitingItem; command: string; run: () => Promise<boolean> }) {
+/**
+ * A command the agent asked the owner to run on the Mac: run there from here, and its exit and tail come back as a `ran` row.
+ * Once a run has ended the card says so, with its exit code, until the agent clears the item.
+ */
+function RunCard({ item, command, ran, run }: { item: WaitingItem; command: string; ran?: { code?: number }; run: () => Promise<boolean> }) {
   const [going, setGoing] = useState(false);
   return (
     <Card className="pk-card" role="group" aria-label={item.text}>
@@ -95,6 +98,14 @@ function RunCard({ item, command, run }: { item: WaitingItem; command: string; r
       </CardHeader>
       <code className="pk-card__command">{command}</code>
       <CardFooter className="pk-card__acts">
+        {ran !== undefined ? (
+          <span className="pk-card__ran">
+            {ran.code === undefined ? null : <Figure name="Exit code" loose>{`exit ${ran.code}`}</Figure>}
+            <Tooltip label="Ran">
+              <span role="img" aria-label="Ran"><Check size={16} strokeWidth={2} aria-hidden="true" /></span>
+            </Tooltip>
+          </span>
+        ) : (
         <Button
           variant="primary"
           pending={going}
@@ -105,6 +116,7 @@ function RunCard({ item, command, run }: { item: WaitingItem; command: string; r
         >
           Run
         </Button>
+        )}
       </CardFooter>
     </Card>
   );
@@ -247,7 +259,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           onAnswer: (answers: QuestionAnswer[]) => void run(() => acts.message({ session_id: id, text: lapsedAnswerText(answers) })),
           onSkip: () => setSkipped(session.lapsed?.id),
         };
-  const runs = runsOf(session);
+  const runs = runsOf(session, read.thread);
   const drafts = draftsOf(session);
   const links = linksOf(read.thread);
   const openJob = (other: string) => go(jobPath(machine.origin, other));
@@ -273,8 +285,8 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       {asksOf(session).map((item) => (
         <WaitingAsk key={item.id} item={item} keep={keep(`waiting:${item.id}`)} answer={(given) => run(() => acts.answerWaiting({ session_id: id, item_id: item.id, ...given }))} />
       ))}
-      {runs.map(({ item, command }) => (
-        <RunCard key={item.id} item={item} command={command} run={() => run(() => acts.run({ session_id: id, command }))} />
+      {runs.map(({ item, command, ran }) => (
+        <RunCard key={item.id} item={item} command={command} {...(ran === undefined ? {} : { ran })} run={() => run(() => acts.run({ session_id: id, command }))} />
       ))}
       {drafts.map((draft) => (
         <DraftCard

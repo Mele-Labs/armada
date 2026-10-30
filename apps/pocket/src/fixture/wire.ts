@@ -103,7 +103,8 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
         model: "opus",
         effort: "high",
         start: {
-          asks_delivery: false,
+          asks_delivery: true,
+          picked: { choice: "open_pr", from: "usual" },
           message:
             "Split crates/pool into two crates: lease, which hands out slots, and sweep, which gives back the idle ones.\n\nKeep the public names. Move the tests with the code they cover.",
         },

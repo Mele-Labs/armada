@@ -97,6 +97,8 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
   };
   switch (path) {
     case "/api/sessions/begin": {
+      if (job.start === undefined) return said(409, "This Job is not on its start card.");
+      if (job.start.asks_delivery && sent["delivery"] === undefined) return said(422, "Choose how the work lands.");
       const message = typeof sent["message"] === "string" ? sent["message"] : (job.start?.message ?? "");
       delete job.start;
       drop(record, "first_message");
@@ -133,8 +135,7 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
     }
     case "/api/sessions/run/start": {
       const command = String(sent["command"] ?? "");
-      const item = (record.waiting_for ?? []).find((one) => one.act?.kind === "run" && one.act.target === command);
-      if (item !== undefined) drop(record, item.id);
+      // The item stays: on a Mac the agent clears it once it reads the run's end.
       push(thread, { kind: "ran", id: rowId(id), at: now(), command, code: 0, tail: "Merged 3 branches into preview.\nFleet restarted on preview-4e735d6.\nBridge reconnected." });
       settle(mac, thread);
       return json({ run_id: rowId("run") }, 202);
