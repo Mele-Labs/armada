@@ -1,7 +1,7 @@
 // What the lanes draw: a workflow's steps in a top lane, then a lane for each lifecycle the workflow uses, each a small state machine, with
 // rules as edges between them. **A lifecycle is any lifecycle**: a ticket, a pull request, a deploy, a document. Fleet reads each of its states from
-// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **The editor's model is a mock's**: no Fleet serves a Workspace or its
-// placement of states yet (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
+// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **The editor's model is layered and Fleet's pieces are whole**: the host reads
+// the pieces into this model and saves back only the pieces an edit changed. Fleet serves no placement of states, so the host lays them out (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
 // one lane for each instance and the rules that fired, read from what Fleet serves of the Job (`packages/screens/src/session-lanes.ts`).
 
 /** The lane a node sits in: the workflow's own, or a lifecycle's id (in the editor) or an instance's (on a Job). */

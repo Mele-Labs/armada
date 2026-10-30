@@ -45,7 +45,7 @@ import type { SentFromComposer } from "../SessionComposer/SessionComposer";
 import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } from "./types";
 
 /**
- * The Workspace a workflow is edited in: its steps on top of a lane for each lifecycle it uses, and rules as edges. **A mock's editor**: no Fleet serves a Workspace yet.
+ * The Workspace a workflow is edited in: its steps on top of a lane for each lifecycle it uses, and rules as edges. **The host keeps it**: from the pieces Fleet serves, or from a scenario's mock.
  * **Runs in** is a row of tabs over the canvas, one for each level a value can be set at, as a site builder edits a breakpoint: **Default**, the workflow as it runs anywhere no Workspace or
  * repository changed it; All of the Workspace, the default with the Workspace's changes; and each repository, the Workspace's with its own. A tab draws the lanes as the workflow runs there, marks the nodes
  * that differ from it down, and what is edited on it is an override for that level alone, so a tab says in a line what an edit there changes. A tab that differs from the level above carries the changed
@@ -53,8 +53,8 @@ import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } fro
  *
  * **What is picked opens in the app's side panel**, over the canvas and as wide as the pull request's, drawn into the slot the host gives (`LanePanel`), since the panel is the host's and this is a component:
  * its settings as live fields, saved as they are changed, or a box to tell an agent. **Each row has its label once**, and the field in it is named by that label. A rule's When and a step's Ends when are two
- * dropdowns, the thing and then its moment or state. **There is no read only state and no mode to enter**: every field of every rule, state and step is live on every tab and every workflow, a rule a change
- * waiting on Approve would add excepted. Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from one node to another. Adding and connecting work on every tab,
+ * dropdowns, the thing and then its moment or state. **There is no mode to enter**: every field of every rule, state and step is live on every tab and every workflow, a rule a change
+ * waiting on Approve would add excepted, and every one where the host keeps nothing a change could be saved to (`readOnly`). Hand editing is on the canvas too: a toolbar over what is picked, whose Edit goes to the fields, and a connector from one node to another. Adding and connecting work on every tab,
  * and what a tab adds is that level's own: it runs there and under it, and the tab can delete it. What a level above holds is skipped with a step's Passed over when. **The first change on Armada's workflow makes the person's own copy, quietly**: the change lands on it, and nothing here says copy.
  */
 export type WorkspaceEditing = {
@@ -65,6 +65,12 @@ export type WorkspaceEditing = {
   panel: LanePanel;
   /** The workflow's own steps changed: written to its definition. */
   onSteps: (one: WorkflowRef, change: StepsChange) => void;
+  /** The lifecycles and rules are pieces the host keeps apart from the workflow: a change to them makes no copy of an Armada workflow, and a change to its steps does. */
+  pieces?: true;
+  /** Nothing a change could be saved to: the lanes are drawn, and no field or handle changes them. */
+  readOnly?: true;
+  /** Where the picked rule or lifecycle is kept, drawn under its fields: the acts on it, for the tab it is picked on. Absent, nothing stands there. */
+  pieceActs?: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => ReactNode;
 };
 
 /** The app's side panel as the editor asks for it: opened for what is picked, and its body given back as a slot to draw into. */
@@ -86,6 +92,12 @@ export type StepsChange =
   | { kind: "order"; ids: readonly string[] };
 
 const NONE: readonly never[] = [];
+
+/** Whether a change touched the workflow's own steps, which a copy of the workflow holds, and not only the lifecycles and rules, which are pieces. */
+const stepsDiffer = (a: Workspace, b: Workspace): boolean => {
+  const steps = (workspace: Workspace) => JSON.stringify(Object.entries(workspace.workflows).map(([id, place]) => [id, place.steps, place.layers, place.added]));
+  return steps(a) !== steps(b);
+};
 
 const NOBODY = () => undefined;
 
@@ -163,8 +175,9 @@ export function WorkspaceEditor({
 
   // **The first change on Armada's workflow makes the person's own copy**, without a word: the change is made on the Workspace as it is, and the host makes the copy behind it.
   const change = (next: Workspace) => {
+    if (editing.readOnly === true) return;
     editing.onChange(next);
-    if (!editable) onMakeCopy();
+    if (!editable && (editing.pieces !== true || stepsDiffer(workspace, next))) onMakeCopy();
   };
   const writeSteps = onSteps;
   const subjects = useMemo(() => subjectsOf(workspace), [workspace]);
@@ -378,11 +391,15 @@ export function WorkspaceEditor({
   // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
   const tabs: TabsItem[] = [
     { id: DEFAULT, label: "Default" },
-    { id: "workspace", label: `All of ${workspace.name}`, name: workspace.name },
+    // A repository that is in no Workspace has no level between the default and itself.
+    ...(workspace.id === "" ? [] : [{ id: "workspace", label: `All of ${workspace.name}`, name: workspace.name }]),
     ...workspace.repositories.map((one) => ({ id: one.id, label: one.name, name: one.name })),
   ].map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : { id, label }));
 
   const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
+  /** The rule or lifecycle the pick is of, for the acts on where it is kept. A step is the workflow's. */
+  const piece = picked === undefined || mode === "tell" ? undefined : picked.kind === "rule" ? ({ kind: "rule", id: picked.id } as const) : refOf(picked.id).lane === "workflow" ? undefined : ({ kind: "lifecycle", id: refOf(picked.id).lane } as const);
+  const acts = piece === undefined ? null : (editing.pieceActs?.(piece, scope) ?? null);
 
   return (
     <section className="armada-wm-lanes" aria-label="Workflow">
@@ -397,8 +414,16 @@ export function WorkspaceEditor({
       </div>
       {above}
       {/* Drawn once the steps are read: lanes that fill in after they open would pan to what arrived. */}
-      {steps.length === 0 ? null : <LaneCanvas label={`${workflow.id} workflow`} lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={(next) => pick(next)} editing={handles} coveredBy={panel.open ? panel.slot : null} />}
-      {content === null || panel.slot === null ? null : createPortal(<div className="armada-wm-inspector">{content}</div>, panel.slot)}
+      {steps.length === 0 ? null : <LaneCanvas label={`${workflow.id} workflow`} lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={(next) => pick(next)} editing={editing.readOnly === true ? undefined : handles} coveredBy={panel.open ? panel.slot : null} />}
+      {content === null || panel.slot === null
+        ? null
+        : createPortal(
+            <div className="armada-wm-inspector">
+              {editing.readOnly === true ? <fieldset className="armada-wm-inspector__fixed" disabled>{content}</fieldset> : content}
+              {acts}
+            </div>,
+            panel.slot,
+          )}
     </section>
   );
 }

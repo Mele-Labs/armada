@@ -38,6 +38,8 @@ export type MockDraft = {
   sessions?: (board: BayControl, more?: readonly Session[]) => SessionsStore;
   /** The Workspace the Workflows page draws as lanes, and the changes an agent comes back with for it. Mock only: no Fleet serves a Workspace yet. */
   workspace?: import("../workspace-draft").WorkspaceSeed;
+  /** The Workspaces, lifecycles and rules the mock Fleet keeps, which the lifecycle reads answer and a save changes. The page draws them as Fleet's, and a scenario with `workspace` as well is drawn from that. */
+  pieces?: import("./pieces-seed").PiecesSeed;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then, or time passing over those held (`events-later.ts`). Mock only. */

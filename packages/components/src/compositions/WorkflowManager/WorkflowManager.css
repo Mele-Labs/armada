@@ -702,6 +702,14 @@
   font-size: var(--text-xs);
 }
 /* What is picked is drawn in the app's side panel. */
+/* A fieldset only to disable the fields inside it: it draws nothing of its own. */
+.armada-wm-inspector__fixed {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
 .armada-wm-inspector {
   display: flex;
   flex-direction: column;
