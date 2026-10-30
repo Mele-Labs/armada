@@ -26,6 +26,7 @@ pub mod ruling;
 pub mod saying;
 pub(crate) mod taking_on;
 mod waking;
+pub mod writing;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Lifecycle, ManifestId, Ulid};

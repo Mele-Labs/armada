@@ -149,6 +149,7 @@ mod rule_acting;
 mod rule_asking;
 mod rule_running;
 mod rule_saying;
+mod rule_writing;
 mod lifecycle_ends;
 mod lifecycle_ends_read;
 mod lifecycle_waking;

@@ -10,8 +10,12 @@
 //! and not a free one. Retries follow each other at once: what fails here fails for a reason that
 //! waiting would not mend, such as a recipe that is not there or a Job that has ended.
 //!
-//! **Tracker and forge writes are not done here**, and neither are commands, skills and Drones:
-//! [`super::ruling::carried_here`] keeps them from ever being planned for doing.
+//! **A tracker or forge write is done by [`super::writing`]**, and only from here: a rule the owner
+//! saved counts as his say, and nothing else in Fleet writes to his tracker or forge. Commands,
+//! skills and Drones are not done at all, and [`super::writing::Writes::carries`] keeps them from
+//! being planned for doing. **It is asked again before each act is tried**, because the tracker or
+//! forge may have changed since the rule planned it, and an act that can no longer be made is settled
+//! as not carried rather than failed and tried again.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -19,6 +23,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Watches;
 use core_model::rule::{Act, OnFailure, Then, Words};
+use core_model::Lifecycle;
 use ipc::{ManifestId, Notice, ProposeDraft, SessionId, StartAnotherSession, StartWatch, WatchStarts};
 use store::{rule_act_standing as standing, KeptRuleAct};
 use tokio::sync::Notify;
@@ -44,11 +49,12 @@ impl Owed {
 }
 
 /// The act a row stands for, read out of the rule the Job froze, with what to do should it fail
-/// and the name of the rule.
+/// and the name of the rule. The Job's lifecycles are the tracker's words for a state.
 struct Found {
     act: Act,
     on_failure: OnFailure,
     rule: String,
+    lifecycles: Vec<Lifecycle>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -79,7 +85,7 @@ where
                 let found = copy_of(&store, &row.session_id).and_then(|copy| {
                     let rule = copy.rules.iter().find(|rule| rule.id().as_str() == row.rule_id)?;
                     let act = rule.does().get(row.position as usize)?.clone();
-                    Some(Found { act, on_failure: rule.on_failure(), rule: rule.name().as_str().to_string() })
+                    Some(Found { act, on_failure: rule.on_failure(), rule: rule.name().as_str().to_string(), lifecycles: copy.lifecycles.clone() })
                 });
                 let Some(found) = found else {
                     // The rule is gone from the copy: nothing says what to do, and the owner is told so.
@@ -88,6 +94,13 @@ where
                     let _ = self.published_hosted(&row.session_id).await;
                     return;
                 };
+                // A write the tracker or forge can no longer make is not tried: it is settled, with why.
+                if let Err(why) = self.rule_act_carried(&store, &row, &found.act, &found.lifecycles) {
+                    let _ = store.move_rule_act(id, &[standing::PLANNED], standing::NOT_CARRIED, &why, self.now().as_str());
+                    drop(store);
+                    let _ = self.published_hosted(&row.session_id).await;
+                    return;
+                }
                 let Ok(tries) = store.begin_rule_attempt(id) else { return };
                 (row, found, tries)
             };
@@ -157,10 +170,10 @@ where
                 };
                 self.draft_proposed(None, draft).await.map(|_| String::from("Drafted")).map_err(|why| why.error().message.clone())
             }
-            // Planned and recorded, and nothing here does it: `carried_here` keeps them from being planned for doing.
-            Act::Tracker { .. } | Act::Forge { .. } | Act::RunCommand { .. } | Act::RunSkill { .. } | Act::RunDrone { .. } => {
-                Err(String::from("Fleet does not do this kind of act"))
-            }
+            Act::Tracker { write, .. } => self.rule_tracker_written(row, write, &found.lifecycles).await,
+            Act::Forge { write, .. } => self.rule_forge_written(row, write).await,
+            // Planned and recorded, and nothing here does it: `carries` keeps them from being planned for doing.
+            Act::RunCommand { .. } | Act::RunSkill { .. } | Act::RunDrone { .. } => Err(String::from("Fleet does not do this kind of act")),
         }
     }
 

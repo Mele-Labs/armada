@@ -27,7 +27,7 @@ do:
   - draft: { template: 'Ready for {pr}', on: { entered: true } }
 ";
 
-async fn items(rig: &Rig, job: &SessionId) -> Vec<WaitingItem> {
+pub(super) async fn items(rig: &Rig, job: &SessionId) -> Vec<WaitingItem> {
     let items = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("a session").session.waiting_for;
     items.into_iter().filter(|one| one.source == WaitingSource::RuleAct).collect()
 }
@@ -36,7 +36,7 @@ fn choosing(job: &SessionId, item: &str, choice: u32) -> AnswerWaiting {
     AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
 }
 
-async fn pressed(rig: &Rig, job: &SessionId, item: &str, choice: u32) -> Result<(), api::Refusal> {
+pub(super) async fn pressed(rig: &Rig, job: &SessionId, item: &str, choice: u32) -> Result<(), api::Refusal> {
     Arc::clone(&rig.fleet).answer_waiting(choosing(job, item, choice)).await.map(|_| ())
 }
 

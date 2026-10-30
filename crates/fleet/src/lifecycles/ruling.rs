@@ -23,13 +23,8 @@ use super::holding::Transition;
 use super::looking::{happened_between, same_look, Happened};
 use super::saying::said;
 use super::taking_on::{landed, opened_pull_request};
+use super::writing::Writes;
 use crate::daemon::Fleet;
-
-/// Whether this Fleet does an act of `kind` itself. **A kind it does not is planned and recorded,
-/// and raises nothing**, so the owner is never asked to press what pressing cannot do.
-pub fn carried_here(kind: ActKind) -> bool {
-    matches!(kind, ActKind::StartWatch | ActKind::TellAgent | ActKind::StartJob | ActKind::Draft)
-}
 
 /// What the Job shows of itself, from the look at it and the workflow it follows.
 fn facts_from(look: &KeptSeen, workflow: Option<&str>) -> JobFacts {
@@ -57,12 +52,16 @@ fn course_wire(course: Course) -> &'static str {
 /// Hand `seen` to the Job's rules, and keep what they plan. The ids of the acts kept that are
 /// waiting to be done or asked about. **Nothing for a Job that has no rules**, and nothing for a
 /// rule that has seen this occurrence already.
+///
+/// **An act the Job's repository cannot make is kept as not carried, with the reason**, and raises
+/// nothing, so the owner is never asked to press what pressing cannot do. `writes` says which.
 pub(crate) fn plan_and_keep(
     store: &mut Store,
     session: &str,
     seen: &Occurrence,
     facts: &JobFacts,
     at: &str,
+    writes: &Writes,
 ) -> Result<Vec<i64>, WriteError> {
     let Some(copy) = copy_of(store, session).filter(|copy| !copy.rules.is_empty()) else { return Ok(Vec::new()) };
     let held = super::holding::rebuilt(&copy.lifecycles, &store.lifecycle_instances_of(session)?);
@@ -83,24 +82,30 @@ pub(crate) fn plan_and_keep(
 
     let entered = seen.entered_instance().map(|one| (one.lifecycle().as_str(), one.key()));
     let lines: Vec<String> = planned.iter().map(|one| said(one.act(), one.on(), &copy.lifecycles)).collect();
+    let carried: Vec<Result<(), String>> = planned
+        .iter()
+        .map(|one| writes.carries(one.act(), one.on().map(|on| (on.lifecycle().as_str(), on.key())), &copy.lifecycles))
+        .collect();
     let acts: Vec<NewRuleAct<'_>> = planned
         .iter()
         .zip(&lines)
-        .map(|(one, line)| NewRuleAct {
+        .zip(&carried)
+        .map(|((one, line), carried)| NewRuleAct {
             rule_id: one.rule().as_str(),
             position: one.position() as u32,
             on: one.on().map(|on| (on.lifecycle().as_str(), on.key())),
             entered,
             course: course_wire(one.course()),
-            state: match (carried_here(one.act().kind()), one.course()) {
-                (false, _) => standing::NOT_CARRIED,
+            state: match (carried, one.course()) {
+                (Err(_), _) => standing::NOT_CARRIED,
                 // A draft waits for his press whatever the rule says, so proposing it is the ask.
-                (true, _) if matches!(one.act().kind(), ActKind::Draft) => standing::PLANNED,
-                (true, Course::Acts) => standing::PLANNED,
-                (true, Course::Asks) => standing::ASKED,
+                (Ok(()), _) if matches!(one.act().kind(), ActKind::Draft) => standing::PLANNED,
+                (Ok(()), Course::Acts) => standing::PLANNED,
+                (Ok(()), Course::Asks) => standing::ASKED,
             },
             text: line,
-            said: "",
+            // Why it is not carried, the one sentence the act keeps.
+            said: carried.as_ref().err().map_or("", String::as_str),
         })
         .collect();
     let ids = store.keep_rule_plan(session, &written, &newly, &acts, at)?;
@@ -124,6 +129,7 @@ where
     pub(crate) async fn job_copy_frozen(&self, session: &str, manifest: &str) {
         let Ok(copy) = self.job_copy_for(manifest) else { return };
         let at = self.now().as_str().to_string();
+        let writes = self.writes_for(Some(manifest));
         let kept = {
             let mut store = self.store().lock().await;
             if !store.freeze_job_copy(session, &at, &copy).unwrap_or(false) {
@@ -132,7 +138,7 @@ where
             let workflow = store.hosting(session).ok().flatten().and_then(|hosting| hosting.workflow);
             let facts = facts_from(&KeptSeen::default(), workflow.as_deref());
             let started = Occurrence::job(JobEvent::Started, "started");
-            plan_and_keep(&mut store, session, &started, &facts, &at).unwrap_or_default()
+            plan_and_keep(&mut store, session, &started, &facts, &at, &writes).unwrap_or_default()
         };
         self.rules_published(session, &kept).await;
     }
@@ -153,7 +159,9 @@ where
                 return;
             }
             let Ok(facts) = facts_of(&store, session) else { return };
-            plan_and_keep(&mut store, session, seen, &facts, &at).unwrap_or_default()
+            let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
+            let writes = self.writes_for(manifest.as_deref());
+            plan_and_keep(&mut store, session, seen, &facts, &at, &writes).unwrap_or_default()
         };
         self.rules_published(session, &kept).await;
     }
@@ -169,6 +177,8 @@ where
                 let mut store = self.store().lock().await;
                 let Some(copy) = copy_of(&store, &session) else { continue };
                 let (Ok(moves), Ok(facts)) = (store.lifecycle_moves_of(&session), facts_of(&store, &session)) else { continue };
+                let manifest = store.session(&session).ok().flatten().and_then(|one| one.manifest_id);
+                let writes = self.writes_for(manifest.as_deref());
                 let mut kept = Vec::new();
                 for one in moves {
                     let found = copy.lifecycles.iter().find(|lifecycle| lifecycle.id().as_str() == one.lifecycle);
@@ -176,7 +186,7 @@ where
                     let moved = Standing::from_wire(&one.from).zip(Standing::from_wire(&one.to));
                     let Some((instance, (from, to))) = instance.zip(moved) else { continue };
                     let seen = Occurrence::entered(instance, Moved { from, to }, &format!("{}#{}", one.at, one.id));
-                    kept.extend(plan_and_keep(&mut store, &session, &seen, &facts, &at).unwrap_or_default());
+                    kept.extend(plan_and_keep(&mut store, &session, &seen, &facts, &at, &writes).unwrap_or_default());
                 }
                 kept
             };
@@ -210,6 +220,7 @@ where
                 return;
             }
             let facts = facts_from(&now, record.workflow.as_deref());
+            let writes = self.writes_for(record.manifest_id.as_ref().map(|id| id.as_str()));
             let mut kept = Vec::new();
             let mut counted = before.events;
             for happened in happened_between(&before, &now) {
@@ -222,7 +233,7 @@ where
                     Happened::Landed => Occurrence::job(JobEvent::Landed, &stamp),
                     Happened::Ended => Occurrence::job(JobEvent::Ended, &stamp),
                 };
-                kept.extend(plan_and_keep(&mut store, session, &seen, &facts, &at).unwrap_or_default());
+                kept.extend(plan_and_keep(&mut store, session, &seen, &facts, &at, &writes).unwrap_or_default());
             }
             let _ = store.keep_job_seen(session, &KeptSeen { events: counted, ..now });
             kept
