@@ -101,7 +101,7 @@ where
 
     /// What a session that ended leaves in Fleet's hands: the Check runs it
     /// still had out, and the walk it had open, and what it was doing, which
-    /// is dropped, the sign-in held for its window, its live watches, its shell, its scratch folder
+    /// is dropped, the sign-in held for its window, the lifecycle instances it held, its live watches, its shell, its scratch folder
     /// and the notes sent to it, done or let go. Its slot's processes and
     /// servers are ended by the park (`Vcs::park_hosted_slot`), and a run's
     /// process is among them, since Fleet holds no pid for a run its CLI makes.
@@ -110,6 +110,7 @@ where
         self.activity_ended(session);
         self.window_sign_ins().forget(session);
         self.session_checks_ended(session).await;
+        self.lifecycles_ended_with(session).await;
         self.watches_ended_with(session).await;
         self.job_shell_wound_up(session);
         self.scratch_removed(session);

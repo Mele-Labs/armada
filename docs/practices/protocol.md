@@ -1136,6 +1136,10 @@ Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field f
 | `SessionRecord.workflow_waiting_on` | Fleet writes where the Job's step is served | A list of sentences, `Waiting on PR #812: Approved`, one for each lifecycle end the Job's current step lists that has not come, in the order the step lists them. Left out when empty: the step waits on no lifecycle, or an end has come |
 | `StepReading.ends_any` (`get_workflow_steps`) | Fleet writes | A delivering step gated by a lifecycle now reads `every pr is approved, then it is merged`; `ends_when` still says only `it is merged` |
 
+**`HeldInstance.ended_at` is left out unless ending the Job ended the instance**, so a Fleet older than the field answers as it did and Bridge reads every instance as live.
+Ending a Job keeps each instance no end state had taken as ended, standing where it was, and raises `job_lifecycles.changed`; a Job that holds nothing raises nothing.
+`all_done` and `finish_up` are refused 409 `fleet.lifecycles_in_flight` while the Job holds one, and `lifecycles_clear` is the notice that tells the agent that was refused once the last is over (`crates/ipc/operations/all_done.toml`).
+
 **`acts` are the acts the Job's rules planned, oldest first, and are left out when there are none**, so a Fleet older than the field answers as it did and Bridge draws no act.
 `course` is `acts` or `asks`; `standing` is `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`; `text` is the one line the owner reads, as it was kept, and `said` is what failed or why nothing here carries it.
 `on` is the instance an act is done to and `entered` the one whose entering a state set it off; both are left out for an act done to none.

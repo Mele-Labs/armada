@@ -33,6 +33,14 @@ A Job holding none of the lifecycle is not on the step, and nothing after it is 
 Only landing passes it.
 The step after one is entered when it ends, whatever fact would have entered it, and the rail ends when the last step does; orchestrate's Oversee is one, and Summarise is entered the moment the last Job has landed or ended.
 
+**A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
+A ticket, pull request, deploy or Job the Job holds that no end state has taken, an unread or unmapped one included, refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
+Fleet keeps that the agent was told to wait, and when the last instance is over sends it one `lifecycles_clear` notice; an agent never refused is not told.
+**Ending a Job ends its instances.** Each one still in flight is kept as ended, standing where it was, no reader moves it again, and the watches the Job's rules started are stopped with the Job's others.
+Before it ends, End lists what is in flight as `Deploy: Rolling out` and `ARM-42: In review`; End job goes on, and Keep going leaves the Job as it is.
+A Job started before lifecycles holds none, and is finished and ended as it was.
+The code is `crates/fleet/src/lifecycles/ending.rs`.
+
 **The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:
 
 | Step declares | Entered on |

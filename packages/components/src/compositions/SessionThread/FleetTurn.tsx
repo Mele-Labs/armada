@@ -56,6 +56,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   document_sketch: "document sketch",
   task_marked: "task mark",
   lifecycle_rule: "rule",
+  lifecycles_clear: "nothing in flight",
 };
 
 /**

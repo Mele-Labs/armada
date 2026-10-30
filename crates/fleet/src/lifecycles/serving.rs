@@ -6,6 +6,7 @@
 //! definitions sent with them are the same ones; when a Job's copy is frozen that function changes
 //! and this follows.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -29,7 +30,7 @@ const UNPLACED: &str = "fleet.job_lifecycles_unplaced";
 
 /// What a person reads for an instance: the ticket's key, `PR #812`, the Job's title. **A Job with
 /// no title, or none Fleet holds, is its id**, and nothing is made up in its place.
-fn label_of(store: &Store, subject: &InstanceRef) -> String {
+pub(super) fn label_of(store: &Store, subject: &InstanceRef) -> String {
     match subject.lifecycle().as_str() {
         PULL_REQUEST => format!("PR #{}", subject.key()),
         JOB => store
@@ -59,6 +60,8 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
     };
     let lifecycles = applying(&manifest);
     let kept = store.lifecycle_instances_of(session).unwrap_or_default();
+    let ended: HashMap<(&str, &str), &str> =
+        kept.iter().filter(|one| !one.ended_at.is_empty()).map(|one| ((one.lifecycle.as_str(), one.key.as_str()), one.ended_at.as_str())).collect();
     let instances = rebuilt(&lifecycles, &kept);
     held.instances = instances
         .all()
@@ -67,6 +70,7 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
             lifecycle: one.subject().lifecycle().as_str().to_string(),
             key: one.subject().key().to_string(),
             label: label_of(store, one.subject()),
+            ended_at: ended.get(&(one.subject().lifecycle().as_str(), one.subject().key())).map(|at| ipc::Instant::carried(*at)),
             standing: wire::standing(one.standing()),
             links: one
                 .links()
