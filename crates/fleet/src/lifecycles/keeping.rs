@@ -108,13 +108,20 @@ where
     async fn lifecycles_taken_on(&self, id: &str, record: &SessionRecord) {
         let held = holds(&record.attachments);
         let at = self.now().as_str().to_string();
-        let mut store = self.store().lock().await;
-        for ticket in &held.tickets {
-            let _ = store.take_on_lifecycle_instance(id, TICKET, ticket, &[], &at);
-        }
-        for pull in &held.pull_requests {
-            let links: Vec<(&str, &str)> = pull.tickets.iter().map(|ticket| (TICKET, ticket.as_str())).collect();
-            let _ = store.take_on_lifecycle_instance(id, PULL_REQUEST, &pull.number, &links, &at);
+        let changed = {
+            let mut store = self.store().lock().await;
+            let before = store.lifecycle_instances_of(id).unwrap_or_default();
+            for ticket in &held.tickets {
+                let _ = store.take_on_lifecycle_instance(id, TICKET, ticket, &[], &at);
+            }
+            for pull in &held.pull_requests {
+                let links: Vec<(&str, &str)> = pull.tickets.iter().map(|ticket| (TICKET, ticket.as_str())).collect();
+                let _ = store.take_on_lifecycle_instance(id, PULL_REQUEST, &pull.number, &links, &at);
+            }
+            store.lifecycle_instances_of(id).unwrap_or_default() != before
+        };
+        if changed {
+            self.job_lifecycles_published(id).await;
         }
     }
 
@@ -124,12 +131,15 @@ where
     async fn job_started_by(&self, parent: &str, child: &SessionRecord) {
         let at = self.now().as_str().to_string();
         let child_id = child.id.as_str();
-        {
+        let taken = {
             let mut store = self.store().lock().await;
             if !store.is_lifecycle_job(parent).unwrap_or(false) {
                 return;
             }
-            let _ = store.take_on_lifecycle_instance(parent, JOB, child_id, &[(JOB, parent)], &at);
+            store.take_on_lifecycle_instance(parent, JOB, child_id, &[(JOB, parent)], &at).unwrap_or(false)
+        };
+        if taken {
+            self.job_lifecycles_published(parent).await;
         }
         let Some(manifest) = self.store().lock().await.session(parent).ok().flatten().and_then(|one| one.manifest_id) else {
             return;
@@ -184,6 +194,8 @@ where
                 at: &at,
             })
             .ok()?;
+        drop(store);
+        self.job_lifecycles_published(session).await;
         Some(transition)
     }
 }

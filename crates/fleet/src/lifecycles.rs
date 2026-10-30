@@ -17,7 +17,9 @@ pub mod holding;
 mod keeping;
 mod polling;
 pub mod reading;
+mod serving;
 pub(crate) mod taking_on;
+pub mod wire;
 
 use core_model::Lifecycle;
 
