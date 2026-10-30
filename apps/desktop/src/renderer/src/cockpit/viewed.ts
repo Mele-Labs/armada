@@ -38,6 +38,16 @@ export function viewedAt(sessionId: string): number {
   return held[sessionId] ?? 0;
 }
 
+/** How long without a key or a pointer before he is taken to be away from the machine. */
+export const AWAY_MS = 60_000;
+let lastInput = Date.now();
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  for (const kind of ["keydown", "pointerdown", "pointermove", "wheel"]) window.addEventListener(kind, () => void (lastInput = Date.now()), { passive: true, capture: true });
+}
+
+/** Whether this Session is on screen in this window now, the window visible and he at the machine. */
+export const viewingNow = (sessionId: string, now: number = Date.now()): boolean => (viewing.get(sessionId) ?? 0) > 0 && visible() && now - lastInput < AWAY_MS;
+
 /** Record that he was in this Session at `at`. */
 export function markViewed(sessionId: string, at: number = Date.now()): void {
   held ??= read();
