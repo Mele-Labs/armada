@@ -134,7 +134,6 @@ const applied = (rule: Partial<LifecycleRule> & Pick<LifecycleRule, "id" | "name
   rule: { scope: { kind: "everywhere" }, conditions: [], on_failure: { retries: 0, then: "ask_owner" }, ...rule },
   kept: KEPT,
 });
-const linked = { among: { kind: "linked_from", lifecycle: "pull_request" } } as const;
 
 /** When the PR enters Draft, the ticket moves to In progress. */
 const MOVES_TICKET = applied({
@@ -143,13 +142,15 @@ const MOVES_TICKET = applied({
   when: { kind: "enters", lifecycle: "pull_request", state: "draft" },
   does: [{ kind: "tracker_write", autonomy: "acts", what: { act: "tracker_move", to: "in_progress", target: { among: { kind: "held", lifecycle: "ticket" } } } }],
 });
-/** When Plan ends, ask for review: it hands to the step. */
+/** When the PR is approved, ask for review: it hands to the step. */
 const ASKS = applied({
   id: "ask-review",
   name: "Ask for review",
-  when: { kind: "step_ends", step: "plan" },
-  does: [{ kind: "draft", autonomy: "asks", what: { act: "draft", template: "review", target: linked } }],
+  when: { kind: "enters", lifecycle: "pull_request", state: "approved" },
+  does: [{ kind: "draft", autonomy: "asks", what: { act: "draft", template: "review", target: { among: { kind: "entered" } } } }],
 });
+/** When Plan ends, tell the agent: nothing in the lanes for it to land on. */
+const TELLS = applied({ id: "tell-on-plan", name: "Tell on plan", when: { kind: "step_ends", step: "plan" }, does: [{ kind: "tell_agent", autonomy: "acts", what: { act: "tell", message: "x" } }] });
 const BY_JOB = applied({ id: "on-landed", name: "On landed", when: { kind: "job", event: "landed" }, does: [{ kind: "tell_agent", autonomy: "acts", what: { act: "wake" } }] });
 
 const act = (rule: string, on: RuleActReading["on"], standing: string, over: Partial<RuleActReading> = {}): RuleActReading => ({ rule, text: "Move ARM-41 to In progress", course: "acts", standing, at: AT, ...(on === undefined ? {} : { on }), ...over });
@@ -158,14 +159,15 @@ const WITH_PULL: JobLifecycles = { ...WITH_TICKET, lifecycles: [ticket, pull], i
 const ON_TICKET = { lifecycle: "ticket", key: "ARM-41" };
 const ENTERED = { lifecycle: "pull_request", key: "812" };
 
-it("reads a rule that moves a state as an edge that lands on that state, and any other as one that lands on the step", () => {
+it("reads a rule that moves a state as an edge that lands on that state, and one a state sets off that does anything else as one that lands on the step", () => {
   expect(ruleOfWire(MOVES_TICKET)).toMatchObject({ id: "move-ticket", label: "Move to In progress", from: { lane: "pull_request", item: "draft" }, to: { lane: "ticket", item: "in_progress" }, at: "enters", autonomy: "acts", kept: "armada" });
-  expect(ruleOfWire(ASKS)).toMatchObject({ from: { lane: "workflow", item: "plan" }, at: "ends", autonomy: "asks" });
+  expect(ruleOfWire(ASKS)).toMatchObject({ from: { lane: "pull_request", item: "approved" }, at: "enters", autonomy: "asks" });
   expect(ruleOfWire(ASKS)!.to).toEqual({ lane: "workflow", item: "$step" });
 });
 
-it("leaves a rule a Job event sets off undrawn, since it has no node to leave from", () => {
+it("leaves a rule a Job event sets off undrawn, and one a step sets off that moves no state, since neither has a node to leave from or land on", () => {
   expect(ruleOfWire(BY_JOB)).toBeUndefined();
+  expect(ruleOfWire(TELLS)).toBeUndefined();
 });
 
 it("names a rule's kept place as the person's, the repository's or Armada's", () => {
@@ -228,26 +230,20 @@ it("keeps one line for each instance a rule was done to, and none for a rule tha
   ]);
 });
 
-it("hands a step rule to the step the Job was on when it was planned, and keys it by no instance", () => {
+it("hands a rule set off by a state to the step the Job was on when it was planned, and keys it by that instance", () => {
   const visits = [
     { step: 0, since: "2026-10-29T11:00:00.000Z" },
     { step: 1, since: "2026-10-29T11:30:00.000Z" },
   ];
   const lanes = lanesOfJob({
-    held: { ...WITH_PULL, acts: [act("ask-review", undefined, "asked", { text: "Ask Maya and Jun for review", course: "asks", at: "2026-10-29T11:10:00.000Z" })] },
+    held: { ...WITH_PULL, acts: [act("ask-review", undefined, "asked", { entered: ENTERED, text: "Ask Maya and Jun for review", course: "asks", at: "2026-10-29T11:10:00.000Z" })] },
     rules: [ASKS],
     working: false,
     workflow: { name: "feature", steps: STEPS, at: 1, began: true, visits },
   })!;
-  expect(lanes.job.fired[0]).toMatchObject({ rule: "ask-review", instance: "", step: "plan", outcome: "asked" });
+  expect(lanes.job.fired[0]).toMatchObject({ rule: "ask-review", instance: instanceId("pull_request", "812"), step: "plan", outcome: "asked" });
   const { rules } = jobLanes(lanes.job, lanes);
-  expect(rules[0]).toMatchObject({ rule: "ask-review", from: nodeId("workflow", "plan"), to: nodeId("workflow", "plan"), status: "asked" });
-});
-
-it("keys a rule that hands to a step from a state by the instance whose entering set it off", () => {
-  const FROM_STATE = applied({ id: "tell-on-draft", name: "Tell on draft", when: { kind: "enters", lifecycle: "pull_request", state: "draft" }, does: [{ kind: "tell_agent", autonomy: "acts", what: { act: "tell", message: "x" } }] });
-  const fired = lanesOfJob({ held: { ...WITH_PULL, acts: [act("tell-on-draft", undefined, "told", { entered: ENTERED, text: "Tell the agent" })] }, rules: [FROM_STATE], working: false })!.job.fired;
-  expect(fired.map((one) => one.instance)).toEqual([instanceId("pull_request", "812")]);
+  expect(rules[0]).toMatchObject({ rule: "ask-review", from: nodeId(instanceId("pull_request", "812"), "approved"), to: nodeId("workflow", "plan"), status: "asked" });
 });
 
 it("draws no edge for a rule whose node is not drawn", () => {

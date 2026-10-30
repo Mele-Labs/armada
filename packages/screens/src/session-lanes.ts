@@ -114,8 +114,9 @@ function autonomyOf(rule: LifecycleRule): Autonomy {
 }
 
 /**
- * A rule as a Job's lanes draw it: an edge from where it fired to where it lands. **A rule that moves a state lands on that state**; any other lands on the step the Job was on
- * when it fired, so the edge stays where it was drawn. A rule set off by a Job event (`started`, `landed`, `ended`) has no node to leave from, and is not drawn.
+ * A rule as a Job's lanes draw it: an edge from where it fired to where it lands. **A rule that moves a state lands on that state**; one a state sets off that does anything else lands
+ * on the step the Job was on when it fired, so the edge stays where it was drawn. A rule a Job event sets off (`started`, `landed`, `ended`) has no node to leave from, and one a step sets
+ * off that moves no state has none to land on, so neither is drawn.
  */
 export function ruleOfWire(applied: AppliedRule): Rule | undefined {
   const { rule, kept } = applied;
@@ -123,6 +124,7 @@ export function ruleOfWire(applied: AppliedRule): Rule | undefined {
   if (when.kind === "job") return undefined;
   const from = when.kind === "enters" ? { lane: when.lifecycle, item: when.state } : { lane: "workflow", item: when.step };
   const move = rule.does.flatMap((one) => (one.what.act === "tracker_move" ? [{ lane: laneOfTarget(one.what.target, rule), item: one.what.to }] : []))[0];
+  if (move?.lane === undefined && when.kind !== "enters") return undefined;
   const to = move?.lane === undefined ? { lane: "workflow", item: CURRENT_STEP } : { lane: move.lane, item: move.item };
   return {
     id: rule.id,
