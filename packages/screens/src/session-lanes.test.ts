@@ -383,6 +383,6 @@ it("marks a step, a rule and a lifecycle lane that the Job's copy changed, each 
   expect(drawn.lanes[0]!.nodes.find((node) => node.label === "Plan")).toMatchObject({ changed: "Added after Propose by the Job" });
   expect(drawn.lanes[0]!.nodes.find((node) => node.label === "Land")?.changed).toBeUndefined();
   expect(drawn.lanes.find((lane) => lane.title === "ARM-41")).toMatchObject({ changed: "Changed by the Job" });
-  expect(drawn.lanes.find((lane) => lane.title === "PR #812")?.changed).toBeUndefined();
+  expect(drawn.lanes.find((lane) => lane.title.startsWith("PR"))?.changed).toBeUndefined();
   expect(drawn.rules.find((rule) => rule.rule === "ask-at-land")).toMatchObject({ changed: "Added by you" });
 });

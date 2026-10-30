@@ -167,7 +167,7 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
   };
   return (
     <section className="sv-lanes__triage" aria-label="Changed on this Job">
-      <h4 className="sv-lanes__triage-head" data-acts={acts !== undefined && workflow.length > 0 ? "" : undefined}>
+      <h4 className="sv-lanes__triage-head" data-acts={acts !== undefined && workflow.length > 0 ? "true" : undefined}>
         Changed on this Job
         {acts === undefined || workflow.length === 0 ? null : kept === signature ? (
           <Tooltip label={KEPT_SAID} asChild>

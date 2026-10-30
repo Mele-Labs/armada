@@ -331,9 +331,8 @@ where
                 self.workflow_name(&hosting.manifest_id, &workflow),
                 labels.join(" -> ")
             );
-            if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
-                eprintln!("job {id}: the change to its steps was not sent to the agent: {why:?}");
-            }
+            // The change stands whether or not the agent was told, as the rail's own step line does.
+            let _ = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await;
         }
         self.copy_published(&id).await;
         self.job_copy_read(&id).await

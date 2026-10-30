@@ -14,7 +14,7 @@
 .sv-lanes__form-acts { display: flex; align-items: center; gap: var(--space-2); }
 .sv-lanes__refused { margin: 0; padding: var(--space-1) var(--space-3); color: var(--status-completed-failed); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
 .sv-lanes__form .sv-lanes__refused { padding: 0; }
-.sv-lanes__triage-head[data-acts] { display: flex; align-items: center; justify-content: space-between; padding-block: 0; }
+.sv-lanes__triage-head[data-acts="true"] { display: flex; align-items: center; justify-content: space-between; padding-block: 0; }
 .sv-lanes__kept { display: inline-flex; align-items: center; justify-content: center; height: var(--h-control-sm); color: var(--step-advanced); }
 .sv-lanes__change { display: grid; grid-template-columns: var(--space-4) auto minmax(0, 1fr); column-gap: var(--space-2); align-items: center; padding: var(--space-1) var(--space-3); }
 .sv-lanes__change-mark { color: var(--status-awaiting-review); }
