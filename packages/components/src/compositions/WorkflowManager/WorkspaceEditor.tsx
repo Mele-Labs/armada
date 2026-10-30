@@ -506,10 +506,10 @@ export function WorkspaceEditor({
   const scopeLabel = scope === DEFAULT ? "Default" : scope === "workspace" ? `All of ${workspace.name}` : (repository?.name ?? scope);
   const formTitle = form === "edit" ? `Edit ${workspace.name}` : "New Workspace";
   /** What the side panel holds beside a pick, and what it is called. */
-  const aside = autonomy !== undefined && autonomyOpen ? { title: `Autonomy in ${scopeLabel}`, crumb: "Autonomy" } : workspaces?.take === "panel" && form !== undefined ? { title: formTitle, crumb: "Workspace" } : undefined;
+  const aside = autonomy !== undefined && autonomyOpen ? { title: `Autonomy in ${scopeLabel}`, heading: scopeLabel, crumb: "Autonomy" } : workspaces?.take === "panel" && form !== undefined ? { title: formTitle, heading: formTitle, crumb: "Workspace" } : undefined;
   // A tab picked while the autonomy is open reads it for that tab, so the panel is named for it.
   useEffect(() => {
-    if (aside !== undefined) panel.show({ title: aside.title, heading: aside.title, crumb: aside.crumb });
+    if (aside !== undefined) panel.show({ title: aside.title, heading: aside.heading, crumb: aside.crumb });
     // Only a new name asks the panel again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aside?.title]);
