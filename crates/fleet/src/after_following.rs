@@ -32,12 +32,8 @@ pub(crate) enum Verdict {
 }
 
 /// Whether the ledger says this pull request merged.
-fn merged(pull: &ipc::Attachment) -> bool {
-    match pull.detail.get("state").map(String::as_str) {
-        Some("merged") => true,
-        Some("open" | "draft" | "closed") => false,
-        _ => pull.state == AttachmentState::Spent,
-    }
+pub(crate) fn merged(pull: &ipc::Attachment) -> bool {
+    crate::pull_requesting::pull_merged(&pull.detail, pull.state == AttachmentState::Spent)
 }
 
 /// The pull request the wait is on: the one it named, else the newest open one, or one that merged since

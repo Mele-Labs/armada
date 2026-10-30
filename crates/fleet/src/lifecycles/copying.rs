@@ -3,7 +3,7 @@
 //! reaches only the Jobs started after it.
 //!
 //! A Job that froze none, which is every Job started before this existed, has no rules and reads
-//! the lifecycles that apply now ([`lifecycles_for`]).
+//! the lifecycles that apply now ([`Fleet::lifecycles_of_job`]).
 
 use std::path::Path;
 
@@ -11,7 +11,9 @@ use core_model::rule::{ActKind, Autonomy, AutonomyDefaults, Rule};
 use core_model::Lifecycle;
 use store::{PieceKind, Store};
 
-use super::lifecycles_that_apply;
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+
+use crate::daemon::Fleet;
 
 /// What a Job froze when it started.
 #[derive(Clone, Debug, Default)]
@@ -51,8 +53,35 @@ pub fn copy_of(store: &Store, session: &str) -> Option<JobCopy> {
     Some(JobCopy { lifecycles, rules, defaults })
 }
 
-/// The lifecycles `session` reads its instances against: the copy it froze, else the ones that
-/// apply to its repository now.
-pub fn lifecycles_for(store: &Store, session: &str, manifest: &str) -> Vec<Lifecycle> {
-    copy_of(store, session).map(|copy| copy.lifecycles).unwrap_or_else(|| lifecycles_that_apply(manifest))
+/// The lifecycles `session` froze, without the rules or anything else of the copy: the four Armada
+/// carries with a file's in place of the one it replaces. `None` for a Job that froze none.
+pub fn frozen_lifecycles(store: &Store, session: &str) -> Option<Vec<Lifecycle>> {
+    let kept = store.job_copy_of(session).ok().flatten()?;
+    let mut lifecycles = Lifecycle::built_in();
+    for piece in kept.pieces.iter().filter(|piece| piece.kind == PieceKind::Lifecycle) {
+        let Ok(read) = config::parse_lifecycle(Path::new(&piece.path), &piece.text) else { continue };
+        match lifecycles.iter_mut().find(|one| one.id() == read.id()) {
+            Some(held) => *held = read,
+            None => lifecycles.push(read),
+        }
+    }
+    Some(lifecycles)
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// The lifecycles `session` reads its instances against: the copy it froze, else the ones that
+    /// apply to its repository now. **Every reader of a Job's instances asks here**, so a lifecycle
+    /// saved after the Job started changes nothing it holds.
+    pub(crate) fn lifecycles_of_job(&self, store: &Store, session: &str, manifest: &str) -> Vec<Lifecycle> {
+        frozen_lifecycles(store, session).unwrap_or_else(|| self.lifecycles_that_apply(manifest))
+    }
 }

@@ -8,16 +8,16 @@
 //! here is a set of repositories**, and not the Manifest's monorepo unit; this file uses the word
 //! for nothing but the id a lifecycle is scoped to.
 //!
-//! This milestone's first piece is the model, so what is proved is what a lifecycle and an
-//! instance are. Each step of the claim that needs more is a row below, naming the build task that
-//! carries it. The task that builds a step adds its assertion beside the code and takes its row out.
+//! Each step of the claim not proved yet is a row below, naming the build task that carries it.
+//! The task that builds a step adds its assertion beside the code and takes its row out.
 //!
 //! | Proved | Not proved, and the build task that carries it |
 //! |---|---|
 //! | A ticket reads in the words of the Workspace's tracker, a status no state lists is unmapped, and a step's move (To do to In progress) is one the lifecycle expects | That a deploy is taken on when a rule's watch starts it. Its watch's reading already reaches it, and taking it on has no start until a rule starts the watch. Carried by Autonomy and Asks in Needs you |
 //! | Fleet reads a ticket's status from the tracker, a pull request's state from the forge, a deploy's from a watch and a Job's from its own events, and keeps a move only when the standing changed (`lifecycles/readers.rs`) | That the planned move is done: it waits as one item in Needs you while the rule's autonomy is Asks, which is the default for a write to the tracker or the forge, and is made at once when the rule is set to Acts. Carried by Autonomy and Asks in Needs you |
 //! | A step starting plans the ticket move: a rule read from its file, whose When is the step starting, whose If reads the tickets the Job holds and whose Do is the move, plans it once for each ticket still in To do, and under the default it is planned as Asks | |
-//! | Approval is a state of the pull request read from the forge alone, reaching it is reported once, it is not an end, and a pull request knows its tickets | That a step ends on `pr: approved`, that the agent is stopped while it waits, and that Fleet wakes it on the transition. Carried by `ends_on` lifecycle states and waking |
+//! | A step ends on `pr: approved` or `job: landed`, the agent is stopped while it waits, and Fleet wakes it on the transition; Land waits on `pr: approved` before it merges (`lifecycles/ends.rs`) | |
+//! | Approval is a state of the pull request read from the forge alone, reaching it is reported once, it is not an end, and a pull request knows its tickets | |
 //! | A Job a Job starts is an instance of the Job lifecycle, linked to the Job that started it, and landing ends it | That Bridge and the agent's tools can see lifecycles, instances and rules: that they cross the wire and are mirrored in TypeScript. Carried by Operations and the TypeScript mirror |
 //! | What is in flight is what no end state has taken, and a status nobody can place keeps its instance there | That End lists them before it ends the Job. Carried by End listing live instances |
 
@@ -25,9 +25,11 @@
 #[allow(dead_code)]
 mod bench;
 
-// The readers' half of the claim, in a file of its own to keep this one short.
+// The readers' half of the claim and the wait on a state, each in a file of its own to keep this one short.
 #[path = "lifecycles/readers.rs"]
 mod readers;
+#[path = "lifecycles/ends.rs"]
+mod ends;
 
 use std::path::Path;
 
