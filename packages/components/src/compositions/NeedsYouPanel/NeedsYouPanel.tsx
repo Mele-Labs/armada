@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, LoaderCircle, MessageCircleQuestion, Scale, ThumbsDown, ThumbsUp } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -8,6 +8,7 @@ import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
+import { StartAct } from "./StartAct";
 import { LedgerRows, RestartKey, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 
 /** Focus may move to an arriving question from anywhere but a box with something typed in it: a row he just pressed to come into the Session is not one. */
@@ -58,28 +59,6 @@ function Thumbs({ misread, keep }: { misread: NonNullable<Thing["misread"]>; kee
           <ThumbsDown size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
-    </span>
-  );
-}
-
-/** Start at a held Job's row end, in a column of its own width so a row with one lines up with the next; while the request is read, Starting. */
-function StartAct({ start }: { start: NonNullable<LedgerEntry["start"]> }) {
-  return (
-    <span className="armada-needs-panel__start">
-      {start.starting ? (
-        <span className="armada-needs-panel__starting">
-          <Tooltip label="Starting">
-            <span className="armada-session-mark" role="img" aria-label="Starting">
-              <LoaderCircle size={12} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
-          <span aria-hidden>Starting…</span>
-        </span>
-      ) : (
-        <Button variant="secondary" size="sm" data-aside="" onClick={start.onStart}>
-          Start
-        </Button>
-      )}
     </span>
   );
 }
