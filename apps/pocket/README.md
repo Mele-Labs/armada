@@ -12,10 +12,18 @@ on a list at `http://localhost:5173/`. `POCKET_FIXTURE_UNPAIRED=laptop` makes
 `src/fixture/`.
 
 `pnpm -C apps/pocket dev` serves it with no Gateway behind it, and the app
-goes to `/pair`. Routes: `/` every Mac's Jobs, `/pair` (`?code=…` from a
-pairing link, `?origin=…` to pair a Mac again), `/dispatch`, a Job at
+goes to `/pair`. Routes: `/` every Mac's Jobs (Drafts, Needs you, Running, under
+the plan's 5-hour and weekly limits), `/pair` (`?code=…` from a pairing link,
+`?origin=…` to pair a Mac again), `/dispatch`, a Job at
 `/jobs/<Mac origin, encoded>/<id>`, and what it showed under it at
-`/file?path=…` and `/sketch?id=…`.
+`/file?path=…` and `/sketch?id=…`. A draft Job, one held on its start card,
+opens at `/drafts/<Mac origin, encoded>/<id>`: its brief to edit, how the work
+lands where its workflow asks, Send and Discard. A Job that has begun opens as
+a Job from there, and a held one opens as a draft from `/jobs/…`.
+
+A Job's thread ends in what waits on the owner: a question, a Run card for a
+command to run on the Mac, a Draft card to approve or send back. The header's
+⋯ menu holds Stop, Pause or Resume, Fork, model, effort and End job.
 
 Every call is signed with that Mac's key in `src/client.ts`. Each key is made
 when its Mac is paired, non-extractable, and kept in IndexedDB

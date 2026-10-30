@@ -66,6 +66,22 @@ pub struct PhoneSession {
     /// A hosted Session's, or a Terminal Session's while Fleet holds it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ask: Option<PhoneAsk>,
+    /// Held on its start card until the owner begins it. Neither waiting nor working meanwhile.
+    pub held: bool,
+    /// The Job that started this one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<PhoneLink>,
+    /// What its last answer had in its window, and that window. Absent until reported.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PhoneLink {
+    pub id: String,
+    pub title: String,
 }
 
 /// The ask a Session is held on. **A Terminal Session's counts only while Fleet
@@ -146,6 +162,7 @@ fn owed(record: &SessionRecord) -> Vec<&WaitingItem> {
 impl PhoneSession {
     pub fn of(record: &SessionRecord, repository: Option<&str>, now: i64) -> PhoneSession {
         let hosted = record.origin == SessionOrigin::Bridge;
+        let held = record.hosted.as_ref().is_some_and(|facts| facts.start.is_some());
         // A Terminal Session is waiting when its mod says it asked, held or not.
         let waiting_on = match record.origin {
             SessionOrigin::Bridge => held_ask(record, now),
@@ -155,20 +172,28 @@ impl PhoneSession {
         let owed = owed(record);
         let since = waiting_on
             .map(|asked| asked.asked_at.as_str())
-            .or_else(|| owed.iter().map(|one| &one.since).min().map(|at| at.as_str()));
+            .or_else(|| owed.iter().map(|one| &one.since).min().map(|at| at.as_str()))
+            .filter(|_| !held);
         PhoneSession {
             id: record.id.as_str().to_string(),
             title: record.title.clone(),
             repository: repository.map(str::to_string),
             kind: if hosted { "hosted" } else { "terminal" },
             waiting: since.is_some(),
-            working: matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck)),
+            working: !held && matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck)),
             started_at: record.started_at.as_str().to_string(),
             ended_at: record.ended_at.as_ref().map(|at| at.as_str().to_string()),
             waiting_since: since.map(str::to_string),
             ask: held_ask(record, now)
                 .filter(|_| record.state == SessionState::Live)
                 .map(ask),
+            held,
+            from: record.started.as_ref().and_then(|started| started.by.as_ref()).map(|by| PhoneLink {
+                id: by.id.as_str().to_string(),
+                title: by.title.clone(),
+            }),
+            context_tokens: record.usage.context_tokens,
+            context_window: record.usage.context_window,
         }
     }
 }
