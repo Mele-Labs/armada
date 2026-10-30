@@ -228,6 +228,8 @@ mod pull_requesting;
 mod pull_refreshing;
 /// The issues a Session works on: named by the person, or closed by its pull requests.
 mod session_issues;
+/// What a Job holds, standing in the states of its lifecycles, and the readers that say where.
+pub mod lifecycles;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
@@ -350,6 +352,9 @@ mod wire;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.
 mod workflow_changes;
+/// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read
+/// from the places a piece is kept.
+mod piece_places;
 pub mod workspaces;
 
 #[cfg(test)]

@@ -1,18 +1,41 @@
 // A Job: its whole thread, read from the Mac that holds it, with every reply the phone makes sent to
 // that Mac. What it waits on sits at the end of the thread; a message box sits under it. The frame, the
-// thread and the box are the ones Bridge's Job view draws.
+// thread and the box are the ones Bridge's Job view draws. A command to run and a draft to settle are cards at the
+// thread's end too; the header carries the context figure, the Jobs this one is linked to, and the Job's other acts.
 
 import { useEffect, useState } from "react";
-import { AskCards, Button, SessionComposer, SessionFrame, SessionThread, Textarea, type SessionState } from "@armada/components";
+import { Check, CirclePause, CornerDownRight, GitFork, Link as Linked, Play, PowerOff, Square } from "lucide-react";
+import {
+  AskCards,
+  Button,
+  Card,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Prose,
+  ProseCommand,
+  ProseRunner,
+  SessionComposer,
+  SessionFrame,
+  SessionThread,
+  Textarea,
+  Tooltip,
+  type DropdownMenuEntry,
+  type SessionState,
+} from "@armada/components";
+import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
 import type { HelmCallAnswer, QuestionAnswer, WaitingItem } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 
+import { getJson } from "./client";
 import { holderOf, macOf, start, useFleet } from "./fleet";
+import type { ModelsBody } from "./gateway";
 import { actsOn, attempt, useJob, type Acts } from "./jobState";
 import type { Machine } from "./machines";
-import { filePath, go, jobPath, sketchPath } from "./router";
-import { approvalOf, askedOf, asksOf, rowsOf, sessionOfThread } from "./thread";
-import { Back, Band, Trouble } from "./ui";
+import { draftPath, filePath, go, jobPath, sketchPath } from "./router";
+import { approvalOf, askedOf, asksOf, draftsOf, linksOf, rowsOf, runsOf, sessionOfThread, type JobLink, type OpenDraft } from "./thread";
+import { Back, Band, Figure, Trouble } from "./ui";
 
 const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
@@ -62,12 +85,151 @@ function PlanChanges({ keep, send }: { keep: string; send: (text: string) => Pro
   );
 }
 
+/**
+ * A command the agent asked the owner to run on the Mac: run there from here, and its exit and tail come back as a `ran` row.
+ * Once a run has ended the card says so, with its exit code, until the agent clears the item.
+ */
+function RunCard({ item, command, ran, run }: { item: WaitingItem; command: string; ran?: { code?: number }; run: () => Promise<boolean> }) {
+  const [going, setGoing] = useState(false);
+  return (
+    <Card className="pk-card" role="group" aria-label={item.text}>
+      <CardHeader>
+        <CardTitle>{item.text}</CardTitle>
+      </CardHeader>
+      <code className="pk-card__command">{command}</code>
+      <CardFooter className="pk-card__acts">
+        {ran !== undefined ? (
+          <span className="pk-card__ran">
+            {ran.code === undefined ? null : <Figure name="Exit code" loose>{`exit ${ran.code}`}</Figure>}
+            <Tooltip label="Ran">
+              <span role="img" aria-label="Ran"><Check size={16} strokeWidth={2} aria-hidden="true" /></span>
+            </Tooltip>
+          </span>
+        ) : (
+        <Button
+          variant="primary"
+          pending={going}
+          onClick={() => {
+            setGoing(true);
+            void run().finally(() => setGoing(false));
+          }}
+        >
+          Run
+        </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+/** A draft the agent proposed with `propose_draft`: approved as written, or sent back with a note. */
+function DraftCard({ draft, keep, approve, sendBack }: { draft: OpenDraft; keep: string; approve: () => Promise<boolean>; sendBack: (note: string) => Promise<boolean> }) {
+  const [noting, setNoting] = useState(false);
+  const [note, setNote] = useState("");
+  return (
+    <Card className="pk-card" role="group" aria-label={draft.title}>
+      <CardHeader>
+        <CardTitle>{draft.title}</CardTitle>
+      </CardHeader>
+      <div className="pk-card__text">
+        <ProseRunner.Provider value={null}>
+          <ProseCommand.Provider value={null}>
+            <Prose text={draft.text} />
+          </ProseCommand.Provider>
+        </ProseRunner.Provider>
+      </div>
+      {noting ? <Textarea keep={keep} rows={3} autoFocus aria-label="Note" placeholder="Note" value={note} onChange={(event) => setNote(event.target.value)} /> : null}
+      <CardFooter className="pk-card__acts">
+        {noting ? (
+          <>
+            <Button variant="ghost" onClick={() => (setNote(""), setNoting(false))}>Cancel</Button>
+            <Button variant="primary" disabled={note.trim() === ""} onClick={() => void sendBack(note.trim()).then((went) => went && setNote(""))}>Send back</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={() => setNoting(true)}>Send back</Button>
+            <Button variant="primary" onClick={() => void approve()}>Approve</Button>
+          </>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+/** The header's second line: the Job this one started from, the Jobs it started, each a chip opening that Job; then the context figure. */
+function HeadFacts({ from, started, context, open }: { from?: JobLink; started: readonly JobLink[]; context?: { tokens: number; window: number }; open: (id: string) => void }) {
+  const chip = (one: JobLink, Glyph: typeof Linked, name: string) => (
+    <Tooltip key={one.id} label={`${name}: ${one.title}`}>
+      <Button variant="ghost" size="sm" aria-label={`${name}: ${one.title}`} onClick={() => open(one.id)}>
+        <Glyph size={12} strokeWidth={2} aria-hidden="true" />
+        <span className="pk-head__chip-title">{one.title}</span>
+      </Button>
+    </Tooltip>
+  );
+  const fill = context === undefined || context.window <= 0 ? undefined : `${tokensSaid(context.tokens)} / ${tokensSaid(context.window)}`;
+  if (from === undefined && started.length === 0 && fill === undefined) return null;
+  return (
+    <span className="pk-head__facts">
+      <span className="pk-head__links">
+        {from === undefined ? null : chip(from, Linked, "Started from")}
+        {started.map((one) => chip(one, CornerDownRight, "Started"))}
+      </span>
+      {fill === undefined ? null : <Figure name="Context" loose>{fill}</Figure>}
+    </span>
+  );
+}
+
+const EFFORTS: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
+
+/** The models this Mac's Fleet offers, read once per Job opened. */
+function useModels(machine: Machine): ModelsBody | undefined {
+  const [models, setModels] = useState<ModelsBody | undefined>(undefined);
+  useEffect(() => {
+    let gone = false;
+    getJson<ModelsBody>(machine, "/api/models").then((read) => !gone && setModels(read), () => undefined);
+    return () => {
+      gone = true;
+    };
+  }, [machine.origin]);
+  return models;
+}
+
+/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, the model and effort, and End. An ended Job keeps Fork alone. */
+function menuOf(session: Session, models: ModelsBody | undefined): DropdownMenuEntry[] {
+  if (session.dead !== undefined) return [{ kind: "item", id: "fork", label: "Fork", icon: GitFork }];
+  const model = session.model ?? models?.session;
+  const efforts = models?.offered?.find((one) => one.name === model)?.efforts ?? EFFORTS;
+  return [
+    ...(session.turn.state === "working" ? [{ kind: "item", id: "stop", label: "Stop", icon: Square } as const] : []),
+    session.paused === true ? ({ kind: "item", id: "resume", label: "Resume", icon: Play } as const) : ({ kind: "item", id: "pause", label: "Pause", icon: CirclePause } as const),
+    { kind: "item", id: "fork", label: "Fork", icon: GitFork },
+    ...(models === undefined || models.models.length === 0
+      ? []
+      : [
+          { kind: "separator", id: "model-rule" } as const,
+          { kind: "label", id: "model-label", label: "Model" } as const,
+          ...models.models.map((name): DropdownMenuEntry => ({ kind: "item", id: `model:${name}`, label: name, selected: name === model })),
+        ]),
+    { kind: "separator", id: "effort-rule" },
+    { kind: "label", id: "effort-label", label: "Effort" },
+    ...efforts.map((name): DropdownMenuEntry => ({ kind: "item", id: `effort:${name}`, label: name, selected: name === session.effort })),
+    { kind: "separator", id: "end-rule" },
+    { kind: "item", id: "end", label: "End job", icon: PowerOff, danger: true },
+  ];
+}
+
 function Thread({ machine, id, several }: { machine: Machine; id: string; several: boolean }) {
   const [read, reread] = useJob(machine, id);
   const [says, run] = useReply(machine);
   const [skipped, setSkipped] = useState<string | undefined>(undefined);
   const acts: Acts = actsOn(machine, reread);
+  const models = useModels(machine);
   const home = () => go("/");
+  const held = read.thread?.session.hosted?.start !== undefined;
+  // A Job still on its start card opens as a draft.
+  useEffect(() => {
+    if (held) go(draftPath(machine.origin, id), true);
+  }, [held, machine.origin, id]);
   if (read.thread === undefined) {
     return (
       <section className="pk-screen" aria-label="Job">
@@ -97,6 +259,23 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           onAnswer: (answers: QuestionAnswer[]) => void run(() => acts.message({ session_id: id, text: lapsedAnswerText(answers) })),
           onSkip: () => setSkipped(session.lapsed?.id),
         };
+  const runs = runsOf(session, read.thread);
+  const drafts = draftsOf(session);
+  const links = linksOf(read.thread);
+  const openJob = (other: string) => go(jobPath(machine.origin, other));
+  const onMenu = (entry: string) => {
+    const job = { session_id: id };
+    if (entry === "stop") void run(() => acts.stop(job));
+    else if (entry === "pause") void run(() => acts.pause(job));
+    else if (entry === "resume") void run(() => acts.resume(job));
+    else if (entry === "end") void run(() => acts.close(job));
+    else if (entry === "fork") void run(async () => openJob((await acts.fork(job)).id));
+    else if (entry.startsWith("model:") || entry.startsWith("effort:")) {
+      const model = entry.startsWith("model:") ? entry.slice("model:".length) : session.model;
+      const effort = entry.startsWith("effort:") ? entry.slice("effort:".length) : session.effort;
+      void run(() => acts.tune({ session_id: id, ...(model === undefined ? {} : { model }), ...(effort === undefined ? {} : { effort }), mode: session.mode ?? "auto" }));
+    }
+  };
   const planPending = approval !== undefined && !approval.approved && plan?.version !== undefined && approval.groups[0] !== undefined;
   const trailing = (
     <div className="pk-trailing">
@@ -105,6 +284,18 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       )}
       {asksOf(session).map((item) => (
         <WaitingAsk key={item.id} item={item} keep={keep(`waiting:${item.id}`)} answer={(given) => run(() => acts.answerWaiting({ session_id: id, item_id: item.id, ...given }))} />
+      ))}
+      {runs.map(({ item, command, ran }) => (
+        <RunCard key={item.id} item={item} command={command} {...(ran === undefined ? {} : { ran })} run={() => run(() => acts.run({ session_id: id, command }))} />
+      ))}
+      {drafts.map((draft) => (
+        <DraftCard
+          key={draft.id}
+          draft={draft}
+          keep={keep(`draft:${draft.id}:note`)}
+          approve={() => run(() => acts.answerWaiting({ session_id: id, item_id: `draft:${draft.id}`, choice: 0 }))}
+          sendBack={(note) => run(() => acts.answerWaiting({ session_id: id, item_id: `draft:${draft.id}`, text: note }))}
+        />
       ))}
       {planPending ? (
         <PlanChanges
@@ -115,7 +306,12 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       <Trouble says={says} />
     </div>
   );
-  const { state, said } = standing(asked !== undefined || lapsed !== undefined || planPending || asksOf(session).length > 0, session.turn.state === "working", session.dead !== undefined);
+  const { state, said } = standing(
+    asked !== undefined || lapsed !== undefined || planPending || asksOf(session).length > 0 || runs.length > 0 || drafts.length > 0,
+    session.turn.state === "working",
+    session.dead !== undefined,
+  );
+  const context = session.context;
   return (
     <section className="pk-screen" aria-label={session.title ?? "Job"}>
       <div className="deck-pane pk-pane" data-frame data-bare>
@@ -124,6 +320,8 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           said={several ? `${said} · ${machine.name}` : said}
           id={id}
           {...(session.title === undefined ? {} : { title: session.title })}
+          actions={<HeadFacts {...(links.from === undefined ? {} : { from: links.from })} started={links.started} {...(context === undefined ? {} : { context })} open={openJob} />}
+          menu={{ entries: menuOf(session, models), onSelect: onMenu }}
           back={<Back label="Home" onClick={home} />}
         >
           <div className="armada-session-frame__centre">
@@ -133,7 +331,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
               {...(approval === undefined ? {} : { approval })}
               working={session.turn.state === "working"}
               onAnswer={onAnswer}
-              onOpenSession={(other) => go(jobPath(machine.origin, other))}
+              onOpenSession={openJob}
               onOpenFile={(path) => go(filePath(machine.origin, id, path))}
               onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
               trailing={trailing}

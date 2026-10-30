@@ -60,8 +60,10 @@ export const OPEN_ON_MAC = "Open on your Mac";
 
 export function rowsOf(session: Session): SessionThreadRow[] {
   const ledger = session.attachments;
-  // A browser reminder offers the Mac's Job browser, which the phone has none of.
-  const drawn = session.rows.flatMap((row) => (row.kind === "browser_reminder" ? [] : [row])).map((row): SessionThreadRow => {
+  // A browser reminder offers the Mac's Job browser, which the phone has none of. A draft still open is its card at the
+  // thread's end (`draftsOf`), so it is drawn there alone; once settled, the row says how it ended.
+  const open = new Set(draftsOf(session).map((one) => one.id));
+  const drawn = session.rows.flatMap((row) => (row.kind === "browser_reminder" || (row.kind === "draft" && open.has(row.id)) ? [] : [row])).map((row): SessionThreadRow => {
     if (row.kind === "tool") return sketchCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
     // A walk is the Mac's: the phone says where it is and nothing more.
     if (row.kind === "window") return { id: row.id, at: row.at, kind: "act", icon: AppWindow, said: row.title, text: OPEN_ON_MAC };
@@ -123,8 +125,58 @@ export function approvalOf(session: Session, onApprove: () => void): PlanApprova
   };
 }
 
-/** What the agent itself asked the owner, beside the thread: an item with its choices, answered on the Mac's `waiting/answer`. */
-export const asksOf = (session: Session): readonly WaitingItem[] => (session.dead === undefined ? (session.waitingFor ?? []).filter((one) => one.source === "agent") : []);
+/**
+ * What the agent itself asked the owner, beside the thread: an item with its choices, answered on the Mac's `waiting/answer`.
+ * An item whose act is a command is a Run card (`runsOf`) instead.
+ */
+export const asksOf = (session: Session): readonly WaitingItem[] =>
+  session.dead === undefined ? (session.waitingFor ?? []).filter((one) => one.source === "agent" && one.act?.kind !== "run") : [];
+
+export type RunItem = { item: WaitingItem; command: string; /** A run of the command ended after the item was put: its exit code, absent where it was stopped. */ ran?: { code?: number } };
+
+/**
+ * The items whose act is a command to run on the Mac, each a Run card beside the thread. Fleet writes a `ran` row when a run
+ * ends and the agent clears the item itself, so an item a newer `ran` row answers is drawn as ran until it goes.
+ */
+export function runsOf(session: Session, wire: WireThread): readonly RunItem[] {
+  if (session.dead !== undefined) return [];
+  return (session.waitingFor ?? []).flatMap((one) => {
+    if (one.act?.kind !== "run") return [];
+    const command = one.act.target;
+    const since = Date.parse(one.since);
+    const ran = [...(wire.rows ?? [])].reverse().find((row) => row.kind === "ran" && row.command.trim() === command.trim() && Date.parse(row.at) > since);
+    return [{ item: one, command, ...(ran?.kind === "ran" ? { ran: ran.code === undefined ? {} : { code: ran.code } } : {}) }];
+  });
+}
+
+export type OpenDraft = { id: string; title: string; text: string; before?: string };
+
+/** The drafts the agent proposed that wait on the owner, each settled on the Mac as the item `draft:<row id>`. */
+export function draftsOf(session: Session): readonly OpenDraft[] {
+  if (session.dead !== undefined) return [];
+  const waiting = new Set((session.waitingFor ?? []).map((one) => one.id));
+  return session.rows.flatMap((row) =>
+    row.kind === "draft" && row.settled === undefined && row.workflow === undefined && row.change === undefined && waiting.has(`draft:${row.id}`)
+      ? [{ id: row.id, title: row.title, text: row.text, ...(row.before === undefined ? {} : { before: row.before }) }]
+      : [],
+  );
+}
+
+export type JobLink = { id: string; title: string };
+
+/** The Job this one was started from, and the Jobs it started or follows, from its record and its thread's rows. */
+export function linksOf(wire: WireThread): { from?: JobLink; started: readonly JobLink[] } {
+  const by = wire.session.started?.by;
+  const seen = new Set<string>(by === undefined ? [] : [by.id, wire.session.id]);
+  const started: JobLink[] = [];
+  for (const row of wire.rows ?? []) {
+    if (row.kind !== "started" && row.kind !== "linked" && !(row.kind === "waiter" && row.side === undefined)) continue;
+    if (seen.has(row.session.id)) continue;
+    seen.add(row.session.id);
+    started.push({ id: row.session.id, title: row.session.title });
+  }
+  return { ...(by === undefined ? {} : { from: { id: by.id, title: by.title } }), started };
+}
 
 /** The sketch the Job showed, by its ledger id, as the viewer draws it. */
 export function sketchOf(session: Session, id: string): { title: string; scene: Scene; against?: Scene } | undefined {

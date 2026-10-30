@@ -63,6 +63,14 @@ impl FakeTracker {
         self.closed.lock().expect("closed").push(issue);
     }
 
+    /// [`knows`](Self::knows), replacing what was known of the same reference: an issue whose
+    /// status moves between two reads.
+    pub fn now_knows(&self, issue: ReadIssue) {
+        let mut known = self.closed.lock().expect("closed");
+        known.retain(|held| held.reference != issue.reference);
+        known.push(issue);
+    }
+
     /// What the next listing answers, from now on.
     pub fn now_lists(&self, issues: Vec<OpenIssue>) {
         *self.issues.lock().expect("issues") = issues;

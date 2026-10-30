@@ -40,6 +40,12 @@ export type PhoneSession = {
   ended_at?: string;
   waiting_since?: string;
   ask?: PhoneAsk;
+  /** Held on its start card: a draft Job, which runs nothing until Send. */
+  held: boolean;
+  /** The Job that started it. */
+  from?: { id: string; title: string };
+  context_tokens?: number;
+  context_window?: number;
 };
 
 /** GET /api/sessions: the live Sessions only. The phone takes Needs you from the ones waiting. */
@@ -58,6 +64,23 @@ export type AnswerBody = {
   ask_id?: string;
   answer: "allow_once" | "refuse" | ChosenAnswer[];
 };
+
+/** GET /api/plan_usage: Fleet's `PlanUsage` as it is. */
+export type { PlanUsage as PlanUsageBody } from "@armada/protocol";
+
+/** GET /api/models: Fleet's `ModelChoices` as it is. */
+export type { ModelChoices as ModelsBody } from "@armada/protocol";
+
+/**
+ * The Job acts, each forwarded to Fleet unchanged and answered with the `SessionRecord`:
+ * `/api/sessions/begin` (`BeginSession`), `/api/sessions/stop`, `/pause`, `/resume` and `/close` (`{ session_id }`),
+ * `/api/sessions/tune` (`TuneSession`), `/api/sessions/waiting/dismiss` (`DismissWaiting`).
+ * `/api/sessions/run/start` (`StartSessionRun`) answers 202 with `SessionRunUnderway`.
+ */
+export type JobOnly = { session_id: string };
+
+/** POST /api/sessions/fork `{ session_id }`. 201 with the new Job. */
+export type ForkedBody = { session: PhoneSession };
 
 /** GET /api/repositories: the labels `DispatchBody.repository` may be. */
 export type RepositoriesBody = string[];

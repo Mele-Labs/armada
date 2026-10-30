@@ -68,6 +68,8 @@ mod word_asks;
 /// The Jobs a person renamed, which the proposer names later Jobs from.
 mod job_renames;
 mod job_issues;
+/// What a Job holds standing in the states of its lifecycles, and the moves between them.
+mod lifecycle_instances;
 mod plan_beads;
 /// A Job's adversarial reviews of its plan, one a version.
 mod adversarial_reviews;
@@ -189,6 +191,7 @@ pub use job_renames::KeptRename;
 pub use home_kinds::KeptHomeItem;
 pub use home_repositories::KeptHomeRepository;
 pub use job_issues::KeptJobIssue;
+pub use lifecycle_instances::{KeptInstance, KeptMove, KeptRead};
 pub use plan_beads::KeptBead;
 pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
 pub use fleet_calls::KeptCall;
