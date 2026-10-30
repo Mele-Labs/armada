@@ -13,7 +13,7 @@
 //!
 //! | Proved | Not proved, and the build task that carries it |
 //! |---|---|
-//! | A ticket reads in the words of the Workspace's tracker, a status no state lists is unmapped, and a step's move (To do to In progress) is one the lifecycle expects | That the planned ticket move is made in the tracker, or a forge write in the forge. Fleet plans and records them and raises nothing, since the `Tracker` and `Forge` traits have no write method. Carried by Tracker and forge writes |
+//! | A ticket reads in the words of the Workspace's tracker, a status no state lists is unmapped, and a step's move (To do to In progress) is one the lifecycle expects | |
 //! | Fleet reads a ticket's status from the tracker, a pull request's state from the forge, a deploy's from a watch and a Job's from its own events, and keeps a move only when the standing changed (`lifecycles/readers.rs`) | |
 //! | A step starting plans the ticket move: a rule read from its file, whose When is the step starting, whose If reads the tickets the Job holds and whose Do is the move, plans it once for each ticket still in To do, and under the default it is planned as Asks | |
 //! | A step ends on `pr: approved` or `job: landed`, the agent is stopped while it waits, and Fleet wakes it on the transition; Land waits on `pr: approved` before it merges (`lifecycles/ends.rs`) | |
@@ -21,26 +21,26 @@
 //! | A Job a Job starts is an instance of the Job lifecycle, linked to the Job that started it, and landing ends it. Bridge and the agent's tools can see lifecycles, instances and rules: they cross the wire as the wire's own types, are served at four read routes with one agent tool for a Job's own, and are spelled the same in TypeScript (`lifecycles/wire.rs`) | |
 //! | What is in flight is what no end state has taken, and a status nobody can place keeps its instance there; End lists each by its name and state before it ends the Job (`lifecycles/ending.rs`, and `fleet`'s `lifecycle_holding` for the refusal and the ending) | |
 //! | A planned act is asked about in the owner's words while its autonomy is Asks and done at once when it is Acts, the repository's autonomy laid over the Workspace's; a watch a rule starts for a deploy takes the deploy on and its readings move it (`lifecycles/acts.rs`, and `fleet`'s `rule_asking` and `rule_acting` for the kept item, its answer and a restart) | |
+//! | A planned write is made in the tracker, in the Workspace's own word for the state, or in the forge, a merge being the forge's own so a merge queue takes it; one the repository cannot make is kept as not carried, with why, and raises nothing (`lifecycles/writes.rs`, and `fleet`'s `rule_writing` for the Do it and Skip item and a write that fails) | |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
 mod bench;
 
-// The readers', the wait's, End's, the acts' and the wire's halves of the claim, each in a file of its own to keep this one short.
+// The readers', the wait's, End's, the acts', the wire's and the writes' halves of the claim, each in a file of its own to keep this one short.
 #[path = "lifecycles/readers.rs"] mod readers;
 #[path = "lifecycles/ends.rs"] mod ends;
 #[path = "lifecycles/ending.rs"] mod ending;
 #[path = "lifecycles/acts.rs"] mod acts;
 #[path = "lifecycles/wire.rs"] mod wire;
+#[path = "lifecycles/writes.rs"] mod writes;
 
 use std::path::Path;
 
 use core_model::rule::{Act, ActKind, Autonomy, AutonomyDefaults, Course, RanOnce, Target, TrackerWrite};
-use core_model::{FleetFact, ForgeFact, HeldInstances, Lifecycle, LifecycleId, LifecycleScope, MalformedLifecycle};
-use core_model::{Observed, ReadingState, ScopeId, Standing, StateRead};
+use core_model::{FleetFact, ForgeFact, HeldInstances, Lifecycle, LifecycleId, LifecycleScope, MalformedLifecycle, Observed, ReadingState, ScopeId, Standing, StateRead};
 
-use bench::lifecycles::{a_job_holding_three_tickets, at, in_state, keys, lifecycle, plan_step_start, rules_from, see, state};
-use bench::lifecycles::{taken_on, the_jobs_copy, BACK_OFFICE_TICKETS, MOVES_TICKETS, MY_STORE_TICKETS};
+use bench::lifecycles::{a_job_holding_three_tickets, at, in_state, keys, lifecycle, plan_step_start, rules_from, see, state, taken_on, the_jobs_copy, BACK_OFFICE_TICKETS, MOVES_TICKETS, MY_STORE_TICKETS};
 
 // ---------------------------------------------------------------------------
 // Moves its ticket

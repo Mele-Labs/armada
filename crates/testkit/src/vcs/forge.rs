@@ -241,6 +241,14 @@ impl Forge for FakeVcs {
         self.ready_asked(pull_request)
     }
 
+    fn request_reviewers(&self, _in_repo: &str, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+        self.reviewers_asked(pull_request, reviewers)
+    }
+
+    fn can_request_reviewers(&self) -> Result<(), String> {
+        Ok(())
+    }
+
     fn pull_request_page(
         &self,
         _in_repo: &str,

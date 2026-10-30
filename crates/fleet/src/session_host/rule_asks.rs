@@ -100,6 +100,7 @@ where
         if go {
             self.rule_acts().wake();
         }
+        self.job_lifecycles_published(session).await;
         self.published_hosted(session).await
     }
 

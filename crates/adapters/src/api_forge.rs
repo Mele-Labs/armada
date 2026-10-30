@@ -401,6 +401,15 @@ impl Forge for ApiForge {
         )
     }
 
+    /// `gh`'s, whole, as [`merge`](Forge::merge) is: a rare rule write, and not worth a second path.
+    fn request_reviewers(&self, in_repo: &str, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+        self.gh.request_reviewers(in_repo, pull_request, reviewers)
+    }
+
+    fn can_request_reviewers(&self) -> Result<(), String> {
+        Ok(())
+    }
+
     fn pull_request_page(
         &self,
         in_repo: &str,

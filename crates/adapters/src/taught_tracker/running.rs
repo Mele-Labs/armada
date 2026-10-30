@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use adapter_traits::Secret;
 
-use super::file::{CREDENTIAL, QUERY, REFERENCE};
+use super::file::{ASSIGNEE, CREDENTIAL, QUERY, REFERENCE, STATUS};
 
 /// The longest one program, or one HTTP call, may take.
 pub(crate) const WITHIN: Duration = Duration::from_secs(30);
@@ -116,6 +116,10 @@ pub(crate) fn not_started(program: &str, why: &std::io::Error) -> String {
 pub(crate) struct Fills<'a> {
     pub(crate) query: Option<&'a str>,
     pub(crate) reference: Option<&'a str>,
+    /// The tracker's word for where a `[move]` puts the issue.
+    pub(crate) status: Option<&'a str>,
+    /// Whoever an `[assign]` gives the issue to.
+    pub(crate) assignee: Option<&'a str>,
     pub(crate) credential: Option<&'a Secret<String>>,
 }
 
@@ -160,6 +164,8 @@ impl Fills<'_> {
         match word {
             QUERY => self.query,
             REFERENCE => self.reference,
+            STATUS => self.status,
+            ASSIGNEE => self.assignee,
             CREDENTIAL => self.credential.map(|it| it.expose().as_str()),
             _ => None,
         }

@@ -61,6 +61,7 @@ mod store;
 mod test_map;
 mod text_model;
 mod tracker;
+mod tracker_writes;
 mod under_review;
 mod work_product;
 mod worktree;
@@ -123,6 +124,7 @@ pub use tracker::{
     IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled, Tracker,
     TrackerChoice, Trackers,
 };
+pub use tracker_writes::{not_able, IssueWrite, ReadOnly, TrackerWrites};
 pub use setup::{
     HarnessSetup, Inventory, ItemAsked, ItemKind, ItemRead, ItemWhose, KindRead, SetupFiles, SetupItem,
     SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,

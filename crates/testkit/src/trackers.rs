@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{Backlog, LinkLookup, Tool, ToolInstalled, Tracker, TrackerChoice, Trackers};
+use adapter_traits::{Backlog, LinkLookup, ReadOnly, Tool, ToolInstalled, Tracker, TrackerChoice, TrackerWrites, Trackers};
 
 use crate::{FakeBeads, FakeLinkLookup, FakeTracker};
 
@@ -19,6 +19,8 @@ type Provider = Option<String>;
 pub struct FakeTrackers {
     trackers: Mutex<BTreeMap<Provider, Arc<dyn Tracker + Send + Sync>>>,
     links: Mutex<BTreeMap<Provider, Arc<dyn LinkLookup + Send + Sync>>>,
+    /// What writes to each provider's issues: the tracker planted for it, which records them.
+    writers: Mutex<BTreeMap<Provider, Arc<dyn TrackerWrites + Send + Sync>>>,
     /// Only the providers a test planted a backlog for have one, as only beads does.
     backlogs: Mutex<BTreeMap<Provider, Arc<dyn Backlog + Send + Sync>>>,
     asked: Mutex<Vec<TrackerChoice>>,
@@ -29,11 +31,10 @@ pub struct FakeTrackers {
 impl FakeTrackers {
     /// Lists nothing, takes every write and resolves no link, for every provider.
     pub fn empty() -> FakeTrackers {
+        let empty = Arc::new(FakeTracker::empty());
         FakeTrackers {
-            trackers: Mutex::new(BTreeMap::from([(
-                None,
-                Arc::new(FakeTracker::empty()) as Arc<dyn Tracker + Send + Sync>,
-            )])),
+            trackers: Mutex::new(BTreeMap::from([(None, Arc::clone(&empty) as Arc<dyn Tracker + Send + Sync>)])),
+            writers: Mutex::new(BTreeMap::from([(None, empty as Arc<dyn TrackerWrites + Send + Sync>)])),
             links: Mutex::new(BTreeMap::from([(
                 None,
                 Arc::new(FakeLinkLookup::resolving_nothing()) as Arc<dyn LinkLookup + Send + Sync>,
@@ -69,6 +70,8 @@ impl FakeTrackers {
     pub fn beads_named(self, provider: &str, beads: Arc<FakeBeads>) -> FakeTrackers {
         let provider = Some(provider.to_string());
         self.trackers.lock().expect("not poisoned").insert(provider.clone(), Arc::clone(&beads) as Arc<dyn Tracker + Send + Sync>);
+        // Beads is written through its backlog, and a saved rule's writes are not planned against it here.
+        self.writers.lock().expect("not poisoned").insert(provider.clone(), Arc::new(ReadOnly));
         self.backlogs.lock().expect("not poisoned").insert(provider, beads);
         self
     }
@@ -89,6 +92,7 @@ impl FakeTrackers {
     }
 
     fn tracker_for(self, provider: Provider, tracker: Arc<FakeTracker>) -> FakeTrackers {
+        self.writers.lock().expect("not poisoned").insert(provider.clone(), Arc::clone(&tracker) as Arc<dyn TrackerWrites + Send + Sync>);
         self.trackers
             .lock()
             .expect("not poisoned")
@@ -123,6 +127,12 @@ impl Trackers for FakeTrackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
         let provider = choice.provider().map(String::from);
         self.backlogs.lock().expect("not poisoned").get(&provider).cloned()
+    }
+
+    fn writer(&self, choice: &TrackerChoice) -> Arc<dyn TrackerWrites + Send + Sync> {
+        let held = self.writers.lock().expect("not poisoned");
+        let provider = choice.provider().map(String::from);
+        Arc::clone(held.get(&provider).unwrap_or_else(|| &held[&None]))
     }
 
     fn install(&self, tool: Tool, in_repo: &str) -> ToolInstalled {

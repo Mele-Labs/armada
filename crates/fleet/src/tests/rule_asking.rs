@@ -27,7 +27,7 @@ do:
   - draft: { template: 'Ready for {pr}', on: { entered: true } }
 ";
 
-async fn items(rig: &Rig, job: &SessionId) -> Vec<WaitingItem> {
+pub(super) async fn items(rig: &Rig, job: &SessionId) -> Vec<WaitingItem> {
     let items = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("a session").session.waiting_for;
     items.into_iter().filter(|one| one.source == WaitingSource::RuleAct).collect()
 }
@@ -36,7 +36,7 @@ fn choosing(job: &SessionId, item: &str, choice: u32) -> AnswerWaiting {
     AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
 }
 
-async fn pressed(rig: &Rig, job: &SessionId, item: &str, choice: u32) -> Result<(), api::Refusal> {
+pub(super) async fn pressed(rig: &Rig, job: &SessionId, item: &str, choice: u32) -> Result<(), api::Refusal> {
     Arc::clone(&rig.fleet).answer_waiting(choosing(job, item, choice)).await.map(|_| ())
 }
 
@@ -153,7 +153,7 @@ async fn a_draft_a_rule_plans_under_asks_is_proposed_at_once_and_the_drafts_own_
     save(&rig, "review.yml", DRAFTS_A_MESSAGE);
     let job = rig.start().await;
     approved(&rig, &job).await;
-    let line = "Draft a message on #812: Ready for #812".to_string();
+    let line = "Draft a message on PR #812: Ready for PR #812".to_string();
     assert_eq!(acts(&rig, &job).await, [(line.clone(), standing::PLANNED.to_string(), 0)], "planned for doing: Draft is Asks by default");
     assert!(items(&rig, &job).await.is_empty(), "no rule_act item to answer before the draft exists");
 

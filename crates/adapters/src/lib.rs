@@ -80,6 +80,7 @@ mod inline_comments;
 mod issue_lookup;
 /// Reading a repository's open issues and writing back on one. #91.
 mod issue_tracker;
+mod issue_writes;
 /// The keys, addresses and filters of a Manifest's Jira `tracker:` block. #91.
 mod jira;
 mod jira_lookup;

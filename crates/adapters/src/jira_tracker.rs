@@ -9,7 +9,7 @@ use std::io::{ErrorKind, Write};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
-use adapter_traits::{FromOutside, IssueComment, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, IssueComment, IssueField, IssueWrite, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker, TrackerWrites};
 
 use crate::delivery::said;
 use crate::jira::{self, is_key, JiraSettings};
@@ -219,6 +219,51 @@ impl<R: Run> Tracker for JiraTracker<R> {
     /// The site's `browse` page, for an example that is a Jira key.
     fn address_template(&self, example: &str) -> Option<String> {
         is_key(example.trim()).then(|| self.settings.browse("{match}"))
+    }
+}
+
+impl<R: Run> TrackerWrites for JiraTracker<R> {
+    fn can(&self, write: &IssueWrite<'_>) -> Result<(), String> {
+        acli_arguments("ABC-1", write).map(drop)
+    }
+
+    fn write(&self, _in_repo: &str, reference: &str, write: &IssueWrite<'_>) -> Result<(), NotTracked> {
+        let doing = write.doing();
+        let key = reference.trim();
+        if !is_key(key) {
+            return Err(NotTracked::of(doing, format!("`{key}` is not a Jira key")));
+        }
+        let args = acli_arguments(key, write).map_err(|why| NotTracked::of(doing, why))?;
+        let ran = self.run.run("acli", &args, None).map_err(|why| missing("acli", &why, doing))?;
+        match ran.status.success() {
+            true => Ok(()),
+            false => Err(NotTracked::of(doing, said(&ran))),
+        }
+    }
+}
+
+/// The `acli` arguments that make `write` to the work item `key`, or why Jira cannot.
+///
+/// **Jira closes by moving to a status**, so a close with no word for closed from the Workspace's
+/// ticket lifecycle is refused, and not guessed at as `Done`: the word is the Workspace's to say.
+pub(crate) fn acli_arguments(key: &str, write: &IssueWrite<'_>) -> Result<Vec<String>, String> {
+    let on = |verb: &str, flag: &str, value: &str| {
+        ["jira", "workitem", verb, "--key", key, flag, value, "--yes"].map(String::from).to_vec()
+    };
+    let named = |value: &str, what: &str| match value.trim() {
+        word if word.is_empty() || word.starts_with('-') => Err(format!("`{value}` is not {what}")),
+        word => Ok(word.to_string()),
+    };
+    match write {
+        IssueWrite::Move { status } => Ok(on("transition", "--status", &named(status, "a Jira status")?)),
+        IssueWrite::Close { status: Some(status) } => Ok(on("transition", "--status", &named(status, "a Jira status")?)),
+        IssueWrite::Close { status: None } => Err(String::from(
+            "Jira closes an issue by moving it to a status, and the ticket lifecycle names none for Closed",
+        )),
+        IssueWrite::Assign { to } => match named(to, "a Jira assignee")? {
+            who if who.contains(char::is_whitespace) || who.contains(',') => Err(format!("`{to}` is not a Jira assignee")),
+            who => Ok(on("assign", "--assignee", &who)),
+        },
     }
 }
 
