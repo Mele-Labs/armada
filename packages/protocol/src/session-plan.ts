@@ -47,6 +47,8 @@ export type SessionPlanGroup = {
   worked_at?: string;
   /** The pull request the group lands in. Always present: the label is `PR 1` where the agent named none. */
   lands_in: PlanLandsIn;
+  /** The group goes to a Job of its own, as the agent wrote it. Sent only where it is true. */
+  own_job?: true;
 };
 
 /** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */
@@ -142,6 +144,8 @@ export type RecordPlan = {
     gives?: string;
     /** A short label for the pull request the group lands in, such as `PR 1`, at most 24 characters. Groups that ship together share one. Absent is `PR 1`. */
     lands_in?: string;
+    /** The group goes to a Job of its own, which the caller starts with `start_another_job` naming the group. Absent is false. */
+    own_job?: boolean;
     tasks: { id?: string; title: string }[];
   }[];
   sketch?: { title: string; scene: unknown };
