@@ -49,9 +49,8 @@ fn course_wire(course: Course) -> &'static str {
     }
 }
 
-/// Hand `seen` to the Job's rules, and keep what they plan. The ids of the acts kept that are
-/// waiting to be done or asked about. **Nothing for a Job that has no rules**, and nothing for a
-/// rule that has seen this occurrence already.
+/// Hand `seen` to the Job's rules, and keep what they plan. The ids of the acts kept. **Nothing for
+/// a Job that has no rules**, and nothing for a rule that has seen this occurrence already.
 ///
 /// **An act the Job's repository cannot make is kept as not carried, with the reason**, and raises
 /// nothing, so the owner is never asked to press what pressing cannot do. `writes` says which.
@@ -108,9 +107,8 @@ pub(crate) fn plan_and_keep(
             said: carried.as_ref().err().map_or("", String::as_str),
         })
         .collect();
-    let ids = store.keep_rule_plan(session, &written, &newly, &acts, at)?;
-    let waiting = ids.iter().zip(&acts).filter(|(_, act)| act.state != standing::NOT_CARRIED).map(|(id, _)| *id).collect();
-    Ok(waiting)
+    // A not carried act is among them: it settled as it was kept, and the Job is drawn again for it.
+    store.keep_rule_plan(session, &written, &newly, &acts, at)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -241,12 +239,13 @@ where
         self.rules_published(session, &kept).await;
     }
 
-    /// Draw the Job again where its rules planned something that waits, so an Asks item reaches
-    /// Bridge, and wake whoever does what was planned.
+    /// Draw the Job again where its rules kept something, so an Asks item reaches Bridge and the
+    /// Workflow view shows an act at once, and wake whoever does what was planned.
     async fn rules_published(&self, session: &str, kept: &[i64]) {
         if !kept.is_empty() {
             self.rule_acts().wake();
             let _ = self.published_hosted(session).await;
+            self.job_lifecycles_published(session).await;
         }
     }
 }

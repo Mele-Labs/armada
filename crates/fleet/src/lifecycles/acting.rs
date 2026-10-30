@@ -91,14 +91,14 @@ where
                     // The rule is gone from the copy: nothing says what to do, and the owner is told so.
                     let _ = store.move_rule_act(id, &[standing::PLANNED], standing::STUCK, "the rule is no longer in the Job's copy", self.now().as_str());
                     drop(store);
-                    let _ = self.published_hosted(&row.session_id).await;
+                    self.rule_act_published(&row.session_id).await;
                     return;
                 };
                 // A write the tracker or forge can no longer make is not tried: it is settled, with why.
                 if let Err(why) = self.rule_act_carried(&store, &row, &found.act, &found.lifecycles) {
                     let _ = store.move_rule_act(id, &[standing::PLANNED], standing::NOT_CARRIED, &why, self.now().as_str());
                     drop(store);
-                    let _ = self.published_hosted(&row.session_id).await;
+                    self.rule_act_published(&row.session_id).await;
                     return;
                 }
                 let Ok(tries) = store.begin_rule_attempt(id) else { return };
@@ -108,7 +108,7 @@ where
                 Ok(said) => {
                     let at = self.now().as_str().to_string();
                     let _ = self.store().lock().await.move_rule_act(id, &[standing::PLANNED], standing::DONE, &said, &at);
-                    let _ = self.published_hosted(&row.session_id).await;
+                    self.rule_act_published(&row.session_id).await;
                     return;
                 }
                 Err(_) if tries <= u32::from(found.on_failure.retries.times()) => continue,
@@ -131,7 +131,14 @@ where
         let to = if told { standing::TOLD } else { standing::STUCK };
         let at = self.now().as_str().to_string();
         let _ = self.store().lock().await.move_rule_act(row.id, &[standing::PLANNED], to, &line, &at);
-        let _ = self.published_hosted(&row.session_id).await;
+        self.rule_act_published(&row.session_id).await;
+    }
+
+    /// Draw the Job again where an act settled, and tell the Workflow view what it holds, so neither
+    /// waits for the next reading.
+    pub(super) async fn rule_act_published(&self, session: &str) {
+        let _ = self.published_hosted(session).await;
+        self.job_lifecycles_published(session).await;
     }
 
     /// The act itself. `Ok` says what was done, `Err` why it was not.

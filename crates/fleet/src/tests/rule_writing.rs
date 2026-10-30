@@ -4,8 +4,10 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
-use ipc::SessionId;
+use api::Next;
+use ipc::{Event, SessionId};
 use store::rule_act_standing as standing;
 use testkit::{Delivered, FakeTracker, FakeTrackers, IssueWritten};
 
@@ -235,6 +237,48 @@ async fn a_forge_write_the_forge_refuses_fails_in_the_forges_words() {
     let rows = kept(&rig, &job).await;
     assert_eq!((rows[0].1.as_str(), rows[0].2), (standing::STUCK, 1));
     assert!(rows[0].3.contains("the pull request is closed"), "{}", rows[0].3);
+}
+
+/// How many times the stream said what the Job holds, in the next moments.
+async fn lifecycle_events(watching: &mut api::Subscription) -> usize {
+    let mut found = 0;
+    while let Ok(next) = tokio::time::timeout(Duration::from_millis(300), watching.next()).await {
+        match next {
+            Some(Next::Send(delivered)) => found += usize::from(matches!(delivered.event, Event::JobLifecyclesChanged(_))),
+            other => panic!("the stream ended or dropped: {other:?}"),
+        }
+    }
+    found
+}
+
+#[tokio::test]
+async fn the_workflow_view_is_told_the_moment_a_rule_act_is_answered_done_or_found_not_carried() {
+    let tracker = Arc::new(FakeTracker::empty());
+    let rig = rig_with(&tracker, ASKS_FIRST, true);
+    let job = rig.start().await;
+    approving_with_a_ticket(&rig, &job).await;
+    let asked = items(&rig, &job).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    pressed(&rig, &job, &asked[1].id, 1).await.expect("skipped");
+    assert!(lifecycle_events(&mut watching).await >= 1, "a Skip tells it");
+
+    pressed(&rig, &job, &asked[0].id, 0).await.expect("answered");
+    lifecycle_events(&mut watching).await;
+    Arc::clone(&rig.fleet).rule_acts_carried_out().await;
+    assert!(lifecycle_events(&mut watching).await >= 1, "a write made tells it");
+
+    // A tracker that stops being able to make a write before he says Do it.
+    let tracker = Arc::new(FakeTracker::empty());
+    let rig = rig_with(&tracker, ASKS_FIRST, true);
+    let job = rig.start().await;
+    approving_with_a_ticket(&rig, &job).await;
+    let asked = items(&rig, &job).await;
+    tracker.cannot("move", "this tracker cannot move an issue");
+    pressed(&rig, &job, &asked[0].id, 0).await.expect("answered");
+    let mut watching = rig.fleet.events().subscribe();
+    Arc::clone(&rig.fleet).rule_acts_carried_out().await;
+    assert!(lifecycle_events(&mut watching).await >= 1, "an act found not carried tells it");
 }
 
 /// Every file under `src` outside the tests, with its text, as the path below `src` and what it holds.
