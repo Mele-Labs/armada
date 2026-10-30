@@ -17,7 +17,7 @@ const PLAIN = "01WFOFFPLAINAAAAAAAAAAAAAA";
 /** The repository's workflows as the Workflow picker lists them: five, two of them off. */
 const WORKFLOWS = [
   { id: "feature", name: "Feature", steps: ["Propose", "Discuss", "Approve plan", "Walk", "Refine", "Deliver"] },
-  { id: "bug", name: "Bug", steps: ["Find the cause", "Fix", "Short walk", "Tests", "Deliver"] },
+  { id: "bug", name: "Bug", steps: ["Find the cause", "Fix", "Tests", "Deliver"] },
   { id: "design_plan", name: "Design plan", steps: ["Propose", "Sketch", "Record plan"] },
   { id: "prototype", name: "Prototype", steps: ["Propose", "Build", "Show"] },
   { id: "docs_only", name: "Docs only", steps: ["Draft", "Deliver"] },

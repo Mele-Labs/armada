@@ -389,6 +389,23 @@ pub trait Sessions: Send + Sync + 'static {
         start: ipc::StartAnotherSession,
     ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;
 
+    /// `start_another_session` with `jobs`: each start made by [`Self::start_another_session`], one
+    /// after another in the order given, and each answer in that order. **A refused start leaves the
+    /// ones before and after it started.**
+    fn start_other_sessions(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        starts: Vec<ipc::StartAnotherSession>,
+    ) -> impl Future<Output = Vec<Result<ipc::SessionHeld, Refusal>>> + Send {
+        async move {
+            let mut answers = Vec::with_capacity(starts.len());
+            for start in starts {
+                answers.push(Arc::clone(&self).start_another_session(caller, start).await);
+            }
+            answers
+        }
+    }
+
     /// `change_waiting` — when a waiting Session starts, or where from. **The agent of the Session
     /// waited on changes a Session that waits on it; the person (no `caller`) changes any.**
     /// [`Refusal::Unacceptable`] for a call that places no Session, a Session that does not wait on the

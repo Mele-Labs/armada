@@ -1100,8 +1100,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
   const opensPrs = opensPullRequests(session);
-  // A sketch put to him and not yet answered is pinned after the plan, where the plan waits.
-  const put = draft.answerSketch === undefined ? undefined : [...attachmentsOf(session, "sketch")].reverse().find((one) => one.asked === true && one.settled === undefined);
+  // A sketch put to him and not yet answered is pinned after the plan, where the plan waits. The ledger is newest first, so the first is the latest drawn.
+  const put = draft.answerSketch === undefined ? undefined : attachmentsOf(session, "sketch").find((one) => one.asked === true && one.settled === undefined);
   const sketching =
     put === undefined
       ? undefined
