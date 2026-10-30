@@ -18,10 +18,10 @@ export const KEPT_SAID = "Proposed for every Job";
 type Adding = "step" | "lifecycle" | "rule";
 
 /** The words a change is listed under: the step, the rule or the lifecycle it changed, as the lanes name them. */
-export function changedName(lanes: SessionLanes, change: { lane: string; item: string }): string {
+export function changedName(lanes: SessionLanes, change: Pick<JobChange, "lane" | "item" | "name">): string {
   const { copy } = lanes.job;
   if (change.lane === "workflow") return copy.steps.find((one) => one.id === change.item)?.label ?? change.item;
-  if (change.lane === "rule") return copy.rules.find((one) => one.id === change.item)?.label ?? change.item;
+  if (change.lane === "rule") return change.name ?? change.item;
   const lifecycle = copy.lifecycles.find((one) => one.id === change.lane);
   const state = lifecycle?.states.find((one) => one.id === change.item)?.label;
   return `${lifecycle?.label ?? change.lane}${state === undefined ? "" : `: ${state}`}`;

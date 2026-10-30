@@ -311,9 +311,14 @@ function sessions() {
       piece: async (id, kind, piece, text) => {
         const declared = /^(?:rule_id|lifecycle_id|id):\s*(\S+)/m.exec(text ?? "")?.[1] ?? piece;
         if (text === undefined || declared === "") return "The file declares no id";
+        // A rule is named as Fleet serves it once the Job's copy holds it: by the name its file gives.
+        const name = kind === "rule" ? /^name:\s*(.+?)\s*$/m.exec(text)?.[1] : undefined;
         const mine = OWN.get(id) ?? { steps: [], changes: [] };
         const at = new Date().toISOString();
-        OWN.set(id, { ...mine, changes: [...mine.changes, { id: `${kind}:${declared}:${at}`, lane: kind === "rule" ? "rule" : declared, item: kind === "rule" ? declared : "", text: "Added by you", at }] });
+        OWN.set(id, {
+          ...mine,
+          changes: [...mine.changes, { id: `${kind}:${declared}:${at}`, lane: kind === "rule" ? "rule" : declared, item: kind === "rule" ? declared : "", text: "Added by you", at, ...(name === undefined ? {} : { name }) }],
+        });
         redrawn(id);
         return undefined;
       },
