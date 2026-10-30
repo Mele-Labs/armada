@@ -5,13 +5,14 @@
 
 import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Dot, PencilLine, Ticket } from "lucide-react";
-import { LinkedSession, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
+import { TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
 import { GroupPullRequests, issueOfGroup, openIssuePanel, type Issue } from "./IssuesBlock";
 import { EditText, GroupEditor, type PlanEditing } from "./PlanEdit";
-import { childrenOf, linkedPropsOf } from "./linked";
+import { ChildJob } from "./ChildJob";
+import { childrenOf } from "./linked";
 import { rename, type ViewGroup } from "./plan-marks";
 import { wasOpen } from "./place";
 import { TaskAge, agedAt, useStale } from "./TaskAge";
@@ -105,7 +106,7 @@ function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
 /**
  * A group is a row that opens: closed it is its title, the issue it works on a line of its own, and a line for each task; open it shows the type of subagent and its tasks in full.
  * A group of a plan being drafted (`opened`) keeps its tasks up to edit; its chevron, or its pencil, brings the subagent type in.
- * **A group handed to a Session carries that Session's row** under its own. Only the agent hands a group off; the owner's press is not drawn.
+ * **A group handed to a Job is that Job's card** (`ChildJob.tsx`). Only the agent hands a group off; the owner's press is not drawn.
  */
 export function Group({ group, now, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; /** What the turn is doing in this group, in his words, drawn under the task being worked. */ now?: string; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   // A group stands shut until he presses it, and a press is kept. A drafted group's tasks are up either way: what opens is its head and its paths.
@@ -125,6 +126,14 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
       </span>
     </Tooltip>
   ) : null;
+  // The Job takes the group's row, as it does on the spine: its tasks are the Job's work, which opening the Job shows.
+  if (child !== undefined) {
+    return (
+      <section className="sv-group" data-group={group.id} data-step={step} data-handed="" aria-label={group.title}>
+        <ChildJob child={child} group={group.title} manifestId={manifestId} onOpen={onOpenSession} />
+      </section>
+    );
+  }
   return (
     <section className="sv-group" data-group={group.id} data-step={step} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
       {opened ? (
@@ -167,11 +176,6 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
         </div>
       )}
       {open || opened ? null : <Tasks group={group} now={now} />}
-      {child === undefined ? null : (
-        <div className="sv-group__linked">
-          <LinkedSession {...linkedPropsOf(child, onOpenSession)} />
-        </div>
-      )}
       {open || opened ? (
         <div className="sv-expand">
           <div className="sv-group__body">
