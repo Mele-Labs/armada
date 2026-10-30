@@ -147,6 +147,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::propose_new_workflow::<D>),
         )
         .route(
+            "/workflows/changes/propose",
+            post(crate::repositories::propose_workflow_change::<D>),
+        )
+        .route(
             "/workflows/changes/suggest",
             post(crate::repositories::suggest_workflow_change::<D>),
         )
@@ -543,6 +547,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/step-skip",
             post(crate::hosted_sessions::skip_session_step::<D>),
+        )
+        .route(
+            "/sessions/workflow/steps",
+            post(crate::hosted_sessions::change_session_steps::<D>),
+        )
+        .route(
+            "/sessions/copy",
+            get(crate::hosted_sessions::get_job_copy::<D>).post(crate::hosted_sessions::change_job_copy::<D>),
+        )
+        .route(
+            "/sessions/copy/keep",
+            post(crate::hosted_sessions::keep_job_workflow::<D>),
         )
         .route(
             "/sessions/begin",

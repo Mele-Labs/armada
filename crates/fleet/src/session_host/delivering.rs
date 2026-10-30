@@ -205,7 +205,8 @@ where
         let mut words = chosen_words(chosen);
         let (manifest, workflow) = (record.manifest_id.as_ref().map_or("", |one| one.as_str()), record.workflow.as_deref().unwrap_or(""));
         let held = self
-            .rail_steps(manifest, workflow)
+            .job_rail_steps(id, manifest, workflow)
+            .await
             .and_then(|steps: Vec<RailStep>| {
                 let at = steps.iter().position(|step| step.asks_delivery)?;
                 rail::instructed(&self.workflow_name(manifest, workflow), &steps, at)

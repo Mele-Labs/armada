@@ -82,6 +82,12 @@ describe("the workflow", () => {
     expect(workOf(record({ workflow: "feature", workflow_step: 9 }), beside())?.workflow?.at).toBeUndefined();
   });
 
+  it("reads the steps of the Job's own copy once it changed one, and the repository's again when it follows another workflow", () => {
+    const own = { ...FEATURE, steps: [step("plan", "Plan"), step("dispatch", "Dispatch"), step("build", "Build"), step("pr", "Pull request")] } as WorkflowSummary;
+    expect(workOf(record({ workflow: "feature", workflow_step: 1, workflow_copy: own }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Dispatch", "Build", "Pull request"], at: 1 });
+    expect(workOf(record({ workflow: "bug", workflow_copy: own }), beside({ workflows: [{ ...FEATURE, id: "bug", name: "Bug" }] }))?.workflow?.steps).toEqual(["Plan", "Build", "Pull request"]);
+  });
+
   it("carries the phase Fleet resolved for the step the Session is at", () => {
     const phased = { ...FEATURE, steps: [{ ...step("plan", "Plan"), phase: "work" }, { ...step("pr", "Pull request"), phase: "delivery" }] } as WorkflowSummary;
     expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside({ workflows: [phased] }))?.workflow?.phase).toBe("delivery");

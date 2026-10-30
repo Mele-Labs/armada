@@ -41,7 +41,7 @@ No proposer, or a failed one, starts the Job as it is.
 
 | Changed | What the agent is told | When | Timeline |
 |---|---|---|---|
-| The workflow (`set_session_workflow`) | A message from Fleet naming the workflow and its step labels, or saying it is now a custom Job | At once: mid-turn at the next tool call, and an idle Job wakes. A Job that has not run is told with its first turn | `workflow: <old> → <new>` |
+| The workflow (`set_session_workflow`) | A message from Fleet naming the workflow and its step labels, or saying it is now a custom Job; none where the agent made the change itself | At once: mid-turn at the next tool call, and an idle Job wakes. A Job that has not run is told with its first turn | `workflow: <old> → <new>` |
 | The model or effort (`tune_session`) | A line ahead of the turn that starts on the new values: `from this turn your model is X, not Y` | On the next turn, with no wake | `model: <old> → <new>`, `effort: <old> → <new>`, entered when that turn starts |
 
 **An unchanged model tells nothing.** Fleet keeps the model and effort each turn ran on, and the first turn only sets the baseline, so a restart does not tell again.

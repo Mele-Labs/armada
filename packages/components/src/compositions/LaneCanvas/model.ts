@@ -327,6 +327,8 @@ export type LaneView = {
   ticket?: true;
   /** Ending the Job ended this instance. */
   ended?: boolean;
+  /** The Job's own copy of this lane's lifecycle changed, and how. */
+  changed?: string;
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
   moves: readonly (readonly [string, string])[];
@@ -352,6 +354,8 @@ export type RuleView = {
   differs?: readonly string[];
   /** Added by a change waiting on Approve. */
   proposed?: true;
+  /** The Job's own copy changed this rule, and how. */
+  changed?: string;
   /** The repository's file that defines it is being removed by a pull request that has not merged. */
   pending?: true;
   /** The same rule's second edge: drawn with its mark and no words. */
@@ -406,7 +410,10 @@ export type Fired = {
   acts?: readonly FiredAct[];
 };
 
-/** A change made to this Job's own copy, marked on the node it changes: `lane` is the instance and `item` its state, or `workflow` and `item` the step added or skipped. */
+/**
+ * A change made to this Job's own copy, marked on what it changes: `lane` is the instance and `item` its state, `workflow` and `item` the step added or skipped,
+ * `rule` and `item` the rule, or a lifecycle's id and no `item` for the lifecycle as a whole.
+ */
 export type JobChange = { id: string; lane: string; item: string; text: string; at: string };
 
 /** What the agent made of a human comment left on an instance. */

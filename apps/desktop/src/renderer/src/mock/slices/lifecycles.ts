@@ -15,6 +15,9 @@ const refusal = (code: string, message: string): LifecyclesActed<never> => {
   return { ok: false, outcome: { ok: false, why: "refused", error } };
 };
 
+/** A Job's own copy is changed by the scenario that serves the Job (`workspaces-lanes.ts`, through the draft's `copy` acts); the wired mock holds none to change. */
+const noCopy = refusal("fleet.job_holds_no_copy", "This Job holds no copy to change");
+
 const KIT = "/Users/user/.armada";
 const FOLDER = { lifecycle: "lifecycles", rule: "rules", workspace: "workspaces", autonomy: "autonomy" } as const;
 
@@ -98,6 +101,10 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       },
       getJobLifecycles: async (sessionId) => ({ ok: true, value: servedLifecycles.get(sessionId) ?? { session_id: sessionId, lifecycles: [], instances: [], moves: [] } }),
       onJobLifecyclesChanged: (onChanged) => servedLifecycles.listen(onChanged),
+      getJobCopy: async () => noCopy,
+      changeSessionSteps: async () => noCopy,
+      changeJobCopy: async () => noCopy,
+      keepJobWorkflow: async () => noCopy,
     };
   },
 };

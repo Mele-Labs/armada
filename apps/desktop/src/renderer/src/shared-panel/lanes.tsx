@@ -1,7 +1,7 @@
 // A Job's Workflow view: the workflow and the tickets, pull request and deploy it holds (`LaneCanvas`), with the comments on the pull request under the canvas as a monitor.
 // **The body is one**: `LanesBody` is drawn in the app's side panel on a window narrower than `WIDE_WINDOW_PX`, and as a layer in the Job's spine on a wider one (`session-view/LanesLayer.tsx`), the same press or Esc closing either. The panel is the pull request panel's width. The lanes are read from what Fleet serves of the Job; the comments under them are a mock's.
 // A comment here shows that it came in and what the agent made of it; pressing it opens the pull request at that comment, where the acts on it are. A rule waiting on the person opens
-// what it needs (`rule.tsx`).
+// what it needs (`rule.tsx`). **Above the canvas `+` adds to this Job's own copy, and under it the changes made to it are listed** (`lanes-copy.tsx`).
 
 import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
@@ -9,12 +9,13 @@ import { COMMENT_READ, LaneCanvas, Tooltip, jobLanes } from "@armada/components"
 import type { LanePick, TriagedComment } from "@armada/components";
 import { instanceKey } from "@armada/screens/src/session-lanes";
 
-import { useSessions } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { teachHereOf, useTeachFrom } from "../teach";
 import type { TeachHere } from "../teach";
 import { SidePanel } from "./side";
 import { useBack } from "./panels";
 import { usePanelReads } from "./reads";
+import { AddToJob, JobChanges } from "./lanes-copy";
 import { closePanel, openInPanel } from "./store";
 import type { PanelItem } from "./store";
 import "../session-view/lanes.css";
@@ -53,6 +54,7 @@ function CommentRow({ comment, onOpen }: { comment: TriagedComment; onOpen: () =
 /** The lanes and the comments under them, for the panel and the layer to frame. Nothing when the Job has no lanes. */
 export function LanesBody({ sessionId }: { sessionId: string }) {
   const session = useSessions().find((one) => one.id === sessionId);
+  const copy = useSessionsDraft()?.copy;
   const [picked, setPicked] = useState<LanePick | undefined>();
   // The panel is drawn outside the Job, so Teach here is told which Job and repository it is pressed in.
   const listed = usePanelReads()?.repositories?.().listed;
@@ -73,6 +75,7 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   };
   return (
     <div className="sv-lanes__body">
+      {copy === undefined ? null : <AddToJob sessionId={session.id} lanes={lanes} acts={copy} />}
       <LaneCanvas
         label="Workflow"
         lanes={drawn.lanes}
@@ -81,6 +84,7 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
         onPick={pick}
         {...(teach === undefined ? {} : { onTeach: (lane) => teach("ticket", lane.note === undefined ? lane.title : `${lane.title} ${lane.note}`, undefined, [instanceKey(lane.id)]) })}
       />
+      <JobChanges sessionId={session.id} lanes={lanes} acts={copy} />
       {triage === undefined ? null : (
         <section className="sv-lanes__triage" aria-label={`Comments on ${held}`}>
           <h4 className="sv-lanes__triage-head">{`Comments on ${held}`}</h4>

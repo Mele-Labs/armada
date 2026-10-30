@@ -65,6 +65,8 @@ fn the_job() -> JobLifecycles {
             at: Instant::carried("2026-10-30T09:00:00.000Z"),
         }],
         acts: Vec::new(),
+        rules: Vec::new(),
+        changes: Vec::new(),
     }
 }
 
@@ -97,7 +99,7 @@ impl Lifecycles for FakeDaemon {
         };
         match job.as_str() == THE_LIFECYCLE_JOB {
             true => Ok(the_job()),
-            false => Ok(JobLifecycles { session_id: job, lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new() }),
+            false => Ok(JobLifecycles { session_id: job, lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new(), rules: Vec::new(), changes: Vec::new() }),
         }
     }
 

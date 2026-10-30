@@ -3,7 +3,10 @@
 // `commitToRepository`. Nothing here moves an instance. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type {
+  ChangeJobCopy,
+  ChangeSessionSteps,
   DeleteLifecyclePiece,
+  JobCopy,
   JobLifecycles,
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
@@ -12,6 +15,7 @@ import type {
   RepositoryLifecycles,
   RepositoryWorkspaces,
   SaveLifecyclePiece,
+  WorkflowChange,
 } from "@armada/protocol";
 
 /** What a read came to: what Fleet answered with, or the refusal to word. */
@@ -32,6 +36,14 @@ export type LifecyclesApi = {
   getJobLifecycles: (sessionId: string) => Promise<LifecyclesActed<JobLifecycles>>;
   /** `job_lifecycles.changed`: one Job's lifecycles, whole, after an instance was taken on or moved. */
   onJobLifecyclesChanged: (onChanged: (held: JobLifecycles) => void) => () => void;
+  /** What one Job holds of its workflow, lifecycles and rules, and what was changed in it. `GET /sessions/copy`. */
+  getJobCopy: (sessionId: string) => Promise<LifecyclesActed<JobCopy>>;
+  /** A step added, moved, reworded or dropped in the Job's own copy of its workflow. It applies to that Job at once. `POST /sessions/workflow/steps`. */
+  changeSessionSteps: (change: ChangeSessionSteps) => Promise<LifecyclesActed<JobCopy>>;
+  /** A lifecycle or a rule put in the Job's own copy, or taken out of it. `POST /sessions/copy`. */
+  changeJobCopy: (change: ChangeJobCopy) => Promise<LifecyclesActed<JobCopy>>;
+  /** The Job's copy of its workflow proposed for every Job: a ready change that waits on the owner's Approve. `POST /sessions/copy/keep`. */
+  keepJobWorkflow: (sessionId: string) => Promise<LifecyclesActed<WorkflowChange>>;
 };
 
 export const LIFECYCLES_CHANNELS = {
@@ -41,6 +53,10 @@ export const LIFECYCLES_CHANNELS = {
   saveLifecyclePiece: "bridge:save-lifecycle-piece",
   deleteLifecyclePiece: "bridge:delete-lifecycle-piece",
   getJobLifecycles: "bridge:get-job-lifecycles",
+  getJobCopy: "bridge:get-job-copy",
+  changeSessionSteps: "bridge:change-session-steps",
+  changeJobCopy: "bridge:change-job-copy",
+  keepJobWorkflow: "bridge:keep-job-workflow",
   /** Main to every window, not a request. */
   jobLifecyclesChanged: "bridge:job-lifecycles-changed",
 } as const;

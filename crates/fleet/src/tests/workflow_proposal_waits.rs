@@ -29,7 +29,7 @@ async fn proposing() -> (Rig, Arc<Planted>, ipc::SessionId, i64) {
             .begin_new_workflow_change(rig.manifest.as_str(), "fresh", "kit", FRESH, at.as_str())
             .expect("kept")
     };
-    rig.fleet.proposal_waits(id.as_str(), change, "fresh", FRESH).await;
+    rig.fleet.proposal_waits(id.as_str(), change, "fresh", FRESH, None).await;
     (rig, planted, id, change)
 }
 

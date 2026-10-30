@@ -39,7 +39,7 @@ where
             let Some(at) = store.session_rail(session).ok().and_then(|kept| kept.step) else { return };
             (hosting.manifest_id, workflow, at as usize)
         };
-        let waits = self.rail_steps(&manifest, &workflow).is_some_and(|steps| steps.get(at).is_some_and(RailStep::has_lifecycle_end));
+        let waits = self.job_rail_steps(session, &manifest, &workflow).await.is_some_and(|steps| steps.get(at).is_some_and(RailStep::has_lifecycle_end));
         if waits {
             let _ = self.published_hosted(session).await;
         }

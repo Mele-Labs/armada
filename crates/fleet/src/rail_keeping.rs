@@ -41,6 +41,9 @@ pub(crate) struct RailReads {
     /// The lifecycles the Job froze when it started, for a Job that holds any. A Job that froze none
     /// is read against the ones that apply now.
     pub lifecycles: Option<Vec<core_model::Lifecycle>>,
+    /// The Job's own copy of its workflow, once it changed a step of it. The rail reads this in place of the
+    /// repository's.
+    pub own: Option<store::KeptWorkflowCopy>,
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
@@ -72,7 +75,8 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
         Extra::default()
     };
     let titles = crate::lifecycles::waking::titles_of(store, &held);
-    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles })
+    let own = if follows { store.job_workflow_copy(&session.id)? } else { None };
+    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles, own })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -275,6 +279,16 @@ where
         record.workflow_visits =
             reads.visits.iter().map(|(step, since)| ipc::StepVisit { step: *step, since: Instant::carried(since) }).collect();
         record.skipped_steps = reads.skipped.clone();
+        let own = match (session.manifest_id.as_deref(), record.workflow.as_deref(), reads.own.as_ref()) {
+            (Some(manifest), Some(workflow), Some(own)) if own.workflow_id == workflow => {
+                self.own_resolved(manifest, own).map(|found| (manifest.to_string(), found))
+            }
+            _ => None,
+        };
+        record.workflow_copy = own.as_ref().and_then(|(manifest, found)| {
+            let served = self.repositories().serving(manifest)?;
+            Some(crate::wire::workflow_summary(found, served.manifest().id(), &served.files()))
+        });
         if session.state != store::SessionState::Live {
             return;
         }
@@ -285,8 +299,12 @@ where
         if !self.workflow_on(manifest, workflow) {
             return;
         }
-        let Some(steps) = self.rail_steps(manifest, workflow) else {
-            return;
+        let steps = match &own {
+            Some((_, found)) => rail::steps_of(found),
+            None => match self.rail_steps(manifest, workflow) {
+                Some(steps) => steps,
+                None => return,
+            },
         };
         let mut facts = Facts::of(record, reads.extra);
         let mut lifecycles = Vec::new();

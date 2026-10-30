@@ -8,9 +8,11 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{SessionRecord, SessionRow, SkipSessionStep, TimelineKind, WithdrawDraft, WithdrawWindow};
+use ipc::{ChangedBy, SessionRecord, SessionRow, SkipSessionStep, TimelineKind, WithdrawDraft, WithdrawWindow};
+use store::KeptCopyMark;
 
 use super::drafting::DRAFT_PREFIX;
+use super::job_copying::{who_kept, WORKFLOW_LANE};
 use super::proposing::{WORKFLOWS_OFF, WORKFLOW_NOT_HELD};
 use super::serving::SESSION_COMMAND_REFUSED;
 use crate::daemon::Fleet;
@@ -52,7 +54,7 @@ where
     /// `skip_session_step`: keep the skip, enter it on the timeline, take back what the agent opened on
     /// the step it is on, and tell a Job that has run.
     pub(crate) async fn step_skipped(self: &Arc<Self>, skip: SkipSessionStep) -> Result<SessionRecord, Refusal> {
-        let id = skip.session_id.as_str().to_string();
+        let (id, by) = self.copy_placed(Some(&skip.session_id))?;
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
@@ -75,7 +77,7 @@ where
                 "this Job's workflow is switched off in Settings, so it has no step to skip",
             ));
         }
-        let Some(steps) = self.rail_steps(&hosting.manifest_id, workflow) else {
+        let Some(steps) = self.job_rail_steps(&id, &hosting.manifest_id, workflow).await else {
             return Err(self.hosted_refusal(
                 WORKFLOW_NOT_HELD,
                 &format!("this repository no longer holds the workflow `{workflow}`"),
@@ -114,12 +116,33 @@ where
             since.filter(|_| skip.skipped && on == Some(skip.step))
         };
         let says = if skip.skipped { "skipped" } else { "skip undone" };
-        self.session_noted(&session, TimelineKind::SessionStep, format!("{says}: {}", step.label));
+        self.copy_noted(&session, TimelineKind::SessionStep, format!("{says}: {}", step.label), by);
+        {
+            let mut store = self.store().lock().await;
+            let kept = if skip.skipped {
+                let mark = KeptCopyMark {
+                    lane: WORKFLOW_LANE.into(),
+                    item: step.id.clone(),
+                    text: format!("Skipped by {}", if by == ChangedBy::Job { "the Job" } else { "you" }),
+                    by: who_kept(by).into(),
+                    at: self.now().as_str().to_string(),
+                };
+                store.keep_job_copy_mark(&id, &mark)
+            } else {
+                // Only a skip's own mark: an addition on the same step stays marked.
+                let skip_mark = store.job_copy_marks(&id).unwrap_or_default().iter().any(|mark| mark.lane == WORKFLOW_LANE && mark.item == step.id && mark.text.starts_with("Skipped"));
+                if skip_mark { store.drop_job_copy_mark(&id, WORKFLOW_LANE, &step.id) } else { Ok(()) }
+            };
+            if let Err(why) = kept {
+                self.session_warned(&id, "the mark on the skipped step was not kept", why);
+            }
+        }
         if let Some(since) = since {
             self.step_withdrawn(&id, &since).await;
         }
-        // A Job that has not run is told with its first turn (`first_step_kept`).
-        if hosting.ran {
+        // A Job that has not run is told with its first turn (`first_step_kept`). A Job that skipped the
+        // step itself is not told what it did.
+        if hosting.ran && by == ChangedBy::You {
             let words = rail::skip_told(&self.workflow_name(&hosting.manifest_id, workflow), step, skip.skipped);
             if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
                 eprintln!("job {id}: the skipped step was not sent to the agent: {why:?}");
