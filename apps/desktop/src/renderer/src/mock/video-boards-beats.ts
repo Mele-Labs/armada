@@ -3,14 +3,13 @@
 // its timecode, what happens and its caption. The end card, shot 9, is the edit's and has no step here.
 
 import { NOTES_FIRST, NOTES_TITLE } from "./relay-notes-page";
-import { button, dialog, inside, place, region, role, text } from "./walk";
+import { button, dialog, inside, region, role, text } from "./walk";
 import type { Step, Target } from "./walk";
 
 export type Beat = { clock: string; stamp?: string; step: Step };
 
 const beat = (clock: string, stamp: string | undefined, step: Step): Beat => (stamp === undefined ? { clock, step } : { clock, stamp, step });
 
-const relay = region("Project Relay 2.4");
 const jobs = region("Jobs", { exact: true });
 const map = role("listbox", "Map");
 const bays = region("Bays");
@@ -20,7 +19,6 @@ const ask = role("article", "Waiting on you");
 
 const row = (title: string): Target => inside(jobs, button(new RegExp(`^${title}`)));
 const stage = (title: string): Target => region(new RegExp(`^Job: ${title}`));
-const card = (title: string): Target => role("group", title);
 
 const LEAD = "Ship Relay 2.4";
 const [CHECKOUT, PAYMENTS, DARK, NOTES] = ["Fix the flaky checkout test", "Upgrade the payments SDK", "Dark mode for Settings", "Release notes for 2.4"] as const;
@@ -48,6 +46,7 @@ export const BEATS: readonly Beat[] = [
   // Shot 1, 0:00 to 0:02, then shot 2, 0:02 to 0:14
   beat("T-00:02", undefined, { press: inside(region("Dispatch controls"), button("Dispatch", { exact: true })), say: "0:00, shot 1. The Cockpit, nothing flying yet. The cursor presses Dispatch. Caption: You have one release to ship today." }),
   beat("T+00:01", undefined, { type: REQUEST, into: sheet, say: `0:02 to 0:14, shot 2, launch. The request is typed into the Dispatch sheet: ${LEAD}, and its four subtasks a line each. Caption: Give it to one Job. It splits the work and dispatches the rest.` }),
+  beat("T+00:06", undefined, { key: "Alt+4", on: sheet, say: `⌥4 picks ${WEB}, where the lead runs.` }),
   beat("T+00:07", "LEAD · GO", { key: "Enter", on: sheet, say: "Enter starts it. The lead Job opens on the stage in the Cockpit." }),
   beat("T+00:08", "LEAD · GO", { look: stage(LEAD), say: "One row in the Jobs list, the lead. It holds no bay." }),
   beat("T+00:10", "FLIGHTS · GO", { later: jobs, say: `The lead starts its four Jobs in one call, one in each of ${WEB}, ${API}, ${APP} and ${DOCS}.` }),
@@ -128,12 +127,6 @@ export const BEATS: readonly Beat[] = [
   beat("T+01:13", "FLIGHT 4 · TOUCHDOWN", { look: map, say: `relay-docs · #415 merged. Flight 4's bay is free.` }),
   beat("T+01:15", undefined, { later: map, say: `#412 merges in ${WEB}.` }),
   beat("T+01:16", "FLIGHT 1 · TOUCHDOWN", { look: map, say: `relay-web · #412 merged. Flight 1's bay is free. Every main is green.` }),
-  beat("T+01:17", undefined, { later: map, say: "The lead Job ends." }),
+  beat("T+01:17", undefined, { later: map, say: "The lead Job ends. The film ends here, on the Cockpit, and the mission clock stops at T+01:17." }),
 
-  // The bookend: the Projects tab, where the card that opened the film and its subtasks now ask whether they are done
-  beat("T+01:17", undefined, { press: place("Projects"), say: "A cut back to the Projects tab." }),
-  beat("T+01:17", undefined, { look: relay, say: `${LEAD} and its four subtasks each ask whether they are done, since the Job that held them ended.` }),
-  beat("T+01:17", undefined, { press: button("Show done", { exact: true }), say: "Show done, so a card stays where it is once it is answered." }),
-  ...[CHECKOUT, PAYMENTS, DARK, NOTES, LEAD].map((title) => beat("T+01:17", undefined, { press: inside(card(title), button("Mark done", { exact: true })), say: `Mark done: ${title}.` })),
-  beat("T+01:17", undefined, { look: relay, say: "The card and its four subtasks read done. The mission clock stops at T+01:17." }),
 ];
