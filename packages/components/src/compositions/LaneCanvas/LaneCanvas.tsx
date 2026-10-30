@@ -26,11 +26,13 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
 import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, withToolbar, type Placement, type Rect } from "./layout";
 import { REMOVAL_WAITS } from "./model";
@@ -94,6 +96,8 @@ export type LaneCanvasProps = {
   editing?: LaneEditing | undefined;
   /** What is drawn over the canvas's right edge, an overlay panel: the canvas pans to keep what it shows clear of it. */
   coveredBy?: HTMLElement | null | undefined;
+  /** Teach, on the head of a ticket's lane: a menu there (a right press, the ContextMenu key or Shift+F10) offers it. Absent, a head is not pressed. */
+  onTeach?: ((lane: LaneView) => void) | undefined;
 };
 
 /** A tooltip is held to the element it describes, and goes with it. */
@@ -110,6 +114,7 @@ type Held = {
   /** A key was pressed in the canvas a moment ago, so focus that arrives now was moved by it and is read. */
   keyed: () => boolean;
   editing: LaneEditing | undefined;
+  teach: ((lane: LaneView) => void) | undefined;
   /** The lane drawn first, whose nodes carry their toolbar underneath since the frame ends above them. */
   topLane: string | undefined;
   /** The node a connector was started from by key, which the next node pressed ends. */
@@ -183,6 +188,19 @@ function LaneBand({ data }: NodeProps<Node<LaneData, "lane">>) {
   return <div className="armada-lane" data-kind={data.lane.kind} />;
 }
 
+/** The head of a ticket's lane that can be taught from: the words of the head, pressed for the menu that offers Teach. */
+function Taught({ lane, onTeach, children }: { lane: LaneView; onTeach: (lane: LaneView) => void; children: ReactNode }) {
+  const { on, menu } = useTeachMenu(`Ticket ${lane.title}`, () => onTeach(lane));
+  return (
+    <>
+      <button type="button" className="armada-lane__pick nodrag nopan" aria-haspopup="menu" aria-label={`Ticket ${lane.title}`} {...on}>
+        {children}
+      </button>
+      {menu}
+    </>
+  );
+}
+
 /** The lane heads, over the left of the frame at the lanes' own heights: a title and where its states are read from, which a pan to a later column never takes away. */
 function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Placement }) {
   const hold = useContext(Hold)!;
@@ -196,6 +214,7 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
         // A lifecycle's head is picked where the lanes are edited: its fields are the lifecycle's name and its deleting.
         const pickable = hold.editing !== undefined && lane.kind === "lifecycle";
         const picked = hold.picked?.kind === "lane" && hold.picked.id === lane.id;
+        const taught = hold.teach !== undefined && lane.ticket === true;
         const words = (
           <>
             <span className="armada-lane__title">{lane.title}</span>
@@ -217,6 +236,10 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
               <button type="button" className="armada-lane__pick nodrag nopan" aria-pressed={picked} onClick={() => hold.pick(picked ? undefined : { kind: "lane", id: lane.id })}>
                 {words}
               </button>
+            ) : taught ? (
+              <Taught lane={lane} onTeach={hold.teach!}>
+                {words}
+              </Taught>
             ) : (
               words
             )}
@@ -608,7 +631,7 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
 const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.changed, node.differs, node.sub].map(String).join("|");
 const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.differs].map(String).join("|");
 
-export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy }: LaneCanvasProps) {
+export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy, onTeach }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();
   const [connecting, setConnecting] = useState<string | undefined>();
   const [tip, setTip] = useState<Tip | undefined>();
@@ -753,6 +776,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       },
       keyed: () => performance.now() - keyedAt.current < 300,
       editing,
+      teach: onTeach,
       topLane: lanes[0]?.id,
       connecting,
       connect: (to) => {
@@ -761,7 +785,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       },
       reveal,
     }),
-    [here, picked, onPick, reveal, editing, connecting, lanes],
+    [here, picked, onPick, reveal, editing, onTeach, connecting, lanes],
   );
 
   // A connector dragged from one node's handle to another's.

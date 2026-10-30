@@ -30,6 +30,7 @@ const laneOfLifecycle = (lifecycle: Lifecycle, id: string, title: string, note: 
   title,
   source: lifecycle.from,
   ...(note === undefined ? {} : { note }),
+  ...(lifecycle.kind === "tracker" ? { ticket: true as const } : {}),
   nodes,
   moves: lifecycle.next.map(([from, to]) => [nodeId(id, from), nodeId(id, to)] as const),
 });

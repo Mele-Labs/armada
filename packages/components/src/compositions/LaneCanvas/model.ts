@@ -323,6 +323,8 @@ export type LaneView = {
   source: string;
   /** The tooltip of the title: a ticket's own title. */
   note?: string;
+  /** The tracker's lifecycle: this lane is a ticket. */
+  ticket?: true;
   /** Ending the Job ended this instance. */
   ended?: boolean;
   nodes: readonly LaneNodeView[];

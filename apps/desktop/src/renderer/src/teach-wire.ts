@@ -2,11 +2,12 @@
 // is drawn as in the panel. **The panel shows what the wire carries and no more**, and so does the mock's Fleet, which answers as Fleet does.
 
 import { NOTICE_NAMES, TEACH_SOURCE } from "@armada/components";
-import type { SessionNotice, TeachReach, TeachReading } from "@armada/components";
-import type { FleetCondition, FleetDoes, FleetRule, ProposedFleet, ReadTeaching, SaveTeaching, TeachingProposal, TeachingReach, TeachingSource } from "@armada/protocol";
+import type { RuleFormLifecycle, SessionNotice, TeachReach, TeachReading } from "@armada/components";
+import type { AppliedLifecycle, FleetCondition, FleetDoes, FleetRule, LifecycleRule, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, TeachingProposal, TeachingReach, TeachingSource } from "@armada/protocol";
 import { LAYOUT, parseLayout } from "@armada/shell";
 import type { LayoutRegion } from "@armada/shell";
 
+import { SOURCE } from "./lifecycle-editing/read";
 import type { Preview } from "./teach";
 import { BRIDGE, foundSaid } from "./teach";
 import type { PanelItem } from "./shared-panel/store";
@@ -106,9 +107,43 @@ const fleetReading = (fleet: ProposedFleet, repository: string) => ({
   ...(fleet.untestable === undefined || fleet.untestable.length === 0 ? {} : { untestable: untestableWords(fleet.untestable) }),
 });
 
-/** What the panel shows back of a proposal. */
-export function readingOf(proposal: TeachingProposal, repository: string): TeachReading {
-  const { note, words, fleet, layout } = proposal;
+/** How narrowly a piece's reach names the repository, which is what Fleet ranks two lifecycles of one id by. */
+const NARROWNESS: Readonly<Record<string, number>> = { everywhere: 0, workspace: 1, repository: 2 };
+
+/** The lifecycles a rule's pickers offer: the one that runs for each id, which is the narrowest that was not replaced. */
+export function formLifecycles(applied: readonly AppliedLifecycle[]): RuleFormLifecycle[] {
+  const running = new Map<string, AppliedLifecycle>();
+  for (const one of applied) {
+    if (one.kept.overridden_by !== undefined) continue;
+    const held = running.get(one.lifecycle.id);
+    if (held === undefined || (NARROWNESS[one.kept.rank.reach] ?? 0) > (NARROWNESS[held.kept.rank.reach] ?? 0)) running.set(one.lifecycle.id, one);
+  }
+  return [...running.values()].map(({ lifecycle }) => ({
+    id: lifecycle.id,
+    name: lifecycle.name,
+    kind: SOURCE[lifecycle.states[0]?.read.source ?? "tracker"]?.kind,
+    states: lifecycle.states.map((state) => ({ id: state.id, label: state.label })),
+  }));
+}
+
+/** The rule without what the wire adds to it, which the form does not edit. */
+export const bareRule = ({ untestable: _untestable, ...rule }: ProposedRule): LifecycleRule => rule;
+
+/** The steps and workflows a rule names: the workflows' own steps are not read for the panel, so its pickers offer these and no others. */
+function named(rule: LifecycleRule): { steps: { id: string; label: string }[]; workflows: string[] } {
+  const steps = new Set<string>();
+  const workflows = new Set<string>();
+  if (rule.when.kind === "step_starts" || rule.when.kind === "step_ends") steps.add(rule.when.step);
+  for (const one of rule.conditions) {
+    if (one.kind === "at_step") steps.add(one.step);
+    else if (one.kind === "workflow") workflows.add(one.workflow);
+  }
+  return { steps: [...steps].map((id) => ({ id, label: id })), workflows: [...workflows] };
+}
+
+/** What the panel shows back of a proposal. `lifecycles` are the ones the rule part's pickers offer. */
+export function readingOf(proposal: TeachingProposal, repository: string, lifecycles: readonly RuleFormLifecycle[] = []): TeachReading {
+  const { note, words, fleet, layout, rule } = proposal;
   const tweak = firstTweak(proposal);
   return {
     ...(note === undefined ? {} : { agents: note.text }),
@@ -116,6 +151,9 @@ export function readingOf(proposal: TeachingProposal, repository: string): Teach
       ? {}
       : { bridge: { name: words.name, pattern: words.pattern, example: words.example, ...(words.address === undefined ? {} : { address: words.address.template.replaceAll("{match}", words.example), found: foundSaid(words.address.found) }) } }),
     ...(fleet === undefined ? {} : { fleet: fleetReading(fleet, repository) }),
+    ...(rule === undefined
+      ? {}
+      : { rule: { rule: bareRule(rule), lifecycles, ...named(rule), ...(rule.untestable === undefined || rule.untestable.length === 0 ? {} : { untestable: untestableWords(rule.untestable) }) } }),
     ...(tweak === undefined ? {} : { tweak: { colour: tweak.note ?? tweak.token, token: tweak.token, was: tweak.was, now: tweak.now, places: tweak.used_in ?? [] } }),
     ...(layout === undefined ? {} : { layout: layoutOf(layout.name, layout.layout) }),
   };

@@ -7,8 +7,10 @@ import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { COMMENT_READ, LaneCanvas, Tooltip, jobLanes } from "@armada/components";
 import type { LanePick, TriagedComment } from "@armada/components";
+import { instanceKey } from "@armada/screens/src/session-lanes";
 
 import { useSessions } from "../sessions-draft";
+import { useTeach } from "../teach";
 import { SidePanel } from "./side";
 import { useBack } from "./panels";
 import { closePanel, openInPanel } from "./store";
@@ -50,6 +52,7 @@ function CommentRow({ comment, onOpen }: { comment: TriagedComment; onOpen: () =
 export function LanesBody({ sessionId }: { sessionId: string }) {
   const session = useSessions().find((one) => one.id === sessionId);
   const [picked, setPicked] = useState<LanePick | undefined>();
+  const teach = useTeach();
   const lanes = session?.lanes;
   const drawn = useMemo(() => (lanes === undefined ? undefined : jobLanes(lanes.job, lanes)), [lanes]);
   if (session === undefined || lanes === undefined || drawn === undefined) return null;
@@ -65,7 +68,14 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   };
   return (
     <div className="sv-lanes__body">
-      <LaneCanvas label="Workflow" lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={pick} />
+      <LaneCanvas
+        label="Workflow"
+        lanes={drawn.lanes}
+        rules={drawn.rules}
+        picked={picked}
+        onPick={pick}
+        {...(teach === undefined ? {} : { onTeach: (lane) => teach("ticket", lane.note === undefined ? lane.title : `${lane.title} ${lane.note}`, undefined, [instanceKey(lane.id)]) })}
+      />
       {triage === undefined ? null : (
         <section className="sv-lanes__triage" aria-label={`Comments on ${held}`}>
           <h4 className="sv-lanes__triage-head">{`Comments on ${held}`}</h4>
