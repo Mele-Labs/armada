@@ -62,7 +62,7 @@
   notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Tooltip `The agent is working`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
 
 [[icons.loader-circle.usage]]
-  means = "Start pressed on a held Job whose request is still being read: its row in the parent's Needs you, and its own start strip, until it starts"
+  means = "Start pressed on a held Job whose request is still being read: its row in the parent's Needs you, its Started row in the parent's thread, and its own start strip, until it starts"
   group = "Session"
   size = "12px"
   status = "Proposed"
