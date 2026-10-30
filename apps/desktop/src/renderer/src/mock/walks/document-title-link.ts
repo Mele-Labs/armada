@@ -19,7 +19,7 @@ const linking = walk("document-title-link", [
   { press: inside(needs, button("Needs you")), say: "Needs you opens: the page waits here, and no plan card stands in the thread" },
   { look: page, say: "The page's approval is the one thing asked" },
   { press: page, say: "A press on it approves the page" },
-  { look: text("Roll Custom Margins out in four phases"), say: "The plan stands in the Blueprint, settled with the page, and no card was asked on the way" },
+  { look: text("Roll the retry budget out in four phases"), say: "The plan stands in the Blueprint, settled with the page, and no card was asked on the way" },
 ]);
 
 export { linking as "document-title-link" };

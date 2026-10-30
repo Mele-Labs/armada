@@ -140,8 +140,8 @@ export const LEASE_DOC_1 = page(FIRST, false);
 /** The document after the notes, which the walk sends. */
 export const LEASE_DOC_2 = page(SECOND, true);
 
-export const ROLLOUT_DOC_TITLE = "Custom Margins rollout plan";
-export const ROLLOUT_DOC_PATH = "docs/plans/custom-margins-rollout.html";
+export const ROLLOUT_DOC_TITLE = "Retry budget rollout plan";
+export const ROLLOUT_DOC_PATH = "docs/plans/retry-budget-rollout.html";
 
 /** A page with no sketch: four launch phases, as a design plan Job writes a rollout. */
 export const ROLLOUT_DOC = `<!doctype html>
@@ -154,22 +154,22 @@ export const ROLLOUT_DOC = `<!doctype html>
 <body>
 <header>
   <h1>${ROLLOUT_DOC_TITLE}</h1>
-  <p>Custom Margins reaches borrowers in four phases, each one gated on the last holding for a week.</p>
+  <p>The retry budget reaches Drones in four phases, each one gated on the last holding for a week.</p>
 </header>
 
 <section>
   <h2>Phase 1: Internal</h2>
-  <p>Staff accounts only. The goal is to see every margin type priced end to end against the old rates.</p>
+  <p>Internal Jobs only. The goal is to see every kind of failure retried end to end against the old limits.</p>
 </section>
 
 <section>
-  <h2>Phase 2: Pilot lenders</h2>
-  <p>Five lenders who asked for it. Their margins are set by hand, and each quote is compared with the one the old path would have given.</p>
+  <h2>Phase 2: Pilot repositories</h2>
+  <p>Five repositories that asked for it. Their budgets are set by hand, and each retry is compared with the one the old path would have made.</p>
 </section>
 
 <section>
-  <h2>Phase 3: Half of lenders</h2>
-  <p>A random half, chosen by lender id. The flag can be turned off per lender, and a lender who turns it off keeps the quotes already issued.</p>
+  <h2>Phase 3: Half of repositories</h2>
+  <p>A random half, chosen by repository id. The flag can be turned off per repository, and one that turns it off keeps the retries already made.</p>
 </section>
 
 <section>

@@ -38,7 +38,7 @@ const job: Session = {
   lastTurnAt: ago(1),
   standing: "replied",
   rows: [
-    you("t-1", "14:00:00", "Plan how Custom Margins reaches lenders, in four phases."),
+    you("t-1", "14:00:00", "Plan how the retry budget reaches every Drone, in four phases."),
     agent("t-2", "14:06:00", `I've written the rollout plan as a page in Bridge, "${ROLLOUT_DOC_TITLE}", and recorded the plan.`),
   ],
   attachments: [{ kind: "artifact", form: "document", id: ROLLOUT_DOC_PATH, title: ROLLOUT_DOC_TITLE, revisions: [ROLLOUT_DOC_PATH] }],
@@ -52,8 +52,8 @@ const job: Session = {
       scope: ["docs/plans"],
       approved: false,
       after: "t-2",
-      summary: "Four phases: staff, five pilot lenders, half of lenders, then everyone.",
-      groups: [{ id: "c1", agent: "general-purpose", title: "Roll Custom Margins out in four phases", paths: ["docs/plans"], tasks: [{ id: "C1", text: "Write the rollout plan", state: "done" }] }],
+      summary: "Four phases: internal, five pilot repositories, half of repositories, then everyone.",
+      groups: [{ id: "c1", agent: "general-purpose", title: "Roll the retry budget out in four phases", paths: ["docs/plans"], tasks: [{ id: "C1", text: "Write the rollout plan", state: "done" }] }],
     },
   },
 };
