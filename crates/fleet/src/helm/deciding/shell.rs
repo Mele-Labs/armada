@@ -58,20 +58,26 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
     // is no path.
     let whole: Vec<String> =
         with_variables(kept.iter().map(|at| whole_parts[*at].trim()).collect());
-    // The owner's files it names, whether the segment naming each only reads, the kind of that
-    // segment, and which of them the list has not answered.
+    // The owner's files it names, whether the segment naming each reads, writes or runs, the kind
+    // of that segment, and which of them the list has not answered.
     let reached: Vec<(String, ReachesTo, Option<CallKind>)> = match folders {
         Some(folders) => whole
             .iter()
             .flat_map(|said| {
-                let to = if segment_only_reads(said) { ReachesTo::Read } else { ReachesTo::Write };
+                let to = if segment_only_reads(said) {
+                    ReachesTo::Read
+                } else if segment_writes(said) {
+                    ReachesTo::Write
+                } else {
+                    ReachesTo::Run
+                };
                 let kind = kind_of(said);
                 reaches_into_owners_files(said)
                     .into_iter()
                     .filter_map(move |(word, runs)| {
                         let to = if runs {
                             ReachesTo::Read
-                        } else if to == ReachesTo::Write && handed_to_run(said, &word, folders) {
+                        } else if to == ReachesTo::Run && handed_to_run(said, &word, folders) {
                             read_refused(&word, false).then_some(ReachesTo::Read)?
                         } else {
                             to

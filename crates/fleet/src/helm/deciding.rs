@@ -16,7 +16,7 @@
 use ipc::{AskingToRun, CallKind, ReachesTo};
 
 use super::reading::{
-    changes_only_held, command_of, kind_of, queries, reaches_into_owners_files, segment_only_reads, with_variables,
+    changes_only_held, command_of, kind_of, queries, reaches_into_owners_files, segment_only_reads, segment_writes, with_variables,
 };
 
 mod folders;
