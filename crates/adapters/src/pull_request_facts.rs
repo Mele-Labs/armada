@@ -1,4 +1,4 @@
-//! What the forge says about one pull request, and taking one out of draft.
+//! What the forge says about one pull request, taking one out of draft, and asking people to review it.
 //! `docs/concepts/session.md`, *Acts on a pull request*.
 //!
 //! **`--jq` and not a parse**, for [`crate::delivery::asked`]'s reason: the
@@ -120,4 +120,34 @@ pub(crate) fn mark_ready(in_repo: &str, pull_request: &str) -> Result<(), String
         true => Ok(()),
         false => Err(said(&run)),
     }
+}
+
+/// Ask `reviewers` to review. **A write to the forge**, so the refusal is its own sentence and
+/// nothing here retries.
+pub(crate) fn request_reviewers(in_repo: &str, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+    let args = reviewer_arguments(pull_request, reviewers)?;
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let run = run_in(in_repo, FORGE, &args).map_err(|why| format!("`{FORGE}` would not run: {why}"))?;
+    match run.status.success() {
+        true => Ok(()),
+        false => Err(said(&run)),
+    }
+}
+
+/// The `gh` arguments that ask `reviewers` to review `pull_request`, or why nobody can be asked.
+///
+/// **`=` joins the names to their flag**, so a name that begins with a dash is a name. A team is
+/// written `org/team`, as `gh` takes it.
+pub(crate) fn reviewer_arguments(pull_request: &str, reviewers: &[&str]) -> Result<Vec<String>, String> {
+    let pull_request = pull_request.trim().trim_start_matches('#');
+    if pull_request.is_empty() || pull_request.starts_with('-') {
+        return Err(format!("`{pull_request}` is not a pull request"));
+    }
+    if reviewers.is_empty() {
+        return Err(String::from("no one was named to review"));
+    }
+    if let Some(bad) = reviewers.iter().find(|name| name.trim().is_empty() || name.contains(char::is_whitespace) || name.contains(',')) {
+        return Err(format!("`{bad}` is not a GitHub login"));
+    }
+    Ok(vec!["pr".into(), "edit".into(), pull_request.into(), format!("--add-reviewer={}", reviewers.join(","))])
 }

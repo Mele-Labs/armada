@@ -169,6 +169,14 @@ impl Forge for GhForge {
         crate::pull_request_facts::mark_ready(in_repo, pull_request)
     }
 
+    fn request_reviewers(&self, in_repo: &str, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+        crate::pull_request_facts::request_reviewers(in_repo, pull_request, reviewers)
+    }
+
+    fn can_request_reviewers(&self) -> Result<(), String> {
+        Ok(())
+    }
+
     fn pull_request_page(
         &self,
         in_repo: &str,
