@@ -42,6 +42,8 @@ mod checks;
 mod disputes;
 /// An agent's report that Armada itself got something wrong, kept on this Mac.
 mod bug_reports;
+/// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
+mod lifecycles;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
 pub mod shape;
@@ -274,6 +276,12 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use lifecycles::{
+    AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
+    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
+    RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
+};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft,

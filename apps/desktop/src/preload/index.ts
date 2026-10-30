@@ -36,7 +36,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, BugReport, BugReportDropped, BugReports, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, BugReport, BugReportDropped, BugReports, JobLifecycles, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -55,6 +55,7 @@ import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { ProjectsActed } from "../shared/api/projects";
 import type { BugReportActed } from "../shared/api/bug-reports";
+import type { LifecyclesActed } from "../shared/api/lifecycles";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
@@ -423,6 +424,17 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.bugReportsChanged, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.bugReportsChanged, handler);
+    };
+  },
+  listRepositoryWorkspaces: (manifestId: string): Promise<LifecyclesActed<RepositoryWorkspaces>> => ipcRenderer.invoke(CHANNELS.listRepositoryWorkspaces, manifestId),
+  listLifecycles: (manifestId: string): Promise<LifecyclesActed<RepositoryLifecycles>> => ipcRenderer.invoke(CHANNELS.listLifecycles, manifestId),
+  listLifecycleRules: (manifestId: string): Promise<LifecyclesActed<RepositoryLifecycleRules>> => ipcRenderer.invoke(CHANNELS.listLifecycleRules, manifestId),
+  getJobLifecycles: (sessionId: string): Promise<LifecyclesActed<JobLifecycles>> => ipcRenderer.invoke(CHANNELS.getJobLifecycles, sessionId),
+  onJobLifecyclesChanged: (onChanged: (held: JobLifecycles) => void): (() => void) => {
+    const handler = (_event: unknown, held: JobLifecycles): void => onChanged(held);
+    ipcRenderer.on(CHANNELS.jobLifecyclesChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.jobLifecyclesChanged, handler);
     };
   },
   listProjects: (): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.listProjects),

@@ -210,6 +210,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/fork_this",
     },
+    // What a Job holds, tickets, pull requests, deploys and the Jobs it started, and where each stands.
+    Route {
+        operation: "get_job_lifecycles",
+        method: "GET",
+        path: "/sessions/lifecycles",
+    },
     // A command Fleet runs on a cadence for one Job, and the agent's weighing of what it reads.
     Route {
         operation: "list_watches",

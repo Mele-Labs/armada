@@ -133,6 +133,8 @@ mod watching_session_run;
 mod watches;
 /// A repository's app run from Bridge: several servers held as one run.
 mod app_runs;
+/// Workspaces, lifecycles and rules, and what a Job holds: reads.
+mod lifecycles;
 
 #[cfg(test)]
 mod tests;
@@ -140,7 +142,7 @@ mod tests;
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, AdversarialReviews, AppRuns, Authoring, Commands, Conversations, Daemon,
-    Autopilots, HelmReach, HostedSessions, Issues, Logbook, Teaching, Mods, Clashing,
+    Autopilots, HelmReach, HostedSessions, Issues, Lifecycles, Logbook, Teaching, Mods, Clashing,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };

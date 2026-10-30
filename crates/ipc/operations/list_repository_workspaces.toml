@@ -1,0 +1,16 @@
+[operations.list_repository_workspaces]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The Workspaces (sets of repositories) that hold one repository: each one's repositories, the repository its file is kept in, and where it was kept"
+notes = """
+`GET /workspaces?manifest_id=`, the repository Fleet started in where absent. Answers 200 with `RepositoryWorkspaces`: `manifest_id`, `workspaces` and `left_out`. Each Workspace is a `WorkspaceOfRepositories` `{ id, name, repositories[], home?, source, path, overridden_by?, hides? }`.
+
+**A Workspace here is a set of repositories**, as a VS Code workspace is. It is not the Manifest's monorepo unit (`workspaces` in `armada.yml`, `WorkspaceCommands`), which this read does not touch.
+
+**`home` is the repository the file is committed to**, which the others read it from; it is absent for a Workspace that is Kit's. `source` is `kit` or `repository` and `path` the file. The Workspaces listed are those whose running file holds the repository, the one that runs for each id first and each one it replaced after it, marked by `overridden_by` (the place of the one that runs instead). `hides` is the place a Kit file replaced because it says something else.
+
+**`left_out` is every Workspace file Fleet could not read** (`{ source, path, said }`), whichever repository it was for: a file that will not read names no repository. It is read when asked and never cached, so a file saved a moment ago is read.
+
+422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id, the sentence naming the ones it does.
+"""

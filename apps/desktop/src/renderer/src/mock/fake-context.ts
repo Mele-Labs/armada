@@ -43,6 +43,7 @@ export type SliceName =
   | "modelDownshift"
   | "projects"
   | "bugReports"
+  | "lifecycles"
   | "agentSignIn"
   | "clashes"
   | "reviews"

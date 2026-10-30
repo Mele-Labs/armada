@@ -154,6 +154,27 @@ fn the_wait_reads_waiting_on_the_instance_by_name_and_the_state_by_its_label() {
 }
 
 #[test]
+fn a_step_says_what_it_waits_on_while_it_waits_and_nothing_once_an_end_has_come() {
+    let lifecycles = Lifecycle::built_in();
+    let said = |step: &RailStep, held: &Held| rail_lifecycle::waiting(step, &lifecycles, held, &called);
+    let review = RailStep { ends_on: vec![end("pr: approved")], ..step("Review") };
+    let one = Held { instances: vec![instance("pr", "812")], moves: Vec::new() };
+    assert_eq!(said(&review, &one), ["Waiting on PR #812: Approved"]);
+    let got = Held { instances: vec![instance("pr", "812")], moves: vec![moved("pr", "812", "in:approved")] };
+    assert!(said(&review, &got).is_empty(), "an end that has come is not waited on");
+
+    let both = RailStep { ends_on: vec![end("pr: approved"), end("ticket: closed")], ..step("Review") };
+    let held = Held { instances: vec![instance("pr", "812"), instance("ticket", "ARM-41")], moves: Vec::new() };
+    assert_eq!(said(&both, &held), ["Waiting on PR #812: Approved", "Waiting on ARM-41: Closed"], "one sentence for each end, in the order the step lists them");
+    let closed = Held { moves: vec![moved("ticket", "ARM-41", "in:closed")], ..held };
+    assert!(said(&both, &closed).is_empty(), "any one of the ends ends the step");
+
+    assert!(said(&step("Implement"), &one).is_empty(), "a step that waits on no lifecycle");
+    let unknown = RailStep { ends_on: vec![end("release: shipped")], ..step("Ship") };
+    assert!(said(&unknown, &one).is_empty(), "nor one whose lifecycle the Job does not have");
+}
+
+#[test]
 fn the_line_that_wakes_the_agent_names_what_got_there_and_the_step_it_ended() {
     let pull = built_in("pr");
     let said = |end: &str, held: &Held| {
