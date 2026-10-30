@@ -42,6 +42,7 @@ impl Requests for FakeDaemon {
             truncated: false,
             error: None,
             note: None,
+            saved: None,
         })
     }
 
