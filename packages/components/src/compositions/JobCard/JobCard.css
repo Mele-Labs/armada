@@ -4,7 +4,7 @@
 .armada-job-card {
   --hue: var(--fg-subtle);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   align-items: center;
   column-gap: var(--space-3);
@@ -37,10 +37,11 @@
 /* What is open is lit in the accent round the frame; the state keeps its edge. */
 .armada-job-card[data-selected] { box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
 
-.armada-job-card__title { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.armada-job-card__kind { grid-column: 1; grid-row: 1 / 3; display: inline-flex; align-self: center; color: var(--fg-muted); }
+.armada-job-card__title { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
 .armada-job-card[data-tone="calm"] .armada-job-card__title { font-weight: var(--weight-medium); }
-.armada-job-card__mark { grid-column: 2; grid-row: 1; display: inline-flex; justify-self: end; color: var(--hue); }
+.armada-job-card__mark { grid-column: 3; grid-row: 1; display: inline-flex; justify-self: end; color: var(--hue); }
 .armada-job-card[data-tone="calm"] .armada-job-card__mark { color: var(--fg-muted); }
-.armada-job-card__says { grid-column: 1; grid-row: 2; min-width: 0; min-height: var(--leading-xs); overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
-.armada-job-card__at { grid-column: 2; grid-row: 2; justify-self: end; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.armada-job-card__says { grid-column: 2; grid-row: 2; min-width: 0; min-height: var(--leading-xs); overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.armada-job-card__at { grid-column: 3; grid-row: 2; justify-self: end; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .armada-job-card__repository { grid-column: 1 / -1; grid-row: 3; display: flex; min-width: 0; margin-top: var(--space-1); }
