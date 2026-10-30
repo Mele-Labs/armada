@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { AnswerSketch, AppliedRule, CallKind, ChangeWaiting, JobLifecycles, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { AnswerDocument, AnswerSketch, AppliedRule, CallKind, ChangeWaiting, JobLifecycles, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -964,6 +964,8 @@ export class WiredStore {
     reopenWaiting: (id: string, itemId: string) => this.plain(this.api.reopenWaiting({ session_id: id, item_id: itemId })),
     // A refusal, such as a sketch drawn again since, is a toast in Fleet's words; the card settles by Fleet's event.
     answerSketch: (answer: AnswerSketch) => this.plain(this.api.answerSketch(answer), { act: "answer_sketch", request: answer }),
+    // A revision kept since he read it is refused as a redrawn sketch is: a toast in Fleet's words, and the card asks again by Fleet's event.
+    answerDocument: (answer: AnswerDocument) => this.plain(this.api.answerDocument(answer), { act: "answer_document", request: answer }),
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => {
       const asked = this.lookup(id)?.asked;
       const call = asked?.call;

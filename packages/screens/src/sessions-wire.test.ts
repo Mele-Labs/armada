@@ -392,7 +392,7 @@ describe("the thread", () => {
   it("keeps a document the Job wrote with its revisions, and the row alone where they cannot be read", () => {
     const page = (detail: Record<string, string>) => ({ ...held("artifact", "/work/.armada/documents/findings.html"), detail: { form: "document", title: "Findings", ...detail } });
     const kept = (detail: Record<string, string>) => attachmentsOfRecord(record("a", { attachments: [page(detail)] }), beside());
-    const row = { kind: "artifact", form: "document", id: "/work/.armada/documents/findings.html", title: "Findings" };
+    const row = { kind: "artifact", form: "document", id: "/work/.armada/documents/findings.html", title: "Findings", kept: AT };
     expect(kept({ revisions: JSON.stringify(["/store/r1.html", "/store/r2.html"]) })).toEqual([{ ...row, revisions: ["/store/r1.html", "/store/r2.html"] }]);
     expect(kept({ revisions: "[not json" })).toEqual([row]);
     expect(kept({ revisions: JSON.stringify({ r1: "/store/r1.html" }) })).toEqual([row]);
@@ -968,6 +968,45 @@ const EARLIER = { nodes: [{ id: "a", kind: "box", x: 0, y: 0, title: "Bridge" }]
 /** A sketch row as Fleet writes it: `detail` holds strings only, so `scene` is JSON text and `against` is JSON text of `{ title, scene }`. */
 const sketchRow = (title: string, detail: Record<string, string>) => held("artifact", `sketch:${title}`, { form: "sketch", by: "agent", title, ...detail });
 const againstText = (title: string, scene: string) => JSON.stringify({ title, scene });
+
+describe("a document put to him on the ledger", () => {
+  const PATH = "/work/.armada/documents/script.html";
+  const KEPT = "2026-10-30T10:03:10.000Z";
+  const ANSWERED = "2026-10-30T10:05:00.000Z";
+  const page = (detail: Record<string, string>, since = AT): Attachment => ({ ...held("artifact", PATH), since, changed_at: detail["settled_at"] ?? KEPT, detail: { form: "document", title: "Script", revisions: JSON.stringify(["/s/r1.html", "/s/r2.html"]), ...detail } });
+  const read = (one: Attachment) => attachmentsOfRecord(record("a", { attachments: [one] }), beside())[0];
+
+  it("carries the revision it asks about, kept when the row last changed", () => {
+    expect(read(page({ asked: "true", revision: "2" }))).toMatchObject({ asked: true, revision: "2", kept: KEPT });
+    expect(read(page({ asked: "true", revision: "2" }))).not.toHaveProperty("settled");
+  });
+
+  it("carries how he answered it, with his words", () => {
+    expect(read(page({ asked: "true", revision: "2", settled: "sent_back", settled_at: ANSWERED, words: "Shorter close." }))).toMatchObject({ settled: { how: "sent_back", at: ANSWERED, words: "Shorter close." } });
+    const approved = read(page({ asked: "true", revision: "2", settled: "approved", settled_at: ANSWERED, words: "" }));
+    expect(approved).toMatchObject({ settled: { how: "approved", at: ANSWERED } });
+    expect(approved).not.toHaveProperty("settled.words");
+  });
+
+  it("stands where Fleet says the revision was kept, answered or not", () => {
+    const keptAt = "2026-10-30T10:04:00.000Z";
+    expect(read(page({ asked: "true", revision: "2", kept_at: keptAt }))).toMatchObject({ kept: keptAt });
+    expect(read(page({ asked: "true", revision: "2", kept_at: keptAt, settled: "approved", settled_at: ANSWERED }))).toMatchObject({ kept: keptAt });
+  });
+
+  it("without kept_at, stands where revision 1 was first kept once he answers it, and at the answer for a later one", () => {
+    const first = "2026-10-30T10:01:00.000Z";
+    expect(read(page({ asked: "true", revision: "1", settled: "approved", settled_at: ANSWERED }, first))).toMatchObject({ kept: first });
+    expect(read(page({ asked: "true", revision: "2", settled: "approved", settled_at: ANSWERED }, first))).toMatchObject({ kept: ANSWERED });
+  });
+
+  it("asks nothing where Fleet did not ask, and reads a how it does not write as open", () => {
+    expect(read(page({}))).not.toHaveProperty("asked");
+    expect(read(page({}))).not.toHaveProperty("revision");
+    expect(read(page({ revision: "2" }))).not.toHaveProperty("asked");
+    expect(read(page({ asked: "true", revision: "2", settled: "maybe", settled_at: ANSWERED }))).not.toHaveProperty("settled");
+  });
+});
 
 describe("a sketch on the ledger", () => {
   it("is the agent's, read from the scene's JSON text, under its title", () => {

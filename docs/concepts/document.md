@@ -19,6 +19,7 @@ A design, an investigation, a report or a set of findings is a document. The Job
 | Fleet keeping revisions, the `document` artifact, the sketch notice | Built |
 | The Delivery row, the Artifacts rows and thread headings reading the real artifact | Built |
 | Save as web page and Save as PDF | Built |
+| Each revision asking his approval, `answer_document`, the `document` item and the `document_approved` end | Built in Fleet; Bridge's wiring owed |
 
 ## What a document is
 
@@ -27,7 +28,8 @@ Why: the page takes the shape its content needs. The cost is that a note anchors
 
 **Rule.** A document stays with the Job and can be shared out wherever the person wants.
 
-**Rule.** The only feedback on a document is notes.
+**Rule.** Notes are the feedback on a document's words, and his Approve or Send back answers a revision whole.
+This rule said notes were the only feedback until the owner approved asking for an approval on 30 Oct 2026, as a sketch asks: [Asking for his approval](#asking-for-his-approval).
 
 ## Where it is written
 
@@ -47,6 +49,22 @@ A Job with more than one page opens the one pressed, and a sent note's heading o
 
 **Rule.** Fleet reads each `<armada-sketch>` scene with the validator `show_sketch` uses, and tells the Job in a Fleet notice of one that will not draw. The write is not refused.
 The notice is `document_sketch`, once per revision: `In the page <path>, sketch <n> of <total> ("<title>") will not draw: <problems>.`
+
+## Asking for his approval
+
+**Rule.** Every revision Fleet keeps is put to the person: its artifact's `detail` gains `asked` `"true"`, `revision`, the newest revision's number, and `kept_at`, when it was kept.
+It is read off the page Fleet kept, never off the Job's tool call.
+A page kept before this has no `asked` and asks nothing.
+
+**Rule.** Until he answers, the page waits in his Needs you as `document:<path>` and the Job's row calls him ([Waiting on the person](session/waiting-on-the-person.md)).
+
+**Rule.** He approves the revision he read, or sends it back with a note, with `answer_document`; an answer to a revision kept since is refused.
+The Job is told as his message: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note and to revise the page at its path.
+`detail` then keeps `settled`, `settled_at` and his `words`.
+
+**Rule.** A new revision writes the detail afresh, so it drops `settled` and asks again, and lifts a dismissal; the same bytes written again ask nothing.
+
+**Rule.** A step can end on it: `document_approved` in a workflow's `ends_on` holds once he approves the newest revision of any page the Job wrote.
 
 ## The page
 

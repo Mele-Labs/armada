@@ -139,3 +139,67 @@ export const LEASE_DOC_1 = page(FIRST, false);
 
 /** The document after the notes, which the walk sends. */
 export const LEASE_DOC_2 = page(SECOND, true);
+
+// ---- The video script a Job writes for a product demo (`document-waits-in-needs-you`) ------------------------------------
+
+export const VIDEO_SCRIPT_TITLE = "Video script";
+/** Where the Job writes the page, and where Fleet keeps each revision of it. */
+export const VIDEO_SCRIPT_PATH = "/Users/user/armada/.armada/slots/slot-2/.armada/documents/video-script.html";
+export const VIDEO_SCRIPT_R1 = "documents/video-script/r1.html";
+export const VIDEO_SCRIPT_R2 = "documents/video-script/r2.html";
+
+const SCENES: readonly (readonly [time: string, shot: string, voice: string])[] = [
+  ["0:00", "The Board, three Jobs running", "Three Jobs run while you read the first one's plan."],
+  ["0:12", "A Job's thread, a plan card", "Each Job says what it will do before it starts."],
+  ["0:25", "A walk window over the app", "When it has something to show, it opens a walk."],
+  ["0:40", "The merge queue, one pull request landing", "What you approve lands on main."],
+];
+
+const script = (closing: string, second: boolean) => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${VIDEO_SCRIPT_TITLE}</title>
+<link rel="stylesheet" href="armada-kit.css">
+<style>
+  body { max-inline-size: 46rem; }
+  .when { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>${VIDEO_SCRIPT_TITLE}</h1>
+  <p>A ${second ? "50" : "55"} second demo of Armada for the landing page: four shots and a closing line, read over a screen recording.</p>
+</header>
+
+<section>
+  <h2>Shots</h2>
+  <table>
+    <thead><tr><th>At</th><th>Shot</th><th>Voice</th></tr></thead>
+    <tbody>
+${SCENES.map(([time, shot, voice]) => `      <tr><td class="when">${time}</td><td>${shot}</td><td>${voice}</td></tr>`).join("\n")}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Closing</h2>
+  <p>${closing}</p>
+</section>
+
+<section>
+  <h2>Recording</h2>
+  <ul>
+    <li>The mock app, dark theme, at 1440 by 900</li>
+    <li>No cursor trails, no zoom</li>
+  </ul>
+</section>
+</body>
+</html>
+`;
+
+/** The script as the Job first wrote it. */
+export const VIDEO_SCRIPT_1 = script("Armada runs your agents and checks their work. Try it on your own repository.", false);
+
+/** The script's second revision, with a shorter close. */
+export const VIDEO_SCRIPT_2 = script("Your agents, checked. Try Armada.", true);

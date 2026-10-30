@@ -247,3 +247,17 @@
   grid-row: 2;
   grid-column: 1 / -1;
 }
+
+/* A document's card is its band alone over the answers, so the band drops its rule for the answers' own. Open sits at its end. */
+.armada-session-document .armada-session-sketch__band {
+  border-bottom: 0;
+}
+
+.armada-session-document__open {
+  flex: none;
+}
+
+/* Its revision reads as written, r2, in the band's capitals. */
+.armada-session-document .armada-session-sketch__state {
+  text-transform: none;
+}
