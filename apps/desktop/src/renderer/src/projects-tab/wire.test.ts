@@ -61,6 +61,29 @@ describe("his projects as the tab draws them", () => {
     ]);
   });
 
+  it("reads a link in the repository it names, and in its task's where it names none", () => {
+    const wired: Projects = {
+      projects: [],
+      loose: [
+        {
+          kind: "task",
+          id: "t",
+          manifest_id: "armada",
+          title: "Pair a phone",
+          notes: "",
+          state: "open",
+          issues: [{ issue: "7", manifest_id: "site" }, { issue: "8" }],
+          pulls: [{ number: 2874, manifest_id: "site" }, { number: 2878 }],
+        },
+      ],
+    };
+
+    expect(looseOf(wired)[0]).toMatchObject({
+      issues: [{ reference: "#7", manifestId: "site" }, { reference: "#8", manifestId: "armada" }],
+      pulls: [{ number: 2874, manifestId: "site" }, { number: 2878, manifestId: "armada" }],
+    });
+  });
+
   it("names a bare number #n and leaves any other reference as it is", () => {
     expect(referenceOf(" 7 ")).toBe("#7");
     expect(referenceOf("ABC-12")).toBe("ABC-12");

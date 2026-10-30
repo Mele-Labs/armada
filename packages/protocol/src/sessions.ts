@@ -123,6 +123,8 @@ export type SessionRecord = {
    * or has been given work since: the person's message, a non-empty `waiting_for`, a hosted turn starting.
    */
   done_since?: string;
+  /** One or two plain sentences on what the Job delivered, set with `done_since`. Absent when none was given. */
+  done_summary?: string;
   /** What the Session is doing, derived by Fleet on every read. Absent from a Fleet before 23.86. */
   standing?: SessionStanding;
   /**

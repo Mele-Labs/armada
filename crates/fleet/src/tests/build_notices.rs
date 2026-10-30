@@ -267,7 +267,7 @@ async fn a_session_is_told_when_its_branch_enters_the_build_and_not_when_it_stay
     let elsewhere = rig.a_hosted_session().await;
     rig.holds_branch(&holding, "armada/work").await;
     rig.holds_branch(&holding, "armada/other").await;
-    rig.holds_branch(&elsewhere, "feature/custom-margins").await;
+    rig.holds_branch(&elsewhere, "feature/retry-budget").await;
     rig.on_file(true);
 
     rig.fleet.builds_told().await;

@@ -131,6 +131,8 @@ fn own(method: &str, url: &str, session: Option<&SessionId>) -> SendRequest {
         environment: None,
         headers: Vec::new(),
         body: None,
+        body_inline: true,
+        pick: None,
     }
 }
 
@@ -197,6 +199,35 @@ async fn an_agents_send_from_its_connection_keeps_a_row_and_tells_it_nothing() {
     assert!(matches!(requested[..], [SessionRow::Requested { by: RequestBy::Agent, .. }]), "{rows:?}");
     assert!(!ipc::encode(&rows).unwrap().contains(TOKEN));
     assert_eq!(rig.stand_in.process(0).sent.lock().unwrap().len(), 1, "the agent holds the answer and is told nothing");
+}
+
+#[tokio::test]
+async fn an_agents_send_saves_its_whole_body_in_the_jobs_scratch_folder_and_the_owners_saves_none() {
+    let (url, server) = echoing(2);
+    let rig = rig_keeping(&url).await;
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    eventually(|| async { rig.stand_in.process(0).sent.lock().unwrap().len() == 1 }).await;
+    let caller = api::Caller::at("127.0.0.1:50999".parse().unwrap());
+    let answer = Arc::clone(&rig.fleet)
+        .send_request(Some(caller), RequestBy::Agent, with_the_token(None))
+        .await
+        .expect("answered");
+    let saved = answer.saved.clone().expect("the body was saved");
+    let scratch = rig.fleet.scratch_of(id.as_str()).join("requests");
+    assert!(std::path::Path::new(&saved.path).starts_with(&scratch), "{} is not under {}", saved.path, scratch.display());
+    assert!(saved.path.ends_with(".txt"), "the answer named no json: {}", saved.path);
+    let file = std::fs::read_to_string(&saved.path).expect("the file reads");
+    assert_eq!(file, "you sent Bearer {{token}}");
+    assert_eq!(saved.bytes, file.len() as u64);
+
+    let owners = Arc::clone(&rig.fleet)
+        .send_request(None, RequestBy::Owner, with_the_token(Some(&id)))
+        .await
+        .expect("answered");
+    server.join().unwrap();
+    assert_eq!(owners.saved, None, "the owner's send saves nothing");
+    assert_eq!(std::fs::read_dir(&scratch).unwrap().count(), 1, "one file, the agent's");
 }
 
 #[tokio::test]
@@ -280,6 +311,8 @@ fn saved(collection: &str, request: &str) -> SendRequest {
         environment: Some("staging".to_string()),
         headers: Vec::new(),
         body: None,
+        body_inline: true,
+        pick: None,
     }
 }
 
@@ -333,4 +366,134 @@ fn a_refusal_naming_a_filled_address_hides_the_secret() {
     for missing in [saved("users", "nobody"), saved("orders", "me")] {
         assert!(matches!(sent(&Kept::default(), &keychain(), RequestBy::Agent, &missing, &filling(), &Bounds::shipped()), Err(Unsent::Refused(_))));
     }
+}
+
+// The whole body, saved.
+
+/// A server answering `body` as `content-type`, cut at the bound it is given as the shipped
+/// sender cuts.
+struct Answering(String, &'static str);
+
+impl RequestSender for Answering {
+    fn send(&self, _request: Outgoing, most: usize) -> Result<Incoming, RequestFailure> {
+        let mut body = self.0.clone().into_bytes();
+        let truncated = body.len() > most;
+        body.truncate(most);
+        Ok(Incoming { status: 200, headers: vec![("Content-Type".to_string(), self.1.to_string())], body, truncated })
+    }
+}
+
+/// The send that fills `{{token}}`, so its value is one to hide.
+fn with_a_secret() -> SendRequest {
+    let mut send = own("GET", "{{base}}/v1/products", None);
+    send.environment = Some("staging".to_string());
+    send.headers = vec![header("Authorization", "Bearer {{token}}")];
+    send
+}
+
+#[test]
+fn a_body_past_the_file_cap_is_saved_to_the_cap_and_says_so() {
+    let server = Answering("x".repeat(4096), "application/json");
+    let bounds = Bounds { file: 1024, ..Bounds::shipped() };
+    let folder = crate::tests::tmp::TempDir::new();
+    let mut done = sent(&server, &keychain(), RequestBy::Agent, &with_a_secret(), &filling(), &bounds).expect("sent");
+    done.save_body(folder.path(), "r1");
+    let saved = done.answer.saved.clone().expect("saved");
+    assert!(saved.path.ends_with("/requests/r1.json"), "{}", saved.path);
+    assert_eq!((saved.bytes, saved.truncated), (1024, true));
+    assert_eq!(std::fs::read_to_string(&saved.path).unwrap(), "x".repeat(1024));
+    assert_eq!(done.answer.note.as_deref(), Some("The body ran past 1024 bytes, and the file holds its first 1024."));
+}
+
+#[test]
+fn an_owners_send_saves_no_body() {
+    let server = Answering("{\"ok\":true}".to_string(), "application/json");
+    let folder = crate::tests::tmp::TempDir::new();
+    let mut done = sent(&server, &keychain(), RequestBy::Owner, &with_a_secret(), &filling(), &Bounds::shipped()).expect("sent");
+    done.save_body(folder.path(), "r1");
+    assert_eq!(done.answer.saved, None);
+    assert!(!folder.path().join("requests").exists(), "nothing was written");
+}
+
+#[test]
+fn a_secret_straddling_the_inline_cut_is_hidden_in_the_answer_and_the_file() {
+    // The token starts ten bytes before the 32 KiB an agent reads inline, and runs past it.
+    let body = format!("{}{TOKEN}{}", "a".repeat(32 * 1024 - 10), "b".repeat(100));
+    let server = Answering(body, "text/plain");
+    let folder = crate::tests::tmp::TempDir::new();
+    let mut done = sent(&server, &keychain(), RequestBy::Agent, &with_a_secret(), &filling(), &Bounds::shipped()).expect("sent");
+    done.save_body(folder.path(), "r1");
+    assert!(done.answer.truncated);
+    assert!(!done.answer.body.contains(&TOKEN[..10]), "the inline body holds the token's start");
+    let saved = done.answer.saved.clone().expect("saved");
+    assert!(saved.path.ends_with("/requests/r1.txt"), "{}", saved.path);
+    let file = std::fs::read_to_string(&saved.path).unwrap();
+    assert!(!file.contains(TOKEN) && file.contains("{{token}}bbb"), "the file hides the token whole");
+    assert!(!saved.truncated);
+}
+
+#[test]
+fn a_body_that_cannot_be_written_is_answered_unsaved_and_says_why() {
+    let server = Answering(format!("{{\"owner\":\"{TOKEN}\"}}"), "application/json");
+    let folder = crate::tests::tmp::TempDir::new();
+    // A file where the folder should be, so nothing can be made under it.
+    let blocked = folder.path().join("scratch");
+    std::fs::write(&blocked, "").unwrap();
+    let mut done = sent(&server, &keychain(), RequestBy::Agent, &with_a_secret(), &filling(), &Bounds::shipped()).expect("sent");
+    done.save_body(&blocked, "r1");
+    assert_eq!(done.answer.status, Some(200), "the send is answered");
+    assert_eq!(done.answer.body, "{\"owner\":\"{{token}}\"}");
+    assert_eq!(done.answer.saved, None);
+    let note = done.answer.note.clone().expect("a note");
+    assert!(note.starts_with("The body was not saved: ") && !note.contains(TOKEN), "{note}");
+}
+
+fn agent_send(server: &Answering, send: SendRequest) -> super::super::requesting::Sent {
+    sent(server, &keychain(), RequestBy::Agent, &send, &filling(), &Bounds::shipped()).expect("sent")
+}
+
+#[test]
+fn a_send_with_no_inline_body_answers_status_headers_and_the_saved_file_only() {
+    let server = Answering(format!("{{\"owner\":\"{TOKEN}\",\"n\":1}}"), "application/json");
+    let mut send = with_a_secret();
+    send.body_inline = false;
+    let folder = crate::tests::tmp::TempDir::new();
+    let mut done = agent_send(&server, send);
+    done.save_body(folder.path(), "r1");
+    assert_eq!(done.answer.status, Some(200));
+    assert_eq!(done.answer.body, "");
+    assert!(!done.answer.truncated);
+    assert!(!done.answer.headers.is_empty());
+    let saved = done.answer.saved.clone().expect("saved");
+    assert_eq!(std::fs::read_to_string(saved.path).unwrap(), "{\"owner\":\"{{token}}\",\"n\":1}");
+}
+
+#[test]
+fn a_pick_answers_only_the_picked_value_with_secrets_hidden() {
+    let server = Answering(format!("{{\"totals\":{{\"sum\":3,\"by\":\"{TOKEN}\"}},\"rows\":[1,2]}}"), "application/json");
+    let mut send = with_a_secret();
+    send.pick = Some("$.totals".to_string());
+    let done = agent_send(&server, send);
+    assert_eq!(done.answer.body, "{\"by\":\"{{token}}\",\"sum\":3}");
+    let mut several = with_a_secret();
+    several.pick = Some("$.rows[*]".to_string());
+    assert_eq!(agent_send(&server, several).answer.body, "[1,2]");
+}
+
+#[test]
+fn a_pick_that_cannot_be_answered_gives_no_body_and_a_note() {
+    let json = Answering("{\"a\":1}".to_string(), "application/json");
+    for (path, why) in [("$.missing", "matched nothing"), ("$[", "not a JSONPath")] {
+        let mut send = with_a_secret();
+        send.pick = Some(path.to_string());
+        let done = agent_send(&json, send);
+        assert_eq!(done.answer.body, "", "{path}");
+        assert!(done.answer.note.clone().unwrap().contains(why), "{path}: {:?}", done.answer.note);
+    }
+    let text = Answering("plain words".to_string(), "text/plain");
+    let mut send = with_a_secret();
+    send.pick = Some("$.a".to_string());
+    let done = agent_send(&text, send);
+    assert_eq!(done.answer.body, "");
+    assert!(done.answer.note.unwrap().contains("not JSON"));
 }

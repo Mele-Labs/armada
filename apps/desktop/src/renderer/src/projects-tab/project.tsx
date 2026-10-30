@@ -1,5 +1,6 @@
 // The cards of the Projects tab and the field that adds a task. A card is a neutral tile: its state's glyph and its title, with
-// the issues a task carries beside the title and its repository as a quiet chip where the list holds more than one; on the right,
+// the issues a task carries beside the title and its repository where the list holds more than one, a menu that moves a task to
+// another; a link made in another repository than its task's is muted and names that repository. On the right,
 // in columns that hold their place, a done ask's two answers and its acts: Dispatch (a subtask has it too), add a subtask, delete.
 // The Job holding it and the pull requests it carries stand on a line under the title. A task's subtasks stand under it as smaller cards, one level
 // deep. A ⌘-click on a card selects it and a ⇧-click selects the range from the card last clicked, in any repository. A card is
@@ -18,7 +19,7 @@ import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
 import type { Holder, Linked, LinkedPull, ProjectRow, RowState, TaskRow } from "./model";
-import { rowState, useProjects, useProjectsStore } from "./store";
+import { lastUsedRepo, rowState, useProjects, useProjectsStore } from "./store";
 import { NO_PROJECT, shown } from "./views";
 import { useTagField } from "./tagging";
 
@@ -78,6 +79,7 @@ export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts, label
         row={row}
         sub={parent !== undefined}
         repository={options.many && parent === undefined ? labels.get(row.manifestId) : undefined}
+        labels={labels}
         movable={options.movable}
         adding={subtasking === row.id}
         editing={editing === row.id}
@@ -104,8 +106,10 @@ type CardProps = {
   row: ProjectRow;
   /** A subtask: its parent's selection takes it, and it holds no subtasks or issues of its own. */
   sub: boolean;
-  /** The repository's name, drawn as a chip: the list holds more than one. */
+  /** The repository's name, drawn as a chip, or a menu on a task: the list holds more than one. */
   repository: string | undefined;
+  /** The repositories' names, by Manifest id. */
+  labels: ReadonlyMap<string, string>;
   movable: boolean;
   /** Its subtask field is up, inside the card. */
   adding: boolean;
@@ -121,16 +125,18 @@ type CardProps = {
   swallowed: () => boolean;
 };
 
-function Card({ row, sub, repository, movable, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onDispatch, onGrab, swallowed }: CardProps) {
+function Card({ row, sub, repository, labels, movable, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onDispatch, onGrab, swallowed }: CardProps) {
   const store = useProjectsStore()!;
   const { Glyph, said } = markOf(row, state);
   const label = rowLabel(row);
-  // A pull request Fleet listed has its number only: where it is on the forge is read when it is pressed.
+  // A pull request Fleet listed has its number only: where it is on the forge is read when it is pressed, in the repository it was linked in.
   const openPull = (one: LinkedPull) => {
     if (one.url !== "") return onOpenLink(one.url);
-    void window.armada.getPullRequest(row.manifestId, one.number).then((read) => read.ok && onOpenLink(read.value.address));
+    void window.armada.getPullRequest(one.manifestId ?? row.manifestId, one.number).then((read) => read.ok && onOpenLink(read.value.address));
   };
-  const interactive = (target: EventTarget) => target instanceof Element && target.closest("button, a, textarea, input") !== null;
+  /** The repository a link was made in, by name, where it is not the task's own. */
+  const elsewhere = (one: { manifestId?: string }): string | undefined => (one.manifestId === undefined || one.manifestId === row.manifestId ? undefined : (labels.get(one.manifestId) ?? one.manifestId));
+  const interactive = (target: EventTarget) => target instanceof Element && target.closest("button, a, textarea, input, [role='menu']") !== null;
   const picking = (event: React.MouseEvent | React.PointerEvent) => event.metaKey || event.ctrlKey || event.shiftKey;
   return (
     <div
@@ -175,8 +181,8 @@ function Card({ row, sub, repository, movable, adding, editing, state, sessions,
       <span className="projects-row__title">
         {row.kind === "issue" ? <Readout fixed className="projects-row__reference">{row.reference}</Readout> : null}
         {editing && row.kind === "task" ? <EditTitle row={row} /> : <span className="projects-row__words">{row.title}</span>}
-        {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
-        {repository === undefined ? null : <RepositoryChip name={repository} />}
+        {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} elsewhere={elsewhere} /> : null}
+        {repository === undefined ? null : row.kind === "task" && !sub ? <RepositoryMenu task={row} name={repository} labels={labels} /> : <RepositoryChip name={repository} />}
       </span>
       {/* The done ask's answers, in a column of their own; a card with no ask leaves it to the title. */}
       {state === "asking" ? (
@@ -234,14 +240,18 @@ function Card({ row, sub, repository, movable, adding, editing, state, sessions,
             </span>
           )}
           {row.kind === "task"
-            ? (row.pulls ?? []).map((one) => (
-                <span key={one.number} className="projects-row__linked">
-                  <PullRequestMenuOn manifestId={row.manifestId} number={one.number} title={one.title} {...(one.url === "" ? {} : { address: one.url })}>
-                    {(on) => <PullRequestChip number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} {...on} />}
-                  </PullRequestMenuOn>
-                  <Unlink pull said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
-                </span>
-              ))
+            ? (row.pulls ?? []).map((one) => {
+                const from = elsewhere(one);
+                return (
+                  <span key={one.number} className="projects-row__linked" data-elsewhere={from === undefined ? undefined : ""}>
+                    <PullRequestMenuOn manifestId={one.manifestId ?? row.manifestId} number={one.number} title={one.title} {...(one.url === "" ? {} : { address: one.url })}>
+                      {(on) => <PullRequestChip number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} {...on} />}
+                    </PullRequestMenuOn>
+                    {from === undefined ? null : <LinkedIn name={from} />}
+                    <Unlink pull said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
+                  </span>
+                );
+              })
             : null}
         </span>
       )}
@@ -260,18 +270,56 @@ function Unlink({ said, pull, onUnlink }: { said: string; pull?: true; onUnlink:
   );
 }
 
-/** The issues a task carries, each by its reference; the tooltip names it. */
-function IssueChips({ issues }: { issues: readonly Linked[] }) {
+/** The issues a task carries, each by its reference; the tooltip names it. One linked in another repository is muted and names it. */
+function IssueChips({ issues, elsewhere }: { issues: readonly Linked[]; elsewhere: (one: Linked) => string | undefined }) {
   if (issues.length === 0) return null;
   return (
     <span className="projects-row__issues">
-      {issues.map((one) => (
-        <Tooltip key={one.reference} label={one.title === "" ? one.reference : one.title} asChild>
-          <Readout className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
-            {one.reference}
-          </Readout>
-        </Tooltip>
-      ))}
+      {issues.map((one) => {
+        const from = elsewhere(one);
+        return (
+          <span key={one.reference} className="projects-row__issue-link" data-elsewhere={from === undefined ? undefined : ""}>
+            <Tooltip label={one.title === "" ? one.reference : one.title} asChild>
+              <Readout className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
+                {one.reference}
+              </Readout>
+            </Tooltip>
+            {from === undefined ? null : <LinkedIn name={from} />}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** Beside a link made in another repository than its task's: that repository's name. */
+function LinkedIn({ name }: { name: string }) {
+  return (
+    <Tooltip label={`Linked in ${name}`} asChild>
+      <span className="projects-row__linked-in" role="img" aria-label={`Linked in ${name}`}>
+        · {name}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A task's repository, as a menu: choosing another moves the task and its subtasks there. */
+function RepositoryMenu({ task, name, labels }: { task: TaskRow; name: string; labels: ReadonlyMap<string, string> }) {
+  const store = useProjectsStore()!;
+  const subtasks = (task.subtasks ?? []).length;
+  const heading = subtasks === 0 ? "Move task to" : `Move task and its ${subtasks === 1 ? "1 subtask" : `${subtasks} subtasks`} to`;
+  return (
+    <span className="projects-row__repository">
+      <DropdownMenu
+        triggerLabel={name}
+        triggerAriaLabel={`Repository ${name}`}
+        triggerTooltip="Repository"
+        entries={[
+          { kind: "label" as const, id: "heading", label: heading },
+          ...[...labels].map(([manifestId, label]) => ({ kind: "item" as const, id: manifestId, label, selected: manifestId === task.manifestId })),
+        ]}
+        onSelect={(manifestId) => store.moveTaskToRepository(task.id, manifestId)}
+      />
     </span>
   );
 }
@@ -319,11 +367,12 @@ export type AddScope = {
  */
 export function AddTask({ bands, scope, parent }: { bands?: readonly Band[]; scope?: AddScope; parent?: TaskRow }) {
   const store = useProjectsStore()!;
-  const { projects, lastRepo } = useProjects();
+  const snap = useProjects();
+  const { projects } = snap;
   const [pickedRepo, pickRepo] = useState<string | undefined>(undefined);
   const [pickedProject, pickProject] = useState<string | undefined>(undefined);
   const known = (id: string | undefined) => (id !== undefined && (bands ?? []).some((band) => band.manifestId === id) ? id : undefined);
-  const repo = parent?.manifestId ?? known(scope?.repo) ?? known(pickedRepo) ?? known(lastRepo) ?? bands?.[0]?.manifestId ?? "";
+  const repo = parent?.manifestId ?? known(scope?.repo) ?? known(pickedRepo) ?? known(lastUsedRepo(snap)) ?? bands?.[0]?.manifestId ?? "";
   const project = scope?.project ?? (projects.some((one) => one.id === pickedProject) ? pickedProject : undefined);
   const keep = parent === undefined ? `projects:task:${scope?.key ?? ""}` : `projects:subtask:${parent.id}`;
   const [title, setTitle] = useState("");

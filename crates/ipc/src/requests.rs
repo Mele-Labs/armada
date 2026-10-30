@@ -57,6 +57,21 @@ pub struct SendRequest {
     /// Sent in place of the saved request's own, where given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Whether the answer carries the body's text. `false`: only the status, the headers and where
+    /// the body was saved come back.
+    #[serde(default = "inline", skip_serializing_if = "is_inline")]
+    pub body_inline: bool,
+    /// A JSONPath applied to the saved body, answered in place of the body: only what it picks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pick: Option<String>,
+}
+
+fn inline() -> bool {
+    true
+}
+
+fn is_inline(inline: &bool) -> bool {
+    *inline
 }
 
 /// What a send sends: a request saved in a collection, or its own.
@@ -83,6 +98,7 @@ pub struct SavedRequestNamed {
 
 /// A send as spelled: `saved`, or `method` and `url` with an optional `collection`, flat.
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SendAsWritten {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     session_id: Option<SessionId>,
@@ -102,6 +118,10 @@ struct SendAsWritten {
     headers: Vec<RequestHeader>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     body: Option<String>,
+    #[serde(default = "inline", skip_serializing_if = "is_inline")]
+    body_inline: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pick: Option<String>,
 }
 
 impl TryFrom<SendAsWritten> for SendRequest {
@@ -128,6 +148,8 @@ impl TryFrom<SendAsWritten> for SendRequest {
             environment: written.environment,
             headers: written.headers,
             body: written.body,
+            body_inline: written.body_inline,
+            pick: written.pick,
         })
     }
 }
@@ -150,8 +172,28 @@ impl From<SendRequest> for SendAsWritten {
             environment: send.environment,
             headers: send.headers,
             body: send.body,
+            body_inline: send.body_inline,
+            pick: send.pick,
         }
     }
+}
+
+/// What `path`, a JSONPath, picks out of `json`, as JSON text: the one value it names, or an
+/// array of them where it names more than one or none. An `Err` says why nothing was picked, and
+/// never quotes `json`.
+pub fn pick(json: &str, path: &str) -> Result<String, String> {
+    let path = serde_json_path::JsonPath::parse(path).map_err(|why| format!("`pick` is not a JSONPath: {why}"))?;
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|why| format!("the body is not JSON that `pick` can read ({}:{})", why.line(), why.column()))?;
+    let found = path.query(&value);
+    if found.is_empty() {
+        return Err("`pick` matched nothing in the body".to_string());
+    }
+    let picked = match found.exactly_one() {
+        Ok(one) => one.clone(),
+        Err(_) => serde_json::Value::Array(found.all().into_iter().cloned().collect()),
+    };
+    serde_json::to_string(&picked).map_err(|why| why.to_string())
 }
 
 /// `send_request`'s answer, 200 whether or not anything answered: a request that could not be
@@ -178,9 +220,27 @@ pub struct RequestSent {
     /// Why nothing answered: refused, timed out, a name that did not resolve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name.
+    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name, and a body
+    /// that was not saved.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// Where an agent's send saved the whole body. Absent on the owner's send and where the write
+    /// failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved: Option<RequestBodySaved>,
+}
+
+/// An answer's whole body, secrets as `{{name}}`, in a file under the Job's scratch folder, which
+/// goes when the Job ends.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestBodySaved {
+    /// The file's absolute path.
+    pub path: String,
+    /// The bytes written.
+    pub bytes: u64,
+    /// Whether the body ran past the file's own cap, so the file holds its start.
+    #[serde(default)]
+    pub truncated: bool,
 }
 
 /// A request kept in a collection. `id` is unique within its collection.

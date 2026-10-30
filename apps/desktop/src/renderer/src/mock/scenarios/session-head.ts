@@ -84,6 +84,7 @@ const records = () => [
     started_at: AT,
     last_turn_at: new Date().toISOString(),
     done_since: new Date().toISOString(),
+    done_summary: "A rule that starts a Job now uses the workflow defined in the rule",
     usage: used(HEAVY),
     context_breakdown: breakdown(HEAVY),
     attachments: [held("slot", "2"), held("branch", "docs/release-notes")],

@@ -5,17 +5,25 @@ use super::*;
 /// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`
 /// first, which is the one a session loads, and the repository's own where there is none.
 pub(super) fn mod_version_in(home: &str, root: &str) -> Option<String> {
-    #[derive(serde::Deserialize)]
-    struct Manifest {
-        version: Option<String>,
-    }
     let installed = crate::runtime::mod_dir(home).join(adapters::MOD_INSTALLED_MANIFEST);
     let bytes = std::fs::read(installed)
         .or_else(|_| std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)))
         .ok()?;
-    ipc::decode::<Manifest>("the armada plugin's manifest", &bytes)
-        .ok()?
-        .version
+    declared(&bytes)
+}
+
+/// The `version` Fleet's own copy of the plugin declares, and nothing of any repository's: the copy
+/// is what a hosted Job's process loads, so it is what that process is older or newer than.
+pub(crate) fn mod_copy_version(home: &str) -> Option<String> {
+    declared(&std::fs::read(crate::runtime::mod_dir(home).join(adapters::MOD_INSTALLED_MANIFEST)).ok()?)
+}
+
+fn declared(bytes: &[u8]) -> Option<String> {
+    #[derive(serde::Deserialize)]
+    struct Manifest {
+        version: Option<String>,
+    }
+    ipc::decode::<Manifest>("the armada plugin's manifest", bytes).ok()?.version
 }
 
 /// Whether `reported` is behind `current`. No version reported is behind; a version that does not
@@ -131,6 +139,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         tools_missing: None,
         waiting_for: Vec::new(),
         done_since: None,
+        done_summary: None,
         standing: None,
         held_until: None,
         context_breakdown: None,

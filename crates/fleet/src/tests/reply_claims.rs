@@ -64,7 +64,7 @@ async fn a_done_deferred_to_later_is_not_reminded() {
 async fn a_done_with_all_done_standing_is_not_reminded() {
     let rig = rig_placing(None);
     let id = working(&rig).await;
-    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()) }).await.unwrap();
+    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap();
     rig.stand_in.finishes(0, SAID_DONE);
     settled(&rig, &id).await;
     assert_eq!(sent_with(&rig, DONE_REMINDER), 0);
@@ -76,7 +76,7 @@ async fn a_done_with_all_done_standing_is_not_reminded() {
 async fn with_all_done_standing_a_walk_ask_is_not_reminded_and_the_done_stands() {
     let rig = rig_placing(None);
     let id = working(&rig).await;
-    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()) }).await.unwrap();
+    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap();
     rig.stand_in.finishes(0, ASKED_TO_WALK);
     settled(&rig, &id).await;
     assert_eq!(sent_with(&rig, WALK_REMINDER), 0);

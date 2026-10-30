@@ -152,8 +152,10 @@ async fn an_issue_linked_to_a_task_reads_its_state_and_title_from_the_tracker_an
     let linked = fleet.link_task_issue(a.clone(), link("7")).await.expect("linked again");
     let on_sub = fleet.link_task_issue(a1.clone(), link("ABC-12")).await.expect("on a subtask");
 
+    let linked_in = manifest(&fleet);
     let issue_state = |issue: &str, title: Option<&str>, state: Option<IssueState>| TaskIssue {
         issue: issue.to_string(),
+        manifest_id: Some(linked_in.clone()),
         title: title.map(str::to_string),
         state,
     };

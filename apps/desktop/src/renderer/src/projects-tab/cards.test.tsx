@@ -148,3 +148,131 @@ test("K keeps the asked task open, and writes that through Fleet", async () => {
   await expect.poll(() => source.tickProjectTask.mock.calls.length).toBe(1);
   expect(source.tickProjectTask).toHaveBeenCalledWith("t2", { done: false });
 });
+
+// ---- Two repositories: a card's repository is a menu that moves the task, and a link made elsewhere says where. ----
+
+const SITE = { ...ARMADA, root: "/Users/user/site", manifest: { ...ARMADA.manifest, id: "site", repository: "site" } };
+const row = (id: string, title: string, manifest_id: string, more: Record<string, unknown> = {}) => ({ kind: "task", id, manifest_id, title, notes: "", state: "open", ...more }) as const;
+
+/** A task with two subtasks and a pull request linked in site, one with one subtask, and one in site with none. */
+const MANY = (): Projects => ({
+  projects: [
+    {
+      id: "p1",
+      name: "Pocket launch",
+      rows: [
+        row("m1", "Pair a phone", "armada", { pulls: [{ number: 2874, title: "Fit the screen", state: "open" }, { number: 2901, title: "Pair over the tunnel", state: "open", manifest_id: "site" }] }),
+        row("m1a", "Draw the code", "armada", { parent: "m1" }),
+        row("m1b", "Scan it", "armada", { parent: "m1" }),
+        row("m2", "Sign the build", "armada"),
+        row("m2a", "Find the key", "armada", { parent: "m2" }),
+        row("m3", "Write the pairing page", "site"),
+      ],
+    },
+  ],
+  loose: [],
+});
+
+async function mountMany() {
+  const held = MANY();
+  const source = {
+    listProjects: vi.fn(async () => ({ ok: true, value: structuredClone(held) }) as const),
+    moveProjectTaskRepository: vi.fn(async (id: string, body: { manifest_id: string }) => {
+      for (const one of held.projects[0]!.rows) if (one.kind === "task" && (one.id === id || one.parent === id)) one.manifest_id = body.manifest_id;
+      return { ok: true, value: structuredClone(held) } as const;
+    }),
+    onProjectsChanged: () => () => {},
+  };
+  const opened = vi.fn();
+  const getPullRequest = vi.fn(async (_manifestId: string, number: number) => ({ ok: true, value: { address: `https://forge.example/pull/${number}` } }) as const);
+  vi.stubGlobal("armada", { getPullRequest });
+  const store = createProjectsStore(source as unknown as ProjectsApi);
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  roots.push({ root, host });
+  root.render(
+    <ProjectsFrom store={store}>
+      <ProjectsSurface picked={null} repositories={[ARMADA, SITE]} onOpenSession={() => {}} onOpenLink={opened} />
+    </ProjectsFrom>,
+  );
+  store.load();
+  await expect.poll(() => store.get().projects.length).toBe(1);
+  store.open("p1");
+  await expect.element(card("Pair a phone")).toBeVisible();
+  return { source, opened, getPullRequest };
+}
+
+const menuOf = (title: string, repository: string) => card(title).getByRole("button", { name: `Repository ${repository}`, exact: true });
+
+/** Keys only: these cards are drawn without the app's stylesheet, so a press has no place to land. */
+const pressed = async (button: { element: () => Element }) => {
+  (button.element() as HTMLElement).focus();
+  await userEvent.keyboard("{Enter}");
+};
+
+test("a card's repository is a menu of the repositories with its own checked, headed by what moves with it", async () => {
+  await mountMany();
+
+  await pressed(menuOf("Pair a phone", "armada"));
+  await expect.element(page.getByText("Move task and its 2 subtasks to")).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "armada" })).toHaveAttribute("aria-current", "true");
+  await expect.element(page.getByRole("menuitem", { name: "site" })).not.toHaveAttribute("aria-current");
+  await userEvent.keyboard("{Escape}");
+
+  await pressed(menuOf("Sign the build", "armada"));
+  await expect.element(page.getByText("Move task and its 1 subtask to")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+
+  await pressed(menuOf("Write the pairing page", "site"));
+  await expect.element(page.getByText("Move task to", { exact: true })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "site" })).toHaveAttribute("aria-current", "true");
+});
+
+test("choosing another repository asks the store to move the task, and the card names it", async () => {
+  const { source } = await mountMany();
+
+  await pressed(menuOf("Pair a phone", "armada"));
+  await expect.element(page.getByRole("menuitem", { name: "site" })).toBeVisible();
+  await userEvent.keyboard("{ArrowDown}{Enter}");
+
+  await expect.poll(() => source.moveProjectTaskRepository.mock.calls.length).toBe(1);
+  expect(source.moveProjectTaskRepository).toHaveBeenCalledWith("m1", { manifest_id: "site" });
+  await expect.element(menuOf("Pair a phone", "site")).toBeVisible();
+});
+
+test("a subtask card has no repository menu: it moves with its task", async () => {
+  await mountMany();
+
+  await expect.element(card("Draw the code")).toBeVisible();
+  expect(card("Draw the code").getByLabelText(/^Repository/).query()).toBeNull();
+});
+
+test("a link made in another repository draws muted with that repository's name, and opens in it", async () => {
+  const { getPullRequest, opened } = await mountMany();
+  const tunnel = page.getByRole("button", { name: "Pull request #2901 Pair over the tunnel" });
+
+  await expect.element(card("Pair a phone").getByRole("img", { name: "Linked in site" })).toBeVisible();
+  // The mute is a style on the link's wrapper, which holds the name beside its chip.
+  expect(tunnel.element().closest("[data-elsewhere]")?.querySelector("[aria-label='Linked in site']")).not.toBeNull();
+
+  await pressed(tunnel);
+
+  await expect.poll(() => opened.mock.calls.length).toBe(1);
+  expect(getPullRequest).toHaveBeenCalledWith("site", 2901);
+  expect(opened).toHaveBeenCalledWith("https://forge.example/pull/2901");
+});
+
+test("a link that names no repository reads as its task's: not muted, no name, and opens in the task's", async () => {
+  const { getPullRequest } = await mountMany();
+  const fit = page.getByRole("button", { name: "Pull request #2874 Fit the screen" });
+
+  await expect.element(fit).toBeVisible();
+  expect(fit.element().closest("[data-elsewhere]")).toBeNull();
+  expect(card("Pair a phone").getByRole("img", { name: "Linked in armada" }).query()).toBeNull();
+
+  await pressed(fit);
+
+  await expect.poll(() => getPullRequest.mock.calls.length).toBe(1);
+  expect(getPullRequest).toHaveBeenCalledWith("armada", 2874);
+});

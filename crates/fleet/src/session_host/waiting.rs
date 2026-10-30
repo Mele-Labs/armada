@@ -99,6 +99,8 @@ pub(crate) struct WaitingReads {
     closed: Vec<store::KeptClosed>,
     /// When the agent said it was done, if that still stands.
     pub(crate) done: Option<String>,
+    /// What the agent said the Job achieved, with the done.
+    pub(crate) done_summary: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
     /// The last Fleet tell it was sent whose refusal is read.
@@ -155,6 +157,7 @@ pub(crate) fn waiting_reads(
         dismissed: store.dismissed_waiting(&session.id)?,
         closed: store.closed_waiting(&session.id)?,
         done: store.done_since(&session.id)?,
+        done_summary: store.done_summary(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
         tell: store.tell_of(&session.id)?,
         plan: store
@@ -451,7 +454,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -864,8 +867,9 @@ where
             }
             self.later_holds_done(&store, &id)?;
             self.lifecycles_hold(&mut store, &id, "all_done")?;
+            let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
             store
-                .keep_done(&id, &now)
+                .keep_done(&id, &now, summary)
                 .map_err(|why| self.ledger_fault(why))?;
             // Done is one of the two ways a held task is asked about: the other is the merge.
             asked = store.ask_held_project_tasks(&id, &now).map_err(|why| self.ledger_fault(why))? > 0;

@@ -77,8 +77,8 @@ fn a_ticket_reads_in_the_words_of_the_workspace_it_is_in_and_a_word_nobody_liste
         "a different case is a different word"
     );
 
-    // What Armada carries lists no words at all, so before a Workspace says which are which every
-    // status is unmapped.
+    // What Armada carries lists only `closed`, so before a Workspace says which are which every
+    // other status is unmapped.
     assert_eq!(
         Lifecycle::ticket().standing_of(&Observed::Tracker("In Progress")),
         Standing::Unmapped("In Progress".into())

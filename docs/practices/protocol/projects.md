@@ -29,6 +29,7 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `link_project_issue` | Bridge calls | `POST /projects/issues`, body `NewProjectIssue { manifest_id, project?, issue }`, a reference as `IssueReference` reads it, a row of the project or, with no `project`, a loose one |
 | `remove_project_row` | Bridge calls | `POST /projects/rows/:row/remove`, no body |
 | `move_project_row` | Bridge calls | `POST /projects/rows/:row/move`, body `MoveProjectRow { project?, position, parent? }`, `position` from 0 among the rows of the parent the row ends up under; past the end is the end. `project` is the project to go into, `""` for none, absent to stay where it is. `parent` is the task to go under, `""` for the top level, absent to keep the one it has, or the top level where the project changes. The row keeps its repository, and its subtasks go with it |
+| `move_project_task_repository` | Bridge calls | `POST /projects/rows/:row/repository`, body `MoveProjectTaskRepository { manifest_id }`: a top-level task and its subtasks to another repository Fleet serves. It keeps its project, place and state, and a Job holding it keeps it. Its issues and pull requests keep the repository each was linked in. To the repository it is in changes nothing |
 | `tick_project_task` | Bridge calls | `POST /projects/rows/:row/tick`, body `TickProjectTask { done }`. On an `asked` row it answers the ask: done, or open again |
 | `WaitingSource::task_done` | Fleet writes, Bridge reads | A Job's own waiting item while it is live and holds `asked` tasks: id `task_done:<project>`, with `loose` for the tasks in no project, an `answer` act, options `Mark done` (choice 0) and `Keep open` (choice 1), through `answer_waiting` |
 | `projects.changed` | Fleet publishes | `Projects`, whole, on every write above |
@@ -59,6 +60,10 @@ ask treat a subtask as any task, and a start that names a parent holds its subta
 **An issue linked to a task keeps no state either.** A task, or a subtask, carries the references of the
 issues linked to it, in the order linked. `title` and `state` come from the tracker as an issue row's
 do, held five minutes, and are absent where it cannot say. Linking the same reference twice is one link.
+
+**A link keeps the repository it was linked in.** `TaskIssue` and `TaskPull` carry `manifest_id`, the repository the issue or pull request
+was linked in, which is not its task's once the task has moved (`move_project_task_repository`). Fleet always says it, and a client reads it absent as
+the task's own. The tracker and the forge are asked in that repository.
 
 **A pull request linked to a task keeps no state either.** Only its number is kept. `title` and `state` come from
 the forge, one read of the pull request by its number, held five minutes as an issue's are, and are absent where the
@@ -102,8 +107,9 @@ settles one row of it from the Projects tab: done, or open again. The item leave
 404 `fleet.no_such_project_row` is a row he has none of.
 422 `fleet.project_blank` is a blank project name or task title.
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
-422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, or an issue row moved under a task.
-422 `fleet.project_subtask_too_deep` is a subtask of a subtask, of a task that has subtasks, or of itself.
+422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, an issue row moved under a task, or an issue row moved to another repository.
+422 `fleet.project_subtask_too_deep` is a subtask of a subtask, of a task that has subtasks, or of itself, or a subtask moved to another repository on its own.
+422 `fleet.unacceptable_proposal` is a task moved to a repository Fleet does not serve.
 404 `fleet.no_such_session` is a Job to link that Fleet has no record of, and 422 `fleet.project_job_ended` one that has ended.
 422 `fleet.project_pull_unreadable` is a pull request number of 0.
 `start_session` names rows: 404 `fleet.no_such_project_row` as above. Nothing is made on a refusal.

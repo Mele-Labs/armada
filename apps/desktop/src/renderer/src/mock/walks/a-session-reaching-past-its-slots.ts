@@ -13,7 +13,7 @@ const LIST = role("list", "Folders jobs reach");
 
 export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
   { press: place("Cockpit"), say: "Cockpit" },
-  { press: inside(region("Jobs", { exact: true }), button(/Custom margins/)), say: "A job held on a read outside its slots" },
+  { press: inside(region("Jobs", { exact: true }), button(/Retry budget/)), say: "A job held on a read outside its slots" },
   { look: CARD, say: "The only thing it waits on, so the panel opens on its card" },
   { look: inside(CARD, text(/echo gutterline$/)), say: "The whole command, to its last word" },
   { look: inside(CARD, text("Permission to read")), say: "A read" },

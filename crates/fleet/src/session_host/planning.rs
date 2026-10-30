@@ -12,7 +12,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
     ApprovePlan, Instant, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
-    SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError,
+    SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError, DOCUMENT_ASKED, DOCUMENT_SETTLED, DOCUMENT_SETTLED_AT,
 };
 use store::KeptPlan;
 
@@ -20,6 +20,7 @@ use crate::daemon::Fleet;
 use crate::plan_marks;
 use crate::plan_record::recorded;
 use crate::session_host::asking::answers_a_question;
+use crate::session_host::document_answers::is_document;
 use crate::session_host::walking;
 use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
 
@@ -114,6 +115,17 @@ pub(crate) fn plan_holds(
         }
         if let Some(approved) = approved {
             since = since.max(approved.clone());
+        }
+    }
+    // A page put to him holds the plan too: his answer to the page is the one approval the Job asks, and it settles the plan
+    // (`document_answered`), so the plan is never a second card beside it.
+    for page in attachments.iter().filter(|one| one.kind == "artifact" && is_document(&one.detail)) {
+        if page.detail.get(DOCUMENT_ASKED).map(String::as_str) != Some("true") {
+            continue;
+        }
+        match page.detail.get(DOCUMENT_SETTLED_AT) {
+            Some(settled) if page.detail.contains_key(DOCUMENT_SETTLED) => since = since.max(Instant::carried(settled)),
+            _ => held_by.push(PlanHold { url: page.target.clone(), why: PlanHoldWhy::Unapproved }),
         }
     }
     if let Some(walk) = walk {

@@ -204,7 +204,9 @@ pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
 pub use issue_queries::KeptIssueQuery;
-pub use projects::{KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskState, LOOSE as LOOSE_PROJECT};
+pub use projects::{
+    KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
+};
 pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};

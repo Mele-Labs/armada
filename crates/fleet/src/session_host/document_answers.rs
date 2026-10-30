@@ -38,7 +38,7 @@ pub(crate) fn sent_back(title: &str, revision: &str, note: &str, path: &str) -> 
     format!("Sent back document: {title}, revision {revision}\n{note}\nRevise the page at {path} and write it again.")
 }
 
-fn is_document(detail: &BTreeMap<String, String>) -> bool {
+pub(crate) fn is_document(detail: &BTreeMap<String, String>) -> bool {
     detail.get("form").map(String::as_str) == Some("document")
 }
 
@@ -140,14 +140,28 @@ where
         if let Some(words) = words {
             document.detail.insert(DOCUMENT_WORDS.into(), words.to_string());
         }
-        self.report_session(SessionReport {
-            harness,
-            session_id: SessionId::carried(&id),
-            fact: SessionFact::Attached {
-                attachment: AttachmentReport { kind: document.kind, target: document.target, detail: document.detail },
-            },
-        })
-        .await
+        let record = self
+            .report_session(SessionReport {
+                harness,
+                session_id: SessionId::carried(&id),
+                fact: SessionFact::Attached {
+                    attachment: AttachmentReport { kind: document.kind, target: document.target, detail: document.detail },
+                },
+            })
+            .await?;
+        if said.how != DocumentHow::Approved {
+            return Ok(record);
+        }
+        // The page is the plan's evidence, so his approval of it is the plan's: the plan held behind the page (`plan_holds`)
+        // is approved with it, not asked as a second card.
+        let pending = {
+            let store = self.store().lock().await;
+            store.session_plan(&id).map_err(|why| self.ledger_fault(why))?.filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
+        };
+        match pending {
+            Some(plan) => self.plan_approved(ipc::ApprovePlan { session_id: said.session_id, version: plan.version }).await,
+            None => Ok(record),
+        }
     }
 
     /// The Job's harness, and the document it holds at `path`.

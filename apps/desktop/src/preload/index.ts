@@ -36,7 +36,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, BugReport, ChangeJobCopy, ChangeSessionSteps, JobCopy, JobPieceProposed, KeepDrafts, KeepJobPiece, WorkflowChange, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, BugReport, ChangeJobCopy, ChangeSessionSteps, JobCopy, JobPieceProposed, KeepDrafts, KeepJobPiece, WorkflowChange, BugReportDropped, BugReports, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, SaveLifecyclePiece, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -468,6 +468,7 @@ const api: BridgeApi = {
   unlinkTaskPull: (row: string, body: LinkTaskPull): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.unlinkTaskPull, row, body),
   removeProjectRow: (row: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.removeProjectRow, row),
   moveProjectRow: (row: string, body: MoveProjectRow): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.moveProjectRow, row, body),
+  moveProjectTaskRepository: (row: string, body: MoveProjectTaskRepository): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.moveProjectTaskRepository, row, body),
   tickProjectTask: (row: string, body: TickProjectTask): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.tickProjectTask, row, body),
   onProjectsChanged: (onChanged: (projects: Projects) => void): (() => void) => {
     const handler = (_event: unknown, projects: Projects): void => onChanged(projects);
