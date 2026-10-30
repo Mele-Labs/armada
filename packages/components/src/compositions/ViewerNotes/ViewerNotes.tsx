@@ -143,14 +143,15 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
     close();
   };
 
-  // Kept between renders while nothing in it changes, so a viewer that redraws on it redraws only then.
+  // Kept between renders while nothing in it changes, so a viewer that redraws on it redraws only then. The note being written
+  // carries no text: the box holds it, and a mark that changed per keystroke would rebuild every anchor in the viewer.
   const writingAbout = box?.about;
   const marks = useMemo<NoteMark[]>(
     () => [
       ...held.map((one, at) => ({ n: at + 1, about: one.about, text: one.text, writing: false })),
-      ...(writingAbout === undefined ? [] : [{ n: held.length + 1, about: writingAbout, text, writing: true }]),
+      ...(writingAbout === undefined ? [] : [{ n: held.length + 1, about: writingAbout, text: "", writing: true }]),
     ],
-    [held, writingAbout, text],
+    [held, writingAbout],
   );
 
   const entries: DropdownMenuEntry[] = [

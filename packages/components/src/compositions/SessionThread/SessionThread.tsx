@@ -238,8 +238,8 @@ type SessionThreadKinds =
    * how he answered it; a new revision asks again.
    */
   | { id: string; at: string; kind: "document"; page: string; title: string; revision: number; asked?: true; settled?: SketchSettled }
-  /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
-  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /** This Session's agent started a Session, or forked itself into one: a press that opens it. `start` is the host's, while that Job is held on its start card: Start at the row's end begins it without opening it, and `starting` while the start waits on the request being read. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean; start?: { starting: boolean; onStart: () => void } }
   /**
    * A Session that waits on this one, told here: dispatched (`waits`, with the first line of its brief in `says`), its start condition changed (`from` and `to`; `by` is who
    * changed it), or started (`says` is where from). A press opens it.
@@ -1797,12 +1797,15 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
   const disputes = useMemo(() => new Set(rows.flatMap((row) => (row.kind === "disputed" ? [row.notice] : []))), [rows]);
   const asking = (approval !== undefined && !approval.approved) || sketching !== undefined || asked !== undefined || lapsed !== undefined;
   // A turn that ends in a question for the person stays open in the thread.
+  const pinnedSketch = sketching?.sketch;
   const all = useMemo(() => {
-    const folded = itemsOf(rows, disputes);
+    // The pin is the card of the sketch it holds, so the thread does not draw it a second time; an earlier card of the same sketch stays as the replaced one.
+    const shown = pinnedSketch === undefined ? rows : rows.filter((row) => !(row.kind === "sketch" && row.sketch === pinnedSketch && row.replaced !== true));
+    const folded = itemsOf(shown, disputes);
     const last = folded[folded.length - 1];
     const turn = last?.kind === "fleetTurn" ? last : folded[folded.length - 2]?.kind === "fleetTurn" && last?.kind === "row" && last.row.kind === "message" && last.row.from === "agent" ? folded[folded.length - 2] : undefined;
-    return (asking || waitingOnYou === true) && turn?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, turn.id])) : folded;
-  }, [rows, disputes, asking, waitingOnYou]);
+    return (asking || waitingOnYou === true) && turn?.kind === "fleetTurn" ? itemsOf(shown, new Set([...disputes, turn.id])) : folded;
+  }, [rows, disputes, asking, waitingOnYou, pinnedSketch]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
     setDrawn(DRAWN);
@@ -1870,7 +1873,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || (item.row.kind === "sketch" && item.row.sketch === sketching?.sketch) ? {} : { onAnswerSketch })} {...(onOpenDocument === undefined ? {} : { onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswerDocument })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || sketching !== undefined ? {} : { onAnswerSketch })} {...(onOpenDocument === undefined ? {} : { onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswerDocument })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
             ...cardsAfter(at).map((card) => (
