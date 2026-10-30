@@ -448,7 +448,7 @@ export type SessionWait = {
   needs: string;
   /** The words it was dispatched with, which it starts on. */
   brief: string;
-  /** What happens once the condition is met: absent or true opens it as a draft (held), false starts it at once. Mock-only. */
+  /** What happens once the condition is met: absent or true opens it as a draft (held); false is Approved, which starts it at once. Mock-only. */
   held?: boolean;
   /** The workflow it starts under, by id; absent is the proposer's. Mock-only. */
   workflow?: string;
@@ -854,7 +854,7 @@ export type SessionsDraft = {
   startWhen?: (id: string, when: StartWhen, part?: { id: string; title: string }) => void;
   /** Starts a waiting Session now, whatever its condition. The Session it waits on is told. Absent with `startWhen`. */
   startNow?: (id: string) => void;
-  /** Sets whether a waiting Session starts at once when its condition is met, or opens as a draft. Absent where nothing serves it. */
+  /** Sets whether a waiting Session opens as a draft (`held`) when its condition is met; not held is Approved, which starts it at once. Absent where nothing serves it. */
   startThen?: (id: string, held: boolean) => void;
   /** Sets the workflow, model and effort a waiting Session starts on; a key left out is unchanged and `null` clears it. Absent with `startThen`. */
   startTuning?: (id: string, tuning: { workflow?: string | null; model?: string | null; effort?: string | null }) => void;
