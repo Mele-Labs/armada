@@ -130,9 +130,8 @@ export type CommandPaletteProps = {
   sections: readonly PaletteSection[];
   entries: readonly PaletteEntry[];
   /**
-   * What was searched, as a sentence, for the state where nothing matched.
-   * "every job on this Manifest, at every status" — the host knows the extent
-   * of its own index and this component does not.
+   * What was searched, as a sentence: "every job on this Manifest, at every status". No longer drawn: a miss names the
+   * query alone.
    */
   searched: string;
   placeholder?: string;
@@ -203,7 +202,6 @@ export function CommandPalette({
   open,
   sections,
   entries,
-  searched,
   placeholder = "Search actions, jobs and settings",
   defaultQuery = "",
   onSelect,
@@ -701,12 +699,9 @@ export function CommandPalette({
             </div>
           )}
           {picking !== undefined ? null : hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
-            /* **Names the query and says what was searched.** No suggestions
-               and no did-you-mean: the palette is the discovery surface, so
-               the honest answer to a miss is the extent of the index. */
-            <p className="armada-palette__empty">
-              {`Nothing matches “${query}”. Searched ${stepping?.step.searched ?? searched}.`}
-            </p>
+            /* **Names the query, in one short line** (the owner, 30 Oct 2026): the list of what was searched read as a paragraph
+               under the add row. No suggestions and no did-you-mean. */
+            <p className="armada-palette__empty">{`Nothing matches “${query.trim()}”.`}</p>
           ) : null}
           {picking !== undefined ? null : grouped.map((group) => (
             <div key={group.section.id} className="armada-palette__group">

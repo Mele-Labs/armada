@@ -307,13 +307,46 @@
   font-weight: var(--weight-medium);
 }
 
-/* The dispatch row's chips, after its words: where the words go, in the repository chip's frame. */
+/* A dispatch row carrying chips is stacked: the words on the first line, with the glyph and the kind; the chips on a
+ * second, whole, starting under the words. A row with no chips stays one line. */
+.armada-palette__row--stacked {
+  align-items: flex-start;
+  height: auto;
+  min-height: var(--h-menu-item);
+  padding-block: var(--space-2);
+}
+
+.armada-palette__row--stacked .armada-palette__glyph,
+.armada-palette__row--stacked .armada-palette__kind {
+  height: var(--leading-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-palette__row--stacked .armada-palette__label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  overflow: visible;
+}
+
+.armada-palette__row--stacked .armada-palette__title {
+  line-height: var(--leading-sm);
+}
+
+/* The dispatch row's chips: where the words go, in the repository chip's frame. */
 .armada-palette__chips {
-  display: inline-flex;
-  flex: none;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  align-self: center;
+}
+
+/* Holds the offer's width and draws nothing. Its spaces are kept, so the first chip lines up under the opening quote. */
+.armada-palette__indent {
+  flex: none;
+  margin-inline-end: calc(var(--space-1) * -1);
+  visibility: hidden;
+  white-space: pre;
 }
 
 .armada-palette__chip {
@@ -321,7 +354,6 @@
   flex: none;
   align-items: center;
   gap: var(--space-1);
-  max-width: 20ch;
   height: var(--space-6);
   padding: 0 var(--space-2);
   border: var(--border-width) solid var(--border-default);
@@ -349,9 +381,6 @@ button.armada-palette__chip {
 }
 
 .armada-palette__chip-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

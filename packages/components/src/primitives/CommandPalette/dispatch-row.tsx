@@ -33,7 +33,7 @@ export type PaletteStep = {
   of?: string;
   sections: readonly PaletteSection[];
   entries: readonly PaletteEntry[];
-  /** What was searched, for the state where nothing matched. */
+  /** What was searched. No longer drawn: a miss names the query alone. */
   searched: string;
   /** Filing the choice closes the palette. A step returned is asked next, in the palette, with the choice not yet filed. */
   onChoose: (entry: PaletteEntry) => PaletteStep | void;
@@ -101,7 +101,10 @@ export const DISPATCH_ROW = "armada-palette-row-dispatch";
 /** A chip as the row draws it: its choice's label, and whether its list is up. */
 export type DrawnChip = { chip: PaletteChip; label: string; open: boolean };
 
-/** What was typed, as the row that dispatches it. */
+/**
+ * What was typed, as the row that dispatches it. A row carrying chips is stacked (the owner, 30 Oct 2026): the words on the
+ * first line, the chips whole on a second, starting under the words.
+ */
 export function DispatchRow({
   words,
   kind,
@@ -131,7 +134,7 @@ export function DispatchRow({
       id={DISPATCH_ROW}
       role="option"
       aria-selected={active}
-      className={["armada-palette__row", "armada-palette__row--dispatch", trailing ? "armada-palette__row--trailing" : "", active ? "armada-palette__row--active" : ""].filter((one) => one !== "").join(" ")}
+      className={["armada-palette__row", "armada-palette__row--dispatch", chips.length === 0 ? "" : "armada-palette__row--stacked", trailing ? "armada-palette__row--trailing" : "", active ? "armada-palette__row--active" : ""].filter((one) => one !== "").join(" ")}
       onMouseEnter={onEnter}
       onClick={onChoose}
     >
@@ -145,6 +148,10 @@ export function DispatchRow({
         </span>
         {chips.length === 0 ? null : (
           <span className="armada-palette__chips">
+            {/* The offer again, unseen, so the chips start where the words do, in whatever font draws them. */}
+            <span className="armada-palette__indent" aria-hidden>
+              {OFFER[kind]}
+            </span>
             {chips.map(({ chip, label, open }) => (
               <Chip key={chip.id} chip={chip} label={label} open={open} onOpen={() => onChip?.(chip.id)} />
             ))}
