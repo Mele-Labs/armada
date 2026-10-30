@@ -14,7 +14,7 @@ import {
   type NodeProps,
   type Viewport,
 } from "@xyflow/react";
-import { Ban, Check, CircleDot, Clock, Drone, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Ticket, Trash2, UserCheck, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleHelp, Clock, Drone, Eye, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Ticket, Trash2, UserCheck, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -55,7 +55,7 @@ import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
  * **Every node is the shape of what it is** (`NodeKind`): a step a rounded box, a state the tracker or the forge reads a pill, a wait or a watch a hexagon, a Job another Job started a card with the drone glyph, and
  * where the workflow starts and ends small circles; a rule's chip leads with a diamond. Each kind has its own faint tint from `kinds.css`, which is never a status: what a node stands in is its frame and its mark.
  * A wait is reached by a dashed edge, a transition by a solid one. **A Job that was started for a ticket holds it**, so its card, at the state the Job stands in, leads the ticket's key with the ticket
- * glyph and ends it with the pin that says where an instance stands; the ticket's title, its state's name and who holds it are in the card's tooltip. The Job that started it has no lane for that ticket. **A lane's head says what the lane is** under its title, in its lifecycle's own name (`Job`, `Ticket`);
+ * glyph and ends it with a glyph for the state the ticket stands in (`TICKET_STATE`); the ticket's title, its state's name and who holds it are in the card's tooltip. The Job that started it has no lane for that ticket. **A lane's head says what the lane is** under its title, in its lifecycle's own name (`Job`, `Ticket`);
  * the head of a Job's lane, where that Job has lanes of its own to open, opens them on a double-click or Enter (`onOpen`).
  *
  * **Edited by hand where `editing` is given.** What is picked shows a toolbar over it: Edit, Tell an agent, Add after and Delete; a hovered node shows connectors, and one dragged
@@ -142,6 +142,9 @@ const TIP_DELAY = 400;
 
 /** The line a head that opens a Job's Workflow adds to its tooltip. */
 const OPENS_SAID = "Double-click to open its Workflow";
+
+/** The glyph of a ticket's state on a Job's card, by the tracker lifecycle's state id. A state none names, or none at all, reads as unknown. */
+const TICKET_STATE: Readonly<Record<string, LucideIcon>> = { todo: CircleDashed, in_progress: CircleDot, in_review: Eye, done: CircleCheck, closed: CircleCheck };
 
 /** What a node's mark is, in the words its tooltip reads. */
 function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undefined {
@@ -333,6 +336,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const picked = hold.picked?.kind === "node" && hold.picked.id === node.id;
   const mark = markOf(node);
   const shape = SHAPE[node.kind];
+  const State = node.ticket === undefined ? undefined : (TICKET_STATE[node.ticket.stateId] ?? CircleHelp);
   const connectable = hold.editing !== undefined && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
   const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ticket === undefined ? "" : `, ticket ${node.ticket.label}, ${node.ticket.state}`}${node.ended === true ? ", ended" : ""}`;
@@ -427,11 +431,11 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
             <span>{node.who}</span>
           </span>
         )}
-        {node.ticket === undefined ? null : (
+        {node.ticket === undefined || State === undefined ? null : (
           <span className="armada-lane-item__ticket" aria-hidden="true">
             <Ticket size={14} strokeWidth={2} />
             <span>{node.ticket.label}</span>
-            <MapPin size={14} strokeWidth={2} />
+            <State size={14} strokeWidth={2} />
           </span>
         )}
         {shape !== "card" || mark === undefined ? null : (
@@ -676,7 +680,7 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
 }
 
 /** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
-const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.ticket?.label, node.ticket?.state, node.changed, node.differs, node.sub].map(String).join("|");
+const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.ticket?.label, node.ticket?.stateId, node.ticket?.state, node.changed, node.differs, node.sub].map(String).join("|");
 const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs].map(String).join("|");
 
 export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy, onTeach, onOpen }: LaneCanvasProps) {

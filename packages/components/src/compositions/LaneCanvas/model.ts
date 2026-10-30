@@ -372,8 +372,8 @@ export type RuleView = {
 
 // ---- A Job's lanes -------------------------------------------------------------------------------------------------------
 
-/** A ticket a started Job holds for the Job that started it: its key, its title and the name of the state it stands in, as the lifecycle names it. */
-export type CarriedTicket = { label: string; title: string; state: string };
+/** A ticket a started Job holds for the Job that started it: its key, its title, the name of the state it stands in as the lifecycle names it, and that state's id (`""` where it stands in none). */
+export type CarriedTicket = { label: string; title: string; state: string; stateId: string };
 
 /** One thing a Job holds: a ticket, its pull request, a deploy. */
 export type Instance = {

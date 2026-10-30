@@ -245,7 +245,7 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
-/* The ticket a Job holds for the Job that started it, in the line a ticket's assignee takes: the glyph, the key and the pin. A key longer than the node is cut, and the tooltip names it whole. */
+/* The ticket a Job holds for the Job that started it, in the line a ticket's assignee takes: the ticket glyph, the key and the glyph of its state. A key longer than the node is cut, and the tooltip names it whole. */
 .armada-lane-item__ticket {
   grid-column: 2;
   display: inline-flex;

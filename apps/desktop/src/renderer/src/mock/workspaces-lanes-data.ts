@@ -586,7 +586,11 @@ const JOB_SEEN: Record<string, readonly string[]> = { started: ["started"], pr_o
  * stands in follows the Job's. `ARM-58` is one the feedback Job kept, with no Job started for it, so it keeps a lane of its own.
  */
 const CART_TICKET = { label: "ARM-52", title: "Cart totals are a cent off" } as const;
-const CART_TICKET_STATE: Readonly<Record<string, string>> = { started: "In progress", pr_open: "In review", landed: "Done" };
+const CART_TICKET_STATE: Readonly<Record<string, { stateId: string; state: string }>> = {
+  started: { stateId: "in_progress", state: "In progress" },
+  pr_open: { stateId: "in_review", state: "In review" },
+  landed: { stateId: "done", state: "Done" },
+};
 const TICKET_COPY = COPY_LIFECYCLES.find((one) => one.id === "ticket")!;
 
 /**
@@ -636,7 +640,7 @@ export function feedbackAt(moment: number): SessionLanes {
   const instances: Instance[] =
     moment >= 2
       ? [
-          instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!, { ticket: { ...CART_TICKET, state: CART_TICKET_STATE[cart]! } }),
+          instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!, { ticket: { ...CART_TICKET, ...CART_TICKET_STATE[cart]! } }),
           instance(PANEL, "job", "Tidy the PR panel landing", panel, JOB_SEEN[panel]!),
           instance("arm-58", "ticket", "ARM-58", "todo", ["todo"], { title: "Empty wishlist link 404s" }),
         ]

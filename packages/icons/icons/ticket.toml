@@ -32,4 +32,4 @@
   group = "Workspace lanes"
   size = "14px"
   status = "Proposed"
-  notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`. The Job that was started for a ticket holds it, so the parent draws the ticket on that Job's lane and no lane of its own. The key follows the glyph and the pin that says where an instance stands ends the line, tooltip `Ticket state: In review`, with the ticket's title and the Job that holds it. The registry already draws an issue as `ticket`."
+  notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`. The Job that was started for a ticket holds it, so the parent draws the ticket on that Job's lane and no lane of its own. The key follows the glyph and the ticket's state ends the line as a glyph of its own (`circle-dashed`, `circle-dot`, `eye`, `circle-check`, `circle-help`), tooltip `Ticket state: In review`, with the ticket's title and the Job that holds it. The registry already draws an issue as `ticket`."
