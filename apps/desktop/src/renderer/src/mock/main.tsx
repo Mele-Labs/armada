@@ -66,6 +66,9 @@ if (root !== null && picker !== null) {
   }
 }
 
+// The film boards' mission-control overlay: a clock and a stamp over the walk `video-multitasking-boards`, on `?hud=1`.
+if (query.get("hud") === "1" && walking === "video-multitasking-boards") void import("./video-hud").then(({ mountHud }) => mountHud());
+
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a
 // frame, and not inside a walk window's stand-in (`?walked`), whose own capture takes
 // ⌥⌘A there as main's walk window does.

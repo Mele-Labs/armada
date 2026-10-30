@@ -1,0 +1,41 @@
+/* The mission-control overlay of the film's boards, on `hud=1`: a clock top left and a stamp top right, flat type and thin rules.
+ * MISSING TOKEN: nothing stacks above `--z-palette`; one step above, as the walk's layer takes. Mock only: nothing ships this. */
+.armada-mock-hud__clock,
+.armada-mock-hud__stamp {
+  position: fixed;
+  top: var(--space-2);
+  z-index: calc(var(--z-palette) + 1);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.armada-mock-hud__clock {
+  left: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.armada-mock-hud__stamp {
+  right: var(--space-2);
+  color: var(--status-running);
+  border-color: var(--status-running);
+}
+
+.armada-mock-hud__stamp[data-tone="decision"] {
+  color: var(--status-awaiting-review);
+  border-color: var(--status-awaiting-review);
+}
+
+.armada-mock-hud__stamp[data-tone="landed"] {
+  color: var(--status-completed-success);
+  border-color: var(--status-completed-success);
+}

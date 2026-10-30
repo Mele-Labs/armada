@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      Stand-in for Relay's Settings screen in dark mode: the page Flight 3's walk window opens in the film's boards
+      (`scenarios/video-multitasking-boards.ts`). Relay is the film's demo product, so this page is drawn in its own
+      colours and not Bridge's. Mock only.
+    -->
+    <title>Relay settings</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; display: flex; min-height: 100vh; background: #14161a; color: #e6e8eb; font: 14px/1.5 system-ui, sans-serif; }
+      nav { width: 220px; padding: 24px 16px; border-right: 1px solid #262a31; background: #181b20; }
+      nav h1 { margin: 0 0 24px; font-size: 16px; font-weight: 600; }
+      nav a { display: block; padding: 8px 12px; border-radius: 6px; color: #9aa2ad; text-decoration: none; }
+      nav a[aria-current] { background: #22262d; color: #e6e8eb; }
+      main { flex: 1; max-width: 640px; padding: 32px 40px; }
+      h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+      p { margin: 0; color: #9aa2ad; }
+      section { margin-top: 24px; padding: 4px 20px; border: 1px solid #262a31; border-radius: 8px; background: #181b20; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid #262a31; }
+      .row:last-child { border-bottom: 0; }
+      .row strong { display: block; font-weight: 500; }
+      .switch { position: relative; width: 40px; height: 22px; border-radius: 11px; background: #3b82f6; }
+      .switch::after { content: ""; position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+      .switch[data-off] { background: #3a3f48; }
+      .switch[data-off]::after { right: auto; left: 3px; }
+      .choice { display: flex; gap: 8px; }
+      .choice span { padding: 6px 12px; border: 1px solid #262a31; border-radius: 6px; color: #9aa2ad; }
+      .choice span[aria-current] { border-color: #3b82f6; color: #e6e8eb; }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <h1>Relay</h1>
+      <a href="#">Profile</a>
+      <a href="#" aria-current="page">Appearance</a>
+      <a href="#">Notifications</a>
+      <a href="#">Billing</a>
+    </nav>
+    <main>
+      <h2>Appearance</h2>
+      <p>How Relay looks on this device.</p>
+      <section>
+        <div class="row">
+          <div><strong>Theme</strong><p>Light, dark or the system setting.</p></div>
+          <div class="choice"><span>Light</span><span aria-current="true">Dark</span><span>System</span></div>
+        </div>
+        <div class="row">
+          <div><strong>Compact lists</strong><p>Tighter rows in the inbox.</p></div>
+          <div class="switch" data-off></div>
+        </div>
+        <div class="row">
+          <div><strong>Match the system at night</strong><p>Switch to dark after sunset.</p></div>
+          <div class="switch"></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
