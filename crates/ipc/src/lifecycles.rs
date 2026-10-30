@@ -237,7 +237,13 @@ pub enum RuleAct {
         workflow: Option<String>,
         prompt: String,
     },
-    StartWatch { recipe: String, values: BTreeMap<String, String> },
+    StartWatch {
+        recipe: String,
+        values: BTreeMap<String, String>,
+        /// The deploy the watch takes on for the Job, where it watches one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        deploy: Option<String>,
+    },
     Tell { message: String },
     Wake,
     RunCommand { command: String },

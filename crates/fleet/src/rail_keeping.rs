@@ -38,6 +38,9 @@ pub(crate) struct RailReads {
     pub held: Held,
     /// The title of each Job it holds, by id, which `rail_lifecycle::named` calls one by.
     pub titles: std::collections::HashMap<String, String>,
+    /// The lifecycles the Job froze when it started, for a Job that holds any. A Job that froze none
+    /// is read against the ones that apply now.
+    pub lifecycles: Option<Vec<core_model::Lifecycle>>,
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
@@ -45,8 +48,10 @@ pub(crate) struct RailReads {
 pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
     let rail = store.session_rail(&session.id)?;
     let mut held = Held::default();
+    let mut lifecycles = None;
     let extra = if follows {
         if store.is_lifecycle_job(&session.id)? {
+            lifecycles = crate::lifecycles::copying::frozen_lifecycles(store, &session.id);
             held = Held { instances: store.lifecycle_instances_of(&session.id)?, moves: store.lifecycle_moves_of(&session.id)? };
         }
         let rows: Vec<SessionRow> = store
@@ -67,7 +72,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
         Extra::default()
     };
     let titles = crate::lifecycles::waking::titles_of(store, &held);
-    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held, titles })
+    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -286,7 +291,7 @@ where
         let mut facts = Facts::of(record, reads.extra);
         let mut lifecycles = Vec::new();
         if steps.iter().any(RailStep::has_lifecycle_end) {
-            lifecycles = self.lifecycles_that_apply(manifest);
+            lifecycles = reads.lifecycles.clone().unwrap_or_else(|| self.lifecycles_that_apply(manifest));
             (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
         }
         let at = rail::current(&steps, &facts);

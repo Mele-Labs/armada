@@ -14,7 +14,7 @@ use crate::yaml::{self, Table};
 use super::moment::target_of;
 use super::{the_one, yes};
 
-const KINDS: &[&str] = &[
+pub(crate) const KINDS: &[&str] = &[
     "tracker_write",
     "forge_write",
     "draft",
@@ -34,7 +34,7 @@ const FORGE_WRITES: &[&str] = &["request_reviewers", "mark_ready", "merge", "aut
 const FORGE_WANTED: &str = "one of `request_reviewers`, `mark_ready`, `merge` or `auto_merge`";
 const DRAFT: &[&str] = &["template", "on"];
 const START_JOB: &[&str] = &["prompt", "workflow"];
-const START_WATCH: &[&str] = &["recipe", "values"];
+const START_WATCH: &[&str] = &["recipe", "values", "deploy"];
 const TELL: &[&str] = &["message", "wake"];
 const TELL_WANTED: &str = "one of `message` or `wake`";
 const COMMAND: &[&str] = &["command"];
@@ -72,8 +72,12 @@ pub(super) fn act_of(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<
                 None => Some(BTreeMap::new()),
                 Some(value) => values_of(&table.at("values"), value, out),
             };
+            let deploy = match table.optional("deploy") {
+                None => Some(None),
+                Some(value) => words(&table.at("deploy"), value, out).map(Some),
+            };
             table.close(START_WATCH, out);
-            Some(Act::StartWatch { recipe: recipe?, values: values? })
+            Some(Act::StartWatch { recipe: recipe?, values: values?, deploy: deploy? })
         }
         ActKind::TellAgent => {
             let one = the_one(&mut table, &at, TELL, TELL_WANTED, out);

@@ -195,6 +195,13 @@ A start where the Job has no terminal open is refused.
 Each Job has a scratch folder of its own under Fleet's state, `$ARMADA_SCRATCH` in a hosted Job and `scratch` in every `try_watch` answer.
 The slot guard lets the Job write, remove and chmod there as in its slots, and the folder is removed when the Job ends.
 
+## A rule starts one for a deploy
+
+A lifecycle rule's `start_watch` act starts a watch the way the agent's `start_watch` does, from a recipe and its values.
+With `deploy: <key>` it takes the deploy on first, as an instance of the `deploy` lifecycle the Job holds, linked to the pull request that set the rule off, and the watch follows it.
+Each reading the watch keeps is then handed to the instance, so the deploy is `rolling_out` while the watch runs, `healthy` when it passes and `failed` when it fails.
+A deploy whose watch is still running is not started again.
+
 ## The agent weighs it
 
 > **Rule.** A failed reading is weighed by the agent, ours or not ours, each with a sentence saying why.
@@ -276,6 +283,7 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 | The notices | `crates/fleet/src/watches/telling.rs` |
 | A failed reading's log file | `crates/fleet/src/watches/logs.rs` |
 | The Needs you item for a `not_ours` end | `crates/fleet/src/watches/needing.rs` |
+| A rule starting one, and the deploy taking it on | `crates/fleet/src/lifecycles/acting.rs` |
 | What is kept | `crates/store/src/watches.rs` |
 | Bridge's copy of the wire | `packages/protocol/src/watches.ts` |
 

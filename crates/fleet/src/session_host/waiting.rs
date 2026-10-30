@@ -66,7 +66,7 @@ use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
-const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
+pub(super) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
@@ -126,6 +126,8 @@ pub(crate) struct WaitingReads {
     ready_changes: Vec<i64>,
     /// The Jobs its agent started that wait on their start cards.
     held_children: Vec<super::agent_starting::HeldChild>,
+    /// The acts its rules planned that wait on the owner.
+    rule_acts: Vec<store::KeptRuleAct>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -168,6 +170,7 @@ pub(crate) fn waiting_reads(
         not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
         ready_changes: store.ready_workflow_change_ids()?,
         held_children: super::agent_starting::held_children(store, &session.id)?,
+        rule_acts: store.rule_acts_asking(&session.id)?,
     })
 }
 
@@ -445,7 +448,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -624,6 +627,10 @@ where
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
+            // An act a lifecycle rule planned that is his to say first, while the Job is live.
+            if !ended {
+                items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
+            }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
@@ -1073,6 +1080,8 @@ where
                 "a concern is sent to the agent, or dismissed, from its own card",
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
+            // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
+            WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
             WaitingSource::WatchNotOurs => {
@@ -1238,6 +1247,10 @@ where
             since: item.since.as_str().to_string(),
             closed_at: self.clock().now().as_str().to_string(),
         };
+        // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
+        if item.source == WaitingSource::RuleAct {
+            self.rule_act_skipped(&id, &item.id).await?;
+        }
         // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
         if item.source == WaitingSource::Draft {
             let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();

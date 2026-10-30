@@ -66,9 +66,10 @@ function waitingRead(session: Session): WaitingItem[] {
  * holds the agent at its start. A `fleet_call` is a notice a taught rule made a call: it holds nothing, and it calls while the
  * turn goes on because calling him is all it is for. A `draft` and a `sketch` wait on his OK however the turn goes, as a question does. The done
  * ask on his project tasks (`task_done`) calls too: a Job that opened a pull request, or said it was done, may still be at work,
- * and the tasks it holds are waiting on him either way.
+ * and the tasks it holds are waiting on him either way. A `rule_act` is an act a lifecycle rule would do that he has not said yes to: it waits on his
+ * word as a draft does, however the turn goes.
  */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft", "sketch", "task_done"]);
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft", "sketch", "task_done", "rule_act"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {

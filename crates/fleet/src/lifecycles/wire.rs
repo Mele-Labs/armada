@@ -169,9 +169,10 @@ fn act(act: &Act) -> ipc::RuleAct {
             workflow: workflow.as_ref().map(|slug| slug.as_str().to_string()),
             prompt: prompt.as_str().to_string(),
         },
-        Act::StartWatch { recipe, values } => ipc::RuleAct::StartWatch {
+        Act::StartWatch { recipe, values, deploy } => ipc::RuleAct::StartWatch {
             recipe: recipe.as_str().to_string(),
             values: values.iter().map(|(name, value)| (name.as_str().to_string(), value.as_str().to_string())).collect(),
+            deploy: deploy.as_ref().map(|deploy| deploy.as_str().to_string()),
         },
         Act::Tell { message } => ipc::RuleAct::Tell { message: message.as_str().to_string() },
         Act::Wake => ipc::RuleAct::Wake,

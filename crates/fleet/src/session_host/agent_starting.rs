@@ -122,6 +122,17 @@ where
         start: StartAnotherSession,
     ) -> Result<SessionHeld, Refusal> {
         let me = self.agent_placed(caller.as_ref())?;
+        self.another_session_started_by(me, start).await
+    }
+
+    /// [`Self::another_session_started`] for a Job named, which is the parent. **The door a rule of
+    /// the Job goes through**: no connection places it, and what it makes is held for the person to
+    /// start as anything an agent starts is.
+    pub(crate) async fn another_session_started_by(
+        self: &Arc<Self>,
+        me: String,
+        start: StartAnotherSession,
+    ) -> Result<SessionHeld, Refusal> {
         let mut words = self.agent_words(&start.title, &start.message)?;
         let mut manifest = start.manifest_id;
         // A Session it waits on is checked before anything is made, so a refused wait leaves no Session behind.

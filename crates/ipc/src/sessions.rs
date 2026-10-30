@@ -715,6 +715,14 @@ pub enum WaitingSource {
     /// `run` act whose `target` is `scripts/preview --restart`. Dismissing it is Skip and tells the
     /// agent nothing; answering it is refused. Gone once the build changes.
     PreviewOffer,
+    /// Fleet: an act a lifecycle rule of the Job planned is the person's to say first, or it failed
+    /// past the rule's retries and the rule says to ask. Kept, never the agent's: id `rule_act:<row>`,
+    /// text the act in his words (`Move ARM-41 to In progress`) or, once it failed, what failed, an
+    /// `answer` act whose `target` is the id, and exactly two options, `Do it` (choice 0) and `Skip`
+    /// (choice 1), labels only; on a failed act choice 0 is `Try again`. `Do it` hands the act to Fleet
+    /// to carry out and `Skip` records it skipped; **neither sends the agent a word**. Dismissing it
+    /// is Skip. Listed only while the Job is live.
+    RuleAct,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

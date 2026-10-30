@@ -145,7 +145,7 @@ export type RuleAct =
   /** A message from a template, left on `target`. */
   | { act: "draft"; template: string; target: RuleTarget }
   | { act: "start_job"; workflow?: string; prompt: string }
-  | { act: "start_watch"; recipe: string; values: Record<string, string> }
+  | { act: "start_watch"; recipe: string; values: Record<string, string>; deploy?: string }
   | { act: "tell"; message: string }
   | { act: "wake" }
   | { act: "run_command"; command: string }
