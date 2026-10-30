@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import type { Rule } from "../LaneCanvas/model";
+
 /** Where a workflow comes from. A later one replaces an earlier one of the same id: Armada's, then the repository's, then yours. */
 export type WorkflowSource = "armada" | "repository" | "yours";
 
@@ -119,7 +121,7 @@ export type AgentState =
   | { phase: "idle" }
   | { phase: "working"; asked?: string }
   | { phase: "failed"; reason: string; asked?: string }
-  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string; /** A workflow nothing held before: approved or dismissed, never sent back. */ fresh?: true }
+  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string; /** A workflow nothing held before: approved or dismissed, never sent back. */ fresh?: true; /** Rules the change adds to the Workspace, drawn on its lanes. */ rules?: readonly Rule[] }
   | { phase: "cannot"; asked?: string; missing: readonly string[] };
 
 /** New words for a step, and the nudged Jobs they were drawn from. A draft that did not fit has no words and says why. */

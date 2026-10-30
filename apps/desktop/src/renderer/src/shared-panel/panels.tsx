@@ -49,7 +49,7 @@ export function useBack(): SheetBack | undefined {
   return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
 }
 
-const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : item.kind === "watch" || item.kind === "mod" ? (item.kind === "mod" ? item.title : item.name) : item.kind === "terminal" || item.kind === "run" ? "Terminal" : item.kind === "browser" ? "Job browser" : item.kind === "teach" ? "Teach" : (item.name ?? "Check"));
+const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : item.kind === "watch" || item.kind === "mod" ? (item.kind === "mod" ? item.title : item.name) : item.kind === "terminal" || item.kind === "run" ? "Terminal" : item.kind === "browser" ? "Job browser" : item.kind === "teach" ? "Teach" : item.kind === "lane" ? item.heading : item.kind === "lanes" ? "Workflow" : item.kind === "rule" ? "Rule" : (item.name ?? "Check"));
 
 // ---- An issue -----------------------------------------------------------------------------------------
 

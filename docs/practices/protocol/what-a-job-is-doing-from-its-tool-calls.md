@@ -12,7 +12,7 @@ There is no number to take: the protocol ID moves with `crates/ipc/src/session_a
 | --- | --- | --- |
 | `SessionRecord.activity` (`session.changed`, `get_session`, `list_sessions`) | `SessionActivity`: `now?`, `todos[]` | Before a hosted Job's first tool call, on a Job a terminal runs, and once it ends |
 | `SessionActivity.now` | One short fact for the latest call Fleet can name: `Editing gate.rs`, `Reading gate.rs`, `Running cargo check`, `Searching`, `Fetching`, `Running a subagent` | A call Fleet cannot name leaves it as it was; the field is left out until one is |
-| `SessionActivity.todos` | `SessionTodo`: `text`, `state` (`done`, `doing` or `todo`) | Left out while empty |
+| `SessionActivity.todos` | `SessionTodo`: `text`, `state` (`done`, `doing` or `todo`), `task?` (since 29 Oct 2026) | Left out while empty; `task` is the id of the plan task Fleet matched the item to, absent with no plan or no match |
 | `SessionActivity.account` (since 22 Oct 2026) | `SessionAccount`: `for`, `done[]`, `now?`, `next?`, `group?`, `at` | Until a small model has written one for the person's last message; cleared when a new message from him starts a turn |
 | `SessionActivity.live` (since 22 Oct 2026) | `SessionLive`: `url`, `title` | Until the Job shows a page or serves one after the person's last message |
 
@@ -27,6 +27,7 @@ The account is rewritten at most every few seconds and reads the turn so far, an
 **Publishing is coalesced.** A change to `now` or `todos` publishes `session.changed` at once when none went out for the Job's activity within two seconds, and otherwise once, when the two seconds are up.
 A call that changes neither publishes nothing.
 A turn starting clears `now` on the row that announces it and keeps `todos`.
+`task` is read off the same claims `plan_record::listed` takes, each time the record is assembled, so it follows a changed list and a re-recorded plan and is never kept.
 No call time is carried: a silent turn is the `stuck` state.
 A Fleet restart starts the field empty.
 

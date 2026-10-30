@@ -7,6 +7,9 @@
 
 /// Autopilot's own apparatus: a backlog, a catalogue and a scripted model.
 pub mod autopilot;
+/// Lifecycles and rules' own apparatus: two Workspaces' ticket lifecycles, held as text. See its
+/// own header.
+pub mod lifecycles;
 /// Reach's own apparatus: a Manifest and a workflow definition for a
 /// repository that is not this one, held as text. See its own header.
 pub mod reach;

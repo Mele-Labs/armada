@@ -4,12 +4,14 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  type Connection,
   type Edge,
   type EdgeTypes,
   type FitViewOptions,
   type Node,
   type NodeTypes,
   type OnNodesChange,
+  type Viewport,
   useStore,
   useUpdateNodeInternals,
 } from "@xyflow/react";
@@ -62,6 +64,15 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    * is fitted to a scale it cannot reach and drawn clipped at both ends.
    */
   minZoom?: number;
+  /**
+   * Where the canvas opens and where Fit returns to, at the zoom given, in place of a fit that shrinks the whole graph into the frame. For a graph drawn at a
+   * size that has to be read, wider than the frame: the person pans to the rest. Absent is a fit.
+   */
+  home?: Viewport;
+  /** The wheel and a trackpad's two fingers pan the canvas, and the pinch zooms it. Absent is the wheel zooming. */
+  panOnScroll?: boolean;
+  /** A node's connectors may be dragged to another node, and the caller is told the two it joins. Absent, nothing is connected. */
+  onConnect?: (connection: Connection) => void;
   /**
    * The rail's own groups, above the view group this draws — what a person puts
    * on the canvas. `GraphCanvasRailGroup` is what goes here, one per group, and
@@ -201,12 +212,12 @@ const VIEW_LABEL = "How you are looking at this";
  * are here rather than handed in — the owner's note of 28 Sep 2026 took them
  * out of the bottom-right corner and put them under the tools.
  */
-function ViewGroup({ fit }: { fit: FitViewOptions | undefined }) {
+function ViewGroup({ fit, home }: { fit: FitViewOptions | undefined; home: Viewport | undefined }) {
   const flow = useReactFlow();
   const acts: GraphCanvasRailAct[] = [
     { id: "out", name: "Zoom out", sign: SIGN.out, onPress: () => void flow.zoomOut() },
     { id: "in", name: "Zoom in", sign: SIGN.in, onPress: () => void flow.zoomIn() },
-    { id: "fit", name: "Fit", icon: Maximize, onPress: () => void flow.fitView(fit) },
+    { id: "fit", name: "Fit", icon: Maximize, onPress: () => void (home === undefined ? flow.fitView(fit) : flow.setViewport(home, { duration: 200 })) },
   ];
   return <GraphCanvasRailGroup label={VIEW_LABEL} acts={acts} />;
 }
@@ -249,6 +260,9 @@ function Surface<N extends Node, E extends Edge>({
   fitView = true,
   fitViewOptions,
   minZoom,
+  home,
+  panOnScroll,
+  onConnect,
   onPanePress,
   onNodePress,
   placing = false,
@@ -315,7 +329,7 @@ function Surface<N extends Node, E extends Edge>({
   //
   // Read once, because the prop is watched: turning it on when the first node
   // arrives would queue exactly the fit this refuses.
-  const [fitsOnOpen] = useState(() => fitView && nodes.length > 0);
+  const [fitsOnOpen] = useState(() => home === undefined && fitView && nodes.length > 0);
 
   return (
     <ReactFlow<N, E>
@@ -331,7 +345,8 @@ function Surface<N extends Node, E extends Edge>({
       onSelectionChange={onPicked}
       {...(onPanePress === undefined ? {} : { onPaneClick })}
       {...(onNodePress === undefined ? {} : { onNodeClick })}
-      nodesConnectable={false}
+      nodesConnectable={onConnect !== undefined}
+      {...(onConnect === undefined ? {} : { onConnect })}
       nodesDraggable={nodesDraggable && !still}
       {...(still
         ? {
@@ -352,6 +367,8 @@ function Surface<N extends Node, E extends Edge>({
       ariaLabelConfig={ARIA}
       fitView={fitsOnOpen}
       fitViewOptions={fitViewOptions}
+      {...(home === undefined ? {} : { defaultViewport: home })}
+      {...(panOnScroll === true ? { panOnScroll: true } : {})}
       {...(minZoom === undefined ? {} : { minZoom })}
       // The attribution is a link out of the app, and no surface may navigate.
       proOptions={{ hideAttribution: true }}
@@ -387,7 +404,7 @@ export function GraphCanvas<N extends Node, E extends Edge>(props: GraphCanvasPr
         {still === true ? null : (
           <div className="armada-graph-rail">
             {rail}
-            <ViewGroup fit={props.fitViewOptions} />
+            <ViewGroup fit={props.fitViewOptions} home={props.home} />
             {railBelow}
           </div>
         )}

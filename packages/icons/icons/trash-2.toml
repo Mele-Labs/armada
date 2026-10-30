@@ -33,3 +33,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 26 Oct 2026 for the walk `watchingTidy`. The watch is the agent's and the act is the person's, borrowed as the needs-me delete borrows it, since the registry holds no other glyph for a person taking a thing away. On ended rows only, in a column every row keeps, shown on Show ended. Tooltip `Delete`. The owner may rule otherwise."
+
+[[icons.trash-2.usage]]
+  means = "Delete a workflow copy, in the Workflows page's header toolbar, and a step, state or rule picked on its lanes"
+  group = "Workflows"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Delete`. Somebody taking off what they put there. In the header toolbar it is set apart at the end of the row."

@@ -59,6 +59,7 @@ import { seedTaught } from "./teach";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
+import { WorkspaceFrom } from "../workspace-draft";
 import { PrOwnersFrom } from "./pr-owners";
 import { KEPT_LISTS, ReviewsFrom, createReviewStore } from "../pr-review/store";
 import { keptReading } from "./review-forge";
@@ -220,6 +221,7 @@ export function mountApp(
                         <DownshiftSourceProvider value={downshift}>
                           <EventsHere timeline={timeline} events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
+                              <WorkspaceFrom seed={chosen.draft?.workspace}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                   <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
@@ -256,6 +258,7 @@ export function mountApp(
                                   </PaletteFixturesFrom>
                                   </AreasFrom>
                               </ClashesFrom>
+                              </WorkspaceFrom>
                             </SessionsHere>
                           </EventsHere>
                         </DownshiftSourceProvider>

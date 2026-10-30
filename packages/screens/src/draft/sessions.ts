@@ -17,6 +17,7 @@ import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThr
 import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
+import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
 export type SessionTrail = {
@@ -211,7 +212,7 @@ export type SessionWork = {
   workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase; /** When each step began, in order, as an RFC 3339 time. A step the Job went back to appears again. */ visits?: readonly { step: number; since: string }[]; /** The steps the person skipped, by index; the Job passes over each. Absent where none is. */ skipped?: readonly number[] };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
-  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
+  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. The spine draws `activity.todos` and not this. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
   /** The files the Field draws as bars on its plots. */
@@ -376,7 +377,7 @@ type SessionRowKinds =
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
   | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string; /** How many takes of the change the page shows. **A mock's field**: nothing in Fleet carries it yet. */ takes?: number }
   /** A draft the agent put to the person with `propose_draft`, whole as Fleet wrote it; `settled` once he answered it. */
-  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" } }
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled; /** The workflow change a proposed workflow is. */ change?: number; /** **A mock's field**: a workflow a Job proposed, whose card names it and where it would be kept. */ workflow?: { name: string; scope: "kit" | "repository" }; /** **A mock's field**: a draft that is a rule's own act, whose card is the rule and says where it goes and to whom. */ rule?: { where: string; to: string } }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -393,7 +394,7 @@ type SessionRowKinds =
 export type SessionRow = SessionRowKinds;
 
 /** One item of the agent's own TodoWrite list. The agent's report of itself; `SessionActivity.now` is what Fleet detected. */
-export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
+export type SessionTodo = { text: string; state: "done" | "doing" | "todo"; /** The id of the plan task Fleet matched this item to. Its plan row already shows it. */ task?: string };
 
 /**
  * What a Session is doing, from Fleet's PreToolUse gate: `now` is the last tool call as a short
@@ -623,6 +624,8 @@ export type Session = {
   work?: SessionWork;
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
+  /** The Workspace's lanes as this Job holds them: its tickets, pull request and deploy, and the rules that fired. Mock-only: no Fleet serves a Workspace yet. Absent draws no Lanes view. */
+  lanes?: SessionLanes;
 };
 
 /**
@@ -881,6 +884,8 @@ export type SessionsDraft = {
   retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
+  /** The person sends a triaged comment on the Job's pull request (`comment` is its id in `Session.lanes`) to the Job's agent, and it reads as sent. Mock-only: no Fleet reads a pull request's comments yet. Absent draws no Send to Job. */
+  sendComment?: (id: string, comment: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */

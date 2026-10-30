@@ -75,6 +75,30 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
+/* A human comment the agent read: its mark, where it was left and the act that hands it to the Job sit at the head's trailing edge. */
+.armada-pr-card__triage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.armada-pr-card__triage[data-read="change"] > .armada-pr-mark { color: var(--fg-default); }
+.armada-pr-card__triage[data-read="skip"] > .armada-pr-mark { color: var(--fg-subtle); }
+.armada-pr-card__where {
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+/* The comment the panel was opened at. */
+.armada-pr-card[data-focus] {
+  border-color: var(--select-edge);
+  background: var(--select-ground);
+}
+
 .armada-pr-card__who {
   font-weight: var(--weight-medium);
   color: var(--fg-default);

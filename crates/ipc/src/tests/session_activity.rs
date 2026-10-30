@@ -62,9 +62,9 @@ fn activity_round_trips_under_the_names_the_wire_gives_it() {
     let activity = SessionActivity {
         now: Some("Editing gate.rs".to_string()),
         todos: vec![
-            SessionTodo { text: "Add the field".to_string(), state: SessionTodoState::Done },
-            SessionTodo { text: "Detect in the gate".to_string(), state: SessionTodoState::Doing },
-            SessionTodo { text: "Write the docs".to_string(), state: SessionTodoState::Todo },
+            SessionTodo { text: "Add the field".to_string(), state: SessionTodoState::Done, task: None },
+            SessionTodo { text: "Detect in the gate".to_string(), state: SessionTodoState::Doing, task: None },
+            SessionTodo { text: "Write the docs".to_string(), state: SessionTodoState::Todo, task: None },
         ],
         said: Some("Reading the gate first".to_string()),
         subagents: Vec::new(),
