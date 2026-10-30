@@ -29,6 +29,7 @@ Nothing runs before Start, and no step prompt goes out either: the first turn ca
 
 **The caller waits on it too**, in its own Needs you, while the Job is live and held: id `start:<child id>`, text *Press Start on "<child title>"*, source `held_child`, act `message` on the child, so a press opens it.
 Fleet reads it off the child on every read of the caller, so Start or ending the child takes it off, and both publish the caller again.
+Bridge draws Start on that item and on the child's Started row in the caller's thread, at the row's end before its chevron, so he starts it from either without opening it. The two are one press, and both read *Starting…* while the start waits.
 `answer_waiting` and `dismiss_waiting` refuse it, since Start is the answer.
 An item of the caller's agent whose act is `message` on a held child is left off, as Fleet's already says it, and the tool tells the agent to list none.
 
