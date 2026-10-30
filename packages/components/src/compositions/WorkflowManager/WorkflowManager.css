@@ -212,7 +212,7 @@
   align-items: center;
   gap: var(--space-1);
 }
-.armada-wm__acts > :last-child[data-end] {
+.armada-wm__acts > [data-end] {
   margin-inline-start: var(--space-4);
 }
 
@@ -717,8 +717,8 @@
 /* Text a screen reader reads and nothing draws: the second dropdown of a pair is told from the first by it. */
 .armada-wm-hidden {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--space-4);
+  height: var(--space-4);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
