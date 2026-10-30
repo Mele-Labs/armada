@@ -5,6 +5,7 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
+import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
@@ -33,4 +34,22 @@ test("the Open group lists the open work and the follow-up after the last step",
   await open();
   await expect.element(step("Open").getByText("armada/change-3012").first()).toBeInTheDocument();
   await expect.element(step("Open").getByText("Deferred").first()).toBeInTheDocument();
+});
+
+// An issue a Job card carries is drawn once, as the chip in that card. Open leaves it out until its group is done: before the plan is approved, and after, whether or not the group is handed yet.
+test("the Open group leaves out the issue of a group that goes to a Job of its own, handed or not, and keeps the one no group names", async () => {
+  mount("plan-groups-as-jobs");
+  await onScreen();
+  await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Fix four filed issues" }).click();
+  const keys = ["armada-95v", "armada-tzg", "armada-7gs", "armada-cwj"];
+  const leftOut = async () => {
+    await expect.element(step("Open").getByText("armada-m8r").first()).toBeInTheDocument();
+    for (const key of keys) await expect.element(step("Open").getByText(key)).not.toBeInTheDocument();
+  };
+  await expect.element(step("Plan").getByRole("button", { name: /^Issue armada-7gs/ }).first()).toBeInTheDocument();
+  await leftOut();
+  // Approved, the first two groups are handed to Jobs and the other two are still not: the plan is no longer being edited, so only the group's own mark holds its issue out.
+  timePasses();
+  await expect.element(step("Dispatch").getByRole("button", { name: "Job A start_job rule act reads the workflow it names" })).toBeInTheDocument();
+  await leftOut();
 });
