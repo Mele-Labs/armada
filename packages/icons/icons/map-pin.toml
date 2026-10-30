@@ -1,0 +1,7 @@
+[icons.map-pin]
+  means = "A pin set on a place: somewhere a thing stands"
+  group = "Workspace lanes"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Where an instance stands on a lane, and the step a Job is at while nobody works on it: a place and not an act. Never a running Job or step, which is `circle-dot` in the running hue, and never a location, an address or a map."
+  notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. The lanes drew where an instance stands as the running glyph, so a ticket sitting in To do read as live work. A pin on a heavier neutral frame says it is here and does not move. Tooltip `Now`. Drawn at 16px, stroke 2, in `--fg-default`. Refused: `crosshair`, reserved to the battlefield's locate button."

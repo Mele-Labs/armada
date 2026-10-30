@@ -94,6 +94,9 @@ export type PullRequestPanelProps = {
   back?: SheetBack;
   tab?: string;
   onTab?: (id: string) => void;
+  /** What Fleet's agent made of a human comment, and the entry the panel was opened at. Drawn on the Conversation tab. */
+  triage?: PullRequestTabsProps["triage"];
+  focused?: PullRequestTabsProps["focused"];
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
   reading?: undefined;
@@ -313,6 +316,8 @@ function filled({
   reach,
   onTest,
   more,
+  triage,
+  focused,
   back,
   children,
 }: PullRequestPanelProps, { tab, onTab, floats, current, body: bodyRef, target, onFile }: Own) {
@@ -385,6 +390,8 @@ function filled({
             reach={reach}
             onTest={onTest}
             {...(more === undefined ? {} : { more })}
+            {...(triage === undefined ? {} : { triage })}
+            {...(focused === undefined ? {} : { focused })}
             tab={tab}
             onTab={onTab}
           />
