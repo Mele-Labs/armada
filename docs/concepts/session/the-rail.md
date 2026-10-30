@@ -39,6 +39,7 @@ A ticket, pull request, deploy or Job the Job holds that stands in a state its l
 **A tracker that declares them does not**: a beads ticket reading `open` or `in_progress` stands in To do or In progress, and holds its Job open until it closes.
 End lists them all the same.
 Fleet keeps that the agent was told to wait, and when the last instance holding it is over sends it one `lifecycles_clear` notice; an agent never refused is not told.
+**A ticket the Job hands to the Job it started for the ticket's plan group ends the same way, at once**, and the Job it went to holds it ([linked Jobs](linked-jobs.md)): the rail neither waits on it nor counts it reached.
 **Ending a Job ends its instances.** Each one no end state has taken, the unplaced too, is kept as ended, standing where it was, no reader moves it again, and the watches the Job's rules started are stopped with the Job's others.
 Before it ends, End lists what is in flight as `Deploy: Rolling out` and `ARM-42: In review`; End job goes on, and Keep going leaves the Job as it is.
 **Every End asks the same way**: the Job's menu and done band, the Cockpit's End job on a done call and the Deck row's Close all list first, and a Job holding nothing ends at once from each.

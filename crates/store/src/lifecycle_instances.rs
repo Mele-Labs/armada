@@ -28,9 +28,12 @@ pub struct KeptInstance {
     /// The watch that follows it. Empty for one no watch follows.
     pub watch_id: String,
     pub taken_on_at: String,
-    /// When ending the Job ended it, standing where it was. Empty for one that is live, and for one
-    /// that reached an end state of its own.
+    /// When ending the Job ended it, standing where it was, or handing it away did. Empty for one that
+    /// is live, and for one that reached an end state of its own.
     pub ended_at: String,
+    /// The Job it was handed to, with `ended_at` set at the same instant. Empty for one that was not
+    /// handed, **which is every one that ended with its Job**: this is what tells the two apart.
+    pub handed_to: String,
 }
 
 /// One change of standing, as it was recorded.
@@ -175,6 +178,20 @@ impl Store {
         Ok(ended)
     }
 
+    /// The Job hands `lifecycle` `key` to `to` at `at`: it ends, standing where it was, and says where it
+    /// went. **Only a live one is handed**, so one that ended with its Job or was handed already keeps its
+    /// first instant and its first heir. True where it was handed now.
+    pub fn hand_lifecycle_instance(&mut self, session_id: &str, lifecycle: &str, key: &str, to: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE lifecycle_instances SET ended_at = ?5, handed_to = ?4
+                 WHERE session_id = ?1 AND lifecycle = ?2 AND key = ?3 AND ended_at = ''",
+                params![session_id, lifecycle, key, to, at],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failing("handing a lifecycle instance to another job"))
+    }
+
     /// Keep what a read saw, and with it the move it made. **One write**, so the instance never
     /// reads as one thing while the log says another. The id of the move, where it made one.
     pub fn keep_lifecycle_read(&mut self, read: &KeptRead<'_>) -> Result<Option<i64>, WriteError> {
@@ -206,7 +223,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT lifecycle, key, seen_source, seen, watch_id, taken_on_at, ended_at FROM lifecycle_instances
+                "SELECT lifecycle, key, seen_source, seen, watch_id, taken_on_at, ended_at, handed_to FROM lifecycle_instances
                  WHERE session_id = ?1 ORDER BY rowid",
             )
             .map_err(failing(doing))?;
@@ -222,6 +239,7 @@ impl Store {
                     watch_id: row.get(4)?,
                     taken_on_at: row.get(5)?,
                     ended_at: row.get(6)?,
+                    handed_to: row.get(7)?,
                 })
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
