@@ -267,6 +267,13 @@ What each does:
 
 **The status is the Workspace's word and not Armada's.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to.
 
+**The forge's half is the forge's own calls.** A rule may ask reviewers (`gh pr edit --add-reviewer`), mark a pull request ready, turn on auto-merge and merge it.
+A pull request is named by its number in this repository, and a key that names another repository's is refused before anything is asked.
+A forge that cannot request reviewers keeps that act as not carried, as a tracker does.
+
+> **Rule.** A merge a rule makes is `Forge::merge` and no other call: it asks the forge to merge, and a repository with a merge queue enqueues it.
+> Why: a rule he saved counts as his say to merge, and does not count as his say to skip the checks; no flag that skips the queue, squashes, or puts the branch on the base is anywhere a rule reaches, and `a_merge_a_rule_makes_never_asks_the_forge_to_skip_its_merge_queue` reads the arguments.
+
 ## What a person sees
 
 | Surface | What it draws |

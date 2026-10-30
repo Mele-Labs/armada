@@ -13,7 +13,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, IssueWrite, Merged, ReadOnly, TrackerWrites, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Forge, IssueWrite, Merged, ReadOnly, TrackerWrites, Vcs, WorkProduct};
 use core_model::rule::{Act, ForgeWrite, TrackerWrite};
 use core_model::{Lifecycle, LifecycleState, StateRead};
 use store::{KeptRuleAct, Store};
@@ -138,6 +138,46 @@ fn pull_number<'a>(on: Option<(&'a str, &'a str)>) -> Result<&'a str, String> {
     }
 }
 
+/// Make `write` to the ticket `on` names, through `tracker`, and say what was done. **Blocking**:
+/// the tracker runs a program or makes a request.
+pub fn tracker_written(
+    tracker: &dyn TrackerWrites,
+    in_repo: &str,
+    write: &TrackerWrite,
+    on: Option<(&str, &str)>,
+    lifecycles: &[Lifecycle],
+) -> Result<String, String> {
+    let resolved = tracker_write(write, on, lifecycles)?;
+    let reference = ticket(on)?;
+    tracker.write(in_repo, reference, &resolved.as_write()).map_err(|not| not.said)?;
+    Ok(match resolved {
+        Resolved::Move(status) => format!("Moved {reference} to {status}"),
+        Resolved::Assign(to) => format!("Assigned {reference} to {to}"),
+        Resolved::Close(_) => format!("Closed {reference}"),
+    })
+}
+
+/// Make `write` to the pull request `on` names, through `forge`, and say what was done. **Blocking**.
+///
+/// **A merge is `Forge::merge` and nothing else**: where the base has a merge queue the forge
+/// enqueues it, and nothing here asks to skip the queue, squash, or push the base.
+pub fn forge_written<F: Forge + ?Sized>(forge: &F, in_repo: &str, write: &ForgeWrite, on: Option<(&str, &str)>) -> Result<String, String> {
+    let number = pull_number(on)?;
+    let pull = thing(PULL_REQUEST, number);
+    match write {
+        ForgeWrite::MarkReady => forge.mark_ready(in_repo, number).map(|()| format!("Marked {pull} ready")),
+        ForgeWrite::AutoMerge => forge.enable_auto_merge(in_repo, number).map(|()| format!("Turned on auto-merge for {pull}")),
+        ForgeWrite::Merge => forge.merge(in_repo, number).map_err(|not| not.said()).map(|merged| match merged {
+            Merged::Taken => format!("The forge took the merge of {pull}"),
+            Merged::AlreadyMerged => format!("{pull} was already merged"),
+        }),
+        ForgeWrite::RequestReviewers { from } => {
+            let names: Vec<&str> = from.iter().map(|one| one.as_str()).collect();
+            forge.request_reviewers(in_repo, number, &names).map(|()| format!("Asked {} to review {pull}", names.join(", ")))
+        }
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -184,59 +224,25 @@ where
         write: &TrackerWrite,
         lifecycles: &[Lifecycle],
     ) -> Result<String, String> {
-        let on = row.on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
-        let resolved = tracker_write(write, on, lifecycles)?;
-        let reference = ticket(on)?.to_string();
         let served = self.rule_repository(row).await?;
         let (root, tracker) = (served.root().to_string(), self.trackers().writer(&choice_of(served.manifest())));
-        let (asked, key) = (resolved.clone(), reference.clone());
-        tokio::task::spawn_blocking(move || tracker.write(&root, &key, &asked.as_write()))
-            .await
-            .map_err(|why| why.to_string())?
-            .map_err(|not| not.said)?;
-        Ok(match resolved {
-            Resolved::Move(status) => format!("Moved {reference} to {status}"),
-            Resolved::Assign(to) => format!("Assigned {reference} to {to}"),
-            Resolved::Close(_) => format!("Closed {reference}"),
+        let (write, lifecycles, on) = (write.clone(), lifecycles.to_vec(), row.on.clone());
+        tokio::task::spawn_blocking(move || {
+            let on = on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
+            tracker_written(&*tracker, &root, &write, on, &lifecycles)
         })
+        .await
+        .map_err(|why| why.to_string())?
     }
 
     /// Make the write to the pull request the act is done to, through the forge Fleet holds.
-    ///
-    /// **A merge is `Forge::merge` and nothing else**: where the base has a merge queue the forge
-    /// enqueues it, and nothing here asks to skip the queue, squash, or push the base.
     pub(super) async fn rule_forge_written(self: &Arc<Self>, row: &KeptRuleAct, write: &ForgeWrite) -> Result<String, String> {
-        let on = row.on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
-        let number = pull_number(on)?.to_string();
         let root = self.rule_repository(row).await?.root().to_string();
-        let pull = thing(PULL_REQUEST, &number);
-        let asked = number.clone();
-        match write {
-            ForgeWrite::MarkReady => {
-                self.forge_asked(&root, move |vcs: &V, root: &str| vcs.mark_ready(root, &asked)).await?;
-                Ok(format!("Marked {pull} ready"))
-            }
-            ForgeWrite::AutoMerge => {
-                self.forge_asked(&root, move |vcs: &V, root: &str| vcs.enable_auto_merge(root, &asked)).await?;
-                Ok(format!("Turned on auto-merge for {pull}"))
-            }
-            ForgeWrite::Merge => {
-                let merged = self.forge_asked(&root, move |vcs: &V, root: &str| vcs.merge(root, &asked)).await.map_err(|not| not.said())?;
-                Ok(match merged {
-                    Merged::Taken => format!("The forge took the merge of {pull}"),
-                    Merged::AlreadyMerged => format!("{pull} was already merged"),
-                })
-            }
-            ForgeWrite::RequestReviewers { from } => {
-                let names: Vec<String> = from.iter().map(|one| one.as_str().to_string()).collect();
-                let said = names.join(", ");
-                self.forge_asked(&root, move |vcs: &V, root: &str| {
-                    let names: Vec<&str> = names.iter().map(String::as_str).collect();
-                    vcs.request_reviewers(root, &asked, &names)
-                })
-                .await?;
-                Ok(format!("Asked {said} to review {pull}"))
-            }
-        }
+        let (write, on) = (write.clone(), row.on.clone());
+        self.forge_asked(&root, move |vcs: &V, root: &str| {
+            let on = on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
+            forge_written(vcs, root, &write, on)
+        })
+        .await
     }
 }

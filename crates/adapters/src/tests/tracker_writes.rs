@@ -274,3 +274,17 @@ fn a_write_section_is_checked_as_strictly_as_a_read_and_asks_nothing_a_read_does
     let problems = taught_tracker::problems(&http("GET"));
     assert!(problems.iter().any(|one| one.contains("`POST`, `PUT` or `PATCH`")), "{problems:?}");
 }
+
+/// **A merge a rule makes is `gh pr merge` as `landing` builds it, and no more.** A repository with a
+/// merge queue is then enqueued, since the command asks to merge and not to skip the checks. The
+/// arguments are read from the source because the run needs a forge.
+#[test]
+fn a_merge_a_rule_makes_never_asks_the_forge_to_skip_its_merge_queue() {
+    let landing = include_str!("../landing.rs");
+    let merges: Vec<&str> = landing.lines().filter(|line| line.contains("\"pr\", \"merge\"")).collect();
+    assert_eq!(merges.len(), 3, "the merge, auto-merge and its undoing are the only ways a pull request is merged here: {merges:?}");
+    for flag in ["--admin", "--squash", "--rebase", "--delete-branch", "--match-head-commit"] {
+        assert!(!landing.contains(flag), "`{flag}` is not asked of the forge by a merge");
+    }
+    assert!(landing.contains("&[\"pr\", \"merge\", pull_request, \"--merge\"]"));
+}
