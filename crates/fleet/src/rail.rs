@@ -354,14 +354,16 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return !facts.any_ended(at, &step.ends_on) && !facts.plan_recorded && before(at);
     }
     // **A step that waits on a lifecycle is entered once the Job holds one**, and left when its end
-    // comes. The step after it, which nothing observable enters, is entered at that moment.
+    // comes. The step after it is entered at that moment, whatever fact would have entered it: the
+    // Job has moved on, and showing the step before it would say it had not.
     if step.has_lifecycle_end() {
         return facts.lifecycle_held.has(at) && !facts.any_ended(at, &step.ends_on) && before(at);
     }
+    let after_a_wait = at > 0 && steps[at - 1].has_lifecycle_end() && before(at);
     let Some(fit) = step.fit else {
-        return at > 0 && steps[at - 1].has_lifecycle_end() && before(at);
+        return after_a_wait;
     };
-    facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit))
+    after_a_wait || (facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit)))
 }
 
 /// The step the Session is on: the last one entered, else the first standing. **Absent** once the

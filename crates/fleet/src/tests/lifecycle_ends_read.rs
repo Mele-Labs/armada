@@ -6,8 +6,8 @@ use core_model::{Lifecycle, LifecycleEnd, Waits};
 use store::{KeptInstance, KeptMove};
 
 use super::lifecycle_ends::{end, reviewed};
-use super::session_rail::step;
-use crate::rail::RailStep;
+use super::session_rail::{fitted, follows, plan_step, step};
+use crate::rail::{self, Facts, Fit, RailStep};
 use crate::rail_lifecycle::{self, Held, StepBits};
 
 fn instance(lifecycle: &str, key: &str) -> KeptInstance {
@@ -169,4 +169,52 @@ fn the_line_that_wakes_the_agent_names_what_got_there_and_the_step_it_ended() {
         "Fleet: PR #812 and PR #813 are Approved. That ends the \"Review\" step of this Job's feature workflow."
     );
     assert_eq!(written("any pr: approved").waits(), Waits::Any);
+}
+
+/// The shipped orchestrate workflow's shape: Assess, Plan, Dispatch (follows the plan, its tasks marked
+/// done as each Job starts), Oversee, and Summarise (entered on a commit).
+fn orchestrating() -> Vec<RailStep> {
+    let oversee = RailStep { ends_on: vec![end("job: landed")], ..step("Oversee") };
+    vec![step("Assess"), plan_step(), follows("Dispatch"), oversee, fitted("Summarise", Fit::Committed)]
+}
+
+fn two_jobs(first: &str, second: &str) -> Held {
+    Held {
+        instances: vec![instance("job", "98632ca8"), instance("job", "a41f09d3")],
+        moves: vec![moved("job", "98632ca8", first), moved("job", "a41f09d3", second)],
+    }
+}
+
+fn parent_on(steps: &[RailStep], held: &Held, tasks_open: bool, committed: bool) -> Option<usize> {
+    let mut facts = Facts { plan_recorded: true, plan_approved: true, tasks_open, committed, ..Facts::default() };
+    (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(steps, &Lifecycle::built_in(), held);
+    rail::current(steps, &facts)
+}
+
+#[test]
+fn a_parent_holding_two_jobs_sits_on_oversee_until_both_have_landed_or_ended() {
+    let steps = orchestrating();
+    let (running, started) = (two_jobs("in:running", "in:running"), Held { instances: vec![instance("job", "98632ca8")], moves: Vec::new() });
+    assert_eq!(parent_on(&steps, &started, true, false), Some(2), "one Job started, the others still to start: Dispatch");
+    assert_eq!(parent_on(&steps, &running, true, false), Some(2), "both are running and a task is open: still Dispatch");
+    assert_eq!(parent_on(&steps, &running, false, false), Some(3), "every task done: Oversee");
+    assert_eq!(parent_on(&steps, &two_jobs("in:landed", "in:running"), false, false), Some(3), "one of two has landed");
+    assert_eq!(parent_on(&steps, &two_jobs("in:ended", "in:running"), false, false), Some(3), "or ended");
+    assert_eq!(parent_on(&steps, &two_jobs("in:landed", "in:ended"), false, false), Some(4), "landed and ended: Summarise, before any commit");
+    assert_eq!(parent_on(&steps, &two_jobs("in:landed", "in:landed"), false, true), Some(4));
+}
+
+#[test]
+fn a_job_started_late_is_waited_on_and_a_job_ended_after_it_landed_is_still_over() {
+    let steps = orchestrating();
+    let late = Held {
+        instances: vec![instance("job", "98632ca8"), instance("job", "a41f09d3"), instance("job", "c70e1a55")],
+        moves: vec![moved("job", "98632ca8", "in:landed"), moved("job", "a41f09d3", "in:landed"), moved("job", "c70e1a55", "in:running")],
+    };
+    assert_eq!(parent_on(&steps, &late, false, false), Some(3), "the third was started after the others landed");
+    let mut done = late;
+    done.moves.push(moved("job", "c70e1a55", "in:ended"));
+    assert_eq!(parent_on(&steps, &done, false, false), Some(4));
+    done.moves.push(moved("job", "98632ca8", "in:ended"));
+    assert_eq!(parent_on(&steps, &done, false, false), Some(4), "landed, then ended: it has still landed");
 }
