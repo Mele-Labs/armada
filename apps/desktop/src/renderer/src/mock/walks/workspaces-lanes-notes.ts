@@ -98,7 +98,7 @@ const notes = walk("workspaces-lanes", [
   { look: node("Step: Oversee"), say: "The agent changed its own copy: Walk and Refine skipped, Dispatch and Oversee added after Approve plan. Each is marked" },
   { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee waits for them" },
   { look: node("Fix cart rounding: PR open"), say: "Two Jobs, each a card with the Drone on a lane of its own: Started, PR open and Landed" },
-  { look: inside(JOB_LANES, text("Waiting on Fix cart rounding, Tidy the PR panel landing: Landed")), say: "Oversee names the Jobs it waits on, and ends when the last lands" },
+  { look: inside(JOB_LANES, text('Waiting on Job "Fix cart rounding", Job "Tidy the PR panel landing": Landed')), say: "Oversee names the Jobs it waits on, and ends when the last lands" },
   { key: "Escape", on: JOB_LANES, say: "Esc shuts Workflow" },
   { later: inside(views, workflowView), say: "From here the window plays wider than 1800px" },
   { press: inside(views, workflowView), say: "Wider than 1800px, Workflow opens in the spine column" },
