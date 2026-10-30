@@ -51,15 +51,15 @@ const NOTHING_DRIFTED: &str = "fleet.workflow_nothing_drifted";
 /// Fleet kept no change by that id. A 404.
 const NO_SUCH_CHANGE: &str = "fleet.no_such_workflow_change";
 /// The change is not ready to approve. A 409.
-const NOT_READY: &str = "fleet.workflow_change_not_ready";
+pub(crate) const NOT_READY: &str = "fleet.workflow_change_not_ready";
 /// The file no longer holds what the change was made from. A 409.
-const CHANGED_SINCE: &str = "fleet.workflow_changed_since";
+pub(crate) const CHANGED_SINCE: &str = "fleet.workflow_changed_since";
 /// The change is drafting or settled, so it cannot be sent back. A 409.
 const NOT_SENDABLE: &str = "fleet.workflow_change_not_sendable";
 /// Only a change Armada can't make yet is built for. A 409.
 const NOT_BUILDABLE: &str = "fleet.workflow_change_not_buildable";
 /// The change is settled already. A 409.
-const SETTLED: &str = "fleet.workflow_change_settled";
+pub(crate) const SETTLED: &str = "fleet.workflow_change_settled";
 /// Fleet does not serve Armada's own repository. A 422.
 const ARMADA_NOT_SERVED: &str = "fleet.workflow_armada_not_served";
 /// The store would not answer. A 500.
@@ -666,7 +666,8 @@ where
 
     async fn change_held(&self, id: i64) -> Result<KeptWorkflowChange, Refusal> {
         let kept = self.store().lock().await.workflow_change(id).map_err(|why| self.change_not_kept(why))?;
-        kept.ok_or_else(|| {
+        // A rule or a lifecycle a Job proposed is held in the same row, and is approved from the Job's draft.
+        kept.filter(|one| one.piece.is_empty()).ok_or_else(|| {
             Refusal::NotFound(WireError::raised(NO_SUCH_CHANGE, format!("no change {id} is kept"), self.run_id()))
         })
     }

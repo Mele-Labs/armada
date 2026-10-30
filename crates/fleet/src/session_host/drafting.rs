@@ -172,12 +172,18 @@ where
     /// A workflow a Job proposed waits on the owner as a draft that names its change. The item
     /// leaves the list when the change is no longer ready, whoever settled it.
     pub(crate) async fn proposal_waits(&self, session: &str, change: i64, workflow: &str, definition: &str, before: Option<String>) {
+        self.proposal_titled(session, change, format!("Workflow {workflow}"), definition, before).await;
+    }
+
+    /// A proposal that waits as a draft named `title`: a rule or a lifecycle is named for what it is, as a
+    /// workflow is.
+    pub(crate) async fn proposal_titled(&self, session: &str, change: i64, title: String, definition: &str, before: Option<String>) {
         self.row_put(
             session,
             SessionRow::Draft {
                 id: self.row_id(session),
                 at: self.instant(),
-                title: format!("Workflow {workflow}"),
+                title,
                 text: definition.to_string(),
                 before,
                 settled: None,

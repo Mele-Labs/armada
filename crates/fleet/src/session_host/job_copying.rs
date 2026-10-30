@@ -73,14 +73,22 @@ fn who_said(by: ChangedBy) -> &'static str {
     }
 }
 
-/// A mark as the wire carries it.
-pub(crate) fn mark_wire(kept: &KeptCopyMark) -> JobCopyChange {
+/// A mark as the wire carries it. **A piece's mark is `dropped` once the copy no longer holds the piece**, which is
+/// how the Job's lanes know there is nothing of it to keep.
+pub(crate) fn mark_wire(kept: &KeptCopyMark, held: &[KeptPiece]) -> JobCopyChange {
+    let holds = |kind, id: &str| held.iter().any(|one| one.kind == kind && one.piece_id == id);
+    let dropped = match kept.lane.as_str() {
+        WORKFLOW_LANE => false,
+        RULE_LANE => !holds(PieceKind::Rule, &kept.item),
+        lifecycle => !holds(PieceKind::Lifecycle, lifecycle),
+    };
     JobCopyChange {
         lane: kept.lane.clone(),
         item: kept.item.clone(),
         text: kept.text.clone(),
         by: who_read(&kept.by),
         at: ipc::Instant::carried(&kept.at),
+        dropped,
     }
 }
 
@@ -185,7 +193,7 @@ where
     }
 
     /// The hosted Job a copy is changed on. A terminal Job has no workflow, and one that ended is closed.
-    async fn copy_hosted(&self, id: &str) -> Result<(KeptSession, KeptHosting), Refusal> {
+    pub(super) async fn copy_hosted(&self, id: &str) -> Result<(KeptSession, KeptHosting), Refusal> {
         if self.terminal_session(id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
@@ -447,7 +455,7 @@ where
             steps,
             lifecycles: piece(PieceKind::Lifecycle),
             rules: piece(PieceKind::Rule),
-            changes: marks.iter().map(mark_wire).collect(),
+            changes: marks.iter().map(|mark| mark_wire(mark, &pieces)).collect(),
         })
     }
 

@@ -3,7 +3,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { ChangeJobCopy, ChangeSessionSteps, DeleteLifecyclePiece, SaveLifecyclePiece } from "@armada/protocol";
+import type { ChangeJobCopy, ChangeSessionSteps, DeleteLifecyclePiece, KeepJobPiece, SaveLifecyclePiece } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -37,6 +37,14 @@ export function deleteOf(body: unknown): DeleteLifecyclePiece | null {
   return { kind, id, ...(scope === undefined ? {} : { scope: scope as DeleteLifecyclePiece["scope"] }) };
 }
 
+/** One rule or lifecycle of a Job's copy to keep for every Job, by the id it declares, or `null` for anything else. */
+export function keepOf(body: unknown): KeepJobPiece | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { session_id, kind, id } = body as Record<string, unknown>;
+  if (!named(session_id) || (kind !== "rule" && kind !== "lifecycle") || !named(id)) return null;
+  return { session_id, kind, id };
+}
+
 export function handleLifecycles({ ipc, connection }: Hosts): void {
   const host = () => connection()?.lifecycles;
   ipc.handle(CHANNELS.listRepositoryWorkspaces, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.workspaces(manifestId) ?? unsent) : unsent));
@@ -60,4 +68,8 @@ export function handleLifecycles({ ipc, connection }: Hosts): void {
     named(change?.session_id) && typeof change?.id === "string" && (named(change.id) || named(change.text)) ? (host()?.piece(change as ChangeJobCopy) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.keepJobWorkflow, (_event, sessionId: unknown) => (named(sessionId) ? (host()?.keep(sessionId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.keepJobPiece, (_event, body: unknown) => {
+    const keep = keepOf(body);
+    return keep === null ? unsent : (host()?.keepPiece(keep) ?? unsent);
+  });
 }

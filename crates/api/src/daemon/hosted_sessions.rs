@@ -303,6 +303,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         keep: ipc::KeepJobWorkflow,
     ) -> impl Future<Output = Result<ipc::WorkflowChange, Refusal>> + Send;
+    /// `keep_job_piece`: one rule or lifecycle the Job changed in its copy, proposed for every Job as a file in
+    /// Kit, waiting on the owner's Approve.
+    fn keep_job_piece(
+        self: Arc<Self>,
+        keep: ipc::KeepJobPiece,
+    ) -> impl Future<Output = Result<ipc::JobPieceProposed, Refusal>> + Send;
     /// `begin_session`: Start pressed on a held Job's start card.
     fn begin_session(
         self: Arc<Self>,

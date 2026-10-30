@@ -7,6 +7,8 @@ import type {
   DeleteLifecyclePiece,
   JobCopy,
   JobLifecycles,
+  JobPieceProposed,
+  KeepJobPiece,
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
@@ -87,6 +89,11 @@ export class LifecyclesHost {
   /** `POST /sessions/copy/keep`. Saves nothing: the change waits on the owner's Approve. */
   keep(sessionId: string): Promise<LifecyclesActed<WorkflowChange>> {
     return this.send("/sessions/copy/keep", { session_id: sessionId });
+  }
+
+  /** `POST /sessions/copy/keep_piece`. Saves nothing: the proposal waits on the owner's Approve on the Job's draft. */
+  keepPiece(body: KeepJobPiece): Promise<LifecyclesActed<JobPieceProposed>> {
+    return this.send("/sessions/copy/keep_piece", body);
   }
 
   private read<T>(path: string): Promise<LifecyclesActed<T>> {

@@ -561,6 +561,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::keep_job_workflow::<D>),
         )
         .route(
+            "/sessions/copy/keep_piece",
+            post(crate::hosted_sessions::keep_job_piece::<D>),
+        )
+        .route(
             "/sessions/begin",
             post(crate::hosted_sessions::begin_session::<D>),
         )

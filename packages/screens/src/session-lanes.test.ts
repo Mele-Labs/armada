@@ -380,6 +380,18 @@ it("draws the rules the Job's copy holds in place of the repository's, and marks
   expect(lanes.job.changes).toEqual([{ id: `rule:ask-review:${AT}`, lane: "rule", item: "ask-review", text: "Added by you", at: AT }]);
 });
 
+it("carries which change took a rule out of the copy, so the lanes offer nothing to keep for it", () => {
+  const own: JobLifecycles = {
+    ...WITH_PULL,
+    changes: [
+      { lane: "rule", item: "ask-at-land", text: "Dropped by you", by: "you", at: AT, dropped: true },
+      { lane: "rule", item: "ask-review", text: "Added by you", by: "you", at: AT },
+    ],
+  };
+  const lanes = lanesOfJob({ held: own, working: false, workflow: { name: "feature", steps: STEPS, at: 0, began: true } })!;
+  expect(lanes.job.changes.map((one) => [one.item, one.dropped])).toEqual([["ask-at-land", true], ["ask-review", undefined]]);
+});
+
 it("marks a step, a rule and a lifecycle lane that the Job's copy changed, each with who made the change", () => {
   const own: JobLifecycles = {
     ...WITH_PULL,

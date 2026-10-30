@@ -511,6 +511,10 @@ where
         self.job_workflow_kept(keep).await
     }
 
+    async fn keep_job_piece(self: Arc<Self>, keep: ipc::KeepJobPiece) -> Result<ipc::JobPieceProposed, Refusal> {
+        self.job_piece_kept(keep).await
+    }
+
     async fn begin_session(self: Arc<Self>, begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {
         self.session_begun(begin).await
     }

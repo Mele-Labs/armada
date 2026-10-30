@@ -126,3 +126,24 @@ fn a_change_armada_cannot_make_keeps_what_it_lacks_is_listed_and_is_dismissed_bu
     let other = store.begin_workflow_change(&asked("repo", "repository"), AT).unwrap();
     assert!(store.workflow_change(other).unwrap().unwrap().missing.is_empty(), "every other change lacks nothing");
 }
+
+#[test]
+fn a_piece_a_job_proposes_is_ready_at_once_is_kept_across_reopens_and_is_no_workflows_change() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let new = store.begin_proposed_piece_change("repo", "rule", "ticket_to_review", "", "id: ticket_to_review\n", AT).unwrap();
+    let replacing = store.begin_proposed_piece_change("repo", "lifecycle", "ticket", "id: ticket\n", "id: ticket\nname: Ticket\n", AT).unwrap();
+    store.begin_workflow_change(&asked("repo", "kit"), AT).unwrap();
+    drop(store);
+    let mut store = open(&dir);
+    let kept = store.workflow_change(new).unwrap().expect("kept");
+    assert_eq!((kept.state.as_str(), kept.piece.as_str(), kept.source.as_str()), (CHANGE_READY, "rule", "kit"));
+    assert_eq!((kept.workflow_id.as_str(), kept.before_text.as_str(), kept.after_text.as_deref()), ("ticket_to_review", "", Some("id: ticket_to_review\n")));
+    assert!(kept.is_new && kept.from_job, "nothing in Kit before it, and a Job proposed it");
+    let replaced = store.workflow_change(replacing).unwrap().expect("kept");
+    assert!(!replaced.is_new, "Kit held a file");
+    assert_eq!(store.workflow_change(replacing + 1).unwrap().expect("kept").piece, "", "a workflow's change holds no piece");
+    assert!(store.open_workflow_changes("ticket_to_review", "kit", "other").unwrap().is_empty(), "a workflow's page never lists a piece");
+    assert!(store.ready_workflow_change_ids().unwrap().contains(&new), "it waits on the owner as a proposal does");
+    assert!(store.workflow_change_dismissed(new, LATER).unwrap());
+}

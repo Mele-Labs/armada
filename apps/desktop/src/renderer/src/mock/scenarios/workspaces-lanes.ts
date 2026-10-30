@@ -292,7 +292,7 @@ function sessions() {
       if (!sent.includes(comment)) sent.push(comment);
       store.edit(id, at(moment));
     },
-    // The person adds to a Job's own copy from its lanes: the lanes draw it at once and mark it as made by them. Keep for every Job is taken, and the mock holds no Workflows proposal for it.
+    // The person adds to a Job's own copy from its lanes: the lanes draw it at once and mark it as made by them. Keep for every Job, for the workflow or for a piece, is taken, and the mock holds no proposal for it.
     copy: {
       step: async (id, change) => {
         if (change.kind !== "add") return "The mock adds a step and nothing else";
@@ -318,6 +318,7 @@ function sessions() {
         return undefined;
       },
       keep: async () => undefined,
+      keepPiece: async () => undefined,
     } satisfies JobCopyActs,
     // The person tells this Job to skip the deploy watch: the Deploy lane marks the change. The message and the reply are stamped on the mock's clock.
     send: (id: string, message: Parameters<typeof store.send>[1]) => {
