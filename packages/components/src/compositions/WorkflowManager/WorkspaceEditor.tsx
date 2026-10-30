@@ -314,7 +314,11 @@ export function WorkspaceEditor({
 
   /** A tab deletes what it added, and the default what the workflow holds. */
   const canDelete = (at: LanePick): boolean => {
-    if (at.kind === "rule") return (workspace.rules.find((one) => one.id === at.id)?.scope ?? DEFAULT) === scope;
+    // A rule the Workspace does not hold, one a change proposes or a draft would keep, has nothing to delete.
+    if (at.kind === "rule") {
+      const found = workspace.rules.find((one) => one.id === at.id);
+      return found !== undefined && (found.scope ?? DEFAULT) === scope;
+    }
     if (at.kind === "lane") return lifecycleDeletable(at.id);
     const { lane, item } = refOf(at.id);
     if (lane === "workflow") return ((place?.added ?? []).find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
@@ -412,7 +416,7 @@ export function WorkspaceEditor({
           key={lifecycle.id}
           lifecycle={lifecycle}
           pending={pendingOf(`lifecycle:${lifecycle.id}`)}
-          named={(lifecycle.scope ?? DEFAULT) === scope}
+          named={(lifecycle.scope ?? DEFAULT) === scope && !(pieces && lifecycle.kept === undefined)}
           onName={(label) => change(withLifecycleLabel(workspace, lifecycle.id, label))}
           onDelete={lifecycleDeletable(lifecycle.id) ? () => remove({ kind: "lane", id: lifecycle.id }) : undefined}
         />
@@ -576,7 +580,7 @@ function Pending({ kind }: { kind: PendingKind }) {
   );
 }
 
-/** A lifecycle: its name, where Fleet reads its states from, and deleting it. A tab that did not add it reads the name and cannot delete it. */
+/** A lifecycle: its name, where Fleet reads its states from, and deleting it. A tab that did not add it reads the name and cannot delete it, and neither can one that no file keeps yet, which only a draft holds. */
 function LifecycleFacts({ lifecycle, pending, named, onName, onDelete }: { lifecycle: LifecycleDef; pending: PendingKind | undefined; named: boolean; onName: (label: string) => void; onDelete: (() => void) | undefined }) {
   const id = useId();
   return (

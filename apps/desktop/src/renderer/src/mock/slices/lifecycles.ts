@@ -105,6 +105,7 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       },
       getJobLifecycles: async (sessionId) => ({ ok: true, value: servedLifecycles.get(sessionId) ?? { session_id: sessionId, lifecycles: [], instances: [], moves: [] } }),
       onJobLifecyclesChanged: (onChanged) => servedLifecycles.listen(onChanged),
+      onKeepDraftsChanged: () => () => undefined,
       getJobCopy: async () => noCopy,
       changeSessionSteps: async () => noCopy,
       changeJobCopy: async () => noCopy,

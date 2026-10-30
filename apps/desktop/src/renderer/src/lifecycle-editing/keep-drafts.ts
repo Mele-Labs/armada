@@ -9,7 +9,7 @@ import type { LifecycleDefinition, LifecycleRule, PieceScope, RuleAct, RuleAmong
 import type { KeepDraft } from "../../../shared/api/lifecycles";
 import { levelOf, lifecycleLayers, ruleLayers } from "./levels";
 import type { PiecesRead } from "./levels";
-import { drawnRule, namedOf } from "./read";
+import { drawnRule, namedOf, workspaceOf } from "./read";
 
 type Table = Record<string, unknown>;
 
@@ -170,6 +170,13 @@ function piece(draft: KeepDraft): { lifecycle: LifecycleDefinition } | { rule: L
 /** The clock of every piece with an open draft, as `rule:<id>` and `lifecycle:<id>`, whether the repository holds the piece or not. */
 export const keepMarks = (drafts: readonly KeepDraft[]): Map<string, PendingKind> => new Map(drafts.map((one) => [`${one.kind}:${one.id}`, "keep" as const]));
 
+/** What every piece with a clock waits on: the drafts that keep it, then the removals a pull request has open, which stand where one piece has both. */
+export function pendingMarks(drafts: readonly KeepDraft[], removing: Iterable<string>): Map<string, PendingKind> {
+  const marks = keepMarks(drafts);
+  for (const key of removing) marks.set(key, "removal");
+  return marks;
+}
+
 /** The read with the lifecycles of its drafts that the repository does not hold, kept as the repository's own so the lanes draw them. */
 export function withDraftLifecycles(read: PiecesRead, drafts: readonly KeepDraft[], repository: string): PiecesRead {
   const held = lifecycleLayers(read);
@@ -194,3 +201,17 @@ export function draftedRules(read: PiecesRead, drafts: readonly KeepDraft[], wor
     return [{ id: found.rule.id, ...fields, kept: "repository", scope: levelOf(found.rule.scope, read.workspace?.id), wire: found.rule, ...(workflow === undefined ? {} : { workflow }) }];
   });
 }
+
+/**
+ * The Workspace the page draws: the read with the lifecycles its drafts would keep. **A lifecycle only a draft holds is kept by no file**, so it carries no `kept`, which is what stops the editor
+ * offering its Name and its Delete: there is no piece to rename or remove, and Approve is what makes one.
+ */
+export function workspaceDrawn(read: PiecesRead, drafts: readonly KeepDraft[], repository: string): Workspace | undefined {
+  const held = lifecycleLayers(read);
+  const workspace = workspaceOf(withDraftLifecycles(read, drafts, repository));
+  const only = new Set(drafts.flatMap((one) => (one.kind === "lifecycle" && !held.has(one.id) ? [one.id] : [])));
+  if (workspace === undefined || only.size === 0) return workspace;
+  return { ...workspace, lifecycles: workspace.lifecycles.map((one) => (only.has(one.id) ? withoutKept(one) : one)) };
+}
+
+const withoutKept = ({ kept: _kept, ...rest }: Workspace["lifecycles"][number]): Workspace["lifecycles"][number] => rest;

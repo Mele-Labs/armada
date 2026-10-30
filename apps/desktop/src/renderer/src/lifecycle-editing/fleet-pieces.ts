@@ -10,7 +10,7 @@ import type { PiecesRead } from "./levels";
 import type { Op, PieceId } from "./write";
 
 /** The calls on Bridge's api the page uses for pieces. */
-export type PiecesApi = Pick<BridgeApi, "commitToRepository" | "deleteLifecyclePiece" | "listKeepDrafts" | "listLifecycleRules" | "listLifecycles" | "listRepositoryWorkspaces" | "saveLifecyclePiece">;
+export type PiecesApi = Pick<BridgeApi, "commitToRepository" | "deleteLifecyclePiece" | "listKeepDrafts" | "listLifecycleRules" | "listLifecycles" | "listRepositoryWorkspaces" | "onKeepDraftsChanged" | "saveLifecyclePiece">;
 
 /** A repository with a Manifest: the id its pieces are read under, the name its tab carries and the root a commit goes to. */
 export type Served = { manifestId: string; name: string; root: string };
@@ -40,10 +40,17 @@ export async function readPieces(api: PiecesApi, current: string, served: readon
   return { ok: true, read: { ...(workspace === undefined ? {} : { workspace }), repositories } };
 }
 
-/** The Keep for every Job drafts of a repository that wait on Approve. A Fleet that serves none, or a read that fails, has none to draw. */
+/** The Keep for every Job drafts of a repository that wait on Approve. A read that fails has none to draw. */
 export async function readKeepDrafts(api: PiecesApi, current: string): Promise<readonly KeepDraft[]> {
-  const answer = await api.listKeepDrafts?.(current);
-  return answer?.ok === true ? answer.value.drafts : [];
+  const answer = await api.listKeepDrafts(current);
+  return answer.ok ? answer.value.drafts : [];
+}
+
+/** Reads again, by `again`, whenever Fleet says the drafts of `current` opened, were approved or were dismissed, and for no other repository's. Returns how to stop. */
+export function followKeepDrafts(api: PiecesApi, current: string, again: () => void): () => void {
+  return api.onKeepDraftsChanged((manifestId) => {
+    if (manifestId === current) again();
+  });
 }
 
 /** What a run of acts came to: done, with the pieces a repository holds that a pull request is removing, or the words that stopped it. `old` is a Fleet that does not serve the route, which is no error to say. */

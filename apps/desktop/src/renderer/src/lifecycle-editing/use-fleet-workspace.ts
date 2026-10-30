@@ -8,12 +8,12 @@ import type { LifecycleRule, PieceToCommit } from "@armada/protocol";
 
 import type { WorkspaceHeld } from "../workspace-draft";
 import type { KeepDraft } from "../../../shared/api/lifecycles";
-import { readKeepDrafts, readPieces, runOps } from "./fleet-pieces";
+import { followKeepDrafts, readKeepDrafts, readPieces, runOps } from "./fleet-pieces";
 import type { PiecesApi, Served } from "./fleet-pieces";
-import { draftedRules, keepMarks, withDraftLifecycles } from "./keep-drafts";
+import { draftedRules, pendingMarks, workspaceDrawn } from "./keep-drafts";
 import { lifecycleLayers, ruleLayers } from "./levels";
 import type { PiecesRead } from "./levels";
-import { landing, namedOf, withDrawn, withPlaces, workspaceOf } from "./read";
+import { landing, namedOf, withDrawn, withPlaces } from "./read";
 import { kitPieceAt, opsFrom, withWires } from "./write";
 import type { PieceId } from "./write";
 
@@ -78,7 +78,7 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
       setDrafts(keeps);
       // A piece the repository no longer holds has gone with the pull request that removed it.
       setRemoving((was) => (was.size === 0 ? was : new Set([...was].filter((key) => stillHeld(answer.read, key)))));
-      if (draw) setShown(workspaceOf(withDraftLifecycles(answer.read, keeps, current)));
+      if (draw) setShown(workspaceDrawn(answer.read, keeps, current));
       return true;
     },
     [current],
@@ -87,6 +87,12 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
   useEffect(() => {
     if (enabled) void reload(true);
   }, [enabled, reload]);
+
+  // A draft opened, approved or dismissed in this repository: Fleet says so, and the drafts and the files Approve saved are read again. A change being saved redraws when it is done.
+  useEffect(() => {
+    if (!enabled || current === null) return;
+    return followKeepDrafts(latest.current.api(), current, () => void reload(waiting.current === 0));
+  }, [enabled, current, reload]);
 
   const workspace = useMemo(() => (shown === undefined ? undefined : withPlaces(shown, workflows)), [shown, workflows]);
   const drawn = useRef(workspace);
@@ -115,7 +121,7 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
           await reload(false);
         } finally {
           waiting.current -= 1;
-          if (waiting.current === 0 && open.current && latest.current.read !== undefined) setShown(workspaceOf(withDraftLifecycles(latest.current.read, latest.current.drafts, current ?? "")));
+          if (waiting.current === 0 && open.current && latest.current.read !== undefined) setShown(workspaceDrawn(latest.current.read, latest.current.drafts, current ?? ""));
         }
       });
     },
@@ -126,11 +132,7 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
     () => (workspace === undefined ? undefined : { workspace, change, ask: () => undefined, add: (rule) => change({ ...workspace, rules: [...workspace.rules, rule] }) }),
     [workspace, change],
   );
-  const pending = useMemo<ReadonlyMap<string, PendingKind>>(() => {
-    const marks = new Map<string, PendingKind>(keepMarks(drafts));
-    for (const key of removing) marks.set(key, "removal");
-    return marks;
-  }, [drafts, removing]);
+  const pending = useMemo<ReadonlyMap<string, PendingKind>>(() => pendingMarks(drafts, removing), [drafts, removing]);
   const drafted = useMemo(() => (read === undefined || workspace === undefined ? [] : draftedRules(read, drafts, workspace)), [read, drafts, workspace]);
   const pieceAt = useCallback<FleetWorkspace["pieceAt"]>(
     (pick, tab) => {
