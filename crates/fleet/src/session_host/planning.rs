@@ -14,12 +14,14 @@ use ipc::{
     ApprovePlan, Instant, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
     SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError,
 };
-use store::KeptPlan;
+use store::{Holder, KeptPlan};
 
 use crate::daemon::Fleet;
+use crate::plan_issues::name_the_tickets;
 use crate::plan_marks;
 use crate::plan_record::recorded;
 use crate::session_host::asking::answers_a_question;
+use crate::session_issues::ISSUE;
 use crate::session_host::walking;
 use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
 
@@ -162,7 +164,7 @@ where
         record: RecordPlan,
         seen: bool,
     ) -> Result<SessionRecord, Refusal> {
-        let checked = record.checked().map_err(|why| self.hosted_refusal(PLAN_REFUSED, &why))?;
+        let mut checked = record.checked().map_err(|why| self.hosted_refusal(PLAN_REFUSED, &why))?;
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
             .or_else(|| record.session_id.map(|named| named.as_str().trim().to_string()))
@@ -192,6 +194,18 @@ where
                 Some(named)
             }
         };
+        // A group the agent named no issue for takes the one ticket of the Job's its words name.
+        let tickets: Vec<String> = self
+            .store()
+            .lock()
+            .await
+            .attachments_of(&Holder::session(&id))
+            .map_err(|why| self.ledger_fault(why))?
+            .into_iter()
+            .filter(|row| row.kind == ISSUE && row.state != store::AttachmentState::GivenBack)
+            .map(|row| row.target)
+            .collect();
+        name_the_tickets(&mut checked.groups, &tickets);
         let now = self.now().as_str().to_string();
         let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
         let version = kept.version;

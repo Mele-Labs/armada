@@ -128,6 +128,7 @@ mod session_finish_up;
 mod session_host;
 mod session_mcp;
 mod plan_held;
+mod plan_issues;
 mod plan_lands_in;
 mod plan_asks;
 mod session_plan;
