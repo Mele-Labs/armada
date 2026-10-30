@@ -36,7 +36,7 @@ fn every_act() -> Vec<RuleAct> {
         RuleAct::ForgeAutoMerge { target: entered() },
         RuleAct::Draft { template: "review ask".to_string(), target: entered() },
         RuleAct::StartJob { workflow: Some("bug".to_string()), prompt: "fix it".to_string() },
-        RuleAct::StartWatch { recipe: "checks-on-a-commit".to_string(), values: BTreeMap::new() },
+        RuleAct::StartWatch { recipe: "checks-on-a-commit".to_string(), values: BTreeMap::new(), deploy: None },
         RuleAct::Tell { message: "approved".to_string() },
         RuleAct::Wake,
         RuleAct::RunCommand { command: "test".to_string() },
