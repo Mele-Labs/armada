@@ -11,8 +11,8 @@
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{
-    Backlog, BeadState, CopyMark, FromOutside, IssueField, IssueWrite, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
-    TrackerWrites,
+    Backlog, BeadState, CopyMark, FromOutside, IssueField, IssueWrite, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState,
+    Tracker, TrackerWrites,
 };
 
 use crate::delivery::{last_line, said};
@@ -20,6 +20,12 @@ use crate::jira_tracker::{missing, Process, Run};
 use crate::under_review::as_written;
 
 pub(crate) const PROVIDER: &str = "beads";
+
+/// What beads calls the ticket's states. **Its statuses are fixed**, so the words are Armada's to
+/// give: `blocked` and `deferred` are no step of the ticket's way and stay unmapped, and none of
+/// beads' five says In review.
+pub(crate) const TICKET_WORDS: &[(TicketState, &str)] =
+    &[(TicketState::ToDo, "open"), (TicketState::InProgress, "in_progress"), (TicketState::Closed, "closed")];
 
 /// How much of a description the list carries, in characters.
 const EXCERPT: usize = 240;

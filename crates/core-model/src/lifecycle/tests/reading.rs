@@ -31,6 +31,43 @@ fn the_ticket_armada_carries_lists_only_closed_so_every_other_status_is_unmapped
 }
 
 #[test]
+fn a_tracker_that_declares_words_gives_the_ticket_them_and_one_that_declares_none_leaves_it_as_carried() {
+    let declared = [("todo", "open"), ("in_progress", "in_progress"), ("closed", "closed")];
+    let worded = Lifecycle::ticket_reading(&declared);
+    for (status, state) in [("open", "todo"), ("in_progress", "in_progress"), ("closed", "closed")] {
+        assert_eq!(worded.standing_of(&Observed::Tracker(status)), Standing::In(id(state)), "{status}");
+    }
+    // What the tracker did not declare stays a fact of its own, and so does every other word.
+    for other in ["blocked", "deferred", "Open"] {
+        assert_eq!(worded.standing_of(&Observed::Tracker(other)), Standing::Unmapped(text(other)), "{other}");
+    }
+    assert_eq!(Lifecycle::ticket_reading(&[]), Lifecycle::ticket());
+    assert_eq!(Lifecycle::built_in_reading(&[]), Lifecycle::built_in());
+}
+
+#[test]
+fn a_declared_word_that_is_blank_repeated_or_claimed_by_two_states_is_left_out_and_the_rest_stand() {
+    let worded = Lifecycle::ticket_reading(&[
+        ("todo", "open"),
+        ("todo", " open "),
+        ("todo", "  "),
+        ("in_progress", "shared"),
+        ("closed", "shared"),
+        ("closed", "closed"),
+        ("no_such_state", "ghost"),
+        ("in_review", "closed"),
+    ]);
+    assert_eq!(standing(&worded, "open"), Standing::In(id("todo")), "a word repeated on one state is kept once");
+    assert_eq!(standing(&worded, "closed"), Standing::In(id("closed")), "the word the ticket carries is never the one left out");
+    assert_eq!(standing(&worded, "shared"), Standing::Unmapped(text("shared")), "two states claim it, so neither does");
+    assert_eq!(standing(&worded, "ghost"), Standing::Unmapped(text("ghost")));
+}
+
+fn standing(lifecycle: &Lifecycle, status: &str) -> Standing {
+    lifecycle.standing_of(&Observed::Tracker(status))
+}
+
+#[test]
 fn a_fact_from_the_forge_a_watch_or_fleet_lands_in_the_state_that_stands_for_it() {
     assert_eq!(
         Lifecycle::pull_request().standing_of(&Observed::Forge(ForgeFact::Approved)),

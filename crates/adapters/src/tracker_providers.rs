@@ -12,8 +12,8 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    Backlog, IssueAddress, IssueWrite, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled,
-    Tracker, TrackerChoice, TrackerWrites, Trackers,
+    Backlog, IssueAddress, IssueWrite, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState, Tool,
+    ToolInstalled, Tracker, TrackerChoice, TrackerWrites, Trackers,
 };
 
 use crate::beads_tracker::{self, BeadsTracker};
@@ -86,12 +86,26 @@ impl Trackers for TrackersByProvider {
         backlog_over(choice)
     }
 
+    fn ticket_words(&self, choice: &TrackerChoice) -> &'static [(TicketState, &'static str)] {
+        ticket_words_over(choice)
+    }
+
     fn writer(&self, choice: &TrackerChoice) -> Arc<dyn TrackerWrites + Send + Sync> {
         writer_over(choice, None)
     }
 
     fn install(&self, tool: Tool, in_repo: &str) -> ToolInstalled {
         crate::tool_install::installed(&Process, tool, std::path::Path::new(in_repo))
+    }
+}
+
+/// The words the tracker `choice` names uses for the ticket's states: beads' alone. **Every other
+/// answers none**, a block that could not be honoured and a tracker mod included, so a repository
+/// on one reads as it did before a tracker could declare any.
+pub(crate) fn ticket_words_over(choice: &TrackerChoice) -> &'static [(TicketState, &'static str)] {
+    match chosen(choice) {
+        Chosen::Beads => beads_tracker::TICKET_WORDS,
+        _ => &[],
     }
 }
 

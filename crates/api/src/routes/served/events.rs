@@ -106,6 +106,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed, with its repository alone.
+    Route {
+        operation: "keep_drafts.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A background act failed after its reply.
     Route {
         operation: "act.failed",

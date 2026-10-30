@@ -335,7 +335,8 @@ pub struct SessionPlanGroup {
     pub paths: Vec<String>,
     pub tasks: Vec<SessionPlanTask>,
     /// The issue the group works, as the ledger's `issue` row names it: digits or a tracker's key.
-    /// Absent where it names none.
+    /// Absent where it names none. **Fleet fills it** where the agent sent none and the group's title or
+    /// tasks write exactly one ticket the Job holds, and never over one the agent sent.
     #[serde(
         default,
         deserialize_with = "crate::issue_reference::number_or_text",

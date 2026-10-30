@@ -167,17 +167,21 @@ test("opening a pull request's call draws the side panel, and nothing on the dec
 const past = (id: string, how: "quiet" | "ended", at: number, older = false): Subject => ({ ...subject("session", id), past: how, at, ...(older ? { older: true } : {}) }) as Subject;
 const scoped = (): Ship =>
   ({
-    subjects: [subject("session", "live-two"), subject("session", "live"), past("quiet-new", "quiet", 300), past("ended-old", "ended", 100), past("ended-new", "ended", 200), past("ended-ancient", "ended", 1, true)],
+    subjects: [subject("session", "live-two"), subject("session", "live"), { ...subject("session", "parked"), paused: true } as Subject, past("quiet-new", "quiet", 300), past("ended-old", "ended", 100), past("ended-new", "ended", 200), past("ended-ancient", "ended", 1, true)],
     running: new Set(),
     mains: [],
     prs: [],
     calls: [],
   }) as unknown as Ship;
-const scope = (which: "active" | "quiet" | "ended" | "all", rest: { found?: ReadonlyMap<string, unknown>; open?: string } = {}) => listOf(scoped(), { ...deckNow(), scope: which, ...rest }).map((one) => one.id);
+const scope = (which: "active" | "paused" | "quiet" | "ended" | "all", rest: { found?: ReadonlyMap<string, unknown>; open?: string } = {}) => listOf(scoped(), { ...deckNow(), scope: which, ...rest }).map((one) => one.id);
 
-test("Active lists the live Sessions and no past one", () => {
+test("Active lists the live Sessions and no past or paused one", () => {
   expect(scope("active")).not.toContain("quiet-new");
   expect(scope("active").sort()).toEqual(["live", "live-two"]);
+});
+
+test("Paused lists the paused Jobs and nothing else", () => {
+  expect(scope("paused")).toEqual(["parked"]);
 });
 
 test("Quiet and Ended list their own Sessions, newest first, and an ended one past the week is left off", () => {
@@ -187,8 +191,8 @@ test("Quiet and Ended list their own Sessions, newest first, and an ended one pa
 
 test("All lists the live ones and then every past one, newest first", () => {
   const all = scope("all");
-  expect(all.slice(0, 2).sort()).toEqual(["live", "live-two"]);
-  expect(all.slice(2)).toEqual(["quiet-new", "ended-new", "ended-old"]);
+  expect(all.slice(0, 3).sort()).toEqual(["live", "live-two", "parked"]);
+  expect(all.slice(3)).toEqual(["quiet-new", "ended-new", "ended-old"]);
 });
 
 test("a search narrows the list to what it found, and it is the only way to a Session past the week", () => {
@@ -201,6 +205,7 @@ test("a search narrows the list to what it found, and it is the only way to a Se
 test("the Job open on the stage stays in the list, whatever the scope", () => {
   expect(scope("ended", { open: "session:quiet-new" })).toEqual(["ended-new", "ended-old", "quiet-new"]);
   expect(scope("active", { open: "session:ended-old" })).toContain("ended-old");
+  expect(scope("active", { open: "session:parked" })).toContain("parked");
 });
 
 test("the scope is remembered across a new window, and choosing one starts the list from its first page", () => {

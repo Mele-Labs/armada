@@ -44,7 +44,20 @@ const ASKING: Session = {
   waitingFor: [{ id: "ask:grid:0", text: "Which grid should the stage use?", since: ago(5), source: "ask_card", options: [{ label: "Twelve columns" }, { label: "Sixteen columns" }] }],
 };
 
-const MINE = new Set([RUNNING.id, ASKING.id]);
+const PARKED: Session = {
+  id: "5a1d7c92-8e34-4b60-9f2a-3c6b0e1d4a87",
+  title: "Move the dock handle",
+  manifestId: OWNER,
+  cwd: ROOT,
+  turn: { state: "idle" },
+  standing: "idle",
+  paused: true,
+  lastTurnAt: ago(90),
+  rows: [],
+  attachments: [{ kind: "branch", name: "fix/dock-handle", slot: 6 }],
+};
+
+const MINE = new Set([RUNNING.id, ASKING.id, PARKED.id]);
 
 function build(): Scenario {
   const base = holding("pausing-a-session", "The flight deck with one working Session and one waiting on him, each holding a slot and a branch");
@@ -53,7 +66,7 @@ function build(): Scenario {
     state: { ...base.state, repository: null },
     draft: {
       sessions: () => {
-        const store = sessionsStore([RUNNING, ASKING]);
+        const store = sessionsStore([RUNNING, ASKING, PARKED]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];
         const closed = new Set<string>();

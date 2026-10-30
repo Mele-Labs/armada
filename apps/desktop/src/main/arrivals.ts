@@ -70,7 +70,7 @@ export interface ArrivalHost {
   /** The bugs agents reported, told whole after one is made, kept or dropped — `bug-reports.ts`. */
   readonly bugReports: Pick<BugReportsHost, "changed">;
   /** One Job's lifecycles, told whole after an instance is taken on or moves — `lifecycles.ts`. */
-  readonly lifecycles: Pick<LifecyclesHost, "changed">;
+  readonly lifecycles: Pick<LifecyclesHost, "changed" | "keepDraftsChanged">;
   /** The agents' sign-in, told when Fleet moves it and read once per connection — `agent-sign-in.ts`. */
   readonly agentSignIn: Pick<AgentSignInHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
@@ -331,6 +331,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...held } = event;
     host.lifecycles.changed(held);
+    return;
+  }
+  if (event.kind === "keep_drafts.changed") {
+    // Above the tail for `model_downshift.changed`'s reason: no Job to find. It names a repository and carries no draft, which a window reads again.
+    host.publish({ connection });
+    host.lifecycles.keepDraftsChanged(event.manifest_id);
     return;
   }
   if (event.kind === "agent_sign_in.changed") {

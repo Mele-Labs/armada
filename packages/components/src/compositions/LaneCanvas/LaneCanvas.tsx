@@ -35,7 +35,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
 import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, withToolbar, type Placement, type Rect } from "./layout";
-import { REMOVAL_WAITS } from "./model";
+import { PENDING_SAID } from "./model";
 import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
 
 /**
@@ -224,6 +224,8 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
         return (
           <div
             key={lane.id}
+            role="group"
+            aria-label={lane.title}
             className="armada-lane__head"
             data-kind={lane.kind}
             data-picked={picked || undefined}
@@ -243,10 +245,10 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
             ) : (
               words
             )}
-            {lane.pending === true ? (
+            {lane.pending !== undefined ? (
               <span className="armada-lane__pending">
-                <Tooltip label={REMOVAL_WAITS}>
-                  <span role="img" aria-label={REMOVAL_WAITS}>
+                <Tooltip label={PENDING_SAID[lane.pending]}>
+                  <span role="img" aria-label={PENDING_SAID[lane.pending]}>
                     <Clock size={14} strokeWidth={2} aria-hidden="true" />
                   </span>
                 </Tooltip>
@@ -441,7 +443,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
 
 /** The mark on a rule's chip: how it ended on a Job, or how much it may do alone in the editor. Acts alone carries none. */
 function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefined {
-  if (rule.pending === true) return { Glyph: Clock, said: REMOVAL_WAITS };
+  if (rule.pending !== undefined) return { Glyph: Clock, said: PENDING_SAID[rule.pending] };
   if (rule.proposed === true) return { Glyph: ListPlus, said: "Proposed" };
   if (rule.needs !== undefined) return { Glyph: MessageCircleQuestion, said: "Waiting on you" };
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };

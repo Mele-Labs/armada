@@ -230,6 +230,23 @@ pub struct ToolInstalled {
     pub said: String,
 }
 
+/// The states of the Ticket lifecycle Armada carries, for a tracker to name its own words for.
+///
+/// **Only these four**: a state a person adds to a lifecycle of their own is theirs to map, and a
+/// tracker cannot know it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TicketState {
+    ToDo,
+    InProgress,
+    InReview,
+    Closed,
+}
+
+impl TicketState {
+    /// Each, in the order a ticket moves through them.
+    pub const ALL: [TicketState; 4] = [TicketState::ToDo, TicketState::InProgress, TicketState::InReview, TicketState::Closed];
+}
+
 /// Reading a repository's issues.
 ///
 /// **No method writes.** Nothing comments on an issue, moves its labels, edits
@@ -330,6 +347,16 @@ pub trait Trackers {
     fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync>;
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync>;
+
+    /// The words the tracker `choice` names uses for a [`TicketState`], as [`ReadIssue`]'s `Status`
+    /// writes them: what an issue reads as, and what a move to that state writes back. **None by
+    /// default**, so a tracker whose statuses are the project's own (Jira's, a taught one) leaves
+    /// every word unmapped until a Workspace or repository lifecycle lists them. Answered from the
+    /// choice alone, as [`backlog`](Trackers::backlog) is, so it runs no process and reads no network.
+    fn ticket_words(&self, choice: &TrackerChoice) -> &'static [(TicketState, &'static str)] {
+        let _ = choice;
+        &[]
+    }
 
     /// What writes to and syncs the tracker `choice` names, **where it is one Fleet writes to**.
     /// `None` for every other: a forge and Jira are read only.

@@ -54,12 +54,14 @@ impl Reading<'_> {
     }
 }
 
-/// The Job's instances of the end's lifecycle, each as reached or pending.
+/// The Job's instances of the end's lifecycle, each as reached or pending. **One it handed to another
+/// Job is neither**: nothing more will be read of it here, so it would be pending for good, and it is
+/// the other Job's to wait on.
 pub(crate) fn read<'a>(end: &LifecycleEnd, lifecycle: &Lifecycle, held: &'a Held) -> Reading<'a> {
     let (reached, pending) = held
         .instances
         .iter()
-        .filter(|one| one.lifecycle == end.lifecycle().as_str())
+        .filter(|one| one.lifecycle == end.lifecycle().as_str() && one.handed_to.is_empty())
         .partition(|one| has_reached(end.state(), lifecycle, one, &held.moves));
     Reading { reached, pending }
 }
