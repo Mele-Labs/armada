@@ -121,8 +121,8 @@ export type SessionAttachment =
   | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
   /**
    * A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's.
-   * `group` is the plan group it was handed from, which makes it a linked Session drawn on that group and in the Ledger's Linked section (`linkedOf`).
-   * Every Session started from another stands under it in Work, group or none.
+   * `group` is the plan group it was handed from, which draws it on that group's row. Every Session started from another is a linked Session (`linkedOf`)
+   * and stands under it in Work, group or none.
    */
   | { kind: "started_to"; id: string; group?: string }
   | { kind: "started_by"; id: string; group?: string }
@@ -707,8 +707,8 @@ export type SessionAsk = {
   questions?: readonly SessionQuestion[];
   /** The absolute path past the session's slots it asked about, which the "always" answers name a folder of. */
   reaches?: string;
-  /** Whether the call reads that path or writes to it. */
-  reachesTo?: "read" | "write";
+  /** Whether the call reads that path, writes to it, or runs something the guard cannot class. */
+  reachesTo?: "read" | "write" | "run";
   /** The Bash call's program and script, which "Allow calls like this for this job" allows a width of. */
   kind?: CallKind;
 };
@@ -1115,12 +1115,12 @@ export function isBlank(session: Session): boolean {
   return session.blank ?? (session.attachments.length === 0 && session.rows.length === 0);
 }
 
-/** The Sessions a parent follows: those its plan groups were handed to, with the group each came from. */
-export function linkedOf(sessions: readonly Session[], parent: Session): { session: Session; group: string }[] {
+/** The Sessions a parent follows: every one its agent started, with the plan group each was handed when it was handed one. */
+export function linkedOf(sessions: readonly Session[], parent: Session): { session: Session; group?: string }[] {
   return parent.attachments.flatMap((one) => {
-    if (one.kind !== "started_to" || one.group === undefined) return [];
+    if (one.kind !== "started_to") return [];
     const session = sessions.find((other) => other.id === one.id);
-    return session === undefined ? [] : [{ session, group: one.group }];
+    return session === undefined ? [] : [{ session, ...(one.group === undefined ? {} : { group: one.group }) }];
   });
 }
 

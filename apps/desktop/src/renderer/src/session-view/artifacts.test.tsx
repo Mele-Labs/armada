@@ -69,6 +69,16 @@ test("the Sessions it handed a plan group to are a group, each naming its group 
   expect(artifactsOf(session, []).find((one) => one.id === "session")).toBeUndefined();
 });
 
+test("a Job it started outside its plan is listed under Jobs too, with no group under its title", () => {
+  const session = parent([{ kind: "started_to", id: "c1", group: "g1" }, { kind: "started_to", id: "c2" }]);
+  const outside = { ...child, id: "c2", title: "Seed the test database" } as unknown as Session;
+  const group = artifactsOf(session, [], { sessions: [session, child, outside], open: () => undefined }).find((one) => one.id === "session")!;
+  expect(group.rows.map((one) => [one.title, one.sub])).toEqual([
+    ["Migrations get names", "Name the migrations"],
+    ["Seed the test database", undefined],
+  ]);
+});
+
 test("the Jobs it handed plan groups to are the first group, ahead of the pull requests", () => {
   const session = parent([
     { kind: "pull_request", number: 7, title: "Retry the lease", branch: "armada/retry", address: "https://forge/7", checks: { state: "passed" }, state: "open", auto: false },

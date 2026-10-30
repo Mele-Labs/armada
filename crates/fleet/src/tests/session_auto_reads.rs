@@ -384,3 +384,38 @@ fn a_sed_that_prints_is_a_read_and_one_that_edits_in_place_is_a_write() {
         assert_eq!(reaching(line), Some(ipc::ReachesTo::Write), "{line} should ask to write");
     }
 }
+
+#[test]
+fn a_command_the_guard_cannot_class_asks_to_run_and_never_to_write() {
+    let reaching = |line: &str| {
+        let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: line } }).expect("an ask");
+        let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+        match guarded_in_a_session(&ask, &[SLOT], Own::default(), Folders::default()) {
+            Some(Guarded::Because { to, .. }) => to,
+            _ => None,
+        }
+    };
+    for line in ["cat /Users/user/Documents/plan.md", "grep -n x /Users/user/Documents/plan.md | head"] {
+        assert_eq!(reaching(line), Some(ipc::ReachesTo::Read), "{line} should ask to read");
+    }
+    for line in [
+        "echo x > /Users/user/Documents/plan.md",
+        "echo x >> /Users/user/Documents/plan.md",
+        "cp /tmp/plan.md /Users/user/Documents/plan.md",
+        "tee /Users/user/Documents/plan.md < /tmp/plan.md",
+        "touch /Users/user/Documents/plan.md",
+        "mkdir /Users/user/Documents/plans",
+        "sed -i 's/a/b/' /Users/user/Documents/plan.md",
+        "perl -pi -e 's/a/b/' /Users/user/Documents/plan.md",
+    ] {
+        assert_eq!(reaching(line), Some(ipc::ReachesTo::Write), "{line} should ask to write");
+    }
+    for line in [
+        "node tidy.mjs /Users/user/Documents/plan.md",
+        "python3 -I count.py /Users/user/Documents/plan.md",
+        "make -C /Users/user/Documents",
+        "git -C /Users/user/Documents log --oneline",
+    ] {
+        assert_eq!(reaching(line), Some(ipc::ReachesTo::Run), "{line} should ask to run");
+    }
+}
