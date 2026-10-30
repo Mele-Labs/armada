@@ -91,6 +91,16 @@ fn a_body_past_the_bound_is_cut_and_says_so() {
 }
 
 #[test]
+fn a_body_of_600_kb_arrives_whole_under_the_file_cap() {
+    let body = "x".repeat(600 * 1000);
+    let (url, server) = serve_once(answer("200 OK", "", &body));
+    let came = sender().send(get(&url, None), 16 * 1024 * 1024).expect("answered");
+    server.join().unwrap();
+    assert_eq!(came.body.len(), body.len());
+    assert!(!came.truncated);
+}
+
+#[test]
 fn a_refused_connection_and_a_silent_server_are_failures_a_person_can_read() {
     let closed = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", closed.local_addr().unwrap());

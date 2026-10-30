@@ -747,7 +747,7 @@ Bridge's half is `packages/protocol/src/requests.ts` and the `requested` and `sa
 | `save_request_environment` (`POST /requests/environments`, `No`) | Bridge sends one environment whole | `SaveRequestEnvironment` `{ repository?, session_id?, environment }`, each variable a `VariableWrite`, **the one type holding a secret's value**; answers `Requests`. 422 `fleet.request_environment_refused`, 409 `fleet.requests_unread`, 500 `fleet.requests_unwritable` or `fleet.request_secret_unkept` |
 | `delete_request_environment` (`POST /requests/environments/delete`, `No`) | Bridge sends one environment's name | `DeleteRequestEnvironment` `{ repository?, session_id?, name }`; answers `Requests`. 404 `fleet.no_such_request_environment` where the person's own holds none of that name, 409 `fleet.requests_unread`, 500 `fleet.requests_unwritable` or `fleet.request_secret_unkept` |
 | `save_request_to_collection` (`POST /requests/collections/request`, `Yes`) | An agent sends | `SaveRequestToCollection` `{ session_id?, collection, request }`, `collection` an id or a name and `request` a `RequestToSave` `{ name, method, url, headers[], body? }`; answers `RequestSaved` `{ collection_id, request_id }` |
-| `send_request` (`POST /requests/send`, `Yes`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, repository?, saved? \| method, url, collection?, environment?, headers[], body? }`, `saved` being `{ collection, request }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, error?, note? }`. 422 `fleet.request_refused`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
+| `send_request` (`POST /requests/send`, `Yes`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, repository?, saved? \| method, url, collection?, environment?, headers[], body? }`, `saved` being `{ collection, request }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, error?, note?, saved? }`, `saved` a `RequestBodySaved` `{ path, bytes, truncated }` on an agent's send alone. 422 `fleet.request_refused`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
 | `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated? }`, `by` one of `owner`, `agent`; `cookie_host` and `kept_header` are gone |
 | `SessionRow::Saved` (`kind: "saved"`) | Fleet writes, Bridge reads | `{ id, at, name, collection, collection_id, request }`, `request` the saved request's id |
 
@@ -775,6 +775,10 @@ A value shorter than six characters is not hidden, as a kept cookie's was not, s
 
 **Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door, Helm's and a request naming nobody are an agent's.
 An agent's answer drops `set-cookie` and is cut at 32 KiB, and the agent is not told what it already holds.
+**An agent's whole body is saved**, since 30 Oct 2026: read off the wire to 16 MiB, secrets hidden over all of it, and written to `requests/<row id>.json` or `.txt` under the Job's scratch folder, which goes when the Job ends.
+`saved` names the file, the bytes written and whether the body ran past 16 MiB; a write that fails leaves it out and says why in `note`.
+Only a Job whose thread is open gets a file, so a name Fleet does not know never becomes a path.
+`saved` is optional and Bridge sends only as the owner, so a Bridge without the field reads every answer it is sent.
 An owner's send with a Job open writes the row and tells that Job's agent, in the shape a run's end is told.
 An agent's `save_request_to_collection` writes a `saved` row and tells the agent nothing.
 
@@ -783,6 +787,7 @@ Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge
 
 **The event stream.** A `requested` or `saved` row is published as `session.row` like any other, and nothing new.
 The open risk below is unchanged by this rewrite: a `requested` row still carries up to 16 KiB of answer and 64 KiB of request body, and a `saved` row is small.
+The saved body goes to a file and never to the stream, so it leaves the risk where it was.
 
 ## One file a Job wrote, as its change: `get_session_file_change`
 

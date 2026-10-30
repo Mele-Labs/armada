@@ -2,8 +2,8 @@
 //! and the reads and saves of a repository's collections and environments.
 //!
 //! **The owner's send is told to the Job's agent**, in place of Fleet's message as a run's end is;
-//! **the agent's own send and save are only kept**, since it holds the answer. A send that places
-//! no Job writes nothing.
+//! **the agent's own send and save are only kept**, since it holds the answer, and its send's whole
+//! body is saved in the Job's scratch folder. A send that places no Job writes nothing.
 
 use std::sync::Arc;
 
@@ -107,10 +107,10 @@ where
         hosted.is_ok_and(|(session, _)| session.state != store::SessionState::Ended)
     }
 
-    /// Where `job` is a Job Fleet knows, its thread keeps the row and an owner's send is told.
-    /// **Best effort**: the answer is the caller's whether or not the thread took it.
-    async fn request_kept(self: &Arc<Self>, job: &str, done: &Sent) {
-        let row = done.row(self.row_id(job), self.instant());
+    /// Where `job` is a Job Fleet knows, its thread keeps the row under `id` and an owner's send
+    /// is told. **Best effort**: the answer is the caller's whether or not the thread took it.
+    async fn request_kept(self: &Arc<Self>, job: &str, id: String, done: &Sent) {
+        let row = done.row(id, self.instant());
         match done.by {
             RequestBy::Owner => {
                 let _ = self.told_by_fleet_as(job, &done.told(), row).await;
@@ -144,8 +144,18 @@ where
         let root = self.requests_root(send.repository.as_deref(), job.as_deref()).await?;
         let filling = self.filling_for(root.as_deref(), job.as_deref()).await?;
         let requests = self.requests().clone();
+        let id = job.as_deref().map(|job| self.row_id(job));
+        // The file is named for the row, and only a Job still open has a scratch folder to keep it.
+        let save_in = match (by, job.as_deref(), id.clone()) {
+            (RequestBy::Agent, Some(job), Some(id)) if self.thread_open(job).await => Some((self.scratch_of(job), id)),
+            _ => None,
+        };
         let done = tokio::task::spawn_blocking(move || {
-            sent(&*requests.sender, &*requests.secrets, by, &send, &filling, &Bounds::shipped())
+            let mut done = sent(&*requests.sender, &*requests.secrets, by, &send, &filling, &Bounds::shipped())?;
+            if let Some((folder, id)) = save_in {
+                done.save_body(&folder, &id);
+            }
+            Ok::<Sent, Unsent>(done)
         })
         .await
         .map_err(|why| Refusal::Fault(WireError::raised(REQUEST_UNSENT, why.to_string(), self.run_id())))?
@@ -153,8 +163,8 @@ where
             Unsent::Refused(why) => Refusal::Unacceptable(WireError::raised(REQUEST_REFUSED, why, self.run_id())),
             Unsent::Unkept(why) => Refusal::Fault(WireError::raised(SECRET_UNKEPT, why, self.run_id())),
         })?;
-        if let Some(job) = job {
-            self.request_kept(&job, &done).await;
+        if let (Some(job), Some(id)) = (job, id) {
+            self.request_kept(&job, id, &done).await;
         }
         Ok(done.answer)
     }

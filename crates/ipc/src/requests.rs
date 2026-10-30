@@ -178,9 +178,27 @@ pub struct RequestSent {
     /// Why nothing answered: refused, timed out, a name that did not resolve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name.
+    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name, and a body
+    /// that was not saved.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// Where an agent's send saved the whole body. Absent on the owner's send and where the write
+    /// failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved: Option<RequestBodySaved>,
+}
+
+/// An answer's whole body, secrets as `{{name}}`, in a file under the Job's scratch folder, which
+/// goes when the Job ends.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestBodySaved {
+    /// The file's absolute path.
+    pub path: String,
+    /// The bytes written.
+    pub bytes: u64,
+    /// Whether the body ran past the file's own cap, so the file holds its start.
+    #[serde(default)]
+    pub truncated: bool,
 }
 
 /// A request kept in a collection. `id` is unique within its collection.
