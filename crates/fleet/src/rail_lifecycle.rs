@@ -143,3 +143,19 @@ pub(crate) fn woke(
     };
     format!("Fleet: {what}. That ends the \"{step}\" step of this Job's {workflow} workflow.")
 }
+
+/// The line that wakes the agent on leaving `step`, where one of the step's ends has come. **`None` where
+/// nothing got there**: a step the person skipped or wrote on first, or one that waits on no lifecycle.
+pub(crate) fn woken(
+    step: &RailStep,
+    workflow: &str,
+    lifecycles: &[Lifecycle],
+    held: &Held,
+    name: &dyn Fn(&KeptInstance) -> String,
+) -> Option<String> {
+    step.lifecycle_ends().find_map(|end| {
+        let lifecycle = lifecycles.iter().find(|one| one.id() == end.lifecycle())?;
+        let reading = read(end, lifecycle, held);
+        reading.met(end.waits()).then(|| woke(&step.label, workflow, end, lifecycle, &reading, name))
+    })
+}

@@ -16,8 +16,8 @@
 //! |---|---|
 //! | A ticket reads in the words of the Workspace's tracker, a status no state lists is unmapped, and a step's move (To do to In progress) is one the lifecycle expects | That a deploy is taken on when a rule's watch starts it. Its watch's reading already reaches it, and taking it on has no start until a rule starts the watch. Carried by Rules engine |
 //! | Fleet reads a ticket's status from the tracker, a pull request's state from the forge, a deploy's from a watch and a Job's from its own events, and keeps a move only when the standing changed (`lifecycles/readers.rs`) | That a step starting moves the ticket: a rule whose When is the step starting, whose If reads the linked instances and whose Do is the move. Carried by Rules engine |
-//! | | That the move waits as one item in Needs you while the rule's autonomy is Asks, which is the default for a write to the tracker or the forge, and is made at once when the rule is set to Acts. Carried by Autonomy and Asks in Needs you |
-//! | Approval is a state of the pull request read from the forge alone, reaching it is reported once, it is not an end, and a pull request knows its tickets | That a step ends on `pr: approved`, that the agent is stopped while it waits, and that Fleet wakes it on the transition. Carried by `ends_on` lifecycle states and waking |
+//! | A step ends on `pr: approved` or `job: landed`, the agent is stopped while it waits, and Fleet wakes it on the transition (`lifecycles/ends.rs`) | That the move waits as one item in Needs you while the rule's autonomy is Asks, which is the default for a write to the tracker or the forge, and is made at once when the rule is set to Acts. Carried by Autonomy and Asks in Needs you |
+//! | Approval is a state of the pull request read from the forge alone, reaching it is reported once, it is not an end, and a pull request knows its tickets | |
 //! | A Job a Job starts is an instance of the Job lifecycle, linked to the Job that started it, and landing ends it | That Bridge and the agent's tools can see lifecycles, instances and rules: that they cross the wire and are mirrored in TypeScript. Carried by Operations and the TypeScript mirror |
 //! | What is in flight is what no end state has taken, and a status nobody can place keeps its instance there | That End lists them before it ends the Job. Carried by End listing live instances |
 
@@ -28,6 +28,10 @@ mod bench;
 // The readers' half of the claim, in a file of its own to keep this one short.
 #[path = "lifecycles/readers.rs"]
 mod readers;
+
+// The wait on a state, in a file of its own for the same reason.
+#[path = "lifecycles/ends.rs"]
+mod ends;
 
 use std::path::Path;
 

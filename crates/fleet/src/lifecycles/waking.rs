@@ -59,11 +59,7 @@ where
         };
         let lifecycles = self.lifecycles_that_apply(manifest);
         let name = |one: &store::KeptInstance| named_by_title(one, &titles);
-        step.lifecycle_ends().find_map(|end| {
-            let lifecycle = lifecycles.iter().find(|one| one.id() == end.lifecycle())?;
-            let reading = rail_lifecycle::read(end, lifecycle, &held);
-            reading.met(end.waits()).then(|| rail_lifecycle::woke(&step.label, workflow, end, lifecycle, &reading, &name))
-        })
+        rail_lifecycle::woken(step, workflow, &lifecycles, &held, &name)
     }
 }
 
