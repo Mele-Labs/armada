@@ -26,6 +26,8 @@ mod credentials;
 mod envelope;
 /// Kit's MCP servers and the two tiers that reach a Drone. `docs/concepts/kit.md`.
 mod kit;
+/// The state machines a Job's tickets, pull requests, deploys and Jobs move through.
+mod lifecycle;
 mod policy;
 /// Which door an act came through, and whom friction got in the way of.
 /// `docs/concepts/retro.md`.
@@ -56,6 +58,12 @@ pub use workflow::{
 };
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
+};
+pub use lifecycle::{
+    AlreadyHeld, BlankKey, BlankScope, FleetFact, ForgeFact, HeldInstances, InstanceRef, Lifecycle,
+    LifecycleId, LifecycleInstance, LifecycleScope, LifecycleState, LifecycleTransition,
+    MalformedLifecycle, Moved, NotAnId, Observed, ScopeId, StateId, StateRead, StateSource, Standing,
+    TrackerWords,
 };
 pub use retro::{Change, LandsIn, LessonState, Via, Whose};
 pub use test_map::{EdgeGrain, EdgeSource, TestMapEdge};
