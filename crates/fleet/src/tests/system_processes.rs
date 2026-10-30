@@ -128,3 +128,19 @@ async fn a_load_that_could_not_be_read_is_absent_not_zero() {
     let load = tokio::task::spawn_blocking(move || fleet.load_of(&[], "/no/such/slot/anywhere")).await.unwrap();
     assert_eq!(load, Load { cpu_percent: None, memory_bytes: None, disk_bytes: None });
 }
+
+/// A Job with no slot, as every Job is once `finish_up` gave its slot back, ended every process
+/// running a file from the repository's root on its close: Bridge from `.armada/preview`, and
+/// every other Job's build in its slot (29 Oct). The root is no folder of its own.
+#[tokio::test]
+async fn a_job_without_a_slot_holds_no_folder_of_the_repository_root_to_end_from() {
+    let rig = rig(Some(Placing::nothing()));
+    let id = rig.an_agent().await;
+    let (_, hosting) = rig.fleet.session_and_hosting(id.as_str()).await.expect("hosted");
+    assert_eq!(hosting.lease_slot, None, "the case is a Job without a slot");
+    let served = rig.fleet.served_named(Some(&rig.manifest)).expect("served");
+
+    let folders = rig.fleet.process_directories(id.as_str(), &served, &hosting);
+    let root = std::path::Path::new(served.root());
+    assert!(!folders.iter().any(|one| std::path::Path::new(one) == root), "{folders:?}");
+}

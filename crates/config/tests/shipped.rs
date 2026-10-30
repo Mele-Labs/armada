@@ -74,12 +74,12 @@ fn every_shipped_workflow_definition_parses() {
         }
         seen += 1;
     }
-    assert!(seen >= 7, "seven workflows ship, and {seen} were read");
+    assert!(seen >= 8, "eight workflows ship, and {seen} were read");
 }
 
 /// **Which shipped workflows send their work out, read off the files.**
 ///
-/// Four of the seven produce a diff somebody merges and three produce something
+/// Four of the eight produce a diff somebody merges and four produce something
 /// somebody reads. Until a workflow could say so, all of them pushed a branch and
 /// opened a pull request for whatever was in the worktree — and the only thing
 /// standing between a design document and a pull request was this repository's
@@ -90,7 +90,7 @@ fn every_shipped_workflow_definition_parses() {
 /// everybody: a workflow that starts delivering opens pull requests for
 /// documents, and one that stops leaves a Job's diff on a branch nobody sees.
 #[test]
-fn four_shipped_workflows_send_their_work_out_and_three_do_not() {
+fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
     let mut delivering: Vec<(String, String)> = Vec::new();
     let mut silent: Vec<String> = Vec::new();
     for (path, text) in shipped() {
@@ -120,8 +120,8 @@ fn four_shipped_workflows_send_their_work_out_and_three_do_not() {
     );
     assert_eq!(
         silent,
-        vec!["code_review", "design_plan", "prototype"],
-        "and the three that produce something read rather than merged deliver nothing",
+        vec!["code_review", "design_plan", "orchestrate", "prototype"],
+        "and the four that produce something read rather than merged deliver nothing",
     );
 }
 
@@ -130,7 +130,7 @@ fn four_shipped_workflows_send_their_work_out_and_three_do_not() {
 #[test]
 fn each_shipped_step_reads_in_its_phase() {
     use core_model::StepPhase::{Delivery, Work};
-    let declared = [("design_plan", "present")];
+    let declared = [("design_plan", "present"), ("orchestrate", "summarise")];
     for (path, text) in shipped() {
         let def = config::WorkflowDef::parse(&path, &text, &roster())
             .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
@@ -152,7 +152,7 @@ fn each_shipped_step_reads_in_its_phase() {
     }
 }
 
-/// **Every shipped workflow lands in what it is for**: the two that declare
+/// **Every shipped workflow lands in what it is for**: the three that declare
 /// it, and every other by whether a step delivers.
 #[test]
 fn each_shipped_workflow_lands_in_what_it_is_for() {
@@ -174,6 +174,7 @@ fn each_shipped_workflow_lands_in_what_it_is_for() {
             ("code_review", Report),
             ("design_plan", Document),
             ("feature", PullRequest),
+            ("orchestrate", Report),
             ("prototype", Spike),
             ("refactor", PullRequest),
             ("revert", PullRequest),

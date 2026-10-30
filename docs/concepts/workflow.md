@@ -69,6 +69,20 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 
 `short_walk` is passed over when nothing would be seen.
 
+### `orchestrate`
+
+A Job whose work is other Jobs: a batch of feedback, a list of issues or a milestone, split up and handed out.
+It writes no code and opens no pull request of its own; it lands a report.
+The order is the owner's, 29 Oct 2026.
+
+| Step | The agent | Ends when |
+|---|---|---|
+| `assess` | Reads the pile of work and checks each item against main: done, partial or missing | a plan is recorded |
+| `plan` | Records one group per Job | you approve the plan |
+| `dispatch` | Starts a Job per group with `start_another_job`, two at a time, the rest queued with `after` | every group's Job is started |
+| `oversee` | Follows the Jobs it started, steps in when one is stuck or fails, and may start more | every Job it started has merged or been ended |
+| `summarise` | Writes a Document of what each Job landed, with its pull request, then follow-up work, each item filed or dispatched as you pick | you approve the report |
+
 ### Walks and replies
 
 Three step keys place a Job around the owner.

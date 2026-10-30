@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, nativeImage, Notification } from "electron";
 import { randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -498,6 +499,12 @@ const sessionAttention = new SessionAttention({
 
 void app.whenReady().then(() => {
   wearTheMark();
+  // **Here and not before ready**: a handler set earlier loses to Electron's own, which quits
+  // through `will-quit` as a person's quit does (measured 29 Oct, Electron 40).
+  process.on("SIGTERM", () => {
+    signalled = true;
+    app.quit();
+  });
   if (!app.isPackaged) {
     // A note's screenshot, #1250: the layer asks for the whole window, and its note's box is ringed on it as it is sent.
     handleAnnotations(ipcMain, app.getAppPath(), async (event, box) => {
@@ -847,4 +854,12 @@ app.on("window-all-closed", () => {
   connection?.stop();
   sessionAttention.close();
   app.quit();
+});
+
+// A quit the person meant leaves this mark, so `scripts/bridge-launch` can tell it from a crash or
+// a kill and have launchd reopen Bridge only then. Written in step, since the process ends right after.
+let signalled = false;
+app.on("will-quit", () => {
+  const mark = process.env.ARMADA_BRIDGE_QUIT_MARK;
+  if (mark && !signalled) writeFileSync(mark, "");
 });
