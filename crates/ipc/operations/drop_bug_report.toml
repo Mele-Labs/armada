@@ -1,0 +1,8 @@
+[operations.drop_bug_report]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The owner drops one bug report, and Fleet deletes it"
+notes = """
+`POST /bug_reports/:report_id/drop`, no body. Answers 200 with `BugReportDropped` `{ id }`; the report is deleted, a kept one too. 404 `fleet.no_such_bug_report` for an id that names none, a second drop included. Publishes `bug_reports.changed`.
+"""

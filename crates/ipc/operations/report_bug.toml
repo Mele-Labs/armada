@@ -1,0 +1,16 @@
+[operations.report_bug]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Report a fault in Armada itself: Fleet, Bridge, the mod or one of Armada's tools gave a wrong answer, broke, or did not do what it says. Give a one-line title, what went wrong, the steps, the exact error lines and the paths of any logs. Fleet keeps the report on this Mac for the owner and sends it nowhere. Not for a Fleet notice that was wrong (that is dispute_fleet), nor for a fault in the repository's own code. Then carry on with your work"
+notes = """
+`POST /sessions/report_bug`, body `ReportBug`: `title` (one line), `what` (what went wrong), `steps` (a list of lines), `errors` (the exact error lines), `logs` (paths of log files), and an optional `session_id`. Answered with `BugReported`: `report_id`.
+
+**The job is the one whose process holds the connection**, as `all_done`'s is. Any job the connection or `session_id` places is served, a terminal one included. A call that places none is refused. An empty `title` or `what` is refused with `fleet.bug_report_refused`; `steps`, `errors` and `logs` may be empty, and each is kept as sent, blank lines apart.
+
+**The report is kept in Fleet's store on this Mac and posted nowhere.** Fleet never writes to a forge on the owner's behalf: no issue is opened and nothing is commented. The job's title is kept with it as it stood when the report was made. No notice is sent to the job, and none is held for the owner.
+
+**`bug_reports.changed` is published** with every report on this Mac, whole, once the report is kept.
+
+`agent_access` is `Yes`: the agent is the one that saw Armada get it wrong.
+"""

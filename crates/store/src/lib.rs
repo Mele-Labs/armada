@@ -41,6 +41,7 @@ mod usage_summary;
 mod usage_rule_trips;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
+mod bug_reports;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -170,6 +171,7 @@ pub use session_turn_usage::KeptTurnUsage;
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
 pub use usage_rule_trips::KeptTrip;
 pub use fleet_disputes::{KeptDispute, KeptNotice};
+pub use bug_reports::KeptBugReport;
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, KeptStarted, SETTLED_KEPT};
