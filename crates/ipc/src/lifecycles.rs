@@ -108,6 +108,15 @@ pub struct RepositoryWorkspaces {
     pub left_out: Vec<PieceLeftOut>,
 }
 
+/// `list_workspaces`: every Workspace Fleet can see, across all the repositories it serves, each
+/// file once, the one that runs for each id and each one it replaced, ordered by name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AllWorkspaces {
+    pub workspaces: Vec<WorkspaceOfRepositories>,
+    /// Every Workspace file Fleet could not read.
+    pub left_out: Vec<PieceLeftOut>,
+}
+
 /// How a state is read, by the source that knows.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "source", rename_all = "snake_case")]

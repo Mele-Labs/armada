@@ -23,6 +23,14 @@ pub(crate) async fn list_repository_workspaces<D: Lifecycles>(
     }
 }
 
+/// Every Workspace, whichever repositories it holds.
+pub(crate) async fn list_workspaces<D: Lifecycles>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_workspaces().await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The lifecycles that apply to one repository.
 pub(crate) async fn list_lifecycles<D: Lifecycles>(
     State(served): State<Served<D>>,

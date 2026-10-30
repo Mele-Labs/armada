@@ -7,7 +7,7 @@ use axum::Router;
 use http_body_util::BodyExt;
 use ipc::{
     InstanceStanding, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, PieceScope,
-    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, WireError,
+    AllWorkspaces, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, WireError,
 };
 use tower::ServiceExt;
 
@@ -51,6 +51,15 @@ async fn each_read_of_a_repository_names_it_by_manifest_id() {
 }
 
 #[tokio::test]
+async fn every_workspace_is_read_with_no_query_and_names_no_repository() {
+    let (status, bytes) = get(&wired(), "/workspaces/all").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let said = String::from_utf8_lossy(&bytes);
+    assert!(said.contains(r#""workspaces":[]"#) && said.contains(r#""left_out":[]"#) && !said.contains("manifest_id"), "{said}");
+    ipc::decode::<AllWorkspaces>("every workspace", &bytes).expect("reads");
+}
+
+#[tokio::test]
 async fn a_repository_nobody_serves_is_the_callers_to_correct() {
     let app = wired();
     for route in ["/workspaces", "/lifecycles", "/lifecycles/rules", "/autonomy"] {
@@ -87,7 +96,7 @@ async fn nothing_placing_a_job_is_the_callers_to_correct() {
 fn the_door_offers_the_jobs_read_and_none_of_the_repository_reads() {
     let tools: Vec<_> = offered().into_iter().map(|shape| (shape.operation, shape.path, shape.query)).collect();
     assert!(tools.contains(&("get_job_lifecycles", "/sessions/lifecycles", &["session_id"][..])), "{tools:?}");
-    for bridge_only in ["list_repository_workspaces", "list_lifecycles", "list_lifecycle_rules", "list_autonomy_defaults"] {
+    for bridge_only in ["list_repository_workspaces", "list_workspaces", "list_lifecycles", "list_lifecycle_rules", "list_autonomy_defaults"] {
         assert!(tools.iter().all(|(operation, ..)| *operation != bridge_only), "{bridge_only} reached the agent's tool set");
     }
 }

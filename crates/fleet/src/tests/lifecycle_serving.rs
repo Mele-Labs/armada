@@ -120,6 +120,29 @@ async fn yours_in_kit_runs_over_the_repositorys_workspace_and_a_broken_file_is_n
 }
 
 #[tokio::test]
+async fn every_workspace_is_listed_once_whichever_repository_holds_it_and_a_broken_file_is_named() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
+    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
+    write(kit(&home, "workspaces", "back-office.yml"), &format!("version: 1\nworkspace_id: back-office\nname: Back office\nrepositories:\n  - {}\n", api.manifest().id().as_str()));
+    write(kit(&home, "workspaces", "broken.yml"), "not: a workspace\n");
+
+    let seen = fleet.list_workspaces().await.expect("read");
+    let [office, store] = seen.workspaces.as_slice() else { panic!("two, by name: {:?}", seen.workspaces) };
+    assert_eq!((office.id.as_str(), office.name.as_str(), office.source.as_str()), ("back-office", "Back office", "kit"));
+    assert_eq!((office.home.as_ref(), office.overridden_by.as_deref(), office.hides.as_deref()), (None, None, None));
+    assert!(office.path.ends_with("back-office.yml"), "{}", office.path);
+    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "repository"));
+    assert_eq!(store.repositories, [wire_id(&web), wire_id(&api)]);
+    assert_eq!(store.home, Some(wire_id(&web)), "the repository that commits it");
+    assert!(store.path.ends_with("my-store.yml"), "{}", store.path);
+
+    let [left] = seen.left_out.as_slice() else { panic!("one set aside: {:?}", seen.left_out) };
+    assert!(left.source == "kit" && left.path.ends_with("broken.yml") && !left.said.is_empty(), "{left:?}");
+}
+
+#[tokio::test]
 async fn the_lifecycles_that_apply_say_where_each_was_kept_and_which_one_runs() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));

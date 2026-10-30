@@ -15,8 +15,10 @@
 //! | An error a sender words with the address in it holds it nowhere | That an agent reaches the send through its door. `api::tests::served` |
 //! | A `{{name}}` with nothing to fill it is sent as written and named in `note` | |
 //! | An environment saved with a secret's value keeps the value for the Keychain alone, and the file committed or packaged from it carries `secret = true` and the name | That the commit lands on a branch. `fleet::tests::committing` |
+//! | An agent's answer of 600 KB is saved whole to a file holding no secret, and the answer inline stays at 32 KiB | That the file is in the Job's scratch folder. `fleet::tests::requesting` |
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use adapter_traits::{
@@ -100,6 +102,57 @@ impl RequestSender for Unreachable {
     fn send(&self, request: Outgoing, _most: usize) -> Result<Incoming, RequestFailure> {
         self.0.lock().unwrap().push(request.url.clone());
         Err(RequestFailure::Unreachable(format!("{} could not be reached", request.url)))
+    }
+}
+
+/// A server whose answer is a JSON list of products, each echoing the `Authorization` it was sent,
+/// so the token is past the 32 KiB an agent reads inline and past the 256 KiB once read off the
+/// wire. Cut at the bound it is given, as the shipped sender cuts.
+struct Catalogue;
+
+/// About 690 KB of products, each one naming `said`.
+fn catalogue(said: &str) -> String {
+    let products: Vec<String> = (0..3000)
+        .map(|n| format!(r#"{{"id":{n},"name":"product {n}","notes":"{}","owner":"{said}"}}"#, "x".repeat(150)))
+        .collect();
+    format!("[{}]", products.join(","))
+}
+
+impl RequestSender for Catalogue {
+    fn send(&self, request: Outgoing, most: usize) -> Result<Incoming, RequestFailure> {
+        let said = request
+            .headers
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+            .map(|(_, value)| value.clone())
+            .unwrap_or_default();
+        let mut body = catalogue(&said).into_bytes();
+        let truncated = body.len() > most;
+        body.truncate(most);
+        Ok(Incoming {
+            status: 200,
+            headers: vec![("content-type".to_string(), "application/json; charset=utf-8".to_string())],
+            body,
+            truncated,
+        })
+    }
+}
+
+/// A folder for one test, gone after it.
+struct Folder(PathBuf);
+
+impl Folder {
+    fn new(name: &str) -> Folder {
+        let path = std::env::temp_dir().join(format!("armada-requests-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        Folder(path)
+    }
+}
+
+impl Drop for Folder {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
     }
 }
 
@@ -222,6 +275,30 @@ fn an_error_naming_the_address_holds_no_secret() {
     assert!(error.contains("{{token}}"), "{error}");
     let row = ipc::encode(&done.row("r1".to_string(), ipc::Instant::carried("2026-10-21T09:00:00Z"))).expect("encodes");
     assert!(!holds_the_token(&row), "the row holds the token: {row}");
+}
+
+#[test]
+fn an_agents_long_answer_is_saved_whole_with_no_secret_in_the_file() {
+    let keychain = Held::default();
+    let filling = filling(saved(&keychain));
+    let folder = Folder::new("whole");
+    let mut done = sent(&Catalogue, &keychain, RequestBy::Agent, &send(), &filling, &Bounds::shipped()).expect("sent");
+    done.save_body(&folder.0, "r1");
+    let hidden = catalogue("Bearer {{token}}");
+    assert!(hidden.len() > 600 * 1000, "the answer runs past 600 KB: {}", hidden.len());
+
+    let saved = done.answer.saved.clone().expect("the body was saved");
+    assert!(saved.path.ends_with("/requests/r1.json"), "{}", saved.path);
+    let file = std::fs::read_to_string(&saved.path).expect("the file reads");
+    assert_eq!(file.len(), hidden.len(), "the file holds the whole body");
+    assert_eq!(saved.bytes, hidden.len() as u64);
+    assert!(!saved.truncated);
+    assert!(!holds_the_token(&file), "the file holds the token");
+    assert_eq!(file, hidden, "every echo of the token reads its name");
+
+    assert!(done.answer.body.len() <= 32 * 1024, "inline: {}", done.answer.body.len());
+    assert!(done.answer.truncated, "the inline body says it was cut");
+    assert!(!holds_the_token(&ipc::encode(&done.answer).expect("encodes")));
 }
 
 #[test]

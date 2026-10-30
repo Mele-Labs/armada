@@ -731,6 +731,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/watches/recipes", get(crate::watches::list_watch_recipes::<D>))
         .route("/watches/recipes/save", post(crate::watches::save_watch_recipe::<D>))
         .route("/workspaces", get(crate::lifecycles::list_repository_workspaces::<D>))
+        .route("/workspaces/all", get(crate::lifecycles::list_workspaces::<D>))
         .route("/lifecycles", get(crate::lifecycles::list_lifecycles::<D>))
         .route("/lifecycles/rules", get(crate::lifecycles::list_lifecycle_rules::<D>))
         .route("/autonomy", get(crate::lifecycles::list_autonomy_defaults::<D>))

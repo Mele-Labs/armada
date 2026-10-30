@@ -48,6 +48,7 @@ export function keepOf(body: unknown): KeepJobPiece | null {
 export function handleLifecycles({ ipc, connection }: Hosts): void {
   const host = () => connection()?.lifecycles;
   ipc.handle(CHANNELS.listRepositoryWorkspaces, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.workspaces(manifestId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.listWorkspaces, () => host()?.allWorkspaces() ?? unsent);
   ipc.handle(CHANNELS.listLifecycles, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.lifecycles(manifestId) ?? unsent) : unsent));
   ipc.handle(CHANNELS.listLifecycleRules, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.rules(manifestId) ?? unsent) : unsent));
   ipc.handle(CHANNELS.listAutonomyDefaults, (_event, manifestId: unknown) => (named(manifestId) ? (host()?.autonomy(manifestId) ?? unsent) : unsent));
