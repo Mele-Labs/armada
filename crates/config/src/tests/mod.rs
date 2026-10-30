@@ -14,6 +14,7 @@ mod after_merge;
 mod amending;
 mod amending_runs;
 mod amending_sections;
+mod applying;
 mod catalogue;
 mod fences;
 mod freezing;
@@ -33,6 +34,7 @@ mod scope;
 mod settings;
 mod watch_recipes;
 mod workflow;
+mod workspace;
 
 use std::path::{Path, PathBuf};
 
