@@ -120,3 +120,6 @@ crates/fleet/src/tests/mods.inc
 
 # The rest of a theme collection, generated on a machine by `packages/tokens/themes/generate.mjs --all`.
 packages/tokens/themes/more/
+
+# Browser-check screenshots and logs an agent saves while looking at a page.
+.playwright-mcp/

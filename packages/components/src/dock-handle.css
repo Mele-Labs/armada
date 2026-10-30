@@ -28,10 +28,10 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: var(--border-width);
+  width: calc(var(--border-width) * 2);
   height: var(--space-8);
   border-radius: var(--radius-sm);
-  background: var(--border-default);
+  background: var(--border-strong);
   transform: translateY(-50%);
 }
 
