@@ -279,6 +279,9 @@
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 /* A reply that only told him is calm and wears its glyph small and faint. */
 .deck-row[data-reply] .deck-mark { opacity: 0.55; }
+/* An unread reply stays idle and carries a small dot by its glyph. */
+.deck-row[data-reply] .deck-mark { position: relative; }
+.deck-row[data-reply] .deck-mark::after { content: ""; position: absolute; inset-block-start: calc(var(--space-1) * -0.5); inset-inline-end: calc(var(--space-1) * -0.5); width: var(--space-1); height: var(--space-1); border-radius: 50%; background: var(--fg-default); }
 /* A Session that needs him: the row's faint tint pulses, on opacity alone. The row's state glyph at its right tells every state; the row wears no dot. A paused row stays quiet. */
 .deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; animation: deck-needs-pulse 1.6s ease-in-out infinite; }
 @keyframes deck-needs-pulse { 50% { opacity: 0.14; } }
@@ -864,6 +867,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-subtle); }
 .deck-mark[data-tone="ask"] { color: var(--status-awaiting-review); }
 .deck-mark[data-tone="bad"] { color: var(--status-completed-failed); }
+/* A Session's mark wears its bucket's hue: blue works, teal waits on something that is not him, a draft is dormant grey. */
+.deck-mark[data-bucket="working"] { color: var(--status-running); }
+.deck-mark[data-bucket="waiting"] { color: var(--status-handed-in); }
+.deck-mark[data-bucket="draft"] { color: var(--status-not-started); }
 
 /* A pull request chip: number and stage. Gray except red. */
 .deck-pr {

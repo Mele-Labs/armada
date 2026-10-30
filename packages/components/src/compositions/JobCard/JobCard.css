@@ -29,7 +29,7 @@
 }
 
 .armada-job-card[data-tone="ask"] { --hue: var(--status-awaiting-review); }
-.armada-job-card[data-tone="bad"] { --hue: var(--status-completed-failed); }
+.armada-job-card[data-tone="wait"] { --hue: var(--status-handed-in); }
 .armada-job-card[data-tone="live"] { --hue: var(--status-running); }
 
 .armada-job-card:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
