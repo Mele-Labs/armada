@@ -11,7 +11,7 @@ import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 import { useSessions } from "../sessions-draft";
 import { GroupPullRequests, issueOfGroup, openIssuePanel, type Issue } from "./IssuesBlock";
 import { EditText, GroupEditor, type PlanEditing } from "./PlanEdit";
-import { ChildJob } from "./ChildJob";
+import { ChildJob, cardIssueOf } from "./ChildJob";
 import { childrenOf } from "./linked";
 import { rename, type ViewGroup } from "./plan-marks";
 import { wasOpen } from "./place";
@@ -107,7 +107,7 @@ function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
  * A group is a row that opens: closed it is its title, the issue it works on a line of its own, and a line for each task; open it shows the type of subagent and its tasks in full.
  * A group of a plan being drafted (`opened`) keeps its tasks up to edit; its chevron, or its pencil, brings the subagent type in.
  * **A group handed to a Job is that Job's card** (`ChildJob.tsx`). Only the agent hands a group off; the owner's press is not drawn. A group marked `ownJob` that is
- * not handed yet has a placeholder Job card (`JobCard`) where its title row was, with its issue, tasks and chevron under it.
+ * not handed yet is the placeholder Job card (`JobCard`) alone, its issue a chip in it: the Job plans its own tasks, so the group's are not drawn.
  */
 export function Group({ group, now, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; /** What the turn is doing in this group, in his words, drawn under the task being worked. */ now?: string; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   // A group stands shut until he presses it, and a press is kept. A drafted group's tasks are up either way: what opens is its head and its paths.
@@ -131,7 +131,7 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
   if (child !== undefined) {
     return (
       <section className="sv-group" data-group={group.id} data-step={step} data-handed="" aria-label={group.title}>
-        <ChildJob child={child} group={group.title} manifestId={manifestId} onOpen={onOpenSession} />
+        <ChildJob child={child} group={group.title} issue={named?.issue} manifestId={manifestId} onOpen={onOpenSession} />
       </section>
     );
   }
@@ -140,28 +140,11 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
       <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
     </div>
   );
-  // A group that goes to a Job of its own and has none yet stands as that Job's placeholder card, where its title row was. What the group holds stands under the card as it
-  // does on any group: the issue with the chevron at its right, then the tasks. The title is edited in the editor the chevron opens, as the subagent type and the paths are.
+  // A group that goes to a Job of its own and has none yet is that Job's placeholder card alone, its issue a chip in it, where the Job's card stands once it is handed.
   if (group.ownJob === true) {
     return (
-      <section className="sv-group" data-group={group.id} data-step={step} data-open={open || undefined} data-placeholder="" aria-label={group.title}>
-        <JobCard placeholder={group.title} />
-        <div className="sv-group__under">
-          {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
-          <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Title, subagent type and paths of ${group.title}`} onClick={() => setPressed(!open)}>
-            {seen}
-            <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
-          </button>
-        </div>
-        {open || opened ? (
-          <div className="sv-expand">
-            <div className="sv-group__body">
-              <GroupEditor group={group} ed={ed} head={!opened || open} {...(opened ? { onEdit: () => setPressed(true) } : {})} />
-            </div>
-          </div>
-        ) : (
-          <Tasks group={group} now={now} />
-        )}
+      <section className="sv-group" data-group={group.id} data-step={step} data-placeholder="" aria-label={group.title}>
+        <JobCard placeholder={group.title} {...cardIssueOf(named?.issue, manifestId)} />
         {prs}
       </section>
     );

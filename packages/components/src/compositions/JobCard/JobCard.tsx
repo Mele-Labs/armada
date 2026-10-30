@@ -1,4 +1,4 @@
-import { Bot } from "lucide-react";
+import { Bot, Ticket } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 
 import { Stamp } from "../../primitives/Stamp/Stamp";
@@ -19,6 +19,16 @@ export const jobToneOf = (state: SessionState): JobTone =>
 /** What a placeholder's glyph says: the Job it stands for has not been started. */
 export const NOT_STARTED = "Not started yet";
 
+/** The issue the Job works, as a chip on the card's second line: its key, with its title in the tooltip. */
+export type JobCardIssue = {
+  /** As a person reads it: `#7`, or a tracker's key as it is. */
+  label: string;
+  title: string;
+  closed?: boolean;
+  /** Opens the issue. Only a placeholder's chip is pressed, since a Job's card opens the Job. */
+  onOpen?: () => void;
+};
+
 export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type" | "title"> &
   (
     | {
@@ -31,6 +41,8 @@ export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childr
         says?: string;
         /** The plan group it was handed from, which takes the line under the title where the last line said would be. A surface that names the Job in the group's place passes it. */
         handedFrom?: string;
+        /** The issue it works, ahead of the line under the title. */
+        issue?: JobCardIssue;
         /** When it last moved, as an RFC 3339 instant or epoch milliseconds. Absent, no age is drawn. */
         at?: string | number;
         /** The repository it works in. Absent, no chip: a surface that already names the repository leaves it out. */
@@ -43,6 +55,8 @@ export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childr
     | {
         /** A Job not started yet, named by the title the plan gives it. It has no state, no age and nothing to open. */
         placeholder: string;
+        /** The issue it will work, on the line under the title. */
+        issue?: JobCardIssue;
         title?: undefined;
         state?: undefined;
         said?: undefined;
@@ -62,11 +76,13 @@ export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childr
  *
  * **A placeholder is the same card for a Job not started yet**, as `PullRequestChip` has one for a pull request not opened: the same grid, the outline dashed in the
  * quiet border with no fill, the bot glyph muted with the tooltip **Not started yet**, the title as the plan names it, and the state, the line and the age left empty.
- * It is read and never pressed, so it is no button and no stop for Tab, and it holds nothing.
+ * It is read and never pressed, so it is no button and no stop for Tab. Its issue chip is the one thing on it that is pressed.
+ *
+ * **The issue it works is a chip on the second line**, on either: the ticket glyph and its key, its title in the tooltip.
  */
 export function JobCard(props: JobCardProps) {
   if (props.placeholder !== undefined) {
-    const { placeholder } = props;
+    const { placeholder, issue } = props;
     return (
       <div className="armada-job-card" data-placeholder="" role="group" aria-label={`${placeholder}, ${NOT_STARTED.toLowerCase()}`}>
         <Tooltip label={NOT_STARTED}>
@@ -76,12 +92,12 @@ export function JobCard(props: JobCardProps) {
         </Tooltip>
         <span className="armada-job-card__title">{placeholder}</span>
         <span className="armada-job-card__mark" />
-        <span className="armada-job-card__says" />
+        <span className="armada-job-card__says">{issue === undefined ? null : <IssueChip issue={issue} press={issue.onOpen} />}</span>
         <span className="armada-job-card__at" />
       </div>
     );
   }
-  const { title, state, said, says, handedFrom, at, repository, selected = false, onOpen, ...rest } = props;
+  const { title, state, said, says, handedFrom, issue, at, repository, selected = false, onOpen, ...rest } = props;
   return (
     <button {...rest} type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
       <Tooltip label="Job">
@@ -93,7 +109,10 @@ export function JobCard(props: JobCardProps) {
       <span className="armada-job-card__mark">
         <SessionMark state={state} said={said} />
       </span>
-      <span className="armada-job-card__says">{handedFrom ?? says ?? ""}</span>
+      <span className="armada-job-card__says">
+        {issue === undefined ? null : <IssueChip issue={issue} />}
+        {handedFrom ?? says ?? ""}
+      </span>
       <span className="armada-job-card__at">{at === undefined ? null : <Stamp still first="age" at={at} />}</span>
       {repository === undefined ? null : (
         <span className="armada-job-card__repository">
@@ -101,5 +120,28 @@ export function JobCard(props: JobCardProps) {
         </span>
       )}
     </button>
+  );
+}
+
+function IssueChip({ issue, press }: { issue: JobCardIssue; press?: (() => void) | undefined }) {
+  const said = issue.closed === true ? `${issue.title}, closed` : issue.title;
+  const body = (
+    <>
+      <Ticket size={12} strokeWidth={2} aria-hidden />
+      <code>{issue.label}</code>
+    </>
+  );
+  return (
+    <Tooltip label={said}>
+      {press === undefined ? (
+        <span className="armada-job-card__issue" data-closed={issue.closed || undefined} role="img" aria-label={`Issue ${issue.label} ${said}`}>
+          {body}
+        </span>
+      ) : (
+        <button type="button" className="armada-job-card__issue" data-closed={issue.closed || undefined} aria-label={`Issue ${issue.label} ${said}`} onClick={press}>
+          {body}
+        </button>
+      )}
+    </Tooltip>
   );
 }

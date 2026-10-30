@@ -43,6 +43,25 @@
 .armada-job-card__mark { grid-column: 3; grid-row: 1; display: inline-flex; justify-self: end; color: var(--hue); }
 .armada-job-card[data-tone="calm"] .armada-job-card__mark { color: var(--fg-muted); }
 .armada-job-card__says { grid-column: 2; grid-row: 2; min-width: 0; min-height: var(--leading-xs); overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+/* The issue it works, ahead of the line: the ticket glyph and its key, as compact as a pull request chip. */
+.armada-job-card__issue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-end: var(--space-2);
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--accent);
+  font: inherit;
+  vertical-align: middle;
+}
+.armada-job-card__issue > code { font-family: var(--font-mono); font-size: var(--text-2xs); }
+.armada-job-card__issue[data-closed] { color: var(--fg-muted); }
+button.armada-job-card__issue { cursor: pointer; }
+button.armada-job-card__issue:hover { border-color: var(--accent); }
+button.armada-job-card__issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-job-card__at { grid-column: 3; grid-row: 2; justify-self: end; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .armada-job-card__repository { grid-column: 1 / -1; grid-row: 3; display: flex; min-width: 0; margin-top: var(--space-1); }
 

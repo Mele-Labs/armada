@@ -49,12 +49,8 @@
 .sv-group__task[data-stale] > .armada-task-mark, .sv-group__task[data-stale] > .sv-group__task-age { opacity: 0.6; }
 .sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 
-/* A group that goes to a Job of its own has the placeholder Job card (`JobCard`) where its title row was, and what the group holds stands under it as plain group content: the issue
-   with the chevron at its right, or the chevron alone on a row of its own, then the tasks or the editor. */
-.sv-group[data-placeholder]:not([data-step]) > .armada-job-card { width: auto; margin: var(--space-2) var(--space-3) 0; }
-.sv-group__under { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: var(--space-1) var(--space-3) 0; }
-.sv-group__under > .sv-group__head { flex: none; margin-inline-start: auto; }
-.sv-plan .sv-group[data-placeholder][data-step] .sv-group__body { padding: var(--space-1) var(--space-3) var(--space-2); }
+/* A group that goes to a Job of its own is the placeholder Job card (`JobCard`) alone, and the card is the frame: the group adds none. */
+.sv-group[data-placeholder] { gap: var(--space-2); border: 0; background: none; box-shadow: none; }
 
 /* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
 

@@ -1,7 +1,6 @@
-// A Job that orchestrates: its drafted plan has four groups, each for a Job of its own, and it holds the five issues it was given. Before they are handed, each group has the
-// Job card as a placeholder, in the rail where its title was and heading its group on the thread's plan card. Time passing approves the plan, moves the Job to Dispatch and
-// hands the first two groups to Jobs, whose real Job cards take their places; the other two stay placeholders. While the plan is drafted Open holds the issue no group names,
-// and once it is approved all five. Mock only: `ownJob` is set here alone, and the two Jobs are in the list before the hand-off, which the store cannot add one to. The walk
+// A Job that orchestrates: its drafted plan has four groups, each for a Job of its own, and it holds the five issues it was given. Before they are handed, each group is the
+// Job card alone as a placeholder, its issue a chip in it, in the rail and on the thread's plan card. Time passing approves the plan, moves the Job to Dispatch and hands the
+// first two groups to Jobs, whose real Job cards take their places; the other two stay placeholders. Open holds only the issue no group names throughout. Mock only: `ownJob` is set here alone, and the two Jobs are in the list before the hand-off, which the store cannot add one to. The walk
 // `plan-groups-as-jobs` plays it.
 
 import type { Session, SessionAttachment, WorkGroup } from "@armada/screens/src/draft/sessions";

@@ -8,7 +8,7 @@ import { JobCard, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
-import { ChildJob } from "./ChildJob";
+import { ChildJob, cardIssueOf } from "./ChildJob";
 import { GroupPullRequests, issueOfGroup } from "./IssuesBlock";
 import { childrenOf, inHandOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
@@ -76,18 +76,18 @@ export function FlightGroup({ group, step, open, flip, now, parent, manifestId, 
   if (child !== undefined) {
     return (
       <li className="sv-flight__group" data-group={group.id} data-step={step} data-handed="">
-        <ChildJob child={child} group={group.title} manifestId={manifestId} onOpen={onOpenSession} />
+        <ChildJob child={child} group={group.title} issue={named?.issue} manifestId={manifestId} onOpen={onOpenSession} />
       </li>
     );
   }
   const prs = named === undefined || group.issue === undefined || named.prs.length === 0 ? null : <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />;
-  // A group that goes to a Job of its own and has none yet is the placeholder Job card alone, open or shut, where the Job's card stands once it is handed. Its tasks are
-  // the Job's work and its issue is Open's, so neither is drawn here.
+  // A group that goes to a Job of its own and has none yet is the placeholder Job card alone, open or shut, its issue a chip in it, where the Job's card stands once it is
+  // handed. Its tasks are the Job's own to plan, so they are not drawn.
   if (group.ownJob === true) {
     return (
       <li className="sv-flight__group" data-group={group.id} data-step={step} data-placeholder="">
         <span className="sv-flight__job">
-          <JobCard placeholder={group.title} />
+          <JobCard placeholder={group.title} {...cardIssueOf(named?.issue, manifestId)} />
           {prs}
         </span>
       </li>
