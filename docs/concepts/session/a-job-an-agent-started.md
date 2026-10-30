@@ -6,7 +6,7 @@ A Job's agent may start a Job, or fork its own conversation into one, through tw
 
 | | |
 |---|---|
-| `start_another_session` | `manifest_id`, `title`, `message`. A new Job in any repository Fleet serves |
+| `start_another_session` | `manifest_id`, `title`, `message`. A new Job in any repository Fleet serves. Or `jobs` alone, a list of those, for several in one call: each starts as its own call would, in order, and the answer gives each one's id or refusal in that order |
 | `fork_this_session` | `title`, `message`, optional `at`. A copy of the caller's own conversation, to the row `at` or to its latest message of its own that the transcript holds. Allowed while the caller is live, since it is a fork at a message |
 | The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Job**, so an agent cannot fork another's conversation, and a call from no hosted Job is refused 422 `fleet.agent_start_unplaced` |
 | Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No |

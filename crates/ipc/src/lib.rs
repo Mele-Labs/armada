@@ -606,7 +606,8 @@ pub use sketch::{
     SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WORDS,
 };
 pub use session_starts::{
-    ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession,
+    ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,
+    StartAnotherSessions,
 };
 pub use session_waits::{
     ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition,

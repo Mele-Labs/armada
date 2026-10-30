@@ -221,8 +221,16 @@ impl Sessions for FakeDaemon {
         _caller: Option<crate::Caller>,
         start: ipc::StartAnotherSession,
     ) -> Result<ipc::SessionHeld, Refusal> {
+        // Named by its title, so a batch's answers can be told apart; a blank one is refused as Fleet refuses it.
+        if start.title.trim().is_empty() {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.agent_start_empty",
+                "a Job an agent starts needs a title and a first message",
+                crate::tests::shapes::run_id(),
+            )));
+        }
         Ok(ipc::SessionHeld {
-            session_id: ipc::SessionId::carried("session"),
+            session_id: ipc::SessionId::carried(format!("session-{}", start.title)),
             title: start.title,
             fork: false,
         })
