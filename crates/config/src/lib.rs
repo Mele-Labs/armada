@@ -39,6 +39,7 @@ mod loops;
 mod manifest;
 mod piece;
 mod resolve;
+mod resolving;
 /// The review tools a pull request is asked with, from Armada, Kit and the repository.
 pub mod review_tools;
 mod roster;
