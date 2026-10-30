@@ -174,7 +174,7 @@ fn answer(job: &SessionId, item: &str, choice: u32) -> AnswerWaiting {
 }
 
 async fn says_done(rig: &Rig, job: &SessionId) {
-    rig.fleet.all_done(None, AllDone { session_id: Some(job.clone()) }).await.expect("done");
+    rig.fleet.all_done(None, AllDone { session_id: Some(job.clone()), summary: None }).await.expect("done");
 }
 
 #[tokio::test]

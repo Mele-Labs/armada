@@ -809,6 +809,10 @@ pub struct AllDone {
     /// Which session. **Read only where the connection places no hosted session**, as `SetWaitingFor`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// One or two plain sentences on what the Job achieved for its brief. Fleet keeps it with the done
+    /// mark as `SessionRecord.done_summary`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 }
 
 /// `finish_up`: the agent is finished with its slots, branches and servers, and asks Fleet to give
@@ -1115,6 +1119,9 @@ pub struct SessionRecord {
     /// person's next message, by a non-empty `waiting_for`, and by a hosted turn starting again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub done_since: Option<Instant>,
+    /// What the agent said the Job achieved, given with `all_done`. Stands and clears with `done_since`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub done_summary: Option<String>,
     /// What the Session is doing, derived by Fleet on every read from its turn, its thread and
     /// `done_since`. Absent from a Fleet that predates it, and Bridge then draws the Session as it
     /// drew it before. Since 23.86.

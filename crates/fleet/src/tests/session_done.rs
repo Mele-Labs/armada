@@ -15,7 +15,7 @@ use super::session_host::{eventually, rig_placing};
 const TAKES_DONE_BACK: &str = "call all_done again";
 
 fn done(id: &SessionId) -> AllDone {
-    AllDone { session_id: Some(id.clone()) }
+    AllDone { session_id: Some(id.clone()), summary: None }
 }
 
 fn owed(id: &SessionId, items: usize) -> SetWaitingFor {
@@ -51,7 +51,7 @@ async fn a_done_session_reads_back_and_a_second_call_keeps_the_first_instant() {
     let again = rig.fleet.all_done(None, done(&id)).await.unwrap();
     assert_eq!(again.done_since, Some(since), "the callout does not move");
 
-    let nameless = rig.fleet.all_done(None, AllDone { session_id: None }).await;
+    let nameless = rig.fleet.all_done(None, AllDone { session_id: None, summary: None }).await;
     assert!(nameless.is_err(), "a call that places no session says nothing");
 }
 
