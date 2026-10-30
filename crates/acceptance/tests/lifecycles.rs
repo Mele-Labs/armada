@@ -38,8 +38,7 @@ mod bench;
 use std::path::Path;
 
 use core_model::rule::{Act, ActKind, Autonomy, AutonomyDefaults, Course, RanOnce, Target, TrackerWrite};
-use core_model::{FleetFact, ForgeFact, HeldInstances, Lifecycle, LifecycleId, LifecycleScope, MalformedLifecycle};
-use core_model::{Observed, ReadingState, ScopeId, Standing, StateRead};
+use core_model::{FleetFact, ForgeFact, HeldInstances, Lifecycle, LifecycleId, LifecycleScope, MalformedLifecycle, Observed, ReadingState, ScopeId, Standing, StateRead};
 
 use bench::lifecycles::{a_job_holding_three_tickets, at, in_state, keys, lifecycle, plan_step_start, rules_from, see, state, taken_on, the_jobs_copy, BACK_OFFICE_TICKETS, MOVES_TICKETS, MY_STORE_TICKETS};
 
