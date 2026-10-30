@@ -15,7 +15,7 @@ import { bindTeachFleet, teachedMods } from "../teach";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
-export function build(): Scenario {
+function build(): Scenario {
   const board = onBoard({ repositories: [ARMADA] });
   const served = new FakeSessionsFleet([ruleRecord()], ruleThreads()).scenario(board);
   return {

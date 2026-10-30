@@ -5,7 +5,7 @@ import type { AppliedRule, HeldInstance, InstanceMove, JobLifecycles, LifecycleD
 import { inFlight, jobLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 import { nodeId } from "@armada/components/src/compositions/LaneCanvas/model";
 
-import { columnsOf, instanceId, lanesOfJob, ruleOfWire } from "./session-lanes";
+import { columnsOf, instanceId, instanceKey, lanesOfJob, ruleOfWire } from "./session-lanes";
 
 const AT = "2026-10-29T12:00:00.000Z";
 
@@ -102,6 +102,18 @@ it("names where each lane's states are read from, and Fleet for what Fleet's own
 
 it("keeps a key with a slash in one lane id", () => {
   expect(instanceId("ticket", "web/ARM-41")).not.toContain("/");
+});
+
+it("gives back the key a lane id was made of, as Teach on a ticket names it", () => {
+  expect(instanceKey(instanceId("ticket", "ARM-41"))).toBe("ARM-41");
+  expect(instanceKey(instanceId("ticket", "web/ARM-41"))).toBe("web/ARM-41");
+});
+
+it("marks the lane of a tracker's lifecycle as a ticket's, and no other", () => {
+  const lanes = lanesOfJob({ held: WITH_PULL, working: true })!;
+  const drawn = jobLanes(lanes.job, lanes).lanes;
+  expect(drawn).toHaveLength(2);
+  expect(drawn.filter((lane) => lane.ticket === true).map((lane) => lane.id)).toEqual([instanceId("ticket", "ARM-41")]);
 });
 
 it("leaves no state lit for an instance whose source said something no state claims, and says so on the lane", () => {
