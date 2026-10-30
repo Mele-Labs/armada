@@ -379,8 +379,10 @@ export function shipOf(input: Inputs): Ship {
   );
   const raised = [...calls];
   for (const subject of subjects) {
-    if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;
+    if (subject.kind === "pr" || subject.call !== undefined) continue;
     const session = subject.kind === "session" ? sessions.find((one) => one.id === subject.id) : undefined;
+    // A draft's row is quiet, but its start card still asks him to press Start.
+    if (subject.phase !== "needs" && session?.start === undefined) continue;
     const at = session?.lastTurnAt;
     // What the Session waits on keeps the label its own call had before he looked, so the call returns as it was.
     const waits = session === undefined ? undefined : waitingOf(session).sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
