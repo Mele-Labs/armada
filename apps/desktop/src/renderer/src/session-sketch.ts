@@ -29,11 +29,11 @@ export function readingOfSketch(one: Sketch): { scene: Scene; title: string; aga
 }
 
 /**
- * The scenes of each sketch Fleet kept more than one drawing of, by the sketch's id, oldest first. **A sketch is listed once every
+ * The scenes of each sketch Fleet kept revisions of, by the sketch's id, oldest first. **A sketch is listed once every
  * one of its revisions is read**, so a menu over them never offers one it cannot draw.
  */
 export function useSketchRevisions(draft: SessionsDraft | undefined, session: string, attachments: readonly SessionAttachment[]): ReadonlyMap<string, readonly Scene[]> {
-  const redrawn = attachments.flatMap((one) => (one.kind === "sketch" && one.revisions !== undefined && one.revisions.length > 1 ? [{ id: one.id, paths: one.revisions }] : []));
+  const redrawn = attachments.flatMap((one) => (one.kind === "sketch" && one.revisions !== undefined && one.revisions.length > 0 ? [{ id: one.id, paths: one.revisions }] : []));
   const read = useRevisionReads(draft, session, redrawn.flatMap((one) => one.paths), sceneOfWire);
   const key = redrawn.map((one) => `${one.id}:${String(one.paths.length)}`).join("|");
   return useMemo(() => {

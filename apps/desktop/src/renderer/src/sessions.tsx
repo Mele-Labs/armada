@@ -449,7 +449,7 @@ export function ReadingSheet({
       ? { sketch: one.id, keep: `sketch:${sessionId}:${one.id}`, onAnswer: (sketch: string, given: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf({ id: sessionId, attachments: [one] }, sketch, given)) }
       : undefined;
   const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
-  // A sketch drawn more than once offers each drawing, as the thread card does, at the end of the reading's band.
+  // A sketch with revisions offers each drawing, as the thread card does, at the end of the reading's band.
   const sketch = one?.kind === "sketch" ? one : undefined;
   const revisions = useSketchRevisions(draft, sessionId, sketch === undefined ? NO_ATTACHMENTS : [sketch]).get(sketch?.id ?? "");
   const [picked, setPicked] = useState<{ id: string; revision: number } | undefined>(undefined);

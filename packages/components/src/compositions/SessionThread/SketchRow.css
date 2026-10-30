@@ -63,7 +63,7 @@
   flex: none;
 }
 
-/* The newest card of a sketch drawn more than once: its revision menu stands over the band's right end, outside the press,
+/* The newest card of a sketch with revisions: its revision menu stands over the band's right end, outside the press,
    and the band leaves it room. */
 .armada-session-sketch[data-revisions] {
   position: relative;

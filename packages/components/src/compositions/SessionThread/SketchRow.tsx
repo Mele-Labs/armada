@@ -88,7 +88,7 @@ type Against = { title: string; scene: Scene };
  * before the newest, read only: a note on it, or an answer, would be about a drawing that no longer stands.
  */
 export function sketchAtRevision(revisions: readonly Scene[] | undefined, picked: number | undefined, newest: { scene: Scene; against?: Against; named?: boolean }): { revision?: number; scene: Scene; against?: Against; earlier: boolean } {
-  if (revisions === undefined || revisions.length < 2) return { ...newest, earlier: false };
+  if (revisions === undefined || revisions.length === 0) return { ...newest, earlier: false };
   const count = revisions.length;
   const revision = Math.min(picked ?? count, count);
   const before = revision > 1 ? revisions[revision - 2] : undefined;
@@ -98,12 +98,12 @@ export function sketchAtRevision(revisions: readonly Scene[] | undefined, picked
   return { revision, scene: revisions[revision - 1] ?? newest.scene, ...previous, earlier: true };
 }
 
-/** The revision a sketch's menu shows, `undefined` for the newest, and the menu itself where the sketch has more than one. */
+/** The revision a sketch's menu shows, `undefined` for the newest, and the menu itself wherever the sketch has revisions, one included, as a document's. */
 function useSketchRevision(revisions: readonly Scene[] | undefined, align: "start" | "end") {
   const [picked, setPicked] = useState<number | undefined>(undefined);
   const count = revisions?.length ?? 0;
   const menu =
-    count < 2 ? null : (
+    count === 0 ? null : (
       <RevisionMenu count={count} revision={Math.min(picked ?? count, count)} align={align} onPick={(revision) => setPicked(revision === count ? undefined : revision)} />
     );
   return { picked, menu };
@@ -115,7 +115,7 @@ function useSketchRevision(revisions: readonly Scene[] | undefined, align: "star
  * press that opens the sketch in the panel. It plays the sketch's steps while it is pointed at or focused. **A card whose sketch was replaced is dashed and stands
  * back**, because its press opens the sketch that took its place. A sketch put to the person (`asked`) is answered under
  * it as a draft card is: Approve, and Send back with a note, then how it ended. `keep` names it for the note he types.
- * **The newest card of a sketch drawn more than once offers each revision** at its top right; an earlier one is drawn as a
+ * **The newest card of a sketch with revisions offers each one** at its top right, as a document does even with one; an earlier one is drawn as a
  * change to the one before it, and Approve and Send back still answer the newest.
  */
 export function SketchRow({ row, keep, onOpen, onAnswer }: { row: Extract<SessionThreadRow, { kind: "sketch" }>; keep?: string; onOpen?: (sketch: string) => void; onAnswer?: (sketch: string, answer: SketchAnswer) => void }) {
