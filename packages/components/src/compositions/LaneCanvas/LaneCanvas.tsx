@@ -124,7 +124,7 @@ const TIP_DELAY = 400;
 /** What a node's mark is, in the words its tooltip reads. */
 function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undefined {
   if (node.skipped === true) return { Glyph: Ban, said: "Skipped" };
-  if (node.waiting !== undefined) return { Glyph: Clock, said: node.waiting };
+  if (node.waiting !== undefined) return { Glyph: Clock, said: "Waiting" };
   if (node.lit === true) return { Glyph: CircleDot, said: "Working" };
   if (node.here === true) return { Glyph: MapPin, said: "Now" };
   if (node.passed === true) return { Glyph: Check, said: "Went through" };
@@ -242,7 +242,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}`;
   const lines = [
     node.label,
-    ...(mark === undefined ? [] : [mark.said]),
+    ...(node.waiting ?? (mark === undefined ? [] : [mark.said])),
     ...(node.facts ?? []),
     ...(node.who === undefined ? [] : [`Assigned to ${node.who}`]),
     ...(node.differs === undefined ? [] : [differsSaid(node.differs)]),
@@ -314,7 +314,15 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
           {shape === "card" ? <Drone size={16} strokeWidth={2} /> : mark === undefined ? null : <mark.Glyph size={16} strokeWidth={2} />}
         </span>
         <span className="armada-lane-item__label">{node.label}</span>
-        {node.sub === undefined && node.waiting === undefined ? null : <span className="armada-lane-item__sub">{node.waiting ?? node.sub}</span>}
+        {node.waiting !== undefined ? (
+          <span className="armada-lane-item__sub">
+            {node.waiting.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </span>
+        ) : node.sub === undefined ? null : (
+          <span className="armada-lane-item__sub">{node.sub}</span>
+        )}
         {node.who === undefined ? null : (
           <span className="armada-lane-item__who" aria-hidden="true">
             <UserCheck size={14} strokeWidth={2} />
@@ -365,6 +373,7 @@ function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefin
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };
   if (rule.status === "asked") return { Glyph: MessageCircleQuestion, said: "Asked" };
   if (rule.status === "waiting") return { Glyph: Clock, said: "Waiting" };
+  if (rule.status === "skipped") return { Glyph: Ban, said: "Skipped" };
   if (rule.autonomy === "asks") return { Glyph: MessageCircleQuestion, said: "Asks" };
   if (rule.autonomy === "off") return { Glyph: Ban, said: "Off" };
   return undefined;
@@ -379,7 +388,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
   const tone = rule.proposed === true ? "proposed" : rule.status ?? "defined";
   const lines = [
     rule.label,
-    ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did === undefined ? [] : [rule.did])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : [rule.did]),
+    ...(rule.needs !== undefined ? ["Waiting on you", ...(rule.did ?? [])] : rule.did === undefined ? (mark === undefined ? [] : [mark.said]) : rule.did),
     ...(rule.meta === undefined ? [] : [rule.meta]),
     ...(rule.differs === undefined ? [] : [differsSaid(rule.differs)]),
   ];

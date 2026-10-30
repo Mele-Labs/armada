@@ -13,7 +13,7 @@ use api::{Lifecycles, Refusal};
 use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
 use ipc::{
     AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
-    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SessionId, WireError,
+    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
     WorkspaceOfRepositories,
 };
 use store::Store;
@@ -52,6 +52,7 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
         lifecycles: Vec::new(),
         instances: Vec::new(),
         moves: Vec::new(),
+        acts: Vec::new(),
     };
     let Some(manifest) = store.session(session).ok().flatten().and_then(|kept| kept.manifest_id) else {
         return held;
@@ -93,6 +94,22 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
                 source: one.seen_source,
                 at: ipc::Instant::carried(one.at),
             })
+        })
+        .collect();
+    held.acts = store
+        .rule_acts_of(session)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|one| RuleActReading {
+            rule: one.rule_id,
+            text: one.text,
+            course: one.course,
+            standing: one.state,
+            said: Some(one.said).filter(|said| !said.is_empty()),
+            at: ipc::Instant::carried(one.raised_at),
+            settled_at: Some(one.settled_at).filter(|at| !at.is_empty()).map(ipc::Instant::carried),
+            on: one.on.map(|(lifecycle, key)| InstanceLink { lifecycle, key }),
+            entered: one.entered.map(|(lifecycle, key)| InstanceLink { lifecycle, key }),
         })
         .collect();
     held

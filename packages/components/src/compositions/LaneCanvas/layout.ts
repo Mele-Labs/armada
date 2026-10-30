@@ -68,7 +68,7 @@ export function place(lanes: readonly LaneView[], height: number): Placement {
   lanes.forEach((lane, at) => {
     const y = at * laneH;
     // A step that names what it waits on (several Jobs, by title) is as tall as its words need.
-    const lines = lane.kind === "workflow" ? Math.max(0, ...lane.nodes.map((node) => Math.ceil((node.waiting ?? node.sub ?? "").length / GEO.subChars) - 2)) : 0;
+    const lines = lane.kind === "workflow" ? Math.max(0, ...lane.nodes.map((node) => (node.waiting ?? [node.sub ?? ""]).reduce((sum, said) => sum + Math.ceil(said.length / GEO.subChars), 0) - 2)) : 0;
     const h = (lane.kind === "workflow" ? GEO.stepH : GEO.stateH) + lines * GEO.subLine;
     bands.set(lane.id, { x: 0, y, w: width, h: laneH });
     for (const node of lane.nodes) {

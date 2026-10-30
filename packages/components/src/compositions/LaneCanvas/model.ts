@@ -1,8 +1,8 @@
 // What the lanes draw: a workflow's steps in a top lane, then a lane for each lifecycle the workflow uses, each a small state machine, with
 // rules as edges between them. **A lifecycle is any lifecycle**: a ticket, a pull request, a deploy, a document. Fleet reads each of its states from
-// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **A mock's model**: no Fleet serves a Workspace, a lifecycle
-// or a rule yet (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
-// one lane for each instance and the rules that fired.
+// a tracker, the forge, a watch or an Armada document, and nothing in the lanes names one. **The editor's model is a mock's**: no Fleet serves a Workspace or its
+// placement of states yet (`docs/design`, Workspaces, lifecycles and rules). The editor draws the definitions; a Job's Lanes view draws the same lanes with
+// one lane for each instance and the rules that fired, read from what Fleet serves of the Job (`packages/screens/src/session-lanes.ts`).
 
 /** The lane a node sits in: the workflow's own, or a lifecycle's id (in the editor) or an instance's (on a Job). */
 export type WorkflowLane = "workflow";
@@ -277,8 +277,8 @@ export type LaneNodeView = {
   here?: boolean;
   /** An earlier state the instance went through. */
   passed?: boolean;
-  /** A step that waits on a lifecycle state, and the words for it. */
-  waiting?: string;
+  /** A step that waits on a lifecycle state, and the words for it: one sentence for each end it has not had, each drawn as a line. */
+  waiting?: readonly string[];
   end?: boolean;
   skipped?: boolean;
   /** Who the instance in this state is assigned to, drawn on the node. */
@@ -314,8 +314,8 @@ export type RuleView = {
   /** A second line: when it fired, or what it waits for. */
   meta?: string;
   autonomy: Autonomy;
-  /** On a Job: fired and acted, fired and asked, or still waiting. */
-  status?: "acted" | "asked" | "waiting";
+  /** On a Job: fired and acted, fired and asked, still waiting, or fired and set aside. */
+  status?: "acted" | "asked" | "waiting" | "skipped";
   /** What an asked rule left for the person to answer, by the id of its card: pressing the rule opens it. */
   needs?: string;
   /** The repositories this differs in, by name: where it applies alone, or where its autonomy is another. */
@@ -324,8 +324,8 @@ export type RuleView = {
   proposed?: true;
   /** The same rule's second edge: drawn with its mark and no words. */
   quiet?: true;
-  /** What the rule did, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
-  did?: string;
+  /** What the rule did, a line for each act, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
+  did?: readonly string[];
 };
 
 // ---- A Job's lanes -------------------------------------------------------------------------------------------------------
@@ -347,16 +347,26 @@ export type Instance = {
   says?: Readonly<Record<string, string>>;
 };
 
+/** Where the edge of a rule that hands to a step lands when the rule does not name one: the step the Job was on when it fired, else the one it is on. */
+export const CURRENT_STEP = "$step";
+
+/** One act of a rule as the Job's rules kept it, for the rule's panel. `standing` is Fleet's word: `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`. */
+export type FiredAct = { text: string; course: "acts" | "asks"; standing: string; said?: string; at: string };
+
 /** A rule that fired for an instance, and how it ended. */
 export type Fired = {
   rule: string;
   instance: string;
-  outcome: "acted" | "asked";
+  outcome: "acted" | "asked" | "waiting" | "skipped";
   at: string;
-  /** What it did, for the chip's tooltip. */
-  did?: string;
+  /** What it did, a line for each act, for the chip's tooltip. */
+  did?: readonly string[];
   /** The id of the card an asked rule left in the thread, while it waits to be answered. */
   needs?: string;
+  /** The step the Job was on when it fired, which an edge that hands to the current step lands on. */
+  step?: string;
+  /** Each act it planned and where it stands. Absent for a rule the mock fires. */
+  acts?: readonly FiredAct[];
 };
 
 /** A change made to this Job's own copy, marked on the node it changes: `lane` is the instance and `item` its state, or `workflow` and `item` the step added or skipped. */
@@ -374,8 +384,8 @@ export type JobLanes = {
   instances: readonly Instance[];
   fired: readonly Fired[];
   changes: readonly JobChange[];
-  /** The step that is waiting on an instance reaching a state, and which. `and` are the other instances it waits on as well: the step names them all and not their state. */
-  waitingOn?: { step: string; instance: string; state: string; and?: readonly string[] };
+  /** What the step the Job is on waits for, a sentence for each end that has not come, as Fleet words them: `Waiting on PR #812: Approved`. Absent when it waits on none. */
+  waiting?: readonly string[];
   /** The comments left on an instance while it is in review. */
   triage?: { instance: string; comments: readonly TriagedComment[] };
 };

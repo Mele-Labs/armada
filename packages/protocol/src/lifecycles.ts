@@ -2,7 +2,7 @@
 // Hand-mirrored from `crates/ipc/src/lifecycles.rs`. `docs/practices/protocol.md`, *Workspaces, lifecycles and rules, read*.
 //
 // The header rules in `protocol.ts` hold here: every closed set is left as `string`, with its words in the comment.
-// **Reads only.** Nothing here saves a piece or moves an instance, and nothing in Bridge draws these yet.
+// **Reads only.** Nothing here saves a piece or moves an instance. Bridge draws a Job's lanes from `JobLifecycles` (`packages/screens/src/session-lanes.ts`); nothing draws the other reads yet.
 //
 // **A Workspace here is a set of repositories** (`WorkspaceOfRepositories`), not the Manifest's monorepo unit that
 // `WorkspaceCommands` and `ScannedWorkspace` speak of.
@@ -221,6 +221,28 @@ export type InstanceMove = {
   at: string;
 };
 
+/** One act a Job's rules planned, and where it stands. */
+export type RuleActReading = {
+  /** The id of the rule that planned it. */
+  rule: string;
+  /** The one line the person reads for it, as it was kept. */
+  text: string;
+  /** How far it goes on its own: `acts` or `asks`. */
+  course: string;
+  /** Where it stands: `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`. */
+  standing: string;
+  /** What failed, how it was settled or why nothing here carries it. Absent where there is nothing to say. */
+  said?: string;
+  /** When it was planned. */
+  at: string;
+  /** When it was settled. Absent until it is. */
+  settled_at?: string;
+  /** The instance it is done to. Absent for an act done to none. */
+  on?: InstanceLink;
+  /** The instance whose entering a state set it off, where one did. */
+  entered?: InstanceLink;
+};
+
 /**
  * `get_job_lifecycles` (`GET /sessions/lifecycles?session_id=`): what a Job holds and where it stands. A Job that holds
  * nothing answers the three lists empty. `lifecycles` are those its instances are of; `moves` are theirs, oldest first.
@@ -230,6 +252,8 @@ export type JobLifecycles = {
   lifecycles: LifecycleDefinition[];
   instances: HeldInstance[];
   moves: InstanceMove[];
+  /** The acts the Job's rules planned, oldest first. Absent where none was, and from a Fleet older than the field. */
+  acts?: RuleActReading[];
 };
 
 /** `job_lifecycles.changed`: what a Job holds, whole, after an instance was taken on or moved. */

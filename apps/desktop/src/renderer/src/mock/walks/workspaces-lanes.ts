@@ -107,7 +107,7 @@ export const workspacesLanes = walk("workspaces-lanes", [
   { hover: node("Step: Refine"), say: "Walk and Refine are skipped on this Job only, struck through and marked. The workflow itself is unchanged" },
   { later: node("Step: Oversee"), say: "Dispatch starts a Job for each fix, and Oversee, after it, waits for them" },
   { look: node("Fix cart rounding: PR open"), say: "Two Jobs started. Each is a card with the Drone on a lane of its own, linked to Dispatch" },
-  { look: inside(JOB_LANES, text("Waiting on: Fix cart rounding, Tidy the PR panel landing")), say: "Oversee ends when every Job it started has landed, and names them" },
+  { look: inside(JOB_LANES, text("Waiting on Fix cart rounding, Tidy the PR panel landing: Landed")), say: "Oversee ends when every Job it started has landed, and names them" },
   { press: inside(LANES_PANEL, button("Close")), say: "Close the panel" },
   { later: inside(views, workflowView), say: "Both Jobs are out. The next steps play a window wider than 1800px" },
   { press: inside(views, workflowView), say: "Wider than 1800px, Workflow opens in the spine column, under the views as Artifacts and Checks do" },
