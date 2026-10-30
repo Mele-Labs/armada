@@ -90,7 +90,10 @@ pub use watches::{
     Written as WatchRecipeWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{head_of, names_no_lifecycle, EndFault, MechanicalCheck, NamesNoLifecycle, Step, WorkflowDef, WorkflowHead};
+pub use workflow::{
+    edit_steps, head_of, names_no_lifecycle, EditFault, Edited, EndFault, MechanicalCheck, NamesNoLifecycle, NewStep, Step, StepEdit, WorkflowDef,
+    WorkflowHead,
+};
 pub use workspace::{parse_workspace, WorkspaceError, WorkspaceFile, Workspaces};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
