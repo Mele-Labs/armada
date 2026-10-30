@@ -8,10 +8,11 @@
 
 import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExternalLink, FileDiff, PanelRightClose, PanelRightOpen, X } from "lucide-react";
-import { ApprovalAnswers, Button, DropdownMenu, KbdBinding, NoteNumber, Sheet, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
+import { ApprovalAnswers, Button, DropdownMenu, KbdBinding, NoteNumber, RevisionMenu, Sheet, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
+import { useRevisionReads } from "../revision-reads";
 import { useSessionsDraft } from "../sessions-draft";
 import { documentAnswerOf } from "../session-thread-rows";
 import { DocumentPage, type DocumentFocus, type LitNote, type PageNote, type SentNote } from "./DocumentPage";
@@ -23,28 +24,10 @@ import { clearVisit, documentOf, useDocumentVisit } from "./document-state";
 import { closeLayer, useLayerPage } from "./layers";
 import "./document.css";
 
-/** The pages of a document's revisions, oldest first, each read once as it arrives. A revision not read yet is not in the list. */
+/** The pages of a document's revisions, oldest first. A revision not read yet is not in the list. */
 function useRevisions(draft: SessionsDraft | undefined, session: string, paths: readonly string[]): Page[] {
-  const cache = useRef(new Map<string, Page>());
-  const [version, setVersion] = useState(0);
-  const key = paths.join("|");
-  useEffect(() => {
-    let live = true;
-    const missing = key.split("|").filter((one) => one !== "" && !cache.current.has(one));
-    if (missing.length === 0) return undefined;
-    void Promise.all(
-      missing.map(async (path) => {
-        const read = await draft?.readArtifact?.(session, path);
-        if (read?.ok === true) cache.current.set(path, readPage(new TextDecoder().decode(read.bytes)));
-      }),
-    ).then(() => {
-      if (live) setVersion((was) => was + 1);
-    });
-    return () => {
-      live = false;
-    };
-  }, [draft, session, key]);
-  return useMemo(() => key.split("|").flatMap((one) => cache.current.get(one) ?? []), [key, version]);
+  const read = useRevisionReads(draft, session, paths, readPage);
+  return useMemo(() => read.flatMap((one) => one ?? []), [read]);
 }
 
 const CHANGE_SAID = { added: "Added", changed: "Changed", removed: "Removed" } as const;
@@ -218,8 +201,6 @@ export function DocumentLayer({ session }: { session: Session }) {
     else if (id === "repo" && doc !== undefined) void draft?.send(session.id, { text: `Commit ${doc.id} to the repo. It is gitignored, so add it with git add -f.`, files: [], sketches: [], tags: [] });
   };
 
-  const revisions: DropdownMenuEntry[] = pages.map((_, at): DropdownMenuEntry => ({ kind: "item", id: String(at + 1), label: `Revision ${String(at + 1)}`, selected: at + 1 === revision })).reverse();
-
   const tools = (
     <div className="armada-doc__tools">
       {diff === undefined ? null : (
@@ -241,9 +222,7 @@ export function DocumentLayer({ session }: { session: Session }) {
   );
   const revisionMenu =
     page === undefined ? undefined : (
-      <span className="armada-doc__revision">
-        <DropdownMenu plain align="start" portal={menus ?? true} triggerLabel={`Revision ${String(revision)}`} triggerTooltip="Revision" entries={revisions} open={revising} onOpenChange={setRevising} onSelect={(id) => setPinned(Number(id) === latest ? undefined : Number(id))} />
-      </span>
+      <RevisionMenu count={latest} revision={revision} portal={menus ?? true} open={revising} onOpenChange={setRevising} onPick={(picked) => setPinned(picked === latest ? undefined : picked)} />
     );
 
   // Keys are heard around the whole sheet, its head included. A menu open in the head is `under`, so its Esc closes it and not the sheet.

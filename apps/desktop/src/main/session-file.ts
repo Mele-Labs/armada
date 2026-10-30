@@ -19,7 +19,9 @@ export function namesFile(record: SessionRecord | undefined, path: string): bool
           // A sent note's picture, at the path Fleet recorded for it.
           (one.detail?.["form"] === "note" && one.detail["picture"] === path) ||
           // A document's pages are the revisions Fleet kept for it, and only those.
-          (one.detail?.["form"] === "document" && revisionsOfDetail(one.detail["revisions"]).includes(path))),
+          (one.detail?.["form"] === "document" && revisionsOfDetail(one.detail["revisions"]).includes(path)) ||
+          // A sketch's redraws, the same way.
+          (one.detail?.["form"] === "sketch" && revisionsOfDetail(one.detail["revisions"]).includes(path))),
     ) === true
   );
 }
