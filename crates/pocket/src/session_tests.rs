@@ -5,6 +5,7 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use axum::extract::ws::{Message, WebSocketUpgrade};
+use axum::extract::RawQuery;
 use axum::http::{Method, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -97,13 +98,67 @@ async fn fake_fleet(seen: Seen, start_status: u16) -> u16 {
 }
 
 async fn fake_fleet_serving(seen: Seen, start_status: u16, rows: String) -> u16 {
+    fake_fleet_with(seen, start_status, 202, rows).await
+}
+
+/// A Fleet whose `/sessions/message` answers `message_status`: 202 as Fleet does, else a refusal.
+async fn fake_fleet_messaging(seen: Seen, message_status: u16) -> u16 {
+    fake_fleet_with(seen, 200, message_status, sessions()).await
+}
+
+/// A thread as `/sessions/one` answers it: the record, then its rows.
+fn thread(session: String, rows: &[String]) -> String {
+    format!(r#"{{"session":{session},"rows":[{}]}}"#, rows.join(","))
+}
+
+fn said(id: &str, voice: &str) -> String {
+    format!(r#"{{"kind":"message","id":"{id}","at":"2026-10-08T01:00:00.000Z","from":{{"kind":"{voice}"}},"text":"words"}}"#)
+}
+
+/// The Jobs a fork can name. `live1` ends on the person's words, after two of the agent's.
+fn threads(id: &str) -> Option<String> {
+    let live = || record("live1", "bridge", "live", &hosted(""));
+    let ended = format!(r#"{}{}"#, hosted(""), r#","ended_at":"2026-10-08T04:00:00.000Z""#);
+    Some(match id {
+        "live1" => thread(live(), &[said("m-1", "you"), said("a-1", "agent"), said("a-2", "agent"), said("m-3", "you")]),
+        "quiet1" => thread(record("quiet1", "bridge", "live", &hosted("")), &[said("m-1", "you")]),
+        "done1" => thread(record("done1", "bridge", "ended", &ended), &[said("m-1", "you"), said("a-1", "agent")]),
+        "bare1" => thread(record("bare1", "bridge", "ended", &ended).replace(r#""manifest_id":"m1","#, ""), &[said("a-1", "agent")]),
+        _ => return None,
+    })
+}
+
+async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, rows: String) -> u16 {
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
+    let messaged = seen.clone();
     let started = seen;
     let app = Router::new()
         .route("/sessions", get(move || async move { rows }))
         .route("/manifests", get(move || async move { manifests }))
         .route("/events", get(events))
+        .route(
+            "/sessions/one",
+            get(|RawQuery(query): RawQuery| async move {
+                match query.as_deref().and_then(|query| query.strip_prefix("session_id=")).and_then(threads) {
+                    Some(thread) => (StatusCode::OK, thread),
+                    None => (StatusCode::NOT_FOUND, r#"{"code":"fleet.no_session","message":"No such job."}"#.to_string()),
+                }
+            }),
+        )
+        .route(
+            "/sessions/message",
+            post(move |body: String| async move {
+                messaged.lock().unwrap().push(("/sessions/message".into(), body));
+                match message_status {
+                    202 => (StatusCode::ACCEPTED, String::new()),
+                    other => (
+                        StatusCode::from_u16(other).unwrap(),
+                        format!(r#"{{"code":"x","message":"That Job has ended.","run_id":"r","fields":{{}},"chain":["{SECRET}"]}}"#),
+                    ),
+                }
+            }),
+        )
         .route(
             "/sessions/ask/answer",
             post(move |body: String| async move {
@@ -359,10 +414,29 @@ async fn dispatch_starts_a_session_on_the_manifest_the_label_maps_to() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert!(body.contains(r#""id":"s9""#) && body.contains(r#""repository":"notes""#), "{body}");
     assert!(!body.contains(SECRET), "{body}");
+    // The words name the Job, then reach the agent as its first message, to the Job just started.
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 2, "{seen:?}");
+    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing"}"#.to_string()));
+    assert_eq!(seen[1], ("/sessions/message".to_string(), r#"{"session_id":"s9","text":"Fix the thing"}"#.to_string()));
+}
+
+#[tokio::test]
+async fn a_dispatch_whose_words_do_not_reach_the_job_says_the_job_started_without_them() {
+    let seen = Seen::default();
+    let app = on(fake_fleet_messaging(seen.clone(), 409).await).await;
+    let (status, body) = send(&app, Method::POST, "/api/sessions", r#"{"text":"Fix the thing","repository":"notes"}"#).await;
     assert_eq!(
-        seen.lock().unwrap()[0],
-        ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing"}"#.to_string())
+        (status, body.as_str()),
+        (StatusCode::CONFLICT, "The Job started, but your message did not reach it. That Job has ended.")
     );
+    assert_eq!(seen.lock().unwrap().len(), 2, "the start was made and the message tried");
+
+    let down = on(fake_fleet_messaging(Seen::default(), 500).await).await;
+    let (status, body) = send(&down, Method::POST, "/api/sessions", r#"{"text":"Fix the thing","repository":"notes"}"#).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "{body}");
+    assert!(body.starts_with("The Job started, but your message did not reach it. "), "{body}");
+    assert!(!body.contains(SECRET), "{body}");
 }
 
 #[tokio::test]
@@ -441,5 +515,93 @@ async fn unsigned_is_400_and_fleet_down_says_what_to_do() {
         let (status, said) = send(&down, method, path, body).await;
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{path}");
         assert_eq!(said, "Armada is not answering on your Mac. Open it there, then try again.", "{path}");
+    }
+}
+
+#[tokio::test]
+async fn a_live_job_is_forked_at_its_agents_last_message_and_not_at_the_last_row() {
+    let (app, seen) = rig().await;
+    let (status, body) = send(&app, Method::POST, "/api/sessions/fork", r#"{"session_id":"live1"}"#).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert!(body.contains(r#""id":"s9""#) && body.contains(r#""repository":"armada""#), "{body}");
+    assert!(!body.contains(SECRET), "{body}");
+    let seen = seen.lock().unwrap();
+    assert_eq!(
+        *seen,
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"}}"#.to_string())],
+        "one start, with no message after it"
+    );
+}
+
+#[tokio::test]
+async fn an_ended_job_is_forked_whole() {
+    let (app, seen) = rig().await;
+    let (status, body) = send(&app, Method::POST, "/api/sessions/fork", r#"{"session_id":"done1"}"#).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(
+        *seen.lock().unwrap(),
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"}}"#.to_string())]
+    );
+}
+
+#[tokio::test]
+async fn a_fork_that_cannot_be_made_is_refused_before_fleet_starts_anything() {
+    let (app, seen) = rig().await;
+    let cases = [
+        (r#"{"session_id":"nope"}"#, StatusCode::NOT_FOUND, "That Job is not here."),
+        (r#"{"session_id":"../h1"}"#, StatusCode::NOT_FOUND, "That Job is not here."),
+        (r#"{"session_id":"live1&x=1"}"#, StatusCode::NOT_FOUND, "That Job is not here."),
+        (r#"{"session_id":""}"#, StatusCode::NOT_FOUND, "That Job is not here."),
+        (
+            r#"{"session_id":"bare1"}"#,
+            StatusCode::CONFLICT,
+            "That Job has no repository, so Armada cannot copy it. Fork it in Armada on your Mac.",
+        ),
+        (
+            r#"{"session_id":"quiet1"}"#,
+            StatusCode::CONFLICT,
+            "That Job has not answered yet, so there is nothing to copy. Try again once it has.",
+        ),
+        (r#"{"session_id":"live1","at":"a-1"}"#, StatusCode::BAD_REQUEST, "Armada could not read that from this phone. Update the app."),
+    ];
+    for (body, status, sentence) in cases {
+        assert_eq!(send(&app, Method::POST, "/api/sessions/fork", body).await, (status, sentence.to_string()), "{body}");
+    }
+    assert!(seen.lock().unwrap().is_empty());
+}
+
+fn phone_row(tail: &str, usage: &str) -> String {
+    let record = record("j1", "bridge", "live", tail).replace(r#""usage":{}"#, &format!(r#""usage":{usage}"#));
+    let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+}
+
+#[test]
+fn a_job_held_on_its_start_card_is_neither_waiting_nor_working() {
+    // A turn is running and the delivery is owed, so only the hold keeps it from waiting and working.
+    let job = |start: &str| {
+        let hosted = format!(r#","hosted":{{"turn":{{"state":"working"}},"mode":"auto","running":true{start}}}"#);
+        phone_row(&format!(r#"{hosted},"standing":"working"{}"#, owing(&[owed("delivery", "delivery", "02:00")])), "{}")
+    };
+    let held = job(r#","start":{"asks_delivery":false}"#);
+    assert!(held.contains(r#""held":true"#), "{held}");
+    assert!(held.contains(r#""working":false"#) && held.contains(r#""waiting":false"#), "{held}");
+    assert!(!held.contains("waiting_since"), "{held}");
+    // Begun, the same Job is working and owes what it owes, and is no longer held.
+    let begun = job("");
+    assert!(begun.contains(r#""held":false"#) && begun.contains(r#""working":true"#) && begun.contains(r#""waiting":true"#), "{begun}");
+}
+
+#[test]
+fn the_job_that_started_it_and_its_context_figures_are_named_and_left_out_when_absent() {
+    let by = r#","started":{"by":{"id":"p0","title":"Parent job"}}"#;
+    let row = phone_row(by, r#"{"context_tokens":120000,"context_window":1000000,"cost_micros":77}"#);
+    assert!(row.contains(r#""from":{"id":"p0","title":"Parent job"}"#), "{row}");
+    assert!(row.contains(r#""context_tokens":120000"#) && row.contains(r#""context_window":1000000"#), "{row}");
+    assert!(!row.contains("cost") && !row.contains("77"), "{row}");
+
+    let plain = phone_row("", "{}");
+    for field in ["from", "context_tokens", "context_window"] {
+        assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
     }
 }
