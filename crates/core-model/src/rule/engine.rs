@@ -130,7 +130,7 @@ impl<'a> Reading<'a> {
             (Among::Entered, Some(entered)) => self.held.get(entered).into_iter().collect(),
             (Among::LinkedFrom(lifecycle), Some(entered)) => of(lifecycle, self.held.linked(entered)),
             (Among::LinkingTo(lifecycle), Some(entered)) => of(lifecycle, self.held.linking(entered)),
-            (Among::Held(lifecycle), _) => of(lifecycle, self.held.all().iter().collect()),
+            (Among::Held(lifecycle), _) => of(lifecycle, self.held.all().iter().filter(|one| !one.is_handed()).collect()),
             (_, None) => Vec::new(),
         }
     }

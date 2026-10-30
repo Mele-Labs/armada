@@ -22,6 +22,12 @@
   --hue: var(--status-completed-failed);
 }
 
+/* A Job waiting on something that is not him wears the waiting hue of its row's mark. */
+.armada-needs-panel[data-kind="waiting"] {
+  --hue: var(--status-handed-in);
+}
+
+
 /* The tools band has nothing to press on its band but the cross that puts it away. */
 .armada-needs-panel[data-kind="tools"] .armada-needs-panel__trigger {
   cursor: default;

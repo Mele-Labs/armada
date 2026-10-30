@@ -167,10 +167,11 @@ export type View = { x: number; y: number; zoom: number };
 
 /**
  * The view that brings `rects` into the frame, or `undefined` where they already are, at the zoom they are in. The lane heads stand over the left of the frame, so what is
- * brought in clears them. **A set wider than the frame keeps its newest**: the leftmost is let go until the rest fits. `follow` puts the set at the left where it fits, so the
+ * brought in clears them. **A set wider than the frame keeps its newest**: the leftmost is let go until the rest fits. `earliest` keeps its earliest instead, for lanes that are
+ * opening: a lane holding an early state is not left empty by one that stands further on. `follow` puts the set at the left where it fits, so the
  * earliest of what changed is the context the person reads from; without it the pan is the least that brings the set into view, as a step by key wants. `down` moves it up or down only.
  */
-export function panTo(rects: readonly Rect[], view: View, frame: { width: number; height: number }, content: { width: number; height: number }, follow: boolean, down = false): View | undefined {
+export function panTo(rects: readonly Rect[], view: View, frame: { width: number; height: number }, content: { width: number; height: number }, follow: boolean, down = false, earliest = false): View | undefined {
   if (rects.length === 0 || frame.width === 0 || frame.height === 0) return undefined;
   const { zoom } = view;
   const left = GEO.head + GEO.pad;
@@ -184,7 +185,7 @@ export function panTo(rects: readonly Rect[], view: View, frame: { width: number
     return { x, y, w: Math.max(...set.map((one) => one.x + one.w)) - x, h: Math.max(...set.map((one) => one.y + one.h)) - y };
   };
   let kept = sorted;
-  while (kept.length > 1 && box(kept).w * zoom > usable) kept = kept.slice(1);
+  while (kept.length > 1 && box(kept).w * zoom > usable) kept = earliest ? kept.slice(0, -1) : kept.slice(1);
   const at = box(kept);
   let x = view.x;
   const from = at.x * zoom + view.x;

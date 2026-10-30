@@ -4,17 +4,17 @@ import type { ButtonHTMLAttributes } from "react";
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RepositoryChip } from "../RepositoryChip/RepositoryChip";
-import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
+import { SessionMark, bucketOf, type JobBucket, type SessionState } from "../SessionFrame/SessionFrame";
 
 /**
- * The hue a Job's state wears: **ask** is owed him (waiting on him, done, a draft not started), **bad** is stuck or a Check
- * failing, **live** is a turn running, and **calm** is the rest. The Cockpit's Jobs list reads the same three it has,
- * and live is the card's own: on a card the running hue is the state, where in the list the glyph alone carries it.
+ * The hue a Job's state wears, by its bucket (`bucketOf`): **ask** needs him, **live** is a turn running, **wait** is
+ * waiting on something that is not him, and **calm** is idle or a draft.
  */
-export type JobTone = "ask" | "bad" | "live" | "calm";
+export type JobTone = "ask" | "live" | "wait" | "calm";
 
-export const jobToneOf = (state: SessionState): JobTone =>
-  state === "waiting" || state === "done" || state === "draft" || state === "unstarted" ? "ask" : state === "stuck" || state === "failing" ? "bad" : state === "working" ? "live" : "calm";
+const TONE: Record<JobBucket, JobTone> = { needs: "ask", working: "live", waiting: "wait", idle: "calm", draft: "calm" };
+
+export const jobToneOf = (state: SessionState): JobTone => TONE[bucketOf(state)];
 
 export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type" | "title"> & {
   title: string;

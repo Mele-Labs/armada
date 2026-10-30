@@ -115,6 +115,15 @@
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
 }
+/* The handle between the thread and the browser spends no margin, so the two panels sit one `--space-2` apart. Its hit area still
+   reaches `--space-2` into each panel, over the panels' own edges. */
+.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-dock-handle { margin-inline: 0; }
+.armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside) > .armada-dock-handle::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(var(--space-2) * -1);
+}
 /* Folded, nothing is drawn, and the sheet takes the whole width: its handle has nothing to move. */
 .job-browser-beside:not([data-shown]) { display: none; }
 .armada-sheet-scrim:has(> .armada-sheet__aside > .job-browser-beside:not([data-shown])) > .armada-dock-handle { display: none; }

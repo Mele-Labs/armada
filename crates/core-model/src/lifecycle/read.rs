@@ -147,9 +147,13 @@ impl FleetFact {
 /// wrong is a ticket moved on a hunch. The words a person has not listed are unmapped, and the
 /// editor offers to map them.
 ///
-/// None is allowed: the lifecycle Armada carries lists only `closed` because two trackers rarely share
-/// the rest, so every other value is unmapped until a lifecycle scoped to a Workspace (a set of
-/// repositories) or to a repository lists them.
+/// None is allowed, and is what the Ticket Armada carries lists for every state but Closed, which
+/// lists `closed`, until its tracker declares more: a tracker whose statuses are its own to each
+/// project (Jira's) declares none, so every other value is unmapped until a lifecycle scoped to a
+/// Workspace (a set of repositories) or to a repository lists them. A tracker with a fixed set
+/// (beads') brings it, and a lifecycle a person scopes replaces the Ticket outright, its words and
+/// not the tracker's. **The owner changed this on 30 Oct 2026**: the Ticket had listed only
+/// `closed` for every tracker, on the ground that two rarely share the rest.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct TrackerWords(Vec<String>);
 

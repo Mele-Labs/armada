@@ -58,12 +58,12 @@ test("a Job whose own turn ended while its subagent runs is working, not done", 
   expect(subject.stoppable).toBe(false);
 });
 
-test("a Job held on its start card needs him: its row is under Needs you and its call stays after he has seen it", () => {
+test("a Job held on its start card is a draft: its row is quiet in the draft hue, and its call stays after he has seen it", () => {
   const held = reply("held", { standing: undefined, lastTurnAt: undefined, start: { asksDelivery: true } });
   const ship = shipOf({ sessions: [held], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
   const subject = ship.subjects.find((one) => one.id === "held")!;
-  expect(subject.needs).toBe(true);
-  expect(groupOf(subject)).toBe("needs");
+  expect(subject.mark.bucket).toBe("draft");
+  expect(subject.needs).toBe(false);
   expect(subject.call).toBeDefined();
   expect(ship.asking.has(subject.key)).toBe(true);
 
@@ -99,4 +99,26 @@ test("a Mod Job's subject carries the mark the list groups it by, and another's 
   const of = (id: string) => ship.subjects.find((one) => one.id === id)!;
   expect(of("mod").mod).toBe(true);
   expect(of("plain").mod).toBeUndefined();
+});
+
+test("each Job's mark wears one of five buckets: stuck and red Checks with the agent idle need him, a turn works, a held limit waits, the rest is idle", () => {
+  const red = { kind: "pull_request" as const, number: 7, title: "Trim the cache", branch: "trim", address: "https://git.example/pull/7", checks: { state: "failed" as const, failing: "unit" }, state: "open" as const, auto: false };
+  const sessions = [
+    reply("stuck", { turn: { state: "working" }, standing: "stuck" }),
+    reply("red", { standing: "idle", attachments: [red] }),
+    reply("working", { turn: { state: "working" }, standing: "working" }),
+    reply("limited", { standing: "idle", limitedUntil: "2026-10-18T14:00:00.000Z" }),
+    reply("idle", { standing: "idle" }),
+  ];
+  const ship = shipOf({ sessions, lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const of = (id: string) => ship.subjects.find((one) => one.id === id)!;
+  expect(sessions.map((one) => [one.id, of(one.id).mark.bucket, of(one.id).mark.tone])).toEqual([
+    ["stuck", "needs", "ask"],
+    ["red", "needs", "ask"],
+    ["working", "working", "calm"],
+    ["limited", "waiting", "calm"],
+    ["idle", "idle", "calm"],
+  ]);
+  expect(groupOf(of("stuck"))).toBe("needs");
+  expect(groupOf(of("red"))).toBe("needs");
 });

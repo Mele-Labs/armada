@@ -8,10 +8,9 @@ import type { PointerEvent } from "react";
 import { bandsOf, type Banding } from "./bands";
 import type { Subject } from "./ship";
 
-/** A live Session that stands in the list on its own account: not an ended one, nor a pull request, nor one hanging under a parent that is listed. */
+/** A live Session that stands in the list on its own account: not an ended one, nor a pull request, nor one the list hangs under its parent. */
 export function movableIn(rows: readonly Subject[]): ReadonlySet<string> {
-  const listed = new Set(rows.map((one) => one.key));
-  return new Set(rows.filter((one) => one.kind === "session" && one.past === undefined && (one.linked === undefined || !listed.has(one.linked.parent))).map((one) => one.key));
+  return new Set(rows.filter((one) => one.kind === "session" && one.past === undefined && one.linked?.depth === undefined).map((one) => one.key));
 }
 
 /** The rows that share a heading, in the order drawn: all of them where the list has no headings. */
