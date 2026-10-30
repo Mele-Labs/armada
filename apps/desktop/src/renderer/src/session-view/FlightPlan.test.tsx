@@ -115,25 +115,34 @@ const child = {
   lastTurnAt: ago(1),
 } as unknown as Session;
 
-test("a shut group handed to a Job draws that Job as a card with its state and its pull request, and each press opens its own", () => {
+test("a group handed to a Job is the Job's card, titled with the Job and the group under it, with its pull request, and has no toggle; each press opens its own", () => {
   held.sessions = [handed, child];
   const opened: string[] = [];
   const host = show(<FlightRows calm groups={[group("one", "open"), group("two", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={(id) => opened.push(id)} />);
-  const shut = rowOf(host, "one");
-  expect(shut.dataset["open"]).toBeUndefined();
-  const card = shut.querySelector<HTMLElement>("button.armada-job-card")!;
+  const row = rowOf(host, "one");
+  expect(row.querySelector("button.sv-flight__row")).toBeNull();
+  const card = row.querySelector<HTMLElement>("button.armada-job-card")!;
   expect(card.getAttribute("aria-label")).toBe("Job Migrations get names");
+  expect(card.querySelector(".armada-job-card__says")?.textContent).toBe("Group one");
   expect(card.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Working");
   act(() => card.click());
   expect(opened).toEqual(["c1"]);
-  act(() => shut.querySelector<HTMLElement>("button.armada-pull-chip")!.click());
+  act(() => row.querySelector<HTMLElement>("button.armada-pull-chip")!.click());
   expect(vi.mocked(openInPanel)).toHaveBeenCalledWith({ kind: "pr", number: 2412, address: "https://forge/pull/2412" });
 });
 
-test("a group handed to no Job draws no card and no pull request", () => {
+test("a group handed to a Job is the card whether its row would have been open or shut", () => {
+  held.sessions = [handed, child];
+  const host = show(<FlightRows all groups={[group("one", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={() => undefined} />);
+  expect(rowOf(host, "one").querySelector("button.armada-job-card")).not.toBeNull();
+  expect(rowOf(host, "one").querySelector('ul[aria-label="Tasks"]')).toBeNull();
+});
+
+test("a group handed to no Job keeps its toggle and its track, and draws no card and no pull request", () => {
   held.sessions = [handed, child];
   const host = show(<FlightRows calm groups={[group("one", "open"), group("two", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={() => undefined} />);
   const none = rowOf(host, "two");
   expect(none.querySelector(".armada-job-card, .armada-pull-chip")).toBeNull();
+  expect(none.querySelector('button.sv-flight__row[aria-expanded="false"]')).not.toBeNull();
   expect(none.querySelectorAll(TRACK)).toHaveLength(1);
 });

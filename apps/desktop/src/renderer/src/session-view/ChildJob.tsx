@@ -1,9 +1,9 @@
-// The Job a plan group was handed to, on the group's shut row: the shared Job card with the Job's pull request, when it has one, under it.
+// The Job a plan group was handed to, which takes the group's row on the spine: the shared Job card titled with the Job's title and the group's title under it,
+// with the Job's pull request, when it has one, below.
 
 import { JobCard, PullRequestChip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { peekOfSession } from "../cockpit/deck/ship";
 import { jobTitle } from "../issues-tab/marks";
 import { usePullRequestMenu } from "../pull-request-menu";
 import { checksSaid } from "../session-cards";
@@ -22,14 +22,13 @@ function ChildPull({ pr, manifestId }: { pr: PullRequest; manifestId: string | u
   );
 }
 
-export function ChildJob({ child, manifestId, onOpen }: { child: Session; manifestId: string | undefined; onOpen: (id: string) => void }) {
+export function ChildJob({ child, group, manifestId, onOpen }: { child: Session; /** The title of the plan group it was handed from. */ group: string; manifestId: string | undefined; onOpen: (id: string) => void }) {
   const { state, said } = stateOf(child);
   const title = jobTitle(child);
   const pr = pullOf(child);
-  const says = peekOfSession(child).at(-1);
   return (
     <span className="sv-flight__job">
-      <JobCard data-nav="" title={title} state={state} said={said} {...(says === undefined ? {} : { says })} {...(child.lastTurnAt === undefined ? {} : { at: child.lastTurnAt })} onOpen={() => onOpen(child.id)} />
+      <JobCard data-nav="" title={title} state={state} said={said} handedFrom={group} {...(child.lastTurnAt === undefined ? {} : { at: child.lastTurnAt })} onOpen={() => onOpen(child.id)} />
       {pr === undefined ? null : <ChildPull pr={pr} manifestId={manifestId} />}
     </span>
   );

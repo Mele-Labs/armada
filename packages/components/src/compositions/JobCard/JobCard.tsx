@@ -22,6 +22,8 @@ export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childr
   said: string;
   /** The last line the Job said. Absent, the line is left empty. */
   says?: string;
+  /** The plan group it was handed from, which takes the line under the title where the last line said would be. A surface that names the Job in the group's place passes it. */
+  handedFrom?: string;
   /** When it last moved, as an RFC 3339 instant or epoch milliseconds. Absent, no age is drawn. */
   at?: string | number;
   /** The repository it works in. Absent, no chip: a surface that already names the repository leaves it out. */
@@ -36,14 +38,14 @@ export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childr
  * and the left edge**, in the hue `jobToneOf` gives it, and its glyph with a tooltip; then the title, the last line it
  * said, its age and its repository. A press opens the Job.
  */
-export function JobCard({ title, state, said, says, at, repository, selected = false, onOpen, ...rest }: JobCardProps) {
+export function JobCard({ title, state, said, says, handedFrom, at, repository, selected = false, onOpen, ...rest }: JobCardProps) {
   return (
     <button {...rest} type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
       <span className="armada-job-card__title">{title}</span>
       <span className="armada-job-card__mark">
         <SessionMark state={state} said={said} />
       </span>
-      <span className="armada-job-card__says">{says ?? ""}</span>
+      <span className="armada-job-card__says">{handedFrom ?? says ?? ""}</span>
       <span className="armada-job-card__at">{at === undefined ? null : <Stamp still first="age" at={at} />}</span>
       {repository === undefined ? null : (
         <span className="armada-job-card__repository">
