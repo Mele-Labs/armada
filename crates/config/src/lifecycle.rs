@@ -149,7 +149,7 @@ fn read(root: &Value, out: &mut Vec<Refusal>) -> Option<Parts> {
 
 /// An id, or the refusal naming what an id is. **No trimming**: `pr: approved` is two words and a
 /// colon, and quietly keeping the first would be a guess.
-fn id_of<T>(key: &str, value: &Value, make: fn(&str) -> Result<T, NotAnId>, out: &mut Vec<Refusal>) -> Option<T> {
+pub(crate) fn id_of<T>(key: &str, value: &Value, make: fn(&str) -> Result<T, NotAnId>, out: &mut Vec<Refusal>) -> Option<T> {
     let written = yaml::text(key, value, out)?;
     match make(&written) {
         Ok(id) => Some(id),

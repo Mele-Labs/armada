@@ -31,9 +31,16 @@ impl fmt::Display for NotAnId {
     }
 }
 
+impl NotAnId {
+    /// The refusal for `written`, for an id of another kind that is spelled the same way.
+    pub(crate) fn spelled(written: &str) -> NotAnId {
+        NotAnId { written: String::from(written) }
+    }
+}
+
 impl core::error::Error for NotAnId {}
 
-fn is_an_id(written: &str) -> bool {
+pub(crate) fn is_an_id(written: &str) -> bool {
     let mut chars = written.chars();
     chars.next().is_some_and(|first| first.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
@@ -43,14 +50,14 @@ macro_rules! an_id {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub struct $name(String);
+        pub struct $name(alloc::string::String);
 
         impl $name {
             /// The id, or the refusal naming what was written.
-            pub fn new(written: &str) -> Result<$name, NotAnId> {
-                match is_an_id(written) {
-                    true => Ok($name(String::from(written))),
-                    false => Err(NotAnId { written: String::from(written) }),
+            pub fn new(written: &str) -> Result<$name, $crate::lifecycle::NotAnId> {
+                match $crate::lifecycle::is_an_id(written) {
+                    true => Ok($name(alloc::string::String::from(written))),
+                    false => Err($crate::lifecycle::NotAnId::spelled(written)),
                 }
             }
 
@@ -59,13 +66,15 @@ macro_rules! an_id {
             }
         }
 
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl core::fmt::Display for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.write_str(&self.0)
             }
         }
     };
 }
+
+pub(crate) use an_id;
 
 an_id! {
     /// Which lifecycle: `ticket`, `pr`, `deploy`, `job`, or one a person defines.
