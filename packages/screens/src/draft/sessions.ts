@@ -212,7 +212,7 @@ export type SessionWork = {
   workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase; /** When each step began, in order, as an RFC 3339 time. A step the Job went back to appears again. */ visits?: readonly { step: number; since: string }[]; /** The steps the person skipped, by index; the Job passes over each. Absent where none is. */ skipped?: readonly number[] };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
-  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
+  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. The spine draws `activity.todos` and not this. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
   /** The files the Field draws as bars on its plots. */
@@ -394,7 +394,7 @@ type SessionRowKinds =
 export type SessionRow = SessionRowKinds;
 
 /** One item of the agent's own TodoWrite list. The agent's report of itself; `SessionActivity.now` is what Fleet detected. */
-export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
+export type SessionTodo = { text: string; state: "done" | "doing" | "todo"; /** The id of the plan task Fleet matched this item to. Its plan row already shows it. */ task?: string };
 
 /**
  * What a Session is doing, from Fleet's PreToolUse gate: `now` is the last tool call as a short

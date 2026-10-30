@@ -137,7 +137,6 @@ import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft
 import { restartOf } from "./build-change";
 import { bangOf, dockRunKey, hostedCommands, opensMcp, runnerOf, waitingRunKey } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
-import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
@@ -1016,7 +1015,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // What waits on the person sits at the foot of the thread in every state, done included, and is not in the ledger. A question or permission whose own
   // card shows it is left out, unless the Session is done and no card is left. A terminal's own permission prompt has no card in the thread, so it stays at the foot.
   const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || (one.source === "permission" && one.act?.kind !== "message")).map((one) => `waiting${one.id}`));
-  const todos = todosOf(session);
   const needs = entries.filter((one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)));
   const ledger = entries.filter((one) => one.kind !== "waiting");
   // What the agent is held on, or asked and was not answered, is the first thing in the Needs you panel on the composer, not the thread's last card.
@@ -1270,7 +1268,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenSubagent={(subagent) => read({ kind: "subagent", id: subagent })}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
-            {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}
             {...(trailing === undefined ? {} : { trailing })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
