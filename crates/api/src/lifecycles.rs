@@ -23,6 +23,14 @@ pub(crate) async fn list_repository_workspaces<D: Lifecycles>(
     }
 }
 
+/// Every Workspace, whichever repositories it holds.
+pub(crate) async fn list_workspaces<D: Lifecycles>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_workspaces().await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The lifecycles that apply to one repository.
 pub(crate) async fn list_lifecycles<D: Lifecycles>(
     State(served): State<Served<D>>,
@@ -40,6 +48,17 @@ pub(crate) async fn list_lifecycle_rules<D: Lifecycles>(
     Query(scope): Query<InManifest>,
 ) -> Response {
     match served.daemon().list_lifecycle_rules(scope.manifest()).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The autonomy defaults that apply to one repository, layer by layer.
+pub(crate) async fn list_autonomy_defaults<D: Lifecycles>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+) -> Response {
+    match served.daemon().list_autonomy_defaults(scope.manifest()).await {
         Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
         Err(refusal) => refused(refusal),
     }

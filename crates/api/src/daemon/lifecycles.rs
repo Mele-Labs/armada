@@ -8,8 +8,8 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
-    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
+    AllWorkspaces, DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
 };
 
 use crate::daemon::Refusal;
@@ -22,6 +22,10 @@ pub trait Lifecycles: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RepositoryWorkspaces, Refusal>> + Send;
 
+    /// `list_workspaces` — every Workspace Fleet can see, whichever repositories it holds, and the
+    /// files set aside.
+    fn list_workspaces(&self) -> impl Future<Output = Result<AllWorkspaces, Refusal>> + Send;
+
     /// `list_lifecycles` — the lifecycles that apply to one repository, and the files set aside.
     fn list_lifecycles(
         &self,
@@ -33,6 +37,13 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RepositoryLifecycleRules, Refusal>> + Send;
+
+    /// `list_autonomy_defaults` — Armada's default for every kind of act, and each layer of autonomy
+    /// defaults that applies to one repository, unresolved. [`Refusal::Unacceptable`] where Fleet serves no repository by that id.
+    fn list_autonomy_defaults(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<RepositoryAutonomy, Refusal>> + Send;
 
     /// `list_keep_drafts` — the rules and lifecycles Jobs kept for every Job in one repository that still
     /// wait on the owner's Approve, one per piece, oldest first.

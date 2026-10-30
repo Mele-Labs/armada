@@ -21,7 +21,7 @@ The tool's description teaches the types, and a refused glyph is answered with t
 | Title | 120 characters |
 
 **It is kept as an artifact of form `sketch`**, `target` `sketch:<title>`, with `detail` of `by` `agent`, `title` and `scene`, the scene as JSON text, and `against` where the call named one.
-A second call with the same title replaces the first where it stands; another title adds one.
+A second call with the same title takes the first's place on the ledger, and another title adds one.
 It stays on the ledger after the session ends and survives a restart.
 The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`, the arguments unwrapped from the door's `body` and carried whole (`title`, `scene`, `against`; not `session_id`), which Bridge draws the sketch's card from.
 No window opens.
@@ -33,6 +33,16 @@ Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiti
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.
 A plan's sketch is not asked, because it is approved with the plan.
+
+**Each drawing of a title is kept as a revision**, as a [document](../document.md)'s pages are, so a redraw loses nothing.
+Fleet writes the scene's text to `rN.json` under `<attachments>/sketches/<job>/<title>-<hash>/`, the title cleaned to one name and the hash its SHA-256 cut to 12 hex digits, so two titles that clean up alike never share a folder.
+A drawing whose scene the newest revision holds keeps nothing new.
+`detail.revisions` names the kept files oldest first, as JSON text, and `scene` is the newest.
+A plan's sketch keeps no revisions, and a file that cannot be written draws the sketch without them.
+
+**Bridge opens the sketch on its newest revision**, on the pin, the newest card and the side panel, with the documents' revision menu even when there is one.
+A revision picked from it is drawn against the one before it, and r1 is drawn plain.
+An earlier revision is read only: an answer is always to the newest.
 
 **The person notes a part of it back to the job** by a right-click or a Shift+drag, and the note arrives as a message: [Noting what you read](noting-what-you-read.md).
 

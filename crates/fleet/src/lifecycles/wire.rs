@@ -9,7 +9,7 @@ use std::path::Path;
 
 use config::{Rank, Reach};
 use core_model::rule::{
-    Act, Among, AutonomyDefaults, Condition, ForgeWrite, JobCondition, Rule, Target, TrackerWrite, When,
+    Act, ActKind, Among, AutonomyDefaults, Condition, ForgeWrite, JobCondition, Rule, Target, TrackerWrite, When,
 };
 use core_model::{Lifecycle, LifecycleScope, PieceSource, Standing, StateRead};
 
@@ -62,7 +62,7 @@ pub fn left_out(left: &[config::PieceLeftOut]) -> Vec<ipc::PieceLeftOut> {
         .collect()
 }
 
-fn scope(scope: &LifecycleScope) -> ipc::PieceScope {
+pub fn scope(scope: &LifecycleScope) -> ipc::PieceScope {
     match scope {
         LifecycleScope::Everywhere => ipc::PieceScope::Everywhere,
         LifecycleScope::Within(id) => ipc::PieceScope::Within { id: id.as_str().to_string() },
@@ -76,6 +76,21 @@ fn state_read(read: &StateRead) -> ipc::StateReadFrom {
         StateRead::Watch(state) => ipc::StateReadFrom::Watch { state: state.as_wire().to_string() },
         StateRead::Fleet(fact) => ipc::StateReadFrom::Fleet { fact: fact.as_wire() },
     }
+}
+
+/// The kinds a layer of defaults set, in the order of the kinds.
+pub fn autonomy_set(set: &AutonomyDefaults) -> Vec<ipc::ActKindDefault> {
+    set.iter()
+        .map(|(kind, autonomy)| ipc::ActKindDefault { kind: kind.as_wire().to_string(), autonomy: autonomy.as_wire().to_string() })
+        .collect()
+}
+
+/// What Armada sets for every kind of act, in the order of the kinds.
+pub fn armada_autonomy() -> Vec<ipc::ActKindDefault> {
+    ActKind::ALL
+        .iter()
+        .map(|kind| ipc::ActKindDefault { kind: kind.as_wire().to_string(), autonomy: kind.default_autonomy().as_wire().to_string() })
+        .collect()
 }
 
 /// A lifecycle's states, the moves it expects and the states that end it.
@@ -182,10 +197,15 @@ fn act(act: &Act) -> ipc::RuleAct {
     }
 }
 
-/// A rule: when, if and do, with each act's autonomy worked out. **No Workspace or repository sets
-/// a default yet**, so an act takes the rule's own word, else its kind's.
+/// A rule with each act's autonomy as its own word or its kind's default. **For a write**, which
+/// carries the rule's own `autonomy` and never an act's resolved one; a read uses [`rule_under`].
 pub fn rule(rule: &Rule) -> ipc::LifecycleRule {
-    let defaults = AutonomyDefaults::new();
+    rule_under(rule, &AutonomyDefaults::new())
+}
+
+/// A rule: when, if and do, with each act's autonomy worked out: the rule's own word, else what
+/// `defaults` set for the kind (the repository's laid layers), else the kind's own.
+pub fn rule_under(rule: &Rule, defaults: &AutonomyDefaults) -> ipc::LifecycleRule {
     ipc::LifecycleRule {
         id: rule.id().as_str().to_string(),
         name: rule.name().as_str().to_string(),

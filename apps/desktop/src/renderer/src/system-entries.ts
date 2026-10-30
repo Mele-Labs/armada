@@ -37,6 +37,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "kit:allowlist", label: "Allowlist", group: "kit", kit: "allowlist" },
   { id: "kit:mods", label: "Mods", group: "kit", kit: "mods" },
   { id: "kit:workflows", label: "Workflows", group: "kit" },
+  { id: "kit:workspaces", label: "Workspaces", group: "kit" },
   { id: "kit:models", label: "Models", group: "kit", sections: ["model", "effort"] },
   { id: "kit:prompts", label: "Prompts", group: "kit", sections: ["prompts"] },
   { id: "kit:harness", label: "Harness", group: "kit", sections: ["harness"] },
@@ -92,7 +93,7 @@ export function entryForSurface(surface: string, last: string): string | undefin
     case SURFACE.workflows:
       return "kit:workflows";
     case SURFACE.kit:
-      return now?.kit !== undefined ? last : FIRST_ENTRY;
+      return now?.kit !== undefined || now?.id === "kit:workspaces" ? last : FIRST_ENTRY;
     case SURFACE.settings:
       return now?.sections !== undefined ? last : "fleet:limits";
     default:
@@ -104,6 +105,7 @@ export function entryForSurface(surface: string, last: string): string | undefin
 export function surfaceOfEntry(id: string): string {
   if (id === "kit:workflows") return SURFACE.workflows;
   if (id === "bridge:guides") return SURFACE.guides;
+  if (id === "kit:workspaces") return SURFACE.kit;
   return entryOf(id)?.kit !== undefined ? SURFACE.kit : SURFACE.settings;
 }
 

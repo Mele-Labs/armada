@@ -230,9 +230,10 @@ type SessionThreadKinds =
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
    * `against` names, so the card draws the change as the panel does. `asked` is a sketch put to the person to approve,
-   * and `settled` how he answered it.
+   * and `settled` how he answered it. `revisions` is each drawing Fleet kept under the title, oldest first, set by the host on the
+   * newest card once every one is read: the card then offers each of them.
    */
-  | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true; asked?: true; settled?: SketchSettled }
+  | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true; asked?: true; settled?: SketchSettled; revisions?: readonly Scene[] }
   /**
    * A page the Job wrote under `.armada/documents/`, as its newest revision, at the time Fleet kept it. `page` is the ledger's id
    * for the page and `revision` the newest revision's number, counted from 1. `asked` is that revision put to him, and `settled`
