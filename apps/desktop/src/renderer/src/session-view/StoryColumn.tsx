@@ -337,10 +337,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   };
   // A pull request not yet merged and an issue not yet closed are work in hand, so they never stand under a finished step.
   const stillOpen = (one: Made) => (one.shape === "pr" && one.pr.state !== "merged") || (one.shape === "issue" && one.issue.state === "open");
-  // A group still to come or being worked draws its own issue and that issue's pull requests, so Open leaves them out: each is drawn once. One whose group is handed to a Job,
-  // or finished, or that no group names, stays. A plan stood whole to edit draws every group that is not handed.
+  // A group that always shows its issue draws it and that issue's pull requests, so Open leaves them out: each is drawn once. Such a group is one of a plan stood whole to
+  // edit, or a placeholder Job not finished. A shut row of an approved plan shows no issue, so Open keeps one whose group is that, handed to a Job, finished, or none.
   const handed = new Set(childrenOf(sessions, session).map((one) => one.group));
-  const drawnByGroup = new Set(groups.filter((group) => !handed.has(group.id) && (editing || steps.get(group.id) !== "done")).map((group) => group.id));
+  const drawnByGroup = new Set(groups.filter((group) => !handed.has(group.id) && (editing || (group.ownJob === true && steps.get(group.id) !== "done"))).map((group) => group.id));
   const openMade = made.filter((one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)));
   const keptBlock = kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />;
   type Done = { time: string | undefined; group: (typeof finished)[number] } | { time: string | undefined; made: Made };
@@ -368,9 +368,11 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
     return <div className="sv-nav" onKeyDown={arrowsIn}><ol className="sv-beats" aria-label="Done">{rows}</ol></div>;
   };
 
-  // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step.
+  // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step. The follow-ups stand here only
+  // while the pinned Open group, which lists them, is hidden.
+  const keptHere = openShown ? [] : kept;
   const landing =
-    ahead.length === 0 && kept.length === 0 ? undefined : (
+    ahead.length === 0 && keptHere.length === 0 ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
         {ahead.length === 0 ? null : (
           <ol className="sv-beats" aria-label="Ahead">
@@ -379,7 +381,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             ))}
           </ol>
         )}
-        {kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
+        {keptHere.length === 0 ? null : <LaterBlock later={keptHere} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
       </div>
     );
 
@@ -449,7 +451,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
                     </ol>
                   </div>
                 )}
-                {last ? landing : keptBlock}
+                {last ? landing : openShown ? null : keptBlock}
               </>
             </SvPanel>
           );
