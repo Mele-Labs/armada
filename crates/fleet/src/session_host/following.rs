@@ -169,6 +169,23 @@ where
         held
     }
 
+    /// The folders a process may run a file from and still be the session's, to end or list:
+    /// [`Self::held_directories`] without the repository root. **The root holds every slot and
+    /// the preview Bridge runs from**, so a session with no slot, one that gave it back with
+    /// `finish_up` among them, ended Bridge and every other Job's binaries on its close (29 Oct).
+    pub(crate) fn process_directories(
+        &self,
+        id: &str,
+        served: &Served,
+        hosting: &KeptHosting,
+    ) -> Vec<String> {
+        let root = std::path::Path::new(served.root());
+        self.held_directories(id, served, hosting)
+            .into_iter()
+            .filter(|held| std::path::Path::new(held) != root)
+            .collect()
+    }
+
     /// Whether a process is one the session started, however deep, or runs a file from a
     /// directory it holds: what it may `kill`. The second covers a dev Fleet its subagent started
     /// and which left the tree by `setsid`.
