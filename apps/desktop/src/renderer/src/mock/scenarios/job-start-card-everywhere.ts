@@ -47,8 +47,6 @@ const threads = (): Record<string, SessionRow[]> => ({
 
 const START = "Read crates/settings/src/loader.rs and find out whether a cap set for one repository is ever read. Report where the value is dropped.";
 
-const HANDOFF = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
-
 /** What the agent reads of a pinned note: his words, then the lines about the spot, then the handoff, as `noting.rs` composes them. */
 function turnOf(note: SessionNote): string {
   const { element, stamp, component, owners } = note.place;
@@ -58,7 +56,7 @@ function turnOf(note: SessionNote): string {
   lines.push(`Page: ${note.address}`);
   const chain = [...(component === undefined ? [] : [component]), ...(owners ?? [])].slice(0, 3);
   if (chain.length > 0) lines.push(`Inside: component chain ${chain.join(" ← ")}`);
-  return [note.said.trim(), "", ...lines, HANDOFF].join("\n");
+  return [note.said.trim(), "", ...lines].join("\n");
 }
 
 function build(): Scenario {

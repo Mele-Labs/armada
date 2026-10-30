@@ -101,13 +101,12 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
         r#"State: tab \"Bash\" selected; walk burnBySessionModelTool step 6 of 9; take B, Needs you first; scenario usage"#,
         "Page: http://127.0.0.1:1/?walk=burnBySessionModelTool",
         "Inside: Burn by Bash command; component chain ShareRows ← UsagePage ← Boundary",
-        "Handoff: deliver the way the owner chose when Fleet asked how.",
         r#""data":"aGVsbG8=""#,
     ] {
         assert!(turn.contains(wanted), "the turn carries {wanted}: {turn}");
     }
-    for unwanted in ["JobsFilterl", "TheShell"] {
-        assert!(!turn.contains(unwanted), "a pressed button and a far component are left out, {unwanted}: {turn}");
+    for unwanted in ["JobsFilterl", "TheShell", "Handoff:"] {
+        assert!(!turn.contains(unwanted), "a pressed button, a far component and a handoff line are left out, {unwanted}: {turn}");
     }
 
     let rows = rig.rows(&id).await;
@@ -118,7 +117,7 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
 }
 
 #[tokio::test]
-async fn a_notes_job_lines_come_after_his_words_as_background_and_before_the_handoff() {
+async fn a_notes_job_lines_come_after_his_words_as_background_and_nothing_follows_them() {
     let rig = rig_fitted(|_| {});
     a_repository(&rig);
     let id = rig.start().await;
@@ -132,9 +131,9 @@ async fn a_notes_job_lines_come_after_his_words_as_background_and_before_the_han
     let order = [
         at("this row should say which commands"),
         at("Background, not the task: the Job he had open when he pinned this\\nJob: Fix the flaky store test (01OPEN)\\nState: working"),
-        at("Handoff: deliver the way the owner chose"),
     ];
-    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "his words, then the Job, then the handoff: {turn}");
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "his words, then the Job: {turn}");
+    assert!(!turn.contains("Handoff:"), "no handoff line follows the Job: {turn}");
 }
 
 #[tokio::test]
@@ -166,7 +165,7 @@ fn walk_note(id: &SessionId, said: &str, label: &str, address: &str, crop: &str)
 }
 
 #[tokio::test]
-async fn three_notes_reach_the_session_as_one_turn_numbered_with_one_handoff_and_three_crops() {
+async fn three_notes_reach_the_session_as_one_turn_numbered_with_three_crops_and_no_handoff() {
     let rig = rig_fitted(|_| {});
     a_repository(&rig);
     let id = rig.start().await;
@@ -200,13 +199,12 @@ async fn three_notes_reach_the_session_as_one_turn_numbered_with_one_handoff_and
         at("3. say which\\n"),
         at("   Screenshot: image 3 of this message, the whole window, ring 3 marks what he pointed at"),
         at("   Page: file:///tmp/page.html"),
-        at("Handoff: deliver the way the owner chose when Fleet asked how."),
         at(r#""data":"b25l""#),
         at(r#""data":"dHdv""#),
         at(r#""data":"dGhyZWU=""#),
     ];
     assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "in note order: {turn}");
-    assert_eq!(turn.matches("Handoff:").count(), 1, "the handoff once: {turn}");
+    assert!(!turn.contains("Handoff:"), "no handoff line: {turn}");
     assert_eq!(turn.matches(r#""type":"image""#).count(), 3, "three pictures: {turn}");
 
     let rows = rig.rows(&id).await;
