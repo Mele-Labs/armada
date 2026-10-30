@@ -25,7 +25,7 @@
 }
 
 .armada-workspaces__detail {
-  gap: var(--space-5);
+  gap: var(--space-4);
   overflow-y: auto;
   padding: var(--space-4);
 }
