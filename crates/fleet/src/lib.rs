@@ -357,6 +357,8 @@ mod workflow_changes;
 /// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read
 /// from the places a piece is kept.
 mod piece_places;
+/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+mod piece_saving;
 pub mod workspaces;
 
 #[cfg(test)]

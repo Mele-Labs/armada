@@ -1,15 +1,19 @@
-// Workspaces, lifecycles and rules, as main asks Fleet for them: one request per read, and the stream's
+// Workspaces, lifecycles and rules, as main asks Fleet for them: one request per read or write, and the stream's
 // `job_lifecycles.changed`, passed on to every window. Nothing is kept here, since the event carries a Job's whole.
 
 import type {
   ChangeJobCopy,
   ChangeSessionSteps,
+  DeleteLifecyclePiece,
   JobCopy,
   JobLifecycles,
+  LifecyclePieceDeleted,
+  LifecyclePieceSaved,
   Outcome,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
   RepositoryWorkspaces,
+  SaveLifecyclePiece,
   WorkflowChange,
 } from "@armada/protocol";
 import type { LifecyclesActed } from "../shared/api/lifecycles";
@@ -50,6 +54,16 @@ export class LifecyclesHost {
     return this.read(`/lifecycles/rules?manifest_id=${encodeURIComponent(manifestId)}`);
   }
 
+  /** `POST /lifecycles/pieces/save`. */
+  save(body: SaveLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceSaved>> {
+    return this.send("/lifecycles/pieces/save", body);
+  }
+
+  /** `POST /lifecycles/pieces/delete`. */
+  remove(body: DeleteLifecyclePiece): Promise<LifecyclesActed<LifecyclePieceDeleted>> {
+    return this.send("/lifecycles/pieces/delete", body);
+  }
+
   /** `GET /sessions/lifecycles?session_id=`. */
   job(sessionId: string): Promise<LifecyclesActed<JobLifecycles>> {
     return this.read(`/sessions/lifecycles?session_id=${encodeURIComponent(sessionId)}`);
@@ -62,30 +76,31 @@ export class LifecyclesHost {
 
   /** `POST /sessions/workflow/steps`. The Job's lanes change by `job_lifecycles.changed` and its row by `session.changed`. */
   steps(change: ChangeSessionSteps): Promise<LifecyclesActed<JobCopy>> {
-    return this.act("/sessions/workflow/steps", change);
+    return this.send("/sessions/workflow/steps", change);
   }
 
   /** `POST /sessions/copy`. */
   piece(change: ChangeJobCopy): Promise<LifecyclesActed<JobCopy>> {
-    return this.act("/sessions/copy", change);
+    return this.send("/sessions/copy", change);
   }
 
   /** `POST /sessions/copy/keep`. Saves nothing: the change waits on the owner's Approve. */
   keep(sessionId: string): Promise<LifecyclesActed<WorkflowChange>> {
-    return this.act("/sessions/copy/keep", { session_id: sessionId });
+    return this.send("/sessions/copy/keep", { session_id: sessionId });
   }
 
-  private async read<T>(path: string): Promise<LifecyclesActed<T>> {
-    const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "GET", path);
-    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+  private read<T>(path: string): Promise<LifecyclesActed<T>> {
+    return this.ask("GET", path);
   }
 
-  private async act<T>(path: string, body: unknown): Promise<LifecyclesActed<T>> {
+  private send<T>(path: string, body: unknown): Promise<LifecyclesActed<T>> {
+    return this.ask("POST", path, body);
+  }
+
+  private async ask<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<LifecyclesActed<T>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "POST", path, body);
+    const answer = await ask(port, method, path, body);
     return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
   }
 }

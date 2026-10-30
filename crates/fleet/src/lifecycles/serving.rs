@@ -287,4 +287,12 @@ where
         let store = self.store().lock().await;
         Ok(job_lifecycles_of(&store, &job, &|manifest| self.lifecycles_that_apply(manifest)))
     }
+
+    async fn save_lifecycle_piece(&self, save: ipc::SaveLifecyclePiece) -> Result<ipc::LifecyclePieceSaved, Refusal> {
+        self.lifecycle_piece_saved(save)
+    }
+
+    async fn delete_lifecycle_piece(&self, delete: ipc::DeleteLifecyclePiece) -> Result<ipc::LifecyclePieceDeleted, Refusal> {
+        self.lifecycle_piece_deleted(delete)
+    }
 }

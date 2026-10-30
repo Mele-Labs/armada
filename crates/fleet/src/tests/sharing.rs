@@ -24,6 +24,7 @@ use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
 mod manifest;
+mod pieces;
 mod requests;
 
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;

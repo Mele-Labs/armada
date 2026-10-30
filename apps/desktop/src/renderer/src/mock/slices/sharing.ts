@@ -14,9 +14,20 @@ const refusal = (code: string, message: string): SharingAnswer<never> => {
 };
 
 const idOf = ({ piece }: PieceToShare): string =>
-  piece.kind === "workflow" ? piece.workflow_id : piece.kind === "review_tool" ? piece.id : piece.kind === "manifest" ? "armada" : piece.kind === "requests" ? "requests" : [...(piece.job ?? []), ...(piece.deck ?? [])].join("-");
+  piece.kind === "workflow"
+    ? piece.workflow_id
+    : piece.kind === "manifest"
+      ? "armada"
+      : piece.kind === "requests"
+        ? "requests"
+        : piece.kind === "flight_controls"
+          ? [...(piece.job ?? []), ...(piece.deck ?? [])].join("-")
+          : piece.id;
 
-const kindOf = ({ piece }: PieceToShare): PackagePiece["kind"] => (piece.kind === "flight_controls" ? "tile" : piece.kind);
+/** The kinds a package carries. A Workspace, lifecycle, rule or autonomy default is kept and committed, and Share refuses it. */
+const carried = ({ piece }: PieceToShare): boolean => ["flight_controls", "workflow", "review_tool", "manifest", "requests"].includes(piece.kind);
+
+const kindOf = ({ piece }: PieceToShare): PackagePiece["kind"] => (piece.kind === "flight_controls" ? "tile" : (piece.kind as PackagePiece["kind"]));
 
 /** The text a package of these pieces reads as here: one table each, naming what it holds. */
 function textOf(pieces: readonly PieceToShare[]): string {
@@ -33,10 +44,21 @@ export const sharing: Slice<SharingApi, Record<string, never>> = {
       commitToRepository: async (body) => {
         const id = idOf({ repository: body.repository, piece: body.piece });
         const path =
-          body.piece.kind === "workflow" ? `.armada/workflows/${id}.toml` : body.piece.kind === "review_tool" ? `.armada/review-tools/${id}.md` : body.piece.kind === "manifest" ? "armada.yml" : body.piece.kind === "requests" ? ".armada/requests.toml" : ".armada/flight-controls.toml";
+          body.piece.kind === "workflow"
+            ? `.armada/workflows/${id}.toml`
+            : body.piece.kind === "review_tool"
+              ? `.armada/review-tools/${id}.md`
+              : body.piece.kind === "manifest"
+                ? "armada.yml"
+                : body.piece.kind === "requests"
+                  ? ".armada/requests.toml"
+                  : body.piece.kind === "flight_controls"
+                    ? ".armada/flight-controls.toml"
+                    : `.armada/${body.piece.kind === "lifecycle" ? "lifecycles" : body.piece.kind === "lifecycle_rule" ? "rules" : body.piece.kind === "workspace" ? "workspaces" : "autonomy"}/${id}.toml`;
         return { ok: true, value: { repository: body.repository, session_id: `commit-${id}`, branch: `armada/commit-${id}`, paths: [path], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" } };
       },
       sharePackage: async (body) => {
+        if (!body.pieces.every(carried)) return refusal("fleet.share_refused", "Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet.");
         const text = textOf(body.pieces);
         made.set(text, body.pieces.map((one) => ({ kind: kindOf(one), id: idOf(one), name: idOf(one), commands: [], repository: one.repository, exists: true })));
         return { ok: true, value: { file_name: `${idOf(body.pieces[0]!)}.armada.toml`, text } };

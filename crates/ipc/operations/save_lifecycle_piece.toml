@@ -1,0 +1,18 @@
+[operations.save_lifecycle_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Write one Workspace, lifecycle, rule or autonomy default in Kit's folder for it, as the piece file its own parser reads, refusing a piece that parser would refuse"
+notes = """
+`POST /lifecycles/pieces/save`. The body is `SaveLifecyclePiece` `{ piece, overwrite? }`, `overwrite` false where absent. The answer is a `LifecyclePieceSaved` `{ kind, id, scope, file, replaced }`: the file as written (absolute), and whether it took the place of one that declared the same piece. 200, and not 201, for `save_workflow`'s reason: the file is on disk when this answers, and the next read of `list_lifecycles`, `list_lifecycle_rules` or `list_repository_workspaces` shows it.
+
+**The DTOs a read answered are the input.** `piece` is tagged by `kind`: `lifecycle` `{ lifecycle }` (a `LifecycleDefinition`), `rule` `{ rule }` (a `LifecycleRule`), `workspace` `{ workspace }` (a `WorkspaceToSave` `{ id, name, repositories[] }`) or `autonomy` `{ autonomy }` (an `AutonomyToSave` `{ id, scope, defaults }`, `defaults` mapping a kind of act to `acts`, `asks` or `off`; `scope` is everywhere where absent). Fleet writes the file syntax itself, so a client holds no second copy of the format. Only `rule.does[].what` is written of an act; its `kind` and `autonomy` are what a read worked out, and the rule's own `autonomy` is what the file says.
+
+**Checked before anything is written, by the piece's own parser** (`lifecycle`, `rule`, `workspace` or `autonomy` in `config`), so a piece that is saved is one that loads. 422 `fleet.piece_unfit` where it does not, the message the parser's own sentence with every fault of the piece and its key. Nothing is created on the way to a refusal: not the folder, not a staged file.
+
+**A piece is its kind, id and scope, and not its id.** `ticket` for every repository and `ticket` within a repository are two files that rank against each other. The file that holds a piece is found by the id and scope it declares, whatever it is called (`.json`, `.yml` or `.yaml`), as `save_workflow` finds a definition. A Workspace has no scope; its id is its identity. 422 `fleet.piece_exists`, naming the file, unless `overwrite` is true; with it the file that declared the piece is replaced in place under its own name, and any second file declaring it is removed, since two leave both out of every read. A new file is named `<id>.yml`, and `<id>.<scope>.yml` within a scope, with anything but letters, digits, `-` and `_` in a name made `-`. **It never takes the name of a file that declares something else**, or declares nothing a parser reads: the name gains `-2`, `-3` and on. Kit's folder is made where it is absent.
+
+**Kit's folder only.** The repository's own copy is `commit_to_repository`'s, which goes by a Job and a pull request. 500 `fleet.piece_unwritable` where the file cannot be written. Written beside and renamed over, so a read sees the old file or the new and never half of one.
+
+`agent_access` is `Bridge only`: the person's own pieces decide what every Job of theirs does and asks.
+"""

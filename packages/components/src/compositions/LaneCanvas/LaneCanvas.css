@@ -85,6 +85,33 @@
   white-space: nowrap;
 }
 
+/* A lifecycle's head is a button where the lanes are edited: it picks the lifecycle, and its frame says so. */
+.armada-lane__pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.armada-lane__pick:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+.armada-lane__head[data-picked] { box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); }
+
+.armada-lane__pending {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-flex;
+  color: var(--fg-subtle);
+}
+/* Beside a removal that waits, a change on this Job stands to its left. */
+.armada-lane__pending + .armada-lane__changed { right: calc(var(--space-1) + var(--space-4)); }
+
 /* ---- A step or a state ------------------------------------------------------------------------------------------- */
 
 .armada-lane-item {
@@ -332,6 +359,9 @@
 .armada-lane-surface .armada-lane-edge[data-picked] .armada-lane-edge__line { stroke-width: calc(var(--border-width) * 2.5); }
 
 /* ---- A rule's chip, on its edge ------------------------------------------------------------------------------------ */
+
+/* The canvas draws in the lanes' own area: what a pan leaves under the heads, a chip or a line included, is cut at their edge. */
+.armada-lane-canvas .react-flow__renderer { clip-path: inset(0 0 0 var(--lane-head)); }
 
 /* The chips are drawn in React Flow's label layer, which sits before the nodes in the document: lifted above them, a chip over a node is still pressable. */
 .armada-lane-surface .react-flow__edgelabel-renderer { z-index: 5; }

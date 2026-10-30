@@ -145,7 +145,7 @@ A proposal waits on the owner's Approve on the Workflows page, as a drafted chan
 
 **A workflow is copied at the Job's first change to its steps**, as the file it followed then, so the Job keeps following that text while the repository's changes.
 A rule or a lifecycle is changed in the copy the Job froze when it started.
-Keeping a rule or a lifecycle for every Job waits on the Workflows page being able to save one.
+Keeping a rule or a lifecycle for every Job is not built: it would go through the Workflows page's save, and nothing proposes one to it.
 The timeline enters each change as `session.copy`, naming what changed and who.
 
 ### Where a definition comes from

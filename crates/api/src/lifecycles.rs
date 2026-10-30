@@ -1,12 +1,13 @@
-//! Workspaces, lifecycles and rules over the router: what applies to a repository, and what a Job
-//! holds. Reads only.
+//! Workspaces, lifecycles and rules over the router: what applies to a repository, what a Job
+//! holds, and saving or deleting one piece in Kit.
 
+use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
 
-use crate::answers::{answer, refused};
+use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Lifecycles;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -62,6 +63,31 @@ pub(crate) async fn get_job_lifecycles<D: Lifecycles>(
         .map(|id| ipc::SessionId::carried(id.trim()));
     match served.daemon().get_job_lifecycles(crate::acting::asking(), named).await {
         Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write one piece in Kit's folder. **200 and not 201**, for `save_workflow`'s reason: the file is
+/// on disk, and read by the next read, when this answers.
+pub(crate) async fn save_lifecycle_piece<D: Lifecycles>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::SaveLifecyclePiece = match ipc::decode_body("a piece to save", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_lifecycle_piece(asked).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Delete the Kit file that declares one piece.
+pub(crate) async fn delete_lifecycle_piece<D: Lifecycles>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::DeleteLifecyclePiece = match ipc::decode_body("a piece to delete", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().delete_lifecycle_piece(asked).await {
+        Ok(deleted) => answer(StatusCode::OK, &deleted, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
