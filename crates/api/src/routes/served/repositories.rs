@@ -334,6 +334,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workspaces",
     },
     Route {
+        operation: "list_workspaces",
+        method: "GET",
+        path: "/workspaces/all",
+    },
+    Route {
         operation: "list_lifecycles",
         method: "GET",
         path: "/lifecycles",

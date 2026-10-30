@@ -8,7 +8,7 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
+    AllWorkspaces, DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
     RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
 };
 
@@ -21,6 +21,10 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RepositoryWorkspaces, Refusal>> + Send;
+
+    /// `list_workspaces` — every Workspace Fleet can see, whichever repositories it holds, and the
+    /// files set aside.
+    fn list_workspaces(&self) -> impl Future<Output = Result<AllWorkspaces, Refusal>> + Send;
 
     /// `list_lifecycles` — the lifecycles that apply to one repository, and the files set aside.
     fn list_lifecycles(

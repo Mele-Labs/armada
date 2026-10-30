@@ -1127,10 +1127,10 @@ Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.
 
 **A Bridge that matches `WaitingSource` exhaustively** meets a value it did not know; the mirror gained it in the same change, and equal IDs hold the two together.
 
-## Workspaces, lifecycles and rules, read: `list_repository_workspaces`, `list_lifecycles`, `list_lifecycle_rules`, `get_job_lifecycles` and `job_lifecycles.changed`
+## Workspaces, lifecycles and rules, read: `list_repository_workspaces`, `list_workspaces`, `list_lifecycles`, `list_lifecycle_rules`, `get_job_lifecycles` and `job_lifecycles.changed`
 
 Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*; `crates/ipc/src/lifecycles.rs`.
-**Additive only, and reads only**: four operations, four routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance.
+**Additive only, and reads only**: five operations, five routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance.
 Bridge draws a Job's lanes from `get_job_lifecycles`, kept current by `job_lifecycles.changed`, and the Job's waiting line from `workflow_waiting_on`; it reads a Job once when the Job first appears and again after a `Missed`.
 A Job whose read carries `acts` has its repository's `list_lifecycle_rules` read as well, since an act is drawn on the edge its rule is.
 The other two reads are drawn by nothing yet.
@@ -1140,6 +1140,7 @@ Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field f
 | Where | Side | Carries |
 | --- | --- | --- |
 | `list_repository_workspaces` (`GET /workspaces?manifest_id=`, Bridge only) | Bridge reads | `RepositoryWorkspaces` `{ manifest_id, workspaces[], left_out[] }`; a `WorkspaceOfRepositories` is `{ id, name, repositories[], home?, source, path, overridden_by?, hides? }`. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
+| `list_workspaces` (`GET /workspaces/all`, Bridge only) | Bridge reads | `AllWorkspaces` `{ workspaces[], left_out[] }`, each a `WorkspaceOfRepositories` as above, every file once (the one that runs for each id and each one it replaced) ordered by name, read by the same loader; no query and no refusal |
 | `list_lifecycles` (`GET /lifecycles?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycles` `{ manifest_id, lifecycles[], left_out[] }`; an `AppliedLifecycle` is `{ lifecycle, kept }`, a `LifecycleDefinition` `{ id, name, scope, states[], transitions[], ends[] }` |
 | `list_lifecycle_rules` (`GET /lifecycles/rules?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycleRules` `{ manifest_id, rules[], left_out[] }`; an `AppliedRule` is `{ rule, kept }`, a `LifecycleRule` `{ id, name, scope, when, conditions[], does[], autonomy?, on_failure }` |
 | `get_job_lifecycles` (`GET /sessions/lifecycles?session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `JobLifecycles` `{ session_id, lifecycles[], instances[], moves[], acts? }`; a `RuleActReading` in `acts` is `{ rule, text, course, standing, said?, at, settled_at?, on?, entered? }`. 422 `fleet.job_lifecycles_unplaced`; 404 `fleet.no_such_session` |

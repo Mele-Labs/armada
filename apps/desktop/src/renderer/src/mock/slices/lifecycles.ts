@@ -59,6 +59,7 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
     const kept = { workspaces: structuredClone([...seed.workspaces]), lifecycles: structuredClone([...seed.lifecycles]), rules: structuredClone([...seed.rules]) };
     return {
       listRepositoryWorkspaces: async (manifestId) => ({ ok: true, value: { manifest_id: manifestId, workspaces: kept.workspaces.filter((one) => one.repositories.includes(manifestId)), left_out: [] } }),
+      listWorkspaces: async () => ({ ok: true, value: { workspaces: [], left_out: [] } }),
       listLifecycles: async (manifestId) => ({
         ok: true,
         value: { manifest_id: manifestId, lifecycles: answered(kept.lifecycles.map((one) => ({ piece: one.lifecycle, kept: one.kept })), manifestId, kept.workspaces).map(({ piece, kept: at }): AppliedLifecycle => ({ lifecycle: piece, kept: at })), left_out: [] },

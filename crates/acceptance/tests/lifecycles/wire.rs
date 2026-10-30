@@ -103,9 +103,10 @@ fn a_rule_crosses_with_its_moment_its_act_and_what_the_act_will_do_unasked() {
 }
 
 #[test]
-fn bridge_has_all_four_reads_and_the_event_and_an_agent_has_the_jobs_own_and_no_other() {
+fn bridge_has_all_five_reads_and_the_event_and_an_agent_has_the_jobs_own_and_no_other() {
     let served = |operation: &str| api::SERVED.iter().find(|route| route.operation == operation).map(|route| (route.method, route.path));
     assert_eq!(served("list_repository_workspaces"), Some(("GET", "/workspaces")));
+    assert_eq!(served("list_workspaces"), Some(("GET", "/workspaces/all")));
     assert_eq!(served("list_lifecycles"), Some(("GET", "/lifecycles")));
     assert_eq!(served("list_lifecycle_rules"), Some(("GET", "/lifecycles/rules")));
     assert_eq!(served("get_job_lifecycles"), Some(("GET", "/sessions/lifecycles")));
@@ -113,7 +114,7 @@ fn bridge_has_all_four_reads_and_the_event_and_an_agent_has_the_jobs_own_and_no_
 
     let tools: Vec<&str> = api::offered().iter().map(|shape| shape.operation).collect();
     assert!(tools.contains(&"get_job_lifecycles"), "the agent can ask what its own Job holds");
-    for bridge_only in ["list_repository_workspaces", "list_lifecycles", "list_lifecycle_rules"] {
+    for bridge_only in ["list_repository_workspaces", "list_workspaces", "list_lifecycles", "list_lifecycle_rules"] {
         assert!(!tools.contains(&bridge_only), "{bridge_only} is Bridge's");
     }
 }

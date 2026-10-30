@@ -63,6 +63,14 @@ export type RepositoryWorkspaces = {
   left_out: PieceLeftOut[];
 };
 
+/** `list_workspaces` (`GET /workspaces/all`): every Workspace Fleet can see, whichever repositories it holds. */
+export type AllWorkspaces = {
+  /** Each file once: the one that runs for each id, and each one it replaced. Ordered by name. */
+  workspaces: WorkspaceOfRepositories[];
+  /** Every Workspace file Fleet could not read. */
+  left_out: PieceLeftOut[];
+};
+
 /** How a state is read, by the source that knows. */
 export type StateReadFrom =
   /** The tracker's own words for it. None is allowed, and every value is then unmapped. */

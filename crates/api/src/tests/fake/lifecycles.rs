@@ -2,7 +2,7 @@
 //! repository holds none of any, and one Job holds a pull request in review.
 
 use ipc::{
-    DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
+    AllWorkspaces, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
     HeldInstance, InstanceLink, InstanceMove, InstanceStanding, Instant, JobLifecycles, LifecycleDefinition,
     LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles,
     RepositoryWorkspaces, SessionId, StateReadFrom,
@@ -79,6 +79,10 @@ impl FakeDaemon {
 impl Lifecycles for FakeDaemon {
     async fn list_repository_workspaces(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryWorkspaces, Refusal> {
         Ok(RepositoryWorkspaces { manifest_id: self.repository(manifest_id).await?, workspaces: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn list_workspaces(&self) -> Result<AllWorkspaces, Refusal> {
+        Ok(AllWorkspaces { workspaces: Vec::new(), left_out: Vec::new() })
     }
 
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {

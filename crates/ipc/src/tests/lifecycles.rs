@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use crate::{
-    decode, encode, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
+    decode, encode, AllWorkspaces, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
     InstanceStanding, Instant, JobLifecycles, LifecycleDefinition, LifecycleRule, LifecycleStateDefinition,
     LifecycleTransition, ManifestId, PieceKept, PieceLeftOut, PieceRank, PieceScope, RepositoryLifecycleRules,
     RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleActReading, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
@@ -226,6 +226,7 @@ fn every_part_round_trips() {
         left_out: left_out(),
     });
     round_trips(&RepositoryWorkspaces { manifest_id: ManifestId::carried("01API"), workspaces: vec![a_workspace()], left_out: left_out() });
+    round_trips(&AllWorkspaces { workspaces: vec![a_workspace()], left_out: left_out() });
 }
 
 /// Nothing is sent as `null`: a part that is absent leaves no key.
@@ -312,6 +313,7 @@ fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
         serde_json::to_value(AppliedLifecycle { lifecycle: a_lifecycle(), kept: kept_by_kit() }).unwrap(),
         serde_json::to_value(AppliedRule { rule, kept: kept_by_kit() }).unwrap(),
         serde_json::to_value(RepositoryWorkspaces { manifest_id: ManifestId::carried("01API"), workspaces: vec![a_workspace()], left_out: left_out() }).unwrap(),
+        serde_json::to_value(AllWorkspaces { workspaces: vec![a_workspace()], left_out: left_out() }).unwrap(),
         serde_json::to_value(RepositoryLifecycles { manifest_id: ManifestId::carried("01API"), lifecycles: Vec::new(), left_out: Vec::new() }).unwrap(),
         serde_json::to_value(RepositoryLifecycleRules { manifest_id: ManifestId::carried("01API"), rules: Vec::new(), left_out: Vec::new() }).unwrap(),
         serde_json::to_value(PieceScope::Within { id: "x".to_string() }).unwrap(),
