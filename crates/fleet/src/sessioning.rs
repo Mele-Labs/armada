@@ -697,6 +697,10 @@ where
         self.sketch_answered(answer).await
     }
 
+    async fn answer_document(self: Arc<Self>, answer: ipc::AnswerDocument) -> Result<SessionRecord, Refusal> {
+        self.document_answered(answer).await
+    }
+
     async fn show_file(
         &self,
         caller: Option<api::Caller>,

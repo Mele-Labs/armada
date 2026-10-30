@@ -44,8 +44,8 @@
 export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "allow_for_session", "allow_like_this_for_session", "always_block"] as const;
 export type HelmCallAnswer = (typeof HELM_CALL_ANSWERS)[number];
 
-/** Whether a call past a session's slots reads what it names or writes to it. */
-export type ReachesTo = "read" | "write";
+/** Whether a call past a session's slots reads what it names, writes to it, or runs something the guard cannot class as either. */
+export type ReachesTo = "read" | "write" | "run";
 
 /** The kind of a shell call: its program, and for an interpreter the script it runs. */
 export type CallKind = { program: string; script?: string };

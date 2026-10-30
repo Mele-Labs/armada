@@ -323,8 +323,11 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * A draft act is never one: it is proposed at once and the `draft` item it raises is the ask.
  * `sketch` (id `sketch:<title>`, the sketch attachment's id, text the title, act `message` whose `target` is the Job's own id) is a sketch the
  * agent showed with `show_sketch` that he has not approved or sent back on its card. Its press opens the sketch. Dismissing it settles it.
+ * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
+ * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
+ * `detail.settled`. Its press opens the document. `answer_document` answers it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -587,6 +590,18 @@ export type SketchHow = "approved" | "sent_back";
  * `"true"`, and once answered `detail.settled`, `detail.settled_at` and his `detail.words`.
  */
 export type AnswerSketch = { session_id: string; sketch: string; drawn: string; how: SketchHow; words?: string };
+
+/** How the person answered a document put to him, as `detail.settled` holds it. */
+export type DocumentHow = "approved" | "sent_back";
+
+/**
+ * `POST /sessions/document/answer`, Bridge's: Approve, or Send back with a note, on a document's card. `document`
+ * is the ledger id, `document:<path>`, and `revision` its `detail.revision` as he read it; a revision kept since
+ * is a 409, `fleet.document_revised`. `words` is required for `sent_back`. Every newly kept revision carries
+ * `detail.asked` `"true"` and `detail.revision`, and once answered `detail.settled`, `detail.settled_at` and his
+ * `detail.words`; a new revision drops those three, so it asks again.
+ */
+export type AnswerDocument = { session_id: string; document: string; revision: string; how: DocumentHow; words?: string };
 
 /**
  * `POST /sessions/show_file`, the agent's: a file to open in the side panel. `path` is absolute or relative

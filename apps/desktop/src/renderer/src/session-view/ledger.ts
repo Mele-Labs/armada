@@ -1,5 +1,5 @@
 // What a Job has produced, as one list in the order it was produced, for the Done zone of the story (`StoryColumn.tsx`). Read from what the Job
-// already holds: the approved plan, the documents and sketches, the files and pages, the commits in the thread, the walks it ended, the issues
+// already holds: the approved plan, the documents he approved or was never asked about, and sketches, the files and pages, the commits in the thread, the walks it ended, the issues
 // and pull requests attached, the mods it made and the follow-ups he kept. Nothing is fetched and nothing is guessed from what an agent said.
 //
 // **The order is the Job's own sequence.** A thread row carries a time and an attachment does not, so the list runs plan, documents, sketches,
@@ -60,12 +60,15 @@ export function madeOf(session: Session, entries: readonly LedgerEntry[], opts: 
     made("document", row("plan", BadgeCheck, "Plan", "Plan", sketch === undefined ? undefined : () => opts.onOpenSketch(sketch.id)));
   }
   const report = opts.landing === "report" ? reportOf(session, entries) : undefined;
+  // A page whose newest revision waits on his answer is still being made: it stands in Now until he approves it.
+  const waits = (one: ArtifactRow) => (one.sub === undefined ? false : documentOf(session, one.sub)?.waits === true);
   for (const one of oldest("doc")) {
+    if (waits(one)) continue;
     // A page the Job wrote as its document opens in the reading layer over the Job.
     const page = one.sub === undefined ? undefined : documentOf(session, one.sub);
     made("document", page === undefined ? one : { ...one, open: () => showLayer(session.id, "document", page.id) }, one.key === report?.key ? { report: true } : {});
   }
-  if (report !== undefined && !out.some((one) => one.key === report.key)) made("document", report, { report: true });
+  if (report !== undefined && !waits(report) && !out.some((one) => one.key === report.key)) made("document", report, { report: true });
   const planSketch = plan?.sketch?.id;
   for (const one of oldest("sketch")) if (one.key !== `sketch:${planSketch}`) made("document", one);
   for (const one of oldest("page")) made("artifact", one);

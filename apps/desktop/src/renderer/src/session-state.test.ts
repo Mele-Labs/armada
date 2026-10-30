@@ -152,6 +152,11 @@ describe("a sketch put to him holds the Session on him", () => {
     const sketch = { id: "sketch:Store clock", text: "Store clock", since: TURN_ENDED, source: "sketch", act: { kind: "message", target: "s1" } };
     expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [sketch] }))).toEqual({ state: "waiting", said: "Waiting on you" });
   });
+
+  test("so does a document put to him, whatever its turn says", () => {
+    const page = { id: "document:/work/.armada/documents/script.html", text: "Video script", since: TURN_ENDED, source: "document", act: { kind: "message", target: "s1" } };
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [page] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
 });
 
 describe("a Job he parked", () => {

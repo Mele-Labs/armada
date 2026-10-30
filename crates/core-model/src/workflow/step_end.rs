@@ -24,12 +24,22 @@ pub enum StepEnd {
     /// Instances of a lifecycle the Job holds reach a state: `pr: approved`. **Added after the five
     /// above, so a copy written before it reads as it did.**
     Lifecycle(LifecycleEnd),
+    /// He approves the newest revision of a page the Job wrote under `.armada/documents/`. After
+    /// the lifecycle form for the same reason it came after the five.
+    DocumentApproved,
 }
 
 impl StepEnd {
     /// The words the person's acts are written as. The lifecycle form is not among them.
     pub const ALL: &'static [StepEnd] =
-        &[StepEnd::Replied, StepEnd::WalkApproved, StepEnd::SketchApproved, StepEnd::DraftApproved, StepEnd::IdeaPicked];
+        &[
+        StepEnd::Replied,
+        StepEnd::WalkApproved,
+        StepEnd::SketchApproved,
+        StepEnd::DraftApproved,
+        StepEnd::IdeaPicked,
+        StepEnd::DocumentApproved,
+    ];
 
     pub fn as_wire(&self) -> Cow<'static, str> {
         match self {
@@ -38,6 +48,7 @@ impl StepEnd {
             StepEnd::SketchApproved => Cow::Borrowed("sketch_approved"),
             StepEnd::DraftApproved => Cow::Borrowed("draft_approved"),
             StepEnd::IdeaPicked => Cow::Borrowed("idea_picked"),
+            StepEnd::DocumentApproved => Cow::Borrowed("document_approved"),
             StepEnd::Lifecycle(end) => Cow::Owned(end.as_wire()),
         }
     }
