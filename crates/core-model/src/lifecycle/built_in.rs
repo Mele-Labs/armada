@@ -5,12 +5,12 @@
 //! is for. A piece file that spells the same lifecycle out reads back equal to it, which a test in
 //! `config` holds.
 //!
-//! The ticket lists no tracker words of its own. **A tracker brings the ones it uses**
-//! ([`Lifecycle::ticket_reading`]), so a repository on a tracker that declares any reads from the
-//! first Job; one on a tracker that declares none leaves every status unmapped, which is a fact,
-//! where a default would have been a guess. A lifecycle scoped to a Workspace (a set of
-//! repositories) or to a repository replaces the Ticket outright, and is where a person says which
-//! words are which.
+//! The ticket lists one tracker word of its own, `closed`, which no tracker spells another way.
+//! **A tracker brings the rest it uses** ([`Lifecycle::ticket_reading`]), so a repository on a
+//! tracker that declares some reads from the first Job; one on a tracker that declares none leaves
+//! every other status unmapped, which is a fact, where a default would have been a guess. A
+//! lifecycle scoped to a Workspace (a set of repositories) or to a repository replaces the Ticket
+//! outright, and is where a person says which words are which.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -21,6 +21,9 @@ use crate::workflow::Title;
 use super::ids::{LifecycleId, StateId};
 use super::machine::{Lifecycle, LifecycleScope, LifecycleState, LifecycleTransition};
 use super::read::{FleetFact, ForgeFact, StateRead, TrackerWords};
+
+/// The words the ticket lists whatever the tracker, as `(state id, word)`.
+const CARRIED: &[(&str, &str)] = &[("closed", "closed")];
 
 fn id(written: &str) -> StateId {
     StateId::new(written).expect("a built-in state id is one word")
@@ -53,22 +56,23 @@ fn built(
 }
 
 impl Lifecycle {
-    /// A ticket in the tracker: `ticket`, **listing no words**.
+    /// A ticket in the tracker: `ticket`, **listing only `closed`**.
     pub fn ticket() -> Lifecycle {
         Lifecycle::ticket_reading(&[])
     }
 
-    /// `ticket` with the words a tracker declares, as `(state id, word)`. **A blank word, a word
-    /// repeated on one state, a word two states both claim and an id the ticket has no state for
-    /// are left out**: what a tracker declares is not a person's file, and one bad pair must not
-    /// take the rest with it. A status two states claim is read as neither, the same as a
-    /// lifecycle that listed it twice is refused.
+    /// `ticket` with the words a tracker declares added to the one it carries, as `(state id,
+    /// word)`. **A blank word, a word repeated on one state, a word two states both claim and an id
+    /// the ticket has no state for are left out**: what a tracker declares is not a person's file,
+    /// and one bad pair must not take the rest with it. A status two states claim is read as
+    /// neither, the same as a lifecycle that listed it twice is refused, **except that the word the
+    /// ticket carries is never the one left out**.
     pub fn ticket_reading(declared: &[(&str, &str)]) -> Lifecycle {
         let words = |state: &str| {
-            let mut kept: Vec<&str> = Vec::new();
+            let mut kept: Vec<&str> = CARRIED.iter().filter(|(on, _)| *on == state).map(|(_, word)| *word).collect();
             for (_, word) in declared.iter().filter(|(on, _)| *on == state) {
                 let word = word.trim();
-                let claimed_elsewhere = declared.iter().any(|(on, other)| *on != state && other.trim() == word);
+                let claimed_elsewhere = declared.iter().chain(CARRIED.iter()).any(|(on, other)| *on != state && other.trim() == word);
                 if !word.is_empty() && !claimed_elsewhere && !kept.contains(&word) {
                     kept.push(word);
                 }

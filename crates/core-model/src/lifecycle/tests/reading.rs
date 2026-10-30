@@ -22,8 +22,9 @@ fn a_tracker_word_is_matched_exactly_and_one_no_state_lists_is_unmapped() {
 }
 
 #[test]
-fn the_ticket_armada_carries_lists_no_words_so_every_status_is_unmapped() {
+fn the_ticket_armada_carries_lists_only_closed_so_every_other_status_is_unmapped() {
     let carried = Lifecycle::ticket();
+    assert_eq!(carried.standing_of(&Observed::Tracker("closed")), Standing::In(id("closed")));
     for status in ["To Do", "In Progress", "Done"] {
         assert_eq!(carried.standing_of(&Observed::Tracker(status)), Standing::Unmapped(text(status)));
     }
@@ -54,9 +55,10 @@ fn a_declared_word_that_is_blank_repeated_or_claimed_by_two_states_is_left_out_a
         ("closed", "shared"),
         ("closed", "closed"),
         ("no_such_state", "ghost"),
+        ("in_review", "closed"),
     ]);
     assert_eq!(standing(&worded, "open"), Standing::In(id("todo")), "a word repeated on one state is kept once");
-    assert_eq!(standing(&worded, "closed"), Standing::In(id("closed")));
+    assert_eq!(standing(&worded, "closed"), Standing::In(id("closed")), "the word the ticket carries is never the one left out");
     assert_eq!(standing(&worded, "shared"), Standing::Unmapped(text("shared")), "two states claim it, so neither does");
     assert_eq!(standing(&worded, "ghost"), Standing::Unmapped(text("ghost")));
 }

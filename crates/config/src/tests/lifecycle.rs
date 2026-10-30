@@ -16,7 +16,7 @@ states:
   - { id: todo, label: To do, read: { tracker: [] } }
   - { id: in_progress, label: In progress, read: { tracker: [] } }
   - { id: in_review, label: In review, read: { tracker: [] } }
-  - { id: closed, label: Closed, read: { tracker: [] } }
+  - { id: closed, label: Closed, read: { tracker: [closed] } }
 transitions:
   - { from: todo, to: in_progress }
   - { from: in_progress, to: in_review }
