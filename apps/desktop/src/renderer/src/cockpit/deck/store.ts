@@ -397,19 +397,27 @@ export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "h
   const base = scope === "quiet" || scope === "ended" ? held : scope === "paused" ? parked : scope === "all" ? [...every, ...held] : live;
   const kept = base.filter((one) => (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
   const open = [...past, ...parked].find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
-  const rows = linkedUnder(open === undefined ? kept : [...kept, open]);
-  // The one order the list draws and the cursor walks: grouped by repository where the list is.
-  return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
+  const rows = open === undefined ? kept : [...kept, open];
+  // The one order the list draws and the cursor walks: grouped by repository where the list is, and nested inside each group, so a
+  // Job never hangs under a parent drawn in another group.
+  if (banding === undefined) return linkedUnder(rows);
+  const bands = bandsOf(rows, banding);
+  const away = new Map(bands.flatMap((band) => band.subjects.map((one) => [one.key, { title: one.title, repo: band.label }] as const)));
+  return bands.flatMap((band) => linkedUnder(band.subjects, away));
 }
 
-/** Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too, however deep the chain. */
-function linkedUnder(rows: readonly Subject[]): Subject[] {
+/**
+ * Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too, however deep the chain.
+ * One whose parent is listed in another repository's group (`away`) stands on its own, linked by its glyph alone.
+ */
+function linkedUnder(rows: readonly Subject[], away: ReadonlyMap<string, { title: string; repo: string }> = new Map()): Subject[] {
   const listed = new Set(rows.map((one) => one.key));
   const placed = new Set<string>();
   // A row whose parent is not listed is a plain top-level row: its link would hang off whatever row sits above it.
   const plain = (one: Subject): Subject => {
-    const { linked: _gone, ...rest } = one;
-    return rest;
+    const { linked, ...rest } = one;
+    const from = linked === undefined || listed.has(linked.parent) ? undefined : away.get(linked.parent);
+    return from === undefined || linked === undefined ? rest : { ...rest, linked: { parent: linked.parent, ...(linked.group === undefined ? {} : { group: linked.group }), from } };
   };
   // `rails` are the levels whose line runs on past this row: a parent's, down to its next Job, at each level above.
   const tree = (one: Subject, depth: number, rails: readonly number[]): Subject[] => {

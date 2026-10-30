@@ -91,8 +91,8 @@ export type Subject = {
   older?: true;
   /** When it last took a turn, in ms: the order a past list reads in, and the age the row draws. */
   at?: number;
-  /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent, `depth` steps in, with the line of each level in `rails` running on past it. */
-  linked?: { parent: string; group?: string; depth?: number; rails?: readonly number[] };
+  /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent, `depth` steps in, with the line of each level in `rails` running on past it, or, where the parent is listed in another repository's group, on its own with that parent's title and repository in `from`. */
+  linked?: { parent: string; group?: string; depth?: number; rails?: readonly number[]; from?: { title: string; repo: string } };
   /** The Job this one took the place of, by id: the row offers it, and the order gives this one that Job's place. */
   earlier?: string;
   /** A Job another took the place of: it is no row of any list, and opens only from that Job's row. */
