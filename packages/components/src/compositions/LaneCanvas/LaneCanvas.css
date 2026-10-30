@@ -243,6 +243,8 @@
   --ground: color-mix(in srgb, var(--status-awaiting-review) 10%, var(--bg-raised));
 }
 .armada-lane-item[data-waiting] .armada-lane-item__sub { color: var(--status-awaiting-review); }
+/* One sentence for each end the step has not had, each on its own line. */
+.armada-lane-item__sub > span { display: block; }
 .armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
 .armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
 

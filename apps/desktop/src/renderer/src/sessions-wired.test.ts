@@ -1,7 +1,7 @@
 // What the store behind the window's Sessions does with what main publishes.
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { SessionRecord } from "@armada/protocol";
+import type { JobLifecycles, SessionRecord } from "@armada/protocol";
 
 import type { BridgeApi } from "../../shared/api";
 import { NOTHING_YET } from "../../shared/bridge";
@@ -655,4 +655,73 @@ it("still says a start refused anywhere else on the Sessions line, and raises no
 
   expect(store.draft.said!()).toBe("No such row in your projects.");
   expect(raised()).toEqual([]);
+});
+
+// ---- What a Job holds -----------------------------------------------------------------------------------------------------
+
+const TICKET: JobLifecycles["lifecycles"][number] = {
+  id: "ticket",
+  name: "Ticket",
+  scope: { kind: "everywhere" },
+  states: [
+    { id: "todo", label: "To do", read: { source: "tracker", words: ["To Do"] } },
+    { id: "in_progress", label: "In progress", read: { source: "tracker", words: ["In Progress"] } },
+  ],
+  transitions: [{ from: "todo", to: "in_progress" }],
+  ends: [],
+};
+
+const holding = (id: string, state: string): JobLifecycles => ({
+  session_id: id,
+  lifecycles: [TICKET],
+  instances: [{ lifecycle: "ticket", key: "ARM-41", label: "ARM-41", standing: { kind: "in", state }, links: [] }],
+  moves: [],
+});
+
+/** A store whose Fleet answers `get_job_lifecycles` with `answer`, and whose `job_lifecycles.changed` is sent by hand. */
+async function holdingStore(answer: (id: string) => ReturnType<BridgeApi["getJobLifecycles"]>) {
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  let changed: (held: JobLifecycles) => void = () => undefined;
+  const getJobLifecycles = vi.fn(answer);
+  const api = {
+    syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }),
+    subscribeChanges: (on: typeof send) => ((send = on), () => undefined),
+    getJobLifecycles,
+    onJobLifecyclesChanged: (on: typeof changed) => ((changed = on), () => undefined),
+  } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const publish = async (...records: SessionRecord[]) => {
+    send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: records } }), seq: 0 });
+    await new Promise((done) => setTimeout(done, 0));
+  };
+  return { store, getJobLifecycles, publish, changed: (held: JobLifecycles) => changed(held) };
+}
+
+it("draws a lane for each instance a Job holds, as Fleet reads it, and moves it when Fleet says it moved", async () => {
+  const { store, publish, changed } = await holdingStore(async (id) => ({ ok: true, value: holding(id, "todo") }));
+  await publish(record("a"));
+  expect(store.draft.get()[0]?.lanes?.job.instances).toMatchObject([{ label: "ARM-41", state: "todo" }]);
+
+  changed(holding("a", "in_progress"));
+  expect(store.draft.get()[0]?.lanes?.job.instances).toMatchObject([{ label: "ARM-41", state: "in_progress" }]);
+});
+
+it("keeps what an event said when an older read answers after it", async () => {
+  let answer: (held: JobLifecycles) => void = () => undefined;
+  const { store, publish, changed } = await holdingStore(() => new Promise((done) => (answer = (held) => done({ ok: true, value: held }))));
+  await publish(record("a"));
+  changed(holding("a", "in_progress"));
+  answer(holding("a", "todo"));
+  await new Promise((done) => setTimeout(done, 0));
+  expect(store.draft.get()[0]?.lanes?.job.instances[0]?.state).toBe("in_progress");
+});
+
+it("draws no lanes for a Job that holds nothing, one that has ended, or a Fleet that refuses the read, and asks once for each Job", async () => {
+  const empty: JobLifecycles = { session_id: "a", lifecycles: [], instances: [], moves: [] };
+  const { store, publish, getJobLifecycles } = await holdingStore(async (id) => (id === "b" ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { ...empty, session_id: id } }));
+  await publish(record("a"), record("b"), { ...record("c"), state: "ended" });
+  await publish(record("a"), record("b"), { ...record("c"), state: "ended" });
+  expect(store.draft.get().map((one) => one.lanes)).toEqual([undefined, undefined, undefined]);
+  expect(getJobLifecycles.mock.calls.map(([id]) => id)).toEqual(["a", "b"]);
 });

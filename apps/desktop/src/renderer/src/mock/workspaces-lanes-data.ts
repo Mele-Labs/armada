@@ -516,7 +516,7 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
     instances,
     fired,
     changes: moment >= 8 ? [{ id: "skip-deploy-watch", lane: "deploy", item: "rolling_out", text: "Skip the deploy watch", at: "14:05" }] : [],
-    ...(moment === 5 ? { waitingOn: { step: "land", instance: "pr-812", state: "approved" } } : {}),
+    ...(moment === 5 ? { waiting: ["Waiting on PR #812: Approved"] } : {}),
     ...(moment >= 4 && moment <= 5 ? { triage: { instance: "pr-812", comments: triaged(sent) } } : {}),
   };
   return { workflow: "feature", at, working: WORKING[moment] !== undefined, job };
@@ -611,8 +611,8 @@ export function feedbackAt(moment: number): SessionLanes {
     instances,
     fired,
     changes: changed ? CHANGES : [],
-    ...(moment === 2 ? { waitingOn: { step: "oversee", instance: CART, state: "landed", and: [PANEL] } } : {}),
-    ...(moment === 3 ? { waitingOn: { step: "oversee", instance: PANEL, state: "landed" } } : {}),
+    ...(moment === 2 ? { waiting: ["Waiting on Fix cart rounding, Tidy the PR panel landing: Landed"] } : {}),
+    ...(moment === 3 ? { waiting: ["Waiting on Tidy the PR panel landing: Landed"] } : {}),
   };
   const at = [1, 3, 4, 4, 4][moment]!;
   return { workflow: "feature", at, working: FEEDBACK_WORKING[moment] !== undefined, ...(changed ? { skipped: FEEDBACK_SKIPPED } : {}), job };

@@ -164,7 +164,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
   const drawnSteps = withEnds(
     copy.steps.map((step, at): LaneNodeView => {
       const sub = endsOnSaid(step, copy.lifecycles);
-      const waiting = job.waitingOn?.step === step.id ? waitingSaid(job, copy.lifecycles) : undefined;
+      // What the Job's step waits on is the step it is at.
+      const waiting = at === standing.at ? job.waiting : undefined;
       const changed = job.changes.find((one) => one.lane === "workflow" && one.item === step.id)?.text;
       return {
         id: nodeId("workflow", step.id),
@@ -185,7 +186,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
   );
   const flow: LaneView = { id: "workflow", kind: "workflow", title: standing.workflow, source: "Workflow", nodes: drawnSteps.nodes, moves: drawnSteps.moves };
   const lanes: LaneView[] = [
-    flow,
+    // A Job with no workflow has no top lane.
+    ...(copy.steps.length === 0 ? [] : [flow]),
     ...job.instances.flatMap((instance): LaneView[] => {
       const lifecycle = copy.lifecycles.find((one) => one.id === instance.lifecycle);
       if (lifecycle === undefined) return [];
@@ -252,19 +254,6 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
     }
   }
   return { lanes, rules };
-}
-
-/** What the rail says a step is waiting on: `Waiting on Document: Approved`, or the several it waits on by name: `Waiting on: Fix cart rounding, Tidy the PR panel landing`. */
-export function waitingSaid(job: JobLanes, lifecycles: readonly Lifecycle[]): string | undefined {
-  const waiting = job.waitingOn;
-  if (waiting === undefined) return undefined;
-  if (waiting.and !== undefined && waiting.and.length > 0) {
-    const named = [waiting.instance, ...waiting.and].flatMap((id) => job.instances.find((one) => one.id === id)?.label ?? []);
-    return `Waiting on: ${named.join(", ")}`;
-  }
-  const instance = job.instances.find((one) => one.id === waiting.instance);
-  const state = lifecycles.find((one) => one.id === instance?.lifecycle)?.states.find((one) => one.id === waiting.state);
-  return instance === undefined ? undefined : `Waiting on ${instance.label}: ${state?.label ?? waiting.state}`;
 }
 
 /** What is still in flight on a Job: each instance not in an end state, as `Deploy: rolling out`. */

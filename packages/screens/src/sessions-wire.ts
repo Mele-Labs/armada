@@ -6,14 +6,15 @@
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
 import { isNotice } from "@armada/protocol";
-import type { Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
+import type { Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobLifecycles, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import { retroRowOf } from "./retro-row";
 import { waitOfWire } from "./session-waits";
-import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
+import { lanesOfJob } from "./session-lanes";
+import { changeOfEvent, linesOfWire, settledRowsOf, stepsWithIds, workOf } from "./session-work";
 import type { ReviewRefused } from "./session-work";
 import { share } from "./share";
 import type {
@@ -44,6 +45,8 @@ export type Beside = {
   events?: readonly TimelineEvent[];
   /** The Job's watches, which `watches.changed` carries and the record does not. Absent is none read. */
   watches?: readonly WatchSummary[];
+  /** What the Job holds: its tickets, pull requests, deploys and the Jobs it started, from `get_job_lifecycles` and `job_lifecycles.changed`. Absent is none read, which draws no lanes. */
+  lifecycles?: JobLifecycles;
   /** Picks of the proposer the person has changed here, which the record has not yet said. */
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
@@ -634,6 +637,18 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const activity = activityOf(record.activity);
   const account = accountOf(record.activity);
   const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true, ...(beside.reviewRefused === undefined ? {} : { reviewRefused: beside.reviewRefused }) });
+  const flow = work?.workflow;
+  const lanes =
+    ended || beside.lifecycles === undefined
+      ? undefined
+      : lanesOfJob({
+          held: beside.lifecycles,
+          working: hosted?.turn.state === "working",
+          ...(record.workflow_waiting_on === undefined ? {} : { waiting: record.workflow_waiting_on }),
+          ...(flow === undefined
+            ? {}
+            : { workflow: { name: flow.name, steps: stepsWithIds(record, beside.workflows ?? NO_WORKFLOWS), began: (flow.visits ?? []).length > 0, ...(flow.at === undefined ? {} : { at: flow.at }), ...(flow.skipped === undefined ? {} : { skipped: flow.skipped }) } }),
+        });
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -695,6 +710,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
     ...(work === undefined ? {} : { work }),
+    ...(lanes === undefined ? {} : { lanes }),
   };
 }
 
@@ -810,4 +826,4 @@ export class SessionMemo {
 }
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;

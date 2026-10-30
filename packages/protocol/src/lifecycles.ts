@@ -2,7 +2,7 @@
 // Hand-mirrored from `crates/ipc/src/lifecycles.rs`. `docs/practices/protocol.md`, *Workspaces, lifecycles and rules, read*.
 //
 // The header rules in `protocol.ts` hold here: every closed set is left as `string`, with its words in the comment.
-// **Reads only.** Nothing here saves a piece or moves an instance, and nothing in Bridge draws these yet.
+// **Reads only.** Nothing here saves a piece or moves an instance. Bridge draws a Job's lanes from `JobLifecycles` (`packages/screens/src/session-lanes.ts`); nothing draws the other reads yet.
 //
 // **A Workspace here is a set of repositories** (`WorkspaceOfRepositories`), not the Manifest's monorepo unit that
 // `WorkspaceCommands` and `ScannedWorkspace` speak of.

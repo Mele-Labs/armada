@@ -1098,7 +1098,9 @@ Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.
 ## Workspaces, lifecycles and rules, read: `list_repository_workspaces`, `list_lifecycles`, `list_lifecycle_rules`, `get_job_lifecycles` and `job_lifecycles.changed`
 
 Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*; `crates/ipc/src/lifecycles.rs`.
-**Additive only, and reads only**: four operations, four routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance. Bridge draws none of it yet.
+**Additive only, and reads only**: four operations, four routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance.
+Bridge draws a Job's lanes from `get_job_lifecycles`, kept current by `job_lifecycles.changed`, and the Job's waiting line from `workflow_waiting_on`; it reads a Job once when the Job first appears and again after a `Missed`.
+The other three reads are drawn by nothing yet.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field for field, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
 
