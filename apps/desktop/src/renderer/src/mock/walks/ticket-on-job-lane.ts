@@ -18,7 +18,7 @@ const ticketOnJobLane = walk("ticket-on-job-lane", [
   { hover: cart, say: "The tooltip names the ticket and its state, and says the Job holds it" },
   { look: kept, say: "ARM-58 has no Job started for it, so it keeps its lane" },
   { press: head, say: "A double-click on the head of Fix cart rounding, or Enter on it, opens that Job's own Workflow" },
-  { look: ticket, say: "Its own lanes, under its title. ARM-52 has a lane here, In review" },
+  { look: ticket, say: "Its own lanes, under its title. ARM-52 and PR #815 are both In review" },
   { press: button("Back to Go through app feedback", { exact: true }), say: "Back returns to the lanes of Go through app feedback as they were" },
 ]);
 

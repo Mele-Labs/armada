@@ -49,7 +49,7 @@ import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
  *
  * **Drawn at the scale it is read**, one canvas unit a pixel, so a node's name is the kit's body size and never fitted down to a frame: the lanes
  * fill its height and the person pans across. A rule's chip sits in the gutter between lanes, where no node is (`layout.ts`). **The canvas follows**: when the lanes change it pans
- * to what changed, with the earliest of it at the left; as it opens it shows where the Job stands; and it pans to a rule that is picked and to any node or chip that takes focus
+ * to what changed, with the earliest of it at the left; as it opens it shows where the Job stands, from the earliest state it holds where they are too wide for the frame; and it pans to a rule that is picked and to any node or chip that takes focus
  * by key or hover. The lane heads stand over the left of the frame, so a pan never takes a lane's name away. The zoom is the person's and nothing here changes it.
  *
  * **Every node is the shape of what it is** (`NodeKind`): a step a rounded box, a state the tracker or the forge reads a pill, a wait or a watch a hexagon, a Job another Job started a card with the drone glyph, and
@@ -628,8 +628,8 @@ function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
   );
 }
 
-/** A pan asked for: the rectangles to bring into view, and whether they are what changed. */
-type Pan = { n: number; rects: readonly Rect[]; follow: boolean; down?: true };
+/** A pan asked for: the rectangles to bring into view, and whether they are what changed. `earliest` is the opening one, which keeps the earliest of a set too wide for the frame. */
+type Pan = { n: number; rects: readonly Rect[]; follow: boolean; down?: true; earliest?: true };
 
 /**
  * Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met.
@@ -652,7 +652,7 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
     done.current = pan.n;
     const was = again ? ran.current!.was : flow.getViewport();
     ran.current = { was, height };
-    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow, pan.down === true) ?? (again ? was : undefined);
+    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow, pan.down === true, pan.earliest === true) ?? (again ? was : undefined);
     if (next === undefined) return;
     if (open && home.current === undefined) home.current = was;
     left.current = next;
@@ -714,8 +714,8 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   const asked = useRef(0);
   const geometry = useRef({ placement, chips, toolbar: editing !== undefined, top: lanes[0]?.id });
   geometry.current = { placement, chips, toolbar: editing !== undefined, top: lanes[0]?.id };
-  /** `toolbar` names the ones that stand under a toolbar, which is brought into view with them. */
-  const reveal = useCallback((ids: readonly string[], follow = false, toolbar: readonly string[] = []) => {
+  /** `toolbar` names the ones that stand under a toolbar, which is brought into view with them. `earliest` is for the canvas opening: a set too wide for the frame is shown from its earliest, so a lane holding an early state is not left empty by one that stands further on. */
+  const reveal = useCallback((ids: readonly string[], follow = false, toolbar: readonly string[] = [], earliest = false) => {
     const { placement: laid, chips: placed, toolbar: editable, top } = geometry.current;
     const rects: Rect[] = [];
     for (const id of ids) {
@@ -730,7 +730,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     }
     if (rects.length === 0) return;
     asked.current += 1;
-    setPan({ n: asked.current, rects, follow });
+    setPan({ n: asked.current, rects, follow, ...(earliest ? { earliest: true as const } : {}) });
   }, []);
 
   // When the lanes change, what changed is brought into view with the earliest of it at the left, and as they open, where the Job stands: the states it is in, what waits, what was
@@ -764,7 +764,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       ...lanes.flatMap((lane) => lane.nodes.filter((node) => node.changed !== undefined).map((node) => node.id)),
       ...rules.filter((rule) => rule.changed !== undefined).flatMap((rule) => [rule.id, rule.from, rule.to]),
     ]);
-    if (ids.size > 0) reveal([...ids], before === undefined || [...ids].some((id) => !copied.has(id)));
+    if (ids.size > 0) reveal([...ids], before === undefined || [...ids].some((id) => !copied.has(id)), [], before === undefined);
   }, [lanes, rules, reveal]);
 
   /** A lane that stands below or above the frame is brought into it, with the canvas left where it is across. */

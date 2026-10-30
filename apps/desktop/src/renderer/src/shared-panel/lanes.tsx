@@ -81,12 +81,25 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   );
 }
 
-/** A Job's own Workflow opened from a lane on its parent's: the way back and its title over its lanes. Focus goes to its canvas, as it does when the lanes open. */
+/**
+ * A Job's own Workflow opened from a lane on its parent's: the way back and its title over its lanes. Focus goes to its canvas, as it does when the lanes open. **Esc is Back** while focus is in it,
+ * after the canvas has had its own (a pick let go); `data-keeps-esc` tells the panel the press is this one's, and the layer's own listener sees it taken. On the top level Esc closes as it did.
+ */
 function Into({ back, title, children }: { back: { label: string; onBack: () => void }; title: string; children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => root.current?.querySelector<HTMLElement>("[data-node]")?.focus({ preventScroll: true }), []);
   return (
-    <div ref={root} className="sv-lanes__into">
+    <div
+      ref={root}
+      className="sv-lanes__into"
+      data-keeps-esc=""
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || event.defaultPrevented) return;
+        event.preventDefault();
+        event.stopPropagation();
+        back.onBack();
+      }}
+    >
       <header className="sv-lanes__into-head">
         <Button variant="ghost" size="sm" title={back.label} onClick={back.onBack}>
           <ChevronLeft size={12} strokeWidth={2} aria-hidden="true" />
