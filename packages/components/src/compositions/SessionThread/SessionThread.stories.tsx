@@ -622,6 +622,52 @@ export const StartedSessionOpens: Story = {
   },
 };
 
+const heldOpened = fn();
+const heldStarted = fn();
+const heldRow = (start?: { starting: boolean; onStart: () => void }): SessionThreadRow => ({ id: "h1", at: "14:06:00", kind: "started", session: { id: "held-1", title: "Retry cap" }, fork: false, ...(start === undefined ? {} : { start }) });
+
+/** A Job held on its start card has Start before the chevron on its Started row, which begins it without opening it; the row's own press still opens it. */
+export const AHeldJobsStartedRowStartsItFromTheThread: Story = {
+  args: { rows: [heldRow({ starting: false, onStart: heldStarted })], onOpenSession: heldOpened },
+  play: async ({ canvas }) => {
+    heldOpened.mockClear();
+    heldStarted.mockClear();
+    await userEvent.click(canvas.getByRole("button", { name: "Start Retry cap" }));
+    await expect(heldStarted).toHaveBeenCalledTimes(1);
+    await expect(heldOpened).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Retry cap" }));
+    await expect(heldOpened).toHaveBeenCalledTimes(1);
+    await expect(heldOpened).toHaveBeenCalledWith("held-1");
+    await expect(heldStarted).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** While the start waits on the request being read, the Started row says Starting with the spinning mark, and there is no Start to press again. */
+export const AStartingJobsStartedRowSaysStartingInPlaceOfStart: Story = {
+  args: { rows: [heldRow({ starting: true, onStart: heldStarted })], onOpenSession: heldOpened },
+  play: async ({ canvas }) => {
+    heldStarted.mockClear();
+    await expect(canvas.getByText("Starting…")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Starting" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Start Retry cap" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Retry cap" })).toBeVisible();
+    await expect(heldStarted).not.toHaveBeenCalled();
+  },
+};
+
+/** A Started row with no start, a Job already begun, has no Start button and only opens the Job. */
+export const AStartedRowWithNoStartHasNoStartButton: Story = {
+  args: { rows: [heldRow()], onOpenSession: heldOpened },
+  play: async ({ canvas }) => {
+    heldOpened.mockClear();
+    await expect(canvas.queryByRole("button", { name: /^Start/ })).toBeNull();
+    await expect(canvas.queryByText("Starting…")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Retry cap" }));
+    await expect(heldOpened).toHaveBeenCalledTimes(1);
+    await expect(heldOpened).toHaveBeenCalledWith("held-1");
+  },
+};
+
 const NOTICE = "Subagents burned 5.0 units in your last hour, 87% of it, on opus. Pass model sonnet on reading and searching agents.";
 const FLEET = { id: "fleet", title: "Fleet" };
 

@@ -238,8 +238,8 @@ type SessionThreadKinds =
    * how he answered it; a new revision asks again.
    */
   | { id: string; at: string; kind: "document"; page: string; title: string; revision: number; asked?: true; settled?: SketchSettled }
-  /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
-  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /** This Session's agent started a Session, or forked itself into one: a press that opens it. `start` is the host's, while that Job is held on its start card: Start at the row's end begins it without opening it, and `starting` while the start waits on the request being read. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean; start?: { starting: boolean; onStart: () => void } }
   /**
    * A Session that waits on this one, told here: dispatched (`waits`, with the first line of its brief in `says`), its start condition changed (`from` and `to`; `by` is who
    * changed it), or started (`says` is where from). A press opens it.
