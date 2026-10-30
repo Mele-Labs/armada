@@ -1165,7 +1165,8 @@ Closed sets cross as strings and are listed in the mirror's comments, as `protoc
 The one that runs for each id comes first.
 **`left_out` is a file Fleet could not read and the sentence a person reads for it.** A file that will not read names no repository, so a Workspace's `left_out` is every Workspace file Fleet set aside, whichever repository was asked about.
 Everything is read when asked and never cached.
-**A rule's `autonomy` is the rule's own word and absent when it has none**; each act in `does` carries the autonomy it will run under, resolved from the default for its kind, so Bridge never has to hold that table.
+**A rule's `autonomy` is the rule's own word and absent when it has none**; each act in `does` carries the autonomy it will run under on `list_lifecycle_rules`, resolved from the rule's own word, else the repository's laid layers (`list_autonomy_defaults`), else the default for its kind.
+A rule saved or kept from a Job's copy carries no resolved act.
 **A Job's read follows the repository's current pieces.** Its definitions are `lifecycles_that_apply`, the same ones that read its instances.
 When a Job's copy is frozen on start, that function changes and this follows.
 **The Job is the one the connection places** where Fleet hosts it, else `session_id`, as a watch's is.

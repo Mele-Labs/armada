@@ -212,6 +212,30 @@ async fn a_repository_nobody_serves_is_the_callers_to_correct() {
     }
 }
 
+#[tokio::test]
+async fn a_saved_layer_sets_what_a_served_rules_acts_do_and_the_rules_own_word_still_wins() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
+    write(kit(&home, "rules", "plain.yml"), &moves_tickets(None, "closed", None));
+    write(kit(&home, "rules", "own.yml"), &moves_tickets(None, "closed", Some("asks")).replace("plan_moves_tickets", "own_word"));
+    let autonomy_of = |read: &ipc::RepositoryLifecycleRules, id: &str| {
+        let one = read.rules.iter().find(|one| one.rule.id == id).unwrap_or_else(|| panic!("no {id}: {:?}", read.rules));
+        one.rule.does[0].autonomy.clone()
+    };
+
+    let before = fleet.list_lifecycle_rules(named(&web)).await.expect("read");
+    assert_eq!((autonomy_of(&before, "plan_moves_tickets"), autonomy_of(&before, "own_word")), ("asks".to_string(), "asks".to_string()), "Armada's default for a write to the tracker");
+
+    saved_layer(&fleet, "mine", PieceScope::Within { id: web.manifest().id().as_str().to_string() }, &[("tracker_write", "acts")]).await;
+    let after = fleet.list_lifecycle_rules(named(&web)).await.expect("read");
+    assert_eq!(autonomy_of(&after, "plan_moves_tickets"), "acts", "the saved layer sets the kind");
+    assert_eq!(autonomy_of(&after, "own_word"), "asks", "the rule's own word wins over the layer");
+
+    let elsewhere = fleet.list_lifecycle_rules(named(&api)).await.expect("read");
+    assert_eq!(autonomy_of(&elsewhere, "plan_moves_tickets"), "asks", "a layer scoped to another repository does not reach this one");
+}
+
 /// Saves one layer of defaults in Kit through the route's own write, as Bridge will.
 async fn saved_layer(fleet: &Fixture, id: &str, scope: PieceScope, set: &[(&str, &str)]) {
     let defaults = set.iter().map(|(kind, autonomy)| (kind.to_string(), autonomy.to_string())).collect();

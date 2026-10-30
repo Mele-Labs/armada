@@ -265,13 +265,14 @@ where
     async fn list_lifecycle_rules(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycleRules, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
         let applying = self.rules_applying_to(served.manifest().id())?;
+        let defaults = self.autonomy_applying_to(served.manifest().id())?.defaults();
         Ok(RepositoryLifecycleRules {
             manifest_id: ManifestId::from(served.manifest().id()),
             rules: applying
                 .files()
                 .iter()
                 .map(|file| AppliedRule {
-                    rule: wire::rule(file.rule()),
+                    rule: wire::rule_under(file.rule(), &defaults),
                     kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
                 })
                 .collect(),

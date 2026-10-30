@@ -197,10 +197,15 @@ fn act(act: &Act) -> ipc::RuleAct {
     }
 }
 
-/// A rule: when, if and do, with each act's autonomy worked out. **No Workspace or repository sets
-/// a default yet**, so an act takes the rule's own word, else its kind's.
+/// A rule with each act's autonomy as its own word or its kind's default. **For a write**, which
+/// carries the rule's own `autonomy` and never an act's resolved one; a read uses [`rule_under`].
 pub fn rule(rule: &Rule) -> ipc::LifecycleRule {
-    let defaults = AutonomyDefaults::new();
+    rule_under(rule, &AutonomyDefaults::new())
+}
+
+/// A rule: when, if and do, with each act's autonomy worked out: the rule's own word, else what
+/// `defaults` set for the kind (the repository's laid layers), else the kind's own.
+pub fn rule_under(rule: &Rule, defaults: &AutonomyDefaults) -> ipc::LifecycleRule {
     ipc::LifecycleRule {
         id: rule.id().as_str().to_string(),
         name: rule.name().as_str().to_string(),
