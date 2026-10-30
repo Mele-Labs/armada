@@ -1,6 +1,7 @@
 // A Job's lanes, read off what Fleet serves of it: the lifecycle definitions and instances `get_job_lifecycles` carries, the workflow the record names,
 // and the sentences `workflow_waiting_on` words. One direction and no state: wire in, a `SessionLanes` out (`draft/sessions.ts`).
 //
+// **A ticket handed to a Job this one started is on that Job's lane, not its own**: an ended ticket that a `job` instance links to, read in the state the started Job holds it in (`LaneInput.started`).
 // **A Job that holds no instance has no lanes**, so its Workflow view is not offered: an empty place stays empty, and nothing is drawn for it.
 // **The wire has no columns.** A step is placed by its order and a state by the longest run of expected moves before it, each at a column of its own in its
 // lane, so a lane reads left to right and the layout does not move when an instance does.
@@ -8,7 +9,7 @@
 import type { AppliedRule, HeldInstance, InstanceMove, JobLifecycles, LifecycleDefinition, LifecycleRule, RuleActReading, RuleTarget } from "@armada/protocol";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 import { CURRENT_STEP } from "@armada/components/src/compositions/LaneCanvas/model";
-import type { Autonomy, Fired, FiredAct, Instance, JobChange, JobLanes, Kept, LaneStep, Lifecycle, LifecycleKind, LifecycleState, Rule } from "@armada/components/src/compositions/LaneCanvas/model";
+import type { Autonomy, CarriedTicket, Fired, FiredAct, Instance, JobChange, JobLanes, Kept, LaneStep, Lifecycle, LifecycleKind, LifecycleState, Rule } from "@armada/components/src/compositions/LaneCanvas/model";
 
 /** What the lanes are read from. */
 export type LaneInput = {
@@ -31,6 +32,16 @@ export type LaneInput = {
    * **The rules the Job's copy holds win** (`JobLifecycles.rules`): they are the ones that run for it.
    */
   rules?: readonly AppliedRule[];
+  /**
+   * What the Jobs this one started hold, by the key of the instance it holds for each (the Job's id). A ticket handed to a Job is read from there, since that Job holds it from then on:
+   * a Job whose lifecycles are not read yet is absent, and its ticket is drawn without a state.
+   */
+  started?: ReadonlyMap<string, JobLifecycles>;
+  /**
+   * The titles of the issues the Job holds and the Jobs it started do, by key. The wire's instance of a ticket has no title, and Bridge keeps it on the Job's issues; a handed ticket is
+   * titled from here. Where no title is known the ticket is drawn by its key alone.
+   */
+  titles?: ReadonlyMap<string, string>;
   /** The agent is working on its step now. */
   working: boolean;
   /** `SessionRecord.workflow_waiting_on`. */
@@ -92,7 +103,7 @@ function visitedBy(held: HeldInstance, moves: readonly InstanceMove[]): string[]
   return seen;
 }
 
-function instanceOf(held: HeldInstance, moves: readonly InstanceMove[]): Instance {
+function instanceOf(held: HeldInstance, moves: readonly InstanceMove[], ticket?: CarriedTicket): Instance {
   return {
     id: instanceId(held.lifecycle, held.key),
     lifecycle: held.lifecycle,
@@ -101,7 +112,49 @@ function instanceOf(held: HeldInstance, moves: readonly InstanceMove[]): Instanc
     visited: visitedBy(held, moves),
     ...(held.standing.kind === "unmapped" ? { title: `Unmapped: ${held.standing.said}`, unmapped: held.standing.said } : {}),
     ...(held.ended_at === undefined ? {} : { ended: true as const }),
+    ...(ticket === undefined ? {} : { ticket }),
   };
+}
+
+/** What reads a lifecycle's states, by the lifecycle's id among those a Job holds. */
+const kindOf = (lifecycles: readonly LifecycleDefinition[], id: string): LifecycleKind | undefined => {
+  const source = lifecycles.find((one) => one.id === id)?.states[0]?.read.source;
+  return source === undefined ? undefined : SOURCE[source]?.kind;
+};
+
+/**
+ * The tickets this Job handed to the Jobs it started, each with the instance of the Job that holds it. **An ended ticket that a `job` instance links to is a handed one**: Fleet ends
+ * the ticket and links it from the Job it went to, and no field says so. A ticket still live that a Job links to is the Job's own, and keeps its lane.
+ */
+function handedOf(held: JobLifecycles): ReadonlyMap<HeldInstance, HeldInstance> {
+  const handed = new Map<HeldInstance, HeldInstance>();
+  for (const job of held.instances) {
+    if (kindOf(held.lifecycles, job.lifecycle) !== "job") continue;
+    for (const link of job.links) {
+      const ticket = held.instances.find((one) => one.lifecycle === link.lifecycle && one.key === link.key && one.ended_at !== undefined && kindOf(held.lifecycles, one.lifecycle) === "tracker");
+      if (ticket !== undefined) {
+        handed.set(job, ticket);
+        break;
+      }
+    }
+  }
+  return handed;
+}
+
+/**
+ * A handed ticket as the card of the Job that holds it draws it: the state **the started Job reads it in**, named as that Job's lifecycle names it. Not read there yet, it has none; a status no
+ * state lists keeps the word the source said, and no glyph names it.
+ */
+function carriedOf(ticket: HeldInstance, started: JobLifecycles | undefined, held: JobLifecycles, title: string | undefined): CarriedTicket {
+  const there = started?.instances.find((one) => one.lifecycle === ticket.lifecycle && one.key === ticket.key);
+  const label = there?.label ?? ticket.label;
+  const standing = there?.standing;
+  const titled = title === undefined || title === "" ? {} : { title };
+  if (standing?.kind === "in") {
+    const named = [...(started?.lifecycles ?? []), ...held.lifecycles].find((one) => one.id === ticket.lifecycle)?.states.find((one) => one.id === standing.state)?.label;
+    return { label, ...titled, state: named ?? standing.state, stateId: standing.state };
+  }
+  return { label, ...titled, state: standing?.kind === "unmapped" ? standing.said : "", stateId: "" };
 }
 
 // ---- Rules and what they did -----------------------------------------------------------------------------------------------
@@ -235,11 +288,14 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
   // A rule a Job event sets off is not drawn, and one the Job dropped is only the repository's now: a change names it from every rule either holds.
   const named = new Map([...(input.rules ?? []), ...(held.rules ?? [])].map((one) => [one.rule.id, one.rule.name] as const));
   const rules = read.map((one) => one.rule);
+  const handed = handedOf(held);
+  const given = new Set(handed.values());
   const landsOn = new Map(read.flatMap((one) => (one.landsOn === undefined ? [] : [[one.rule.id, one.landsOn] as const])));
   const job: JobLanes = {
     workspace: "",
     copy: { steps, lifecycles: held.lifecycles.map(lifecycleOf), rules },
-    instances: held.instances.map((one) => instanceOf(one, held.moves)),
+    // A ticket handed away has no lane here: the card of the Job it went to carries it.
+    instances: held.instances.filter((one) => !given.has(one)).map((one) => instanceOf(one, held.moves, handed.has(one) ? carriedOf(handed.get(one)!, input.started?.get(one.key), held, input.titles?.get(handed.get(one)!.key)) : undefined)),
     fired: firedOf(held.acts ?? [], rules, landsOn, steps, workflow?.visits ?? []),
     changes: (held.changes ?? []).map((one): JobChange => {
       const name = one.lane === "rule" ? named.get(one.item) : undefined;

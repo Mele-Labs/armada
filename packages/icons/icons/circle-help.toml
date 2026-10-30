@@ -3,5 +3,12 @@
   group = "View"
   size = "16px"
   status = "Specified"
-  reserved = "Two marks on the flight deck only: a bay whose history Bridge cannot read (state Unknown) and a mission pin whose step is asking a person. Never a help control, never a Job status, which is `megaphone` for escalated, and never a tooltip trigger, which is the `?` that opens longer explanations."
+  reserved = "Three marks only: on the flight deck, a bay whose history Bridge cannot read (state Unknown) and a mission pin whose step is asking a person; on a Job's lane card, a ticket in a state no glyph names, below. Never a help control, never a Job status, which is `megaphone` for escalated, and never a tooltip trigger, which is the `?` that opens longer explanations."
   notes = "Added 14 Oct 2026. `circle-dot` shares its ring at 12px and collides there; both uses are 16px and carry a word beside or a tooltip."
+
+[[icons.circle-help.usage]]
+  means = "A ticket whose state the lifecycle names no glyph for or does not list, on the card of the Job started for it"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`, the owner's answer of a glyph for each state. It ends the ticket's line on the card of a Job that was started for it, after the key, at 14px stroke 2 as the `ticket` glyph is, and the tooltip names the state in words: `Ticket state: ` followed by the word the tracker used. The glyph for a state no other names."

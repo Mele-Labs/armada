@@ -3,15 +3,17 @@
 // another, and Fleet is read again after each. What the last read says is what is drawn once nothing is waiting, so a piece Fleet refused goes back to what it holds.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Ref, Workspace } from "@armada/components";
+import type { PendingKind, Ref, Rule, Workspace } from "@armada/components";
 import type { LifecycleRule, PieceToCommit } from "@armada/protocol";
 
 import type { WorkspaceHeld } from "../workspace-draft";
-import { readPieces, runOps } from "./fleet-pieces";
+import type { KeepDraft } from "../../../shared/api/lifecycles";
+import { followKeepDrafts, readKeepDrafts, readPieces, runOps } from "./fleet-pieces";
 import type { PiecesApi, Served } from "./fleet-pieces";
+import { draftedRules, pendingMarks, workspaceDrawn } from "./keep-drafts";
 import { lifecycleLayers, ruleLayers } from "./levels";
 import type { PiecesRead } from "./levels";
-import { landing, namedOf, withDrawn, withPlaces, workspaceOf } from "./read";
+import { landing, namedOf, withDrawn, withPlaces } from "./read";
 import { kitPieceAt, opsFrom, withWires } from "./write";
 import type { PieceId } from "./write";
 
@@ -27,8 +29,10 @@ export type FleetWorkspace = {
   lands: (rule: LifecycleRule) => boolean;
   /** Whether a connector from one node to another makes a rule Fleet can run: a ticket moved to a state, or a pull request made ready or merged. */
   canConnect: (from: Ref, to: Ref) => boolean;
-  /** The rules and lifecycles whose removal waits on a pull request, as `rule:<id>` and `lifecycle:<id>`. */
-  pending: ReadonlySet<string>;
+  /** The rules and lifecycles that wait on a pull request removing them or on a draft keeping them, as `rule:<id>` and `lifecycle:<id>`, with which wait each is. */
+  pending: ReadonlyMap<string, PendingKind>;
+  /** The rules a draft would keep that the repository does not hold, drawn from the draft. */
+  drafted: readonly Rule[];
 };
 
 const keyOf = (piece: PieceId): string => `${piece.kind}:${piece.id}`;
@@ -46,9 +50,10 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
   const [shown, setShown] = useState<Workspace | undefined>(undefined);
   const [readOnly, setReadOnly] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
-  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
-  const latest = useRef({ read, served, api });
-  latest.current = { read, served, api };
+  const [removing, setRemoving] = useState<ReadonlySet<string>>(new Set());
+  const [drafts, setDrafts] = useState<readonly KeepDraft[]>([]);
+  const latest = useRef({ read, served, api, drafts });
+  latest.current = { read, served, api, drafts };
   const waiting = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const open = useRef(true);
@@ -62,17 +67,18 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
   const reload = useCallback(
     async (draw: boolean): Promise<boolean> => {
       if (current === null) return false;
-      const answer = await readPieces(latest.current.api(), current, latest.current.served);
+      const [answer, keeps] = await Promise.all([readPieces(latest.current.api(), current, latest.current.served), readKeepDrafts(latest.current.api(), current)]);
       if (!open.current) return false;
       if (!answer.ok) {
         if (!answer.outcome.ok && answer.outcome.why === "refused") setNotice(answer.outcome.error.message);
         return false;
       }
-      latest.current = { ...latest.current, read: answer.read };
+      latest.current = { ...latest.current, read: answer.read, drafts: keeps };
       setRead(answer.read);
+      setDrafts(keeps);
       // A piece the repository no longer holds has gone with the pull request that removed it.
-      setPending((was) => (was.size === 0 ? was : new Set([...was].filter((key) => stillHeld(answer.read, key)))));
-      if (draw) setShown(workspaceOf(answer.read));
+      setRemoving((was) => (was.size === 0 ? was : new Set([...was].filter((key) => stillHeld(answer.read, key)))));
+      if (draw) setShown(workspaceDrawn(answer.read, keeps, current));
       return true;
     },
     [current],
@@ -81,6 +87,12 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
   useEffect(() => {
     if (enabled) void reload(true);
   }, [enabled, reload]);
+
+  // A draft opened, approved or dismissed in this repository: Fleet says so, and the drafts and the files Approve saved are read again. A change being saved redraws when it is done.
+  useEffect(() => {
+    if (!enabled || current === null) return;
+    return followKeepDrafts(latest.current.api(), current, () => void reload(waiting.current === 0));
+  }, [enabled, current, reload]);
 
   const workspace = useMemo(() => (shown === undefined ? undefined : withPlaces(shown, workflows)), [shown, workflows]);
   const drawn = useRef(workspace);
@@ -105,21 +117,23 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
           if (!ran.ok) {
             if (ran.old) setReadOnly(true);
             else setNotice(ran.said);
-          } else if (ran.removing.length > 0) setPending((was) => new Set([...was, ...ran.removing.map(keyOf)]));
+          } else if (ran.removing.length > 0) setRemoving((was) => new Set([...was, ...ran.removing.map(keyOf)]));
           await reload(false);
         } finally {
           waiting.current -= 1;
-          if (waiting.current === 0 && open.current && latest.current.read !== undefined) setShown(workspaceOf(latest.current.read));
+          if (waiting.current === 0 && open.current && latest.current.read !== undefined) setShown(workspaceDrawn(latest.current.read, latest.current.drafts, current ?? ""));
         }
       });
     },
-    [readOnly, reload],
+    [readOnly, reload, current],
   );
 
   const held = useMemo<WorkspaceHeld | undefined>(
     () => (workspace === undefined ? undefined : { workspace, change, ask: () => undefined, add: (rule) => change({ ...workspace, rules: [...workspace.rules, rule] }) }),
     [workspace, change],
   );
+  const pending = useMemo<ReadonlyMap<string, PendingKind>>(() => pendingMarks(drafts, removing), [drafts, removing]);
+  const drafted = useMemo(() => (read === undefined || workspace === undefined ? [] : draftedRules(read, drafts, workspace)), [read, drafts, workspace]);
   const pieceAt = useCallback<FleetWorkspace["pieceAt"]>(
     (pick, tab) => {
       if (read === undefined) return undefined;
@@ -138,5 +152,5 @@ export function useFleetWorkspace(api: () => PiecesApi, current: string | null, 
     // A ticket is moved to any state of its lifecycle; a pull request is made ready or merged; no act brings about any other.
     return lane.kind === "tracker" || lane.kind === undefined || (lane.kind === "forge" && (to.item === "ready" || to.item === "merged"));
   }, []);
-  return held === undefined ? undefined : { held, readOnly, notice, pieceAt, lands, canConnect, pending };
+  return held === undefined ? undefined : { held, readOnly, notice, pieceAt, lands, canConnect, pending, drafted };
 }

@@ -31,6 +31,9 @@ pub fn rebuilt(lifecycles: &[Lifecycle], kept: &[KeptInstance]) -> HeldInstances
         let Some(lifecycle) = find(&one.lifecycle) else { continue };
         let Ok(subject) = InstanceRef::of(lifecycle, &one.key) else { continue };
         let mut instance = LifecycleInstance::taken_on(subject);
+        if !one.handed_to.is_empty() {
+            instance = instance.handed_on();
+        }
         for (to_lifecycle, to_key) in &one.links {
             if let Some(to) = find(to_lifecycle).and_then(|linked| InstanceRef::of(linked, to_key).ok()) {
                 instance = instance.linked_to(to);

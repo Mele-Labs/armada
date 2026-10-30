@@ -10,7 +10,7 @@ use std::path::Path;
 use std::process::{ExitStatus, Output};
 use std::sync::Mutex;
 
-use adapter_traits::{Backlog, BeadState, Tracker, TrackerChoice, Trackers};
+use adapter_traits::{Backlog, BeadState, TicketState, Tracker, TrackerChoice, Trackers};
 
 use crate::beads_tracker::{main_checkout, mark_of, BeadsTracker};
 use crate::jira_tracker::{Process, Run};
@@ -297,4 +297,24 @@ fn a_machine_with_bd_and_no_beads_project_is_reported_as_needing_setup_and_not_o
     let bd = Bd::saying(&[(1, "", "Error: database is locked")]);
     let other = BeadsTracker::with_runner(&bd).search_issues("/repo", "status=open").expect_err("locked");
     assert_eq!(other.needs_setup, None, "another failure asks for no setup");
+}
+
+#[test]
+fn beads_declares_the_words_for_the_ticket_states_it_has_and_no_other_tracker_declares_any() {
+    let beads = TrackersByProvider.ticket_words(&choosing("beads", &[]));
+    assert_eq!(beads, [(TicketState::ToDo, "open"), (TicketState::InProgress, "in_progress"), (TicketState::Closed, "closed")]);
+
+    // Not `blocked` or `deferred`, which are no step of the ticket's way, and not In review, which beads has no status for.
+    assert!(beads.iter().all(|(_, word)| !["blocked", "deferred"].contains(word)));
+    assert!(beads.iter().all(|(state, _)| *state != TicketState::InReview));
+
+    for choice in [
+        TrackerChoice::of_the_forge(),
+        choosing("github", &[]),
+        choosing("jira", &[("site", "acme"), ("project", "ABC")]),
+        choosing("a-tracker-mod", &[]),
+        choosing("beads", &[("path", "/elsewhere")]),
+    ] {
+        assert!(TrackersByProvider.ticket_words(&choice).is_empty(), "{choice:?}");
+    }
 }

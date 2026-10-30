@@ -317,7 +317,7 @@ pub use commanding::{
 pub use configured::ManifestConfig;
 pub use job_copy::{
     ChangeJobCopy, ChangeSessionSteps, ChangedBy, CopyPieceKind, JobCopy, JobCopyChange, JobCopyPiece, JobCopyStep, JobPieceProposed,
-    KeepJobPiece, KeepJobWorkflow, ProposeWorkflowChange, StepChange,
+    KeepDraft, KeepDrafts, KeepDraftsChanged, KeepJobPiece, KeepJobWorkflow, ProposeWorkflowChange, StepChange,
 };
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,

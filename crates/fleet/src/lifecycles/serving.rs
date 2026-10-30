@@ -279,6 +279,10 @@ where
         })
     }
 
+    async fn list_keep_drafts(&self, manifest_id: Option<ManifestId>) -> Result<ipc::KeepDrafts, Refusal> {
+        self.keep_drafts_listed(manifest_id.as_ref()).await
+    }
+
     async fn get_job_lifecycles(
         &self,
         caller: Option<api::Caller>,

@@ -296,6 +296,8 @@ export function Sheet({
       // open and will: listeners on one window run in no order this can rely on.
       if (event.defaultPrevented) return;
       if (closeRef.current?.closest('[role="dialog"]')?.querySelector(".armada-popover__panel")) return;
+      // Something drawn in the sheet that holds Esc wherever focus is, for as long as it is drawn: a Job's Workflow opened over its parent's, where Esc is Back.
+      if (sheetRef.current?.querySelector("[data-holds-esc]")) return;
       // The command palette opens over every surface, a sheet included, and takes the press for the same reason.
       if (document.querySelector(".armada-palette")) return;
       // A toast stands over the sheet, and a press made inside it is the toast's.
