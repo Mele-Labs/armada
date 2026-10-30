@@ -180,11 +180,16 @@ fn a_delivering_step_that_waits_tells_the_agent_to_hold_the_merge_and_the_merge_
         "{said}"
     );
     assert_eq!(ends_when(&steps, 2).as_deref(), Some("it is merged"), "the merge is still what ends it");
+    assert_eq!(ends_any(&steps, 2), ["every pr is approved, then it is merged"], "and the page says the gate before it");
+    let plain_land = [plan_step(), delivers("Land")];
+    assert_eq!(ends_any(&plain_land, 1), ["it is merged"], "a Land with no gate says only the merge");
     let bare = [plan_step(), RailStep { instructions: None, ..steps[2].clone() }];
     assert!(rail::instructed("feature", &bare, 1).is_some_and(|said| said.contains("Do not merge until")), "told though it wrote no words");
     let plain = [plan_step(), delivers("Land")];
     assert_eq!(rail::instructed("feature", &plain, 1), None, "no instructions and no gate: no message, as before");
     let several = RailStep { ends_on: vec![end("pr: approved"), end("any ticket: closed")], ..steps[2].clone() };
-    let said = rail::instructed("feature", &[plan_step(), several], 1).expect("told");
+    let gated = [plan_step(), several];
+    let said = rail::instructed("feature", &gated, 1).expect("told");
     assert!(said.contains("Do not merge until every pr is approved, or any ticket is closed."), "{said}");
+    assert_eq!(ends_any(&gated, 1), ["every pr is approved, or any ticket is closed, then it is merged"]);
 }

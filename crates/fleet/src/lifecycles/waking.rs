@@ -102,7 +102,7 @@ fn held_of(store: &Store, session: &str) -> Option<Held> {
 }
 
 /// What a Job's own title is, for each Job it holds: how `named` calls one.
-fn titles_of(store: &Store, held: &Held) -> HashMap<String, String> {
+pub(crate) fn titles_of(store: &Store, held: &Held) -> HashMap<String, String> {
     held.instances
         .iter()
         .filter(|one| one.lifecycle == "job")

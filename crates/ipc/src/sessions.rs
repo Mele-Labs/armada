@@ -1208,6 +1208,11 @@ pub struct SessionRecord {
     /// one passed. Empty where none is. `skip_session_step`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skipped_steps: Vec<u32>,
+    /// What the step the Job is on waits for, as the rail words it: `Waiting on PR #812: Approved`. One
+    /// sentence for each lifecycle end the step lists that has not come, in the order the step lists them.
+    /// Empty where the step waits on no lifecycle, and once an end has come. Since 30 Oct 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflow_waiting_on: Vec<String>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

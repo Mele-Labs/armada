@@ -24,8 +24,10 @@ mod polling;
 pub mod reading;
 pub mod ruling;
 pub mod saying;
+mod serving;
 pub(crate) mod taking_on;
-mod waking;
+pub(crate) mod waking;
+pub mod wire;
 pub mod writing;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};

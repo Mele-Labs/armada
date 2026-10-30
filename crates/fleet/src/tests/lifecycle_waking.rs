@@ -84,12 +84,14 @@ async fn a_job_waiting_on_an_approval_is_told_to_stop_and_woken_by_it_with_the_n
     rig.fleet.timeline().settled().await;
     let waiting = record(&rig, &id).await;
     assert_eq!(waiting.workflow_step, Some(1), "a reading short of the state moves nothing");
+    assert_eq!(waiting.workflow_waiting_on, ["Waiting on PR #812: Approved"], "the row says what the step waits on");
     assert!(waiting.waiting_for.is_empty(), "the world's to end: no wait for the person");
     assert_eq!((told(&rig, "Fleet does not move it for you"), told(&rig, "Write the summary.")), (0, 0), "no nudge, no next step yet");
 
     seen(&rig, &id, ForgeFact::Approved).await;
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
     eventually(|| async { told(&rig, "That ends") == 1 }).await;
+    assert!(record(&rig, &id).await.workflow_waiting_on.is_empty(), "and says nothing once it is approved");
     let woken = sent(&rig, "That ends");
     assert!(woken.contains(WAKE), "{woken}");
     assert!(woken.contains("Write the summary."), "the next step's words ride in the same message: {woken}");
