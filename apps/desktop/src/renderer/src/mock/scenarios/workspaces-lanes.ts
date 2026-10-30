@@ -1,7 +1,7 @@
 // The Workspace `my-store` and three Jobs in it: the Workflows page draws the `feature` workflow over the Ticket, PR and Deploy lanes, and a Job's Lanes view draws
 // the same lanes with one for each ticket, pull request and deploy it holds, moment by moment as a walk's `later` lets time pass. The third Job goes through app feedback:
 // it changes its own copy of the workflow, starts two Jobs that each get a lane, waits on both, and offers `dispatch` as a workflow. `later` moves the Job on show. Mock only:
-// no Fleet serves a Workspace, a lifecycle or a rule yet. The walks `workspaces-lanes` and `workspaces-lanes-notes` play it.
+// no Fleet serves a Workspace, a lifecycle or a rule yet. The walks `workspaces-lanes`, `workspaces-lanes-notes` and `workspaces-lanes-acts` play it.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
@@ -19,6 +19,7 @@ import { offerWorkflow, workflowsServed } from "../workflows-fleet";
 import { deckNow } from "../../cockpit/deck/store";
 import { forceWideWindow } from "../../session-view/lanes-width";
 import { API, ASK_DRAFT, COMMENTS, FEEDBACK, FEEDBACK_SKIPPED, FEEDBACK_STEPS, FEEDBACK_STEPS_CHANGED, FEEDBACK_WORKING, MY_STORE, PROPOSALS, STORE_DEFINITIONS, STORE_ENDS, WEB, WORKING, dispatchText, feedbackAt, jobAt, jobB } from "../workspaces-lanes-data";
+import { throughWire } from "../workspaces-lanes-wire";
 
 const JOB = "gift-cards";
 const OTHER = "cart-totals";
@@ -38,6 +39,10 @@ const STORE_API: RepositorySummary = {
 };
 
 const STEPS = ["Plan", "Build", "Open PR", "Get it ready", "Answer reviews", "Land"];
+
+// A Job's lanes are drawn from what Fleet would serve of it (`workspaces-lanes-wire.ts`), as a real Job's are.
+const lanesOfA = (moment: number, sent: readonly string[] = []) => throughWire(JOB, jobAt(moment, sent));
+const lanesOfFeedback = (moment: number) => throughWire(FEEDBACK, feedbackAt(moment));
 
 /** The mock's one clock: a time today, which the lanes' chips, the rail's steps and the thread's rows all read. The thread's own rows are stamped as `HH:MM:SS`. */
 const local = (time: string) => {
@@ -85,7 +90,7 @@ const jobA: Session = {
     proposal: { workflow: "feature", picked: ["workflow"] },
     workflow: { name: "feature", steps: STEPS, visits: [] },
   },
-  lanes: jobAt(0),
+  lanes: lanesOfA(0),
 };
 
 const jobOther: Session = {
@@ -101,7 +106,7 @@ const jobOther: Session = {
     proposal: { workflow: "feature", picked: ["workflow"] },
     workflow: { name: "feature", steps: STEPS, at: STEPS.length, visits: VISITS.slice() },
   },
-  lanes: jobB(),
+  lanes: throughWire(OTHER, jobB()),
 };
 
 const feedbackBrief: SessionRow = { id: "fb-1", at: "14:02:00", kind: "message", from: { kind: "you" }, text: "Go through the app feedback and fix what is clear." };
@@ -120,7 +125,7 @@ const jobFeedback: Session = {
     proposal: { workflow: "feature", picked: ["workflow"] },
     workflow: { name: "feature", steps: FEEDBACK_STEPS, at: 1, visits: [{ step: 0, since: local("14:02") }, { step: 1, since: local("14:04") }] },
   },
-  lanes: feedbackAt(0),
+  lanes: lanesOfFeedback(0),
 };
 
 /** What the Job says at each moment, and when it began the step it is at. The first moment has nothing to say yet. */
@@ -142,7 +147,7 @@ const FEEDBACK_VISITS = [
 
 /** The feedback Job at a moment: its lanes, its workflow as the rail draws it and what it has said. */
 const feedbackAtMoment = (n: number) => (one: Session): Session => {
-  const lanes = feedbackAt(n);
+  const lanes = lanesOfFeedback(n);
   const doing = FEEDBACK_WORKING[n];
   const { account, ...rest } = one;
   void account;
@@ -180,7 +185,7 @@ function sessions() {
   let only: readonly Session[] = [];
   /** The Job at a moment: its lanes, the step the rail is on, its pull request, and whether it is done. */
   const at = (n: number) => (one: Session): Session => {
-    const lanes = jobAt(n, sent);
+    const lanes = lanesOfA(n, sent);
     const step = Math.max(0, Math.min(lanes.at, STEPS.length));
     const { done, standing, account, ...rest } = one;
     void done;

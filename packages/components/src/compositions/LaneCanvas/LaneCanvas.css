@@ -243,6 +243,8 @@
   --ground: color-mix(in srgb, var(--status-awaiting-review) 10%, var(--bg-raised));
 }
 .armada-lane-item[data-waiting] .armada-lane-item__sub { color: var(--status-awaiting-review); }
+/* One sentence for each end the step has not had, each on its own line. */
+.armada-lane-item__sub > span { display: block; }
 .armada-lane-item[data-skipped] .armada-lane-item__main { --hue: var(--fg-subtle); color: var(--fg-subtle); }
 .armada-lane-item[data-skipped] .armada-lane-item__label { text-decoration: line-through; }
 
@@ -307,6 +309,7 @@
 .armada-lane-edge[data-tone="acted"] { --hue: var(--step-advanced); }
 .armada-lane-edge[data-tone="asked"] { --hue: var(--status-awaiting-review); }
 .armada-lane-edge[data-tone="waiting"] .armada-lane-edge__line,
+.armada-lane-edge[data-tone="skipped"] .armada-lane-edge__line,
 .armada-lane-edge[data-tone="proposed"] .armada-lane-edge__line { stroke-dasharray: var(--space-2) var(--space-1); }
 .armada-lane-edge[data-tone="proposed"] { --hue: var(--step-advanced); }
 .armada-lane-edge[data-autonomy="off"] { --hue: var(--border-strong); }
@@ -375,6 +378,7 @@
 .armada-lane-chip[data-quiet] .armada-lane-chip__diamond polygon { fill: var(--bg-raised); }
 .armada-lane-chip[data-tone="proposed"] .armada-lane-chip__diamond polygon,
 .armada-lane-chip[data-tone="waiting"] .armada-lane-chip__diamond polygon,
+.armada-lane-chip[data-tone="skipped"] .armada-lane-chip__diamond polygon,
 .armada-lane-chip[data-needs] .armada-lane-chip__diamond polygon { stroke-dasharray: var(--space-1) var(--space-1); }
 .armada-lane-chip__mark { position: relative; flex: none; color: var(--hue); }
 .armada-lane-chip__differs { flex: none; color: var(--fg-muted); }

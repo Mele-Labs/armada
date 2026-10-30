@@ -165,12 +165,12 @@ const DOCUMENT: LifecycleDef = {
 const JOB: LifecycleDef = {
   id: "job",
   label: "Job",
-  from: "Armada",
+  from: "Fleet",
   kind: "job",
   states: [
-    { id: "started", label: "Started", reads: [{ source: "Armada", values: ["running"], scope: "default" }] },
-    { id: "pr_open", label: "PR open", reads: [{ source: "Armada", values: ["pull request open"], scope: "default" }] },
-    { id: "landed", label: "Landed", end: true, reads: [{ source: "Armada", values: ["merged into main"], scope: "default" }] },
+    { id: "started", label: "Started", reads: [{ source: "Fleet", values: ["running"], scope: "default" }] },
+    { id: "pr_open", label: "PR open", reads: [{ source: "Fleet", values: ["pull request open"], scope: "default" }] },
+    { id: "landed", label: "Landed", end: true, reads: [{ source: "Fleet", values: ["merged into main"], scope: "default" }] },
   ],
   next: [
     ["started", "pr_open"],
@@ -501,14 +501,14 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
   ];
   const asked = sent.includes("ask");
   const fired: Fired[] = [
-    ...(moment >= 1 ? ["arm-41", "arm-42"].map((one) => ({ rule: "progress", instance: one, outcome: "acted" as const, at: "12:04", did: "Assigned to you, moved to In progress" })) : []),
-    ...(moment >= 2 ? ["arm-41", "arm-42"].map((one) => ({ rule: "review", instance: one, outcome: "acted" as const, at: "12:31", did: "Moved to In review" })) : []),
+    ...(moment >= 1 ? ["arm-41", "arm-42"].map((one) => ({ rule: "progress", instance: one, outcome: "acted" as const, at: "12:04", did: ["Assigned to you, moved to In progress"] })) : []),
+    ...(moment >= 2 ? ["arm-41", "arm-42"].map((one) => ({ rule: "review", instance: one, outcome: "acted" as const, at: "12:31", did: ["Moved to In review"] })) : []),
     ...(moment >= 3
-      ? [{ rule: "ask", instance: "pr-812", outcome: asked ? ("acted" as const) : ("asked" as const), at: asked ? "12:44" : "12:40", did: asked ? "Review ask sent" : "Review ask drafted", ...(asked ? {} : { needs: ASK_DRAFT }) }]
+      ? [{ rule: "ask", instance: "pr-812", outcome: asked ? ("acted" as const) : ("asked" as const), at: asked ? "12:44" : "12:40", did: [asked ? "Review ask sent" : "Review ask drafted"], ...(asked ? {} : { needs: ASK_DRAFT }) }]
       : []),
-    ...(moment >= 4 ? [{ rule: "triage", instance: "pr-812", outcome: "acted" as const, at: "13:02", did: "Comments read" }] : []),
-    ...(moment >= 6 ? [{ rule: "deploy", instance: "deploy", outcome: "acted" as const, at: "13:40", did: "Started the rollout watch" }] : []),
-    ...(moment >= 7 ? ["arm-41", "arm-42"].map((one) => ({ rule: "close", instance: one, outcome: "acted" as const, at: "13:52", did: "Moved to Done" })) : []),
+    ...(moment >= 4 ? [{ rule: "triage", instance: "pr-812", outcome: "acted" as const, at: "13:02", did: ["Comments read"] }] : []),
+    ...(moment >= 6 ? [{ rule: "deploy", instance: "deploy", outcome: "acted" as const, at: "13:40", did: ["Started the rollout watch"] }] : []),
+    ...(moment >= 7 ? ["arm-41", "arm-42"].map((one) => ({ rule: "close", instance: one, outcome: "acted" as const, at: "13:52", did: ["Moved to Done"] })) : []),
   ];
   const job: JobLanes = {
     workspace: MY_STORE.id,
@@ -516,7 +516,7 @@ export function jobAt(moment: number, sent: readonly string[] = []): SessionLane
     instances,
     fired,
     changes: moment >= 8 ? [{ id: "skip-deploy-watch", lane: "deploy", item: "rolling_out", text: "Skip the deploy watch", at: "14:05" }] : [],
-    ...(moment === 5 ? { waitingOn: { step: "land", instance: "pr-812", state: "approved" } } : {}),
+    ...(moment === 5 ? { waiting: ["Waiting on PR #812: Approved"] } : {}),
     ...(moment >= 4 && moment <= 5 ? { triage: { instance: "pr-812", comments: triaged(sent) } } : {}),
   };
   return { workflow: "feature", at, working: WORKING[moment] !== undefined, job };
@@ -533,9 +533,9 @@ export function jobB(): SessionLanes {
       instance("deploy-815", "deploy", "Deploy", "rolling_out", ["rolling_out"]),
     ],
     fired: [
-      { rule: "progress", instance: "arm-52", outcome: "acted", at: "09:12", did: "Assigned to you, moved to In progress" },
-      { rule: "review", instance: "arm-52", outcome: "acted", at: "09:48", did: "Moved to In review" },
-      { rule: "deploy", instance: "deploy-815", outcome: "acted", at: "10:20", did: "Started the rollout watch" },
+      { rule: "progress", instance: "arm-52", outcome: "acted", at: "09:12", did: ["Assigned to you, moved to In progress"] },
+      { rule: "review", instance: "arm-52", outcome: "acted", at: "09:48", did: ["Moved to In review"] },
+      { rule: "deploy", instance: "deploy-815", outcome: "acted", at: "10:20", did: ["Started the rollout watch"] },
     ],
     changes: [],
   };
@@ -604,15 +604,15 @@ export function feedbackAt(moment: number): SessionLanes {
   const cart = moment >= 3 ? "landed" : moment >= 2 ? "pr_open" : "started";
   const panel = moment >= 4 ? "landed" : moment >= 3 ? "pr_open" : "started";
   const instances: Instance[] = moment >= 2 ? [instance(CART, "job", "Fix cart rounding", cart, JOB_SEEN[cart]!), instance(PANEL, "job", "Tidy the PR panel landing", panel, JOB_SEEN[panel]!)] : [];
-  const fired: Fired[] = moment >= 2 ? [CART, PANEL].map((one) => ({ rule: "start_job", instance: one, outcome: "acted" as const, at: "14:12", did: "Started the Job" })) : [];
+  const fired: Fired[] = moment >= 2 ? [CART, PANEL].map((one) => ({ rule: "start_job", instance: one, outcome: "acted" as const, at: "14:12", did: ["Started the Job"] })) : [];
   const job: JobLanes = {
     workspace: MY_STORE.id,
     copy: changed ? { steps: FEEDBACK_COPY_CHANGED, lifecycles: [JOB_COPY], rules: [START_JOB] } : { steps: FEEDBACK_COPY_START, lifecycles: [], rules: [] },
     instances,
     fired,
     changes: changed ? CHANGES : [],
-    ...(moment === 2 ? { waitingOn: { step: "oversee", instance: CART, state: "landed", and: [PANEL] } } : {}),
-    ...(moment === 3 ? { waitingOn: { step: "oversee", instance: PANEL, state: "landed" } } : {}),
+    ...(moment === 2 ? { waiting: ["Waiting on Fix cart rounding, Tidy the PR panel landing: Landed"] } : {}),
+    ...(moment === 3 ? { waiting: ["Waiting on Tidy the PR panel landing: Landed"] } : {}),
   };
   const at = [1, 3, 4, 4, 4][moment]!;
   return { workflow: "feature", at, working: FEEDBACK_WORKING[moment] !== undefined, ...(changed ? { skipped: FEEDBACK_SKIPPED } : {}), job };
