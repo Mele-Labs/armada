@@ -222,13 +222,18 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* Two lines at most, so a long wait never spills out of its node: the node's tooltip holds the whole of it. */
 .armada-lane-item__sub {
   grid-column: 2;
+  display: -webkit-box;
   min-width: 0;
+  overflow: hidden;
   color: var(--fg-subtle);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .armada-lane-item__who {
   grid-column: 2;

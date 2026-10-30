@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 use crate::ids::ManifestId;
 use crate::sessions::SessionId;
 
+/// The refusal of a start or fork whose call places no hosted Session. Here because the route answers a
+/// whole batch with it where its first Job is refused so.
+pub const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
+
 /// `start_another_session`: a new Session in `manifest_id`'s repository, with the agent's first message
 /// held for the person. Answered with [`SessionHeld`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +37,42 @@ pub struct StartAnotherSession {
     /// for the person as any start's is. The Session waited on is told what `after.needs` says.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<crate::session_waits::StartAfter>,
+}
+
+/// `start_another_session`'s body: one Job's fields at the top, or several Jobs in `jobs`, never both.
+/// One Job is answered with [`SessionHeld`], several with [`SessionsHeld`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartAnotherSessions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<crate::session_waits::StartAfter>,
+    /// **Each started as a call of its own would start it**, in order: the same linking under the
+    /// caller and the same refusals. One refused leaves the others started.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jobs: Vec<StartAnotherSession>,
+}
+
+/// What a call with `jobs` answers: one entry per Job, in the order given.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SessionsHeld {
+    pub jobs: Vec<HeldOrRefused>,
+}
+
+/// One Job of [`SessionsHeld`]: `held` where it started, `refused` with the refusal a call of its own
+/// would have answered where it did not. Exactly one is present.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HeldOrRefused {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<SessionHeld>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refused: Option<crate::WireError>,
 }
 
 /// `hand_to_session`: the person hands one group of a Session's plan to a Session of its own, from

@@ -35,9 +35,9 @@ fn feature() -> Vec<RailStep> {
     vec![propose(), step("Discuss"), plan_step(), walk(), follows("Refine"), delivers("Deliver")]
 }
 
-/// Find the cause (records the plan), Fix, Short walk, Tests, Deliver.
+/// Find the cause (records the plan), Fix (follows the plan and walks), Tests, Deliver.
 fn bug() -> Vec<RailStep> {
-    vec![plan_step(), follows("Fix"), walk(), fitted("Tests", Fit::Checked), delivers("Deliver")]
+    vec![plan_step(), RailStep { walks: true, ..follows("Fix") }, fitted("Tests", Fit::Checked), delivers("Deliver")]
 }
 
 fn recorded() -> Facts {
@@ -95,12 +95,23 @@ fn a_walk_is_passed_over_only_when_nothing_was_named_or_shown_and_the_work_is_pu
 }
 
 #[test]
-fn a_walk_between_a_fix_and_its_tests_is_current_while_the_fix_is_made_and_tests_wait_for_it() {
+fn a_fix_that_walks_is_current_until_he_approves_and_tests_follow_at_once() {
     let steps = bug();
     let fixing = Facts { plan_recorded: true, edited: true, ..approved() };
-    assert_eq!(at(&steps, fixing), Some(2), "the walk is current from the plan's approval");
-    assert_eq!(at(&steps, Facts { walk_shown: true, checked: true, ..fixing }), Some(2), "a Check run does not leave the walk");
-    assert_eq!(at(&steps, Facts { walk_shown: true, walk_approved: true, checked: true, ..fixing }), Some(3));
+    assert_eq!(at(&steps, fixing), Some(1), "Fix is current from the plan's approval");
+    assert_eq!(at(&steps, Facts { walk_shown: true, checked: true, ..fixing }), Some(1), "a Check run does not leave the walk");
+    assert_eq!(at(&steps, Facts { walk_shown: true, walk_approved: true, ..fixing }), Some(2), "his approval enters Tests, with no Check run yet");
+}
+
+/// The loop of 30 Oct 2026: with the walk a step of its own after Fix, his approval entered nothing, the
+/// Job fell back to Fix, was told to show the walk, and the window shown again voided his approval.
+#[test]
+fn a_walk_he_approved_never_drops_the_job_back_to_the_step_before_it() {
+    let steps = [plan_step(), follows("Fix"), walk(), fitted("Tests", Fit::Checked), delivers("Deliver")];
+    let fixed = Facts { plan_recorded: true, edited: true, committed: true, walk_shown: true, ..approved() };
+    assert_eq!(at(&steps, Facts { walk_approved: true, ..fixed }), Some(3), "approved, no Check run: Tests");
+    assert_eq!(at(&steps, Facts { walk_approved: true, tasks_open: true, ..fixed }), Some(3), "a task left open does not hold him behind it");
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved() }), Some(4), "passed over and pushed: Deliver");
 }
 
 #[test]
@@ -166,7 +177,7 @@ fn what_ends_each_step_is_read_off_its_anchor() {
     );
     assert_eq!(
         ends(&bug()),
-        said(&[Some("you approve the plan"), Some("a walk is shown"), Some("you approve the walk"), Some("it is pushed"), Some("it is merged")])
+        said(&[Some("you approve the plan"), Some("you approve the walk"), Some("it is pushed"), Some("it is merged")])
     );
     let loose = [fitted("Build", Fit::Edited), step("Free text")];
     assert_eq!(ends(&loose), said(&[None, None]));
