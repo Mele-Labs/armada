@@ -76,14 +76,33 @@ where
     /// Write each file in the Job's tree and commit those paths alone on its branch with `message`.
     /// `None` where the branch already held them as written; the `Err` says what failed.
     pub(crate) async fn committed_in(&self, tree: &JobTree, files: &[(String, String)], message: &str) -> Result<Option<String>, String> {
+        self.committed_in_removing(tree, files, &[], message).await
+    }
+
+    /// [`Self::committed_in`], and each of `removals` deleted from the tree first. **A path the tree
+    /// no longer holds is committed as a deletion** by `commit_paths`, so the deletion is in the same
+    /// commit as the writes and nothing else is.
+    pub(crate) async fn committed_in_removing(
+        &self,
+        tree: &JobTree,
+        files: &[(String, String)],
+        removals: &[String],
+        message: &str,
+    ) -> Result<Option<String>, String> {
         let (vcs, path, branch) = (Arc::clone(self.vcs()), tree.path.clone(), tree.branch.clone());
-        let (files, message) = (files.to_vec(), message.to_string());
+        let (files, removals, message) = (files.to_vec(), removals.to_vec(), message.to_string());
         let secs = self.now().epoch_millis().unwrap_or_default().div_euclid(1_000);
         tokio::task::spawn_blocking(move || {
             for (at, text) in &files {
                 write_over(&Path::new(&path).join(at), text).map_err(|why| format!("{at} could not be written: {why}"))?;
             }
-            let paths: Vec<&str> = files.iter().map(|(at, _)| at.as_str()).collect();
+            for at in &removals {
+                match std::fs::remove_file(Path::new(&path).join(at)) {
+                    Err(why) if why.kind() != std::io::ErrorKind::NotFound => return Err(format!("{at} could not be removed: {why}")),
+                    _ => {}
+                }
+            }
+            let paths: Vec<&str> = files.iter().map(|(at, _)| at.as_str()).chain(removals.iter().map(String::as_str)).collect();
             match vcs.commit_paths(&Worktree::at(path.clone(), branch.clone()), &paths, &message, CommitTime::seconds_since_epoch(secs)) {
                 Ok(Committed::Made { commit }) => Ok(Some(commit)),
                 Ok(Committed::NothingToCommit) => Ok(None),

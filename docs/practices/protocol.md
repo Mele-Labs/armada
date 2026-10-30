@@ -350,8 +350,9 @@ Bridge reads `in_repository` with the open Job's `session_id`, and sends a commi
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `commit_to_repository` (`POST /repositories/commit`, `Bridge only`) | Bridge sends, Fleet answers 200 once committed | `CommitToRepository` `{ repository, session_id?, piece, overwrite? }`; answers `CommittedToRepository` `{ repository, branch, paths[], commit? }`. 422 `fleet.commit_no_job`, `fleet.commit_not_yours`, `fleet.commit_exists`, `fleet.commit_refused`; 404 `fleet.run_memory_repository_not_served`; 500 `fleet.commit_unwritable` |
+| `commit_to_repository` (`POST /repositories/commit`, `Bridge only`) | Bridge sends, Fleet answers 200 once committed | `CommitToRepository` `{ repository, session_id?, piece, overwrite?, remove? }`; answers `CommittedToRepository` `{ repository, branch, paths[], commit? }`. 422 `fleet.commit_no_job`, `fleet.commit_not_yours`, `fleet.commit_exists`, `fleet.commit_refused`; 404 `fleet.run_memory_repository_not_served`; 500 `fleet.commit_unwritable` |
 | `PieceToCommit` | both | tagged by `kind`: `flight_controls` `{ job[]?, deck[]? }` (tile ids), `workflow` `{ workflow_id }`, `review_tool` `{ id }` |
+| `PieceToCommit` | both | Gains, since 30 Oct 2026, `lifecycle` `{ id, scope? }`, `lifecycle_rule` `{ id, scope? }`, `workspace` `{ id }` and `autonomy` `{ id, scope? }`, each the person's own Kit piece selected by the id and scope its file declares, and `remove` on the body to take one out of the repository; see *Workspaces, lifecycles and rules, saved* |
 | `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=&session_id=`) | Bridge reads | `RepositoryFlightControls` gains `in_repository`, a `FlightControlsRead` of the repository's own `.armada/flight-controls.toml`, from the tree of the Job `session_id` names, or the checkout with none |
 
 **A copy, never a move.** The person's piece is read and left as it is; the copy is written in the Job's tree and committed alone on its branch.
@@ -460,6 +461,7 @@ Bridge calls all five: Share and Copy on a piece, and Import for a package dropp
 | `list_unbound_pieces` (`GET /share/unbound`, `Bridge only`) | Bridge reads | `UnboundPieces` `{ pieces[] }`, each `{ unbound_id, kind, id, name, list?, commands[], remote? }` |
 | `bind_unbound_piece` (`POST /share/bind`, `Bridge only`) | Bridge sends | `BindUnboundPiece` `{ unbound_id, repository, replace? }`; answers `PieceAdded`. 404 `fleet.share_no_unbound_piece`, `fleet.run_memory_repository_not_served`; 422 as `add_package` |
 
+**Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet.** `share_package` with one of those `PieceToCommit` kinds is a 422 `fleet.share_refused` saying so, and the package text has no piece for them.
 **`read_package` is a command** because the text travels in the body, and the route table holds a query to `GET`.
 **The text is a `version` key and one `[[piece]]` table per piece**: its `kind` (`tile`, `workflow` or `review_tool`), the piece as stored, and `remote` where the repository has one.
 A remote is `owner/name`, as the central store's slug is.
@@ -589,6 +591,8 @@ The Job is a hosted Session that runs no agent, and holds its pull request on it
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Unchanged in kind: the new Job is published as `SessionChanged`, as every Job's start is.
+**The Job's commit can also be a deletion.** `remove` on the body, since 30 Oct 2026, deletes the file instead of writing one: `committed_in_removing` removes each path from the Job's tree and hands `commit_paths` every path, and a path the tree no longer holds is committed as a deletion by that call (`a_deleted_path_and_an_untracked_one_are_both_committed` in `adapters`).
+`paths` in the answer then lists what was removed.
 
 ## A Fleet notice is muted: `set_notice_mute`, and `notice` on a message row
 
@@ -1154,6 +1158,47 @@ A `label` is what a person reads for an instance: the ticket's key, `PR #812`, t
 It is raised when a Job takes an instance on and when a read finds one somewhere else, and not for a repeat read or a Job that holds nothing.
 It carries the Job's definitions each time, a few KB at a handful per Job, so a Bridge that missed one needs only the next, or `get_job_lifecycles` on the resync that follows a `Missed`.
 **It makes the unbounded WebSocket sink a little worse and does nothing about it.** The load is small and rare next to a Drone's rows, and the bounded broadcast with drop-oldest is still the fix.
+
+## Workspaces, lifecycles and rules, saved: `save_lifecycle_piece`, `delete_lifecycle_piece`, and `commit_to_repository` for pieces
+
+Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*; `crates/ipc/src/piece_saving.rs`.
+**Additive only**: two operations and two routes, and a field and four variants on types that exist, all optional or new. Nothing is removed or renamed.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is the mirror in `packages/protocol/src`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `save_lifecycle_piece` (`POST /lifecycles/pieces/save`, Bridge only) | Bridge sends, Fleet answers 200 | `SaveLifecyclePiece` `{ piece, overwrite? }`, `piece` tagged by `kind`: `lifecycle` `{ lifecycle }` (a `LifecycleDefinition`), `rule` `{ rule }` (a `LifecycleRule`), `workspace` `{ workspace: { id, name, repositories[] } }` or `autonomy` `{ autonomy: { id, scope?, defaults } }`. Answers `LifecyclePieceSaved` `{ kind, id, scope, file, replaced }`. 422 `fleet.piece_unfit`, `fleet.piece_exists`; 500 `fleet.piece_unwritable` |
+| `delete_lifecycle_piece` (`POST /lifecycles/pieces/delete`, Bridge only) | Bridge sends, Fleet answers 200 | `DeleteLifecyclePiece` `{ kind, id, scope? }`; answers `LifecyclePieceDeleted` `{ kind, id, scope, file }`. 422 `fleet.piece_not_kept`; 500 `fleet.piece_unwritable` |
+| `PieceToCommit` (`commit_to_repository`) | Bridge sends | Gains `lifecycle` `{ id, scope? }`, `lifecycle_rule` `{ id, scope? }`, `workspace` `{ id }` and `autonomy` `{ id, scope? }`; `scope` is a `PieceScope`, everywhere where absent |
+| `CommitToRepository.remove` | Bridge sends | Optional, false where absent: delete the piece from the repository instead of copying it in |
+| `fleet.commit_refused` | Fleet answers | Now also for a piece committed to a repository its scope does not belong to, a Workspace committed to a second repository, `remove` of a kind that cannot be removed, and `remove` of a piece main does not hold |
+| `fleet.share_refused` | Fleet answers | Now also for these four kinds, which Share does not carry yet |
+
+**The DTOs a read answered are the input.** Bridge sends what it was sent, changed; Fleet writes the file syntax, so no client holds a second copy of the format.
+`fleet::piece_saving::text` makes the text from structs shaped like the file, and `config::piece_text` is the only place YAML is produced.
+**The piece's own parser reads that text before anything is written** (`lifecycle`, `rule`, `workspace` or `autonomy` in `config`).
+A piece it refuses is a 422 `fleet.piece_unfit` carrying the parser's own sentence with every fault and its key, and nothing is created: not the folder, not a staged file.
+A test round-trips the parsers' own fixtures through the DTO, the writer and the parser, so the writer cannot drift from the format.
+**A piece is its kind, id and scope, and not its id.** `ticket` everywhere and `ticket` within a repository are two files that rank against each other.
+The file that holds one is found by the id and scope it declares, whatever it is called (`.json`, `.yml` or `.yaml`), as `save_workflow` finds a definition.
+A Workspace has no scope.
+Without `overwrite` a save of a held piece is a 422 `fleet.piece_exists` naming the file; with it the file that declared the piece is replaced in place and any second file declaring it is removed.
+A new file is `<id>.yml`, or `<id>.<scope>.yml` within a scope, and never takes the name of a file that declares something else: the name gains `-2`, `-3` and on.
+Kit's folder is made where absent, and nothing outside it is touched.
+**Reads need nothing re-read or published**: the three repository reads read the files each time.
+
+**Commit takes the four kinds the way it takes a workflow.** Kit's file is found by the id and scope it declares and copied into `.armada/<folder>/` under its own name, in place of the file on main that declares the piece, with `overwrite` only, and never over a file that declares something else.
+**Where it may be committed follows its scope.** A piece scoped within a Workspace goes to the Workspace's home, the served repository whose `.armada/workspaces/` holds the Workspace file, and a commit to any other names the home.
+A Workspace only Kit holds has no home yet, so a piece scoped within it is refused until the Workspace is committed.
+A piece scoped within a repository's Manifest id goes to that repository.
+A Workspace is committed to one repository, since two holding one id leave both set aside.
+**`remove` is built for these four kinds.** It deletes the file on main that declares the piece, in a Job of its own with a pull request, as a copy does.
+Any other kind, or a piece main does not hold, is a 422 `fleet.commit_refused`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the routes answers 404, and one without `remove` refuses a commit body that carries it, since `CommitToRepository` denies unknown fields, so a removal is never read as a copy.
+**No event.** Nothing is published: a save is read by the next read.
 
 ## Open questions
 
