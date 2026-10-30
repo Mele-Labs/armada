@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::lifecycle::{
-    AlreadyHeld, FleetFact, ForgeFact, HeldInstances, InstanceRef, LifecycleInstance, Moved, Observed, Standing,
+    AlreadyHeld, StateId, FleetFact, ForgeFact, HeldInstances, InstanceRef, LifecycleInstance, Moved, Observed, Standing,
 };
 use crate::watch::ReadingState;
 
@@ -15,8 +15,7 @@ fn at(lifecycle: &Lifecycle, key: &str) -> InstanceRef {
 }
 
 fn see(all: &mut HeldInstances, lifecycle: &Lifecycle, key: &str, seen: Observed<'_>) {
-    let standing = lifecycle.standing_of(&seen);
-    all.get_mut(&at(lifecycle, key)).expect("held").observe(standing);
+    all.get_mut(&at(lifecycle, key)).expect("held").observe(lifecycle, &seen).expect("its own lifecycle");
 }
 
 #[test]
@@ -25,12 +24,25 @@ fn a_second_read_of_the_same_standing_moves_nothing() {
     let mut one = held(&pull_request, "#812");
     assert_eq!(one.standing(), &Standing::Unread);
 
-    let approved = pull_request.standing_of(&Observed::Forge(ForgeFact::Approved));
-    assert_eq!(one.observe(approved.clone()), Some(Moved { from: Standing::Unread, to: approved.clone() }));
-    assert_eq!(one.observe(approved), None, "a rule runs once for an instance entering a state");
+    let approved = Observed::Forge(ForgeFact::Approved);
+    let into_approved = Standing::In(StateId::new("approved").expect("an id"));
+    assert_eq!(
+        one.observe(&pull_request, &approved),
+        Ok(Some(Moved { from: Standing::Unread, to: into_approved.clone() }))
+    );
+    assert_eq!(one.observe(&pull_request, &approved), Ok(None), "a rule runs once for an instance entering a state");
 
-    let merged = pull_request.standing_of(&Observed::Forge(ForgeFact::Merged));
-    assert_eq!(one.observe(merged.clone()).map(|moved| moved.to), Some(merged));
+    let moved = one.observe(&pull_request, &Observed::Forge(ForgeFact::Merged)).expect("its own lifecycle");
+    assert_eq!(moved.map(|moved| moved.from), Some(into_approved));
+}
+
+#[test]
+fn a_read_against_a_lifecycle_the_instance_is_not_of_is_refused_and_changes_nothing() {
+    let (ticket, pull_request) = (Lifecycle::ticket(), Lifecycle::pull_request());
+    let mut one = held(&pull_request, "#812");
+    let refused = one.observe(&ticket, &Observed::Tracker("Done")).expect_err("a ticket's lifecycle");
+    assert_eq!(refused.given, *ticket.id());
+    assert_eq!(one.standing(), &Standing::Unread);
 }
 
 #[test]

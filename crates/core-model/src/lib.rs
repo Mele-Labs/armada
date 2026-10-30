@@ -62,7 +62,7 @@ pub use kit::{
 pub use lifecycle::{
     AlreadyHeld, BlankKey, BlankScope, FleetFact, ForgeFact, HeldInstances, InstanceRef, Lifecycle,
     LifecycleId, LifecycleInstance, LifecycleScope, LifecycleState, LifecycleTransition,
-    MalformedLifecycle, Moved, NotAnId, Observed, ScopeId, StateId, StateRead, StateSource, Standing,
+    MalformedLifecycle, Moved, NotAnId, NotOfThisLifecycle, Observed, ScopeId, StateId, StateRead, StateSource, Standing,
     TrackerWords,
 };
 pub use retro::{Change, LandsIn, LessonState, Via, Whose};

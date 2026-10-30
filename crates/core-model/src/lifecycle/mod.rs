@@ -5,8 +5,8 @@
 //!
 //! **A state is read, never claimed.** Fleet decides which state an instance is in from what it
 //! observes, so a state names a fact a reader can see ([`StateRead`]) and an instance's
-//! [`Standing`] can only be set from one ([`Lifecycle::standing_of`]). A value no state claims is
-//! [`Standing::Unmapped`], its own fact, and never the nearest state.
+//! [`Standing`] changes only by being handed one ([`LifecycleInstance::observe`]). A value no state
+//! claims is [`Standing::Unmapped`], its own fact, and never the nearest state.
 //!
 //! **Applies to Jobs started after it exists.** A Job freezes its lifecycles as it freezes its
 //! workflow, and one started before has none and runs as it did.
@@ -21,7 +21,9 @@ mod read;
 mod tests;
 
 pub use ids::{BlankScope, LifecycleId, NotAnId, ScopeId, StateId};
-pub use instance::{AlreadyHeld, BlankKey, HeldInstances, InstanceRef, LifecycleInstance, Moved};
+pub use instance::{
+    AlreadyHeld, BlankKey, HeldInstances, InstanceRef, LifecycleInstance, Moved, NotOfThisLifecycle,
+};
 pub use machine::{
     Lifecycle, LifecycleScope, LifecycleState, LifecycleTransition, MalformedLifecycle, Standing,
 };

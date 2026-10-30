@@ -14,6 +14,7 @@ use core::fmt;
 
 use super::ids::LifecycleId;
 use super::machine::{Lifecycle, Standing};
+use super::read::Observed;
 
 /// Which thing, by its lifecycle and the key its source gives it: `ticket` and `ARM-41`.
 ///
@@ -104,16 +105,43 @@ impl LifecycleInstance {
         &self.links
     }
 
-    /// Record a read. `None` where it changed nothing, which is what lets a rule run once for
-    /// each instance entering a state and run nothing on the second read of the same one.
-    pub fn observe(&mut self, seen: Standing) -> Option<Moved> {
-        if self.standing == seen {
-            return None;
+    /// Record something seen. **The only way a standing changes**: there is no setter, and what an
+    /// agent says is not an [`Observed`], so a state can be read and cannot be claimed.
+    ///
+    /// `None` where it changed nothing, which is what lets a rule run once for each instance
+    /// entering a state and run nothing on the second read of the same one. Refused where
+    /// `lifecycle` is not the one this instance is of.
+    pub fn observe(
+        &mut self,
+        lifecycle: &Lifecycle,
+        seen: &Observed<'_>,
+    ) -> Result<Option<Moved>, NotOfThisLifecycle> {
+        if lifecycle.id() != self.subject.lifecycle() {
+            return Err(NotOfThisLifecycle { held: self.subject.clone(), given: lifecycle.id().clone() });
         }
-        let from = core::mem::replace(&mut self.standing, seen.clone());
-        Some(Moved { from, to: seen })
+        let now = lifecycle.standing_of(seen);
+        if self.standing == now {
+            return Ok(None);
+        }
+        let from = core::mem::replace(&mut self.standing, now.clone());
+        Ok(Some(Moved { from, to: now }))
     }
 }
+
+/// A read against a lifecycle the instance is not of.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NotOfThisLifecycle {
+    pub held: InstanceRef,
+    pub given: LifecycleId,
+}
+
+impl fmt::Display for NotOfThisLifecycle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} cannot be read against the {} lifecycle", self.held, self.given)
+    }
+}
+
+impl core::error::Error for NotOfThisLifecycle {}
 
 /// The instances one Job holds.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
