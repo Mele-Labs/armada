@@ -35,6 +35,7 @@ use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::watches::WatchList;
 use crate::bug_reports::BugReports;
+use crate::lifecycles::JobLifecycles;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::terminals::JobTerminal;
@@ -200,6 +201,9 @@ pub enum Event {
     // The bug reports agents made of Armada, every one on this Mac, whole, after one was made, kept or dropped.
     #[serde(rename = "bug_reports.changed")]
     BugReportsChanged(BugReports),
+    // What a Job holds and where it stands, whole, after an instance was taken on or moved.
+    #[serde(rename = "job_lifecycles.changed")]
+    JobLifecyclesChanged(JobLifecycles),
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),

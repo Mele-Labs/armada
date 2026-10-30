@@ -48,6 +48,7 @@ import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ProjectsHost } from "./projects";
 import { BugReportsHost } from "./bug-reports";
+import { LifecyclesHost } from "./lifecycles";
 import { AgentSignInHost } from "./agent-sign-in";
 import { ClashesHost } from "./clashes";
 import { TeachingHost } from "./teaching";
@@ -170,6 +171,8 @@ export class FleetConnection {
   readonly projects: ProjectsHost = new ProjectsHost(() => this.connected()?.port ?? null);
   /** Bugs agents reported in Armada — `bug-reports.ts`. */
   readonly bugReports: BugReportsHost = new BugReportsHost(() => this.connected()?.port ?? null);
+  /** Workspaces, lifecycles and rules, and where a Job's instances stand — `lifecycles.ts`. */
+  readonly lifecycles: LifecyclesHost = new LifecyclesHost(() => this.connected()?.port ?? null);
   /** The agents' sign-in — `agent-sign-in.ts`. */
   readonly agentSignIn: AgentSignInHost = new AgentSignInHost(() => this.connected()?.port ?? null);
   /** What happened across the Fleet — `timeline.ts`. */
@@ -303,6 +306,7 @@ export class FleetConnection {
       modelDownshift: this.modelDownshift,
       projects: this.projects,
       bugReports: this.bugReports,
+      lifecycles: this.lifecycles,
       agentSignIn: this.agentSignIn,
       timeline: this.timeline,
       acts: this.acts,

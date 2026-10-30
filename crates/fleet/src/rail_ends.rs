@@ -156,15 +156,18 @@ impl End {
 /// What a **delivering** step that lists a lifecycle end tells the agent. The end does not end the step,
 /// which the merge does: it gates the merge. `None` for any other step.
 pub(crate) fn gate_said(step: &RailStep) -> Option<String> {
-    let gates: Vec<_> = step.lifecycle_ends().map(|end| End::Lifecycle(end.clone()).for_person()).collect();
-    if !step.delivers || gates.is_empty() {
-        return None;
-    }
+    let gate = gate_for_person(step)?;
     Some(format!(
-        "Do not merge until {}. Open the pull request if you have not, then end your turn: Fleet watches for it and \
-         wakes you with a message, and then you land it.",
-        gates.join(", or ")
+        "Do not merge until {gate}. Open the pull request if you have not, then end your turn: Fleet watches for it and \
+         wakes you with a message, and then you land it."
     ))
+}
+
+/// What a delivering step's lifecycle ends gate the merge on, to the person: `every pr is approved`, and
+/// `, or ` between several. `None` for a step that does not deliver or lists none.
+fn gate_for_person(step: &RailStep) -> Option<String> {
+    let gates: Vec<_> = step.lifecycle_ends().map(|end| End::Lifecycle(end.clone()).for_person()).collect();
+    (step.delivers && !gates.is_empty()).then(|| gates.join(", or "))
 }
 
 /// Everything that ends the step at `at`, any one of them, or none where nothing observable does. A
@@ -206,11 +209,16 @@ pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<String> {
     end_of(steps, at).map(|end| end.for_person().into_owned())
 }
 
-/// Everything that ends the step at `at`, to the person, any one of them. For the workflow's page,
-/// which serves it once `StepReading` carries `ends_any`.
-#[cfg_attr(not(test), allow(dead_code))]
+/// Everything that ends the step at `at`, to the person, any one of them. Served by the workflow's page
+/// as `StepReading::ends_any`. **A delivering step gated by a lifecycle says the gate and then the
+/// merge**, `every pr is approved, then it is merged`: the state does not end the step, so `ends_when`
+/// keeps saying only the merge.
 pub(crate) fn ends_any(steps: &[RailStep], at: usize) -> Vec<String> {
-    ends_of(steps, at).iter().map(|end| end.for_person().into_owned()).collect()
+    let said = ends_of(steps, at).into_iter().map(|end| end.for_person().into_owned());
+    match steps.get(at).and_then(gate_for_person) {
+        Some(gate) => said.map(|merged| format!("{gate}, then {merged}")).collect(),
+        None => said.collect(),
+    }
 }
 
 /// What a step is entered on, which is what ends the one before it.

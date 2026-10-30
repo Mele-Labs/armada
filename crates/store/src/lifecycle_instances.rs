@@ -127,8 +127,8 @@ impl Store {
     }
 
     /// Keep what a read saw, and with it the move it made. **One write**, so the instance never
-    /// reads as one thing while the log says another.
-    pub fn keep_lifecycle_read(&mut self, read: &KeptRead<'_>) -> Result<(), WriteError> {
+    /// reads as one thing while the log says another. The id of the move, where it made one.
+    pub fn keep_lifecycle_read(&mut self, read: &KeptRead<'_>) -> Result<Option<i64>, WriteError> {
         let doing = "keeping what was read of a lifecycle instance";
         let tx = self.conn.transaction().map_err(failing(doing))?;
         tx.execute(
@@ -137,6 +137,7 @@ impl Store {
             params![read.session_id, read.lifecycle, read.key, read.seen_source, read.seen],
         )
         .map_err(failing(doing))?;
+        let mut moved = None;
         if let Some((from, to)) = read.moved {
             tx.execute(
                 "INSERT INTO lifecycle_moves (session_id, lifecycle, key, from_standing, to_standing, seen_source, seen, at)
@@ -144,8 +145,10 @@ impl Store {
                 params![read.session_id, read.lifecycle, read.key, from, to, read.seen_source, read.seen, read.at],
             )
             .map_err(failing(doing))?;
+            moved = Some(tx.last_insert_rowid());
         }
-        tx.commit().map_err(failing(doing))
+        tx.commit().map_err(failing(doing))?;
+        Ok(moved)
     }
 
     /// Everything the Job holds, in the order it was taken on.

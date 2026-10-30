@@ -76,6 +76,11 @@ impl AutonomyDefaults {
         self.set.get(&kind).copied()
     }
 
+    /// What was set, in the order of the kinds. For Fleet to keep.
+    pub fn iter(&self) -> impl Iterator<Item = (ActKind, Autonomy)> + '_ {
+        self.set.iter().map(|(kind, autonomy)| (*kind, *autonomy))
+    }
+
     /// This layer laid over a wider one: the repository's over its Workspace's. A kind both set
     /// takes this layer's.
     pub fn laid_over(&self, wider: &AutonomyDefaults) -> AutonomyDefaults {

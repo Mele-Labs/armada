@@ -52,13 +52,12 @@ where
         if !step.has_lifecycle_end() || step.delivers {
             return None;
         }
-        let (held, titles) = {
+        let (held, titles, lifecycles) = {
             let store = self.store().lock().await;
             let held = held_of(&store, session)?;
             let titles = titles_of(&store, &held);
-            (held, titles)
+            (held, titles, self.lifecycles_of_job(&store, session, manifest))
         };
-        let lifecycles = self.lifecycles_that_apply(manifest);
         let name = |one: &KeptInstance| rail_lifecycle::named(one, titles.get(&one.key).map(String::as_str));
         rail_lifecycle::woken(step, workflow, &lifecycles, &held, &name)
     }
@@ -77,18 +76,18 @@ where
         if !step.delivers || !step.has_lifecycle_end() {
             return None;
         }
-        let (reads, titles, rows) = {
+        let (reads, titles, rows, lifecycles) = {
             let store = self.store().lock().await;
             let kept = store.session(session).ok().flatten()?;
             let reads = rail_read(&store, &kept, true).ok()?;
             let titles = titles_of(&store, &reads.held);
             let rows = store.session_rows(session).ok()?;
-            (reads, titles, rows)
+            let lifecycles = self.lifecycles_of_job(&store, session, manifest);
+            (reads, titles, rows, lifecycles)
         };
         if reads.extra.messaged.has(at) {
             return None;
         }
-        let lifecycles = self.lifecycles_that_apply(manifest);
         let name = |one: &KeptInstance| rail_lifecycle::named(one, titles.get(&one.key).map(String::as_str));
         let line = rail_lifecycle::woken(step, workflow, &lifecycles, &reads.held, &name)?;
         let said = rows.iter().filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok()).any(
@@ -103,7 +102,7 @@ fn held_of(store: &Store, session: &str) -> Option<Held> {
 }
 
 /// What a Job's own title is, for each Job it holds: how `named` calls one.
-fn titles_of(store: &Store, held: &Held) -> HashMap<String, String> {
+pub(crate) fn titles_of(store: &Store, held: &Held) -> HashMap<String, String> {
     held.instances
         .iter()
         .filter(|one| one.lifecycle == "job")

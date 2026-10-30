@@ -12,6 +12,12 @@ an_id! {
     RuleId
 }
 
+an_id! {
+    /// Which file of autonomy defaults. **Written by a person**, as a rule's is. Where two share
+    /// one, the narrower scope wins, then yours over the repository's.
+    AutonomyId
+}
+
 /// Text a rule carries to something else: a ticket's assignee, a template, a prompt, a command's
 /// name. **Never blank**, since an act with nothing to say has nothing to do.
 ///

@@ -1064,6 +1064,27 @@ The build notice does not take an offer for a restart wait it answers, so a new 
 **The event stream.** No new event: a new offer publishes `session.changed` on its Job, and so does a build change that drops one.
 The open risk below is neither better nor worse.
 
+## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
+
+Since 30 Oct 2026. `crates/fleet/src/session_host/rule_asks.rs`, `crates/fleet/src/lifecycles/acting.rs`.
+**Two enum values**: no operation, route, event kind, error or type on the wire.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `rule_act` on `WaitingSource` in `packages/protocol/src/sessions.ts` and `lifecycle_rule` in `notices.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `rule_act`: id `rule_act:<row id>`, text the act in the owner's words (`Move ARM-41 to In progress`) or, once it failed past its retries, what failed, act `answer` whose `target` is the id, and exactly two options, `Do it` and `Skip`, labels only. On a failed act the first label is `Try again`. A draft act raises none: it is proposed at once and the `draft` item is the ask. Read off the kept act on every read, so a restart keeps it; gone once the Job ends |
+| `answer_waiting` on it | Bridge writes | No new field. Choice 0 hands the act to Fleet to carry out, and choice 1 records it skipped. Neither sends the agent anything. Words alone are a 422 `fleet.session_waiting_empty`; a second answer finds it settled and is a 409 |
+| `dismiss_waiting` on it | Bridge writes | No new field. It is Skip |
+| `Notice` (`SessionRow::Message.notice`, a mute's `notice`) | Fleet writes, Bridge reads | Gains `lifecycle_rule`: a rule of the Job told its agent something, or woke it, or told it what failed. It is muted, taught and given a Fleet rule as any other notice is |
+
+**A Job started before this holds no copy of the rules**, so it plans nothing and raises nothing; the store gained tables for the copy, the acts and what was last seen, and no table or column was changed.
+**A Bridge that matches `WaitingSource` or `Notice` exhaustively** meets a value it did not know; the mirror gained both first, and equal IDs hold the two together.
+
+**Skew.** As above.
+**The event stream.** No new event: a planned or settled act publishes `session.changed` on its Job.
+The open risk below is neither better nor worse.
+
 ## A note sent to a Job is kept on it: the `note` artifact
 
 Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`.
@@ -1094,6 +1115,45 @@ Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.
 | `replied:<turn ended>` on a step that ends on his reply | Fleet writes, Bridge reads | No new value: a `replied` item, text `<step>: you reply`, raised at a turn end where nothing else waits, a reply that only reports included |
 
 **A Bridge that matches `WaitingSource` exhaustively** meets a value it did not know; the mirror gained it in the same change, and equal IDs hold the two together.
+
+## Workspaces, lifecycles and rules, read: `list_repository_workspaces`, `list_lifecycles`, `list_lifecycle_rules`, `get_job_lifecycles` and `job_lifecycles.changed`
+
+Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*; `crates/ipc/src/lifecycles.rs`.
+**Additive only, and reads only**: four operations, four routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance. Bridge draws none of it yet.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field for field, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `list_repository_workspaces` (`GET /workspaces?manifest_id=`, Bridge only) | Bridge reads | `RepositoryWorkspaces` `{ manifest_id, workspaces[], left_out[] }`; a `WorkspaceOfRepositories` is `{ id, name, repositories[], home?, source, path, overridden_by?, hides? }`. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
+| `list_lifecycles` (`GET /lifecycles?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycles` `{ manifest_id, lifecycles[], left_out[] }`; an `AppliedLifecycle` is `{ lifecycle, kept }`, a `LifecycleDefinition` `{ id, name, scope, states[], transitions[], ends[] }` |
+| `list_lifecycle_rules` (`GET /lifecycles/rules?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycleRules` `{ manifest_id, rules[], left_out[] }`; an `AppliedRule` is `{ rule, kept }`, a `LifecycleRule` `{ id, name, scope, when, conditions[], does[], autonomy?, on_failure }` |
+| `get_job_lifecycles` (`GET /sessions/lifecycles?session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `JobLifecycles` `{ session_id, lifecycles[], instances[], moves[] }`. 422 `fleet.job_lifecycles_unplaced`; 404 `fleet.no_such_session` |
+| `job_lifecycles.changed` (event, Bridge only) | Fleet publishes | `JobLifecycles`, whole, after an instance was taken on or moved |
+| `SessionRecord.workflow_waiting_on` | Fleet writes where the Job's step is served | A list of sentences, `Waiting on PR #812: Approved`, one for each lifecycle end the Job's current step lists that has not come, in the order the step lists them. Left out when empty: the step waits on no lifecycle, or an end has come |
+| `StepReading.ends_any` (`get_workflow_steps`) | Fleet writes | A delivering step gated by a lifecycle now reads `every pr is approved, then it is merged`; `ends_when` still says only `it is merged` |
+
+**A Workspace here is a set of repositories**, and the wire type is `WorkspaceOfRepositories` so it is never read as the Manifest's monorepo `workspaces`, `WorkspaceCommands` or `ScannedWorkspace`.
+For the same reason a rule is `LifecycleRule`, and `FleetRule` stays the notice rule `fleet.toml` carries.
+**DTOs, not `core_model` types.** `fleet::lifecycles::wire` converts field by field, and a closed set it matches on is matched exhaustively, so a new state source, act or scope fails to compile there rather than reaching Bridge unnamed.
+Closed sets cross as strings and are listed in the mirror's comments, as `protocol.ts` says.
+**`kept` says where a piece came from and what became of it.** `rank` is `{ reach, source, home? }`; `path` is absent for what Armada carries; `overridden_by` is the rank of the one that runs instead; `hides` is the place a Kit file replaced because it says something else.
+The one that runs for each id comes first.
+**`left_out` is a file Fleet could not read and the sentence a person reads for it.** A file that will not read names no repository, so a Workspace's `left_out` is every Workspace file Fleet set aside, whichever repository was asked about.
+Everything is read when asked and never cached.
+**A rule's `autonomy` is the rule's own word and absent when it has none**; each act in `does` carries the autonomy it will run under, resolved from the default for its kind, so Bridge never has to hold that table.
+**A Job's read follows the repository's current pieces.** Its definitions are `lifecycles_that_apply`, the same ones that read its instances.
+When a Job's copy is frozen on start, that function changes and this follows.
+**The Job is the one the connection places** where Fleet hosts it, else `session_id`, as a watch's is.
+A Job that holds nothing, which is every Job that began before lifecycles existed, answers three empty lists.
+A `label` is what a person reads for an instance: the ticket's key, `PR #812`, the Job's title or its id when it has none.
+**The waiting line rides the Job's row and has no event of its own.** `workflow_waiting_on` is derived each time the row is drawn, as `workflow_step` is, and the row is drawn again when an instance moves under a step that waits on a lifecycle.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `job_lifecycles.changed` is a new kind.
+It is raised when a Job takes an instance on and when a read finds one somewhere else, and not for a repeat read or a Job that holds nothing.
+It carries the Job's definitions each time, a few KB at a handful per Job, so a Bridge that missed one needs only the next, or `get_job_lifecycles` on the resync that follows a `Missed`.
+**It makes the unbounded WebSocket sink a little worse and does nothing about it.** The load is small and rare next to a Drone's rows, and the bounded broadcast with drop-oldest is still the fix.
 
 ## Open questions
 

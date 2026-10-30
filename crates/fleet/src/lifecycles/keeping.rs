@@ -23,6 +23,7 @@ use crate::daemon::Fleet;
 pub(super) const TICKET: &str = "ticket";
 pub(super) const PULL_REQUEST: &str = "pr";
 pub(super) const JOB: &str = "job";
+pub(super) const DEPLOY: &str = "deploy";
 
 /// What of a row decides whether anything a Job holds moved.
 type Row = (String, String, AttachmentState, String, String);
@@ -107,13 +108,20 @@ where
     async fn lifecycles_taken_on(&self, id: &str, record: &SessionRecord) {
         let held = holds(&record.attachments);
         let at = self.now().as_str().to_string();
-        let mut store = self.store().lock().await;
-        for ticket in &held.tickets {
-            let _ = store.take_on_lifecycle_instance(id, TICKET, ticket, &[], &at);
-        }
-        for pull in &held.pull_requests {
-            let links: Vec<(&str, &str)> = pull.tickets.iter().map(|ticket| (TICKET, ticket.as_str())).collect();
-            let _ = store.take_on_lifecycle_instance(id, PULL_REQUEST, &pull.number, &links, &at);
+        let changed = {
+            let mut store = self.store().lock().await;
+            let before = store.lifecycle_instances_of(id).unwrap_or_default();
+            for ticket in &held.tickets {
+                let _ = store.take_on_lifecycle_instance(id, TICKET, ticket, &[], &at);
+            }
+            for pull in &held.pull_requests {
+                let links: Vec<(&str, &str)> = pull.tickets.iter().map(|ticket| (TICKET, ticket.as_str())).collect();
+                let _ = store.take_on_lifecycle_instance(id, PULL_REQUEST, &pull.number, &links, &at);
+            }
+            store.lifecycle_instances_of(id).unwrap_or_default() != before
+        };
+        if changed {
+            self.job_lifecycles_published(id).await;
         }
     }
 
@@ -123,12 +131,15 @@ where
     async fn job_started_by(&self, parent: &str, child: &SessionRecord) {
         let at = self.now().as_str().to_string();
         let child_id = child.id.as_str();
-        {
+        let taken = {
             let mut store = self.store().lock().await;
             if !store.is_lifecycle_job(parent).unwrap_or(false) {
                 return;
             }
-            let _ = store.take_on_lifecycle_instance(parent, JOB, child_id, &[(JOB, parent)], &at);
+            store.take_on_lifecycle_instance(parent, JOB, child_id, &[(JOB, parent)], &at).unwrap_or(false)
+        };
+        if taken {
+            self.job_lifecycles_published(parent).await;
         }
         let Some(manifest) = self.store().lock().await.session(parent).ok().flatten().and_then(|one| one.manifest_id) else {
             return;
@@ -146,7 +157,7 @@ where
             landed: landed(&child.attachments),
             ended: child.state == SessionState::Ended,
         };
-        let lifecycles = self.lifecycles_that_apply(&manifest);
+        let lifecycles = self.lifecycles_of_job(&*self.store().lock().await, parent, &manifest);
         let Some(job) = lifecycles.iter().find(|one| one.id().as_str() == JOB) else { return };
         if let Some(fact) = fleet_fact(job, &seen) {
             self.lifecycle_seen(parent, JOB, child_id, Observed::Fleet(fact)).await;
@@ -167,12 +178,12 @@ where
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let manifest = store.session(session).ok().flatten()?.manifest_id?;
-        let lifecycles = self.lifecycles_that_apply(&manifest);
+        let lifecycles = self.lifecycles_of_job(&store, session, &manifest);
         let mut held = rebuilt(&lifecycles, &store.lifecycle_instances_of(session).ok()?);
         let subject = subject_of(&held, lifecycle, key)?;
         let transition = read_instance(&mut held, &lifecycles, &subject, &seen, &at)?;
         let (from, to) = (transition.moved.from.as_wire(), transition.moved.to.as_wire());
-        store
+        let kept = store
             .keep_lifecycle_read(&KeptRead {
                 session_id: session,
                 lifecycle,
@@ -184,6 +195,11 @@ where
             })
             .ok()?;
         drop(store);
+        // The Job's rules hear the move once it is kept, outside the hold that kept it.
+        if let Some(move_id) = kept {
+            self.rules_heard_move(session, &transition, move_id).await;
+        }
+        self.job_lifecycles_published(session).await;
         self.lifecycle_wakes(session).await;
         Some(transition)
     }

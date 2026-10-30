@@ -50,6 +50,7 @@ function fakeHost(
     modelDownshift: { changed: () => {}, seed: async () => {} },
     projects: { changed: () => {} },
     bugReports: { changed: () => {} },
+    lifecycles: { changed: () => {} },
     agentSignIn: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
     acts: { failed: () => {} },
@@ -132,6 +133,21 @@ describe("the bugs agents reported, carried whole by their event", () => {
     const reports = { reports: [{ id: "r1", session_id: "s1", job_title: "A Job", title: "A fault", what: "It broke.", steps: [], errors: [], logs: [], at: "2026-10-29T10:00:00Z" }] };
     applyArrival({ ...host, bugReports: { changed } }, JSON.stringify({ message: "event", cursor: 6, event: { kind: "bug_reports.changed", ...reports } }), FLEET);
     expect(changed).toHaveBeenCalledWith(reports);
+  });
+});
+
+describe("a Job's lifecycles, carried whole by their event", () => {
+  it("are passed on as the Job's and nothing of the event's kind, and the Job's own row is not touched", () => {
+    const { host } = fakeHost();
+    const changed = vi.fn();
+    const held = {
+      session_id: "s1",
+      lifecycles: [],
+      instances: [{ lifecycle: "pr", key: "812", label: "PR #812", standing: { kind: "in", state: "in_review" }, links: [{ lifecycle: "ticket", key: "ARM-41" }] }],
+      moves: [],
+    };
+    applyArrival({ ...host, lifecycles: { changed } }, JSON.stringify({ message: "event", cursor: 7, event: { kind: "job_lifecycles.changed", ...held } }), FLEET);
+    expect(changed).toHaveBeenCalledWith(held);
   });
 });
 

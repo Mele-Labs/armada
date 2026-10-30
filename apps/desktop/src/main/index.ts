@@ -42,6 +42,7 @@ import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { handleProjects } from "./projects-channels";
 import { handleBugReports } from "./bug-reports-channels";
+import { handleLifecycles } from "./lifecycles-channels";
 import { showHeld } from "./banners";
 import { DownshiftNotice } from "./downshift-notice";
 import { handleAgentSignIn } from "./agent-sign-in-channels";
@@ -587,6 +588,7 @@ void app.whenReady().then(() => {
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.projects.onChanged((projects) => everyWindow(CHANNELS.projectsChanged, projects));
   connection.bugReports.onChanged((reports) => everyWindow(CHANNELS.bugReportsChanged, reports));
+  connection.lifecycles.onChanged((held) => everyWindow(CHANNELS.jobLifecyclesChanged, held));
   connection.agentSignIn.onChanged((state) => {
     agentSignInNotice.read(state);
     everyWindow(CHANNELS.agentSignInChanged, state);
@@ -794,6 +796,7 @@ void app.whenReady().then(() => {
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleProjects({ ipc: ipcMain, connection: () => connection });
   handleBugReports({ ipc: ipcMain, connection: () => connection });
+  handleLifecycles({ ipc: ipcMain, connection: () => connection });
   handleAgentSignIn({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });

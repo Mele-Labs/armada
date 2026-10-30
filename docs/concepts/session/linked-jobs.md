@@ -22,7 +22,8 @@ Bridge draws it from the wire, with no state of its own:
 
 | Where | What |
 |---|---|
-| The Blueprint | Under a group of the plan handed to a Job, that Job's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed opens to its tasks alone |
+| The Blueprint | A group of the plan handed to a Job is that Job's card, as on the spine: the shared Job card titled with the Job's title, the group's title as its second line, and the Job's pull request as the framed chip under it. It has no toggle. A group not handed opens to its tasks alone |
+| A handed group under Done | The same card and chip, with no tick track and no task list, since its tasks are the Job's work. The group's own issue and its merged pull requests stay beneath. The Job card carries a bot glyph at its left on every surface, with the tooltip Job |
 | A handed group on the spine | The Job takes the group's row, open or shut: the shared Job card titled with the Job's title, the group's title as its second line, and the Job's pull request as the framed pull request chip under it. The group has no toggle, since its tasks are the Job's work and opening the Job shows them. The card opens the Job, the chip opens the pull request in the side panel, and each is its own keyboard stop. A group not handed keeps its row and its toggle. The owner, 30 Oct 2026: "What is the "Name the migrations" versus the job below? Why do we need both?" |
 | The Artifacts layer | The first group, Jobs: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
 | The parent's thread | A `linked` row where it happened, `power` for done, `git-merge` for merged, the press that opens the child |

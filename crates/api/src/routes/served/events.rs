@@ -100,6 +100,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What a Job holds and where it stands, whole, as `get_job_lifecycles` answers it.
+    Route {
+        operation: "job_lifecycles.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A background act failed after its reply.
     Route {
         operation: "act.failed",

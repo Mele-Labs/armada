@@ -327,4 +327,20 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/share/bind",
     },
+    // What applies to a repository of the pieces a Workspace scopes: Workspaces, lifecycles and rules.
+    Route {
+        operation: "list_repository_workspaces",
+        method: "GET",
+        path: "/workspaces",
+    },
+    Route {
+        operation: "list_lifecycles",
+        method: "GET",
+        path: "/lifecycles",
+    },
+    Route {
+        operation: "list_lifecycle_rules",
+        method: "GET",
+        path: "/lifecycles/rules",
+    },
 ];

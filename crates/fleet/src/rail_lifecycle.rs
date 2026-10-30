@@ -107,10 +107,9 @@ fn label(lifecycle: &Lifecycle, state: &StateId) -> String {
     lifecycle.state(state).map_or_else(|| state.to_string(), |one| one.label().as_str().to_string())
 }
 
-/// What the rail says of a step that waits: `Waiting on PR #812: Approved`. **Built ahead of the wire**:
-/// a Job's row carries no sentence yet, and the Operations and TypeScript mirror task adds the field. **Those not there yet**,
-/// and `any of` where one is enough; with none held yet, the lifecycle by its name.
-#[cfg_attr(not(test), allow(dead_code))]
+/// What the rail says of a step that waits: `Waiting on PR #812: Approved`, served as
+/// `SessionRecord::workflow_waiting_on`. **Those not there yet**, and `any of` where one is enough; with
+/// none held yet, the lifecycle by its name.
 pub(crate) fn waiting_on(end: &LifecycleEnd, lifecycle: &Lifecycle, reading: &Reading<'_>, name: &dyn Fn(&KeptInstance) -> String) -> String {
     let state = label(lifecycle, end.state());
     let pending: Vec<String> = match end.waits() {
@@ -123,6 +122,27 @@ pub(crate) fn waiting_on(end: &LifecycleEnd, lifecycle: &Lifecycle, reading: &Re
         (several, Waits::Any) => format!("Waiting on any of {}: {state}", several.join(", ")),
         (several, Waits::Every) => format!("Waiting on {}: {state}", several.join(", ")),
     }
+}
+
+/// What a step that waits on a lifecycle says while it waits: one `waiting_on` sentence for each of its
+/// ends, in the order the step lists them. **Empty once any end has come**, since any one ends the step,
+/// and empty for a step that lists no lifecycle end or only ones the Job's lifecycles do not have.
+pub(crate) fn waiting(
+    step: &RailStep,
+    lifecycles: &[Lifecycle],
+    held: &Held,
+    name: &dyn Fn(&KeptInstance) -> String,
+) -> Vec<String> {
+    let mut said = Vec::new();
+    for end in step.lifecycle_ends() {
+        let Some(lifecycle) = lifecycles.iter().find(|one| one.id() == end.lifecycle()) else { continue };
+        let reading = read(end, lifecycle, held);
+        if reading.met(end.waits()) {
+            return Vec::new();
+        }
+        said.push(waiting_on(end, lifecycle, &reading, name));
+    }
+    said
 }
 
 /// The one line that wakes the agent: what got there, and which step that ended, or, for a delivering
