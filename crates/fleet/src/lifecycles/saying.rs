@@ -1,6 +1,6 @@
 //! An act in the owner's words, the one short line he reads in Needs you: `Move ARM-41 to In
 //! progress`, `Start the web deploy watch`. **Said from the act and the instance it is done to**,
-//! with a state by the label its lifecycle gives it and a pull request as `#812`.
+//! with a state by the label its lifecycle gives it and a pull request as `PR #812`, as the rail says it.
 
 use core_model::rule::{Act, ForgeWrite, TrackerWrite, Words};
 use core_model::{InstanceRef, Lifecycle};
@@ -50,7 +50,7 @@ pub fn failed(said: &str, why: &str) -> String {
     format!("{said} failed: {}", why.trim())
 }
 
-/// A pull request is `#812`, and anything else goes by its key.
+/// A pull request is `PR #812`, so a number never reads as a ticket's key, and anything else goes by its key.
 fn named(on: &InstanceRef) -> String {
     thing(on.lifecycle().as_str(), on.key())
 }
@@ -58,7 +58,7 @@ fn named(on: &InstanceRef) -> String {
 /// [`named`] for a thing a kept row names by its lifecycle and key.
 pub fn thing(lifecycle: &str, key: &str) -> String {
     match lifecycle {
-        "pr" => format!("#{key}"),
+        "pr" => format!("PR #{key}"),
         _ => key.to_string(),
     }
 }
@@ -82,7 +82,7 @@ fn cut(text: &str) -> String {
 }
 
 /// A template with `{pr}`, `{ticket}` and the like filled: the placeholder is the id of the lifecycle
-/// of the thing the message is left on, and it becomes that thing as the owner reads it (`#812`).
+/// of the thing the message is left on, and it becomes that thing as the owner reads it (`PR #812`).
 /// **One that names nothing the act is done to is left as written**, so the owner sees it and edits it.
 pub fn filled(template: &str, on: Option<(&str, &str)>) -> String {
     match on {

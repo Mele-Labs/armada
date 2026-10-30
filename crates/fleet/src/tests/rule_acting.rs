@@ -184,13 +184,13 @@ async fn a_job_and_a_draft_a_rule_acts_on_are_started_and_proposed_through_their
         acts(&rig, &job).await,
         [
             ("Start a Job: Look at the deploy".to_string(), standing::DONE.to_string(), 1),
-            ("Draft a message on #812: Ready for #812".to_string(), standing::DONE.to_string(), 1),
+            ("Draft a message on PR #812: Ready for PR #812".to_string(), standing::DONE.to_string(), 1),
         ]
     );
     let rows = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("a session").rows;
     assert!(rows.iter().any(|row| matches!(row, SessionRow::Started { session, .. } if session.title == "Look at the deploy")), "the Job is the parent's");
     assert!(
-        rows.iter().any(|row| matches!(row, SessionRow::Draft { title, text, settled: None, .. } if title == "Message on #812" && text == "Ready for #812")),
+        rows.iter().any(|row| matches!(row, SessionRow::Draft { title, text, settled: None, .. } if title == "Message on PR #812" && text == "Ready for PR #812")),
         "the draft waits for the owner to say its words are right"
     );
 }

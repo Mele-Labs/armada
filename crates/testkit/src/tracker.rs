@@ -1,9 +1,18 @@
 //! A [`Tracker`] scripted by a test: the issues it lists, reads and finds, and the queries it
-//! was asked. It has no write to record, because the trait has none.
+//! was asked. **Its writes are [`TrackerWrites`]'**, recorded as [`IssueWritten`] and never sent
+//! anywhere, since a test never calls a real tracker.
 
 use std::sync::Mutex;
 
-use adapter_traits::{FromOutside, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, IssueWrite, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker, TrackerWrites};
+
+/// One write the fake was asked to make to an issue, in the order it was asked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IssueWritten {
+    Moved { reference: String, status: String },
+    Assigned { reference: String, to: String },
+    Closed { reference: String, status: Option<String> },
+}
 
 #[derive(Debug, Default)]
 pub struct FakeTracker {
@@ -16,6 +25,10 @@ pub struct FakeTracker {
     found: Mutex<Vec<OpenIssue>>,
     searches: Mutex<Vec<String>>,
     opens: Mutex<Option<String>>,
+    written: Mutex<Vec<IssueWritten>>,
+    /// The writes this tracker has no call for, by verb, and why.
+    unable: Mutex<Vec<(&'static str, String)>>,
+    write_refused: Mutex<Option<String>>,
 }
 
 impl FakeTracker {
@@ -97,6 +110,7 @@ impl FakeTracker {
         *self.unset.lock().expect("unset") = None;
         *self.unreadable.lock().expect("unreadable") = None;
         *self.lacking.lock().expect("lacking") = None;
+        *self.write_refused.lock().expect("write_refused") = None;
     }
 
     /// What every search answers, whatever its query, from now on. A refusal from
@@ -124,6 +138,22 @@ impl FakeTracker {
     /// From now on an example opens at `template`, with `{match}` where its reference goes.
     pub fn opens_at(&self, template: &str) {
         *self.opens.lock().expect("opens") = Some(template.to_string());
+    }
+
+    /// From now on this tracker has no call to `verb` (`move`, `assign` or `close`), and says `why`.
+    pub fn cannot(&self, verb: &'static str, why: &str) {
+        self.unable.lock().expect("unable").push((verb, why.to_string()));
+    }
+
+    /// Every write is refused with `said` as the tracker's own sentence, until
+    /// [`answers_again`](Self::answers_again).
+    pub fn will_not_write(&self, said: &str) {
+        *self.write_refused.lock().expect("write_refused") = Some(said.to_string());
+    }
+
+    /// Every write made, oldest first. A refused one is not here.
+    pub fn writes(&self) -> Vec<IssueWritten> {
+        self.written.lock().expect("written").clone()
     }
 
     /// How many times the issues were listed.
@@ -215,6 +245,29 @@ impl Tracker for FakeTracker {
     }
 }
 
+impl TrackerWrites for FakeTracker {
+    fn can(&self, write: &IssueWrite<'_>) -> Result<(), String> {
+        match self.unable.lock().expect("unable").iter().find(|(verb, _)| *verb == write.verb()) {
+            Some((_, why)) => Err(why.clone()),
+            None => Ok(()),
+        }
+    }
+
+    fn write(&self, _in_repo: &str, reference: &str, write: &IssueWrite<'_>) -> Result<(), NotTracked> {
+        self.can(write).map_err(|why| NotTracked::of(write.doing(), why))?;
+        if let Some(said) = self.write_refused.lock().expect("write_refused").clone() {
+            return Err(NotTracked::of(write.doing(), said));
+        }
+        let reference = reference.to_string();
+        self.written.lock().expect("written").push(match write {
+            IssueWrite::Move { status } => IssueWritten::Moved { reference, status: status.to_string() },
+            IssueWrite::Assign { to } => IssueWritten::Assigned { reference, to: to.to_string() },
+            IssueWrite::Close { status } => IssueWritten::Closed { reference, status: status.map(str::to_string) },
+        });
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,6 +283,25 @@ mod tests {
         assert_eq!((refused.doing, refused.said.as_str()), ("searching the issues", "offline"));
         assert_eq!(tracker.searches(), ["state = open", "assignee = me"]);
         assert_eq!(tracker.listings(), 0, "a search is not a listing");
+    }
+
+    #[test]
+    fn a_write_is_recorded_unless_the_fake_cannot_make_it_or_was_told_to_refuse() {
+        let tracker = FakeTracker::empty();
+        let moves = IssueWrite::Move { status: "In Progress" };
+        assert_eq!(tracker.can(&moves), Ok(()));
+        tracker.write("/repo", "ARM-41", &moves).expect("made");
+        assert_eq!(tracker.writes(), [IssueWritten::Moved { reference: "ARM-41".into(), status: "In Progress".into() }]);
+
+        tracker.cannot("assign", "this tracker cannot assign an issue");
+        let assigns = IssueWrite::Assign { to: "ana" };
+        assert_eq!(tracker.can(&assigns), Err("this tracker cannot assign an issue".to_string()));
+        assert!(tracker.write("/repo", "ARM-41", &assigns).is_err());
+
+        tracker.will_not_write("offline");
+        let refused = tracker.write("/repo", "ARM-42", &moves).expect_err("refused");
+        assert_eq!((refused.doing, refused.said.as_str()), ("moving the issue", "offline"));
+        assert_eq!(tracker.writes().len(), 1, "a refused write is not recorded");
     }
 
     #[test]

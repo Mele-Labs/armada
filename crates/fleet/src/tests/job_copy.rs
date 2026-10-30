@@ -81,14 +81,14 @@ const RAIL: &str = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
     - id: handoff\n    label: \"Hand off\"\n    delivers: true\n    advance_gate: auto\n";
 
 /// A Fleet whose repository holds `rail` as a file, so a Job can copy it.
-fn rigged() -> Rig {
+pub(super) fn rigged() -> Rig {
     let rig = ruled_on(Arc::new(FakeJudge::with_no_objection()), workflow());
     let served = rig.fleet.repositories().serving(rig.manifest.as_str()).expect("served");
     served.catalogued(read(vec![config::Written::in_repository(super::workflow_page::at("repo", "rail.json"), RAIL.to_string())]));
     rig
 }
 
-fn dispatch() -> StepChange {
+pub(super) fn dispatch() -> StepChange {
     StepChange::Add {
         after: Some("plan".into()),
         id: None,
@@ -99,7 +99,7 @@ fn dispatch() -> StepChange {
     }
 }
 
-async fn change(rig: &Rig, id: &SessionId, change: StepChange) -> Result<JobCopy, Refusal> {
+pub(super) async fn change(rig: &Rig, id: &SessionId, change: StepChange) -> Result<JobCopy, Refusal> {
     rig.fleet.steps_changed(ChangeSessionSteps { session_id: id.clone(), change }).await
 }
 

@@ -142,6 +142,14 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.mark_ready(in_repo, pull_request)
     }
 
+    fn request_reviewers(&self, in_repo: &str, pull_request: &str, reviewers: &[&str]) -> Result<(), String> {
+        self.forge.request_reviewers(in_repo, pull_request, reviewers)
+    }
+
+    fn can_request_reviewers(&self) -> Result<(), String> {
+        self.forge.can_request_reviewers()
+    }
+
     fn pull_request_page(
         &self,
         in_repo: &str,

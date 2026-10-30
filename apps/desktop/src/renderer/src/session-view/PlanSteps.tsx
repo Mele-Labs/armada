@@ -8,13 +8,15 @@ const finished = (group: ViewGroup): boolean => group.tasks.length > 0 && group.
 
 /**
  * Each group's place in the plan. Until the plan is approved nothing is being worked, so every group is to come. The group the account is on is
- * current, and so is one with a task running or failed when the account names none; a group whose tasks are all done is done.
+ * current, and so is one with a task running or failed when the account names none; a group whose tasks are all done is done. A group handed to a Job
+ * that has not finished stands where that Job does (`inHand`), whatever the parent ticked when it handed it.
  */
-export function stepsOf(groups: readonly ViewGroup[], approved: boolean, working: string | undefined): Map<string, Step> {
+export function stepsOf(groups: readonly ViewGroup[], approved: boolean, working: string | undefined, inHand: ReadonlyMap<string, Step> = new Map()): Map<string, Step> {
   const steps = new Map<string, Step>();
   for (const group of groups) {
     const live = group.tasks.some((task) => task.state === "working" || task.state === "failed");
-    steps.set(group.id, !approved ? "upcoming" : group.id === working ? "current" : finished(group) ? "done" : live ? "current" : "upcoming");
+    const handed = inHand.get(group.id);
+    steps.set(group.id, !approved ? "upcoming" : group.id === working ? "current" : handed !== undefined ? handed : finished(group) ? "done" : live ? "current" : "upcoming");
   }
   return steps;
 }

@@ -7,10 +7,9 @@
 use std::path::PathBuf;
 
 use config::{Autonomies, PieceWritten, Workspaces};
-use core_model::rule::{ActKind, AutonomyDefaults, Course, Occurrence, RanOnce};
+use core_model::rule::{AutonomyDefaults, Course, Occurrence, RanOnce};
 use core_model::{HeldInstances, ManifestId, Moved, Observed, ReadingState, Ulid};
 use fleet::lifecycles::holding::{read_instance, Transition};
-use fleet::lifecycles::ruling::carried_here;
 use fleet::lifecycles::saying::said;
 
 use crate::bench::lifecycles::{
@@ -71,7 +70,7 @@ fn a_planned_act_waits_as_asks_or_is_done_at_once_by_the_autonomy_set_for_it_and
 }
 
 #[test]
-fn the_owner_is_asked_in_his_own_words_and_a_write_fleet_cannot_make_is_planned_and_raises_nothing() {
+fn the_owner_is_asked_in_his_own_words_and_a_write_is_asked_about_before_it_is_made() {
     let copy = the_jobs_copy();
     let (job_rules, ticket_rules) = (rules_from(&[STARTS_A_JOB]).frozen(), rules_from(&[MOVES_TICKETS]).frozen());
     let held = a_job_holding_three_tickets();
@@ -82,11 +81,7 @@ fn the_owner_is_asked_in_his_own_words_and_a_write_fleet_cannot_make_is_planned_
     let moves = plan_step_start("plan", "10:00", &ticket_rules, &AutonomyDefaults::new(), &held, &mut RanOnce::new());
     let lines: Vec<String> = moves.iter().map(|one| said(one.act(), one.on(), &copy)).collect();
     assert_eq!(lines, ["Move ARM-41 to In progress", "Move ARM-42 to In progress"], "the state goes by the label its lifecycle gives it");
-    assert!(moves.iter().all(|one| one.course() == Course::Asks && !carried_here(one.act().kind())));
-
-    // What Fleet has a door for, and what it plans and records and leaves.
-    let done: Vec<ActKind> = ActKind::ALL.iter().copied().filter(|kind| carried_here(*kind)).collect();
-    assert_eq!(done, [ActKind::Draft, ActKind::StartJob, ActKind::StartWatch, ActKind::TellAgent]);
+    assert!(moves.iter().all(|one| one.course() == Course::Asks), "a write to the tracker asks until the owner says otherwise");
 }
 
 #[test]

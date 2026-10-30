@@ -377,7 +377,22 @@ it("draws the rules the Job's copy holds in place of the repository's, and marks
   expect(lanes.job.copy.rules.map((one) => one.id)).toEqual(["ask-review"]);
   const lone = lanesOfJob({ held: WITH_PULL, rules: [MOVES_TICKET], working: false })!;
   expect(lone.job.copy.rules.map((one) => one.id)).toEqual(["move-ticket"]);
-  expect(lanes.job.changes).toEqual([{ id: `rule:ask-review:${AT}`, lane: "rule", item: "ask-review", text: "Added by you", at: AT }]);
+  expect(lanes.job.changes).toEqual([{ id: `rule:ask-review:${AT}`, lane: "rule", item: "ask-review", text: "Added by you", at: AT, name: "Ask for review" }]);
+});
+
+it("names a changed rule the lanes do not draw: one a Job event sets off, and one the copy dropped that the repository still holds", () => {
+  const own: JobLifecycles = {
+    ...WITH_PULL,
+    rules: [BY_JOB],
+    changes: [
+      { lane: "rule", item: "on-landed", text: "Added by you", by: "you", at: AT },
+      { lane: "rule", item: "ask-review", text: "Dropped by you", by: "you", at: AT, dropped: true },
+      { lane: "rule", item: "gone", text: "Dropped by you", by: "you", at: AT, dropped: true },
+    ],
+  };
+  const lanes = lanesOfJob({ held: own, rules: [ASKS], working: false })!;
+  expect(lanes.job.copy.rules).toEqual([]);
+  expect(lanes.job.changes.map((one) => [one.item, one.name])).toEqual([["on-landed", "On landed"], ["ask-review", "Ask for review"], ["gone", undefined]]);
 });
 
 it("carries which change took a rule out of the copy, so the lanes offer nothing to keep for it", () => {
