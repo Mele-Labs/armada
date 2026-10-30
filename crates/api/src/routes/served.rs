@@ -464,6 +464,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/sketch/answer",
     },
     Route {
+        operation: "answer_document",
+        method: "POST",
+        path: "/sessions/document/answer",
+    },
+    Route {
         operation: "window_closed",
         method: "POST",
         path: "/sessions/window/closed",

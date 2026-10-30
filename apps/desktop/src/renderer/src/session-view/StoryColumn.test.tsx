@@ -12,12 +12,16 @@ import { resetFolds } from "./story";
 
 // The mod list is Fleet's, read through `window.armada`; no Job here made a mod.
 vi.mock("../mod-list", () => ({ useModList: () => [] }));
+// The Jobs this one started are read from the window's Sessions.
+const held: { sessions: Session[] } = { sessions: [] };
+vi.mock("../sessions-draft", async (original) => ({ ...(await original<typeof import("../sessions-draft")>()), useSessions: () => held.sessions }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ID = "story-column-s1";
 const roots: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
+  held.sessions = [];
   resetFolds(ID);
   localStorage.clear();
   for (const { root, host } of roots.splice(0)) {
@@ -101,4 +105,29 @@ test("a walk shown again at one address is one beat in Now, the newest showing",
   const host = mount(shown);
   const walks = [...host.querySelectorAll('ul[aria-label="Now"] > li[data-walk]')].map((one) => one.querySelector(".sv-beat__label")?.textContent);
   expect(walks).toEqual(["Processes, take 2"]);
+});
+
+const childJob = (id: string, title: string, change: object): Session =>
+  ({ id, title, attachments: [{ kind: "started_by", id: ID }], rows: [], turn: { state: "idle" }, standing: "idle", ...change }) as unknown as Session;
+const zoneOf = (host: HTMLElement, label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`);
+const cardsIn = (zone: HTMLElement | null) => [...(zone?.querySelectorAll("button.armada-job-card") ?? [])].map((one) => one.getAttribute("aria-label"));
+
+test("a Job started outside the plan stands in Now while it runs and in Done once it has ended", () => {
+  const running = childJob("c1", "Seed the test database", { turn: { state: "working" }, standing: "working" });
+  const ended = childJob("c2", "Check an old dump restores", { dead: "ended" });
+  const parent = { ...session("idle"), attachments: [{ kind: "started_to", id: "c1" }, { kind: "started_to", id: "c2" }] } as unknown as Session;
+  held.sessions = [parent, running, ended];
+  const host = mount(parent);
+  expect(cardsIn(zoneOf(host, "Now"))).toEqual(["Job Seed the test database"]);
+  expect(cardsIn(zoneOf(host, "Done"))).toEqual(["Job Check an old dump restores"]);
+});
+
+test("a group handed to a Job still running stands in Now though the parent ticked every task when it handed it", () => {
+  const ticked = { scope: [], approved: true, groups: [{ id: "g1", title: "Name the migrations", agent: "rust-engineer", paths: [], tasks: [{ id: "t1", text: "Hand it over", state: "done" as const }] }] };
+  const own = { work: { plan: ticked } as unknown as SessionWork, ed: { ...ed, plan: ticked } };
+  const parent = { ...session("idle"), work: own.work, attachments: [{ kind: "started_to", id: "c1", group: "g1" }] } as unknown as Session;
+  held.sessions = [parent, childJob("c1", "Migrations get names", { turn: { state: "working" }, standing: "working" })];
+  const host = mount(parent, own);
+  expect(cardsIn(zoneOf(host, "Now"))).toEqual(["Job Migrations get names"]);
+  expect(cardsIn(zoneOf(host, "Done"))).toEqual([]);
 });

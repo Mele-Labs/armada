@@ -459,7 +459,7 @@ fn a_step_may_say_it_walks_or_awaits_a_reply_and_absent_is_false() {
 fn a_step_may_end_on_any_of_several_things_and_awaits_reply_is_replied() {
     let def = bug_with(
         "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
-         awaits_reply: true\n    ends_on: [idea_picked, replied, walk_approved, sketch_approved, draft_approved]\n",
+         awaits_reply: true\n    ends_on: [idea_picked, replied, walk_approved, sketch_approved, draft_approved, document_approved]\n",
     )
     .expect("ends_on is a key of a step");
     assert_eq!(
@@ -469,7 +469,8 @@ fn a_step_may_end_on_any_of_several_things_and_awaits_reply_is_replied() {
             StepEnd::IdeaPicked,
             StepEnd::WalkApproved,
             StepEnd::SketchApproved,
-            StepEnd::DraftApproved
+            StepEnd::DraftApproved,
+            StepEnd::DocumentApproved
         ]
     );
 }
