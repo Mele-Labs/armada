@@ -4,7 +4,7 @@
 use ipc::{
     DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
     HeldInstance, InstanceLink, InstanceMove, InstanceStanding, Instant, JobLifecycles, LifecycleDefinition,
-    LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles,
+    LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles,
     RepositoryWorkspaces, SessionId, StateReadFrom,
 };
 
@@ -87,6 +87,10 @@ impl Lifecycles for FakeDaemon {
 
     async fn list_lifecycle_rules(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycleRules, Refusal> {
         Ok(RepositoryLifecycleRules { manifest_id: self.repository(manifest_id).await?, rules: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {
+        Ok(RepositoryAutonomy { manifest_id: self.repository(manifest_id).await?, armada: Vec::new(), layers: Vec::new(), left_out: Vec::new() })
     }
 
     async fn get_job_lifecycles(&self, _caller: Option<Caller>, session_id: Option<SessionId>) -> Result<JobLifecycles, Refusal> {

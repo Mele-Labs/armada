@@ -13,8 +13,8 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Lifecycles, Refusal};
 use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
 use ipc::{
-    AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
-    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
+    AppliedLifecycle, AppliedRule, AutonomyLayer, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
     WorkspaceOfRepositories,
 };
 use store::Store;
@@ -273,6 +273,28 @@ where
                 .map(|file| AppliedRule {
                     rule: wire::rule(file.rule()),
                     kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
+                })
+                .collect(),
+            left_out: wire::left_out(applying.left_out()),
+        })
+    }
+
+    async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        let applying = self.autonomy_applying_to(served.manifest().id())?;
+        // The order `Autonomies::defaults` lays them in, so Bridge lays them the way a rule's acts are resolved.
+        let mut files: Vec<_> = applying.files().iter().collect();
+        files.sort_by(|a, b| (a.rank(), a.piece().id()).cmp(&(b.rank(), b.piece().id())));
+        Ok(RepositoryAutonomy {
+            manifest_id: ManifestId::from(served.manifest().id()),
+            armada: wire::armada_autonomy(),
+            layers: files
+                .into_iter()
+                .map(|file| AutonomyLayer {
+                    id: file.piece().id().as_str().to_string(),
+                    scope: wire::scope(file.piece().scope()),
+                    kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
+                    defaults: wire::autonomy_set(file.piece().defaults()),
                 })
                 .collect(),
             left_out: wire::left_out(applying.left_out()),

@@ -305,6 +305,43 @@ pub struct RepositoryLifecycleRules {
     pub left_out: Vec<PieceLeftOut>,
 }
 
+/// What one kind of act is set to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActKindDefault {
+    /// `tracker_write`, `forge_write`, `draft`, `start_job`, `start_watch`, `tell_agent`, `run_command` or `run_agent`.
+    pub kind: String,
+    /// `acts`, `asks` or `off`.
+    pub autonomy: String,
+}
+
+/// One file of autonomy defaults that applies to a repository: the layer it is, where it was kept and
+/// only the kinds it set.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutonomyLayer {
+    pub id: String,
+    /// Where it applies, as its file says: every repository, or one Workspace or one repository by id.
+    pub scope: PieceScope,
+    /// Where it was kept and what became of it beside another of its id, as on `list_lifecycles`.
+    /// `rank.reach` says which level it is for this repository.
+    pub kept: PieceKept,
+    /// Only the kinds the file set, in the order of the kinds. A kind it did not name falls to the wider layer.
+    pub defaults: Vec<ActKindDefault>,
+}
+
+/// `list_autonomy_defaults`: what Armada sets for every kind of act, and each layer of defaults that
+/// applies to one repository, widest first. **The layers are not laid over each other here**: Bridge
+/// does it, and shows which level set each kind.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepositoryAutonomy {
+    pub manifest_id: ManifestId,
+    /// Armada's own default for every kind of act, in the order of the kinds.
+    pub armada: Vec<ActKindDefault>,
+    /// Widest first, in the order they are laid over each other. A layer with `kept.overridden_by` is
+    /// not laid: another file of its id runs instead.
+    pub layers: Vec<AutonomyLayer>,
+    pub left_out: Vec<PieceLeftOut>,
+}
+
 /// Where an instance stands, as a source's last reading left it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]

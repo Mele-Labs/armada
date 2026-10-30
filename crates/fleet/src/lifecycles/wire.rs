@@ -9,7 +9,7 @@ use std::path::Path;
 
 use config::{Rank, Reach};
 use core_model::rule::{
-    Act, Among, AutonomyDefaults, Condition, ForgeWrite, JobCondition, Rule, Target, TrackerWrite, When,
+    Act, ActKind, Among, AutonomyDefaults, Condition, ForgeWrite, JobCondition, Rule, Target, TrackerWrite, When,
 };
 use core_model::{Lifecycle, LifecycleScope, PieceSource, Standing, StateRead};
 
@@ -62,7 +62,7 @@ pub fn left_out(left: &[config::PieceLeftOut]) -> Vec<ipc::PieceLeftOut> {
         .collect()
 }
 
-fn scope(scope: &LifecycleScope) -> ipc::PieceScope {
+pub fn scope(scope: &LifecycleScope) -> ipc::PieceScope {
     match scope {
         LifecycleScope::Everywhere => ipc::PieceScope::Everywhere,
         LifecycleScope::Within(id) => ipc::PieceScope::Within { id: id.as_str().to_string() },
@@ -76,6 +76,21 @@ fn state_read(read: &StateRead) -> ipc::StateReadFrom {
         StateRead::Watch(state) => ipc::StateReadFrom::Watch { state: state.as_wire().to_string() },
         StateRead::Fleet(fact) => ipc::StateReadFrom::Fleet { fact: fact.as_wire() },
     }
+}
+
+/// The kinds a layer of defaults set, in the order of the kinds.
+pub fn autonomy_set(set: &AutonomyDefaults) -> Vec<ipc::ActKindDefault> {
+    set.iter()
+        .map(|(kind, autonomy)| ipc::ActKindDefault { kind: kind.as_wire().to_string(), autonomy: autonomy.as_wire().to_string() })
+        .collect()
+}
+
+/// What Armada sets for every kind of act, in the order of the kinds.
+pub fn armada_autonomy() -> Vec<ipc::ActKindDefault> {
+    ActKind::ALL
+        .iter()
+        .map(|kind| ipc::ActKindDefault { kind: kind.as_wire().to_string(), autonomy: kind.default_autonomy().as_wire().to_string() })
+        .collect()
 }
 
 /// A lifecycle's states, the moves it expects and the states that end it.

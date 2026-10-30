@@ -1121,13 +1121,13 @@ Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.
 
 **A Bridge that matches `WaitingSource` exhaustively** meets a value it did not know; the mirror gained it in the same change, and equal IDs hold the two together.
 
-## Workspaces, lifecycles and rules, read: `list_repository_workspaces`, `list_lifecycles`, `list_lifecycle_rules`, `get_job_lifecycles` and `job_lifecycles.changed`
+## Workspaces, lifecycles and rules, read: `list_repository_workspaces`, `list_lifecycles`, `list_lifecycle_rules`, `list_autonomy_defaults`, `get_job_lifecycles` and `job_lifecycles.changed`
 
 Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*; `crates/ipc/src/lifecycles.rs`.
-**Additive only, and reads only**: four operations, four routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance.
+**Additive only, and reads only**: five operations, five routes and one event kind; no field on an existing type, and nothing saves a piece or moves an instance.
 Bridge draws a Job's lanes from `get_job_lifecycles`, kept current by `job_lifecycles.changed`, and the Job's waiting line from `workflow_waiting_on`; it reads a Job once when the Job first appears and again after a `Missed`.
 A Job whose read carries `acts` has its repository's `list_lifecycle_rules` read as well, since an act is drawn on the edge its rule is.
-The other two reads are drawn by nothing yet.
+The other three reads are drawn by nothing yet.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field for field, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
 
@@ -1136,10 +1136,16 @@ Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field f
 | `list_repository_workspaces` (`GET /workspaces?manifest_id=`, Bridge only) | Bridge reads | `RepositoryWorkspaces` `{ manifest_id, workspaces[], left_out[] }`; a `WorkspaceOfRepositories` is `{ id, name, repositories[], home?, source, path, overridden_by?, hides? }`. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
 | `list_lifecycles` (`GET /lifecycles?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycles` `{ manifest_id, lifecycles[], left_out[] }`; an `AppliedLifecycle` is `{ lifecycle, kept }`, a `LifecycleDefinition` `{ id, name, scope, states[], transitions[], ends[] }` |
 | `list_lifecycle_rules` (`GET /lifecycles/rules?manifest_id=`, Bridge only) | Bridge reads | `RepositoryLifecycleRules` `{ manifest_id, rules[], left_out[] }`; an `AppliedRule` is `{ rule, kept }`, a `LifecycleRule` `{ id, name, scope, when, conditions[], does[], autonomy?, on_failure }` |
+| `list_autonomy_defaults` (`GET /autonomy?manifest_id=`, Bridge only) | Bridge reads | `RepositoryAutonomy` `{ manifest_id, armada[], layers[], left_out[] }`; an `ActKindDefault` is `{ kind, autonomy }`, `armada` holds one for every kind of act, and an `AutonomyLayer` is `{ id, scope, kept, defaults[] }` with only the kinds the file set. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
 | `get_job_lifecycles` (`GET /sessions/lifecycles?session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `JobLifecycles` `{ session_id, lifecycles[], instances[], moves[], acts? }`; a `RuleActReading` in `acts` is `{ rule, text, course, standing, said?, at, settled_at?, on?, entered? }`. 422 `fleet.job_lifecycles_unplaced`; 404 `fleet.no_such_session` |
 | `job_lifecycles.changed` (event, Bridge only) | Fleet publishes | `JobLifecycles`, whole, after an instance was taken on or moved |
 | `SessionRecord.workflow_waiting_on` | Fleet writes where the Job's step is served | A list of sentences, `Waiting on PR #812: Approved`, one for each lifecycle end the Job's current step lists that has not come, in the order the step lists them. Left out when empty: the step waits on no lifecycle, or an end has come |
 | `StepReading.ends_any` (`get_workflow_steps`) | Fleet writes | A delivering step gated by a lifecycle now reads `every pr is approved, then it is merged`; `ends_when` still says only `it is merged` |
+
+**`list_autonomy_defaults` serves the layers and not a resolved table.** Each layer is one file `save_lifecycle_piece` writes with `piece.kind = "autonomy"`; Fleet reads them as it reads the rules, so the files of a Workspace's home reach a member, and a layer scoped to another repository does not.
+`layers` are widest first, in the order they are laid: `kept.rank.reach` (`everywhere`, `workspace`, `repository`), then the repository's committed copy before Kit's, then by id, and a later layer's kind wins; a layer with `kept.overridden_by` is not laid.
+A rule's own `autonomy` is over all of them.
+`armada` is `ActKind::default_autonomy` for every kind, in the order of the kinds, so a kind no layer set shows Armada's.
 
 **`HeldInstance.ended_at` is left out unless ending the Job ended the instance**, so a Fleet older than the field answers as it did and Bridge reads every instance as live.
 Ending a Job keeps each instance no end state had taken as ended, standing where it was, and raises `job_lifecycles.changed`; a Job that holds nothing raises nothing.

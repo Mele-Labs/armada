@@ -12,6 +12,7 @@ import type {
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
+  RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
   RepositoryWorkspaces,
@@ -54,6 +55,11 @@ export class LifecyclesHost {
   /** `GET /lifecycles/rules?manifest_id=`. */
   rules(manifestId: string): Promise<LifecyclesActed<RepositoryLifecycleRules>> {
     return this.read(`/lifecycles/rules?manifest_id=${encodeURIComponent(manifestId)}`);
+  }
+
+  /** `GET /autonomy?manifest_id=`. */
+  autonomy(manifestId: string): Promise<LifecyclesActed<RepositoryAutonomy>> {
+    return this.read(`/autonomy?manifest_id=${encodeURIComponent(manifestId)}`);
   }
 
   /** `POST /lifecycles/pieces/save`. */

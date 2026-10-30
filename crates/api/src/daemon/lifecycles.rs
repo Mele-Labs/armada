@@ -9,7 +9,7 @@ use std::future::Future;
 
 use ipc::{
     DeleteLifecyclePiece, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
-    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
 };
 
 use crate::daemon::Refusal;
@@ -33,6 +33,13 @@ pub trait Lifecycles: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RepositoryLifecycleRules, Refusal>> + Send;
+
+    /// `list_autonomy_defaults` — Armada's default for every kind of act, and each layer of autonomy
+    /// defaults that applies to one repository, unresolved. [`Refusal::Unacceptable`] where Fleet serves no repository by that id.
+    fn list_autonomy_defaults(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<RepositoryAutonomy, Refusal>> + Send;
 
     /// `get_job_lifecycles` — what the placed Job holds and where it stands. `caller` places a hosted
     /// Job; else `session_id` names one. [`Refusal::Unacceptable`] where nothing places a Job,
