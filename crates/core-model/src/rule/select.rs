@@ -23,7 +23,8 @@ pub enum Among {
     /// What came from the entered instance and the Job holds, of one lifecycle: a ticket's pull
     /// requests, a Job's Jobs.
     LinkingTo(LifecycleId),
-    /// Every instance of one lifecycle the Job holds.
+    /// Every instance of one lifecycle the Job holds. **Not one it handed on**: the Job it went to
+    /// holds it now, and the Job that gave it up is found only through the link it keeps.
     Held(LifecycleId),
 }
 
@@ -120,7 +121,7 @@ pub struct Target {
 }
 
 impl Target {
-    /// Every instance of `lifecycle` the Job holds, in any state.
+    /// Every instance of `lifecycle` the Job holds and has not handed on, in any state.
     pub fn held(lifecycle: LifecycleId) -> Target {
         Target { among: Among::Held(lifecycle), in_state: None }
     }

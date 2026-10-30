@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use adapter_traits::TicketState;
 use api::HostedSessions;
-use core_model::{Observed, Standing, StateId};
+use core_model::{Lifecycle, Observed, Standing, StateId};
 use ipc::{SessionId, SessionRecord};
 use store::AttachmentState;
 use testkit::FakeTrackers;
@@ -13,6 +13,7 @@ use testkit::FakeTrackers;
 use super::lifecycle_keeping::holds;
 use super::session_host::{rig_fitted, rig_placing, Rig};
 use super::session_plan::{group, plan, recorded};
+use crate::lifecycles::holding::rebuilt;
 
 async fn record(rig: &Rig, id: &SessionId) -> SessionRecord {
     Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("a session").session
@@ -152,4 +153,23 @@ async fn once_handed_the_ticket_holds_the_started_job_open_and_no_longer_the_par
         rig.fleet.lifecycle_seen(parent.as_str(), "ticket", "armada-95v", Observed::Tracker("closed")).await.is_none(),
         "what the tracker says now moves nothing for the parent, whose instance stands where it was"
     );
+}
+
+#[tokio::test]
+async fn the_ticket_a_job_handed_on_is_rebuilt_as_handed_for_that_job_and_the_started_job_holds_its_own() {
+    let rig = rig_placing(None);
+    let parent = planning(&rig, &["armada-95v", "armada-7gs"]).await;
+    let child = started_for(&rig, &parent, "g1").await;
+
+    let store = rig.fleet.store().lock().await;
+    let lifecycles = Lifecycle::built_in();
+    let handed = |id: &SessionId| -> Vec<(String, bool)> {
+        let held = rebuilt(&lifecycles, &store.lifecycle_instances_of(id.as_str()).expect("reads"));
+        let mut tickets: Vec<_> =
+            held.all().iter().filter(|one| one.subject().lifecycle().as_str() == "ticket").map(|one| (one.subject().key().to_string(), one.is_handed())).collect();
+        tickets.sort();
+        tickets
+    };
+    assert_eq!(handed(&parent), [("armada-7gs".to_string(), false), ("armada-95v".to_string(), true)], "a rule over the parent's held tickets passes the one it gave");
+    assert_eq!(handed(&child), [("armada-95v".to_string(), false)], "and acts on it for the Job that has it");
 }
