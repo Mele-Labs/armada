@@ -19,7 +19,7 @@ import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
-import { SessionMark } from "../SessionFrame/SessionFrame";
+import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 import { notedOf } from "../ViewerNotes/compose";
 import { NotedMessage, NotedOpens, type NotedOpen } from "../ViewerNotes/NotedMessage";
 import { splitDebugInfo } from "./debug-info";
@@ -42,6 +42,7 @@ import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
 import { landingsOf, type PlanLandsIn } from "./lands-in";
 import { LandsInChip } from "./LandsInChip";
+import { JobCard } from "../JobCard/JobCard";
 import { FleetTurn, noticeEntries } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
@@ -286,7 +287,7 @@ export type PlanApproval = {
   version?: number;
   /** The plan in his words, read first. Present, the groups fold under Details; absent, the card draws the groups as it always did. */
   summary?: string;
-  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; tasks: readonly { id: string; text: string }[] }[];
+  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; /** The pull request it lands in, where the Job opens them. */ landsIn?: PlanLandsIn; /** It goes to a Job of its own, which lands its own pull request: `landsIn` is ignored and the group is a run headed by that Job's card, a placeholder until it is handed. */ ownJob?: true; /** The Job it was handed to, which then heads the run and opens on a press. */ job?: { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void }; tasks: readonly { id: string; text: string }[] }[];
   /** The Job opens pull requests: its groups stand under the chip of the one each lands in, a one pull request plan under one chip. Absent draws no chip. */
   opensPullRequests?: true;
   /** Opens a pull request a chip names. */
@@ -1377,14 +1378,23 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   );
   // Where the Job opens pull requests, each list stands under the chip of the one its groups land in.
   const runs = landingsOf(approval.groups, approval.opensPullRequests === true);
+  // A group that goes to a Job of its own heads its run with that Job's card, as the Job's pull request chip would: a placeholder until it is handed, then the Job.
   const landed = (list: (groups: typeof approval.groups) => ReactNode) =>
-    runs.length === 1 && runs[0]!.landsIn === undefined ? (
+    runs.length === 1 && runs[0]!.landsIn === undefined && runs[0]!.own === undefined ? (
       list(runs[0]!.groups)
     ) : (
       <div className="armada-session-thread__landings">
         {runs.map((run) => (
-          <section key={run.key} className="armada-session-thread__landing" aria-label={`Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
-            {run.landsIn === undefined ? null : <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />}
+          <section key={run.key} className="armada-session-thread__landing" aria-label={run.own !== undefined ? run.own.title : `Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+            {run.own !== undefined ? (
+              run.own.job === undefined ? (
+                <JobCard placeholder={run.own.title} />
+              ) : (
+                <JobCard title={run.own.job.title} state={run.own.job.state} said={run.own.job.said} handedFrom={run.own.title} {...(run.own.job.at === undefined ? {} : { at: run.own.job.at })} onOpen={run.own.job.onOpen} />
+              )
+            ) : run.landsIn === undefined ? null : (
+              <LandsInChip landsIn={run.landsIn} onOpen={approval.onOpenPullRequest} />
+            )}
             {list(run.groups)}
           </section>
         ))}
@@ -1393,8 +1403,8 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const groups = landed((some) => (
     <ul className="armada-session-thread__groups">
       {some.map((group) => (
-        <li key={group.id} className="armada-session-thread__group">
-          <span className="armada-session-thread__group-title">{group.title}</span>
+        <li key={group.id} className="armada-session-thread__group" data-job={group.ownJob || undefined}>
+          {group.ownJob === true ? null : <span className="armada-session-thread__group-title">{group.title}</span>}
           {approved ? null : (
             <span className="armada-session-thread__marks">
               {group.tasks.map((task) => (

@@ -222,6 +222,10 @@
 .armada-session-thread__group { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); row-gap: var(--space-1); min-width: 0; }
 .armada-session-thread__group-title { min-width: 0; font-weight: var(--weight-heading); overflow-wrap: anywhere; }
 .armada-session-thread__group > .armada-session-thread__agent { grid-column: 1; }
+/* A group that goes to a Job of its own has no title here, the Job's card above it names it: its task marks, then its subagent type, then its paths on a line of their own. */
+.armada-session-thread__group[data-job] { display: flex; flex-wrap: wrap; align-items: center; }
+.armada-session-thread__group[data-job] > .armada-session-thread__marks { justify-content: flex-start; }
+.armada-session-thread__group[data-job] > .armada-session-thread__paths { flex: 1 1 100%; }
 .armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); }
 .armada-session-thread__marks { display: flex; flex-wrap: wrap; flex: none; justify-content: flex-end; max-width: 50%; gap: var(--space-1); }
 .armada-session-thread__sketch { margin: 0; padding: 0; list-style: none; }

@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, FindingNotes, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type PlanRevision } from "@armada/components";
+import { Button, FindingNotes, JobCard, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type PlanRevision, type SessionState } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -13,7 +13,7 @@ import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing 
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, revision, ed, findings, pullRequests, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({ open, plan, revision, ed, findings, pullRequests, jobOf, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** The Job a group was handed to, which heads the group that goes to a Job of its own in place of the placeholder. */ jobOf?: (group: string) => { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void } | undefined; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
   const unchanged = useUnchanged(revision);
@@ -63,11 +63,23 @@ export function PlanReview({ open, plan, revision, ed, findings, pullRequests, o
                     <GroupEditor group={group} ed={ed} {...(pins === undefined ? {} : { pins })} />
                   </section>
                 ));
-                return run.landsIn === undefined ? (
+                // A group that goes to a Job of its own is headed by that Job's card: a placeholder until it is handed, then the Job.
+                const job = run.own === undefined ? undefined : jobOf?.(run.own.id);
+                const head =
+                  run.own !== undefined ? (
+                    job === undefined ? (
+                      <JobCard placeholder={run.own.title} />
+                    ) : (
+                      <JobCard title={job.title} state={job.state} said={job.said} handedFrom={run.own.title} {...(job.at === undefined ? {} : { at: job.at })} onOpen={job.onOpen} />
+                    )
+                  ) : run.landsIn === undefined ? undefined : (
+                    <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
+                  );
+                return head === undefined ? (
                   editors
                 ) : (
-                  <div key={run.key} className="sv-review__landing" role="group" aria-label={`Lands in ${run.landsIn.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
-                    <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
+                  <div key={run.key} className="sv-review__landing" role="group" aria-label={run.own !== undefined ? run.own.title : `Lands in ${run.landsIn?.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
+                    {head}
                     {editors}
                   </div>
                 );

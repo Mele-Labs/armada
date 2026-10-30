@@ -337,10 +337,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   };
   // A pull request not yet merged and an issue not yet closed are work in hand, so they never stand under a finished step.
   const stillOpen = (one: Made) => (one.shape === "pr" && one.pr.state !== "merged") || (one.shape === "issue" && one.issue.state === "open");
-  // A group that always shows its issue draws it and that issue's pull requests, so Open leaves them out: each is drawn once. Such a group is one of a plan stood whole to
-  // edit, or a placeholder Job not finished. A shut row of an approved plan shows no issue, so Open keeps one whose group is that, handed to a Job, finished, or none.
+  // A group of a plan being edited or drafted draws its own issue and that issue's pull requests under its card or title, so Open leaves them out: each is drawn once. A shut row
+  // of an approved plan, and a placeholder Job there, draw no issue, so Open keeps one whose group is that, handed to a Job, finished, or none.
   const handed = new Set(childrenOf(sessions, session).map((one) => one.group));
-  const drawnByGroup = new Set(groups.filter((group) => !handed.has(group.id) && (editing || (group.ownJob === true && steps.get(group.id) !== "done"))).map((group) => group.id));
+  const drawnByGroup = new Set(groups.filter((group) => !handed.has(group.id) && editing).map((group) => group.id));
   const openMade = made.filter((one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)));
   const keptBlock = kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />;
   type Done = { time: string | undefined; group: (typeof finished)[number] } | { time: string | undefined; made: Made };

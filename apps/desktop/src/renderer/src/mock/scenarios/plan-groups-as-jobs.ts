@@ -1,7 +1,7 @@
-// A Job that orchestrates: its drafted plan has four groups, each for a Job of its own, and it holds the five issues it was given. Before they are handed, each group draws
-// as the Job it will become, a dashed card that is not started yet, with its issue and tasks inside. Time passing approves the plan, moves the Job to Dispatch and hands the
-// first two groups to Jobs, which draw as real Job cards; the other two stay placeholders. Open holds the issue no group names, and after the hand-off the issues of the
-// two handed groups. Mock only: `ownJob` is set here alone, and the two Jobs are in the list before the hand-off, which the store cannot add one to. The walk
+// A Job that orchestrates: its drafted plan has four groups, each for a Job of its own, and it holds the five issues it was given. Before they are handed, each group has the
+// Job card as a placeholder, in the rail where its title was and heading its group on the thread's plan card. Time passing approves the plan, moves the Job to Dispatch and
+// hands the first two groups to Jobs, whose real Job cards take their places; the other two stay placeholders. While the plan is drafted Open holds the issue no group names,
+// and once it is approved all five. Mock only: `ownJob` is set here alone, and the two Jobs are in the list before the hand-off, which the store cannot add one to. The walk
 // `plan-groups-as-jobs` plays it.
 
 import type { Session, SessionAttachment, WorkGroup } from "@armada/screens/src/draft/sessions";
@@ -92,7 +92,7 @@ const parent = (): Session => ({
   ],
   attachments: ISSUES,
   waitingFor: [planCall(undefined, ago(3))],
-  work: { workflow: { name: "orchestrate", steps: STEPS, at: 1 }, plan: { scope: ["crates/fleet/src/rules", "apps/desktop/src/renderer/src"], approved: false, after: "o-3", groups } },
+  work: { workflow: { name: "orchestrate", steps: STEPS, at: 1 }, plan: { scope: ["crates/fleet/src/rules", "apps/desktop/src/renderer/src"], approved: false, after: "o-2", groups } },
 });
 
 /** The Jobs the first two groups go to. */
@@ -136,7 +136,7 @@ function build(): Scenario {
       },
     };
   };
-  return { ...board, name: "plan-groups-as-jobs", says: "A Job at Plan whose four groups each go to a Job of their own, drawn as Jobs not started yet until the first two are handed", draft: { sessions, areas: mockAreas } };
+  return { ...board, name: "plan-groups-as-jobs", says: "A Job at Plan whose four groups each go to a Job of their own, drawn as placeholder Job cards until the first two are handed", draft: { sessions, areas: mockAreas } };
 }
 
 export const planGroupsAsJobs: Scenario = build();
