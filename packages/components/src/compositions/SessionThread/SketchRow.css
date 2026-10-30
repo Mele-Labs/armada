@@ -189,3 +189,23 @@
   flex: none;
   gap: var(--space-1);
 }
+
+/* A sketch pinned for his answer, where the plan to approve stands. */
+.armada-session-sketch-pin__band {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+}
+
+.armada-session-sketch-pin__read {
+  display: flex;
+  flex-direction: column;
+  block-size: calc(var(--space-12) * 6);
+  min-height: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}

@@ -6,8 +6,9 @@
 //! title is a second sketch. The scene is checked before anything is written: Bridge draws one that
 //! fails as an empty frame and says nothing, so this is where the agent hears of it.
 //!
-//! **Every sketch shown is put to the person on its card**, never in `waiting_for`: `answer_sketch`
-//! approves it or sends it back, and a redraw of the title asks again.
+//! **Every sketch shown is put to the person on its card**, and Fleet raises it in his Needs you as
+//! `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`: `answer_sketch` approves it or
+//! sends it back, and a redraw of the title asks again.
 
 use std::sync::Arc;
 
@@ -15,7 +16,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
     AnswerSketch, AttachmentReport, SendSessionMessage, SessionFact, SessionId, SessionRecord, SessionReport, SessionRow,
-    SessionVoice, ShowSketch, Sketch, SketchHow, WireError, SKETCH_ASKED, SKETCH_DRAWN, SKETCH_SETTLED, SKETCH_SETTLED_AT,
+    SessionVoice, ShowSketch, Sketch, SketchHow, WaitingAct, WaitingActKind, WaitingItem, WaitingSource, WireError, SKETCH_ASKED, SKETCH_DRAWN, SKETCH_SETTLED, SKETCH_SETTLED_AT,
     SKETCH_WORDS,
 };
 
@@ -110,6 +111,9 @@ where
         let mut attachment = sketch_attachment(sketch);
         attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
         attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));
+        // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
+        let target = attachment.target.clone();
+        self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
         self.report_session(SessionReport {
             harness,
             session_id: SessionId::carried(&id),
@@ -257,4 +261,27 @@ pub(crate) fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
         .chain(sketch.against.map(|kept| ("against".to_string(), kept)))
         .collect(),
     }
+}
+
+/// Every sketch put to the person and not answered, as the item that waits on him: id the sketch's
+/// target, text its title, opening the Session. A plan's sketch is approved with the plan, so it is
+/// never one of these.
+pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
+    attachments
+        .iter()
+        .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))
+        .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !one.detail.contains_key(SKETCH_SETTLED))
+        .map(move |one| WaitingItem {
+            id: one.target.clone(),
+            text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string()),
+            since: one.changed_at.clone(),
+            source: WaitingSource::Sketch,
+            act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),
+            options: Vec::new(),
+            steps: Vec::new(),
+            place: None,
+            concern: None,
+            cites: Vec::new(),
+            confirmed: false,
+        })
 }

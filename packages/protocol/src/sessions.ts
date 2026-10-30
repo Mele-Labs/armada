@@ -305,8 +305,10 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `preview_offer` (text `<branch> moved since the preview left it out: <why>`, act `run` whose `target` is `scripts/preview --restart`)
  * is Fleet offering a refresh on the Job holding a branch the preview left out, once that branch moves past the tip it was left out at.
  * Dismissing it is Skip, and tells the agent nothing.
+ * `sketch` (id `sketch:<title>`, the sketch attachment's id, text the title, act `message` whose `target` is the Job's own id) is a sketch the
+ * agent showed with `show_sketch` that he has not approved or sent back on its card. Its press opens the sketch. Dismissing it settles it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "sketch";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

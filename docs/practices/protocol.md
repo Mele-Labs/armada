@@ -1009,7 +1009,7 @@ Bridge's half is `AnswerSketch` and `SketchHow` in `packages/protocol/src/sessio
 | `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws, and `drawn` an id new on every draw. A plan's sketch has neither |
 | `detail.settled`, `detail.settled_at`, `detail.words` | Fleet writes, Bridge reads | How he answered, `approved` or `sent_back`, when, and his note. Gone when the title is drawn again |
 
-**Not a `waiting_for` item**: the owner answers a sketch on its card.
+**Not the agent's `waiting_for` item**: the owner answers a sketch on its card, and since 29 Oct Fleet raises it in his Needs you as `sketch` (below).
 The job is told as his message, as a draft's answer is, and the rail reads an approval back off that message.
 
 **Skew.** As above.
@@ -1051,6 +1051,22 @@ Bridge's half is `apps/desktop/src/shared/note-artifacts.ts`, which reads the de
 **The event stream.** No new event: keeping a note, marking it done and a close settling it each publish `session.changed` on its Job.
 Bridge's main reads a note file rewritten off that list (`NotesWatch`) and tells the dev-only annotation layer on `annotations:changed`, which is not Fleet's seam.
 The open risk below is neither better nor worse: a close settling notes publishes one more `session.changed` on its Job, once.
+
+## A sketch waits in Needs you: `sketch` on `WaitingSource`
+
+Since 29 Oct 2026. `crates/fleet/src/session_host/sketching.rs`, `sketch_items`.
+**One enum value**: no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes, Bridge reads | Gains `sketch`: id the sketch's target `sketch:<title>`, text its title, act `message` on the Job. Derived on every read for each sketch with `detail.asked` and no `detail.settled`; never kept |
+| `dismiss_waiting` on it | Bridge writes | No new field. The id is dismissed and the Job is sent `Owner dismissed "<title>"`. Drawing the title again lifts the dismissal |
+| `answer_waiting` on it | Bridge writes | Refused 422 `fleet.session_waiting_empty`, and the item stands: `answer_sketch` answers it |
+| `replied:<turn ended>` on a step that ends on his reply | Fleet writes, Bridge reads | No new value: a `replied` item, text `<step>: you reply`, raised at a turn end where nothing else waits, a reply that only reports included |
+
+**A Bridge that matches `WaitingSource` exhaustively** meets a value it did not know; the mirror gained it in the same change, and equal IDs hold the two together.
 
 ## Open questions
 

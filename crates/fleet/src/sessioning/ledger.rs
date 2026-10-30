@@ -215,14 +215,14 @@ where
     }
 
     /// What the session waits on, off what [`ledger_reads`](Self::ledger_reads) took, for a caller that
-    /// wants no more of the row than that.
+    /// wants no more of the row than that. **The row's own list**, drawn whole, so the wait a step
+    /// raises is answered and dismissed as any other item is.
     pub(crate) fn ledger_waiting(
         &self,
         session: &KeptSession,
         reads: LedgerReads,
     ) -> Vec<ipc::WaitingItem> {
-        let attachments: Vec<ipc::Attachment> = reads.held.iter().map(attachment_wire).collect();
-        self.waiting_from(reads.waiting, session, &attachments).items
+        self.ledger_built(session, reads).waiting_for
     }
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
@@ -282,6 +282,7 @@ where
             .as_deref()
             .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
+        let reply_owed_since = reads.waiting.reply_owed_since();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         record.closed = waited.closed;
@@ -302,8 +303,15 @@ where
             .filter(|_| session.state == store::SessionState::Live)
             .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at), confirmed: one.confirmed })
             .collect();
-        // Held open only when the watch is all that is left: a turn running, an item owed or a command
-        // the agent backgrounded each says more than the watch does.
+        // A Session still waiting on another carries the wait until it starts.
+        record.waits = reads
+            .wait
+            .filter(|_| session.state == store::SessionState::Live)
+            .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
+        record.started = reads.started;
+        self.rail_drawn(session, &reads.rail, reply_owed_since.as_deref(), &mut record);
+        // Held open only when the watch is all that is left, read once the rail has drawn its wait: a
+        // turn running, an item owed or a command the agent backgrounded each says more than the watch does.
         record.held_open_by = reads.watching.filter(|_| {
             session.state == store::SessionState::Live
                 && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
@@ -313,13 +321,6 @@ where
                     .iter()
                     .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing)
         });
-        // A Session still waiting on another carries the wait until it starts.
-        record.waits = reads
-            .wait
-            .filter(|_| session.state == store::SessionState::Live)
-            .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
-        record.started = reads.started;
-        self.rail_drawn(session, &reads.rail, &mut record);
         record
     }
 
