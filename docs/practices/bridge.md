@@ -565,6 +565,7 @@ for anything under `apps/desktop`.
 
 **Biome formats `apps/` and `packages/` at a hundred columns**, configured in `biome.jsonc` at the root, and CI's `format` job refuses a file it would change.
 Run `pnpm format` before committing; a Drone runs `armada run format`.
+It runs the formatter twice, because Biome 2.6.4 does not settle every file in one pass: on 30 Oct 2026 a second pass changed 9 of the 2,813 files the first had, in long member chains, and a third changed none.
 Rust is outside it.
 
 **The width is fixed so a long expression breaks one item per line.**

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "scripts/dev",
-    "format": "biome format --write",
+    "format": "biome format --write && biome format --write",
     "format:check": "biome ci",
     "gate": "cargo xtask verify-foundations",
     "gitnexus": "pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@1.6.12",
