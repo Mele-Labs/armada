@@ -1,0 +1,16 @@
+[operations.list_autonomy_defaults]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Armada's default autonomy for every kind of act, and each layer of autonomy defaults that applies to one repository (everywhere, each Workspace it is in, the repository itself), with where each was kept and only the kinds it set"
+notes = """
+`GET /autonomy?manifest_id=`, the repository Fleet started in where absent. Answers 200 with `RepositoryAutonomy`: `manifest_id`, `armada`, `layers` and `left_out`. **The layers are served, not laid over each other**: Bridge does that, and shows which level set each kind.
+
+`armada` is a list of `ActKindDefault` `{ kind, autonomy }`, one for every kind of act in the order of the kinds (`tracker_write`, `forge_write`, `draft`, `start_job`, `start_watch`, `tell_agent`, `run_command`, `run_agent`), each Armada's own default: `asks` for a write to the tracker or forge, a draft and a started Job, `acts` for the rest.
+
+Each of `layers` is an `AutonomyLayer` `{ id, scope, kept, defaults[] }`: one file of defaults saved by `save_lifecycle_piece` with `piece.kind = "autonomy"`. `scope` is `everywhere` or `within` `{ id }`, a Workspace's or a repository's. `kept` is a `PieceKept` as on `list_lifecycles`, whose `rank.reach` is `everywhere`, `workspace` or `repository` (the level it is for this repository), `rank.source` `kit` or `repository` and `path` the file; `overridden_by` is the rank of the file that runs instead where two share an id. `defaults` is only the kinds the file set (`acts`, `asks` or `off`), in the order of the kinds; a kind it did not name is the wider layer's.
+
+**Layers are widest first, in the order they are laid**: every repository, then a Workspace, then the repository, and within a level the repository's committed copy (a Workspace's home last), then Kit's, then by id; a later layer's kind wins. A layer with `overridden_by` is not laid. A rule's own `autonomy` wins over all of them. The Workspaces are those that hold the repository, and the files of a Workspace's home are read as for lifecycles.
+
+`left_out` is every autonomy file Fleet could not read (`{ source, path, said }`). It is read when asked and never cached, so a file saved a moment ago is read. 422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id, the sentence naming the ones it does.
+"""

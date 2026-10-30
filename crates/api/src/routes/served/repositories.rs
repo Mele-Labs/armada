@@ -334,6 +334,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workspaces",
     },
     Route {
+        operation: "list_workspaces",
+        method: "GET",
+        path: "/workspaces/all",
+    },
+    Route {
         operation: "list_lifecycles",
         method: "GET",
         path: "/lifecycles",
@@ -342,6 +347,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "list_lifecycle_rules",
         method: "GET",
         path: "/lifecycles/rules",
+    },
+    Route {
+        operation: "list_autonomy_defaults",
+        method: "GET",
+        path: "/autonomy",
     },
     Route {
         operation: "list_keep_drafts",

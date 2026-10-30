@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use adapter_traits::PullRequestStanding;
 use api::{Lifecycles, Next};
-use ipc::{Event, InstanceStanding, JobLifecycles, ManifestId, RuleAct, RuleAmong, RuleWhen, SessionId, StateReadFrom};
+use ipc::{AutonomyToSave, Event, InstanceStanding, LifecyclePiece, PieceScope, SaveLifecyclePiece, JobLifecycles, ManifestId, RuleAct, RuleAmong, RuleWhen, SessionId, StateReadFrom};
 use store::{rule_act_standing, AttachmentState, Holder, KeptAttachment, NewRuleAct};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -120,6 +120,29 @@ async fn yours_in_kit_runs_over_the_repositorys_workspace_and_a_broken_file_is_n
 }
 
 #[tokio::test]
+async fn every_workspace_is_listed_once_whichever_repository_holds_it_and_a_broken_file_is_named() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
+    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
+    write(kit(&home, "workspaces", "back-office.yml"), &format!("version: 1\nworkspace_id: back-office\nname: Back office\nrepositories:\n  - {}\n", api.manifest().id().as_str()));
+    write(kit(&home, "workspaces", "broken.yml"), "not: a workspace\n");
+
+    let seen = fleet.list_workspaces().await.expect("read");
+    let [office, store] = seen.workspaces.as_slice() else { panic!("two, by name: {:?}", seen.workspaces) };
+    assert_eq!((office.id.as_str(), office.name.as_str(), office.source.as_str()), ("back-office", "Back office", "kit"));
+    assert_eq!((office.home.as_ref(), office.overridden_by.as_deref(), office.hides.as_deref()), (None, None, None));
+    assert!(office.path.ends_with("back-office.yml"), "{}", office.path);
+    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "repository"));
+    assert_eq!(store.repositories, [wire_id(&web), wire_id(&api)]);
+    assert_eq!(store.home, Some(wire_id(&web)), "the repository that commits it");
+    assert!(store.path.ends_with("my-store.yml"), "{}", store.path);
+
+    let [left] = seen.left_out.as_slice() else { panic!("one set aside: {:?}", seen.left_out) };
+    assert!(left.source == "kit" && left.path.ends_with("broken.yml") && !left.said.is_empty(), "{left:?}");
+}
+
+#[tokio::test]
 async fn the_lifecycles_that_apply_say_where_each_was_kept_and_which_one_runs() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
@@ -205,10 +228,101 @@ async fn a_repository_nobody_serves_is_the_callers_to_correct() {
     for refused in [
         fleet.list_repository_workspaces(nobody.clone()).await.err(),
         fleet.list_lifecycles(nobody.clone()).await.err(),
-        fleet.list_lifecycle_rules(nobody).await.err(),
+        fleet.list_lifecycle_rules(nobody.clone()).await.err(),
+        fleet.list_autonomy_defaults(nobody).await.err(),
     ] {
         assert_eq!(refused.expect("refused").status(), 422);
     }
+}
+
+#[tokio::test]
+async fn a_saved_layer_sets_what_a_served_rules_acts_do_and_the_rules_own_word_still_wins() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
+    write(kit(&home, "rules", "plain.yml"), &moves_tickets(None, "closed", None));
+    write(kit(&home, "rules", "own.yml"), &moves_tickets(None, "closed", Some("asks")).replace("plan_moves_tickets", "own_word"));
+    let autonomy_of = |read: &ipc::RepositoryLifecycleRules, id: &str| {
+        let one = read.rules.iter().find(|one| one.rule.id == id).unwrap_or_else(|| panic!("no {id}: {:?}", read.rules));
+        one.rule.does[0].autonomy.clone()
+    };
+
+    let before = fleet.list_lifecycle_rules(named(&web)).await.expect("read");
+    assert_eq!((autonomy_of(&before, "plan_moves_tickets"), autonomy_of(&before, "own_word")), ("asks".to_string(), "asks".to_string()), "Armada's default for a write to the tracker");
+
+    saved_layer(&fleet, "mine", PieceScope::Within { id: web.manifest().id().as_str().to_string() }, &[("tracker_write", "acts")]).await;
+    let after = fleet.list_lifecycle_rules(named(&web)).await.expect("read");
+    assert_eq!(autonomy_of(&after, "plan_moves_tickets"), "acts", "the saved layer sets the kind");
+    assert_eq!(autonomy_of(&after, "own_word"), "asks", "the rule's own word wins over the layer");
+
+    let elsewhere = fleet.list_lifecycle_rules(named(&api)).await.expect("read");
+    assert_eq!(autonomy_of(&elsewhere, "plan_moves_tickets"), "asks", "a layer scoped to another repository does not reach this one");
+}
+
+/// Saves one layer of defaults in Kit through the route's own write, as Bridge will.
+async fn saved_layer(fleet: &Fixture, id: &str, scope: PieceScope, set: &[(&str, &str)]) {
+    let defaults = set.iter().map(|(kind, autonomy)| (kind.to_string(), autonomy.to_string())).collect();
+    let piece = LifecyclePiece::Autonomy { autonomy: AutonomyToSave { id: id.to_string(), scope, defaults } };
+    fleet.save_lifecycle_piece(SaveLifecyclePiece { piece, overwrite: false }).await.expect("saved");
+}
+
+fn layers_of(read: &ipc::RepositoryAutonomy) -> Vec<(&str, &str, &str)> {
+    read.layers.iter().map(|one| (one.id.as_str(), one.kept.rank.reach.as_str(), one.kept.rank.source.as_str())).collect()
+}
+
+fn set_by(read: &ipc::RepositoryAutonomy, id: &str) -> Vec<(String, String)> {
+    let layer = read.layers.iter().find(|one| one.id == id).unwrap_or_else(|| panic!("no {id}: {:?}", read.layers));
+    layer.defaults.iter().map(|one| (one.kind.clone(), one.autonomy.clone())).collect()
+}
+
+#[tokio::test]
+async fn the_autonomy_defaults_are_served_layer_by_layer_with_where_each_was_kept_and_only_what_it_set() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (web, api, back_office) = (first(&fleet), another(&fleet, &home, "store-api"), another(&fleet, &home, "back-office"));
+    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
+    let (store_scope, web_scope) = (PieceScope::Within { id: "my-store".to_string() }, PieceScope::Within { id: web.manifest().id().as_str().to_string() });
+    saved_layer(&fleet, "base", PieceScope::Everywhere, &[("tracker_write", "acts"), ("run_command", "off")]).await;
+    saved_layer(&fleet, "store", store_scope, &[("forge_write", "asks")]).await;
+    saved_layer(&fleet, "mine", web_scope, &[("tracker_write", "asks")]).await;
+    write(
+        armada(web.root(), "autonomy", "committed.yml"),
+        &format!("version: 1\nautonomy_id: committed\nscope: {}\ndefaults:\n  start_job: acts\n", web.manifest().id().as_str()),
+    );
+    write(kit(&home, "autonomy", "broken.yml"), "defaults: nothing\n");
+
+    let read = fleet.list_autonomy_defaults(named(&web)).await.expect("read");
+    assert_eq!(read.manifest_id, wire_id(&web));
+    assert_eq!(
+        layers_of(&read),
+        [("base", "everywhere", "kit"), ("store", "workspace", "kit"), ("committed", "repository", "repository"), ("mine", "repository", "kit")],
+        "widest first, in the order they are laid, the repository's committed copy before yours"
+    );
+    assert_eq!(set_by(&read, "base"), [("tracker_write".to_string(), "acts".to_string()), ("run_command".to_string(), "off".to_string())], "only what it set, in the order of the kinds");
+    assert_eq!(set_by(&read, "store"), [("forge_write".to_string(), "asks".to_string())]);
+    assert_eq!(set_by(&read, "mine"), [("tracker_write".to_string(), "asks".to_string())]);
+    let committed = read.layers.iter().find(|one| one.id == "committed").expect("committed");
+    assert!(committed.kept.path.as_deref().is_some_and(|path| path.ends_with(".armada/autonomy/committed.yml")), "{committed:?}");
+    assert!(read.layers.iter().all(|one| one.kept.overridden_by.is_none()));
+    assert_eq!(read.layers[1].scope, PieceScope::Within { id: "my-store".to_string() });
+    assert_eq!(read.layers[0].scope, PieceScope::Everywhere);
+
+    let kinds: Vec<(&str, &str)> = read.armada.iter().map(|one| (one.kind.as_str(), one.autonomy.as_str())).collect();
+    assert_eq!(
+        kinds,
+        [
+            ("tracker_write", "asks"), ("forge_write", "asks"), ("draft", "asks"), ("start_job", "asks"), ("start_watch", "acts"),
+            ("tell_agent", "acts"), ("run_command", "acts"), ("run_agent", "acts"),
+        ],
+        "Armada's own default for every kind"
+    );
+    let [left] = read.left_out.as_slice() else { panic!("one set aside: {:?}", read.left_out) };
+    assert!(left.source == "kit" && left.path.ends_with("broken.yml") && !left.said.is_empty(), "{left:?}");
+
+    let member = fleet.list_autonomy_defaults(named(&api)).await.expect("read");
+    assert_eq!(layers_of(&member), [("base", "everywhere", "kit"), ("store", "workspace", "kit")], "a member reads its Workspace's layer, and not the repository's it is not");
+    let outside = fleet.list_autonomy_defaults(named(&back_office)).await.expect("read");
+    assert_eq!(layers_of(&outside), [("base", "everywhere", "kit")]);
 }
 
 async fn holds(rig: &Rig, id: &SessionId, kind: &str, target: &str, state: AttachmentState, detail: &[(&str, &str)]) {

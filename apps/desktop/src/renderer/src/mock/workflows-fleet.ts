@@ -143,6 +143,8 @@ export function workflowsServed(
     definitions?: typeof MANAGED_DEFINITIONS;
     ends?: typeof MANAGED_ENDS;
     nudges?: readonly MockNudge[];
+    /** The Manifests Fleet lists workflows under, in place of the three of `workflows-managed.ts`. */
+    served?: readonly string[];
   } = {},
 ): Served {
   const started = Date.now();
@@ -282,7 +284,7 @@ export function workflowsServed(
     // One summary per repository and workflow id, as Fleet lists them: Armada's and Kit's are the same under each.
     readWorkflows: async () => {
       files = [...files, ...APPROVED.splice(0)];
-      const summaries = SERVED.flatMap((manifest) => {
+      const summaries = (options.served ?? SERVED).flatMap((manifest) => {
         const ids = [...new Set(files.filter((one) => one.leftOut === undefined && (one.source !== "repository" || one.manifest === manifest)).map((one) => one.id))];
         return ids.map((id): WorkflowSummary => {
           const here = SPECIFIC.map((source) => held(id, source, manifest)).filter((one) => one !== undefined);

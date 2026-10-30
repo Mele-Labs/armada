@@ -57,7 +57,7 @@ export function followKeepDrafts(api: PiecesApi, current: string, again: () => v
 export type Ran = { ok: true; removing: PieceId[] } | { ok: false; said: string; old?: true };
 
 /** A route this Fleet does not serve answers 404 with no refusal in it. */
-const missing = (outcome: Outcome): boolean => !outcome.ok && outcome.why === "transport" && outcome.fault.why === "unanswerable" && outcome.fault.status === 404;
+export const missing = (outcome: Outcome): boolean => !outcome.ok && outcome.why === "transport" && outcome.fault.why === "unanswerable" && outcome.fault.status === 404;
 
 const toCommit = ({ kind, id, scope }: PieceId): PieceToCommit => ({ kind: kind === "rule" ? "lifecycle_rule" : "lifecycle", id, scope });
 

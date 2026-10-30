@@ -1,0 +1,3 @@
+/* The revision a Job kept, as a plain trigger in a header: muted, at the header's small step. */
+.armada-revision-menu { display: inline-flex; color: var(--fg-muted); }
+.armada-revision-menu .armada-dropdown-menu__trigger { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }

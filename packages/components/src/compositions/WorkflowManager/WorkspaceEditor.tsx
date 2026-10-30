@@ -501,7 +501,7 @@ export function WorkspaceEditor({
     // A repository that is in no Workspace has no level between the default and itself.
     ...(workspace.id === "" ? [] : [{ id: "workspace", label: `All of ${workspace.name}`, name: workspace.name }]),
     ...workspace.repositories.map((one) => ({ id: one.id, label: one.name, name: one.name })),
-  ].map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : { id, label }));
+  ].map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : id === "workspace" ? { id, label, hint: `Workspace ${name ?? ""}` } : { id, label }));
 
   const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
   /** The rule or lifecycle the pick is of, for the acts on where it is kept. A step is the workflow's. */

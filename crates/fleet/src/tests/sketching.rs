@@ -77,6 +77,68 @@ async fn a_second_sketch_with_the_same_title_replaces_the_first_and_another_titl
     assert_eq!(sketches(&record).len(), 2);
 }
 
+/// The paths a sketch's `revisions` detail names, oldest first.
+fn revisions(one: &Attachment) -> Option<Vec<String>> {
+    Some(ipc::decode("revisions", one.detail.get("revisions")?.as_bytes()).expect("a list of paths"))
+}
+
+#[tokio::test]
+async fn a_redraw_keeps_each_changed_scene_as_a_revision_and_an_unchanged_one_adds_none() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow", &scene("Fleet"))).await.unwrap();
+    let record = rig.fleet.show_sketch(None, drawn(&id, "Request flow", &scene("Fleet"))).await.unwrap();
+    let held = revisions(sketches(&record)[0]).expect("revisions");
+    assert_eq!(held.len(), 1, "the same scene again adds no file: {held:?}");
+
+    let record = rig.fleet.show_sketch(None, drawn(&id, "Request flow", &scene("Daemon"))).await.unwrap();
+    let kept = sketches(&record);
+    assert_eq!(kept.len(), 1, "{:?}", record.attachments);
+    let held = revisions(kept[0]).expect("revisions");
+    assert_eq!(held.len(), 2, "{held:?}");
+    for (path, name) in held.iter().zip(["r1.json", "r2.json"]) {
+        assert!(path.ends_with(name), "oldest first: {held:?}");
+    }
+    same(&std::fs::read_to_string(&held[0]).unwrap(), &scene("Fleet"));
+    same(&std::fs::read_to_string(&held[1]).unwrap(), &scene("Daemon"));
+    same(&kept[0].detail["scene"], &scene("Daemon"));
+}
+
+#[tokio::test]
+async fn titles_that_clean_up_alike_keep_separate_revisions() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "a b", &scene("Fleet"))).await.unwrap();
+    let record = rig.fleet.show_sketch(None, drawn(&id, "a_b", &scene("Daemon"))).await.unwrap();
+
+    let kept = sketches(&record);
+    assert_eq!(kept.len(), 2, "{:?}", record.attachments);
+    let [spaced, underscored] = ["sketch:a b", "sketch:a_b"].map(|target| {
+        let one = kept.iter().find(|one| one.target == target).expect("held");
+        revisions(one).expect("revisions")
+    });
+    assert_eq!((spaced.len(), underscored.len()), (1, 1));
+    assert_ne!(std::path::Path::new(&spaced[0]).parent(), std::path::Path::new(&underscored[0]).parent());
+    same(&std::fs::read_to_string(&spaced[0]).unwrap(), &scene("Fleet"));
+    same(&std::fs::read_to_string(&underscored[0]).unwrap(), &scene("Daemon"));
+}
+
+#[tokio::test]
+async fn a_plans_sketch_carries_no_revisions() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut recorded = super::session_plan::first(&id);
+    recorded.sketch = Some(
+        ipc::decode("a plan sketch", format!(r#"{{"title":"Plan flow","scene":{}}}"#, scene("Fleet")).as_bytes()).unwrap(),
+    );
+    let record = rig.fleet.record_plan(None, recorded, false).await.expect("recorded");
+
+    let kept = sketches(&record);
+    assert_eq!(kept.len(), 1, "{:?}", record.attachments);
+    assert_eq!(kept[0].target, "sketch:Plan flow");
+    assert!(!kept[0].detail.contains_key("revisions"), "{:?}", kept[0].detail);
+}
+
 #[tokio::test]
 async fn a_scene_that_breaks_a_rule_is_refused_naming_the_part_and_nothing_is_kept() {
     let rig = rig_placing(None);
@@ -137,6 +199,7 @@ async fn a_sketch_drawn_against_another_keeps_the_earlier_scene_whole_and_a_late
     assert_eq!(kept.title, "Before");
     same(&kept.scene, &scene("Fleet"));
     same(&after.detail["scene"], &scene("Daemon"));
+    assert_eq!(revisions(after).map(|held| held.len()), Some(1), "an against sketch keeps its revision too");
     let before = sketches(&record).into_iter().find(|one| one.detail["title"] == "Before").unwrap();
     assert!(!before.detail.contains_key("against"), "a sketch with no against has none");
 
@@ -159,6 +222,7 @@ async fn a_sketch_may_be_redrawn_against_the_one_it_replaces() {
     same(&kept[0].detail["scene"], &scene("Daemon"));
     let against: Against = ipc::decode("an against", kept[0].detail["against"].as_bytes()).unwrap();
     same(&against.scene, &scene("Fleet"));
+    assert_eq!(revisions(kept[0]).map(|held| held.len()), Some(2), "the redraw is the second revision");
 }
 
 #[tokio::test]

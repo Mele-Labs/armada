@@ -794,3 +794,108 @@
 .armada-wm-step[data-added] {
   border-inline-start: calc(var(--border-width) * 3) solid var(--diff-add-fg);
 }
+
+/* ---- Autonomy: a frame under a header band, one row to a kind of act. Every row is one grid, so each control stays in its column where a row lacks one. ---- */
+.armada-wm-auto {
+  --w-autonomy-cell: calc(var(--space-12) * 1.25);
+  --w-autonomy-by: calc(var(--space-12) * 3);
+}
+.armada-wm-auto__row {
+  display: grid;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+/* The band names the columns, in the band's own hand. */
+.armada-wm-auto__band {
+  padding-inline-end: var(--space-3);
+}
+.armada-wm-auto__center {
+  justify-self: center;
+}
+.armada-wm-auto__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.armada-wm-auto__rows > li {
+  min-height: calc(var(--h-row) * 1.5);
+  padding: var(--space-1) var(--space-3) var(--space-1) calc(var(--space-4) - var(--border-width) * 3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  border-inline-start: calc(var(--border-width) * 3) solid transparent;
+}
+.armada-wm-auto__rows > li:last-child {
+  border-bottom: 0;
+}
+/* A row this tab set: its leading edge takes the accent, as a step with a change waiting does. */
+.armada-wm-auto__rows > li[data-own] {
+  border-inline-start-color: var(--accent);
+}
+.armada-wm-auto__kind {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.armada-wm-auto__by {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-wm-auto__rows > li[data-own] .armada-wm-auto__by {
+  color: var(--fg-default);
+  font-weight: var(--weight-heading);
+}
+.armada-wm-auto__cell .armada-radio {
+  gap: 0;
+}
+/* Where peers set a kind differently: the glyph holds the column the row keeps for it. */
+.armada-wm-auto__clash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-default);
+}
+
+/* ---- A Workspace's name and repositories: the fields, and Remove and Save under them. ---- */
+.armada-wm-ws__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.armada-wm-ws__repos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.armada-wm-ws__repos > legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-wm-ws__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.armada-wm-ws__actions > [type="submit"] {
+  margin-inline-start: auto;
+}

@@ -2,6 +2,7 @@
 // `job_lifecycles.changed`, passed on to every window. Nothing is kept here, since the event carries a Job's whole.
 
 import type {
+  AllWorkspaces,
   ChangeJobCopy,
   ChangeSessionSteps,
   DeleteLifecyclePiece,
@@ -13,6 +14,7 @@ import type {
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
+  RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
   RepositoryWorkspaces,
@@ -58,6 +60,11 @@ export class LifecyclesHost {
     return this.read(`/workspaces?manifest_id=${encodeURIComponent(manifestId)}`);
   }
 
+  /** `GET /workspaces/all`. */
+  allWorkspaces(): Promise<LifecyclesActed<AllWorkspaces>> {
+    return this.read("/workspaces/all");
+  }
+
   /** `GET /lifecycles?manifest_id=`. */
   lifecycles(manifestId: string): Promise<LifecyclesActed<RepositoryLifecycles>> {
     return this.read(`/lifecycles?manifest_id=${encodeURIComponent(manifestId)}`);
@@ -66,6 +73,11 @@ export class LifecyclesHost {
   /** `GET /lifecycles/rules?manifest_id=`. */
   rules(manifestId: string): Promise<LifecyclesActed<RepositoryLifecycleRules>> {
     return this.read(`/lifecycles/rules?manifest_id=${encodeURIComponent(manifestId)}`);
+  }
+
+  /** `GET /autonomy?manifest_id=`. */
+  autonomy(manifestId: string): Promise<LifecyclesActed<RepositoryAutonomy>> {
+    return this.read(`/autonomy?manifest_id=${encodeURIComponent(manifestId)}`);
   }
 
   /** `GET /lifecycles/keep_drafts?manifest_id=`. */

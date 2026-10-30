@@ -11,10 +11,11 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Lifecycles, Refusal};
+use config::WorkspaceFile;
 use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
 use ipc::{
-    AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
-    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
+    AllWorkspaces, AppliedLifecycle, AppliedRule, AutonomyLayer, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
     WorkspaceOfRepositories,
 };
 use store::Store;
@@ -204,6 +205,23 @@ where
             .find(|one| Path::new(one.root()).join(".armada").join(WORKSPACES) == folder)
             .map(|one| ManifestId::from(one.manifest().id()))
     }
+
+    /// One Workspace file as Bridge reads it, shared by the read of one repository and the read of all.
+    fn workspace_on_the_wire(&self, file: &WorkspaceFile) -> WorkspaceOfRepositories {
+        WorkspaceOfRepositories {
+            id: file.workspace().id().as_str().to_string(),
+            name: file.workspace().title().as_str().to_string(),
+            repositories: file.workspace().repositories().iter().map(ManifestId::from).collect(),
+            home: match file.source() {
+                PieceSource::Repository => file.path().parent().and_then(|folder| self.workspaces_kept_in(folder)),
+                _ => None,
+            },
+            source: wire::place(file.source()),
+            path: file.path().to_string_lossy().into_owned(),
+            overridden_by: file.overridden_by().map(wire::place),
+            hides: file.hides().map(wire::place),
+        }
+    }
 }
 
 impl<H, V, W> Lifecycles for Fleet<H, V, W>
@@ -224,25 +242,20 @@ where
             .files()
             .iter()
             .filter(|file| holding.contains(file.workspace().id()))
-            .map(|file| WorkspaceOfRepositories {
-                id: file.workspace().id().as_str().to_string(),
-                name: file.workspace().title().as_str().to_string(),
-                repositories: file.workspace().repositories().iter().map(ManifestId::from).collect(),
-                home: match file.source() {
-                    PieceSource::Repository => file.path().parent().and_then(|folder| self.workspaces_kept_in(folder)),
-                    _ => None,
-                },
-                source: wire::place(file.source()),
-                path: file.path().to_string_lossy().into_owned(),
-                overridden_by: file.overridden_by().map(wire::place),
-                hides: file.hides().map(wire::place),
-            })
+            .map(|file| self.workspace_on_the_wire(file))
             .collect();
         Ok(RepositoryWorkspaces {
             manifest_id: ManifestId::from(served.manifest().id()),
             workspaces: listed,
             left_out: wire::left_out(workspaces.left_out()),
         })
+    }
+
+    async fn list_workspaces(&self) -> Result<AllWorkspaces, Refusal> {
+        let workspaces = self.workspaces_read();
+        let mut listed: Vec<_> = workspaces.files().iter().map(|file| self.workspace_on_the_wire(file)).collect();
+        listed.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(AllWorkspaces { workspaces: listed, left_out: wire::left_out(workspaces.left_out()) })
     }
 
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {
@@ -265,14 +278,37 @@ where
     async fn list_lifecycle_rules(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycleRules, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
         let applying = self.rules_applying_to(served.manifest().id())?;
+        let defaults = self.autonomy_applying_to(served.manifest().id())?.defaults();
         Ok(RepositoryLifecycleRules {
             manifest_id: ManifestId::from(served.manifest().id()),
             rules: applying
                 .files()
                 .iter()
                 .map(|file| AppliedRule {
-                    rule: wire::rule(file.rule()),
+                    rule: wire::rule_under(file.rule(), &defaults),
                     kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
+                })
+                .collect(),
+            left_out: wire::left_out(applying.left_out()),
+        })
+    }
+
+    async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        let applying = self.autonomy_applying_to(served.manifest().id())?;
+        // The order `Autonomies::defaults` lays them in, so Bridge lays them the way a rule's acts are resolved.
+        let mut files: Vec<_> = applying.files().iter().collect();
+        files.sort_by(|a, b| (a.rank(), a.piece().id()).cmp(&(b.rank(), b.piece().id())));
+        Ok(RepositoryAutonomy {
+            manifest_id: ManifestId::from(served.manifest().id()),
+            armada: wire::armada_autonomy(),
+            layers: files
+                .into_iter()
+                .map(|file| AutonomyLayer {
+                    id: file.piece().id().as_str().to_string(),
+                    scope: wire::scope(file.piece().scope()),
+                    kept: wire::kept(file.rank(), Some(file.path()), file.overridden_by(), file.hides()),
+                    defaults: wire::autonomy_set(file.piece().defaults()),
                 })
                 .collect(),
             left_out: wire::left_out(applying.left_out()),
