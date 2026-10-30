@@ -23,7 +23,8 @@ Bridge draws it from the wire, with no state of its own:
 | Where | What |
 |---|---|
 | The Blueprint | Under a group of the plan handed to a Job, that Job's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed opens to its tasks alone |
-| The Artifacts layer | A Jobs group: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
+| A shut group on the spine | Under the group's title, the Job it was handed to as the shared Job card, with the Job's pull request as the framed pull request chip under it. The card opens the Job, the chip opens the pull request in the side panel, and each is its own keyboard stop beside the press that opens the group. The owner, 29 Oct 2026, walk `linked-jobs-on-plan`: "Jobs should be able to be connected to the plan" |
+| The Artifacts layer | The first group, Jobs: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
 | The parent's thread | A `linked` row where it happened, `power` for done, `git-merge` for merged, the press that opens the child |
 | Work | `docs/concepts/cockpit.md` |
 | Keys | Enter on a row opens the child; Esc is Back, to the parent's thread and open groups as they were |
