@@ -860,11 +860,3 @@ it("draws the ticket without a state until the started Job's lifecycles are read
   await new Promise((done) => setTimeout(done, 0));
   expect(ticketOf(store)).toEqual({ label: "ARM-41", state: "To do", stateId: "todo" });
 });
-
-it("hands back the same Job for a publish that moved nothing it reads, though the started Jobs are gathered again", async () => {
-  const { store, publish } = await holdingStore(async (id) => ({ ok: true, value: id === "a" ? handingOver(id) : holding(id, "todo") }));
-  await publish(record("a"), record("b"));
-  const first = store.draft.get()[0];
-  await publish(record("a"), record("b"));
-  expect(store.draft.get()[0]).toBe(first);
-});

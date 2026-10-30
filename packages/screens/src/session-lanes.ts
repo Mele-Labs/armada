@@ -1,6 +1,7 @@
 // A Job's lanes, read off what Fleet serves of it: the lifecycle definitions and instances `get_job_lifecycles` carries, the workflow the record names,
 // and the sentences `workflow_waiting_on` words. One direction and no state: wire in, a `SessionLanes` out (`draft/sessions.ts`).
 //
+// **A ticket handed to a Job this one started is on that Job's lane, not its own**: an ended ticket that a `job` instance links to, read in the state the started Job holds it in (`LaneInput.started`).
 // **A Job that holds no instance has no lanes**, so its Workflow view is not offered: an empty place stays empty, and nothing is drawn for it.
 // **The wire has no columns.** A step is placed by its order and a state by the longest run of expected moves before it, each at a column of its own in its
 // lane, so a lane reads left to right and the layout does not move when an instance does.
