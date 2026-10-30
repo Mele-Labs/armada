@@ -373,6 +373,7 @@ function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefin
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };
   if (rule.status === "asked") return { Glyph: MessageCircleQuestion, said: "Asked" };
   if (rule.status === "waiting") return { Glyph: Clock, said: "Waiting" };
+  if (rule.status === "skipped") return { Glyph: Ban, said: "Skipped" };
   if (rule.autonomy === "asks") return { Glyph: MessageCircleQuestion, said: "Asks" };
   if (rule.autonomy === "off") return { Glyph: Ban, said: "Off" };
   return undefined;

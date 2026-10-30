@@ -314,8 +314,8 @@ export type RuleView = {
   /** A second line: when it fired, or what it waits for. */
   meta?: string;
   autonomy: Autonomy;
-  /** On a Job: fired and acted, fired and asked, or still waiting. */
-  status?: "acted" | "asked" | "waiting";
+  /** On a Job: fired and acted, fired and asked, still waiting, or fired and set aside. */
+  status?: "acted" | "asked" | "waiting" | "skipped";
   /** What an asked rule left for the person to answer, by the id of its card: pressing the rule opens it. */
   needs?: string;
   /** The repositories this differs in, by name: where it applies alone, or where its autonomy is another. */
@@ -347,16 +347,26 @@ export type Instance = {
   says?: Readonly<Record<string, string>>;
 };
 
+/** Where the edge of a rule that hands to a step lands when the rule does not name one: the step the Job was on when it fired, else the one it is on. */
+export const CURRENT_STEP = "$step";
+
+/** One act of a rule as the Job's rules kept it, for the rule's panel. `standing` is Fleet's word: `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`. */
+export type FiredAct = { text: string; course: "acts" | "asks"; standing: string; said?: string; at: string };
+
 /** A rule that fired for an instance, and how it ended. */
 export type Fired = {
   rule: string;
   instance: string;
-  outcome: "acted" | "asked";
+  outcome: "acted" | "asked" | "waiting" | "skipped";
   at: string;
   /** What it did, for the chip's tooltip. */
   did?: string;
   /** The id of the card an asked rule left in the thread, while it waits to be answered. */
   needs?: string;
+  /** The step the Job was on when it fired, which an edge that hands to the current step lands on. */
+  step?: string;
+  /** Each act it planned and where it stands. Absent for a rule the mock fires. */
+  acts?: readonly FiredAct[];
 };
 
 /** A change made to this Job's own copy, marked on the node it changes: `lane` is the instance and `item` its state, or `workflow` and `item` the step added or skipped. */

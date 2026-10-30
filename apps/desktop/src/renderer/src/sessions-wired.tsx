@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { AnswerSketch, CallKind, ChangeWaiting, JobLifecycles, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { AnswerSketch, AppliedRule, CallKind, ChangeWaiting, JobLifecycles, ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, RunEvent, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -112,6 +112,8 @@ export class WiredStore {
   /** The Jobs a read was made for, and the ones an event has spoken for since: an older read must not land over it. */
   private readonly lifecyclesAsked = new Set<string>();
   private readonly lifecyclesHeard = new Set<string>();
+  /** The rules that apply to each repository, by Manifest id, which the acts a Job's rules planned are drawn on. Read when a Job holds acts. */
+  private readonly rulesHeld = new Map<string, readonly AppliedRule[]>();
   /** Events lost so far, so a count that grew reads every Job again. */
   private missedSeen = 0;
   /** Picks of the proposer he changed here, until the record says so too. */
@@ -205,7 +207,26 @@ export class WiredStore {
     if (spoke) this.lifecyclesHeard.add(held.session_id);
     else if (held.instances.length === 0 && !this.lifecyclesHeld.has(held.session_id)) return;
     this.lifecyclesHeld.set(held.session_id, held);
+    if ((held.acts?.length ?? 0) > 0) this.readRules(this.manifestOf(held.session_id));
     this.recompute();
+  }
+
+  private manifestOf(sessionId: string): string | undefined {
+    const read = this.inputs?.sessions;
+    return read?.state === "read" ? read.sessions.find((one) => one.id === sessionId)?.manifest_id : undefined;
+  }
+
+  /** The rules of a repository as Fleet reads them now. What was drawn from is kept when the rules have not changed, so a Job is not built again for it. */
+  private readRules(manifestId: string | undefined): void {
+    if (manifestId === undefined || typeof this.api.listLifecycleRules !== "function") return;
+    void this.api.listLifecycleRules(manifestId).then(
+      (answer) => {
+        if (!answer.ok || JSON.stringify(answer.value.rules) === JSON.stringify(this.rulesHeld.get(manifestId))) return;
+        this.rulesHeld.set(manifestId, answer.value.rules);
+        this.recompute();
+      },
+      () => undefined,
+    );
   }
 
   private recompute(): void {
@@ -253,10 +274,16 @@ export class WiredStore {
     events: this.events,
     ...(this.inputs?.sessionWatches[id] === undefined ? {} : { watches: this.inputs.sessionWatches[id] }),
     ...(this.lifecyclesHeld.has(id) ? { lifecycles: this.lifecyclesHeld.get(id)! } : {}),
+    ...(this.rulesFor(id) === undefined ? {} : { lifecycleRules: this.rulesFor(id)! }),
     ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
     ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
     ...(this.reviewRefused.has(id) ? { reviewRefused: this.reviewRefused.get(id)! } : {}),
   });
+
+  /** The rules that apply to a Job's repository, where they have been read. */
+  private rulesFor(id: string): readonly AppliedRule[] | undefined {
+    return this.rulesHeld.size === 0 ? undefined : this.rulesHeld.get(this.manifestOf(id) ?? "");
+  }
 
   /** The timeline's entries, of which only a value he changed in a panel is a row of a thread. Drawn again only when one of those changed. */
   readonly setEvents = (events: readonly TimelineEvent[]): void => {

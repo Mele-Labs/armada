@@ -1,7 +1,7 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { DEFAULT, END_ITEM, START_ITEM, layersAt, lifecyclesAt, lifecyclesFor, nodeId, overviews, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
+import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, layersAt, lifecyclesAt, lifecyclesFor, nodeId, overviews, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
 import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, Rule, RuleView, Workspace } from "./model";
 
 /** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
@@ -218,6 +218,8 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);
+  // An edge is drawn only between two nodes that are drawn: a rule naming a state its lifecycle lacks, or a step the Job has none of, has nowhere to land.
+  const drawn = new Set(lanes.flatMap((lane) => lane.nodes.map((node) => node.id)));
   const rules: RuleView[] = [];
   for (const rule of copy.rules) {
     if (rule.autonomy === "off") continue;
@@ -226,7 +228,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
     let first = true;
     for (const source of sources) {
       for (const target of targets) {
-        const fired = job.fired.find((one) => one.rule === rule.id && one.instance === (target ?? source)?.id);
+        const fired = job.fired.find((one) => one.rule === rule.id && one.instance === ((target ?? source)?.id ?? ""));
         const reached =
           source === undefined
             ? stepAt(rule.from.item) < standing.at || (rule.at !== "ends" && stepAt(rule.from.item) === standing.at)
@@ -234,13 +236,18 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
         // A rule waits for its source only while it has not been reached: one reached and unfired has nothing left to show.
         if (fired === undefined && reached) continue;
         const status = fired === undefined ? ("waiting" as const) : fired.outcome;
+        // A rule that hands to the step the Job is on lands on the one it was on when it fired, else the one it is on now.
+        const landing = rule.to.item === CURRENT_STEP ? (fired?.step ?? copy.steps[Math.min(Math.max(standing.at, 0), copy.steps.length - 1)]?.id ?? rule.to.item) : rule.to.item;
+        const from = nodeId(source?.id ?? "workflow", rule.from.item);
+        const to = nodeId(target?.id ?? "workflow", landing);
+        if (!drawn.has(from) || !drawn.has(to)) continue;
         const name = source === undefined ? copy.steps.find((one) => one.id === rule.from.item)?.label ?? rule.from.item : label(rule.from.lane, rule.from.item);
         const waits = source === undefined ? `${name} ${rule.at === "ends" ? "ends" : "starts"}` : `${source.label}: ${name}`;
         rules.push({
           id: `${rule.id}:${(source ?? target)?.id ?? "workflow"}${source !== undefined && target !== undefined ? `>${target.id}` : ""}`,
           rule: rule.id,
-          from: nodeId(source?.id ?? "workflow", rule.from.item),
-          to: nodeId(target?.id ?? "workflow", rule.to.item),
+          from,
+          to,
           label: rule.label,
           meta: fired === undefined ? waits : fired.at,
           autonomy: rule.autonomy,

@@ -30,6 +30,17 @@
 .sv-lanes__text { display: block; margin: 0 0 var(--space-1); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
 .sv-lanes__comment[data-read="skip"] .sv-lanes__text { color: var(--fg-subtle); }
 
+/* ---- What a rule did, from what the Job's rules kept (`shared-panel/rule.tsx`) ---------------------------------------- */
+
+/* A framed monitor for each instance, as the comments are. A row is a grid: where the act stands (a column of one width on every row), its line and why, how far it goes alone, and when. */
+.sv-lanes__acts { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.sv-lanes__acts > .sv-lanes__triage { max-height: none; }
+.sv-lanes__act { display: grid; grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) auto auto; column-gap: var(--space-2); align-items: start; box-sizing: border-box; padding: var(--space-1) var(--space-3); }
+.sv-lanes__act .sv-lanes__text { display: flex; align-items: center; min-height: var(--h-control-sm); margin: 0; }
+.sv-lanes__act[data-standing="skipped"] .sv-lanes__text, .sv-lanes__act[data-standing="not_carried"] .sv-lanes__text { color: var(--fg-subtle); }
+.sv-lanes__why { display: block; margin: 0 0 var(--space-1); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-lanes__course, .sv-lanes__at { display: inline-flex; align-items: center; height: var(--h-control-sm); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
+
 /* ---- What End lists first ---------------------------------------------------------------------------------------- */
 
 .sv-inflight { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }

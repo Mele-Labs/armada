@@ -58,9 +58,10 @@ export function LanesBody({ sessionId }: { sessionId: string }) {
   const pull = session.attachments.find((one) => one.kind === "pull_request");
   const pick = (next: LanePick | undefined) => {
     setPicked(next);
-    // A rule waiting on the person opens what it needs.
+    // A rule waiting on the person opens what it needs; one with acts Fleet kept opens what each is.
     const needs = next?.kind === "rule" ? drawn.rules.find((one) => one.rule === next.id && one.needs !== undefined)?.needs : undefined;
     if (next !== undefined && needs !== undefined) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id, row: needs });
+    else if (next?.kind === "rule" && lanes.job.fired.some((one) => one.rule === next.id && (one.acts?.length ?? 0) > 0)) openInPanel({ kind: "rule", sessionId: session.id, rule: next.id });
   };
   return (
     <div className="sv-lanes__body">
