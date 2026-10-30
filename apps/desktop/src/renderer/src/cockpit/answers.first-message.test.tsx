@@ -65,3 +65,12 @@ test("a plain line from the agent, with no act, still takes a reply", () => {
   const card = answering(cardOf(plain), { onOpenSession: vi.fn(), onOpenLink: vi.fn() }).current!;
   expect(card.reply).toBeDefined();
 });
+
+test("a sketch waiting on him offers one tap, Open the Job, which opens that Session", () => {
+  const sketch: WaitingItem = { id: "sketch:Store clock", text: "Store clock", since: FIRST.since, source: "sketch", act: { kind: "message", target: "new1" } };
+  const hosts = { onOpenSession: vi.fn(), onOpenLink: vi.fn() };
+  const card = answering(cardOf(sketch), hosts).current!;
+  expect(card.answers.map((one) => one.label)).toEqual(["Open the Job"]);
+  card.answers[0]!.run();
+  expect(hosts.onOpenSession).toHaveBeenCalledExactlyOnceWith("new1");
+});
