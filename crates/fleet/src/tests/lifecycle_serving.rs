@@ -9,7 +9,7 @@ use std::time::Duration;
 use adapter_traits::PullRequestStanding;
 use api::{Lifecycles, Next};
 use ipc::{Event, InstanceStanding, JobLifecycles, ManifestId, RuleAct, RuleAmong, RuleWhen, SessionId, StateReadFrom};
-use store::{AttachmentState, Holder, KeptAttachment};
+use store::{rule_act_standing, AttachmentState, Holder, KeptAttachment, NewRuleAct};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::pull_requesting::{facts, forge_ran, passed};
@@ -275,6 +275,48 @@ async fn a_job_names_what_it_holds_with_what_a_person_reads_for_each_and_what_it
     sent.sort_unstable();
     assert_eq!(sent, ["pr", "ticket"], "the definitions its instances are of, and no others");
     assert!(held.moves.is_empty(), "taken on is not a move");
+}
+
+#[tokio::test]
+async fn the_acts_a_jobs_rules_planned_are_read_oldest_first_with_where_each_stands_and_what_is_empty_is_left_out() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    holds(&rig, &id, "issue", "ARM-41", AttachmentState::Standing, &[]).await;
+    rig.fleet.lifecycles_moved(record(&rig, &id).await).await;
+    assert!(held_by(&rig, &id).await.acts.is_empty(), "no rule planned anything");
+
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let act = |position, course, state, text| NewRuleAct {
+            rule_id: "plan_moves_tickets",
+            position,
+            on: Some(("ticket", "ARM-41")),
+            entered: Some(("pr", "812")),
+            course,
+            state,
+            text,
+            said: "",
+        };
+        let kept = store
+            .keep_rule_plan(
+                id.as_str(),
+                "occurrence-1",
+                &["plan_moves_tickets"],
+                &[act(0, "acts", rule_act_standing::PLANNED, "Move ARM-41 to In review"), act(1, "asks", rule_act_standing::ASKED, "Ask Maya for review")],
+                "2026-10-30T09:00:00.000Z",
+            )
+            .expect("kept");
+        store.move_rule_act(kept[0], &[rule_act_standing::PLANNED], rule_act_standing::DONE, "", "2026-10-30T09:00:05.000Z").expect("settled");
+    }
+
+    let acts = held_by(&rig, &id).await.acts;
+    let [done, asked] = acts.as_slice() else { panic!("two acts: {acts:?}") };
+    assert_eq!((done.rule.as_str(), done.text.as_str(), done.course.as_str(), done.standing.as_str()), ("plan_moves_tickets", "Move ARM-41 to In review", "acts", "done"));
+    assert_eq!((done.at.as_str(), done.settled_at.as_ref().map(|at| at.as_str())), ("2026-10-30T09:00:00.000Z", Some("2026-10-30T09:00:05.000Z")));
+    assert_eq!(done.on.as_ref().map(|one| (one.lifecycle.as_str(), one.key.as_str())), Some(("ticket", "ARM-41")));
+    assert_eq!(done.entered.as_ref().map(|one| (one.lifecycle.as_str(), one.key.as_str())), Some(("pr", "812")));
+    assert_eq!((asked.standing.as_str(), asked.course.as_str()), ("asked", "asks"));
+    assert!(asked.settled_at.is_none() && asked.said.is_none(), "nothing settled it and nothing was said: {asked:?}");
 }
 
 #[tokio::test]

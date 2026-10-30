@@ -10,7 +10,7 @@ use crate::{
     decode, encode, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
     InstanceStanding, Instant, JobLifecycles, LifecycleDefinition, LifecycleRule, LifecycleStateDefinition,
     LifecycleTransition, ManifestId, PieceKept, PieceLeftOut, PieceRank, PieceScope, RepositoryLifecycleRules,
-    RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
+    RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleActReading, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
     RuleTarget, RuleWhen, SessionId, StateReadFrom, StreamMessage, WorkspaceOfRepositories,
 };
 
@@ -133,6 +133,7 @@ fn a_job() -> JobLifecycles {
                 label: "PR #812".to_string(),
                 standing: in_review.clone(),
                 links: vec![InstanceLink { lifecycle: "ticket".to_string(), key: "ARM-41".to_string() }],
+                ended_at: None,
             },
             HeldInstance {
                 lifecycle: "ticket".to_string(),
@@ -140,6 +141,7 @@ fn a_job() -> JobLifecycles {
                 label: "ARM-41".to_string(),
                 standing: InstanceStanding::Unmapped { said: "Code Review".to_string() },
                 links: Vec::new(),
+                ended_at: None,
             },
             HeldInstance {
                 lifecycle: "deploy".to_string(),
@@ -147,6 +149,7 @@ fn a_job() -> JobLifecycles {
                 label: "web".to_string(),
                 standing: InstanceStanding::Unread,
                 links: Vec::new(),
+                ended_at: Some(Instant::carried("2026-10-30T09:30:00.000Z")),
             },
         ],
         moves: vec![InstanceMove {
@@ -157,6 +160,30 @@ fn a_job() -> JobLifecycles {
             source: "forge".to_string(),
             at: Instant::carried("2026-10-30T09:00:00.000Z"),
         }],
+        acts: vec![
+            RuleActReading {
+                rule: "move-ticket".to_string(),
+                text: "Move ARM-41 to In review".to_string(),
+                course: "acts".to_string(),
+                standing: "done".to_string(),
+                said: None,
+                at: Instant::carried("2026-10-30T09:00:01.000Z"),
+                settled_at: Some(Instant::carried("2026-10-30T09:00:02.000Z")),
+                on: Some(InstanceLink { lifecycle: "ticket".to_string(), key: "ARM-41".to_string() }),
+                entered: Some(InstanceLink { lifecycle: "pr".to_string(), key: "812".to_string() }),
+            },
+            RuleActReading {
+                rule: "ask-review".to_string(),
+                text: "Ask Maya for review".to_string(),
+                course: "asks".to_string(),
+                standing: "stuck".to_string(),
+                said: Some("The forge refused".to_string()),
+                at: Instant::carried("2026-10-30T09:00:03.000Z"),
+                settled_at: None,
+                on: None,
+                entered: None,
+            },
+        ],
     }
 }
 
@@ -218,8 +245,40 @@ fn what_is_absent_leaves_no_key() {
 
     let bare = RuleTarget { among: RuleAmong::Entered, in_state: None };
     assert_eq!(encode(&bare).expect("plain data"), r#"{"among":{"kind":"entered"}}"#);
-    let job = JobLifecycles { session_id: SessionId::carried("job-1"), lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new() };
+    let job = JobLifecycles { session_id: SessionId::carried("job-1"), lifecycles: Vec::new(), instances: Vec::new(), moves: Vec::new(), acts: Vec::new() };
     assert_eq!(encode(&job).expect("plain data"), r#"{"session_id":"job-1","lifecycles":[],"instances":[],"moves":[]}"#);
+
+    let planned = RuleActReading {
+        rule: "r".to_string(),
+        text: "t".to_string(),
+        course: "acts".to_string(),
+        standing: "planned".to_string(),
+        said: None,
+        at: Instant::carried("2026-10-30T09:00:00.000Z"),
+        settled_at: None,
+        on: None,
+        entered: None,
+    };
+    assert_eq!(encode(&planned).expect("plain data"), r#"{"rule":"r","text":"t","course":"acts","standing":"planned","at":"2026-10-30T09:00:00.000Z"}"#);
+}
+
+/// An instance the Job's end did not end leaves no `ended_at`, and one read from a Fleet older than the field has none.
+#[test]
+fn an_instance_the_job_did_not_end_has_no_ended_at() {
+    let live = a_job().instances.remove(0);
+    assert!(!encode(&live).expect("plain data").contains("ended_at"));
+    let back: HeldInstance = decode("an instance", br#"{"lifecycle":"pr","key":"812","label":"PR #812","standing":{"kind":"unread"},"links":[]}"#).expect("reads");
+    assert_eq!(back.ended_at, None);
+    let ended = a_job().instances.remove(2);
+    assert!(encode(&ended).expect("plain data").contains(r#""ended_at":"2026-10-30T09:30:00.000Z""#));
+}
+
+/// A Fleet older than `acts` answers without it, and a Bridge reads that as none.
+#[test]
+fn a_job_read_without_acts_has_none() {
+    let spelled = r#"{"session_id":"job-1","lifecycles":[],"instances":[],"moves":[]}"#;
+    let back: JobLifecycles = decode("a Job's lifecycles", spelled.as_bytes()).expect("reads");
+    assert!(back.acts.is_empty());
 }
 
 #[test]

@@ -15,6 +15,7 @@
 
 pub(crate) mod acting;
 pub mod copying;
+pub mod ending;
 mod following;
 pub mod ends;
 pub mod holding;

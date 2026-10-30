@@ -3,7 +3,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import "../../styles/index.css";
 import { SessionsFrom } from "../../sessions-draft";
@@ -83,4 +83,40 @@ test("Close sits with the Job's own acts, before the View group's first entry", 
   // The View group opens on its first field (`VIEW_FIELDS`).
   expect(shown.indexOf("Close")).toBeLessThan(shown.indexOf("Active PRs"));
   expect(shown.indexOf("Close")).toBeGreaterThanOrEqual(0);
+});
+
+/** A Job holding a deploy that is rolling out, as the lanes carry it. */
+const ROLLING = [
+  {
+    id: "s-1",
+    lanes: {
+      job: {
+        copy: { lifecycles: [{ id: "deploy", states: [{ id: "rolling_out", label: "Rolling out" }] }] },
+        instances: [{ id: "deploy:Deploy", lifecycle: "deploy", label: "Deploy", state: "rolling_out" }],
+      },
+    },
+  },
+];
+
+test("Close on a Job that holds something in flight lists it first, and ends the Job only on End job", async () => {
+  const close = vi.fn();
+  openOn(serving({ close, get: () => ROLLING as unknown as readonly Session[] }));
+
+  await page.getByRole("menuitem", { name: "Close" }).click();
+  await expect.element(page.getByText("Deploy: Rolling out")).toBeVisible();
+  expect(close).not.toHaveBeenCalled();
+
+  await page.getByRole("button", { name: "End job" }).click();
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledWith("s-1");
+});
+
+test("Close on a Job that holds nothing in flight ends it at once", async () => {
+  const close = vi.fn();
+  openOn(serving({ close }));
+
+  await page.getByRole("menuitem", { name: "Close" }).click();
+
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledWith("s-1");
 });

@@ -38,6 +38,7 @@ where
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
         }
+        self.lifecycles_hold(&mut *self.store().lock().await, &id, "finish_up")?;
         let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id)))?;
         let pool = pool_of(&served);
         let held: Vec<(u32, Option<String>)> = {

@@ -6,6 +6,7 @@
 //! definitions sent with them are the same ones; when a Job's copy is frozen that function changes
 //! and this follows.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -13,7 +14,7 @@ use api::{Lifecycles, Refusal};
 use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
 use ipc::{
     AppliedLifecycle, AppliedRule, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
-    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SessionId, WireError,
+    RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
     WorkspaceOfRepositories,
 };
 use store::Store;
@@ -29,7 +30,7 @@ const UNPLACED: &str = "fleet.job_lifecycles_unplaced";
 
 /// What a person reads for an instance: the ticket's key, `PR #812`, the Job's title. **A Job with
 /// no title, or none Fleet holds, is its id**, and nothing is made up in its place.
-fn label_of(store: &Store, subject: &InstanceRef) -> String {
+pub(super) fn label_of(store: &Store, subject: &InstanceRef) -> String {
     match subject.lifecycle().as_str() {
         PULL_REQUEST => format!("PR #{}", subject.key()),
         JOB => store
@@ -52,12 +53,15 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
         lifecycles: Vec::new(),
         instances: Vec::new(),
         moves: Vec::new(),
+        acts: Vec::new(),
     };
     let Some(manifest) = store.session(session).ok().flatten().and_then(|kept| kept.manifest_id) else {
         return held;
     };
     let lifecycles = applying(&manifest);
     let kept = store.lifecycle_instances_of(session).unwrap_or_default();
+    let ended: HashMap<(&str, &str), &str> =
+        kept.iter().filter(|one| !one.ended_at.is_empty()).map(|one| ((one.lifecycle.as_str(), one.key.as_str()), one.ended_at.as_str())).collect();
     let instances = rebuilt(&lifecycles, &kept);
     held.instances = instances
         .all()
@@ -66,6 +70,7 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
             lifecycle: one.subject().lifecycle().as_str().to_string(),
             key: one.subject().key().to_string(),
             label: label_of(store, one.subject()),
+            ended_at: ended.get(&(one.subject().lifecycle().as_str(), one.subject().key())).map(|at| ipc::Instant::carried(*at)),
             standing: wire::standing(one.standing()),
             links: one
                 .links()
@@ -93,6 +98,22 @@ pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(
                 source: one.seen_source,
                 at: ipc::Instant::carried(one.at),
             })
+        })
+        .collect();
+    held.acts = store
+        .rule_acts_of(session)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|one| RuleActReading {
+            rule: one.rule_id,
+            text: one.text,
+            course: one.course,
+            standing: one.state,
+            said: Some(one.said).filter(|said| !said.is_empty()),
+            at: ipc::Instant::carried(one.raised_at),
+            settled_at: Some(one.settled_at).filter(|at| !at.is_empty()).map(ipc::Instant::carried),
+            on: one.on.map(|(lifecycle, key)| InstanceLink { lifecycle, key }),
+            entered: one.entered.map(|(lifecycle, key)| InstanceLink { lifecycle, key }),
         })
         .collect();
     held

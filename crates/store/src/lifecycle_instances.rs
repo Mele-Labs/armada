@@ -28,6 +28,9 @@ pub struct KeptInstance {
     /// The watch that follows it. Empty for one no watch follows.
     pub watch_id: String,
     pub taken_on_at: String,
+    /// When ending the Job ended it, standing where it was. Empty for one that is live, and for one
+    /// that reached an end state of its own.
+    pub ended_at: String,
 }
 
 /// One change of standing, as it was recorded.
@@ -68,6 +71,32 @@ impl Store {
             .execute("INSERT OR IGNORE INTO lifecycle_jobs (session_id, since) VALUES (?1, ?2)", params![session_id, since])
             .map(|changed| changed > 0)
             .map_err(failing("marking a job as holding lifecycle instances"))
+    }
+
+    /// The agent was refused for what the Job holds, at `at`. **The first refusal stays**, so the
+    /// instant is when it was first told to wait.
+    pub fn hold_lifecycle_job(&mut self, session_id: &str, at: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE lifecycle_jobs SET held_at = ?2 WHERE session_id = ?1 AND held_at = ''", params![session_id, at])
+            .map(|_| ())
+            .map_err(failing("keeping that a job's agent was told to wait on its lifecycle instances"))
+    }
+
+    /// Whether the Job's agent was told to wait on its instances and has not yet been told they are over.
+    pub fn lifecycle_job_held(&self, session_id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT 1 FROM lifecycle_jobs WHERE session_id = ?1 AND held_at <> ''", params![session_id], |_| Ok(()))
+            .optional()
+            .map(|found| found.is_some())
+            .map_err(failing("asking whether a job's agent was told to wait on its lifecycle instances"))
+    }
+
+    /// The agent was told they are over. **True where it had been told to wait**, and only once.
+    pub fn release_lifecycle_job(&mut self, session_id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE lifecycle_jobs SET held_at = '' WHERE session_id = ?1 AND held_at <> ''", params![session_id])
+            .map(|changed| changed > 0)
+            .map_err(failing("clearing that a job's agent was told to wait on its lifecycle instances"))
     }
 
     pub fn is_lifecycle_job(&self, session_id: &str) -> Result<bool, WriteError> {
@@ -126,6 +155,26 @@ impl Store {
             .map_err(failing("following a lifecycle instance with a watch"))
     }
 
+    /// Ending the Job ends `held`, each a `(lifecycle, key)` of its instances, at `at`. **One that
+    /// was ended already keeps its first instant**, and a standing is left as it was. The number
+    /// ended now.
+    pub fn end_lifecycle_instances(&mut self, session_id: &str, held: &[(&str, &str)], at: &str) -> Result<usize, WriteError> {
+        let doing = "ending the lifecycle instances a job holds";
+        let tx = self.conn.transaction().map_err(failing(doing))?;
+        let mut ended = 0;
+        for (lifecycle, key) in held {
+            ended += tx
+                .execute(
+                    "UPDATE lifecycle_instances SET ended_at = ?4
+                     WHERE session_id = ?1 AND lifecycle = ?2 AND key = ?3 AND ended_at = ''",
+                    params![session_id, lifecycle, key, at],
+                )
+                .map_err(failing(doing))?;
+        }
+        tx.commit().map_err(failing(doing))?;
+        Ok(ended)
+    }
+
     /// Keep what a read saw, and with it the move it made. **One write**, so the instance never
     /// reads as one thing while the log says another. The id of the move, where it made one.
     pub fn keep_lifecycle_read(&mut self, read: &KeptRead<'_>) -> Result<Option<i64>, WriteError> {
@@ -157,7 +206,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT lifecycle, key, seen_source, seen, watch_id, taken_on_at FROM lifecycle_instances
+                "SELECT lifecycle, key, seen_source, seen, watch_id, taken_on_at, ended_at FROM lifecycle_instances
                  WHERE session_id = ?1 ORDER BY rowid",
             )
             .map_err(failing(doing))?;
@@ -172,6 +221,7 @@ impl Store {
                     seen: row.get(3)?,
                     watch_id: row.get(4)?,
                     taken_on_at: row.get(5)?,
+                    ended_at: row.get(6)?,
                 })
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())

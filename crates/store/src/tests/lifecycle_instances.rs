@@ -102,3 +102,32 @@ fn a_reader_asks_after_the_live_jobs_that_hold_a_lifecycle_and_after_what_a_watc
     assert_eq!(followed.iter().map(|one| one.key.as_str()).collect::<Vec<_>>(), ["web"]);
     assert!(store.lifecycle_instances_followed_by("w2").expect("reads").is_empty());
 }
+
+#[test]
+fn ending_a_job_ends_what_it_names_once_and_leaves_the_rest_and_the_standing_alone() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.take_on_lifecycle_instance("s1", "deploy", "web", &[], "t0").expect("taken on");
+    store.take_on_lifecycle_instance("s1", "pr", "7", &[], "t0").expect("taken on");
+    store.keep_lifecycle_read(&KeptRead { session_id: "s1", lifecycle: "deploy", key: "web", seen_source: "watch", seen: "running", moved: None, at: "t1" }).expect("kept");
+
+    assert_eq!(store.end_lifecycle_instances("s1", &[("deploy", "web")], "t2").expect("ends"), 1);
+    assert_eq!(store.end_lifecycle_instances("s1", &[("deploy", "web")], "t3").expect("again"), 0, "ended once, at the first instant");
+
+    let held = store.lifecycle_instances_of("s1").expect("reads");
+    assert_eq!((held[0].key.as_str(), held[0].ended_at.as_str()), ("web", "t2"));
+    assert_eq!((held[0].seen_source.as_str(), held[0].seen.as_str()), ("watch", "running"), "it stands where it was");
+    assert_eq!((held[1].key.as_str(), held[1].ended_at.as_str()), ("7", ""), "an instance not named is live");
+}
+
+#[test]
+fn a_job_told_to_wait_is_released_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.mark_lifecycle_job("s1", "t0").expect("marks");
+    assert!(!store.release_lifecycle_job("s1").expect("releases"), "never told to wait");
+    store.hold_lifecycle_job("s1", "t1").expect("holds");
+    store.hold_lifecycle_job("s1", "t2").expect("holds again");
+    assert!(store.release_lifecycle_job("s1").expect("releases"));
+    assert!(!store.release_lifecycle_job("s1").expect("again"), "told once");
+}
