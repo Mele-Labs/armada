@@ -74,7 +74,7 @@ const finished: Session = {
       auto: false,
     },
   ],
-  done: { since: minutesAgo(2) },
+  done: { since: minutesAgo(2), summary: "Tests that read the clock now read one pinned clock, so they stop failing on slow machines" },
 };
 
 export const s207SessionAllDone: Scenario = {

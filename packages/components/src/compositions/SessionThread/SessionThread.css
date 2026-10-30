@@ -235,6 +235,7 @@
 /* The Job's own words on what it delivered, above what it made. */
 .armada-session-done__summary {
   margin: 0;
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }
