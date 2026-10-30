@@ -1,4 +1,4 @@
-// The video script Job after he approved revision 1 and the Job wrote revision 2: the first card reads Approved, and the newest
+// The video script Job after he approved revision 1 and the Job wrote revision 2: the new revision drops the answer, so its card
 // asks again, back in Needs you and in the spine's Now.
 
 import type { Scenario } from "../moment";

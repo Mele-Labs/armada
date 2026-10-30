@@ -2,8 +2,8 @@
 
 import { seedDraft } from "@armada/components";
 import type { ForkPick, SessionThreadRow, SketchAnswer } from "@armada/components";
-import type { AnswerSketch } from "@armada/protocol";
-import type { AnswerDocument, Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { AnswerDocument, AnswerSketch } from "@armada/protocol";
+import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { fileCallOf, sketchCallOf } from "@armada/screens/src/sessions-wire";
 import { sceneOfSketch } from "./session-sketch";
 
@@ -28,11 +28,14 @@ export function sketchAnswerOf(session: Pick<Session, "id" | "attachments">, ske
   return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
 }
 
-/** What a press on a document's Approve or Send back sends: the answer names the newest revision, the one put to him. */
+/**
+ * What a press on a document's Approve or Send back sends. **`revision` is the one the ledger holds now**, which Fleet checks against
+ * the page as it stands; one the ledger never gave is sent empty, which Fleet refuses.
+ */
 export function documentAnswerOf(session: Pick<Session, "id" | "attachments">, page: string, answer: SketchAnswer): AnswerDocument {
-  const held = session.attachments.find((one) => one.kind === "artifact" && one.id === page);
-  const revision = held?.kind === "artifact" ? (held.revisions?.length ?? 0) : 0;
-  const base = { session_id: session.id, page, revision };
+  const held = session.attachments.find((one) => one.kind === "artifact" && one.form === "document" && one.id === page);
+  const revision = held?.kind === "artifact" ? (held.revision ?? "") : "";
+  const base = { session_id: session.id, document: `document:${page}`, revision };
   return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
 }
 
@@ -69,42 +72,40 @@ function fileRowOf(row: { id: string; at: string; text: string }, ledger: readon
   return held?.kind === "artifact" ? { id: row.id, at: row.at, kind: "file", path: held.id, name: held.title } : undefined;
 }
 
-/** A write the agent made, as its tool row carries it: the tool's name, then the path. */
-const WRITE_CALL = /^(?:Write|Edit|MultiEdit)\s+(\S+)\s*$/;
-
 /**
- * The card a write of a page is, where the ledger holds the page as a document. Its revision is numbered after, by
- * `withDocumentState`. **A write of any other file stays the plain tool row it was.**
+ * The card a Job's document is: its newest revision, read off the artifact and never off a write's tool row, so a page a script
+ * changed has one too. It waits while that revision is asked and not settled. A page whose time the record does not carry has none.
  */
-function documentCardOf(row: { id: string; at: string; text: string }, ledger: readonly SessionAttachment[]): DocumentCard | undefined {
-  const found = WRITE_CALL.exec(row.text);
-  if (found === null) return undefined;
-  const given = found[1]!.replace(/^\.\//, "");
-  const held = ledger.find((one) => one.kind === "artifact" && one.form === "document" && (one.id === given || one.id.endsWith(`/${given}`)));
-  return held?.kind === "artifact" ? { id: row.id, at: row.at, kind: "document", page: held.id, title: held.title, revision: 0 } : undefined;
+function documentCardOf(page: Extract<SessionAttachment, { kind: "artifact" }>): DocumentCard | undefined {
+  if (page.form !== "document" || page.kept === undefined) return undefined;
+  const revision = page.revision === undefined ? (page.revisions?.length ?? 0) : Number(page.revision);
+  if (!Number.isInteger(revision) || revision < 1) return undefined;
+  return {
+    id: `document:${page.id}:r${String(revision)}`,
+    at: page.kept,
+    kind: "document",
+    page: page.id,
+    title: page.title,
+    revision,
+    ...(page.asked === true ? { asked: true as const } : {}),
+    ...(page.settled === undefined ? {} : { settled: page.settled }),
+  };
 }
 
 /**
- * Each write of a page is its next revision. **The newest is the one put to him**: it asks until he answers it, and an
- * earlier one he answered keeps how it ended. An earlier one he never answered was replaced before he did.
+ * Each document's card, where its revision was kept: before the first row later than that. **A row whose time does not read as one
+ * is never later**, so the card follows it.
  */
-function withDocumentState(rows: SessionThreadRow[], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
-  const counted = new Map<string, number>();
-  const numbered = rows.map((row): SessionThreadRow => {
-    if (row.kind !== "document") return row;
-    const revision = (counted.get(row.page) ?? 0) + 1;
-    counted.set(row.page, revision);
-    return { ...row, revision };
-  });
-  return numbered.map((row): SessionThreadRow => {
-    if (row.kind !== "document") return row;
-    const held = ledger.find((one) => one.kind === "artifact" && one.id === row.page);
-    const answered = held?.kind === "artifact" ? held.answers?.find((one) => one.revision === row.revision) : undefined;
-    const settled = answered === undefined ? undefined : { how: answered.how, at: answered.at, ...(answered.words === undefined ? {} : { words: answered.words }) };
-    if (settled !== undefined) return { ...row, settled };
-    if (counted.get(row.page) !== row.revision) return { ...row, replaced: true as const };
-    return held?.kind === "artifact" && held.asked === true ? { ...row, asked: true as const } : row;
-  });
+function withDocuments(rows: SessionThreadRow[], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
+  const cards = ledger.flatMap((one) => (one.kind === "artifact" ? (documentCardOf(one) ?? []) : []));
+  if (cards.length === 0) return rows;
+  const out = [...rows];
+  for (const card of [...cards].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+    const kept = Date.parse(card.at);
+    const later = out.findIndex((row) => Date.parse(row.at) > kept);
+    out.splice(later < 0 ? out.length : later, 0, card);
+  }
+  return out;
 }
 
 /**
@@ -132,13 +133,13 @@ function withSketchState(rows: SessionThreadRow[], ledger: readonly SessionAttac
 }
 
 export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAttachment[] = []): SessionThreadRow[] {
-  return withDocumentState(withSketchState(rowsDrawn(rows, ledger), ledger), ledger);
+  return withDocuments(withSketchState(rowsDrawn(rows, ledger), ledger), ledger);
 }
 
 function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
   // A browser reminder is the Job browser's own card in the thread (`job-browser/JobBrowserPane.tsx`), not a row.
   return rows.flatMap((row) => (row.kind === "browser_reminder" ? [] : [row])).map((row): SessionThreadRow => {
-    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? documentCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
+    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
     if (row.kind === "requested" || row.kind === "saved") return row;
     if (row.kind === "lease" || row.kind === "release" || row.kind === "change" || row.kind === "suggest" || row.kind === "concern" || row.kind === "command" || row.kind === "compaction" || row.kind === "disputed" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro" || row.kind === "draft") return row;
     if (row.kind === "sent") {

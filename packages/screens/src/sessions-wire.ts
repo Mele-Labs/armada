@@ -145,13 +145,28 @@ function sketchOf(one: Attachment): SessionAttachment {
   };
 }
 
-/** How he answered a sketch put to him, from `detail.settled` and `detail.settled_at`. A how Fleet does not write reads as open. */
+/** How he answered a sketch or a document put to him, from `detail.settled` and `detail.settled_at`. A how Fleet does not write reads as open. */
 function settledOf(detail: Record<string, string | undefined>): Pick<Extract<SessionAttachment, { kind: "sketch" }>, "settled"> {
   const how = detail["settled"];
   const at = detail["settled_at"];
   if ((how !== "approved" && how !== "sent_back") || at === undefined) return {};
   const words = detail["words"];
   return { settled: { how, at, ...(words === undefined || words === "" ? {} : { words }) } };
+}
+
+/**
+ * A document's newest revision as it was put to him: asked, its number, how he answered it, and when it was kept. **The record names no
+ * time a revision was kept**, so it is read off the row: `changed_at` until he answers, since nothing else moves the detail, then `since`
+ * for revision 1, kept once and never moved, else the answer's own time, the nearest the record holds. A page kept before Fleet asked
+ * carries no `revision` and asks nothing.
+ */
+function documentAskOf(one: Attachment, detail: Record<string, string | undefined>): Pick<Extract<SessionAttachment, { kind: "artifact" }>, "asked" | "revision" | "settled" | "kept"> {
+  const given = detail["revision"];
+  const revision = given === undefined || given === "" ? undefined : given;
+  const settled = revision === undefined ? undefined : settledOf(detail).settled;
+  const kept = settled === undefined ? one.changed_at : revision === "1" ? one.since : settled.at;
+  if (revision === undefined) return { kept };
+  return { ...(detail["asked"] === "true" ? { asked: true as const } : {}), revision, ...(settled === undefined ? {} : { settled }), kept };
 }
 
 /** The name `show_sketch` is called by, however the harness prefixes a tool of a server. */
@@ -344,6 +359,7 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1),
           ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
           ...(revisions.length === 0 ? {} : { revisions }),
+          ...(form === "document" ? documentAskOf(one, detail) : {}),
         });
         break;
       }

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
-import { threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
+import { documentAnswerOf, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
 
 const rows = ["a", "b", "c", "d"].map((id) => ({ id }));
 
@@ -146,5 +146,86 @@ describe("a subagent and a queued message in a Session's thread", () => {
     const said = (queued: boolean): Session["rows"][number] => ({ id: "m1", at: "14:00:00", kind: "message", from: { kind: "you" }, text: "and the tests", ...(queued ? { queued: true as const } : {}) });
     expect(threadRowsFrom([said(true)])).toMatchObject([{ kind: "message", from: "you", queued: true }]);
     expect(threadRowsFrom([said(false)])[0]).not.toHaveProperty("queued");
+  });
+});
+
+describe("a Job's document in its thread", () => {
+  const PAGE = "/work/.armada/documents/script.html";
+  const page = (change: Partial<Extract<SessionAttachment, { kind: "artifact" }>> = {}): SessionAttachment => ({
+    kind: "artifact",
+    form: "document",
+    id: PAGE,
+    title: "Video script",
+    revisions: ["/s/r1.html", "/s/r2.html"],
+    asked: true,
+    revision: "2",
+    kept: "2026-10-30T10:03:30.000Z",
+    ...change,
+  });
+  const said = (id: string, at: string): Session["rows"][number] => ({ id, at, kind: "message", from: { kind: "agent" }, text: id });
+  const tool = (id: string, at: string, text: string): Session["rows"][number] => ({ id, at, kind: "tool", text });
+  type Card = Extract<ReturnType<typeof threadRowsFrom>[number], { kind: "document" }>;
+  const card = (rows: ReturnType<typeof threadRowsFrom>) => rows.find((one): one is Card => one.kind === "document");
+
+  it("is a card read off the artifact, naming its newest revision and asking while it is not settled", () => {
+    expect(card(threadRowsFrom([], [page()]))).toEqual({ id: `document:${PAGE}:r2`, at: "2026-10-30T10:03:30.000Z", kind: "document", page: PAGE, title: "Video script", revision: 2, asked: true });
+  });
+
+  it("carries how he answered it once it is settled", () => {
+    const settled = { how: "sent_back" as const, at: "2026-10-30T10:05:00.000Z", words: "Shorter close." };
+    expect(card(threadRowsFrom([], [page({ settled })]))).toMatchObject({ revision: 2, asked: true, settled });
+  });
+
+  it("asks again on a new revision, which carries no answer", () => {
+    const answered = page({ revision: "1", revisions: ["/s/r1.html"], settled: { how: "approved", at: "2026-10-30T10:04:00.000Z" } });
+    const revised = page();
+    expect(card(threadRowsFrom([], [answered]))).toMatchObject({ revision: 1, settled: { how: "approved" } });
+    expect(card(threadRowsFrom([], [revised]))).toMatchObject({ revision: 2, asked: true });
+    expect(card(threadRowsFrom([], [revised]))).not.toHaveProperty("settled");
+  });
+
+  it("asks nothing for a page Fleet kept without asking, and numbers it by its revisions", () => {
+    const { asked: _asked, revision: _revision, ...unasked } = page() as Extract<SessionAttachment, { kind: "artifact" }>;
+    const drawn = card(threadRowsFrom([], [unasked]));
+    expect(drawn).toMatchObject({ revision: 2 });
+    expect(drawn).not.toHaveProperty("asked");
+  });
+
+  it("stands where its revision was kept, before the first row after that", () => {
+    const rows = [said("a", "2026-10-30T10:02:00.000Z"), tool("w", "2026-10-30T10:03:10.000Z", "Write .armada/documents/script.html"), said("b", "2026-10-30T10:04:00.000Z")];
+    expect(threadRowsFrom(rows, [page()]).map((one) => one.id)).toEqual(["a", "w", `document:${PAGE}:r2`, "b"]);
+  });
+
+  it("is drawn for a page a script changed, with no write in the thread", () => {
+    const rows = [said("a", "2026-10-30T10:02:00.000Z"), tool("sh", "2026-10-30T10:03:00.000Z", "Bash node scripts/render.js")];
+    expect(threadRowsFrom(rows, [page()]).map((one) => one.kind)).toEqual(["message", "tool", "document"]);
+  });
+
+  it("leaves a write of the page the plain tool row it was", () => {
+    const rows = [tool("w", "2026-10-30T10:03:10.000Z", "Write .armada/documents/script.html")];
+    expect(threadRowsFrom(rows, [page()]).map((one) => one.kind)).toEqual(["tool", "document"]);
+  });
+
+  it("follows every row whose time does not read as one", () => {
+    const rows = [said("a", "10:02:00"), said("b", "10:09:00")];
+    expect(threadRowsFrom(rows, [page()]).at(-1)).toMatchObject({ kind: "document" });
+  });
+});
+
+describe("an answer to a Job's document", () => {
+  const PAGE = "/work/.armada/documents/script.html";
+  const session = (revision?: string): Pick<Session, "id" | "attachments"> => ({
+    id: "s",
+    attachments: [{ kind: "artifact", form: "document", id: PAGE, title: "Script", revisions: ["/s/r1.html"], ...(revision === undefined ? {} : { asked: true as const, revision }) }],
+  });
+
+  it("names the page's item and the revision the ledger holds now", () => {
+    expect(documentAnswerOf(session("3"), PAGE, { choice: 0 })).toEqual({ session_id: "s", document: `document:${PAGE}`, revision: "3", how: "approved" });
+    expect(documentAnswerOf(session("3"), PAGE, { text: "Shorter close." })).toEqual({ session_id: "s", document: `document:${PAGE}`, revision: "3", how: "sent_back", words: "Shorter close." });
+  });
+
+  it("sends an empty revision where the ledger holds none, which Fleet refuses", () => {
+    expect(documentAnswerOf(session(), PAGE, { choice: 0 })).toMatchObject({ revision: "" });
+    expect(documentAnswerOf(session("1"), "/work/other.html", { choice: 0 })).toMatchObject({ revision: "" });
   });
 });

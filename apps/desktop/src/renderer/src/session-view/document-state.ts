@@ -38,7 +38,7 @@ export function useDocumentVisit(session: string): DocumentVisit | undefined {
 }
 
 /** A page put to him whose newest revision he has not approved or sent back yet. */
-export const waitsOnHim = (page: Extract<SessionAttachment, { kind: "artifact" }>): boolean => page.asked === true && !(page.answers ?? []).some((one) => one.revision === (page.revisions?.length ?? 0));
+export const waitsOnHim = (page: Extract<SessionAttachment, { kind: "artifact" }>): boolean => page.asked === true && page.settled === undefined;
 
 /**
  * A page a Job wrote as its document: the artifact that names its revisions. Where it holds more than one, `page` is the `id` of the one asked for; absent, the first.

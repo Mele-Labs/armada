@@ -233,11 +233,11 @@ type SessionThreadKinds =
    */
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true; asked?: true; settled?: SketchSettled }
   /**
-   * **Proposed, not on the wire**: the agent wrote a revision of a page under `.armada/documents/`. `page` is the ledger's id for
-   * the page and `revision` this write's number, counted from 1. `asked` is the newest revision while it waits on him,
-   * `settled` how he answered this revision, and `replaced` an earlier one he never answered.
+   * A page the Job wrote under `.armada/documents/`, as its newest revision, at the time Fleet kept it. `page` is the ledger's id
+   * for the page and `revision` the newest revision's number, counted from 1. `asked` is that revision put to him, and `settled`
+   * how he answered it; a new revision asks again.
    */
-  | { id: string; at: string; kind: "document"; page: string; title: string; revision: number; replaced?: true; asked?: true; settled?: SketchSettled }
+  | { id: string; at: string; kind: "document"; page: string; title: string; revision: number; asked?: true; settled?: SketchSettled }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**

@@ -14,13 +14,10 @@ import type { SketchSettled } from "@armada/components/src/compositions/SessionT
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
-import type { AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { AnswerDocument, AnswerSketch, CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepChange, StepPhase, ToolSubagent, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 import type { SessionLanes } from "@armada/components/src/compositions/LaneCanvas/build";
-
-/** **A mock's field**: his answer to the newest revision of a document put to him. `page` is the artifact's `id`, `revision` the number it was answered on. */
-export type AnswerDocument = { session_id: string; page: string; revision: number; how: SketchSettled["how"]; words?: string };
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
 export type SessionTrail = {
@@ -111,10 +108,15 @@ export type SessionAttachment =
       written?: true;
       /** An HTML page the Job wrote as its document (form `document`): the path of each revision, oldest first. The newest is the one the Landing reads. `id` is the page's path in the worktree. */
       revisions?: readonly string[];
-      /** **A mock's field**: the page is put to him, so its newest revision waits on his Approve or Send back until `answers` holds one for it. */
+      /**
+       * A document's newest revision put to him, `revision` its number as Fleet wrote it (`"2"`), which `answerDocument` names back, and
+       * `settled` how he answered it: `detail.asked`, `detail.revision` and `detail.settled` on the wire. A new revision drops `settled`.
+       */
       asked?: true;
-      /** **A mock's field**: how he answered each revision he was asked about, by its number counted from 1. */
-      answers?: readonly (SketchSettled & { revision: number })[];
+      revision?: string;
+      settled?: SketchSettled;
+      /** When the newest revision was kept, as near as the record tells: its thread card stands at this time. */
+      kept?: string;
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -1040,7 +1042,7 @@ export type SessionsDraft = {
   reopenWaiting?: (id: string, itemId: string) => void | Promise<unknown>;
   /** Answers a sketch put to him: approved, or sent back with a note (`POST /sessions/sketch/answer`). Absent where nothing serves it. */
   answerSketch?: (answer: AnswerSketch) => void | Promise<unknown>;
-  /** **A mock's field**: answers the newest revision of a document put to him, as `answerSketch` answers a sketch. Absent where nothing serves it. */
+  /** Answers the newest revision of a document put to him: approved, or sent back with a note (`POST /sessions/document/answer`). Absent where nothing serves it. */
   answerDocument?: (answer: AnswerDocument) => void | Promise<unknown>;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its

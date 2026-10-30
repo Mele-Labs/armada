@@ -1,6 +1,7 @@
 // A Job that writes a video script as its document and puts each revision to him, as a sketch is put to him. Two moments of it,
-// each a scenario: `document-waits-in-needs-you` with revision 1 waiting, and `document-asks-again` with revision 1 approved and
-// revision 2 waiting. **Mock only**: Fleet raises no `document` item yet, so the item and the answer are the store's.
+// each a scenario: `document-waits-in-needs-you` with revision 1 waiting, and `document-asks-again` with revision 2 waiting after
+// revision 1 was approved. The page carries what Fleet's artifact does: `asked`, `revision` and, once answered, `settled`, which a
+// new revision drops.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
@@ -36,7 +37,8 @@ function job(stage: 1 | 2): Session {
     title: VIDEO_SCRIPT_TITLE,
     revisions: stage === 1 ? [VIDEO_SCRIPT_R1] : [VIDEO_SCRIPT_R1, VIDEO_SCRIPT_R2],
     asked: true,
-    ...(stage === 1 ? {} : { answers: [{ revision: 1, how: "approved" as const, at: ago(4) }] }),
+    revision: String(stage),
+    kept: ago(1),
   };
   return {
     id: ID,
@@ -66,14 +68,14 @@ export function videoScriptScenario(name: string, says: string, stage: 1 | 2): S
             const html = path === VIDEO_SCRIPT_R1 ? VIDEO_SCRIPT_1 : path === VIDEO_SCRIPT_R2 ? VIDEO_SCRIPT_2 : undefined;
             return html === undefined ? (store.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const }) : { ok: true as const, bytes: new TextEncoder().encode(html), type: "text/html" };
           },
-          // The answer settles the revision he was shown and takes the item off, as `answerSketch` does for a sketch.
-          answerDocument: ({ session_id: id, page, revision, how, words }) => {
+          // Fleet settles the revision he was shown on the page's artifact and takes the item off, as `answerSketch` does for a sketch.
+          answerDocument: ({ session_id: id, document, revision, how, words }) => {
             const at = new Date().toISOString();
-            const answer = how === "sent_back" ? { revision, how, words: words ?? "", at } : { revision, how, at };
+            const settled = how === "sent_back" ? { how, words: words ?? "", at } : { how, at };
             store.edit(id, (one) => ({
               ...one,
-              attachments: one.attachments.map((a) => (a.kind === "artifact" && a.id === page ? { ...a, answers: [...(a.answers ?? []), answer] } : a)),
-              waitingFor: (one.waitingFor ?? []).filter((item) => item.id !== `document:${page}`),
+              attachments: one.attachments.map((a) => (a.kind === "artifact" && `document:${a.id}` === document && a.revision === revision ? { ...a, settled } : a)),
+              waitingFor: (one.waitingFor ?? []).filter((item) => item.id !== document),
             }));
           },
         };
