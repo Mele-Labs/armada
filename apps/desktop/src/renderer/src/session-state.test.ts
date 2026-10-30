@@ -147,6 +147,13 @@ describe("the done ask on his project tasks holds the Session on him", () => {
   });
 });
 
+describe("a sketch put to him holds the Session on him", () => {
+  test("a Session at work with a sketch item on it is waiting on him, whatever its turn says", () => {
+    const sketch = { id: "sketch:Store clock", text: "Store clock", since: TURN_ENDED, source: "sketch", act: { kind: "message", target: "s1" } };
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [sketch] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
+});
+
 describe("a Job he parked", () => {
   const paused = { paused: true, waitingFor: [{ id: "ask:1", text: "Which grid?", since: TURN_ENDED, source: "ask_card" }] };
 

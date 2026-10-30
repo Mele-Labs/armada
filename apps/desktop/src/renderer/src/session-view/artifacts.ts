@@ -82,6 +82,18 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   const open = (entry: LedgerEntry | undefined) => (entry === undefined ? {} : { open: entry.onOpen });
   const newest = <T,>(rows: readonly T[]) => [...rows].reverse();
 
+  // First section: the Jobs this one handed plan groups to.
+  add(
+    "session",
+    "Jobs",
+    beside === undefined
+      ? []
+      : childrenOf(beside.sessions, session).map(({ session: child, title }) => {
+          const props = linkedPropsOf(child, beside.open);
+          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Job", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
+        }),
+  );
+
   add(
     "pull_request",
     "Pull requests",
@@ -174,17 +186,6 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   });
   const ran = newest(session.rows.flatMap((row) => commandOf(row) ?? []));
   add("command", "Commands", [...background, ...ran]);
-
-  add(
-    "session",
-    "Jobs",
-    beside === undefined
-      ? []
-      : childrenOf(beside.sessions, session).map(({ session: child, title }) => {
-          const props = linkedPropsOf(child, beside.open);
-          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Job", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
-        }),
-  );
 
   add(
     "studio",

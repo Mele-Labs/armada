@@ -69,6 +69,14 @@ test("the Sessions it handed a plan group to are a group, each naming its group 
   expect(artifactsOf(session, []).find((one) => one.id === "session")).toBeUndefined();
 });
 
+test("the Jobs it handed plan groups to are the first group, ahead of the pull requests", () => {
+  const session = parent([
+    { kind: "pull_request", number: 7, title: "Retry the lease", branch: "armada/retry", address: "https://forge/7", checks: { state: "passed" }, state: "open", auto: false },
+    { kind: "started_to", id: "c1", group: "g1" },
+  ]);
+  expect(ids(artifactsOf(session, [], { sessions: [session, child], open: () => undefined }))).toEqual(["session", "pull_request", "file"]);
+});
+
 test("a sent note is listed under Notes with its text, component, screen and state, newest first", () => {
   const note = (id: string, text: string, status: "open" | "done" | "returned", change: object = {}): SessionAttachment => ({ kind: "note", id, title: text, text, tag: "section", status, sent: "2026-10-22T10:00:00Z", ...change });
   const session = parent(

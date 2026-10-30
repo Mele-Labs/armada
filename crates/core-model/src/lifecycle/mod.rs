@@ -20,6 +20,7 @@ mod read;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use ids::{an_id, is_an_id};
 pub use ids::{BlankScope, LifecycleId, NotAnId, ScopeId, StateId};
 pub use instance::{
     AlreadyHeld, BlankKey, HeldInstances, InstanceRef, LifecycleInstance, Moved, NotOfThisLifecycle,
