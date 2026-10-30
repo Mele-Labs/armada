@@ -108,12 +108,13 @@ fn bridge_has_all_four_reads_and_the_event_and_an_agent_has_the_jobs_own_and_no_
     assert_eq!(served("list_repository_workspaces"), Some(("GET", "/workspaces")));
     assert_eq!(served("list_lifecycles"), Some(("GET", "/lifecycles")));
     assert_eq!(served("list_lifecycle_rules"), Some(("GET", "/lifecycles/rules")));
+    assert_eq!(served("list_autonomy_defaults"), Some(("GET", "/autonomy")));
     assert_eq!(served("get_job_lifecycles"), Some(("GET", "/sessions/lifecycles")));
     assert_eq!(served("job_lifecycles.changed"), Some(("GET", "/events")), "a Job's lifecycles ride the one stream");
 
     let tools: Vec<&str> = api::offered().iter().map(|shape| shape.operation).collect();
     assert!(tools.contains(&"get_job_lifecycles"), "the agent can ask what its own Job holds");
-    for bridge_only in ["list_repository_workspaces", "list_lifecycles", "list_lifecycle_rules"] {
+    for bridge_only in ["list_repository_workspaces", "list_lifecycles", "list_lifecycle_rules", "list_autonomy_defaults"] {
         assert!(!tools.contains(&bridge_only), "{bridge_only} is Bridge's");
     }
 }

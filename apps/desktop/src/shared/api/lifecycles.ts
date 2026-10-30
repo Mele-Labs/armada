@@ -13,6 +13,7 @@ import type {
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
+  RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
   RepositoryWorkspaces,
@@ -30,6 +31,8 @@ export type LifecyclesApi = {
   listLifecycles: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycles>>;
   /** The rules that apply to one repository, where each was kept, and the files set aside. `GET /lifecycles/rules`. */
   listLifecycleRules: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycleRules>>;
+  /** Armada's default for every kind of act and each layer of autonomy defaults that applies to one repository, unresolved, with where each was kept. `GET /autonomy`. */
+  listAutonomyDefaults: (manifestId: string) => Promise<LifecyclesActed<RepositoryAutonomy>>;
   /** `POST /lifecycles/pieces/save`: write one piece to Kit's folder, checked by Fleet's own parser first. */
   saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
   /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
@@ -54,6 +57,7 @@ export const LIFECYCLES_CHANNELS = {
   listRepositoryWorkspaces: "bridge:list-repository-workspaces",
   listLifecycles: "bridge:list-lifecycles",
   listLifecycleRules: "bridge:list-lifecycle-rules",
+  listAutonomyDefaults: "bridge:list-autonomy-defaults",
   saveLifecyclePiece: "bridge:save-lifecycle-piece",
   deleteLifecyclePiece: "bridge:delete-lifecycle-piece",
   getJobLifecycles: "bridge:get-job-lifecycles",

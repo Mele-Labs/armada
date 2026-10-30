@@ -195,6 +195,33 @@ export type RepositoryLifecycleRules = {
   left_out: PieceLeftOut[];
 };
 
+/** What one kind of act is set to. `kind` is `tracker_write`, `forge_write`, `draft`, `start_job`, `start_watch`, `tell_agent`, `run_command` or `run_agent`; `autonomy` is `acts`, `asks` or `off`. */
+export type ActKindDefault = { kind: string; autonomy: string };
+
+/** One file of autonomy defaults that applies to a repository: its layer, where it was kept, and only the kinds it set. */
+export type AutonomyLayer = {
+  id: string;
+  /** Where it applies, as its file says: every repository, or one Workspace or one repository by id. */
+  scope: PieceScope;
+  /** Where it was kept, as on `list_lifecycles`. `rank.reach` is `everywhere`, `workspace` or `repository`: the level it is for this repository. */
+  kept: PieceKept;
+  /** Only the kinds the file set, in the order of the kinds. A kind it did not name falls to the wider layer. */
+  defaults: ActKindDefault[];
+};
+
+/**
+ * `list_autonomy_defaults` (`GET /autonomy?manifest_id=`): what Armada sets for every kind of act, and each layer of defaults that applies
+ * to one repository. The layers are not laid over each other here.
+ */
+export type RepositoryAutonomy = {
+  manifest_id: string;
+  /** Armada's own default for every kind of act, in the order of the kinds. */
+  armada: ActKindDefault[];
+  /** Widest first, in the order they are laid over each other. One with `kept.overridden_by` is not laid: another file of its id runs instead. */
+  layers: AutonomyLayer[];
+  left_out: PieceLeftOut[];
+};
+
 /** Where an instance stands, as a source's last reading left it. `unmapped` is kept as the source said it and is not an end. */
 export type InstanceStanding = { kind: "unread" } | { kind: "in"; state: string } | { kind: "unmapped"; said: string };
 

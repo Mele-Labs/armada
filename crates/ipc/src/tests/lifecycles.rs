@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::{
     decode, encode, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
     InstanceStanding, Instant, JobLifecycles, LifecycleDefinition, LifecycleRule, LifecycleStateDefinition,
-    LifecycleTransition, ManifestId, PieceKept, PieceLeftOut, PieceRank, PieceScope, RepositoryLifecycleRules,
+    LifecycleTransition, ManifestId, ActKindDefault, AutonomyLayer, RepositoryAutonomy, PieceKept, PieceLeftOut, PieceRank, PieceScope, RepositoryLifecycleRules,
     RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleActReading, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
     RuleTarget, RuleWhen, SessionId, StateReadFrom, StreamMessage, WorkspaceOfRepositories,
 };
@@ -203,6 +203,21 @@ fn keys(value: &Value, into: &mut Vec<String>) {
     }
 }
 
+fn an_autonomy() -> RepositoryAutonomy {
+    let default = |kind: &str, autonomy: &str| ActKindDefault { kind: kind.to_string(), autonomy: autonomy.to_string() };
+    RepositoryAutonomy {
+        manifest_id: ManifestId::carried("01API"),
+        armada: vec![default("tracker_write", "asks"), default("start_watch", "acts")],
+        layers: vec![AutonomyLayer {
+            id: "my_store".to_string(),
+            scope: PieceScope::Within { id: "my-store".to_string() },
+            kept: kept_by_kit(),
+            defaults: vec![default("tracker_write", "acts")],
+        }],
+        left_out: left_out(),
+    }
+}
+
 fn round_trips<T>(value: &T)
 where
     T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
@@ -226,6 +241,7 @@ fn every_part_round_trips() {
         left_out: left_out(),
     });
     round_trips(&RepositoryWorkspaces { manifest_id: ManifestId::carried("01API"), workspaces: vec![a_workspace()], left_out: left_out() });
+    round_trips(&an_autonomy());
 }
 
 /// Nothing is sent as `null`: a part that is absent leaves no key.
@@ -314,6 +330,7 @@ fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
         serde_json::to_value(RepositoryWorkspaces { manifest_id: ManifestId::carried("01API"), workspaces: vec![a_workspace()], left_out: left_out() }).unwrap(),
         serde_json::to_value(RepositoryLifecycles { manifest_id: ManifestId::carried("01API"), lifecycles: Vec::new(), left_out: Vec::new() }).unwrap(),
         serde_json::to_value(RepositoryLifecycleRules { manifest_id: ManifestId::carried("01API"), rules: Vec::new(), left_out: Vec::new() }).unwrap(),
+        serde_json::to_value(an_autonomy()).unwrap(),
         serde_json::to_value(PieceScope::Within { id: "x".to_string() }).unwrap(),
     ];
     sent.extend(others.map(|rule| serde_json::to_value(rule).unwrap()));
