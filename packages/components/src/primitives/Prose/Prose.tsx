@@ -128,7 +128,11 @@ function linked(text: string, refs: ProseReferences): string {
 
 /** Words outside code and outside a written link, each reference in them made a link. */
 function words(part: string, refs: ProseReferences): string {
-  const found = refs.scan(part).filter((one) => one.ref.kind !== "file" && one.ref.kind !== "document").sort((a, b) => a.from - b.from);
+  // A path in a sentence is only words; a page's title in one names the page.
+  const found = refs
+    .scan(part)
+    .filter((one) => one.ref.kind !== "file" && (one.ref.kind !== "document" || part.slice(one.from, one.to) === one.ref.title))
+    .sort((a, b) => a.from - b.from);
   let out = "";
   let from = 0;
   for (const one of found) {
