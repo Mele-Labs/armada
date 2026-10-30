@@ -54,7 +54,7 @@ export const BEATS: readonly Beat[] = [
   beat("T+00:11", "FLIGHT 4 · GO", { press: dispatch(NOTES), say: `The Dispatch sheet opens with ${NOTES} in the request.` }),
   beat("T+00:11", "FLIGHT 4 · GO", { type: `${NOTES} once @${PAYMENTS} ends`, into: sheet, say: `The request waits on ${PAYMENTS}: Flight 4 starts when Flight 2 ends.` }),
   beat("T+00:12", "FLIGHT 4 · GO", { press: inside(role("region", "Dispatch", { exact: true }), button("Start", { exact: true })), say: "Start. The Job is dispatched to wait and holds no bay." }),
-  beat("T+00:13", undefined, { key: "Escape", on: anyJob, say: "A cut to the Cockpit." }),
+  beat("T+00:13", undefined, { press: inside(anyJob, button("Back", { exact: true })), say: "A cut to the Cockpit." }),
   beat("T+00:13", undefined, { look: jobs, say: `Four Jobs in the list. ${NOTES} waits on ${PAYMENTS}.` }),
   beat("T+00:14", undefined, { look: bays, say: "Bays 1, 2 and 3 are held, one for each running Job. Bay 4 is free." }),
 

@@ -135,8 +135,9 @@ const ASKED: NonNullable<Session["asked"]> = {
 function sessions(control: BayControl): SessionsStore {
   ids.length = 0;
   const store = sessionsStore([], [], new Map([[ROOT, RELAY]]), []);
-  // The store's first start is a fixture Job with a script of its own: spent here and kept off the list.
-  const spent = store.start();
+  // The store gives ids s7 to s16 a fixture script of their own (a window that opens, takes, a sketch): ten starts are spent here and
+  // kept off the list, so the four Jobs the sheet starts land on ids with none.
+  const spent = new Set<unknown>(Array.from({ length: 10 }, () => store.start()));
   let bays = freeBays();
   const setBay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}) => {
     bays = { slots: (bays.slots ?? []).map((one) => (one.slot === slot ? bay(slot, held, rest) : one)) };
@@ -228,7 +229,7 @@ function sessions(control: BayControl): SessionsStore {
       const all = store.get();
       if (all !== from) {
         from = all;
-        only = all.filter((one) => one.id !== spent);
+        only = all.filter((one) => !spent.has(one.id));
       }
       return only;
     },
