@@ -35,6 +35,8 @@ export const Folds: Story = {
   args: ARGS,
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    // No `revisions`, no menu: a plan's sketch or one Fleet kept nothing for.
+    await expect(canvas.queryByRole("button", { name: /^Revision/ })).toBeNull();
     await expect(canvas.getByRole("button", { name: "Fold" })).toHaveAttribute("aria-expanded", "true");
     await expect(canvas.getByRole("group", { name: "Sketch" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Fold" }));
@@ -43,6 +45,43 @@ export const Folds: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Unfold" }));
     await expect(canvas.getByRole("group", { name: "Sketch" })).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Fold" })).toBeInTheDocument();
+  },
+};
+
+/** The first drawing: the caller alone. */
+const FIRST: Scene = { nodes: [SCENE.nodes[0]!], edges: [] };
+/** The second adds the writer, not yet joined. */
+const SECOND: Scene = { nodes: SCENE.nodes, edges: [] };
+
+/**
+ * Drawn three times under one title: it opens on the newest, drawn against the one before. An earlier revision is drawn
+ * against the one before it, the first plain, and Approve still answers the sketch.
+ */
+export const Revisions: Story = {
+  args: { ...ARGS, onAnswer: fn(), revisions: [FIRST, SECOND, SCENE] },
+  play: async ({ canvas, args }) => {
+    await expect(canvas.getByRole("button", { name: "Revision 3" })).toBeInTheDocument();
+    await expect(canvas.getByText("Against Revision 2")).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Revision 3" }));
+    await userEvent.click(canvas.getByRole("menuitem", { name: "Revision 2" }));
+    await expect(canvas.getByText("Against Revision 1")).toBeInTheDocument();
+    await expect(canvas.getByRole("group", { name: "Added, Writer" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Revision 2" }));
+    await userEvent.click(canvas.getByRole("menuitem", { name: "Revision 1" }));
+    await expect(canvas.queryByText(/^Against/)).toBeNull();
+    await expect(canvas.queryByRole("group", { name: "Read as" })).toBeNull();
+    await expect(canvas.getByRole("group", { name: /^Caller$/ })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Approve" }));
+    await expect(args.onAnswer).toHaveBeenCalledWith("k1", { choice: 0 });
+  },
+};
+
+/** Drawn once and kept: the menu is there, as a document's is, and the drawing has nothing to be read against. */
+export const OneRevision: Story = {
+  args: { ...ARGS, revisions: [SCENE] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Revision 1" })).toBeInTheDocument();
+    await expect(canvas.queryByText(/^Against/)).toBeNull();
   },
 };
 

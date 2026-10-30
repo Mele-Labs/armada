@@ -42,7 +42,7 @@ where
         let read = path.clone();
         let kept = tokio::task::spawn_blocking(move || {
             let html = std::fs::read_to_string(&read)?;
-            Ok::<_, io::Error>(keep(&folder, html.as_bytes())?.map(|revisions| (html, revisions)))
+            Ok::<_, io::Error>(keep(&folder, html.as_bytes(), "html")?.map(|revisions| (html, revisions)))
         })
         .await;
         // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
@@ -133,18 +133,23 @@ pub(crate) fn sketches_that_will_not_draw(html: &str, path: &str) -> Option<Stri
 /// The folder a page's revisions are in: its path under `.armada/documents/`, as one name.
 fn folder_of(path: &str) -> String {
     let under = path.rsplit_once(DOCUMENTS).map_or(path, |(_, under)| under);
-    under.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '.') { c } else { '_' }).collect()
+    one_name(under)
 }
 
-/// The revisions in `folder`, oldest first: `r1.html`, `r2.html` and on.
-pub(crate) fn revisions_in(folder: &Path) -> Vec<PathBuf> {
+/// `text` as one folder name: anything but letters, digits, `-` and `.` becomes `_`.
+pub(crate) fn one_name(text: &str) -> String {
+    text.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '.') { c } else { '_' }).collect()
+}
+
+/// The revisions in `folder` with extension `ext`, oldest first: `r1.<ext>`, `r2.<ext>` and on.
+pub(crate) fn revisions_in(folder: &Path, ext: &str) -> Vec<PathBuf> {
     let mut held: Vec<(u32, PathBuf)> = std::fs::read_dir(folder)
         .into_iter()
         .flatten()
         .flatten()
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
-            let number = name.strip_prefix('r')?.strip_suffix(".html")?.parse().ok()?;
+            let number = name.strip_prefix('r')?.strip_suffix(ext)?.strip_suffix('.')?.parse().ok()?;
             Some((number, entry.path()))
         })
         .collect();
@@ -154,17 +159,17 @@ pub(crate) fn revisions_in(folder: &Path) -> Vec<PathBuf> {
 
 /// Keep `bytes` as the next revision in `folder` unless the newest holds exactly them. The revisions,
 /// oldest first, where one was kept.
-pub(crate) fn keep(folder: &Path, bytes: &[u8]) -> io::Result<Option<Vec<PathBuf>>> {
+pub(crate) fn keep(folder: &Path, bytes: &[u8], ext: &str) -> io::Result<Option<Vec<PathBuf>>> {
     std::fs::create_dir_all(folder)?;
-    let held = revisions_in(folder);
+    let held = revisions_in(folder, ext);
     if let Some(newest) = held.last() {
         if std::fs::read(newest)? == bytes {
             return Ok(None);
         }
     }
-    let next = folder.join(format!("r{}.html", held.len() + 1));
+    let next = folder.join(format!("r{}.{ext}", held.len() + 1));
     let staged = folder.join(format!("r{}.writing", held.len() + 1));
     std::fs::write(&staged, bytes)?;
     std::fs::rename(&staged, next)?;
-    Ok(Some(revisions_in(folder)))
+    Ok(Some(revisions_in(folder, ext)))
 }

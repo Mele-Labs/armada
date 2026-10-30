@@ -2,9 +2,9 @@
 //! repository holds none of any, and one Job holds a pull request in review.
 
 use ipc::{
-    DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
+    AllWorkspaces, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, SaveLifecyclePiece,
     HeldInstance, InstanceLink, InstanceMove, InstanceStanding, Instant, JobLifecycles, LifecycleDefinition,
-    LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles,
+    LifecycleStateDefinition, LifecycleTransition, ManifestId, PieceScope, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles,
     RepositoryWorkspaces, SessionId, StateReadFrom,
 };
 
@@ -81,12 +81,20 @@ impl Lifecycles for FakeDaemon {
         Ok(RepositoryWorkspaces { manifest_id: self.repository(manifest_id).await?, workspaces: Vec::new(), left_out: Vec::new() })
     }
 
+    async fn list_workspaces(&self) -> Result<AllWorkspaces, Refusal> {
+        Ok(AllWorkspaces { workspaces: Vec::new(), left_out: Vec::new() })
+    }
+
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {
         Ok(RepositoryLifecycles { manifest_id: self.repository(manifest_id).await?, lifecycles: Vec::new(), left_out: Vec::new() })
     }
 
     async fn list_lifecycle_rules(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycleRules, Refusal> {
         Ok(RepositoryLifecycleRules { manifest_id: self.repository(manifest_id).await?, rules: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn list_autonomy_defaults(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryAutonomy, Refusal> {
+        Ok(RepositoryAutonomy { manifest_id: self.repository(manifest_id).await?, armada: Vec::new(), layers: Vec::new(), left_out: Vec::new() })
     }
 
     async fn list_keep_drafts(&self, manifest_id: Option<ManifestId>) -> Result<ipc::KeepDrafts, Refusal> {

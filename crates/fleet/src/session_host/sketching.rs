@@ -1,16 +1,20 @@
 //! `show_sketch`: a session draws the person a diagram, which is kept on its ledger.
 //! `docs/concepts/session.md`, *Drawing a sketch*.
 //!
-//! **An artifact of form `sketch`, keyed by its title.** The ledger row is upserted on kind and
-//! target, so a second call with the same title replaces the first where it stands, and a different
-//! title is a second sketch. The scene is checked before anything is written: Bridge draws one that
-//! fails as an empty frame and says nothing, so this is where the agent hears of it.
+//! **An artifact of form `sketch`, keyed by its title.** A redraw under the same title upserts the
+//! one row, so each scene is also kept as a revision in Fleet's attachments folder, as a document's
+//! page is, and the row's `revisions` names them: the person can still read the drawing it replaced.
+//! The scene is checked before anything is written: Bridge draws one that fails as an empty frame
+//! and says nothing, so this is where the agent hears of it.
 //!
 //! **Every sketch shown is put to the person on its card**, and Fleet raises it in his Needs you as
 //! `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`: `answer_sketch` approves it or
 //! sends it back, and a redraw of the title asks again.
 
+use std::path::Path;
 use std::sync::Arc;
+
+use sha2::{Digest, Sha256};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
@@ -20,6 +24,7 @@ use ipc::{
     SKETCH_WORDS,
 };
 
+use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
 const SKETCH_REFUSED: &str = "fleet.sketch_refused";
@@ -108,9 +113,13 @@ where
                     .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?
             }
         };
+        let revisions = self.scene_kept(&id, &sketch).await;
         let mut attachment = sketch_attachment(sketch);
         attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
         attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));
+        if let Some(revisions) = revisions {
+            attachment.detail.insert("revisions".into(), revisions);
+        }
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
@@ -120,6 +129,24 @@ where
             fact: SessionFact::Attached { attachment },
         })
         .await
+    }
+
+    /// Keep `sketch`'s scene as the next revision of its title, unless the newest holds it already, and
+    /// answer every revision as the encoded list of paths, oldest first. `None` where keeping failed:
+    /// the sketch is still drawn, only without its history.
+    async fn scene_kept(&self, id: &str, sketch: &Sketch) -> Option<String> {
+        // The digest of the exact title keeps "a b" and "a_b" apart, and a title of `..` out of the parent.
+        let digest: String = Sha256::digest(sketch.title.as_bytes()).iter().take(6).map(|byte| format!("{byte:02x}")).collect();
+        let name = format!("{}-{digest}", one_name(&sketch.title));
+        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(name);
+        let scene = sketch.scene.clone();
+        let kept = tokio::task::spawn_blocking(move || {
+            Ok::<_, std::io::Error>(keep(&folder, scene.as_bytes(), "json")?.unwrap_or_else(|| revisions_in(&folder, "json")))
+        })
+        .await;
+        let Ok(Ok(revisions)) = kept else { return None };
+        let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
+        ipc::encode(&names).ok()
     }
 }
 

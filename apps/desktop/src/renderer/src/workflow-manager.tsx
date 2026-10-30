@@ -96,7 +96,8 @@ function Held({ current, repository, root, served }: { current: string | null; r
   // The Jobs the window holds, so a Job a press started is drawn as the shared Job card once Fleet lists it.
   const sessions = useSessions();
   // The Workspace the lanes are drawn in: a scenario's, else the lifecycles and rules Fleet keeps for this repository. A change to its rules an agent has drawn up is the scenario's.
-  const seeded = useWorkspaceHeld();
+  const draft = useWorkspaceHeld();
+  const seeded = useMemo(() => (draft?.at === undefined ? draft : draft.at(repository)), [draft, repository]);
   const lanePanel = useLanePanel();
   const [ruled, setRuled] = useState<AgentState | undefined>(undefined);
   const ruling = useRef<number | undefined>(undefined);

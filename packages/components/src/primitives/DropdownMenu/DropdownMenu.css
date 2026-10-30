@@ -277,6 +277,11 @@
   background: transparent;
 }
 
+/* A row under a heading item, as a repository is under its Workspace: one icon's width in. */
+.armada-dropdown-menu__item[data-member] {
+  padding-inline-start: calc(var(--space-2) + var(--space-6));
+}
+
 .armada-dropdown-menu__label {
   display: flex;
   align-items: center;

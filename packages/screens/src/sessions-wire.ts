@@ -141,6 +141,7 @@ function earlierOf(text: string | undefined): Record<string, unknown> | undefine
  * `detail`, and `against` the sketch it is read as a change to: a JSON string of `{ title, scene }`, the scene
  * itself JSON text again, so it is decoded in two steps (`detail` holds strings only). **A scene
  * that does not parse keeps its row and draws an empty frame**, so what the agent drew is still on the ledger.
+ * `revisions` is each drawing kept under the title, as documents keep theirs (`revisionsOfDetail`).
  */
 function sketchOf(one: Attachment): SessionAttachment {
   const detail: Record<string, string | undefined> = one.detail ?? {};
@@ -148,6 +149,7 @@ function sketchOf(one: Attachment): SessionAttachment {
   const earlier = earlierOf(detail["against"]);
   const earlierTitle = earlier !== undefined && typeof earlier["title"] === "string" ? earlier["title"] : undefined;
   const earlierScene = earlier === undefined ? undefined : sceneOfWire(earlier["scene"]);
+  const revisions = revisionsOfDetail(detail["revisions"]);
   return {
     kind: "sketch",
     id: one.target,
@@ -158,6 +160,7 @@ function sketchOf(one: Attachment): SessionAttachment {
     ...(detail["asked"] === "true" ? { asked: true as const } : {}),
     ...(detail["drawn"] === undefined || detail["drawn"] === "" ? {} : { drawn: detail["drawn"] }),
     ...settledOf(detail),
+    ...(revisions.length === 0 ? {} : { revisions }),
   };
 }
 

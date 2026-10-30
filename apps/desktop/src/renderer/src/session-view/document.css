@@ -1,8 +1,6 @@
 /* A Job's document, in a floating sheet over the Job (`DocumentLayer.tsx`). Contents and the Notes are two flat cards, one under the other
  * at the left, and the page takes the rest of the width. The page's own CSS is scoped to .armada-doc__page when it is read
  * (document-page.ts) and cannot reach anything here. Changes use the sketch diff hues: added green, changed amber, removed red. */
-.armada-doc__revision { display: inline-flex; color: var(--fg-muted); }
-.armada-doc__revision .armada-dropdown-menu__trigger { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
 .armada-doc__tools { display: flex; align-items: center; gap: var(--space-1); }
 .armada-doc__menus { display: contents; }
 

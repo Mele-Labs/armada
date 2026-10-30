@@ -1050,6 +1050,14 @@ describe("a sketch on the ledger", () => {
     for (const odd of odds) expect(sketch(odd)).not.toHaveProperty("settled");
   });
 
+  it("holds each drawing kept under its title, oldest first, and a row without `revisions` holds none", () => {
+    const kept = ["/store/sketches/a/flow/r1.json", "/store/sketches/a/flow/r2.json"];
+    const [redrawn] = attachmentsOfRecord(record("a", { attachments: [sketchRow("Flow", { scene: JSON.stringify(SCENE), revisions: JSON.stringify(kept) })] }), beside());
+    expect(redrawn).toMatchObject({ kind: "sketch", revisions: kept });
+    const [once] = attachmentsOfRecord(record("a", { attachments: [sketchRow("Flow", { scene: JSON.stringify(SCENE) })] }), beside());
+    expect(once).not.toHaveProperty("revisions");
+  });
+
   it("leaves a bad `against` off and keeps the sketch", () => {
     const [one] = attachmentsOfRecord(record("a", { attachments: [sketchRow("After", { scene: JSON.stringify(SCENE), against: againstText("Before", "{no") })] }), beside());
     expect(one).toMatchObject({ kind: "sketch", drawing: SCENE });

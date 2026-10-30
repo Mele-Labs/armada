@@ -63,6 +63,25 @@
   flex: none;
 }
 
+/* The newest card of a sketch with revisions: its revision menu stands over the band's right end, outside the press,
+   and the band leaves it room. */
+.armada-session-sketch[data-revisions] {
+  position: relative;
+}
+
+.armada-session-sketch[data-revisions] .armada-session-sketch__band {
+  padding-inline-end: calc(var(--space-12) * 2 + var(--space-4));
+}
+
+.armada-session-sketch__revision {
+  position: absolute;
+  inset-block-start: var(--border-width);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  align-items: center;
+  block-size: calc(var(--h-row) * 1.25);
+}
+
 .armada-session-sketch__glass {
   display: block;
   box-sizing: border-box;
@@ -182,6 +201,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A revision menu at the band's end reads as it does in a document's head, not in the band's capitals. */
+.armada-session-sketch-read__band .armada-revision-menu {
+  flex: none;
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .armada-session-sketch-read__reads {
