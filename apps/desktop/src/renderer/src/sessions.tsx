@@ -80,7 +80,7 @@ import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } fro
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
-import { forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
+import { documentAnswerOf, forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
 import { askToReportJob } from "./report";
 import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
@@ -567,8 +567,8 @@ export function entriesOf(
   begin?: (id: string, delivery: DeliveryChoice | undefined) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan, a judge's concern, a draft and a sketch put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "sketch" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  // A recorded plan, a judge's concern, a draft, and a sketch or a document put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "sketch" && one.source !== "document" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -1275,6 +1275,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(draft.answerWaiting === undefined ? {} : { onDraft: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
             {...(draft.answerWaiting === undefined ? {} : { onWithdrawDraft: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
             {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) })}
+            onOpenDocument={(page) => showLayer(session.id, "document", page)}
+            {...(draft.answerDocument === undefined ? {} : { onAnswerDocument: (page: string, answer: SketchAnswer) => void draft.answerDocument?.(documentAnswerOf(session, page, answer)) })}
             noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             onOpenSubagent={(subagent) => read({ kind: "subagent", id: subagent })}

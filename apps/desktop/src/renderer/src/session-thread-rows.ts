@@ -3,11 +3,12 @@
 import { seedDraft } from "@armada/components";
 import type { ForkPick, SessionThreadRow, SketchAnswer } from "@armada/components";
 import type { AnswerSketch } from "@armada/protocol";
-import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { AnswerDocument, Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { fileCallOf, sketchCallOf } from "@armada/screens/src/sessions-wire";
 import { sceneOfSketch } from "./session-sketch";
 
 type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
+type DocumentCard = Extract<SessionThreadRow, { kind: "document" }>;
 
 export function threadRowsOf(session: Session): SessionThreadRow[] {
   const rows = threadRowsFrom(session.rows, session.attachments);
@@ -24,6 +25,14 @@ export function sketchAnswerOf(session: Pick<Session, "id" | "attachments">, ske
   const held = session.attachments.find((one) => one.kind === "sketch" && one.id === sketch);
   const drawn = held?.kind === "sketch" ? (held.drawn ?? "") : "";
   const base = { session_id: session.id, sketch, drawn };
+  return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
+}
+
+/** What a press on a document's Approve or Send back sends: the answer names the newest revision, the one put to him. */
+export function documentAnswerOf(session: Pick<Session, "id" | "attachments">, page: string, answer: SketchAnswer): AnswerDocument {
+  const held = session.attachments.find((one) => one.kind === "artifact" && one.id === page);
+  const revision = held?.kind === "artifact" ? (held.revisions?.length ?? 0) : 0;
+  const base = { session_id: session.id, page, revision };
   return "text" in answer ? { ...base, how: "sent_back", words: answer.text } : { ...base, how: "approved" };
 }
 
@@ -60,6 +69,44 @@ function fileRowOf(row: { id: string; at: string; text: string }, ledger: readon
   return held?.kind === "artifact" ? { id: row.id, at: row.at, kind: "file", path: held.id, name: held.title } : undefined;
 }
 
+/** A write the agent made, as its tool row carries it: the tool's name, then the path. */
+const WRITE_CALL = /^(?:Write|Edit|MultiEdit)\s+(\S+)\s*$/;
+
+/**
+ * The card a write of a page is, where the ledger holds the page as a document. Its revision is numbered after, by
+ * `withDocumentState`. **A write of any other file stays the plain tool row it was.**
+ */
+function documentCardOf(row: { id: string; at: string; text: string }, ledger: readonly SessionAttachment[]): DocumentCard | undefined {
+  const found = WRITE_CALL.exec(row.text);
+  if (found === null) return undefined;
+  const given = found[1]!.replace(/^\.\//, "");
+  const held = ledger.find((one) => one.kind === "artifact" && one.form === "document" && (one.id === given || one.id.endsWith(`/${given}`)));
+  return held?.kind === "artifact" ? { id: row.id, at: row.at, kind: "document", page: held.id, title: held.title, revision: 0 } : undefined;
+}
+
+/**
+ * Each write of a page is its next revision. **The newest is the one put to him**: it asks until he answers it, and an
+ * earlier one he answered keeps how it ended. An earlier one he never answered was replaced before he did.
+ */
+function withDocumentState(rows: SessionThreadRow[], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
+  const counted = new Map<string, number>();
+  const numbered = rows.map((row): SessionThreadRow => {
+    if (row.kind !== "document") return row;
+    const revision = (counted.get(row.page) ?? 0) + 1;
+    counted.set(row.page, revision);
+    return { ...row, revision };
+  });
+  return numbered.map((row): SessionThreadRow => {
+    if (row.kind !== "document") return row;
+    const held = ledger.find((one) => one.kind === "artifact" && one.id === row.page);
+    const answered = held?.kind === "artifact" ? held.answers?.find((one) => one.revision === row.revision) : undefined;
+    const settled = answered === undefined ? undefined : { how: answered.how, at: answered.at, ...(answered.words === undefined ? {} : { words: answered.words }) };
+    if (settled !== undefined) return { ...row, settled };
+    if (counted.get(row.page) !== row.revision) return { ...row, replaced: true as const };
+    return held?.kind === "artifact" && held.asked === true ? { ...row, asked: true as const } : row;
+  });
+}
+
 /**
  * A card is replaced where a later card holds the same sketch. What it was drawn against is the latest card before it
  * with the title it names, as it was drawn then, else the sketch the ledger keeps the earlier scene of.
@@ -85,13 +132,13 @@ function withSketchState(rows: SessionThreadRow[], ledger: readonly SessionAttac
 }
 
 export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAttachment[] = []): SessionThreadRow[] {
-  return withSketchState(rowsDrawn(rows, ledger), ledger);
+  return withDocumentState(withSketchState(rowsDrawn(rows, ledger), ledger), ledger);
 }
 
 function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
   // A browser reminder is the Job browser's own card in the thread (`job-browser/JobBrowserPane.tsx`), not a row.
   return rows.flatMap((row) => (row.kind === "browser_reminder" ? [] : [row])).map((row): SessionThreadRow => {
-    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
+    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? documentCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
     if (row.kind === "requested" || row.kind === "saved") return row;
     if (row.kind === "lease" || row.kind === "release" || row.kind === "change" || row.kind === "suggest" || row.kind === "concern" || row.kind === "command" || row.kind === "compaction" || row.kind === "disputed" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro" || row.kind === "draft") return row;
     if (row.kind === "sent") {

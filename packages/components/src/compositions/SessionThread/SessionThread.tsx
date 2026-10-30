@@ -50,6 +50,7 @@ import { StartedRow } from "./StartedRow";
 import { SubagentRow } from "./SubagentRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchPin, SketchRow, type SketchPinProps } from "./SketchRow";
+import { DocumentRow } from "./DocumentRow";
 import type { SketchAnswer, SketchSettled } from "./sketch-answer";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
@@ -229,6 +230,12 @@ type SessionThreadKinds =
    * and `settled` how he answered it.
    */
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true; asked?: true; settled?: SketchSettled }
+  /**
+   * **Proposed, not on the wire**: the agent wrote a revision of a page under `.armada/documents/`. `page` is the ledger's id for
+   * the page and `revision` this write's number, counted from 1. `asked` is the newest revision while it waits on him,
+   * `settled` how he answered this revision, and `replaced` an earlier one he never answered.
+   */
+  | { id: string; at: string; kind: "document"; page: string; title: string; revision: number; replaced?: true; asked?: true; settled?: SketchSettled }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -395,6 +402,10 @@ export type SessionThreadProps = {
   onWithdrawDraft?: (rowId: string, reason?: string) => void;
   /** Answers a sketch put to him, by its ledger id. Absent, an asked sketch draws with nothing to press. */
   onAnswerSketch?: (sketch: string, answer: SketchAnswer) => void;
+  /** Opens a page the Job wrote as its document, by its ledger id. Absent, its card is not a press. */
+  onOpenDocument?: (page: string) => void;
+  /** Answers the newest revision of a document put to him, by the page's ledger id. Absent, it draws with nothing to press. */
+  onAnswerDocument?: (page: string, answer: SketchAnswer) => void;
   /**
    * Opens what a note the person sent from a viewer named: the sketch with its parts picked, the file on its lines, the
    * picture with its region drawn. `root` is the Job's checkout, which a file is shown from. Absent, such a message is words.
@@ -897,6 +908,8 @@ function Row({
   onDraft,
   onWithdrawDraft,
   onAnswerSketch,
+  onOpenDocument,
+  onAnswerDocument,
   sessionId,
   agentName = "Agent",
   onOpenRetro,
@@ -913,6 +926,8 @@ function Row({
   onDraft?: (rowId: string, answer: DraftAnswer) => void;
   onWithdrawDraft?: (rowId: string, reason?: string) => void;
   onAnswerSketch?: (sketch: string, answer: SketchAnswer) => void;
+  onOpenDocument?: (page: string) => void;
+  onAnswerDocument?: (page: string, answer: SketchAnswer) => void;
   sessionId?: string;
   onRetry?: (rowId: string) => void;
   /** Start again on a Job whose agent did not start: absent where the host serves none. */
@@ -1006,6 +1021,7 @@ function Row({
   if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
   if (row.kind === "saved") return <SavedRow row={row} />;
   if (row.kind === "sketch") return <SketchRow row={row} keep={sessionId === undefined ? `sketch:${row.id}` : `sketch:${sessionId}:${row.id}`} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} {...(onAnswerSketch === undefined ? {} : { onAnswer: onAnswerSketch })} />;
+  if (row.kind === "document") return <DocumentRow row={row} keep={sessionId === undefined ? `document:${row.id}` : `document:${sessionId}:${row.id}`} {...(onOpenDocument === undefined ? {} : { onOpen: onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswer: onAnswerDocument })} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "divider") return <li className="armada-session-divider" role="separator" />;
@@ -1733,7 +1749,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1852,7 +1868,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || (item.row.kind === "sketch" && item.row.sketch === sketching?.sketch) ? {} : { onAnswerSketch })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} {...(onStartAgain === undefined ? {} : { onStartAgain })} {...(onReport === undefined ? {} : { onReport })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdrawDraft })} {...(onAnswerSketch === undefined || (item.row.kind === "sketch" && item.row.sketch === sketching?.sketch) ? {} : { onAnswerSketch })} {...(onOpenDocument === undefined ? {} : { onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswerDocument })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
             ...cardsAfter(at).map((card) => (
