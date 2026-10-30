@@ -500,20 +500,6 @@ export function WorkspaceEditor({
     return true;
   };
 
-  // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
-  const tabs: TabsItem[] = [
-    { id: DEFAULT, label: "Default" },
-    // A repository that is in no Workspace has no level between the default and itself.
-    ...(workspace.id === "" ? [] : [{ id: "workspace", label: `All of ${workspace.name}`, name: workspace.name }]),
-    ...workspace.repositories.map((one) => ({ id: one.id, label: one.name, name: one.name })),
-  ]
-    .map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : { id, label }))
-    // The Workspace's tab carries the way to edit it. Under the popover take the form opens under the pencil.
-    .map((item) =>
-      item.id === "workspace" && workspaces !== undefined
-        ? { ...item, after: workspaces.take === "popover" ? <Popover align="start" label={`Edit ${workspace.name}`} trigger={editWorkspace}>{(close) => workspaceForm("edit", close)}</Popover> : editWorkspace }
-        : item,
-    );
 
   const workspaces = editing.workspaces?.take === undefined || editing.readOnly === true ? undefined : editing.workspaces;
   const autonomy = editing.readOnly === true ? undefined : editing.autonomy;
@@ -584,6 +570,20 @@ export function WorkspaceEditor({
       </Button>
     </Tooltip>
   );
+  // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
+  const tabs: TabsItem[] = [
+    { id: DEFAULT, label: "Default" },
+    // A repository that is in no Workspace has no level between the default and itself.
+    ...(workspace.id === "" ? [] : [{ id: "workspace", label: `All of ${workspace.name}`, name: workspace.name }]),
+    ...workspace.repositories.map((one) => ({ id: one.id, label: one.name, name: one.name })),
+  ]
+    .map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : { id, label }))
+    // The Workspace's tab carries the way to edit it. Under the popover take the form opens under the pencil.
+    .map((item) =>
+      item.id === "workspace" && workspaces !== undefined
+        ? { ...item, after: workspaces.take === "popover" ? <Popover align="start" label={`Edit ${workspace.name}`} trigger={editWorkspace}>{(close) => workspaceForm("edit", close)}</Popover> : editWorkspace }
+        : item,
+    );
   const autonomyContent =
     autonomy === undefined || !autonomyOpen ? null : (
       <AutonomyPanel
