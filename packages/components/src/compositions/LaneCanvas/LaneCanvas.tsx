@@ -131,6 +131,7 @@ const TIP_DELAY = 400;
 /** What a node's mark is, in the words its tooltip reads. */
 function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undefined {
   if (node.skipped === true) return { Glyph: Ban, said: "Skipped" };
+  if (node.ended === true) return { Glyph: Ban, said: "Ended" };
   if (node.waiting !== undefined) return { Glyph: Clock, said: "Waiting" };
   if (node.lit === true) return { Glyph: CircleDot, said: "Working" };
   if (node.here === true) return { Glyph: MapPin, said: "Now" };
@@ -196,7 +197,7 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
         const words = (
           <>
             <span className="armada-lane__title">{lane.title}</span>
-            <span className="armada-lane__source">{lane.source}</span>
+            <span className="armada-lane__source">{lane.ended === true ? "Ended" : lane.source}</span>
           </>
         );
         return (
@@ -205,6 +206,7 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
             className="armada-lane__head"
             data-kind={lane.kind}
             data-picked={picked || undefined}
+            data-ended={lane.ended || undefined}
             style={{ top: ty + band.y * zoom, height: band.h * zoom, width: GEO.head }}
             onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], event.currentTarget)}
             onMouseLeave={() => hold.tip(undefined)}
@@ -270,7 +272,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const shape = SHAPE[node.kind];
   const connectable = hold.editing !== undefined && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
-  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}`;
+  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ended === true ? ", ended" : ""}`;
   const lines = [
     node.label,
     ...(node.waiting ?? (mark === undefined ? [] : [mark.said])),
@@ -310,6 +312,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
       data-waiting={node.waiting !== undefined || undefined}
       data-end={node.end || undefined}
       data-skipped={node.skipped || undefined}
+      data-ended={node.ended || undefined}
       data-changed={node.changed !== undefined || undefined}
     >
       <Handles node={node} lane={lane} connectable={connectable} part="target" />

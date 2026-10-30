@@ -80,7 +80,7 @@ The words are the `Notice` enum in `crates/ipc/src/notices.rs`.
 |---|---|
 | Pull requests | `pr_checks_failed`, `pr_conflicts`, `pr_dropped`, `pr_unmergeable`, `pr_merged`, `pr_auto_merge`, `pr_queued`, `pr_handed`, `auto_land_refused` |
 | Slots and the build | `behind_base`, `slot_free`, `slot_kept`, `slot_stranded`, `build_moved`, `write_clash`, `main_red` |
-| Workflow and delivery | `rail_nudge`, `rail_step`, `plan_approved`, `workflow_changed`, `delivery_asked`, `delivery_chosen`, `watch_saw`, `task_marked`, `lifecycle_rule` |
+| Workflow and delivery | `rail_nudge`, `rail_step`, `plan_approved`, `workflow_changed`, `delivery_asked`, `delivery_chosen`, `watch_saw`, `task_marked`, `lifecycle_rule`, `lifecycles_clear` |
 | Usage and handoff | `usage_trip`, `limit_wake`, `sign_in_wake`, `context_handoff` |
 | Others | `retro_note`, `reply_claim`, `walk_failed`, `issue_lost`, `document_sketch` |
 | Teaching | `taught` |

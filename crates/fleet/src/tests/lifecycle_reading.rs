@@ -144,6 +144,7 @@ fn kept(lifecycle: &str, key: &str, links: &[(&str, &str)], seen: Option<(&str, 
         seen: seen.map(|one| one.1.to_string()).unwrap_or_default(),
         watch_id: String::new(),
         taken_on_at: "t0".into(),
+        ended_at: String::new(),
     }
 }
 

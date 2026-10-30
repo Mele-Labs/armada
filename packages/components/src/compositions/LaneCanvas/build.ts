@@ -209,7 +209,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
             col: state.col,
             role: "state" as const,
             kind: kindOfState(lifecycle),
-            ...(state.id === instance.state ? { here: true as const } : {}),
+            ...(state.id === instance.state ? (instance.ended === true ? { ended: true as const } : { here: true as const }) : {}),
             ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
             ...(state.end === true ? { end: true as const } : {}),
             ...(state.id === instance.state && instance.assignee !== undefined ? { who: instance.assignee } : {}),
@@ -218,7 +218,7 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
           };
         }),
       );
-      return [lane];
+      return [instance.ended === true ? { ...lane, ended: true } : lane];
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);
@@ -268,11 +268,15 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
   return { lanes, rules };
 }
 
-/** What is still in flight on a Job: each instance not in an end state, as `Deploy: rolling out`. */
+/**
+ * What is still in flight on a Job: each instance not in an end state, as `Deploy: Rolling out`. **One that stands in no state is in flight too**: a status its lifecycle lists
+ * none for says the word its source used, and one not read yet says nothing, because an instance nobody can place must not be let go. One that ending the Job ended is not.
+ */
 export function inFlight(job: JobLanes): { id: string; label: string; state: string; lifecycle: Instance["lifecycle"] }[] {
   return job.instances.flatMap((instance) => {
+    if (instance.ended === true) return [];
     const state = job.copy.lifecycles.find((one) => one.id === instance.lifecycle)?.states.find((one) => one.id === instance.state);
-    if (state === undefined || state.end === true) return [];
-    return [{ id: instance.id, label: instance.label, state: state.label, lifecycle: instance.lifecycle }];
+    if (state?.end === true) return [];
+    return [{ id: instance.id, label: instance.label, state: state?.label ?? instance.unmapped ?? "", lifecycle: instance.lifecycle }];
   });
 }

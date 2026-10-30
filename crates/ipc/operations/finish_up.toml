@@ -12,6 +12,8 @@ notes = """
 
 **The job is the one whose process holds the connection.** Only a job Fleet hosts is served; a terminal job's slot is parked when its process ends. An ended job is refused.
 
+**It is refused while the Job holds an instance standing in a state its lifecycle does not end on**, as `all_done` is, and an unread or unmapped one holds nothing: 409 `fleet.lifecycles_in_flight`, naming each as `Deploy is Rolling out`, and nothing is released. A branch's slot may be wanted again if a deploy fails or a ticket goes back, as a pull request's is.
+
 It says nothing about whether the job is done: `all_done` is still the agent's word, called after this and once `kept` holds nothing the agent owes the person.
 
 `agent_access` is `Yes`: the agent is the one that knows it is finished with the slots.

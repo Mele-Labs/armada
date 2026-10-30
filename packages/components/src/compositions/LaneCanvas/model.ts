@@ -303,6 +303,8 @@ export type LaneNodeView = {
   waiting?: readonly string[];
   end?: boolean;
   skipped?: boolean;
+  /** Where an instance stood when ending the Job ended it. It takes the place of `here`. */
+  ended?: boolean;
   /** Who the instance in this state is assigned to, drawn on the node. */
   who?: string;
   /** What is known of the instance at this state, one line each in the node's tooltip: the reviewers on a pull request. */
@@ -321,6 +323,8 @@ export type LaneView = {
   source: string;
   /** The tooltip of the title: a ticket's own title. */
   note?: string;
+  /** Ending the Job ended this instance. */
+  ended?: boolean;
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
   moves: readonly (readonly [string, string])[];
@@ -365,7 +369,12 @@ export type Instance = {
   label: string;
   /** A ticket's own title. */
   title?: string;
+  /** `""` where it stands in no state: not read yet, or a status its lifecycle lists none for. */
   state: string;
+  /** The word its source used, for a status no state lists. It is in flight until the lifecycle maps it. */
+  unmapped?: string;
+  /** Ending the Job ended it, standing where it was. It is no longer in flight. */
+  ended?: true;
   /** The states it went through, in order, the current one last. */
   visited: readonly string[];
   assignee?: string;

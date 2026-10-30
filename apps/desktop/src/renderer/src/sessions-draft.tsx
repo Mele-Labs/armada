@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { announceEnd } from "./cockpit/deck/exit";
+import { EndsInFlight } from "./end-job";
 import { withOutgoing } from "./outgoing";
 import { withPressed } from "./pressed";
 import { ViewerNotesOver } from "./viewer-notes";
@@ -39,6 +40,7 @@ export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | u
     <Acts.Provider value={acts}>
       <Held.Provider value={sending}>
         <ViewerNotesOver draft={sending}>{children}</ViewerNotesOver>
+        <EndsInFlight draft={sending} />
       </Held.Provider>
     </Acts.Provider>
   );

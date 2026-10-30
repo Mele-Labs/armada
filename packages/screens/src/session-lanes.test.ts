@@ -2,7 +2,7 @@
 
 import { expect, it } from "vitest";
 import type { AppliedRule, HeldInstance, InstanceMove, JobLifecycles, LifecycleDefinition, LifecycleRule, RuleActReading } from "@armada/protocol";
-import { jobLanes } from "@armada/components/src/compositions/LaneCanvas/build";
+import { inFlight, jobLanes } from "@armada/components/src/compositions/LaneCanvas/build";
 import { nodeId } from "@armada/components/src/compositions/LaneCanvas/model";
 
 import { columnsOf, instanceId, lanesOfJob, ruleOfWire } from "./session-lanes";
@@ -108,6 +108,40 @@ it("leaves no state lit for an instance whose source said something no state cla
   const unmapped: JobLifecycles = { ...WITH_TICKET, instances: [{ ...held("ticket", "ARM-41", "ARM-41", "todo"), standing: { kind: "unmapped", said: "Blocked" } }], moves: [] };
   const [one] = lanesOfJob({ held: unmapped, working: false })!.job.instances;
   expect(one).toMatchObject({ state: "", visited: [], title: "Unmapped: Blocked" });
+});
+
+it("lists an instance that stands in no state as in flight, and one ending the Job ended as not", () => {
+  const reviewed: LifecycleDefinition = { ...ticket, states: [...ticket.states, { id: "in_review", label: "In review", read: { source: "tracker", words: ["In Review"] } }] };
+  const instances: HeldInstance[] = [
+    held("deploy", "web", "Deploy", "rolling_out"),
+    held("ticket", "ARM-42", "ARM-42", "in_review"),
+    held("ticket", "ARM-43", "ARM-43", "done"),
+    { ...held("ticket", "ARM-44", "ARM-44", "todo"), standing: { kind: "unmapped", said: "Awaiting QA" } },
+    { ...held("ticket", "ARM-45", "ARM-45", "todo"), standing: { kind: "unread" } },
+  ];
+  const lanes = (all: HeldInstance[]) => lanesOfJob({ held: { session_id: "job", lifecycles: [reviewed, deploy], instances: all, moves: [] }, working: false })!;
+  expect(inFlight(lanes(instances).job).map((one) => [one.label, one.state])).toEqual([
+    ["Deploy", "Rolling out"],
+    ["ARM-42", "In review"],
+    ["ARM-44", "Awaiting QA"],
+    ["ARM-45", ""],
+  ]);
+
+  const ended = lanes(instances.map((one) => ({ ...one, ended_at: AT })));
+  expect(inFlight(ended.job)).toEqual([]);
+});
+
+it("draws an instance that ending the Job ended where it stood, as ended and not as now", () => {
+  const stopped: JobLifecycles = { ...WITH_TICKET, instances: [{ ...held("ticket", "ARM-41", "ARM-41", "in_progress"), ended_at: AT }] };
+  const lanes = lanesOfJob({ held: stopped, working: false })!;
+  const [lane] = jobLanes(lanes.job, lanes).lanes;
+  expect(lane).toMatchObject({ title: "ARM-41", ended: true });
+  const stood = lane!.nodes.find((node) => node.label === "In progress");
+  expect(stood).toMatchObject({ ended: true });
+  expect(stood?.here).toBeUndefined();
+
+  const live = lanesOfJob({ held: WITH_TICKET, working: false })!;
+  expect(jobLanes(live.job, live).lanes[0]).not.toHaveProperty("ended");
 });
 
 it("draws the workflow on top with the step the Job is at, and one line for each sentence the step waits with", () => {

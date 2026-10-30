@@ -54,6 +54,7 @@ fn the_job() -> JobLifecycles {
             label: "PR #812".to_string(),
             standing: InstanceStanding::In { state: "in_review".to_string() },
             links: vec![InstanceLink { lifecycle: "ticket".to_string(), key: "ARM-41".to_string() }],
+            ended_at: None,
         }],
         moves: vec![InstanceMove {
             lifecycle: "pr".to_string(),

@@ -335,6 +335,10 @@ pub struct HeldInstance {
     /// What it came from, in the order the links were made. A link may name an instance the Job does
     /// not hold, as the Job that started this one.
     pub links: Vec<InstanceLink>,
+    /// When ending the Job ended it, standing where it was. Absent while it is live, and for one that
+    /// reached an end state of its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<Instant>,
 }
 
 /// One change of standing, kept when a read found the instance somewhere else.

@@ -857,6 +857,7 @@ where
                 return Err(self.closed(&id));
             }
             self.later_holds_done(&store, &id)?;
+            self.lifecycles_hold(&mut store, &id, "all_done")?;
             store
                 .keep_done(&id, &now)
                 .map_err(|why| self.ledger_fault(why))?;
