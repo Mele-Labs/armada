@@ -13,6 +13,7 @@ use store::{KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, Wri
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
 use crate::rail_ends::{self, Waiter};
+use crate::rail_lifecycle::{self, Held, StepBits};
 use crate::session_host::asking::{answers_said, ask_answered};
 use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::sketching::sketch_approved;
@@ -33,12 +34,19 @@ pub(crate) struct RailReads {
     pub visits: Vec<(u32, String)>,
     /// The steps the person skipped.
     pub skipped: Vec<u32>,
+    /// What the Job holds of its lifecycles, for a Job that follows a workflow and holds any.
+    pub held: Held,
 }
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
 /// walk are looked for only where the Session follows a workflow**, since nothing else reads them.
 pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
+    let rail = store.session_rail(&session.id)?;
+    let mut held = Held::default();
     let extra = if follows {
+        if store.is_lifecycle_job(&session.id)? {
+            held = Held { instances: store.lifecycle_instances_of(&session.id)?, moves: store.lifecycle_moves_of(&session.id)? };
+        }
         let rows: Vec<SessionRow> = store
             .session_rows(&session.id)?
             .iter()
@@ -50,13 +58,25 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
             plan_expects_walk: plan.is_some_and(|plan| plan.seen || plan.walk.is_some()),
+            messaged: messaged_on(&rows, &rail.visits),
             ..thread_facts(&rows, plan_approved_at.as_ref())
         }
     } else {
         Extra::default()
     };
-    let rail = store.session_rail(&session.id)?;
-    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped })
+    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held })
+}
+
+/// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
+/// notices and other Jobs' words are not his.
+pub(crate) fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> StepBits {
+    let wrote = |since: &str| {
+        rows.iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, at, .. } if at.as_str() >= since))
+    };
+    StepBits::of(visits.iter().enumerate().filter_map(|(n, (step, since))| {
+        let latest = !visits[n + 1..].iter().any(|(later, _)| later == step);
+        (latest && wrote(since)).then_some(*step as usize)
+    }))
 }
 
 /// What the thread shows: the person wrote after the agent's first turn (a message or a tool call),
@@ -260,7 +280,11 @@ where
         let Some(steps) = self.rail_steps(manifest, workflow) else {
             return;
         };
-        let facts = Facts::of(record, reads.extra);
+        let mut facts = Facts::of(record, reads.extra);
+        if steps.iter().any(RailStep::has_lifecycle_end) {
+            let lifecycles = self.lifecycles_that_apply(manifest);
+            (facts.lifecycle_held, facts.lifecycle_met) = rail_lifecycle::bits(&steps, &lifecycles, &reads.held);
+        }
         let at = rail::current(&steps, &facts);
         record.workflow_step = at.map(|at| at as u32);
         let waits_on_reply = at.is_some_and(|at| {

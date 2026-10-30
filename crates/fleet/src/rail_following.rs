@@ -33,6 +33,8 @@ struct Seen {
     step: Option<u32>,
     skipped: Vec<(usize, Skip)>,
     stalled: Option<usize>,
+    /// A delivering step's lifecycle end has come and the agent has not been told.
+    lifted: bool,
 }
 
 /// Start reacting to a hosted Session's published row. Production starts it beside the timeline's, and
@@ -91,7 +93,20 @@ where
         }
         let skips = rail::skipped(&steps, &facts);
         let stalled = rail::stalled(&steps, &record);
-        let now = Seen { step: record.workflow_step, skipped: skips.clone(), stalled: stalled.map(|(at, _)| at) };
+        // A delivering step gated by a lifecycle is not left when its end comes, so the agent is woken here.
+        let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {
+            Some((at, step)) if step.delivers && step.has_lifecycle_end() => {
+                let name = self.workflow_name(manifest.as_str(), workflow);
+                self.lifecycle_lifted(&id, at, step, &name, manifest.as_str()).await
+            }
+            _ => None,
+        };
+        let now = Seen {
+            step: record.workflow_step,
+            skipped: skips.clone(),
+            stalled: stalled.as_ref().map(|(at, _)| *at),
+            lifted: lifted.is_some(),
+        };
         if seen.get(&id) == Some(&now) {
             return;
         }
@@ -103,6 +118,9 @@ where
             return;
         }
         seen.insert(id.clone(), now);
+        if let Some(line) = lifted {
+            let _ = self.told_by_fleet(&id, &line, ipc::Notice::RailStep).await;
+        }
         // The nudges go after the rail is kept, one message for each step skipped and never twice.
         for (at, skip) in skips {
             if kept.nudged.contains(&(at as u32)) {
@@ -195,16 +213,31 @@ where
         if !ran {
             return Some((kept, ran));
         }
+        let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
+        let workflow = record.workflow.as_deref().unwrap_or("");
+        let name = self.workflow_name(manifest, workflow);
+        // A step that waited on a lifecycle state and got it wakes the agent with what happened, in
+        // the same message as the next step's instructions.
+        let woken = match from.and_then(|from| steps.get(from)) {
+            Some(left) => self.lifecycle_woken(id, left, &name, manifest).await,
+            None => None,
+        };
         // The step's own instructions go once on each entry, so a move back is told again.
-        if let Some((at, step)) = to.and_then(|at| steps.get(at).map(|step| (at, step))) {
-            let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
-            let workflow = record.workflow.as_deref().unwrap_or("");
+        let instructed = match to.and_then(|at| steps.get(at).map(|step| (at, step))) {
             // A step that asks how the work is delivered holds its instructions until the answer,
             // which sends them with it.
-            let held = step.asks_delivery && self.delivery_entered(id).await;
-            if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), steps, at).filter(|_| !held) {
-                let _ = self.told_by_fleet(id, &words, ipc::Notice::RailStep).await;
+            Some((at, step)) => {
+                let held = step.asks_delivery && self.delivery_entered(id).await;
+                rail::instructed(&name, steps, at).filter(|_| !held)
             }
+            None => None,
+        };
+        let said = match (woken, instructed) {
+            (Some(woken), Some(words)) => Some(format!("{woken}\n\n{words}")),
+            (woken, words) => woken.or(words),
+        };
+        if let Some(said) = said {
+            let _ = self.told_by_fleet(id, &said, ipc::Notice::RailStep).await;
         }
         Some((kept, ran))
     }
