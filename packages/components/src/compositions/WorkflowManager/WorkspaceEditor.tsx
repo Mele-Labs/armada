@@ -1,11 +1,10 @@
-import { Clock, FolderPlus, ListPlus, Pencil, Plus, SlidersHorizontal, Split, Trash2 } from "lucide-react";
+import { Clock, ListPlus, Plus, Split, Trash2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { LifecycleRule } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
-import { Popover } from "../../primitives/Popover/Popover";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import type { TabsItem } from "../../primitives/Tabs/Tabs";
@@ -45,15 +44,11 @@ import { MOMENTS, endsOnOf, fireGroupsOf, momentOf, subjectsOf, waitsOf } from "
 import type { WaitSubject } from "../LaneCanvas/waits";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
-import { AutonomyPanel, autonomyLevels, autonomyRows } from "./Autonomy";
-import type { AutonomyEditing } from "./Autonomy";
 import { Field, Lines, Pair, Wrapped } from "./InspectorFields";
 import type { Choice } from "./InspectorFields";
 import { RuleForm } from "./RuleForm";
 import type { RuleFormLifecycle } from "./RuleForm";
 import type { ManagedStep, ManagedWorkflow, WorkflowActAnswer, WorkflowRef } from "./types";
-import { WorkspaceForm } from "./WorkspaceForm";
-import type { WorkspacesEditing } from "./WorkspaceForm";
 
 /**
  * The Workspace a workflow is edited in: its steps on top of a lane for each lifecycle it uses, and rules as edges. **The host keeps it**: from the pieces Fleet serves, or from a scenario's mock.
@@ -88,10 +83,6 @@ export type WorkspaceEditing = {
   canConnect?: (from: Ref, to: Ref) => boolean;
   /** The rules and lifecycles whose removal waits on a pull request, as `rule:<id>` and `lifecycle:<id>`. */
   pending?: ReadonlySet<string>;
-  /** Making, editing and removing a Workspace: a button in the Runs in row, and a pencil on the Workspace's tab. Absent, neither is drawn. */
-  workspaces?: WorkspacesEditing;
-  /** The autonomy defaults for the picked tab, opened in the side panel from a button in the Runs in row. Absent, no button is drawn. */
-  autonomy?: AutonomyEditing;
 };
 
 /** The app's side panel as the editor asks for it: opened for what is picked, and its body given back as a slot to draw into. */
@@ -183,9 +174,6 @@ export function WorkspaceEditor({
   const workspace = editing.value;
   const [picked, setPicked] = useState<LanePick | undefined>();
   const [mode, setMode] = useState<Mode>("fields");
-  // What the side panel holds beside a pick: the autonomy defaults of the tab, or a Workspace's form where the form is drawn there.
-  const [autonomyOpen, setAutonomyOpen] = useState(false);
-  const [form, setForm] = useState<"new" | "edit" | undefined>();
   // The tab: the default's, the Workspace's, or one repository's. The page opens on the default.
   const [scope, setScope] = useState(DEFAULT);
   const repository = workspace.repositories.find((one) => one.id === scope);
@@ -233,8 +221,6 @@ export function WorkspaceEditor({
   const pick = (next: LanePick | undefined, then: Mode = "fields") => {
     setPicked(next);
     setMode(then);
-    setAutonomyOpen(false);
-    if (editing.workspaces?.take === "panel") setForm(undefined);
     if (next === undefined) panel.close();
     else panel.show(nameOfPick(next));
   };
@@ -245,8 +231,6 @@ export function WorkspaceEditor({
     if (was.current && !panel.open) {
       setPicked(undefined);
       setMode("fields");
-      setAutonomyOpen(false);
-      if (editing.workspaces?.take === "panel") setForm(undefined);
     }
     was.current = panel.open;
   }, [panel.open]);
@@ -500,102 +484,15 @@ export function WorkspaceEditor({
     return true;
   };
 
-
-  const workspaces = editing.workspaces?.take === undefined || editing.readOnly === true ? undefined : editing.workspaces;
-  const autonomy = editing.readOnly === true ? undefined : editing.autonomy;
-  const scopeLabel = scope === DEFAULT ? "Default" : scope === "workspace" ? `All of ${workspace.name}` : (repository?.name ?? scope);
-  const formTitle = form === "edit" ? `Edit ${workspace.name}` : "New Workspace";
-  /** What the side panel holds beside a pick, and what it is called. */
-  const aside = autonomy !== undefined && autonomyOpen ? { title: `Autonomy in ${scopeLabel}`, heading: scopeLabel, crumb: "Autonomy" } : workspaces?.take === "panel" && form !== undefined ? { title: formTitle, heading: formTitle, crumb: "Workspace" } : undefined;
-  // A tab picked while the autonomy is open reads it for that tab, so the panel is named for it.
-  useEffect(() => {
-    if (aside !== undefined) panel.show({ title: aside.title, heading: aside.heading, crumb: aside.crumb });
-    // Only a new name asks the panel again.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aside?.title]);
-  // A tab that is gone, as the Workspace's when the repository is in none now, is not stood on.
-  useEffect(() => {
-    if (scope !== DEFAULT && !(scope === "workspace" ? workspace.id !== "" : workspace.repositories.some((one) => one.id === scope))) setScope(DEFAULT);
-  }, [scope, workspace.id, workspace.repositories]);
-
-  /** The Workspace form, drawn for the take: its own sheet, or fields in the panel or under a button. `close` puts it away. */
-  const workspaceForm = (mode: "new" | "edit", close: () => void) =>
-    workspaces === undefined ? null : (
-      <WorkspaceForm
-        key={`${mode}/${workspace.id}/${workspace.name}`}
-        layout={workspaces.take === "sheet" ? "dialog" : "inline"}
-        mode={mode}
-        repositories={workspaces.repositories}
-        current={workspaces.current}
-        {...(mode === "edit" ? { name: workspace.name, ticked: workspace.repositories.map((one) => one.id), ...(workspaces.kept === undefined ? {} : { kept: workspaces.kept }) } : {})}
-        onSubmit={(name, ids) => {
-          if (mode === "new") {
-            workspaces.onCreate(name, ids);
-            setScope("workspace");
-          } else workspaces.onSave(name, ids);
-        }}
-        onRemove={() => {
-          workspaces.onRemove();
-          setScope(DEFAULT);
-        }}
-        onClose={close}
-      />
-    );
-  const putAwayForm = () => {
-    setForm(undefined);
-    if (workspaces?.take === "panel") panel.close();
-  };
-  const openForm = (mode: "new" | "edit") => {
-    // Under the popover take the layer opens itself, from the button.
-    if (workspaces?.take === "popover") return;
-    if (workspaces?.take === "panel") {
-      setPicked(undefined);
-      setMode("fields");
-      setAutonomyOpen(false);
-    }
-    setForm(mode);
-  };
-  const newWorkspace = (
-    <Tooltip label="New Workspace">
-      <Button type="button" variant="ghost" size="sm" onClick={() => openForm("new")}>
-        <FolderPlus size={16} strokeWidth={2} aria-hidden="true" />
-        Workspace
-      </Button>
-    </Tooltip>
-  );
-  const editWorkspace = (
-    <Tooltip label={`Edit ${workspace.name}`}>
-      <Button type="button" variant="ghost" size="sm" iconOnly aria-label={`Edit ${workspace.name}`} onClick={() => openForm("edit")}>
-        <Pencil size={14} strokeWidth={2} aria-hidden="true" />
-      </Button>
-    </Tooltip>
-  );
   // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
   const tabs: TabsItem[] = [
     { id: DEFAULT, label: "Default" },
     // A repository that is in no Workspace has no level between the default and itself.
     ...(workspace.id === "" ? [] : [{ id: "workspace", label: `All of ${workspace.name}`, name: workspace.name }]),
     ...workspace.repositories.map((one) => ({ id: one.id, label: one.name, name: one.name })),
-  ]
-    .map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : { id, label }))
-    // The Workspace's tab carries the way to edit it. Under the popover take the form opens under the pencil.
-    .map((item) =>
-      item.id === "workspace" && workspaces !== undefined
-        ? { ...item, after: workspaces.take === "popover" ? <Popover align="start" label={`Edit ${workspace.name}`} trigger={editWorkspace}>{(close) => workspaceForm("edit", close)}</Popover> : editWorkspace }
-        : item,
-    );
-  const autonomyContent =
-    autonomy === undefined || !autonomyOpen ? null : (
-      <AutonomyPanel
-        take={autonomy.take}
-        tab={scope}
-        rows={autonomyRows(autonomy.layers, autonomyLevels(scope, { workspace: workspace.id === "" ? undefined : workspace.name, repository: repository?.name }))}
-        onSet={(kind, level) => autonomy.onSet(scope, kind, level)}
-      />
-    );
-  const asideContent = autonomyContent ?? (workspaces?.take === "panel" && form !== undefined ? workspaceForm(form, putAwayForm) : null);
+  ].map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : id === "workspace" ? { id, label, hint: `Workspace ${name ?? ""}` } : { id, label }));
 
-  const content = asideContent ?? (picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected);
+  const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
   /** The rule or lifecycle the pick is of, for the acts on where it is kept. A step is the workflow's. */
   const piece =
     picked === undefined || mode === "tell"
@@ -634,30 +531,6 @@ export function WorkspaceEditor({
             Add lifecycle
           </Button>
         )}
-        {workspaces === undefined ? null : workspaces.take === "popover" ? (
-          <Popover align="end" label="New Workspace" trigger={newWorkspace}>
-            {(close) => workspaceForm("new", close)}
-          </Popover>
-        ) : (
-          newWorkspace
-        )}
-        {autonomy === undefined ? null : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-pressed={autonomyOpen}
-            onClick={() => {
-              setPicked(undefined);
-              setMode("fields");
-              if (workspaces?.take === "panel") setForm(undefined);
-              setAutonomyOpen(true);
-            }}
-          >
-            <SlidersHorizontal size={16} strokeWidth={2} aria-hidden="true" />
-            Autonomy
-          </Button>
-        )}
       </div>
       {above}
       {/* Drawn once the steps are read: lanes that fill in after they open would pan to what arrived. */}
@@ -671,7 +544,6 @@ export function WorkspaceEditor({
             </div>,
             panel.slot,
           )}
-      {workspaces?.take === "sheet" && form !== undefined ? workspaceForm(form, putAwayForm) : null}
     </section>
   );
 }

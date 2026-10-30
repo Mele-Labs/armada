@@ -96,7 +96,7 @@ import { useTellAsked } from "./tell";
 import { tellActFailures } from "./act-failed";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
-import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager";
+import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager"; import { WorkspacesSurface } from "./workspaces-page"; import { useWorkspaceHeld } from "./workspace-draft";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { firstContactOf, machineOf } from "./settings-surface";
@@ -248,6 +248,14 @@ export function App() {
   // screen owned would be gone after one look at the Board.
   // The repository the rail picked. Main holds it, so every read below is taken after main moved.
   const repositories = state.holds.repositories ?? [];
+  // The Workspaces the picker lists, each with the roots of the repositories in it. Held by the mock for now: no Fleet call lists them across repositories yet.
+  const workspaceHeld = useWorkspaceHeld();
+  const pickerWorkspaces = workspaceHeld?.book?.records.map((one) => ({ id: one.id, name: one.name, repositories: one.repositories.flatMap((id) => repositories.filter((repo) => repo.manifest?.repository === id).map((repo) => repo.root)) }));
+  const openWorkspace = (id: string | null) => {
+    workspaceHeld?.book?.pick(id === null ? { kind: "new" } : { kind: "workspace", id });
+    openSystemEntry("kit:workspaces");
+    goTo(SURFACE.kit);
+  };
   useProjectsFollowed(state.connection.state === "connected");
   useReportedBugsFollowed(state.connection.state === "connected");
   const projectsStore = useProjectsStore();
@@ -498,6 +506,7 @@ export function App() {
           onScope={pick}
           onAddRepository={locate.onOpen}
           onNewProject={locate.onNew}
+          {...(pickerWorkspaces === undefined ? {} : { workspaces: pickerWorkspaces, onOpenWorkspace: openWorkspace })}
           onOpenManifest={() => goTo(SURFACE.manifest)}
           repositoryTrail={repositoryRuns.trailOf}
           onCompose={() => newSession()}
@@ -695,6 +704,7 @@ export function App() {
                 onReadGuides={() => goTo(SURFACE.guides)}
                 onOpenAccount={() => goTo(SURFACE.account)}
                 workflows={<WorkflowManagerSurface state={state} {...guarded} />}
+                {...(workspaceHeld?.book === undefined ? {} : { workspaces: <WorkspacesSurface /> })}
                 guides={<GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />}
                 warned={workflowsWarned(state.health)}
                 onReadKitInventory={readKitInventory}

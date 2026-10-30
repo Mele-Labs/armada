@@ -1,6 +1,5 @@
-// Making a Workspace and setting autonomy defaults from the Workflows page (armada-cwj, mock takes). Six repositories are served: store-web and store-api in my-store, which is kept on this Mac,
-// store-docs and store-infra in platform, which is committed in the repository, and scratch and store-mobile, in none. The takes `sheet`, `panel` and `popover` (`&take=` on the walk's address) draw the Workspace form
-// and the autonomy rows three ways. Built over `workspaces-lanes`, whose Workspace and Jobs it keeps. A mock, no Fleet behind it.
+// System > Workspaces and the repository picker's Workspaces (armada-cwj). Six repositories are served: store-web and store-api in my-store, which is kept on this Mac, store-docs, store-infra and store-api in platform,
+// which is committed in store-docs, and scratch and store-mobile, in none. store-api is in both, and the two set Commands differently. Built over `workspaces-lanes`, whose Workspace and Jobs it keeps. A mock, no Fleet behind it.
 
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -23,8 +22,9 @@ const REPOSITORIES = [WEB!, API!, another("01M1CNPKTV0018H2M1CXDNBK08", "store-d
 export const workspacesAndAutonomy: Scenario = {
   ...workspacesLanes,
   name: "workspaces-and-autonomy",
-  says: "System > Workflows with six repositories served: my-store kept on this Mac, platform committed in the repository, and scratch and store-mobile in none. A button makes a Workspace, the Workspace's tab has a pencil, and Autonomy sets how far Armada goes for each kind of act",
-  state: { ...workspacesLanes.state, holds: { ...workspacesLanes.state.holds, repositories: REPOSITORIES } },
+  says: "The repository picker lists my-store and platform with their repositories under them, and System > Workspaces sets how far Armada goes for each kind of act at Everywhere, at each Workspace and at each repository. store-api is in both Workspaces, which set Commands differently",
+  // Opens on store-api, which is in both Workspaces.
+  state: { ...workspacesLanes.state, repository: API!.root, holds: { ...workspacesLanes.state.holds, repositories: REPOSITORIES } },
   // Workflows are listed under every repository served, so the page draws the editor on whichever is picked.
   behaves: (fleet) => ({
     ...workspacesLanes.behaves!(fleet),
@@ -45,8 +45,13 @@ export const workspacesAndAutonomy: Scenario = {
         served: REPOSITORIES.map((one) => ({ id: one.manifest!.repository, name: one.manifest!.repository })),
         records: [
           { id: "my-store", name: "my-store", repositories: ["store-web", "store-api"], kept: "mac" },
-          { id: "platform", name: "platform", repositories: ["store-docs", "store-infra"], kept: "repository" },
+          { id: "platform", name: "platform", repositories: ["store-docs", "store-infra", "store-api"], kept: "repository", home: "store-docs" },
         ],
+        layers: {
+          everywhere: { tell_agent: "off" },
+          "workspace:my-store": { run_command: "asks" },
+          "workspace:platform": { run_command: "off" },
+        },
       },
     },
   },

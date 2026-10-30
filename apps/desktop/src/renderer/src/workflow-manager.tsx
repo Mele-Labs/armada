@@ -282,7 +282,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
         open(one, armadaOf(rows, one.id));
       }}
       agent={ruled ?? agentOf(changes, known)}
-      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onChange: workspace.change, panel: lanePanel, onSteps: writeSteps, ...(seeded?.editing ?? {}), ...(seeded === undefined && fleet !== undefined ? kept(fleet) : {}) } })}
+      {...(workspace === undefined ? {} : { workspace: { value: workspace.workspace, onChange: workspace.change, panel: lanePanel, onSteps: writeSteps, ...(seeded === undefined && fleet !== undefined ? kept(fleet) : {}) } })}
       suggestions={picked === null ? {} : { [picked.id]: suggestions }}
       suggesting={suggesting}
       actsFor={(one) => {

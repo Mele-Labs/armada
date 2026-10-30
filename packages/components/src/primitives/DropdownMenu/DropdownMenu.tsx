@@ -58,6 +58,8 @@ export type DropdownMenuEntry =
       trail?: ReactNode;
       /** Run by → on the focused row, which then puts the menu away. */
       onRight?: () => void;
+      /** A row under the item above it, as a repository is under its Workspace: indented, and kept by a filter with the heading it sits under. */
+      member?: boolean;
     }
   | { kind: "separator"; id: string }
   | { kind: "label"; id: string; label: string };
@@ -160,13 +162,23 @@ export function filterEntries(entries: DropdownMenuEntry[], query: string): Drop
   if (needle === "") return entries;
   const kept: DropdownMenuEntry[] = [];
   let heading: DropdownMenuEntry[] = [];
-  for (const entry of entries) {
+  const holds = (entry: DropdownMenuEntry) => entry.kind === "item" && entry.label.toLowerCase().includes(needle);
+  for (let at = 0; at < entries.length; at += 1) {
+    const entry = entries[at]!;
     if (entry.kind !== "item") {
       heading = entry.kind === "label" ? [entry] : [];
       continue;
     }
-    if (!entry.label.toLowerCase().includes(needle)) continue;
-    kept.push(...heading, entry);
+    // An item with rows under it is their heading: it keeps them all when its own name matches, and stands over the ones that match when it does not.
+    const members: DropdownMenuEntry[] = [];
+    for (let next = entries[at + 1]; next?.kind === "item" && next.member === true; next = entries[at + 1]) {
+      members.push(next);
+      at += 1;
+    }
+    const own = holds(entry);
+    const shown = own ? members : members.filter(holds);
+    if (!own && shown.length === 0) continue;
+    kept.push(...heading, entry, ...shown);
     heading = [];
   }
   return kept;
@@ -426,12 +438,19 @@ export function DropdownMenu({
                 aria-disabled={entry.disabled || undefined}
                 data-muted={entry.muted || undefined}
                 data-act={entry.act || undefined}
+                data-member={entry.member || undefined}
                 className={
                   entry.danger
                     ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
                     : "armada-dropdown-menu__item"
                 }
-                onClick={() => {
+                onClick={(event) => {
+                  // A press on the trail of a row that has a way right is that way, whether or not the row itself can be chosen.
+                  if (entry.onRight !== undefined && (event.target as HTMLElement).closest(".armada-dropdown-menu__trail") !== null) {
+                    setOpen(false);
+                    entry.onRight();
+                    return;
+                  }
                   if (entry.disabled === true) return;
                   choose(entry.id);
                 }}

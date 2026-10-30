@@ -136,12 +136,3 @@
   background: var(--status-escalated);
   vertical-align: middle;
 }
-
-/* An act drawn after a tab, inside the track and over the fill: it hugs the tab it belongs to. */
-.armada-tabs__after {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  margin-inline-start: calc(var(--space-1) * -1);
-}

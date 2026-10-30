@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type HTMLAttributes } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { useSelectedFill } from "./selected-fill";
@@ -33,11 +33,6 @@ export type TabsItem = {
   alert?: string;
   /** The glyph the tab is drawn as under `iconsOnly`, or before its label under `icons`. A registry glyph. */
   icon?: LucideIcon;
-  /**
-   * An act on the tab, drawn right after it inside the track and outside the tab's own button, so the strip is
-   * never a button inside a button. A glyph button, with its own tooltip. Reached by Tab; the arrow keys stay on the tabs.
-   */
-  after?: ReactNode;
 };
 
 export type TabsProps = {
@@ -121,21 +116,12 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, 
             )}
           </button>
         );
-        const drawn =
-          hint === undefined ? (
-            tab
-          ) : (
-            <Tooltip key={item.id} label={hint} asChild>
-              {tab}
-            </Tooltip>
-          );
-        return item.after === undefined ? (
-          drawn
+        return hint === undefined ? (
+          tab
         ) : (
-          <Fragment key={item.id}>
-            {drawn}
-            <span className="armada-tabs__after">{item.after}</span>
-          </Fragment>
+          <Tooltip key={item.id} label={hint} asChild>
+            {tab}
+          </Tooltip>
         );
       })}
       <span ref={fill} className="armada-tabs__fill" aria-hidden="true" hidden />
