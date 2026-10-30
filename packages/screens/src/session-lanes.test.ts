@@ -509,3 +509,11 @@ it("hands the ticket to the lane of the Job, drawn on the node where that Job st
   expect(lane.nodes.find((node) => node.here === true)?.ticket).toEqual({ label: "ARM-52", state: "In progress", stateId: "in_progress" });
   expect(drawn.lanes.some((one) => one.ticket === true && one.title === "ARM-52")).toBe(false);
 });
+
+it("titles a handed ticket from the issues by its key, and leaves the title out where none is known", () => {
+  const child = reading({ kind: "in", state: "in_progress" });
+  const titled = (titles: ReadonlyMap<string, string>) => lanesOfJob({ held: handing(), started: new Map([["child", child]]), titles, working: false })!.job.instances.find((one) => one.id === instanceId("job", "child"))!.ticket;
+  expect(titled(new Map([["ARM-52", "Cart totals are a cent off"]]))).toEqual({ label: "ARM-52", title: "Cart totals are a cent off", state: "In progress", stateId: "in_progress" });
+  expect(titled(new Map([["ARM-58", "Empty wishlist link 404s"]]))).toEqual({ label: "ARM-52", state: "In progress", stateId: "in_progress" });
+  expect(titled(new Map([["ARM-52", ""]]))).toEqual({ label: "ARM-52", state: "In progress", stateId: "in_progress" });
+});

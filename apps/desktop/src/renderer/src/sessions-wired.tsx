@@ -282,12 +282,13 @@ export class WiredStore {
   });
 
   /**
-   * What the Jobs a Job started hold, for the tickets handed to them: each instance the Job holds whose key is a Job with lifecycles read. **The same read the Job's own lanes are drawn from**,
-   * so a started Job's `job_lifecycles.changed` draws the Job that started it again, and one not read yet is left out.
+   * What the Jobs a Job started hold, for the tickets handed to them: each instance the Job holds whose key is a Job with lifecycles read, with that Job's record, whose ledger holds the
+   * issues it was handed. **The same read the Job's own lanes are drawn from**, so a started Job's `job_lifecycles.changed` draws the Job that started it again, and one not read yet is left out.
    */
   private startedBy(id: string): Pick<Beside, "started"> {
     const instances = this.lifecyclesHeld.get(id)?.instances;
-    const read = instances?.flatMap((one) => (one.links.length > 0 && this.lifecyclesHeld.has(one.key) ? [[one.key, this.lifecyclesHeld.get(one.key)!] as const] : [])) ?? [];
+    const records = this.inputs?.sessions.state === "read" ? this.inputs.sessions.sessions : [];
+    const read = instances?.flatMap((one) => (one.links.length > 0 && this.lifecyclesHeld.has(one.key) ? [[one.key, { held: this.lifecyclesHeld.get(one.key)!, record: records.find((each) => each.id === one.key) }] as const] : [])) ?? [];
     return read.length === 0 ? {} : { started: new Map(read) };
   }
 

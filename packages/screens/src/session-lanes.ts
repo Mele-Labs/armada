@@ -37,6 +37,11 @@ export type LaneInput = {
    * a Job whose lifecycles are not read yet is absent, and its ticket is drawn without a state.
    */
   started?: ReadonlyMap<string, JobLifecycles>;
+  /**
+   * The titles of the issues the Job holds and the Jobs it started do, by key. The wire's instance of a ticket has no title, and Bridge keeps it on the Job's issues; a handed ticket is
+   * titled from here. Where no title is known the ticket is drawn by its key alone.
+   */
+  titles?: ReadonlyMap<string, string>;
   /** The agent is working on its step now. */
   working: boolean;
   /** `SessionRecord.workflow_waiting_on`. */
@@ -140,15 +145,16 @@ function handedOf(held: JobLifecycles): ReadonlyMap<HeldInstance, HeldInstance> 
  * A handed ticket as the card of the Job that holds it draws it: the state **the started Job reads it in**, named as that Job's lifecycle names it. Not read there yet, it has none; a status no
  * state lists keeps the word the source said, and no glyph names it.
  */
-function carriedOf(ticket: HeldInstance, started: JobLifecycles | undefined, held: JobLifecycles): CarriedTicket {
+function carriedOf(ticket: HeldInstance, started: JobLifecycles | undefined, held: JobLifecycles, title: string | undefined): CarriedTicket {
   const there = started?.instances.find((one) => one.lifecycle === ticket.lifecycle && one.key === ticket.key);
   const label = there?.label ?? ticket.label;
   const standing = there?.standing;
+  const titled = title === undefined || title === "" ? {} : { title };
   if (standing?.kind === "in") {
     const named = [...(started?.lifecycles ?? []), ...held.lifecycles].find((one) => one.id === ticket.lifecycle)?.states.find((one) => one.id === standing.state)?.label;
-    return { label, state: named ?? standing.state, stateId: standing.state };
+    return { label, ...titled, state: named ?? standing.state, stateId: standing.state };
   }
-  return { label, state: standing?.kind === "unmapped" ? standing.said : "", stateId: "" };
+  return { label, ...titled, state: standing?.kind === "unmapped" ? standing.said : "", stateId: "" };
 }
 
 // ---- Rules and what they did -----------------------------------------------------------------------------------------------
@@ -289,7 +295,7 @@ export function lanesOfJob(input: LaneInput): SessionLanes | undefined {
     workspace: "",
     copy: { steps, lifecycles: held.lifecycles.map(lifecycleOf), rules },
     // A ticket handed away has no lane here: the card of the Job it went to carries it.
-    instances: held.instances.filter((one) => !given.has(one)).map((one) => instanceOf(one, held.moves, handed.has(one) ? carriedOf(handed.get(one)!, input.started?.get(one.key), held) : undefined)),
+    instances: held.instances.filter((one) => !given.has(one)).map((one) => instanceOf(one, held.moves, handed.has(one) ? carriedOf(handed.get(one)!, input.started?.get(one.key), held, input.titles?.get(handed.get(one)!.key)) : undefined)),
     fired: firedOf(held.acts ?? [], rules, landsOn, steps, workflow?.visits ?? []),
     changes: (held.changes ?? []).map((one): JobChange => {
       const name = one.lane === "rule" ? named.get(one.item) : undefined;

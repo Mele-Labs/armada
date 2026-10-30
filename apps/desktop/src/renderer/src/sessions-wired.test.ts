@@ -860,3 +860,43 @@ it("draws the ticket without a state until the started Job's lifecycles are read
   await new Promise((done) => setTimeout(done, 0));
   expect(ticketOf(store)).toEqual({ label: "ARM-41", state: "To do", stateId: "todo" });
 });
+
+/** A ledger row for an issue a Job holds, whose title Fleet fills once it has read the issue. */
+const issueRow = (key: string, title?: string): SessionRecord["attachments"][number] => ({
+  kind: "issue",
+  target: key,
+  state: "standing",
+  ...(title === undefined ? {} : { detail: { title, state: "open" } }),
+  since: AT,
+  changed_at: AT,
+});
+
+/** The Jobs `a` and `b` with the ticket handed from one to the other, each holding the issue rows given. */
+async function handedWith(parentRows: SessionRecord["attachments"], childRows: SessionRecord["attachments"]) {
+  const held = await holdingStore(async (id) => ({ ok: true, value: id === "a" ? handingOver(id) : holding(id, "todo") }));
+  await held.publish({ ...record("a"), attachments: parentRows }, { ...record("b"), attachments: childRows });
+  return held;
+}
+
+it("titles a handed ticket from the started Job's issues, then the Job that handed it, and leaves the title out where neither has it", async () => {
+  const both = await handedWith([issueRow("ARM-41", "Parent's words")], [issueRow("ARM-41", "Cart totals are a cent off")]);
+  expect(ticketOf(both.store)).toMatchObject({ label: "ARM-41", title: "Cart totals are a cent off" });
+
+  const parentOnly = await handedWith([issueRow("ARM-41", "Parent's words")], [issueRow("ARM-41")]);
+  expect(ticketOf(parentOnly.store)).toMatchObject({ label: "ARM-41", title: "Parent's words" });
+
+  const neither = await handedWith([issueRow("ARM-41")], [issueRow("ARM-41")]);
+  expect(ticketOf(neither.store)).toEqual({ label: "ARM-41", state: "To do", stateId: "todo" });
+
+  // Another ticket's title is not this one's.
+  const other = await handedWith([issueRow("ARM-99", "Another ticket")], [issueRow("ARM-98", "A third")]);
+  expect(ticketOf(other.store)).toEqual({ label: "ARM-41", state: "To do", stateId: "todo" });
+});
+
+it("takes the title when Fleet fills it on the started Job's issue after the ticket is first drawn", async () => {
+  const { store, publish } = await holdingStore(async (id) => ({ ok: true, value: id === "a" ? handingOver(id) : holding(id, "todo") }));
+  await publish({ ...record("a"), attachments: [] }, { ...record("b"), attachments: [issueRow("ARM-41")] });
+  expect(ticketOf(store)).toEqual({ label: "ARM-41", state: "To do", stateId: "todo" });
+  await publish({ ...record("a"), attachments: [] }, { ...record("b"), attachments: [issueRow("ARM-41", "Cart totals are a cent off")] });
+  expect(ticketOf(store)).toMatchObject({ title: "Cart totals are a cent off" });
+});

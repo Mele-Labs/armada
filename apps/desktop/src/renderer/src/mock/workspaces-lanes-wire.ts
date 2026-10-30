@@ -100,7 +100,7 @@ function actsOf(job: JobLanes): RuleActReading[] {
 }
 
 /**
- * A Job another Job started for a ticket: its own lanes at the moment, the key its ticket has there (`ticket`), and the ticket's title, which the wire does not carry yet. **That Job holds
+ * A Job another Job started for a ticket: its own lanes at the moment, the key its ticket has there (`ticket`), and the ticket's title, which Bridge reads from the Job's issues. **That Job holds
  * the ticket from then on**: on the Job that started it the ticket has ended, and its instance of this Job is linked to it.
  */
 export type StartedJob = { lanes: SessionLanes; ticket: string; title: string };
@@ -169,6 +169,7 @@ export function throughWire(sessionId: string, fixture: SessionLanes, started: R
   const drawn = lanesOfJob({
     held,
     started: new Map(Object.entries(started).map(([id, one]) => [id, wireOf(id, one.lanes.job)] as const)),
+    titles: new Map(Object.values(started).map((one) => [one.ticket, one.title] as const)),
     working: fixture.working === true,
     ...(job.waiting === undefined ? {} : { waiting: job.waiting }),
     rules: job.copy.rules.filter(carried).map((rule) => ruleWire(rule, job)),
@@ -181,14 +182,7 @@ export function throughWire(sessionId: string, fixture: SessionLanes, started: R
   };
   const extras = (one: Instance): Instance => {
     const own = mine.get(one.id);
-    const title = own === undefined ? undefined : started[own.id]?.title;
-    return {
-      ...one,
-      ...(own?.title === undefined ? {} : { title: own.title }),
-      ...(own?.assignee === undefined ? {} : { assignee: own.assignee }),
-      ...(one.ticket === undefined || title === undefined ? {} : { ticket: { ...one.ticket, title } }),
-      ...(own?.says === undefined ? {} : { says: own.says }),
-    };
+    return { ...one, ...(own?.title === undefined ? {} : { title: own.title }), ...(own?.assignee === undefined ? {} : { assignee: own.assignee }), ...(own?.says === undefined ? {} : { says: own.says }) };
   };
   return {
     ...drawn,
