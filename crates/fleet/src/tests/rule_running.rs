@@ -152,3 +152,27 @@ async fn a_step_starting_and_ending_and_the_pull_request_opening_are_found_by_co
         "the opening is heard once, and its If reads the step the look left the Job on"
     );
 }
+
+const TICKETS: &str = "version: 1\nlifecycle_id: ticket\nname: Ticket\nstates:\n  \
+    - { id: in_review, label: In review, read: { tracker: [Review] } }\n  \
+    - { id: closed, label: Closed, read: { tracker: [Done] } }\nends: [closed]\n";
+
+#[tokio::test]
+async fn a_job_reads_its_instances_against_the_lifecycles_it_started_with_and_one_saved_later_changes_nothing_it_holds() {
+    let rig = rig_placing(None);
+    let early = rig.start().await;
+    let folder = Path::new(&rig.fleet.host().kit_home).join("lifecycles");
+    std::fs::create_dir_all(&folder).expect("a folder");
+    std::fs::write(folder.join("tickets.yml"), TICKETS).expect("a lifecycle file");
+    let late = rig.start().await;
+
+    let store = rig.fleet.store().lock().await;
+    let manifest = store.session(early.as_str()).expect("reads").and_then(|one| one.manifest_id).expect("a repository");
+    let states = |job: &str| {
+        let lifecycles = rig.fleet.lifecycles_of_job(&store, job, &manifest);
+        lifecycles.iter().find(|one| one.id().as_str() == "ticket").expect("a ticket lifecycle").states().len()
+    };
+    assert_eq!(states(early.as_str()), 4, "Armada's own ticket: the file was saved after it started");
+    assert_eq!(states(late.as_str()), 2, "the file was there when this one started");
+    assert_eq!(states("a-job-from-before"), 2, "a Job that froze nothing reads the ones that apply now");
+}
