@@ -13,6 +13,8 @@ What he met: `feature` ran Plan, Implement, Land. The walk was named only in Lan
 | Whether the agent waits after its first proposal | It stops until he answers | A Job sits idle while he is away |
 | Whether a bug he would see gets the same treatment | Yes: cause, fix, a short walk straight to it, then tests and delivery; a bug he would not see skips the walk | One more stop on a visible bug |
 
+**Folded on 30 Oct.** A bug Job was told to show its walk at Fix's end and asked again for his approval at Short walk, and after he approved it the rail sent it back to Fix to show the same walk. His words: *"I dont get why 'Fix' just doesn't end in 'Walk Approved'?"* He chose Fix ending on his approval, so `bug` is Find the cause, Fix, Tests, Deliver, and Fix both follows the plan and walks. The rail now enters the step after a walk the moment the walk is passed.
+
 **Decided for him, as plumbing.** Fleet learns two facts it can observe, a walk shown and a walk approved, so the rail can place the Walk step and the nudge can see a test edited before approval. A feature nobody would see passes over Walk, said in its plan.
 
 ## How he manages workflows in Bridge

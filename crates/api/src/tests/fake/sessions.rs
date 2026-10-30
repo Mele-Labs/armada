@@ -219,11 +219,27 @@ impl Sessions for FakeDaemon {
 
     async fn start_another_session(
         self: Arc<Self>,
-        _caller: Option<crate::Caller>,
+        caller: Option<crate::Caller>,
         start: ipc::StartAnotherSession,
     ) -> Result<ipc::SessionHeld, Refusal> {
+        // Named by its title, so a batch's answers can be told apart. A call from no connection and a blank
+        // title are refused as Fleet refuses them.
+        if caller.is_none() {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                ipc::AGENT_START_UNPLACED,
+                "only a Job's own agent starts or forks a Job, and this call comes from none",
+                crate::tests::shapes::run_id(),
+            )));
+        }
+        if start.title.trim().is_empty() {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.agent_start_empty",
+                "a Job an agent starts needs a title and a first message",
+                crate::tests::shapes::run_id(),
+            )));
+        }
         Ok(ipc::SessionHeld {
-            session_id: ipc::SessionId::carried("session"),
+            session_id: ipc::SessionId::carried(format!("session-{}", start.title)),
             title: start.title,
             fork: false,
         })

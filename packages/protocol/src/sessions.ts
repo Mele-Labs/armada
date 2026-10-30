@@ -17,6 +17,7 @@ import type { WorkflowSummary } from "./setup";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
 import type { SessionWait, StartAfter } from "./session-waits";
+import type { WireError } from "./protocol";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -450,6 +451,18 @@ export type ForkThisSession = { title: string; message: string; at?: string };
 
 /** What both answer: the Session exists and is listed, and no process has started. */
 export type SessionHeld = { session_id: string; title: string; fork: boolean };
+
+/**
+ * `POST /sessions/start_another`'s whole body: one Job's fields at the top, or several Jobs in `jobs` and nothing else.
+ * Each in `jobs` starts as a call of its own would, in order. One Job answers `SessionHeld`, several `SessionsHeld`.
+ */
+export type StartAnotherSessions = Partial<StartAnotherSession> & { jobs?: StartAnotherSession[] };
+
+/** What a call with `jobs` answers: one entry per Job in the order given. A refused one leaves the others started. */
+export type SessionsHeld = { jobs: HeldOrRefused[] };
+
+/** One Job of `SessionsHeld`: `held` where it started, `refused` with its own call's refusal where it did not. */
+export type HeldOrRefused = { held?: SessionHeld; refused?: WireError };
 
 /**
  * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session holds.
