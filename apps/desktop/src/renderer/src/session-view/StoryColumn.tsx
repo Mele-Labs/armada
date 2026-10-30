@@ -16,7 +16,9 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
 import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
-import { owesOf, type Session, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
+import { owesOf, type AgentTask, type Session, type SessionTodo, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
+
+const TODO_OF: Record<AgentTask["state"], SessionTodo["state"]> = { open: "todo", working: "doing", done: "done" };
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
@@ -122,7 +124,9 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
   // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
-  const todos = (session.activity?.todos ?? []).filter((one) => one.task === undefined);
+  // Fleet holds the live list in memory only; after a restart the build record's copy stands in until the agent next changes it.
+  const reported = session.activity?.todos ?? [];
+  const todos = reported.length > 0 ? reported.filter((one) => one.task === undefined) : (work.tasks ?? []).map((one): SessionTodo => ({ text: one.subject, state: TODO_OF[one.state] }));
   const list = todos.length === 0 ? null : <AgentTasks todos={todos} working={working_} />;
   // With a workflow and a plan group being worked, the list follows the plan's tasks; otherwise it stands under the Agent row.
   const afterPlan = stepped && working.length > 0;
