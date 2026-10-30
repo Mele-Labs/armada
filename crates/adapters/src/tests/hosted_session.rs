@@ -286,12 +286,13 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 
 /// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
 /// here. The rules' opening paragraph addresses a hosted session and the style has its own, and
-/// the paragraph on Fleet's notices is a hosted session's alone.
+/// the paragraph on Fleet's notices is a hosted session's alone. The one on bugs in Armada is the style's too,
+/// since a terminal job may call `report_bug`.
 #[test]
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 8, "tools, needs, drafts, progress, planning, subagents, watching, finishing");
+    assert_eq!(blocks.len(), 9, "tools, needs, drafts, progress, planning, subagents, watching, finishing, bugs");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }
