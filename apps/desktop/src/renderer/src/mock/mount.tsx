@@ -68,6 +68,7 @@ import { SharedPanelHost } from "../shared-panel/host";
 import { SharedPanelOver } from "../shared-panel/wired";
 import { reviewSourceOf } from "../pr-review/source";
 import { IssuesFrom, createIssuesStore } from "../issues-tab/store";
+import { reportsSourceOf } from "../issues-tab/source";
 import { issuesTabSource } from "./slices/issues";
 import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
@@ -188,7 +189,7 @@ export function mountApp(
   // The Issues tab starts as a window does, with no query chosen and no draft kept from an earlier pass.
   const tracked = chosen.draft?.issuesTab;
   if (tracked !== undefined && seed === undefined) forgetAllKept();
-  const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked));
+  const issues = tracked === undefined ? undefined : createIssuesStore({ ...issuesTabSource(tracked), reports: reportsSourceOf(api) });
   // The Projects tab starts with nothing open, over the mock Fleet's projects routes, whose done asks join the Jobs that carry the same ask (`slices/projects.ts`).
   const listed = chosen.draft?.projectsTab;
   if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();

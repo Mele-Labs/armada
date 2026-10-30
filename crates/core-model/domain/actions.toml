@@ -32,7 +32,7 @@
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
-#                 logbook | issues | plan | thread
+#                 logbook | issues | report | plan | thread
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -667,6 +667,30 @@ scope = "issues"
 destructive = false
 confirms = false
 notes = "Opens the dispatch sheet holding the open issue as a tag, on its repository. Starting is the sheet's own act, so nothing starts on this key alone."
+
+[actions.issues_keep]
+kind = "Action"
+tier = "Contextual"
+verb = "Keep the report"
+icon = ""
+icon_absent = "undecided"
+shortcut = "K"
+scope = "report"
+destructive = false
+confirms = false
+notes = "Keeps the reported bug in front, so Start a Job is offered on it. Acts only while a reported bug's row or the reader holds focus; the scope `report` is that focus, which is why it does not meet the Issues tab's own keys. Does nothing on a report already kept."
+
+[actions.issues_drop]
+kind = "Action"
+tier = "Contextual"
+verb = "Drop the report"
+icon = ""
+icon_absent = "undecided"
+shortcut = "D"
+scope = "report"
+destructive = false
+confirms = false
+notes = "Deletes the reported bug in front, kept or not, with no confirmation: a report is a note an agent made, and the owner can ask for it again. `D` is also `issues_describe`, which it takes over only where a reported bug holds focus, so it has a scope of its own rather than `issues`. Acts only while a reported bug's row or the reader holds focus."
 
 [actions.projects_panel]
 kind = "Action"

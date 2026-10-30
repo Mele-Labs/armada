@@ -2,11 +2,12 @@
 // `window.armada`**, so a test hands it a fake one. Fleet's words for a refusal, including a tracker's own for a query it will
 // not run, reach the tab as they are.
 
-import type { IssueQueries, IssueRead, Outcome, TrackedIssue } from "@armada/protocol";
+import type { BugReport, IssueQueries, IssueRead, Outcome, TrackedIssue } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import type { BugReportActed, BugReportsApi } from "../../../shared/api/bug-reports";
 import type { IssueQueryActed, IssuesApi } from "../../../shared/api/issues";
-import type { IssuesSource, Read, SavedQuery, Ticket, TicketRead, Tracker } from "./model";
+import type { IssuesSource, Read, ReportedBug, SavedQuery, Ticket, TicketRead, Tracker } from "./model";
 
 /** The program a refusal named in `field`: `missing_tool` where it is not installed, `needs_setup` where it has no project. */
 const namedIn = (outcome: Outcome, field: "missing_tool" | "needs_setup"): string | undefined => {
@@ -14,7 +15,7 @@ const namedIn = (outcome: Outcome, field: "missing_tool" | "needs_setup"): strin
   return typeof tool === "string" && tool !== "" ? tool : undefined;
 };
 
-const worded = <T>(answer: IssueQueryActed<T>): Read<T> => {
+const worded = <T>(answer: IssueQueryActed<T> | BugReportActed<T>): Read<T> => {
   if (answer.ok) return { ok: true, value: answer.value };
   const missing = namedIn(answer.outcome, "missing_tool");
   const needsSetup = namedIn(answer.outcome, "needs_setup");
@@ -63,8 +64,32 @@ const savedOf = (answer: IssueQueryActed<IssueQueries>): Read<SavedQuery[]> => {
   return said.ok ? { ok: true, value: said.value.saved } : said;
 };
 
-/** The source over what the preload (or the mock Fleet) offers. */
-export const issuesSourceOf = (api: IssuesApi): IssuesSource => ({
+/** A report as the tab draws it: whether the owner kept it is whether Fleet has a time for that. */
+export const reportedBugOf = (one: BugReport): ReportedBug => {
+  const { kept, ...rest } = one;
+  return { ...rest, kept: kept !== undefined };
+};
+
+/** The reported bugs over what the preload (or the mock Fleet) offers. */
+export const reportsSourceOf = (api: BugReportsApi): NonNullable<IssuesSource["reports"]> => ({
+  list: async () => {
+    const answer = worded(await api.listBugReports());
+    return answer.ok ? { ok: true, value: answer.value.reports.map(reportedBugOf) } : answer;
+  },
+  keep: async (id) => {
+    const answer = worded(await api.keepBugReport(id));
+    return answer.ok ? { ok: true, value: reportedBugOf(answer.value) } : answer;
+  },
+  drop: async (id) => {
+    const answer = worded(await api.dropBugReport(id));
+    return answer.ok ? { ok: true, value: undefined } : answer;
+  },
+  follow: (onChanged) => api.onBugReportsChanged((changed) => onChanged(changed.reports.map(reportedBugOf))),
+});
+
+/** The source over what the preload (or the mock Fleet) offers. The reported bugs come from the same Fleet where `bugs` is handed. */
+export const issuesSourceOf = (api: IssuesApi, bugs?: BugReportsApi): IssuesSource => ({
+  ...(bugs === undefined ? {} : { reports: reportsSourceOf(bugs) }),
   trackers: async (manifestIds) => {
     const answers = await Promise.all(manifestIds.map(async (id) => ({ id, answer: worded(await api.listIssueQueries(id)) })));
     const read = answers.flatMap(({ answer }) => (answer.ok ? [trackerOf(answer.value)] : []));

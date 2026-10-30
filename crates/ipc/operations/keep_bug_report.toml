@@ -1,0 +1,8 @@
+[operations.keep_bug_report]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The owner keeps one bug report, so it is marked as kept and stays"
+notes = """
+`POST /bug_reports/:report_id/keep`, no body. Answers 200 with the `BugReport`, `kept` set to now. A report already kept keeps its first `kept`. 404 `fleet.no_such_bug_report` for an id that names none. Publishes `bug_reports.changed`.
+"""

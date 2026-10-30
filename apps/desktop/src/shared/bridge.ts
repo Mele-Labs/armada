@@ -42,6 +42,7 @@ import { ACCOUNTS_CHANNELS } from "./api/accounts";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
 import { PROJECTS_CHANNELS } from "./api/projects";
+import { BUG_REPORTS_CHANNELS } from "./api/bug-reports";
 import { AGENT_SIGN_IN_CHANNELS } from "./api/agent-sign-in";
 import { CLASHES_CHANNELS } from "./api/clashes";
 import { REVIEWS_CHANNELS } from "./api/reviews";
@@ -170,6 +171,7 @@ export const CHANNELS = {
   ...PLAN_USAGE_CHANNELS,
   ...MODEL_DOWNSHIFT_CHANNELS,
   ...PROJECTS_CHANNELS,
+  ...BUG_REPORTS_CHANNELS,
   ...AGENT_SIGN_IN_CHANNELS,
   ...CLASHES_CHANNELS,
   ...REVIEWS_CHANNELS,
