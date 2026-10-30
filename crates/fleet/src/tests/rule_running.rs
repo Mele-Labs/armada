@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use core_model::rule::JobEvent;
-use core_model::{ForgeFact, Observed};
+use core_model::{ForgeFact, Lifecycle, Observed};
 use ipc::{SessionId, SessionRecord};
 use store::rule_act_standing as standing;
 
@@ -63,7 +63,7 @@ async fn a_job_keeps_the_rules_it_started_with_and_a_rule_saved_later_reaches_on
     save(&rig, "started.yml", TELLS_ON_START);
 
     let store = rig.fleet.store().lock().await;
-    let rules = |job: &SessionId| copy_of(&store, job.as_str()).map(|copy| copy.rules.len());
+    let rules = |job: &SessionId| copy_of(&store, job.as_str(), Lifecycle::built_in()).map(|copy| copy.rules.len());
     assert_eq!(rules(&early), Some(0), "started before the rule was saved: it has a copy, and the copy holds none");
     assert_eq!(rules(&late), Some(1), "the second file was saved after, and is in neither copy");
     drop(store);

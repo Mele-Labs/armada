@@ -27,9 +27,13 @@ pub struct JobCopy {
 /// The copy `session` froze, or `None` for a Job that froze none. **A piece that no longer reads is
 /// left out**, so a rule written for a version of the file this Fleet cannot read plans nothing
 /// and the rest of the copy still stands.
-pub fn copy_of(store: &Store, session: &str) -> Option<JobCopy> {
+///
+/// `built_in` is the four Armada carries as the Job's repository reads them, with the words its
+/// tracker declares ([`Fleet::built_in_lifecycles`]). **A rule's move writes one of those words**,
+/// so the copy it plans against must have them.
+pub fn copy_of(store: &Store, session: &str, built_in: Vec<Lifecycle>) -> Option<JobCopy> {
     let kept = store.job_copy_of(session).ok().flatten()?;
-    let mut lifecycles = Lifecycle::built_in();
+    let mut lifecycles = built_in;
     let mut rules = Vec::new();
     for piece in &kept.pieces {
         let path = Path::new(&piece.path);
@@ -53,11 +57,11 @@ pub fn copy_of(store: &Store, session: &str) -> Option<JobCopy> {
     Some(JobCopy { lifecycles, rules, defaults })
 }
 
-/// The lifecycles `session` froze, without the rules or anything else of the copy: the four Armada
-/// carries with a file's in place of the one it replaces. `None` for a Job that froze none.
-pub fn frozen_lifecycles(store: &Store, session: &str) -> Option<Vec<Lifecycle>> {
+/// The lifecycles `session` froze, without the rules or anything else of the copy: `built_in` with a
+/// file's in place of the one it replaces. `None` for a Job that froze none.
+pub fn frozen_lifecycles(store: &Store, session: &str, built_in: Vec<Lifecycle>) -> Option<Vec<Lifecycle>> {
     let kept = store.job_copy_of(session).ok().flatten()?;
-    let mut lifecycles = Lifecycle::built_in();
+    let mut lifecycles = built_in;
     for piece in kept.pieces.iter().filter(|piece| piece.kind == PieceKind::Lifecycle) {
         let Ok(read) = config::parse_lifecycle(Path::new(&piece.path), &piece.text) else { continue };
         match lifecycles.iter_mut().find(|one| one.id() == read.id()) {
@@ -82,6 +86,6 @@ where
     /// apply to its repository now. **Every reader of a Job's instances asks here**, so a lifecycle
     /// saved after the Job started changes nothing it holds.
     pub(crate) fn lifecycles_of_job(&self, store: &Store, session: &str, manifest: &str) -> Vec<Lifecycle> {
-        frozen_lifecycles(store, session).unwrap_or_else(|| self.lifecycles_that_apply(manifest))
+        frozen_lifecycles(store, session, self.built_in_lifecycles(Some(manifest))).unwrap_or_else(|| self.lifecycles_that_apply(manifest))
     }
 }

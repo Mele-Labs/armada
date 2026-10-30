@@ -12,7 +12,7 @@
 //! **A Job with no copy is never planned for**: the check is a row, and no file is read for it.
 
 use core_model::rule::{ActKind, Course, Engine, JobEvent, JobFacts, Occurrence, RanOnce, RuleId, Words};
-use core_model::{InstanceRef, Moved, StepId, Standing};
+use core_model::{InstanceRef, Lifecycle, Moved, StepId, Standing};
 use ipc::{SessionRecord, SessionState};
 use store::{rule_act_standing as standing, KeptSeen, NewRuleAct, Store, WriteError};
 
@@ -61,8 +61,9 @@ pub(crate) fn plan_and_keep(
     facts: &JobFacts,
     at: &str,
     writes: &Writes,
+    built_in: Vec<Lifecycle>,
 ) -> Result<Vec<i64>, WriteError> {
-    let Some(copy) = copy_of(store, session).filter(|copy| !copy.rules.is_empty()) else { return Ok(Vec::new()) };
+    let Some(copy) = copy_of(store, session, built_in).filter(|copy| !copy.rules.is_empty()) else { return Ok(Vec::new()) };
     let held = super::holding::rebuilt(&copy.lifecycles, &store.lifecycle_instances_of(session)?);
     let key = seen.key();
     let written = key.to_string();
@@ -136,7 +137,8 @@ where
             let workflow = store.hosting(session).ok().flatten().and_then(|hosting| hosting.workflow);
             let facts = facts_from(&KeptSeen::default(), workflow.as_deref());
             let started = Occurrence::job(JobEvent::Started, "started");
-            plan_and_keep(&mut store, session, &started, &facts, &at, &writes).unwrap_or_default()
+            let built_in = self.built_in_lifecycles(Some(manifest));
+            plan_and_keep(&mut store, session, &started, &facts, &at, &writes, built_in).unwrap_or_default()
         };
         self.rules_published(session, &kept).await;
     }
@@ -159,7 +161,8 @@ where
             let Ok(facts) = facts_of(&store, session) else { return };
             let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
             let writes = self.writes_for(manifest.as_deref());
-            plan_and_keep(&mut store, session, seen, &facts, &at, &writes).unwrap_or_default()
+            let built_in = self.built_in_lifecycles(manifest.as_deref());
+            plan_and_keep(&mut store, session, seen, &facts, &at, &writes, built_in).unwrap_or_default()
         };
         self.rules_published(session, &kept).await;
     }
@@ -173,7 +176,7 @@ where
         for session in jobs {
             let kept = {
                 let mut store = self.store().lock().await;
-                let Some(copy) = copy_of(&store, &session) else { continue };
+                let Some(copy) = copy_of(&store, &session, self.built_in_lifecycles_of_job(&store, &session)) else { continue };
                 let (Ok(moves), Ok(facts)) = (store.lifecycle_moves_of(&session), facts_of(&store, &session)) else { continue };
                 let manifest = store.session(&session).ok().flatten().and_then(|one| one.manifest_id);
                 let writes = self.writes_for(manifest.as_deref());
@@ -184,7 +187,8 @@ where
                     let moved = Standing::from_wire(&one.from).zip(Standing::from_wire(&one.to));
                     let Some((instance, (from, to))) = instance.zip(moved) else { continue };
                     let seen = Occurrence::entered(instance, Moved { from, to }, &format!("{}#{}", one.at, one.id));
-                    kept.extend(plan_and_keep(&mut store, &session, &seen, &facts, &at, &writes).unwrap_or_default());
+                    let built_in = self.built_in_lifecycles(manifest.as_deref());
+                    kept.extend(plan_and_keep(&mut store, &session, &seen, &facts, &at, &writes, built_in).unwrap_or_default());
                 }
                 kept
             };
@@ -221,7 +225,8 @@ where
                 return;
             }
             let facts = facts_from(&now, record.workflow.as_deref());
-            let writes = self.writes_for(record.manifest_id.as_ref().map(|id| id.as_str()));
+            let manifest = record.manifest_id.as_ref().map(|id| id.as_str());
+            let writes = self.writes_for(manifest);
             let mut kept = Vec::new();
             let mut counted = before.events;
             for happened in happened_between(&before, &now) {
@@ -234,7 +239,8 @@ where
                     Happened::Landed => Occurrence::job(JobEvent::Landed, &stamp),
                     Happened::Ended => Occurrence::job(JobEvent::Ended, &stamp),
                 };
-                kept.extend(plan_and_keep(&mut store, session, &seen, &facts, &at, &writes).unwrap_or_default());
+                let built_in = self.built_in_lifecycles(manifest);
+                kept.extend(plan_and_keep(&mut store, session, &seen, &facts, &at, &writes, built_in).unwrap_or_default());
             }
             let _ = store.keep_job_seen(session, &KeptSeen { events: counted, ..now });
             kept

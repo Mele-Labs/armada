@@ -31,10 +31,12 @@ pub(crate) mod waking;
 pub mod wire;
 pub mod writing;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, TicketState, Vcs, WorkProduct};
 use core_model::{Lifecycle, ManifestId, Ulid};
+use store::Store;
 
 use crate::daemon::Fleet;
+use crate::tracking::choice_of;
 
 pub use following::keep_the_rules;
 pub use keeping::keep_the_lifecycles;
@@ -60,4 +62,39 @@ where
             Err(_) => Lifecycle::built_in(),
         }
     }
+
+    /// The four Armada carries as the repository `manifest_id` reads them: **the ticket with the words
+    /// its tracker declares**, and as carried where it declares none, the repository is not served
+    /// or there is no repository. A lifecycle a Workspace or a repository writes replaces the ticket
+    /// outright, so the tracker's words are the starting point and never laid over a person's.
+    pub(crate) fn built_in_lifecycles(&self, manifest_id: Option<&str>) -> Vec<Lifecycle> {
+        let Some(served) = manifest_id.and_then(|id| self.repositories().serving(id)) else {
+            return Lifecycle::built_in();
+        };
+        let declared = self.trackers().ticket_words(&choice_of(served.manifest()));
+        let words: Vec<(&str, &str)> = declared.iter().map(|(state, word)| (ticket_state_id(*state), *word)).collect();
+        Lifecycle::built_in_reading(&words)
+    }
+
+    /// `built_in_lifecycles` for the repository `session` is in.
+    pub(crate) fn built_in_lifecycles_of_job(&self, store: &Store, session: &str) -> Vec<Lifecycle> {
+        let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
+        self.built_in_lifecycles(manifest.as_deref())
+    }
+}
+
+/// The state of the ticket Armada carries that a tracker's `state` is. **The one place the two
+/// vocabularies meet**: the match has no wildcard, so a state added to either fails to build here.
+fn ticket_state_id(state: TicketState) -> &'static str {
+    match state {
+        TicketState::ToDo => "todo",
+        TicketState::InProgress => "in_progress",
+        TicketState::InReview => "in_review",
+        TicketState::Closed => "closed",
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn ticket_state_ids() -> [&'static str; 4] {
+    TicketState::ALL.map(ticket_state_id)
 }

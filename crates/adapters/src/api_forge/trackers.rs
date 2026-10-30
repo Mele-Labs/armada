@@ -52,6 +52,10 @@ impl Trackers for ApiTrackers {
         crate::tracker_providers::backlog_over(choice)
     }
 
+    fn ticket_words(&self, choice: &TrackerChoice) -> &'static [(adapter_traits::TicketState, &'static str)] {
+        crate::tracker_providers::ticket_words_over(choice)
+    }
+
     fn writer(&self, choice: &TrackerChoice) -> Arc<dyn adapter_traits::TrackerWrites + Send + Sync> {
         crate::tracker_providers::writer_over(choice, self.taught.as_ref())
     }

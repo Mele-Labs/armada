@@ -5,9 +5,12 @@
 //! is for. A piece file that spells the same lifecycle out reads back equal to it, which a test in
 //! `config` holds.
 //!
-//! The ticket lists no tracker words. Two trackers rarely share theirs, and a lifecycle scoped to a
-//! Workspace (a set of repositories) or to a repository is where a person says which are which;
-//! until then every status is unmapped, which is a fact, where a default would have been a guess.
+//! The ticket lists no tracker words of its own. **A tracker brings the ones it uses**
+//! ([`Lifecycle::ticket_reading`]), so a repository on a tracker that declares any reads from the
+//! first Job; one on a tracker that declares none leaves every status unmapped, which is a fact,
+//! where a default would have been a guess. A lifecycle scoped to a Workspace (a set of
+//! repositories) or to a repository replaces the Ticket outright, and is where a person says which
+//! words are which.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -50,17 +53,36 @@ fn built(
 }
 
 impl Lifecycle {
-    /// A ticket in the tracker: `ticket`.
+    /// A ticket in the tracker: `ticket`, **listing no words**.
     pub fn ticket() -> Lifecycle {
-        let words = || StateRead::Tracker(TrackerWords::default());
+        Lifecycle::ticket_reading(&[])
+    }
+
+    /// `ticket` with the words a tracker declares, as `(state id, word)`. **A blank word, a word
+    /// repeated on one state, a word two states both claim and an id the ticket has no state for
+    /// are left out**: what a tracker declares is not a person's file, and one bad pair must not
+    /// take the rest with it. A status two states claim is read as neither, the same as a
+    /// lifecycle that listed it twice is refused.
+    pub fn ticket_reading(declared: &[(&str, &str)]) -> Lifecycle {
+        let words = |state: &str| {
+            let mut kept: Vec<&str> = Vec::new();
+            for (_, word) in declared.iter().filter(|(on, _)| *on == state) {
+                let word = word.trim();
+                let claimed_elsewhere = declared.iter().any(|(on, other)| *on != state && other.trim() == word);
+                if !word.is_empty() && !claimed_elsewhere && !kept.contains(&word) {
+                    kept.push(word);
+                }
+            }
+            StateRead::Tracker(TrackerWords::of(kept).expect("blanks and repeats were left out"))
+        };
         built(
             "ticket",
             "Ticket",
             vec![
-                state("todo", "To do", words()),
-                state("in_progress", "In progress", words()),
-                state("in_review", "In review", words()),
-                state("closed", "Closed", words()),
+                state("todo", "To do", words("todo")),
+                state("in_progress", "In progress", words("in_progress")),
+                state("in_review", "In review", words("in_review")),
+                state("closed", "Closed", words("closed")),
             ],
             moves(&[("todo", "in_progress"), ("in_progress", "in_review"), ("in_review", "closed")]),
             &["closed"],
@@ -127,6 +149,11 @@ impl Lifecycle {
 
     /// The four, in the order a Job meets them.
     pub fn built_in() -> Vec<Lifecycle> {
-        vec![Lifecycle::ticket(), Lifecycle::pull_request(), Lifecycle::deploy(), Lifecycle::job()]
+        Lifecycle::built_in_reading(&[])
+    }
+
+    /// The four, with the ticket reading the words a tracker declares (`ticket_reading`).
+    pub fn built_in_reading(ticket_words: &[(&str, &str)]) -> Vec<Lifecycle> {
+        vec![Lifecycle::ticket_reading(ticket_words), Lifecycle::pull_request(), Lifecycle::deploy(), Lifecycle::job()]
     }
 }
