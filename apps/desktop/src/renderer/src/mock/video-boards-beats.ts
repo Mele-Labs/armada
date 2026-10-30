@@ -27,20 +27,7 @@ const [CHECKOUT, PAYMENTS, DARK, NOTES] = ["Fix the flaky checkout test", "Upgra
 const walkWindow = dialog(`Bridge's window on ${DARK}`);
 
 const REPOS = ["relay-web", "relay-api", "relay-app", "relay-docs"] as const;
-const dispatch = (title: string): Target => button(`Dispatch ${title}`);
-const holding = (title: string): Target => button(`Open ${title}`);
-
-/** One launch: the Dispatch icon on a card, the sheet it opens, the start, and the card that now names the Job. */
-function launch(n: number, title: string, clock: string, first: string | undefined): Beat[] {
-  const stamp = `FLIGHT ${n} · GO`;
-  return [
-    beat(clock, stamp, { hover: dispatch(title), say: first ?? `Flight ${n}: the Dispatch icon on the card for ${title}, a task in ${REPOS[n - 1]}.` }),
-    beat(clock, stamp, { press: dispatch(title), say: `The Dispatch sheet opens on ${REPOS[n - 1]} with ${title} already in the request.` }),
-    beat(clock, stamp, { key: "Enter", on: sheet, say: `Enter starts Flight ${n}. The sheet closes and the Cockpit opens on its Job.` }),
-    beat(clock, stamp, { press: place("Projects"), say: "Back on Projects." }),
-    beat(clock, stamp, { look: holding(title), say: `The card now names its Job: ${title}.` }),
-  ];
-}
+const card = (title: string): Target => role("group", title);
 
 export const BEATS: readonly Beat[] = [
   // Shot 1, 0:00 to 0:05
@@ -49,12 +36,19 @@ export const BEATS: readonly Beat[] = [
   beat("T+00:02", undefined, { look: relay, say: `Four open cards, one in each repository: ${CHECKOUT}, ${PAYMENTS}, ${DARK} and ${NOTES}. None has a Job yet.` }),
 
   // Shot 2, 0:05 to 0:15
-  ...launch(1, CHECKOUT, "T+00:05", `0:05 to 0:15, shot 2, launch. The Dispatch icon on the first card, a task in ${REPOS[0]}. Voice over: Give each one to a Job.`),
-  ...launch(2, PAYMENTS, "T+00:07", undefined),
-  ...launch(3, DARK, "T+00:09", undefined),
-  beat("T+00:11", "FLIGHT 4 · GO", { hover: dispatch(NOTES), say: `Flight 4: the Dispatch icon on the card for ${NOTES}, a task in ${REPOS[3]}.` }),
-  beat("T+00:11", "FLIGHT 4 · GO", { press: dispatch(NOTES), say: `The Dispatch sheet opens on ${REPOS[3]} with ${NOTES} in the request.` }),
-  beat("T+00:11", "FLIGHT 4 · GO", { type: `${NOTES} once @${PAYMENTS} ends`, into: sheet, say: `The request waits on ${PAYMENTS}, a Job in ${REPOS[1]}: Flight 4 starts when Flight 2 ends.` }),
+  beat("T+00:05", undefined, { key: " ", on: card(CHECKOUT), say: `0:05 to 0:15, shot 2, launch. Each card is picked with ⌘-click, starting with ${CHECKOUT} in ${REPOS[0]}. Voice over: Give each one to a Job.` }),
+  beat("T+00:06", undefined, { key: " ", on: card(PAYMENTS), say: `${PAYMENTS}, in ${REPOS[1]}.` }),
+  beat("T+00:06", undefined, { key: " ", on: card(DARK), say: `${DARK}, in ${REPOS[2]}.` }),
+  beat("T+00:07", undefined, { key: " ", on: card(NOTES), say: `${NOTES}, in ${REPOS[3]}.` }),
+  beat("T+00:07", undefined, { press: inside(relay, button("Dispatch", { exact: true })), say: "Dispatch, once, in the project's head. One sheet opens for each repository, the first now." }),
+  beat("T+00:08", "FLIGHT 1 · GO", { look: sheet, say: `The sheet for ${REPOS[0]} holds ${CHECKOUT}.` }),
+  beat("T+00:08", "FLIGHT 1 · GO", { key: "Enter", on: sheet, say: "Enter starts Flight 1. The sheet closes." }),
+  beat("T+00:09", "FLIGHT 2 · GO", { look: sheet, say: `The next sheet is for ${REPOS[1]} and holds ${PAYMENTS}.` }),
+  beat("T+00:09", "FLIGHT 2 · GO", { key: "Enter", on: sheet, say: "Enter starts Flight 2." }),
+  beat("T+00:10", "FLIGHT 3 · GO", { look: sheet, say: `The next sheet is for ${REPOS[2]} and holds ${DARK}.` }),
+  beat("T+00:10", "FLIGHT 3 · GO", { key: "Enter", on: sheet, say: "Enter starts Flight 3." }),
+  beat("T+00:11", "FLIGHT 4 · GO", { look: sheet, say: `The last sheet is for ${REPOS[3]} and holds ${NOTES}.` }),
+  beat("T+00:11", "FLIGHT 4 · GO", { type: `${NOTES} once @${PAYMENTS} ends`, into: sheet, say: `The request waits on ${PAYMENTS}, in another repository: Flight 4 starts when Flight 2 ends.` }),
   beat("T+00:12", "FLIGHT 4 · GO", { press: inside(role("region", "Dispatch", { exact: true }), button("Start", { exact: true })), say: "Start. The Job is dispatched to wait and holds no bay." }),
   beat("T+00:13", undefined, { press: inside(anyJob, button("Back", { exact: true })), say: "A cut to the Cockpit." }),
   beat("T+00:13", undefined, { look: jobs, say: `Four Jobs in the list, one in each repository. ${NOTES} waits on ${PAYMENTS}.` }),
