@@ -158,7 +158,7 @@ Both close paths do this, a hosted close and a terminal job's end, and each rewr
 That artifact's `session.changed` is Bridge's word that a note file changed: main tells the annotation layer, which reads its notes again.
 
 **An agent that calls `show_window`, `withdraw_window`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long job, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good.
-The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`), or `done` and `done_since`.
+The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`) with `fleet` beside it (Fleet's own items, `id`, `kind` and `text`, read-only to the agent and never counted as its own, so its count matches Bridge's), or `done` and `done_since`.
 It weighs the same on the first call and the thousandth.
 Bridge's routes and the mod's hook, which are not the door, are answered the row.
 Nothing reads these four answers today.

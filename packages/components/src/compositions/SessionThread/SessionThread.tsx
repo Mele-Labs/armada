@@ -369,11 +369,11 @@ export type SessionThreadProps = {
    * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
    * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`,
    * `always_block` or `allow_for_session` press hands back the folder chosen. `reachesTo` says whether
-   * the call reads that path or writes to it, in the card's eyebrow and the Always head. `kind` is the
+   * the call reads that path, writes to it or runs what the guard cannot class, in the card's eyebrow and the Always head. `kind` is the
    * Bash call's program and script: with an `allow_like_this_for_session` offer the card draws a Calls
    * like row, and that press hands back the kind chosen.
    */
-  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write"; kind?: CallKind };
+  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write" | "run"; kind?: CallKind };
   onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string, kind?: CallKind) => void;
   /**
    * A question the agent asked that nobody answered in time, or that was skipped, drawn as the deck under the
@@ -1214,8 +1214,8 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
 /** The answers that carry a folder, and so the picker's choice. */
 const FOLDER_ANSWERS = new Set(["always_allow", "allow_for_session", "always_block"]);
 
-/** The Always head, read with the path under it: "reads of" a path, "writes to" one. */
-const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"] } as const;
+/** The Always head, read with the path under it: "reads of" a path, "writes to" one, "commands on" one. */
+const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"], run: ["commands", "on"] } as const;
 
 /** The answer that allows a kind of call, drawn in the Calls like row and only where the ask names its kind. */
 const LIKE_THIS = "allow_like_this_for_session";
@@ -1252,7 +1252,7 @@ function KindPicker({ kind, wide, onWiden }: { kind: CallKind; wide: boolean; on
  * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
  * by the path, so a new ask opens on its whole path. A card that names its call's kind adds Calls
  * like under it, whose answer can be narrowed to the same folder. */
-function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer, keyed = false }: { reaches: string; reachesTo?: "read" | "write"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"]; /** The card is the thread's target: its refuse draws `⌥X`. */ keyed?: boolean }) {
+function ReachAnswers({ reaches, reachesTo, kind, offers, onAnswer, keyed = false }: { reaches: string; reachesTo?: "read" | "write" | "run"; kind?: CallKind; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"]; /** The card is the thread's target: its refuse draws `⌥X`. */ keyed?: boolean }) {
   const [folder, setFolder] = useState(reaches);
   const [wide, setWide] = useState(false);
   // Off at the start: the kind alone is the answer's own width, and a folder narrows it only when asked.
