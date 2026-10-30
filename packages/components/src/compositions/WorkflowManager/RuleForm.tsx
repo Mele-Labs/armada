@@ -23,7 +23,7 @@ export type RuleFormLifecycle = { id: string; name: string; kind: LifecycleKind 
 const noun = (name: string): string => name.toLowerCase();
 
 /** The word an act is added by, and the kind of act it is for the autonomy default. */
-const ACTS: readonly { act: RuleAct["act"]; said: string; kind: string }[] = [
+export const ACTS: readonly { act: RuleAct["act"]; said: string; kind: string }[] = [
   { act: "tracker_assign", said: "Assign a ticket", kind: "tracker_write" },
   { act: "tracker_move", said: "Move a ticket", kind: "tracker_write" },
   { act: "tracker_close", said: "Close a ticket", kind: "tracker_write" },

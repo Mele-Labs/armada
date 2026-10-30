@@ -96,7 +96,8 @@ import { useTellAsked } from "./tell";
 import { tellActFailures } from "./act-failed";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
-import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager";
+import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager"; import { WorkspacesSurface } from "./workspaces-page"; import { useWorkspaces } from "./use-workspaces";
+import type { WorkspacesApi } from "./workspaces-fleet";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { firstContactOf, machineOf } from "./settings-surface";
@@ -110,6 +111,9 @@ import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarr
 
 /** Re-exported so nothing importing it has to learn a new path. */
 export const WAITING: BridgeState = NOTHING_YET;
+
+/** The calls System > Workspaces and the repository picker make. */
+const workspacesApi = (): WorkspacesApi => window.armada;
 
 export function App() {
   const [state, setState] = useState<BridgeState>(WAITING);
@@ -248,6 +252,14 @@ export function App() {
   // screen owned would be gone after one look at the Board.
   // The repository the rail picked. Main holds it, so every read below is taken after main moved.
   const repositories = state.holds.repositories ?? [];
+  // The Workspaces the picker lists, each with the roots of the repositories in it. Fleet keeps them; the System page and the picker read the same ones.
+  const workspaces = useWorkspaces(workspacesApi, repositories);
+  const pickerWorkspaces = workspaces.workspaces.map((one) => ({ id: one.id, name: one.name, repositories: one.repositories.flatMap((id) => repositories.filter((repo) => repo.manifest?.id === id).map((repo) => repo.root)) }));
+  const openWorkspace = (id: string | null) => {
+    workspaces.pick(id === null ? { kind: "new" } : { kind: "workspace", id });
+    openSystemEntry("kit:workspaces");
+    goTo(SURFACE.kit);
+  };
   useProjectsFollowed(state.connection.state === "connected");
   useReportedBugsFollowed(state.connection.state === "connected");
   const projectsStore = useProjectsStore();
@@ -498,6 +510,8 @@ export function App() {
           onScope={pick}
           onAddRepository={locate.onOpen}
           onNewProject={locate.onNew}
+          workspaces={pickerWorkspaces}
+          onOpenWorkspace={openWorkspace}
           onOpenManifest={() => goTo(SURFACE.manifest)}
           repositoryTrail={repositoryRuns.trailOf}
           onCompose={() => newSession()}
@@ -695,6 +709,7 @@ export function App() {
                 onReadGuides={() => goTo(SURFACE.guides)}
                 onOpenAccount={() => goTo(SURFACE.account)}
                 workflows={<WorkflowManagerSurface state={state} {...guarded} />}
+                workspaces={<WorkspacesSurface held={workspaces} />}
                 guides={<GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />}
                 warned={workflowsWarned(state.health)}
                 onReadKitInventory={readKitInventory}

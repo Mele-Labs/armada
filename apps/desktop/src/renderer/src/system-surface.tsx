@@ -36,6 +36,8 @@ export type SystemSurfaceProps = KitSlice & {
   onOpenAccount: () => void;
   /** The Workflow creator, drawn under Kit › Workflows. */
   workflows: ReactNode;
+  /** Kit › Workspaces. Absent where the window holds no Workspaces, and the entry is not listed. */
+  workspaces?: ReactNode;
   /** The guide catalogue, drawn under Bridge › Guides. */
   guides: ReactNode;
   /** A mark on an entry, by the old surface's name (`workflows`), and what its tooltip says. */
@@ -60,7 +62,7 @@ function useWithMods(setup: KitSetupRead | undefined): KitSetupRead | undefined 
   return { ...setup, kinds: [...setup.kinds.filter((one) => one.kind !== "mods"), { kind: "mods", read: { what: "read", items, unreadable: [] } }] };
 }
 
-export function SystemSurface({ repository, settings, modelChoices, live, guarded, onReadGuides, onOpenAccount, workflows, guides, warned, ...slice }: SystemSurfaceProps) {
+export function SystemSurface({ repository, settings, modelChoices, live, guarded, onReadGuides, onOpenAccount, workflows, workspaces, guides, warned, ...slice }: SystemSurfaceProps) {
   const palette = usePaletteTable();
   const read = useKit(slice);
   const kit = { ...read, setup: useWithMods(read.setup) };
@@ -94,7 +96,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   // Words, Tracker and Fleet are listed once a teaching or a scaffold has made a mod of that kind, and not before.
   const taught = useTaught();
   const made = (id: string) =>
-    id === "bridge:words" ? taughtOf(taught, "words").length > 0 : id === "bridge:tracker" ? taughtOf(taught, "tracker").length > 0 : id === "bridge:fleet" ? taughtOf(taught, "fleet").length > 0 : true;
+    id === "bridge:words" ? taughtOf(taught, "words").length > 0 : id === "bridge:tracker" ? taughtOf(taught, "tracker").length > 0 : id === "bridge:fleet" ? taughtOf(taught, "fleet").length > 0 : id === "kit:workspaces" ? workspaces !== undefined : true;
   const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null && made(one.id));
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
@@ -211,6 +213,9 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     }
     if (def.id === "kit:workflows") {
       return workflows;
+    }
+    if (def.id === "kit:workspaces") {
+      return workspaces;
     }
     return settingsFor(def);
   };

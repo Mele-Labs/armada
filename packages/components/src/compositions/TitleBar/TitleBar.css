@@ -831,3 +831,19 @@
 .armada-title-bar__repository-list .armada-dropdown-menu__detail + .armada-dropdown-menu__trail { margin-left: 0; }
 .armada-title-bar__repository-list .armada-dropdown-menu__trail .deck-combo__mark { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-md); color: var(--step-advanced); }
 .armada-title-bar__repository-list .armada-dropdown-menu__trail .deck-combo__mark:hover { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
+
+/* The gear on a Workspace's heading row: a glyph at the row's end, in the column a repository's place glyph takes. */
+.armada-title-bar__workspace-gear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.armada-title-bar__workspace-gear:hover {
+  background: color-mix(in srgb, var(--fg-default) 9%, transparent);
+  color: var(--fg-default);
+}

@@ -1,0 +1,14 @@
+[operations.list_workspaces]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every Workspace (set of repositories) Fleet can see, whichever repositories it holds, each one's repositories, the repository its file is kept in, and where it was kept"
+notes = """
+`GET /workspaces/all`, with no query. Answers 200 with `AllWorkspaces`: `workspaces` and `left_out`. Each Workspace is a `WorkspaceOfRepositories`, as `list_repository_workspaces` sends it: `{ id, name, repositories[], home?, source, path, overridden_by?, hides? }`.
+
+**Every Workspace file is listed once**, the one that runs for each id and each one it replaced, marked by `overridden_by`, ordered by name. It is read by the same loader as `list_repository_workspaces`, which answers only the Workspaces that hold one repository.
+
+**`left_out` is every Workspace file Fleet could not read** (`{ source, path, said }`). It is read when asked and never cached, so a file saved a moment ago is read.
+
+There is no refusal: Fleet serving no repository answers two empty lists.
+"""

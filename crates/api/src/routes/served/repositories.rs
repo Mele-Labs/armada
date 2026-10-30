@@ -334,6 +334,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/workspaces",
     },
     Route {
+        operation: "list_workspaces",
+        method: "GET",
+        path: "/workspaces/all",
+    },
+    Route {
         operation: "list_lifecycles",
         method: "GET",
         path: "/lifecycles",
@@ -342,6 +347,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "list_lifecycle_rules",
         method: "GET",
         path: "/lifecycles/rules",
+    },
+    Route {
+        operation: "list_autonomy_defaults",
+        method: "GET",
+        path: "/autonomy",
     },
     // Saved in Kit's folders and nowhere else: the repository's own copy is `commit_to_repository`'s.
     Route {

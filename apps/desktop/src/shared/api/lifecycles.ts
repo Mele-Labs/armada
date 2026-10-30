@@ -3,6 +3,7 @@
 // `commitToRepository`. Nothing here moves an instance. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type {
+  AllWorkspaces,
   ChangeJobCopy,
   ChangeSessionSteps,
   DeleteLifecyclePiece,
@@ -13,6 +14,7 @@ import type {
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
+  RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
   RepositoryWorkspaces,
@@ -26,10 +28,14 @@ export type LifecyclesActed<T> = { ok: true; value: T } | { ok: false; outcome: 
 export type LifecyclesApi = {
   /** The Workspaces (sets of repositories) that hold one repository, and the files Fleet set aside. `GET /workspaces`. */
   listRepositoryWorkspaces: (manifestId: string) => Promise<LifecyclesActed<RepositoryWorkspaces>>;
+  /** Every Workspace Fleet can see, whichever repositories it holds, and the files Fleet set aside. `GET /workspaces/all`. */
+  listWorkspaces: () => Promise<LifecyclesActed<AllWorkspaces>>;
   /** The lifecycles that apply to one repository, where each was kept, and the files set aside. `GET /lifecycles`. */
   listLifecycles: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycles>>;
   /** The rules that apply to one repository, where each was kept, and the files set aside. `GET /lifecycles/rules`. */
   listLifecycleRules: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycleRules>>;
+  /** Armada's default for every kind of act and each layer of autonomy defaults that applies to one repository, unresolved, with where each was kept. `GET /autonomy`. */
+  listAutonomyDefaults: (manifestId: string) => Promise<LifecyclesActed<RepositoryAutonomy>>;
   /** `POST /lifecycles/pieces/save`: write one piece to Kit's folder, checked by Fleet's own parser first. */
   saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
   /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
@@ -52,8 +58,10 @@ export type LifecyclesApi = {
 
 export const LIFECYCLES_CHANNELS = {
   listRepositoryWorkspaces: "bridge:list-repository-workspaces",
+  listWorkspaces: "bridge:list-workspaces",
   listLifecycles: "bridge:list-lifecycles",
   listLifecycleRules: "bridge:list-lifecycle-rules",
+  listAutonomyDefaults: "bridge:list-autonomy-defaults",
   saveLifecyclePiece: "bridge:save-lifecycle-piece",
   deleteLifecyclePiece: "bridge:delete-lifecycle-piece",
   getJobLifecycles: "bridge:get-job-lifecycles",

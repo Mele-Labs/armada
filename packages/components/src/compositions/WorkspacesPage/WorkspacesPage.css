@@ -1,0 +1,136 @@
+/* System > Workspaces: the levels as a list, and the picked one beside it. Each column is a panel that scrolls itself.
+   The picked row is a plain background, as Kit's lists draw it. Tokens only. */
+.armada-workspaces {
+  display: grid;
+  grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: var(--space-6);
+}
+
+.armada-workspaces__list,
+.armada-workspaces__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+}
+
+.armada-workspaces__detail {
+  gap: var(--space-5);
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.armada-workspaces__list > .armada-button {
+  align-self: flex-start;
+}
+
+.armada-workspaces__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.armada-workspaces__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A Workspace and the repositories under it, and the repositories in none, are each one run of rows. */
+.armada-workspaces__items > li,
+.armada-workspaces__none {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-workspaces__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--h-row);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.armada-workspaces__row > svg {
+  flex: none;
+}
+.armada-workspaces__row:hover {
+  background: var(--surface-row-hover);
+  color: var(--fg-default);
+}
+.armada-workspaces__row[aria-current="true"] {
+  background: var(--surface-row-selected);
+  color: var(--fg-default);
+}
+.armada-workspaces__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+/* A repository under its Workspace: one glyph's width in. */
+.armada-workspaces__row[data-member] {
+  padding-inline-start: calc(var(--space-3) + var(--space-6));
+}
+.armada-workspaces__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The Workspace's own fields, in a frame as the Autonomy rows are. */
+.armada-workspaces__panel {
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.armada-workspaces__autonomy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.armada-workspaces__caption {
+  margin: 0;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-workspaces__detail > .armada-button {
+  align-self: flex-start;
+}
+
+/* Fleet's sentence for an act it refused, as it said it. */
+.armada-workspaces__said {
+  margin: 0;
+  color: var(--status-completed-failed);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}

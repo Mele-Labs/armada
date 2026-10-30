@@ -42,7 +42,8 @@ import { useDockWidth } from "./dock-width";
 // two cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
 import { useRecentRepositories } from "./recent-repositories";
-import { ADD, ALL, NEW, repositoryEntries, rootOf } from "./repository-entries";
+import { ADD, ALL, NEW, NEW_WORKSPACE, WORKSPACE, repositoryEntries, rootOf } from "./repository-entries";
+import type { PickerWorkspace } from "./repository-entries";
 import { SURFACE, SURFACES } from "./surfaces";
 
 export type ShellProps = {
@@ -59,6 +60,10 @@ export type ShellProps = {
   onAddRepository?: () => void;
   /** Opens Locate on a new project. Absent draws no row. */
   onNewProject?: () => void;
+  /** The Workspaces, each listed as a heading over its repositories. */
+  workspaces?: readonly PickerWorkspace[];
+  /** Opens a Workspace's page, or a new one's where `null`. Absent lists no New Workspace and draws no gear. */
+  onOpenWorkspace?: (id: string | null) => void;
   /**
    * Opens the Manifest of whatever the picker has picked — the owner, 28 Sep
    * 2026: *"I should be able to select a manifest from the dropdown and get a
@@ -121,6 +126,8 @@ export function Shell({
   onScope,
   onAddRepository,
   onNewProject,
+  workspaces,
+  onOpenWorkspace,
   onOpenManifest,
   fleet,
   onCompose,
@@ -155,10 +162,15 @@ export function Shell({
     add: onAddRepository !== undefined,
     create: onNewProject !== undefined,
     recent,
+    ...(workspaces === undefined ? {} : { workspaces }),
+    newWorkspace: onOpenWorkspace !== undefined,
   });
   const pick = (picked: string) => {
     if (picked === ADD) return onAddRepository?.();
     if (picked === NEW) return onNewProject?.();
+    if (picked === NEW_WORKSPACE) return onOpenWorkspace?.(null);
+    // A Workspace is not picked to scope the window yet: its heading only carries the gear.
+    if (picked.startsWith(WORKSPACE)) return;
     const root = rootOf(picked);
     if (root !== ALL) remember(root);
     onScope(root === ALL ? null : root);
@@ -188,6 +200,7 @@ export function Shell({
       repositoryMenu={{
         entries: pickerEntries,
         onSelect: pick,
+        ...(onOpenWorkspace === undefined ? {} : { onOpenWorkspace }),
         ...(repositoryTrail === undefined ? {} : { trailOf: (id: string, label: string) => (rootOf(id) === ALL ? undefined : repositoryTrail(rootOf(id), label)) }),
         ...(onOpenManifest === undefined
           ? {}
