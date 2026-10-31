@@ -1124,7 +1124,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <AutopilotAsked control={autopilot.control} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
-      <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
+      <div ref={grid} className="deck-grid" data-bare={bare || unified || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
           {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
@@ -1133,7 +1133,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-centre">
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
-            {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
+            {/* A Job drawn in panes holds its shell as a tab. */}
+            {onStage === undefined || unified ? null : <ShellPanel key={onStage} sessionId={onStage} />}
           </div>
           {footed ? (
             <div className="deck-foot">
@@ -1145,19 +1146,18 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           {/* The merge line is the bottom of the centre, under Flight control. */}
           <MergeQueue props={props} ship={ship} />
         </div>
-        {bare ? null : (
+        {/* A Job with a story has no column: its story is tabs in its panes. */}
+        {bare || unified ? null : (
           <div className="deck-right">
             {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-            {unified ? (
-              <div className="sv-side" ref={setSideHost} />
-            ) : reading ? (
+            {reading ? (
               <>
                 {/* A Job with no story has no spine, but its views stand in the column's head, and a view opens under them. */}
                 <div className="sv-side" ref={setSideHost} />
                 <LedgerPanel host={setLedgerHost} />
               </>
             ) : panels.has("bays") ? <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} /> : null}
-            {unified || !panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
+            {!panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
           </div>
         )}
         {splits}

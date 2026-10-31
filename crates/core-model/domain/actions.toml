@@ -149,6 +149,76 @@ destructive = false
 confirms = false
 notes = "Puts the caret in the open Job's message box from anywhere in its view, a field or a layer included. A modifier means this tier, so it works while another field has focus; with no Job open it does nothing. ⌥M is the Job view's own family (⌥W, ⌥1–⌥3, ⌥F, ⌥N, ⌥L) and free in the map: ⌘J is Helm's box, ⌘M is the platform's Minimize, and a bare letter would be suppressed in the field the person is leaving. Read by the key's place on the keyboard, since Option changes the character M types. No glyph: `message-square` is Helm's. Added 27 Oct 2026 on the owner's *\"a key to jump to the Job's composer\"*."
 
+[actions.pane_split_right]
+kind = "Action"
+tier = "Global"
+verb = "Split right"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘D"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Splits the focused pane of the open Job's area, and the new pane opens empty to its right. With no Job open it does nothing. Read by the key's place on the keyboard, since Option changes the character D types. Added 30 Oct 2026 with the Job's arrangeable panes. No glyph: a tab's menu names it in words."
+
+[actions.pane_split_down]
+kind = "Action"
+tier = "Global"
+verb = "Split down"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘⌥D"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Splits the focused pane of the open Job's area, and the new pane opens empty below it. ⇧⌘D is Debug Bridge's, so the split down takes Option. Added 30 Oct 2026 with the Job's arrangeable panes."
+
+[actions.layout_menu]
+kind = "Action"
+tier = "Global"
+verb = "Layout"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘L"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Opens the Layout menu in the open Job's header: the layouts to take, and Update, Save as, Reset and Use for all Jobs. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
+
+[actions.next_tab]
+kind = "Action"
+tier = "Global"
+verb = "Next tab"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌃Tab"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Brings the next tab of the focused pane to the front, wrapping round. ⌃ is spelled out because ⌘ answers to Control too, and this key is the browsers' own. Added 30 Oct 2026 with the Job's arrangeable panes."
+
+[actions.previous_tab]
+kind = "Action"
+tier = "Global"
+verb = "Previous tab"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌃⇧Tab"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Brings the previous tab of the focused pane to the front, wrapping round. Added 30 Oct 2026 with the Job's arrangeable panes."
+
+[actions.focus_pane]
+kind = "Motion"
+tier = "Global"
+verb = "Move to the pane"
+shortcut = "⌘⌥← / ⌘⌥↑ / ⌘⌥→ / ⌘⌥↓"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Moves the focus to the pane beside the focused one, in the direction of the arrow, in the open Job's area. A Motion: it acts on nothing and appears in no palette. Added 30 Oct 2026 with the Job's arrangeable panes."
+
 [actions.close]
 kind = "Action"
 tier = "Global"

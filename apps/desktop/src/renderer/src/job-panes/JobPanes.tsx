@@ -1,0 +1,98 @@
+// The open Job's area as panes: the tree in `tree.ts` drawn side by side and one over another, each pane a strip of tabs over a body, with a handle on every line between two to drag.
+// Every pane is placed by its share of the area, so splitting or resizing moves the panes without drawing any again: a thread keeps what is typed in it.
+
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { DockHandle } from "@armada/components";
+
+import { LayoutControl } from "./LayoutControl";
+import { PaneView } from "./PaneView";
+import { usePaneKeys } from "./keys";
+import { rearrange, useJobPanes } from "./store";
+import { RATIO_MIN, hasKind, panesOf, rectsOf, resizeSplit, type Pane, type Tab } from "./tree";
+import "./job-panes.css";
+
+const byCreation = (a: Pane, b: Pane) => Number(a.id.slice(1)) - Number(b.id.slice(1));
+
+/** The area's size in px, kept as it changes. */
+function useSize() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null) return;
+    const measure = () => setSize({ w: element.clientWidth, h: element.clientHeight });
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const watching = new ResizeObserver(measure);
+    watching.observe(element);
+    return () => watching.disconnect();
+  }, []);
+  return [ref, size] as const;
+}
+
+const pct = (share: number) => `${share * 100}%`;
+
+/**
+ * `body` draws the tab in front of each pane. `bar` is what stands beside the Layout control above the panes, and `over` is laid across them, as a view the Job opens is.
+ */
+export function JobPanes({ jobId, body, bar, over }: { jobId: string; body: (tab: Tab) => ReactNode; bar?: ReactNode; over?: ReactNode }) {
+  const { arrangement, layout, edited, layouts, forAll } = useJobPanes(jobId);
+  const [menu, setMenu] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [dragging, setDragging] = useState<string | undefined>(undefined);
+  const [area, size] = useSize();
+  const openMenu = useCallback(() => setMenu(true), []);
+  usePaneKeys(jobId, openMenu);
+
+  const { panes: rects, splits } = rectsOf(arrangement.root);
+  const thread = hasKind(arrangement, "thread");
+
+  return (
+    <div className="job-panes">
+      <div className="job-panes__bar">
+        <LayoutControl jobId={jobId} layout={layout} edited={edited} layouts={layouts} forAll={forAll} open={menu} onOpen={setMenu} naming={naming} onNaming={setNaming} />
+        {bar}
+      </div>
+      <div className="job-panes__area" ref={area}>
+        {panesOf(arrangement.root)
+          .sort(byCreation)
+          .map((pane) => {
+            const rect = rects.get(pane.id)!;
+            const active = pane.tabs.find((tab) => tab.id === pane.active);
+            return (
+              <div key={pane.id} className="job-panes__cell" style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h) }}>
+                <PaneView jobId={jobId} pane={pane} focused={arrangement.focus === pane.id} thread={thread} dragging={dragging} onDrag={setDragging}>
+                  {active === undefined ? null : body(active)}
+                </PaneView>
+              </div>
+            );
+          })}
+        {size.w === 0
+          ? null
+          : splits.map((split) => {
+              const across = split.dir === "column";
+              const extent = (across ? split.rect.h * size.h : split.rect.w * size.w) || 1;
+              const first = extent * split.ratio;
+              const at = across ? split.rect.y + split.rect.h * split.ratio : split.rect.x + split.rect.w * split.ratio;
+              const place = across ? { top: `calc(${pct(at)} - var(--space-1))`, left: pct(split.rect.x), width: pct(split.rect.w) } : { left: `calc(${pct(at)} - var(--space-1))`, top: pct(split.rect.y), height: pct(split.rect.h) };
+              return (
+                <div key={split.id} className="job-panes__line" data-axis={across ? "y" : "x"} style={place}>
+                  <DockHandle
+                    quiet
+                    axis={across ? "y" : "x"}
+                    grows="right"
+                    label="the panes"
+                    width={first}
+                    min={extent * RATIO_MIN}
+                    max={extent * (1 - RATIO_MIN)}
+                    onResize={(px) => rearrange(jobId, (now) => resizeSplit(now, split.id, px / extent))}
+                    onReset={() => rearrange(jobId, (now) => resizeSplit(now, split.id, 0.5))}
+                  />
+                </div>
+              );
+            })}
+        {over === undefined || over === null ? null : <div className="job-panes__over">{over}</div>}
+      </div>
+    </div>
+  );
+}

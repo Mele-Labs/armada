@@ -12,7 +12,7 @@
 // The Brief is the first beat on the spine, above the zones, and opens in place to the whole text and how the Job started. The zones are drawn on one timeline line (the spine) with a NOW marker. Keys: ⌥1, ⌥2 and ⌥3 open or fold Done, Now and Open and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Done's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
 import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
@@ -67,7 +67,12 @@ function ruleOf(session: Session, itemId: string): { rule: string; row: string }
   return row === undefined || fired === undefined ? undefined : { rule: fired.rule, row };
 }
 
-export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
+/** The one zone a pane draws on its own, as the Job's panes can: Done, Now or Open. Absent, all three stand on the spine. */
+export type StoryZone = "done" | "now" | "next";
+const ZONE_AREAS: Record<StoryZone, readonly string[]> = { done: ["done", "step-done"], now: ["now", "step-now"], next: ["next", "step-next"] };
+const areaOf = (zone: ReactNode): string | undefined => (isValidElement(zone) ? (zone.props as { area?: string }).area : undefined);
+
+export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live, only }: { only?: StoryZone | undefined; session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const layout = useLayout("job.panels").all;
@@ -499,6 +504,16 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         </SvPanel>
       </OpenGroupMenu>
     );
+  if (only !== undefined) {
+    const areas = ZONE_AREAS[only];
+    return (
+      <Spine session={session}>
+        {only === "now" && head !== null ? <div className="sv-story__head">{head}</div> : null}
+        {stepped ? stepZones.filter((zone) => areas.includes(areaOf(zone) ?? "")) : zones[only]}
+        {only === "next" ? pinned : null}
+      </Spine>
+    );
+  }
   return (
     <Spine session={session}>
       {head === null ? null : <div className="sv-story__head">{head}</div>}

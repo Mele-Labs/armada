@@ -1,0 +1,65 @@
+/* The open Job's area: a bar with the Layout control, and the panes under it. Panes are placed by their share of the area; the area reaches half a gutter past
+   the bar's edges so the gap between two panes is one gutter and the outer panes meet the frame. */
+.job-panes { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-1); }
+.job-panes__bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; min-height: var(--h-control-sm); }
+.job-panes__area { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; margin: calc(var(--deck-gutter) / -2); }
+.job-panes__cell { position: absolute; display: flex; box-sizing: border-box; padding: calc(var(--deck-gutter) / 2); min-width: 0; min-height: 0; }
+.job-panes__cell > .job-pane { flex: 1 1 0; }
+.job-panes__over { position: absolute; inset: calc(var(--deck-gutter) / 2); z-index: 3; display: flex; flex-direction: column; min-height: 0; }
+
+/* A line between two panes: a handle in the gap, out of the flow, that shows itself when it is hovered, focused or dragged. */
+.job-panes__line { position: absolute; z-index: 2; }
+.job-panes__line[data-axis="x"] { width: var(--space-2); }
+.job-panes__line[data-axis="y"] { height: var(--space-2); }
+.job-panes__line > .armada-dock-handle { position: absolute; inset: 0; width: auto; height: auto; margin: 0; }
+
+.job-pane { gap: 0; }
+.job-pane[data-frame] { gap: 0; }
+.job-pane[data-focused] { border-color: var(--border-default); }
+
+/* The strip: tabs as the Cockpit's headings read, small caps in mono. The tab in front is filled, as a selected row is. */
+.job-pane__strip { display: flex; flex: none; align-items: center; gap: var(--space-1); min-width: 0; min-height: var(--h-row-header); padding: 0 var(--space-1); border-bottom: var(--border-width) solid var(--border-subtle); overflow-x: auto; scrollbar-width: none; }
+.job-pane__tab { display: flex; flex: none; align-items: center; border-radius: var(--radius-sm); }
+.job-pane__tab[data-active] { background: var(--accent-muted); }
+.job-pane__tab[data-dragging] { opacity: 0.5; }
+.job-pane__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-control-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.job-pane__label:hover { color: var(--fg-default); }
+.job-pane__tab[data-active] .job-pane__label { color: var(--fg-default); }
+.job-pane__label:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+.job-pane__body { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; isolation: isolate; overflow: hidden; }
+.job-pane__body > * { flex: 1 1 0; min-height: 0; }
+.job-pane__body > .job-pane__drops { flex: none; }
+.job-pane__scroll { overflow: auto; padding: var(--space-3); }
+.job-pane__list { margin: 0; list-style: none; }
+.job-pane__item { padding: var(--space-1) 0; color: var(--fg-muted); font-size: var(--text-sm); }
+.job-pane__mono { font-family: var(--font-mono); font-size: var(--text-xs); }
+
+/* While a tab is dragged, a pane's body is five places to drop it: each edge splits the pane there, the middle adds the tab to it. */
+.job-pane__drops { position: absolute; inset: 0; z-index: 4; display: grid; grid-template: "t t t" 25% "l m r" 1fr "b b b" 25% / 25% 1fr 25%; }
+.job-pane__drop[data-zone="left"] { grid-area: l; }
+.job-pane__drop[data-zone="right"] { grid-area: r; }
+.job-pane__drop[data-zone="top"] { grid-area: t; }
+.job-pane__drop[data-zone="bottom"] { grid-area: b; }
+.job-pane__drop[data-zone="middle"] { grid-area: m; }
+.job-pane__drop[data-over] { background: color-mix(in srgb, var(--accent) 16%, transparent); outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
+
+.job-layout__pin { display: inline-flex; color: var(--fg-muted); }
