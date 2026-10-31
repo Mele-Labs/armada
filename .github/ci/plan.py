@@ -6,14 +6,18 @@
     ... | plan.py --quick --rerun failed.txt   and the Checks of the job names
                                                the merge queue last failed
 
+With `--quick`, `compile` names the Rust Checks left to the queue whose test
+code the pull request compiles all the same.
+
 A root Check is a bare name and has a static job in checks.yml. A workspace
 Check is `<dir>:<name>`: the desktop tests that read no surface run in one Linux
-job, and the other Node Checks
-run in one matrix job that calls `armada check <key>`. A key that is
+job, and the other Node Checks run in a few grouped matrix jobs, each calling
+`armada check <key>` for its keys one after another. A key that is
 neither run nor named in EXCLUDED fails the plan, so a Check added to a manifest
 is never skipped for want of a line here. docs/practices/ci.md, *How a Check is
 chosen*.
 """
+import hashlib
 import json
 import re
 import sys
@@ -34,6 +38,19 @@ MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_
 # Of those, the ones that never open a browser.
 NO_BROWSER = {"typecheck", "bridge_build", "pocket_test", "store_test"}
 
+# The grouped jobs the matrix keys run in, one runner each: a runner's checkout
+# and setup cost about as much as a short Check, so a job runs several Checks
+# one after another. The merge queue builds five runs at once, so fewer jobs
+# means less waiting for a runner. Names are the job names.
+NODE = "node checks"
+COMPONENTS = "components"
+SURFACES = ("surface tests 1/2", "surface tests 2/2")
+GROUPS = [NODE, COMPONENTS, *SURFACES]
+
+# Of the matrix names, the ones that run in the components job: the slowest
+# (components_test) and the one that shares its build (storybook).
+COMPONENT_NAMES = {"components_test", "storybook"}
+
 # Keys CI deliberately does not run, and why.
 EXCLUDED = {}
 
@@ -42,24 +59,46 @@ EXCLUDED = {}
 # warning and the queue is where the suite runs once. Owner, 17 Oct 2026.
 QUICK = {"build", "typecheck", "bridge_build"}
 
+# Root Checks whose test code a pull request's run compiles without running it,
+# when the queue is left to run them: `cargo build` compiles no test target, so
+# a change that broke a test's code first failed in the queue, 4 of 16 failed
+# queue runs on 30 and 31 Oct 2026.
+COMPILE = {"test", "acceptance"}
+
 # Job names in checks.yml that are not their Check's key. A shard's name is its
 # Check's with ` <n>/<m>` after it.
 JOB_KEYS = {"desktop_unit": "apps/desktop/unit:desktop_test"}
 
 
+def group_of(key):
+    """The grouped job a matrix key runs in. The surface tests split by a hash
+    of the key, so a key stays in its half as others come and go. Today's eight
+    fall four and four."""
+    name = key.rsplit(":", 1)[-1]
+    if name in NO_BROWSER:
+        return NODE
+    if name in COMPONENT_NAMES:
+        return COMPONENTS
+    return SURFACES[hashlib.sha256(key.encode()).digest()[0] % len(SURFACES)]
+
+
 def rerun_keys(job_names):
-    """The Check keys of the jobs a merge queue run failed. A pull request the
-    queue dropped keeps these with `--quick`, so a fix is tried on its own run
-    before it waits in the queue again."""
+    """What a merge queue run failed, as Check keys and group names. A pull
+    request the queue dropped keeps these with `--quick`, so a fix is tried on
+    its own run before it waits in the queue again. A grouped job does not say
+    which of its keys failed, so its name stands for the keys `plan` puts in it;
+    `plan` keeps the ones the pull request's own change names."""
     keys = set()
     for name in job_names:
-        name = re.sub(r" \d+/\d+$", "", name.strip())
+        name = name.strip()
+        if name not in GROUPS:
+            name = re.sub(r" \d+/\d+$", "", name)
         keys.add(JOB_KEYS.get(name, name))
     return keys
 
 
 def plan(keys, quick=False, rerun=frozenset()):
-    run, matrix, excluded, unrun = [], [], [], []
+    run, grouped, excluded, unrun = [], [], [], []
     for key in dict.fromkeys(keys):
         name = key.rsplit(":", 1)[-1]
         if key in EXCLUDED:
@@ -70,16 +109,23 @@ def plan(keys, quick=False, rerun=frozenset()):
             run.append(key)
         elif ":" in key and name in MATRIX:
             run.append(key)
-            matrix.append({"key": key, "browsers": str(name not in NO_BROWSER).lower()})
+            grouped.append(key)
         else:
             unrun.append(key)
-    queued = []
+    queued, compile = [], []
+    again = lambda key: key in rerun or (key in grouped and group_of(key) in rerun)
     if quick:
-        queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK and key not in rerun]
+        queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK and not again(key)]
         run = [key for key in run if key not in queued]
-        matrix = [row for row in matrix if row["key"] in run]
-    rerun = [key for key in run if key in rerun] if quick else []
-    return {"checks": run, "matrix": {"include": matrix}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun}
+        compile = [key for key in queued if key in COMPILE]
+    rerun = [key for key in run if again(key)] if quick else []
+    include = []
+    for group in GROUPS:
+        keys = [key for key in run if key in grouped and group_of(key) == group]
+        if keys:
+            # A browser opens in every group but the node one.
+            include.append({"group": group, "keys": " ".join(keys), "browsers": str(group != NODE).lower()})
+    return {"checks": run, "matrix": {"include": include}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun, "compile": compile}
 
 
 def main():

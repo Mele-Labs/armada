@@ -15,7 +15,7 @@ repository. The owner, as admin, bypasses the ruleset.
 
 | Trigger | For | Runs |
 |---|---|---|
-| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`, and those the merge queue last failed it on |
+| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
 | `push` to `main` | Seeing a red `main` | Every Check in CI, and `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
@@ -25,9 +25,15 @@ The queue's run is the one that decides, so a pull request that also ran the who
 Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
 `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
 
+**A pull request compiles the test code it leaves to the queue.** `cargo build` compiles no test target, so a change that broke a test's code passed its pull request and first failed in the queue, taking the entries behind it with it: 4 of 16 failed queue runs on 30 and 31 Oct 2026, each a compile error in a test.
+The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.
+`plan.py` names the keys in `compile`, the Rust Checks in `COMPILE` that the plan left to the queue; a Check the pull request runs itself, because the queue last failed it, is not compiled twice.
+Its cache is `test`'s, so it starts from what `main` last compiled.
+
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
 When that run failed, its failed jobs are turned back into Check keys (`test 2/4` is `test`, `desktop_unit` is `apps/desktop/unit:desktop_test`) and `plan.py --rerun` keeps them past `--quick`.
+A grouped job (`node checks`, `components`, `surface tests 1/2`) does not say which of its keys failed, so its name stands for every key `plan.py` puts in that group, and the run keeps the ones the pull request's own plan names.
 The job summary names each one.
 They run on every push until the queue runs the pull request again.
 The whole Check runs, not the one test that failed: a shard's build is most of its six minutes, and the tests in it took under a second on 29 Oct 2026.
@@ -70,10 +76,10 @@ The first run took 1 h 54 min (`docs/spikes/test-map-seed.md`), so its `timeout-
 
 ```
 changed paths ──> armada covers ──> plan.py ──> checks (JSON array of keys) ──> root name: a static job, `if:` its name is in it
-                  reads armada.yml     sorts keys    matrix                  ──> workspace key: one `workspace_check` matrix entry
+                  reads armada.yml     sorts keys    matrix                  ──> workspace key: one of the grouped `workspace_check` entries
                   `when:` lists        fails on one                          ──> desktop_test of apps/desktop/unit: one Linux job
                                        it cannot place
-                                                                          ci  (needs plan + every Check job + the matrix)
+                                                                          ci  (needs plan + every Check job + the grouped jobs)
 ```
 
 **A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`).
@@ -91,23 +97,26 @@ build of `armada` failing, is red, never an empty plan.
 A Check added to a manifest that is neither makes `plan` red, so it is never skipped by omission.
 Its tests run in `foundations` with the others in `.github/ci/`.
 
-**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the matrix.
+**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the grouped jobs.
 `.github/**` is in each root `when` and in those two manifests' `depends_on`.
-The other workspaces would repeat the matrix job.
+The other workspaces would repeat the grouped jobs.
 
 `test` and `build` run `armada check <name> --changed`, so the Manifest's own
 `narrow` applies: `run-check` sets `ARMADA_SOLE_TENANT=1`, which keeps the reading
 of every crate the paths name, where an agent's terminal gets only the tests the
 change touched. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
 
+**Only `plan` builds `armada`.** `build`, the four `test` jobs and `acceptance` download the binary it uploads, `armada-bin`, and put it ahead on `PATH`.
+Each of those six jobs spent 2.0 minutes building it again, the median of 48 merge queue runs on 30 and 31 Oct 2026.
+
 ## What `ci` and `desktop_test` are
 
 | Name | Passes when | Failed by |
 |---|---|---|
-| `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
+| `ci` | The plan succeeded and no Check job, `test_compile` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, a new failing foundations line |
 | `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
-`ci` needs `workspace_check`, the matrix job, whose entries are named by their key.
+`ci` needs `workspace_check`, the matrix job, whose entries are the groups below.
 
 **A Check the plan skipped counts as passed.** `ci` is the one name the ruleset
 requires for the Checks below. `desktop_test` is to be added.
@@ -120,7 +129,9 @@ requires for the Checks below. `desktop_test` is to be added.
 | `test` | `ubuntu-latest`, four jobs `test 1/4` to `test 4/4` | `armada check test --changed`, whole on `main` and dispatch, each job a quarter of it: a `cargo` ahead on `PATH` adds `--partition slice:<n>/4 --no-tests=pass` to `nextest run` | rust-cache, cargo-nextest |
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
-| Every workspace key except the two desktop Checks below and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
+| `node checks`: every workspace key whose name is in `NO_BROWSER` (`typecheck`, `bridge_build`, `pocket_test`, `store_test`) | `ubuntu-latest`, one grouped job, no browser installed | `armada check <key>` for each key in turn, with the `armada` the plan built. A key that fails does not stop the next; the job fails if any did | node_modules |
+| `components`: `components_test` and `storybook` of `packages/components` | `ubuntu-latest`, one grouped job | The same | node_modules, Playwright |
+| `surface tests 1/2`, `2/2`: `screens_test` of `packages/screens` and a surface's `test`, split by a hash of the key so a key keeps its half | `ubuntu-latest`, two grouped jobs | The same | node_modules, Playwright |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
@@ -134,9 +145,12 @@ Measured 7 Oct on the 4-core runner, whole runs of `test`: width 2 median job 45
 Contention at width 4 beyond those two runs is not measured.
 Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
-The root's Node Check and the desktop unit job run their command directly. The matrix
-runs `armada check` so a workspace's own `armada.yml` is the command, and it uses
-the binary the plan job built, uploaded as an artifact, so no matrix entry builds Rust.
+The root's Node Check and the desktop unit job run their command directly. The grouped jobs
+run `armada check` so a workspace's own `armada.yml` is the command, and they use
+the binary the plan job built, uploaded as an artifact, so no grouped job builds Rust.
+A grouped job writes a `RESULT` line and a summary line for each key, with the tail of a failed key's log.
+Before the grouping each key had its own job, about 25 on a queue run, and each spent about 0.6 of its 1 minute on checkout and node setup.
+The queue builds five runs together on an account that runs 20 jobs at once, so jobs waited a median 5.3 minutes and 21 at the 90th percentile for a runner.
 
 **`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
 reports on its own, so a red unit job never blocks a change that `ci` passes.
@@ -190,7 +204,8 @@ The author runs them locally and pushes.
 ## Adding a Check
 
 1. Declare it in the manifest that owns it, with a `when:` list or none.
-2. A workspace Check that is a Node command needs nothing else when its name is in `MATRIX` in `.github/ci/plan.py`; add the name there otherwise, and to `NO_BROWSER` if no browser opens.
+2. A workspace Check that is a Node command needs nothing else when its name is in `MATRIX` in `.github/ci/plan.py`; add the name there otherwise, and to `NO_BROWSER` if no browser opens, which puts it in `node checks`.
+   A browser Check joins the `surface tests` halves unless its name is in `COMPONENT_NAMES`.
 3. A root Check needs a job in `checks.yml` gated with `if: contains(fromJSON(needs.plan.outputs.checks), '<name>')`, the name in `ROOT`, and the job in `ci`'s `needs`.
 4. A workspace Check that is a Rust command needs a job like `xtask_test`, its key in `RUST` in `plan.py`, and the job in `ci`'s `needs`.
 5. A Check CI should not run goes in `EXCLUDED` with its reason.
@@ -198,7 +213,7 @@ The author runs them locally and pushes.
 ## Measured on a trial pull request
 
 These were measured before workspace keys, with each command run directly. The
-matrix runs the same commands through `armada check <key>` and has not been
+grouped jobs run the same commands through `armada check <key>` and have not been
 measured.
 
 Seconds spent in each Check's own step on a 4-core, 16 GB `ubuntu-latest` runner
