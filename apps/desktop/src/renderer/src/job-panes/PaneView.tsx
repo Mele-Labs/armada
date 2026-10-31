@@ -145,7 +145,7 @@ function addEntries(thread: boolean, built: readonly string[]): DropdownMenuEntr
   return [...kinds, { kind: "separator", id: "custom-rule" }, ...built.map((name): DropdownMenuEntry => ({ kind: "item", id: `mod:${name}`, label: tabTitle(name), icon: Glyph })), { kind: "item", id: "custom", label: KINDS.custom.label, icon: Glyph }];
 }
 
-export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; zoomed: boolean; thread: boolean; dragging: string | undefined; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
+export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, gapLit, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; zoomed: boolean; thread: boolean; dragging: string | undefined; /** A gap between panes is lit, so no pane is. */ gapLit: boolean; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
   // A Custom tab turning over changes the words and glyph of its tab.
   useCustomTick();
@@ -157,7 +157,7 @@ export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDra
     setOver(undefined);
     setHot(false);
   }, [dragging]);
-  const lands = dragging !== undefined && over !== undefined && droppable(jobId, dragging, pane.id, over);
+  const lands = !gapLit && dragging !== undefined && over !== undefined && droppable(jobId, dragging, pane.id, over);
   const active = pane.tabs.find((tab) => tab.id === pane.active);
 
   // ← and → walk the strip, Home and End go to its ends; the tab reached comes to the front.
@@ -201,7 +201,7 @@ export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDra
       data-frame=""
       data-pane={pane.id}
       data-focused={focused || undefined}
-      data-hot={(hot && dragging !== undefined) || undefined}
+      data-hot={(hot && dragging !== undefined && !gapLit) || undefined}
       aria-label={active === undefined ? "Empty pane" : `Pane: ${labelOf(active)}`}
       onFocusCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
       onPointerDownCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}

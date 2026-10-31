@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 
-import { arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToPane, shortfall, type Arrangement, type Side, type TabKind } from "./tree";
+import { arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToGap, moveTabToPane, shortfall, type Arrangement, type Side, type TabKind } from "./tree";
 
 export const DEFAULT_LAYOUT = "Default";
 
@@ -144,6 +144,13 @@ export function rearrange(jobId: string, change: (arrangement: Arrangement) => A
 export function droppable(jobId: string, tabId: string, paneId: string, zone: Side | "middle"): boolean {
   const was = ensure(jobId).arrangement;
   const next = zone === "middle" ? moveTabToPane(was, tabId, paneId) : moveTabToEdge(was, tabId, paneId, zone);
+  return next !== was && allowed(jobId, was, next);
+}
+
+/** Whether a tab dragged over the gap of a split can be dropped there: a new pane between the two sides, with room for every pane. */
+export function droppableGap(jobId: string, tabId: string, splitId: string): boolean {
+  const was = ensure(jobId).arrangement;
+  const next = moveTabToGap(was, tabId, splitId);
   return next !== was && allowed(jobId, was, next);
 }
 

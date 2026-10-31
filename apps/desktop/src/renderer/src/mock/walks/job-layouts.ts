@@ -1,7 +1,7 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
 // and + adds a tab of any kind to it. While a Job is open the title bar's right side holds only the Layout control, named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
 // every layout row has a pin that makes it the one every Job opens on (filled on the one that is), Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
-// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and ⇧⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
+// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A tab dragged onto the gap between two panes lights the gap and drops into a new pane there. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and ⇧⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
@@ -36,6 +36,9 @@ const steps: Step[] = [
   { look: layout("Default · edited"), say: "The Layout icon in the title bar is marked: this Job is rearranged" },
   { key: "Meta+z", on: thread, say: "⌘Z takes back the last change: the terminal's pane goes" },
   { key: "Meta+Shift+z", on: thread, say: "⇧⌘Z puts it back" },
+  { drag: inside(pane("zsh"), tab("zsh", { exact: true })), onto: role("separator", "Resize the panes"), say: "Drag a tab onto the gap between two panes and the gap lights" },
+  { look: inside(pane("zsh"), tab("zsh", { exact: true })), say: "The tab is a pane of its own in the gap, with the space shared evenly" },
+  { key: "Meta+z", on: thread, say: "⌘Z takes it back" },
   { key: "Meta+l", on: places, say: "⌘L opens the Layout menu" },
   { press: item("Save as…"), say: "Save as becomes a name field" },
   { type: "Triage\n", into: role("searchbox", "Name"), say: "A name, Enter" },

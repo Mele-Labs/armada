@@ -269,6 +269,29 @@ export function moveTabToEdge(arrangement: Arrangement, tabId: string, paneId: s
   return { ...next, root, focus: fresh };
 }
 
+/**
+ * The tab goes to a new pane in the gap between the two sides of a split, along the split's own axis: side by side for a vertical line, stacked for a horizontal one. The split is shared in thirds,
+ * so the two panes it had and the new one keep an even share. A pane's only tab dropped on a gap beside it stays as it is.
+ */
+export function moveTabToGap(arrangement: Arrangement, tabId: string, splitId: string): Arrangement {
+  const from = paneOfTab(arrangement, tabId);
+  const tab = tabById(arrangement, tabId);
+  const split = rectsOf(arrangement.root).splits.find((one) => one.id === splitId);
+  if (from === undefined || tab === undefined || split === undefined) return arrangement;
+  const alone = (node: Node) => node.type === "pane" && node.id === from.id && from.tabs.length === 1;
+  if (alone(split.a) || alone(split.b)) return arrangement;
+  const left = detach(arrangement, tabId);
+  const [innerId, afterInner] = mint(left, "s");
+  const [fresh, next] = mint(afterInner, "p");
+  const made: Pane = { type: "pane", id: fresh, tabs: [tab], active: tab.id };
+  const put = (node: Node): Node => {
+    if (node.type === "pane") return node;
+    if (node.id !== splitId) return { ...node, a: put(node.a), b: put(node.b) };
+    return { ...node, ratio: 1 / 3, b: { type: "split", id: innerId, dir: node.dir, ratio: 0.5, a: made, b: node.b } };
+  };
+  return { ...next, root: put(next.root), focus: fresh };
+}
+
 export function resizeSplit(arrangement: Arrangement, splitId: string, ratio: number): Arrangement {
   const put = (node: Node): Node => (node.type === "pane" ? node : node.id === splitId ? { ...node, ratio: clampRatio(ratio) } : { ...node, a: put(node.a), b: put(node.b) });
   return { ...arrangement, root: put(arrangement.root) };
