@@ -86,14 +86,15 @@ where
         let Some(steps) = self.job_rail_steps(&id, manifest.as_str(), workflow).await else {
             return;
         };
-        // The walk the nudge reads is in the thread, so it is read only for a Job that wrote a test, or one
-        // that stopped on a walk with nothing waiting on the person.
+        // The walk the nudges read is in the thread, so it is read only for a Job that wrote a test, one that
+        // pushed (without it a push while he walks reads as one past a walk nobody expected), or one that
+        // stopped on a walk with nothing waiting on the person.
         let mut facts = Facts::of(&record, Default::default());
         let stopped_on_walk = record.standing == Some(ipc::SessionStanding::Replied)
             && record.waiting_for.is_empty()
             && record.workflow_step.and_then(|at| steps.get(at as usize)).is_some_and(|step| step.walks);
         let mut extra = Extra::default();
-        if (facts.test_edited || stopped_on_walk) && steps.iter().any(|step| step.walks) {
+        if (facts.test_edited || facts.pushed || stopped_on_walk) && steps.iter().any(|step| step.walks) {
             extra = self.rail_extra(&id).await;
             facts = Facts::of(&record, extra);
         }

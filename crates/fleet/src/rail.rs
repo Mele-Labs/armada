@@ -24,6 +24,8 @@
 //! approval until he approves a window the Job showed, at or after that approval, and is passed over
 //! when no walk is expected and its own work is done: its tasks finished where it follows the plan, else
 //! at once. The step after it is entered once it is passed, whatever fact would have entered it.
+//! **A push never passes a walk**: the delivering step is entered on a push only past every walk before
+//! it, and after his Approve only on a push made since.
 //!
 //! **A step the person skipped is passed and never entered**, so the Job moves on past it. A skipped
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
@@ -137,6 +139,8 @@ pub(crate) struct Extra {
     pub walk_approved: bool,
     /// The person approved a window the Job showed, whenever: what a `walk_approved` end reads.
     pub any_walk_approved: bool,
+    /// The Job pushed at or after the Approve that is `walk_approved`.
+    pub pushed_since_walk: bool,
     /// The person approved a sketch the Job showed.
     pub sketch_approved: bool,
     /// The person approved the newest revision of a document the Job wrote, read off the kept page.
@@ -189,6 +193,8 @@ pub(crate) struct Facts {
     /// Approved at or after the plan's approval. [`Extra::walk_approved`].
     pub walk_approved: bool,
     pub any_walk_approved: bool,
+    /// [`Extra::pushed_since_walk`].
+    pub pushed_since_walk: bool,
     pub sketch_approved: bool,
     pub document_approved: bool,
     pub draft_approved: bool,
@@ -234,6 +240,7 @@ impl Facts {
             walk_shown: extra.walk_shown,
             walk_approved: extra.walk_approved,
             any_walk_approved: extra.any_walk_approved,
+            pushed_since_walk: extra.pushed_since_walk,
             sketch_approved: extra.sketch_approved,
             document_approved: extra.document_approved,
             draft_approved: extra.draft_approved,
@@ -334,6 +341,17 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     !step.has_lifecycle_end() || facts.any_ended(at, &step.ends_on)
 }
 
+/// Whether the Job pushed toward the step at `at`. **A walk before it holds the push**: none counts
+/// while one stands, and once he approved it only a push at or after his Approve does, since one made
+/// while he walked was the walk's own (Job 355c64b4 was put on Deliver unapproved, 31 Oct 2026).
+fn pushed_past_walks(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
+    let walks: Vec<usize> = (0..at).filter(|one| steps[*one].walks && !facts.skipped.has(*one)).collect();
+    if walks.iter().any(|one| !passed(steps, *one, facts)) {
+        return false;
+    }
+    facts.pushed && (walks.is_empty() || !facts.walk_approved || facts.pushed_since_walk)
+}
+
 fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if facts.skipped.has(at) {
         return false;
@@ -354,7 +372,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     if step.delivers {
         // A step that waits on a lifecycle holds the Job past the push, as a walk holds a refine step.
-        return facts.pushed
+        return pushed_past_walks(steps, at, facts)
             && steps[..at].iter().enumerate().all(|(earlier, one)| !one.has_lifecycle_end() || passed(steps, earlier, facts));
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
@@ -450,7 +468,10 @@ pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
         };
         found.extend(skip.map(|skip| (at, skip)));
     }
-    if let Some(at) = steps.iter().position(|step| step.follows_plan).filter(|_| facts.pushed && facts.tasks_open) {
+    let delivering = steps.iter().position(|step| step.delivers).unwrap_or(steps.len());
+    if let Some(at) =
+        steps.iter().position(|step| step.follows_plan).filter(|_| facts.tasks_open && pushed_past_walks(steps, delivering, facts))
+    {
         found.push((at, Skip::Tasks));
     }
     if let Some(at) = steps.iter().position(|step| step.walks).filter(|at| {
