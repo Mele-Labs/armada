@@ -1169,6 +1169,14 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const waitingBand = waitingOn.length > 0;
   // Folded until he presses it: a wait is not his to act on.
   const waitOpen = waitingBand && waitPanel?.id === session.id && waitPanel.open;
+  // A wait's dismiss: a watch is stopped as its own Stop does, and a pull request only stops holding the Job open.
+  const dismissWait = (of: Session, at: number) => {
+    const held = of.heldOpenBy?.[at];
+    if (held === undefined) return;
+    if (held.kind === "pull_request") return draft.dismissWait?.(of.id, held.number);
+    const watch = of.watches?.find((one) => one.live && one.name === held.name);
+    if (watch !== undefined) draft.stopWatch?.(of.id, watch.id);
+  };
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1319,7 +1327,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
-          {waitingBand ? <WaitingBand waits={waitingOn} open={waitOpen} onOpen={(open) => setWaitPanel({ id: session.id, open })} /> : null}
+          {waitingBand ? <WaitingBand waits={waitingOn} open={waitOpen} onOpen={(open) => setWaitPanel({ id: session.id, open })} onDismiss={(at) => dismissWait(session, at)} /> : null}
           </div>
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {session.dead !== undefined ? null : (
