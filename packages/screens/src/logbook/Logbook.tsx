@@ -143,10 +143,11 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOrganize, 
         setTidied(refusalWords({ ok: false, why: "not_connected" }));
       });
   };
-  const applyAll = () => {
+  const applyRows = (only?: string) => {
     if (proposal === undefined || onApplyOrganize === undefined) return;
-    const { action, rows } = proposal;
-    setProposal(undefined);
+    const { action } = proposal;
+    const rows = only === undefined ? proposal.rows : proposal.rows.filter((row) => row.id === only);
+    setProposal(only === undefined ? undefined : { action, rows: proposal.rows.filter((row) => row.id !== only) });
     void onApplyOrganize(action, [...rows]).then(async (words) => {
       await read(() => true);
       setTidied(words);
@@ -186,7 +187,8 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOrganize, 
       tidying={tidy.running}
       {...(onOrganize === undefined ? {} : { onOrganize: organize, organizing: organizing !== undefined })}
       {...(proposal === undefined ? {} : { proposal })}
-      onApplyAll={applyAll}
+      onApplyAll={() => applyRows()}
+      onApplyRow={applyRows}
       onDismissRow={(id) => setProposal((was) => (was === undefined ? was : { ...was, rows: was.rows.filter((row) => row.id !== id) }))}
       onCloseProposal={() => setProposal(undefined)}
       {...(organizing !== undefined ? { tidied: LOOKING[organizing] } : tidy.running ? { tidied: "Tidying" } : tidied === undefined ? {} : { tidied })}

@@ -48,7 +48,8 @@ import { ageOf } from "../../time-format";
 /** The three ways Organize looks through the entries. */
 export type OrganizeAction = "merge" | "stale" | "bugs";
 /** One proposal row: the entry it is about, why, and for a merge the entries folded into it. */
-export type OrganizeRow = { id: string; text: string; note: string; absorbed?: readonly string[] };
+export type OrganizeFolded = { text: string; kind: LogbookKind; confirmed: string };
+export type OrganizeRow = { id: string; text: string; kind: LogbookKind; confirmed: string; note: string; absorbed?: readonly OrganizeFolded[] };
 export type OrganizeProposal = { action: OrganizeAction; rows: readonly OrganizeRow[] };
 
 const ORGANIZE: Record<OrganizeAction, { label: string; hint: string; Glyph: LucideIcon; all: string; title: string }> = {
@@ -117,6 +118,8 @@ export type LogbookViewProps = {
   proposal?: OrganizeProposal;
   /** The proposal's one act on every row left. */
   onApplyAll?: () => void;
+  /** The proposal's act on one row. */
+  onApplyRow?: (id: string) => void;
   onDismissRow?: (id: string) => void;
   onCloseProposal?: () => void;
   /** Opens the Job an evidence row came from. */
@@ -230,7 +233,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, topics, topic, onTopic, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOrganize, organizing, proposal, onApplyAll, onDismissRow, onCloseProposal, onOpenJob, also, refusal, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, topics, topic, onTopic, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOrganize, organizing, proposal, onApplyAll, onApplyRow, onDismissRow, onCloseProposal, onOpenJob, also, refusal, now }: LogbookViewProps) {
   const list = useRef<HTMLTableElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -464,7 +467,7 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
           </div>
           <section ref={detail} className="armada-logbook__detail" aria-label={proposal === undefined ? "Entry" : "Proposal"} tabIndex={-1}>
             {proposal !== undefined ? (
-              <Proposal proposal={proposal} onApplyAll={() => onApplyAll?.()} onDismiss={(id) => onDismissRow?.(id)} onClose={() => onCloseProposal?.()} />
+              <Proposal proposal={proposal} now={now} onApplyAll={() => onApplyAll?.()} onApply={(id) => onApplyRow?.(id)} onDismiss={(id) => onDismissRow?.(id)} onClose={() => onCloseProposal?.()} />
             ) : open === undefined ? null : (
               <Detail
                 key={open.id}
@@ -754,12 +757,30 @@ function Stamp({ at, now }: { at: string; now: number }) {
   );
 }
 
-/** An act on the entry, with the key that does it beside its name. */
-function Proposal({ proposal, onApplyAll, onDismiss, onClose }: { proposal: OrganizeProposal; onApplyAll: () => void; onDismiss: (id: string) => void; onClose: () => void }) {
+/** One entry as the list draws it: kind code, text on one line, last confirmed. */
+function ProposedLine({ kind, text, confirmed, muted, now }: { kind: LogbookKind; text: string; confirmed: string; muted?: boolean; now: number }) {
+  return (
+    <div className="armada-logbook__line" data-muted={muted === true ? "" : undefined}>
+      <Tooltip label={KIND[kind].said}>
+        <span className="armada-logbook__line-kind">{KIND[kind].code}</span>
+      </Tooltip>
+      <span className="armada-logbook__line-text">
+        <Words text={text} />
+      </span>
+      <span className="armada-logbook__line-age">
+        <Stamp at={confirmed} now={now} />
+      </span>
+    </div>
+  );
+}
+
+/** What Organize found, one card per finding, each with its own act and dismiss. */
+function Proposal({ proposal, now, onApplyAll, onApply, onDismiss, onClose }: { proposal: OrganizeProposal; now: number; onApplyAll: () => void; onApply: (id: string) => void; onDismiss: (id: string) => void; onClose: () => void }) {
   const one = ORGANIZE[proposal.action];
+  const merging = proposal.action === "merge";
   return (
     <div className="armada-logbook__card">
-      <div className="armada-logbook__band armada-logbook__head-band">
+      <div className="armada-logbook__band armada-logbook__head-band armada-logbook__proposal-head">
         <span className="armada-logbook__head-kind">
           <one.Glyph size={12} strokeWidth={2} aria-hidden />
           {one.title}
@@ -780,20 +801,35 @@ function Proposal({ proposal, onApplyAll, onDismiss, onClose }: { proposal: Orga
       <ul className="armada-logbook__body armada-logbook__proposal" aria-label="Proposals">
         {proposal.rows.map((row) => (
           <li key={row.id} className="armada-logbook__proposed">
-            <div className="armada-logbook__proposed-text">
-              <span>{row.text}</span>
-              {(row.absorbed ?? []).map((text) => (
-                <span key={text} className="armada-logbook__proposed-absorbed">
-                  {text}
-                </span>
-              ))}
-              {row.note === "" ? null : <span className="armada-logbook__proposed-note">{row.note}</span>}
-            </div>
-            <Tooltip label="Dismiss">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Dismiss" onClick={() => onDismiss(row.id)}>
-                <X size={12} strokeWidth={2} aria-hidden />
+            {merging ? (
+              <>
+                <div className="armada-logbook__block">
+                  <span className="armada-logbook__label">Keeps</span>
+                  <ProposedLine kind={row.kind} text={row.text} confirmed={row.confirmed} now={now} />
+                </div>
+                <div className="armada-logbook__block">
+                  <span className="armada-logbook__label">Replaces</span>
+                  {(row.absorbed ?? []).map((folded) => (
+                    <ProposedLine key={folded.text} kind={folded.kind} text={folded.text} confirmed={folded.confirmed} muted now={now} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="armada-logbook__block">
+                <ProposedLine kind={row.kind} text={row.text} confirmed={row.confirmed} now={now} />
+                {row.note === "" ? null : <span className="armada-logbook__proposed-note">{row.note}</span>}
+              </div>
+            )}
+            <div className="armada-logbook__proposed-acts">
+              {merging ? (
+                <Button variant="secondary" size="sm" onClick={() => onApply(row.id)}>
+                  Apply
+                </Button>
+              ) : null}
+              <Button variant="ghost" size="sm" onClick={() => onDismiss(row.id)}>
+                Dismiss
               </Button>
-            </Tooltip>
+            </div>
           </li>
         ))}
       </ul>

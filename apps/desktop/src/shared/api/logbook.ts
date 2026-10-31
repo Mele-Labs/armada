@@ -3,11 +3,12 @@
 //
 // Main answers each channel from Fleet's routes (`main/logbook.ts`); the mock answers them in a walk.
 
-import type { LogbookAnswer, LogbookForgotten, LogbookRead, LogbookTidied } from "@armada/protocol";
+import type { LogbookAnswer, LogbookForgotten, LogbookKind, LogbookRead, LogbookTidied } from "@armada/protocol";
 
 /** Organize's three looks and a finding, as the page's `OrganizeAction` and `OrganizeRow` draw them. */
 export type OrganizeAction = "merge" | "stale" | "bugs";
-export type OrganizeRow = { id: string; text: string; note: string; absorbed?: readonly string[] };
+export type OrganizeFolded = { text: string; kind: LogbookKind; confirmed: string };
+export type OrganizeRow = { id: string; text: string; kind: LogbookKind; confirmed: string; note: string; absorbed?: readonly OrganizeFolded[] };
 
 export type LogbookApi = {
   /** Every section: each repository's, Habits and This Mac. Forgotten entries are never read. */

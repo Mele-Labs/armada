@@ -60,17 +60,27 @@ function found(action: OrganizeAction, entries: LogbookEntry[]): OrganizeRow[] {
     const done = tidied(entries);
     return done.entries
       .filter((one) => one.history.some((earlier) => earlier.by === "merged") && one.state === "standing")
-      .map((one) => ({ id: one.id, text: one.title ?? one.text, note: "", absorbed: one.history.filter((earlier) => earlier.by === "merged").map((earlier) => earlier.text) }));
+      .map((one) => ({
+        id: one.id,
+        text: one.title ?? one.text,
+        kind: one.kind,
+        confirmed: one.last_confirmed,
+        note: "",
+        absorbed: one.history.filter((earlier) => earlier.by === "merged").map((earlier) => {
+          const was = entries.find((other) => other.text === earlier.text);
+          return { text: earlier.text, kind: was?.kind ?? one.kind, confirmed: was?.last_confirmed ?? one.last_confirmed };
+        }),
+      }));
   }
   if (action === "stale") {
     const cutoff = Date.now() - STALE_DAYS * 86_400_000;
     return standing
       .filter((one) => Date.parse(one.last_confirmed) < cutoff)
-      .map((one) => ({ id: one.id, text: one.title ?? one.text, note: `Last confirmed ${Math.round((Date.now() - Date.parse(one.last_confirmed)) / 86_400_000)} days ago` }));
+      .map((one) => ({ id: one.id, text: one.title ?? one.text, kind: one.kind, confirmed: one.last_confirmed, note: `Not confirmed in ${Math.round((Date.now() - Date.parse(one.last_confirmed)) / 86_400_000)} days. Archived on apply` }));
   }
   return standing.flatMap((one) => {
     const fault = FAULTS.find(([words]) => words.test(one.text));
-    return fault === undefined ? [] : [{ id: one.id, text: one.title ?? one.text, note: fault[1] }];
+    return fault === undefined ? [] : [{ id: one.id, text: one.title ?? one.text, kind: one.kind, confirmed: one.last_confirmed, note: `${fault[1]}. Reported on apply` }];
   });
 }
 
@@ -121,7 +131,7 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
         if (held === undefined) return "";
         const ids = rows.map((row) => row.id);
         if (action === "merge") {
-          const absorbed = new Map(rows.map((row) => [row.id, row.absorbed ?? []]));
+          const absorbed = new Map(rows.map((row) => [row.id, (row.absorbed ?? []).map((folded) => folded.text)]));
           const at = new Date().toISOString();
           const gone = new Set(held.filter((one) => ids.some((id) => (absorbed.get(id) ?? []).includes(one.text))).map((one) => one.id));
           held = held.map((one) => {
