@@ -1,9 +1,10 @@
 // A note's changes, put on its element so the person sees them, and taken off again when its card
-// closes, so the app is never left restyled. Each property's own inline value is kept as it was found.
+// closes, so the app is never left restyled. Each property's own inline value is kept as it was found;
+// Size and Colour are a rule of the note's own, which reaches inside the element as well.
 
 import type { StyleChange } from "../../../shared/annotations";
 
-type Kept = { styles: Map<string, { value: string; priority: string }>; text?: { node: Text; value: string } };
+type Kept = { styles: Map<string, { value: string; priority: string }>; text?: { node: Text; value: string }; id: string };
 
 const kept = new WeakMap<Element, Kept>();
 
@@ -35,11 +36,36 @@ export function tokenValue(element: Element, token: string): string {
   return getComputedStyle(element).getPropertyValue(token).trim();
 }
 
-/** Takes off whatever was put on before, then puts `changes` on: a token as the token, so it follows the theme. */
-export function putOn(element: Element, changes: readonly StyleChange[]): void {
+/** The attribute that marks a note's element, so its rule reaches the element and everything inside it. */
+export const RESTYLED = "data-armada-restyled";
+
+/** Size and Colour reach what is inside the element too: "larger" is about what is in the area he picked. */
+const REACHES_INSIDE: ReadonlySet<string> = new Set(["font-size", "color"]);
+
+/** Each note's rule, by its id, written together into the one style element the layer owns. */
+const rules = new Map<string, string>();
+let sheet: HTMLStyleElement | null = null;
+
+function writeRules(): void {
+  if (sheet === null || !sheet.isConnected) {
+    sheet = document.createElement("style");
+    sheet.setAttribute("data-armada-restyle", "");
+    document.head.append(sheet);
+  }
+  sheet.textContent = [...rules.values()].join("\n");
+}
+
+const valueOf = (change: StyleChange): string => (change.token === undefined ? change.after : `var(${change.token})`);
+
+/**
+ * Takes off whatever was put on before, then puts note `id`'s `changes` on: a token as the token, so it follows the theme.
+ * Size and Colour go in one rule for the element and all inside it; Fill and Spacing inline on the element; Text in its words.
+ */
+export function putOn(element: Element, changes: readonly StyleChange[], id: string): void {
   takeOff(element);
   if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) return;
-  const was: Kept = { styles: new Map() };
+  const was: Kept = { styles: new Map(), id };
+  const reaching: string[] = [];
   for (const change of changes) {
     if (change.kind === "text") {
       const node = was.text?.node ?? wordsOf(element);
@@ -48,15 +74,25 @@ export function putOn(element: Element, changes: readonly StyleChange[]): void {
       node.nodeValue = change.after;
       continue;
     }
+    if (REACHES_INSIDE.has(change.property)) {
+      reaching.push(`${change.property}: ${valueOf(change)} !important;`);
+      continue;
+    }
     if (!was.styles.has(change.property)) {
       was.styles.set(change.property, { value: element.style.getPropertyValue(change.property), priority: element.style.getPropertyPriority(change.property) });
     }
-    element.style.setProperty(change.property, change.token === undefined ? change.after : `var(${change.token})`, "important");
+    element.style.setProperty(change.property, valueOf(change), "important");
+  }
+  if (reaching.length > 0) {
+    element.setAttribute(RESTYLED, id);
+    const at = `[${RESTYLED}="${id}"]`;
+    rules.set(id, `${at}, ${at} * { ${reaching.join(" ")} }`);
+    writeRules();
   }
   kept.set(element, was);
 }
 
-/** Puts back the element's own inline values and words, as they were before `putOn`. */
+/** Puts back the element's own inline values and words, as they were before `putOn`, and drops the note's rule. */
 export function takeOff(element: Element): void {
   const was = kept.get(element);
   if (was === undefined) return;
@@ -68,4 +104,6 @@ export function takeOff(element: Element): void {
     }
   }
   if (was.text !== undefined) was.text.node.nodeValue = was.text.value;
+  if (element.getAttribute(RESTYLED) === was.id) element.removeAttribute(RESTYLED);
+  if (rules.delete(was.id)) writeRules();
 }

@@ -37,17 +37,18 @@ function withChange(changes: readonly StyleChange[], next: StyleChange): StyleCh
  * `changes` put on `element` while the card is up, and taken off when it goes. A layout effect, so the
  * first frame drawn with the card already shows them.
  */
-function useRestyled(element: Element | null, changes: readonly StyleChange[]): void {
+function useRestyled(element: Element | null, changes: readonly StyleChange[], id: string): void {
   useLayoutEffect(() => {
     if (element === null) return undefined;
-    putOn(element, changes);
+    putOn(element, changes, id);
     return () => takeOff(element);
-  }, [element, changes]);
+  }, [element, changes, id]);
 }
 
-export function Tools({ element, changes, onChanges, keep }: { element: Element | null; changes: readonly StyleChange[]; onChanges: (next: StyleChange[]) => void; keep: string }) {
+/** `id` is the note's, which names the rule its Size and Colour are written in. */
+export function Tools({ id, element, changes, onChanges, keep }: { id: string; element: Element | null; changes: readonly StyleChange[]; onChanges: (next: StyleChange[]) => void; keep: string }) {
   const [tool, setTool] = useState<ChangeKind | null>(null);
-  useRestyled(element, changes);
+  useRestyled(element, changes, id);
   const words = element === null ? null : wordsOf(element);
   // Words cleared to nothing are still his to type back.
   const hasWords = words !== null || changes.some((one) => one.kind === "text");

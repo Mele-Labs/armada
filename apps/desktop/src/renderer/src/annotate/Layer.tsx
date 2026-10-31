@@ -790,6 +790,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
             />
             {draft.note.scope !== "window" && (
               <Tools
+                id={draft.note.id}
                 element={draft.element.isConnected ? draft.element : locate(draft.note)}
                 changes={draft.changes ?? NONE}
                 onChanges={(next) => changed(null, next)}
@@ -815,7 +816,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           <Source note={openNote} />
           <p className="armada-annotate__text">{openNote.text}</p>
           {openNote.scope !== "window" && (
-            <Tools element={locate(openNote)} changes={openNote.changes ?? NONE} onChanges={(next) => changed(openNote, next)} keep={keptAs(openNote.id, "text")} />
+            <Tools id={openNote.id} element={locate(openNote)} changes={openNote.changes ?? NONE} onChanges={(next) => changed(openNote, next)} keep={keptAs(openNote.id, "text")} />
           )}
           <Examples pictures={(openNote.examples ?? []).map((name) => ({ name, png: pictures[name] }))} onRemove={(name) => void removeExample(openNote, name)} />
           {openNote.sent !== undefined && (
