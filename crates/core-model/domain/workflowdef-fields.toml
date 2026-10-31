@@ -270,6 +270,8 @@ notes = """
 
 **The step after it is entered the moment it is passed**, approved or passed over, whatever fact would have entered it, and a `follows_plan` step or one that fits a Check, a commit or a pull request is not entered before (30 Oct 2026: a bug Job left on Fix after he approved was told to show the walk again, and the new window voided his approval). **Legal on a `follows_plan` step**: `bug`'s Fix both works the plan and walks, and is placed as a walk. A test file edited before then draws one nudge, once for the Job, and blocks nothing; it is told only when a walk is expected. Where a workflow has this step, a rough mock edited before the plan is approved is no skip, but a push or a test file then is.
 
+**A push never passes it.** The delivering step is not entered, and a push with the plan's tasks open is no skip, while a walk before it stands; once he approved the walk, only a push at or after his Approve counts, since one made while he walked was the walk's own (31 Oct 2026: a Job that pushed a fix to its walk's steps was put on Deliver with nothing approved).
+
 **Needs a recording step before it.** The step is placed from the plan's approval, so in a workflow with none it is never entered. Not refused at load, unlike `follows_plan`: it grants no tool, so nothing is silently withheld. Unrelated to `evidence.walked`, which starts the repository's server when a step stops for a person.
 """
 

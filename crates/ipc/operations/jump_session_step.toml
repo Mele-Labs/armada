@@ -1,0 +1,18 @@
+[operations.jump_session_step]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Moves a hosted Job straight to a step to come, skipping the steps between"
+notes = """
+`POST /sessions/step-jump`, body `JumpSessionStep`: `session_id` and `step` (the index to move to, from zero as `workflow_step`). Answers the `SessionRecord`, whose `skipped_steps` lists the steps skipped.
+
+**It is the person's.** Through the agent door the operation does not exist: a Job skips a step of its own with `skip_session_step`, and moves on by doing the work.
+
+**Every step from the one the Job is on up to the step before the target is skipped, in one write.** A step already skipped stays so. The rail then counts them passed and places the Job on the target as it places it on any move, sending the target step's own instructions. Fleet enters one `session.step` on the timeline, `says` `jumped to: <step label>` and `detail` `by you`, and marks each step it skipped on the Job's lanes. A walk window or draft the agent opened on the step it was on is withdrawn.
+
+**The Job is told once.** A Job that has run is sent one message from Fleet naming the target step and the steps skipped, saying not to do them or ask about them, and none of the per-step messages a skip sends. A Job that has not run is told with its first turn, as skips are.
+
+Undoing is a skip each: `skip_session_step` with `skipped` false.
+
+422 `fleet.session_step_not_ahead` for a step at or before the one the Job is on, and for an index past the last step. 422 `fleet.session_step_not_skippable` where a step the jump would pass delivers the work. 422 `fleet.session_command_refused` for a job with no workflow or a terminal job, 422 `fleet.session_workflows_off` while `features.workflows` is off in Settings, 422 `fleet.session_workflow_not_held` where the repository no longer holds the job's workflow, and 409 `fleet.session_closed` for one that ended.
+"""

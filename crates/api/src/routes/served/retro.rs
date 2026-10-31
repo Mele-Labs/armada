@@ -65,6 +65,16 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/logbook/tidy",
     },
+    Route {
+        operation: "organize_logbook",
+        method: "POST",
+        path: "/logbook/organize",
+    },
+    Route {
+        operation: "apply_organize_logbook",
+        method: "POST",
+        path: "/logbook/organize/apply",
+    },
     // Teaching: something a person pressed Teach on, read into a proposal, kept as an entry and mods.
     Route {
         operation: "read_teaching",

@@ -211,6 +211,13 @@ export type SetSessionWorkflow = {
  */
 export type SkipSessionStep = { session_id: string; step: number; skipped: boolean };
 
+/**
+ * `POST /sessions/step-jump`: the person moved the Session straight to a step to come, `step` counted from zero as `workflow_step`.
+ * Fleet skips every step from the current one up to the one before it. Answers the `SessionRecord`.
+ * Refused with `fleet.session_step_not_ahead` for a step at or before the current one, or past the last.
+ */
+export type JumpSessionStep = { session_id: string; step: number };
+
 /** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
 export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };
 

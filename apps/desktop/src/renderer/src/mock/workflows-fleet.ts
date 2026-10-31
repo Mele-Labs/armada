@@ -24,6 +24,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { BridgeApi } from "../../../shared/api";
 import { manifesting } from "./manifest-fake";
 import { connected, type Scenario } from "./moment";
+import { builtInPieces } from "./pieces-seed";
 import { CANNOT_YET, MANAGED_DEFINITIONS, MANAGED_ENDS, MANAGED_NUDGES, SAY_WHY_SKIPPED, SUGGESTED_SENTENCE, WIRE_AND_TESTS } from "./workflows-managed";
 import type { MockNudge } from "./workflows-managed";
 
@@ -496,10 +497,10 @@ export function workflowing(): Scenario {
   };
 }
 
-/** The same Fleet with All repositories picked: each repository's copies in a group of its own. */
+/** The same Fleet with All repositories picked: each repository's copies in a group of its own, over the lanes of Armada's lifecycles. */
 export function workflowingOnAll(): Scenario {
   const base = workflowing();
-  return { ...base, name: "workflows-on-all", says: "All repositories picked, a repository's copies of workflows in each", state: { ...base.state, repository: null } };
+  return { ...base, name: "workflows-on-all", says: "All repositories picked, a repository's copies of workflows in each", state: { ...base.state, repository: null }, draft: { pieces: builtInPieces() } };
 }
 
 /** Fleet's health read with a probe of every module and one warning and one failure, which Doctor is walked on. */

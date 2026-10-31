@@ -24,6 +24,7 @@ import type {
   SessionHeld,
   SetNoticeMute,
   SkipSessionStep,
+  JumpSessionStep,
   SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
@@ -47,6 +48,7 @@ import type {
   SettleLater,
   StopWatch,
   DeleteWatch,
+  DismissWait,
   ReadWatchLog,
   WatchLog,
   WatchesChanged,
@@ -795,6 +797,11 @@ export class SessionsHost {
     return await this.asked("/watches/delete", remove);
   }
 
+  /** A pull request the person dismissed from what holds a Job open. Fleet publishes the Job's row, so nothing is folded here. */
+  async dismissWait(dismiss: DismissWait): Promise<SessionActed> {
+    return await this.act("POST", "/watches/dismiss_wait", dismiss);
+  }
+
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */
   async readWait(read: ReadSessionWait): Promise<SessionActed<WaitReading>> {
     return await this.asked("/sessions/read_wait", read);
@@ -971,6 +978,12 @@ export class SessionsHost {
   async skipStep(sessionId: string, step: number, skipped: boolean): Promise<SessionActed> {
     const body: SkipSessionStep = { session_id: sessionId, step, skipped };
     return await this.act("POST", "/sessions/step-skip", body);
+  }
+
+  /** The Session moved straight to a step to come. Fleet skips the steps between and tells the agent once; the record it answers is folded in. */
+  async jumpStep(sessionId: string, step: number): Promise<SessionActed> {
+    const body: JumpSessionStep = { session_id: sessionId, step };
+    return await this.act("POST", "/sessions/step-jump", body);
   }
 
   /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */

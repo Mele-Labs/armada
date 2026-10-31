@@ -450,8 +450,8 @@ export function ReadingSheet({
   // The agent's sketch is a scene, which wants the width.
   // A sketch put to him and not yet answered carries the thread card's Approve and Send back.
   const answer =
-    one?.kind === "sketch" && one.asked === true && one.settled === undefined && draft?.answerSketch !== undefined
-      ? { sketch: one.id, keep: `sketch:${sessionId}:${one.id}`, onAnswer: (sketch: string, given: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf({ id: sessionId, attachments: [one] }, sketch, given)) }
+    one?.kind === "sketch" && one.asked === true && one.withdrawn !== true && one.settled === undefined && draft?.answerSketch !== undefined
+      ? { sketch: one.id, keep: `sketch:${sessionId}:${one.id}`, onAnswer: (sketch: string, given: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf({ id: sessionId, attachments: [one] }, sketch, given)), onWithdraw: (sketch: string) => void dismissWaiting(sessionId, sketch) }
       : undefined;
   const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
   // A sketch with revisions offers each drawing, as the thread card does, at the end of the reading's band.
@@ -1123,11 +1123,11 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A Job that opens pull requests draws the one each group lands in, even a plan of one; Keep local with none opened draws none.
   const opensPrs = opensPullRequests(session);
   // A sketch put to him and not yet answered is pinned after the plan, where the plan waits. The ledger is newest first, so the first is the latest drawn.
-  const put = withRevisionScenes(draft.answerSketch === undefined ? undefined : attachmentsOf(session, "sketch").find((one) => one.asked === true && one.settled === undefined), sketchRevisions);
+  const put = withRevisionScenes(draft.answerSketch === undefined ? undefined : attachmentsOf(session, "sketch").find((one) => one.asked === true && one.withdrawn !== true && one.settled === undefined), sketchRevisions);
   const sketching =
     put === undefined
       ? undefined
-      : { ...readingOfSketch(put), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) };
+      : { ...readingOfSketch(put), sketch: put.id, keep: `sketch:${session.id}:${put.id}:pin`, notes: { key: `sketch:${session.id}:${put.id}`, job: session.id }, onAnswer: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)), onWithdraw: (sketch: string) => void dismissWaiting(session.id, sketch) };
   // A group that goes to a Job of its own heads its run with that Job's card, which is the Job itself once the group is handed.
   const jobOf = (group: string) => {
     const child = childrenOf(sessions, session).find((one) => one.group === group)?.session;
@@ -1196,6 +1196,14 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const waitingBand = waitingOn.length > 0;
   // Folded until he presses it: a wait is not his to act on.
   const waitOpen = waitingBand && waitPanel?.id === session.id && waitPanel.open;
+  // A wait's dismiss: a watch is stopped as its own Stop does, and a pull request only stops holding the Job open.
+  const dismissWait = (of: Session, at: number) => {
+    const held = of.heldOpenBy?.[at];
+    if (held === undefined) return;
+    if (held.kind === "pull_request") return draft.dismissWait?.(of.id, held.number);
+    const watch = of.watches?.find((one) => one.live && one.name === held.name);
+    if (watch !== undefined) draft.stopWatch?.(of.id, watch.id);
+  };
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1315,7 +1323,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
             {...(draft.answerWaiting === undefined ? {} : { onDraft: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
             {...(draft.answerWaiting === undefined ? {} : { onWithdrawDraft: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
-            {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)) })}
+            {...(draft.answerSketch === undefined ? {} : { onAnswerSketch: (sketch: string, answer: SketchAnswer) => void draft.answerSketch?.(sketchAnswerOf(session, sketch, answer)), onWithdrawSketch: (sketch: string) => void dismissWaiting(session.id, sketch) })}
             onOpenDocument={(page) => showLayer(session.id, "document", page)}
             {...(draft.answerDocument === undefined ? {} : { onAnswerDocument: (page: string, answer: SketchAnswer) => void draft.answerDocument?.(documentAnswerOf(session, page, answer)) })}
             noted={noted}
@@ -1346,7 +1354,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
-          {waitingBand ? <WaitingBand waits={waitingOn} open={waitOpen} onOpen={(open) => setWaitPanel({ id: session.id, open })} /> : null}
+          {waitingBand ? <WaitingBand waits={waitingOn} open={waitOpen} onOpen={(open) => setWaitPanel({ id: session.id, open })} onDismiss={(at) => dismissWait(session, at)} /> : null}
           </div>
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {session.dead !== undefined ? null : (

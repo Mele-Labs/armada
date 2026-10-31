@@ -2,7 +2,7 @@
 // refusal's sentence. The rows and headings carry the Cockpit's class names, so `depth.css` draws them.
 
 import type { ReactNode } from "react";
-import { Link as Linked, X } from "lucide-react";
+import { Link as Linked, PowerOff, X } from "lucide-react";
 import { Button, Readout, SessionMark, Stamp, Tooltip, type SessionState } from "@armada/components";
 import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
 
@@ -46,7 +46,7 @@ export function Figure({ name, loose = false, children }: { name: string; loose?
  * One Job in the Cockpit's list: its title and state mark, what it says and its age. `from` is the title of the Job
  * that started it, a link mark beside the state; `context` the tokens in its window, in a column of its own.
  */
-export function Row({ state, said, title, says, mac, at, from, context, onOpen }: { state: SessionState; said: string; title: string; says: string; mac?: string; at: string; from?: string; context?: number; onOpen: () => void }) {
+export function Row({ state, said, title, says, mac, at, from, context, onOpen, onEnd }: { state: SessionState; said: string; title: string; says: string; mac?: string; at: string; from?: string; context?: number; onOpen: () => void; onEnd?: () => void }) {
   const needs = state === "waiting";
   return (
     <li className="deck-list__item">
@@ -67,6 +67,9 @@ export function Row({ state, said, title, says, mac, at, from, context, onOpen }
         <span className="deck-row__context"><Figure name="Context">{context === undefined ? undefined : tokensSaid(context)}</Figure></span>
         <span className="deck-row__said"><Stamp still first="age" at={at} /></span>
       </button>
+      {onEnd === undefined ? null : (
+        <IconButton label="End job" onClick={onEnd}><PowerOff size={16} aria-hidden="true" /></IconButton>
+      )}
     </li>
   );
 }

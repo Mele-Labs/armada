@@ -83,5 +83,12 @@ if [[ ! -d node_modules ]] || [[ package.json -nt node_modules ]]; then
   pnpm install
 fi
 
+#    The Armada-named Electron copy, or the dock says "Electron".
+if electron=$(scripts/armada-electron "$root"); then
+  export ELECTRON_EXEC_PATH="$electron"
+else
+  echo "dev: could not make the Armada-named Electron copy — Bridge will say Electron" >&2
+fi
+
 say "Starting Bridge — Ctrl-C stops both"
 pnpm --filter @armada/desktop dev

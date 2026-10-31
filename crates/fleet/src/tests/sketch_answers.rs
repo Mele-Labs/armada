@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use api::{Refusal, Sessions};
-use ipc::{AnswerSketch, Attachment, Instant, SessionId, SessionRow, SessionVoice, ShowSketch, SketchHow};
+use api::{HostedSessions, Refusal, Sessions};
+use ipc::{AnswerSketch, Attachment, DismissWaiting, Instant, SessionId, SessionRow, SessionVoice, ShowSketch, SketchHow, WithdrawSketch};
 
 use super::session_host::{rig_placing, Rig};
 use crate::session_host::sketching::sketch_approved;
@@ -170,6 +170,46 @@ async fn a_settled_sketch_or_one_the_job_does_not_hold_is_not_open() {
     };
     assert_eq!(none.code, "fleet.sketch_not_open");
     assert_eq!(sent(&rig.rows(&id).await).len(), 1, "only the first answer was sent");
+}
+
+fn take_back(id: &SessionId, title: &str) -> WithdrawSketch {
+    WithdrawSketch { title: title.into(), session_id: Some(id.clone()) }
+}
+
+#[tokio::test]
+async fn a_sketch_the_job_withdraws_leaves_his_list_and_its_card_loses_its_buttons_until_it_is_drawn_again() {
+    let rig = rig_placing(None);
+    let (id, _) = shown(&rig).await;
+
+    let record = rig.fleet.withdraw_sketch(None, take_back(&id, TITLE)).await.expect("withdrawn");
+    assert!(record.waiting_for.is_empty(), "the sketch left his Needs you list: {:?}", record.waiting_for);
+    assert_eq!(the_sketch(&record).detail.get("withdrawn").map(String::as_str), Some("true"), "the card is marked");
+
+    let record = rig.fleet.show_sketch(None, drawn(&id, "Storage")).await.unwrap();
+    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [TARGET], "drawn again, it waits again");
+    assert!(!the_sketch(&record).detail.contains_key("withdrawn"), "and the new drawing is not marked");
+}
+
+#[tokio::test]
+async fn a_sketch_the_job_never_showed_is_not_withdrawn() {
+    let rig = rig_placing(None);
+    let (id, _) = shown(&rig).await;
+    let Err(Refusal::Unacceptable(none)) = rig.fleet.withdraw_sketch(None, take_back(&id, "Storage")).await else {
+        panic!("a title this job showed no sketch for is refused");
+    };
+    assert_eq!(none.code, "fleet.sketch_withdraw_not_shown");
+}
+
+#[tokio::test]
+async fn the_owner_dismissing_a_sketch_marks_it_withdrawn_as_the_job_withdrawing_it_does() {
+    let rig = rig_placing(None);
+    let (id, _) = shown(&rig).await;
+    let record = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: TARGET.into(), reason: None, misread: false })
+        .await
+        .expect("dismissed");
+    assert!(record.waiting_for.is_empty(), "{:?}", record.waiting_for);
+    assert_eq!(the_sketch(&record).detail.get("withdrawn").map(String::as_str), Some("true"));
 }
 
 fn said(at: &str, from: SessionVoice, text: &str) -> SessionRow {

@@ -40,6 +40,12 @@ pub trait PeerOf: Send + Sync {
     fn executable(&self, _pid: u32) -> Option<String> {
         None
     }
+
+    /// Whether `pid` was started with `key=value` in its environment. `false` where it cannot be
+    /// said, as for a platform binary such as `/bin/zsh`, whose environment the kernel withholds.
+    fn carries(&self, _pid: u32, _key: &str, _value: &str) -> bool {
+        false
+    }
 }
 
 /// Whether `pid` runs a file under one of `directories`. **A daemon leaves its parent's tree**

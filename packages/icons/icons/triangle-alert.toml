@@ -33,3 +33,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. Leads the line under the send line in place of `Sends to`, in `--notice-caution`, tooltip `No value`, followed by `{{base}} has no value in this environment`. The same meaning it has everywhere else: a warning."
+
+[[icons.triangle-alert.usage]]
+  means = "A rule or state two Workspaces of one repository change differently, so the repository runs the default's until it picks one"
+  group = "Workflows"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `workspace-tabs`. On the rule chip or state node of a repository tab, in the caution hue, tooltip `Platform and Mobile differ` naming the Workspaces. The same meaning it has everywhere else: a warning."

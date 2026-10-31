@@ -32,6 +32,9 @@ pub(crate) enum End {
     /// A delivering step the Job has not delivered on yet: no pull request is open. Only `rail::stalled`
     /// reads it, as `end_of` names a delivering step's end as its merge.
     Undelivered,
+    /// A walk that follows the plan, where nothing would be seen: its tasks finished. Only `rail` reads
+    /// it, as `end_of` names a walk's end as its approval.
+    TasksDone,
     /// Instances of a lifecycle the Job holds reach a state. The world's to bring about, and Fleet
     /// reads it: neither the Job's act nor the person's.
     Lifecycle(LifecycleEnd),
@@ -81,6 +84,7 @@ impl End {
             End::Committed => "a commit is made".into(),
             End::PrOpened => "a pull request is opened".into(),
             End::Undelivered => "it is delivered".into(),
+            End::TasksDone => "the plan's tasks are done".into(),
         }
     }
 
@@ -105,6 +109,9 @@ impl End {
             End::Committed => "you commit".into(),
             End::PrOpened => "you open a pull request".into(),
             End::Undelivered => "you deliver the way the person chose".into(),
+            End::TasksDone => {
+                "you have marked each of the plan's tasks completed with TaskUpdate; Fleet then moves the Job on".into()
+            }
         }
     }
 
@@ -130,7 +137,8 @@ impl End {
             | End::Checked
             | End::Committed
             | End::PrOpened
-            | End::Undelivered => Waiter::TheJob,
+            | End::Undelivered
+            | End::TasksDone => Waiter::TheJob,
         }
     }
 

@@ -924,6 +924,18 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 **No new field on the item.** Bridge reads the watch from `watches.changed` by the act's `target`, so Escalate's summary is drawn from what the session already holds and nothing reaches Fleet.
 **The event stream.** No new event: the Job's row is published again when a watch ends, a weighing that ends one included, so the item arrives with it.
 
+### A pull request dismissed from what holds a Job open: `dismiss_wait`
+
+Since 30 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `dismiss_wait` (`POST /watches/dismiss_wait`, `agent_access = "No"`) | Bridge writes | `DismissWait` `{ session_id, pull_request }`: the cross on a pull request row of the Waiting band. Answers the Job's `SessionRecord` and publishes `session.changed`. A pull request the Job holds no `pr` attachment for is a 404 `fleet.no_such_pull_request_held`; one already dismissed is answered as it stands |
+| `HeldOpenBy::PullRequest` (`SessionRecord.held_open_by`) | Fleet writes | No longer lists a pull request once dismissed. The pull request itself, its auto-merge and the agent's notice of its merge or failure are untouched |
+| `Attachment.detail` of a `pr` row | Fleet writes | Gains `wait_dismissed = "true"` once dismissed, carried through every later read of the forge and report of the mod. No new field on the wire type |
+
+**Why a detail key.** The dismissal belongs to one Job's hold on one pull request, which is the attachment row, and `detail` is already the map Fleet writes that row's facts into.
+
 ## Not a question: `misread` on `dismiss_waiting`
 
 Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.
@@ -1302,6 +1314,19 @@ The revision is settled only once the message is sent.
 **Skew.** As for `answer_sketch`: the IDs differ and the lifeboat serves.
 **The event stream.** No new event: an answer publishes `session.changed`.
 
+## A slot's commits of its own: `ahead` on `WorktreeSlot`
+
+Since 30 Oct 2026. `crates/ipc/src/holding.rs`, `crates/adapters/src/leasing/reading.rs`.
+**One optional field on an existing type**: no route, no event kind and no enum value.
+Bridge's half is `ahead` on `WorktreeSlot` in `packages/protocol/src/holding.ts`, written by hand and read by nothing yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WorktreeSlot.ahead` (`list_worktrees`, `GET /worktrees`) | Fleet writes, Bridge reads | Commits on the slot's checkout the base does not have, counted in the same walk as `behind`. Absent where `behind` is |
+
+**Why Fleet carries it.** A Job is told to merge the base only when its slot has commits of its own, since a branch level with an old base has nothing stale to push (`crates/fleet/src/behind_bay.rs`).
+**Skew.** An older Fleet sends no `ahead`, and Bridge draws nothing from it.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
@@ -1321,3 +1346,18 @@ Naming these rather than deciding them, per this document's brief:
 - **[lifeboat-router]** Whether the lifeboat's four routes live inside the
   same `axum` `Router` as the main protocol or a separate one. Either can satisfy "no shared
   dependency with the versioned protocol"; which one hasn't been decided.
+
+## Organize the Logbook, and an entry's topic: `organize_logbook`, `apply_organize_logbook`, `topic` on `LogbookEntry`
+
+Since 30 Oct 2026. `crates/ipc/operations/organize_logbook.toml`, `crates/ipc/operations/apply_organize_logbook.toml`, `crates/fleet/src/logbook/organizing.rs`, `crates/fleet/src/logbook/sorting.rs`.
+**Additive only**: two operations and routes, one optional field and new types. `tidy_logbook` stays.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`. Bridge's half is written by hand in `packages/protocol/src/logbook.ts`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `LogbookEntry.topic` | Fleet writes | `git`, `slots`, `testing`, `tools` or `mac`; absent until the sorter places the entry, and then Other |
+| `organize_logbook` (`POST /logbook/organize`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `OrganizeLogbook` `{ action, repository? }`, `action` one of `merge`, `stale`, `bugs`; answers `OrganizedLogbook` `{ action, proposals, failed }`. Writes nothing. Waits for the model calls of `merge` and `bugs` |
+| `OrganizeProposal` | Fleet writes | `{ id, entry_ids, text, note }`: a merge lists the kept entry first in `entry_ids` and carries the text it would read; `stale` and `bugs` name one entry, `note` saying how long or the fault |
+| `apply_organize_logbook` (`POST /logbook/organize/apply`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ApplyOrganizeLogbook` `{ action, proposals }`; answers `AppliedOrganizeLogbook` `{ action, applied, reported }`. `bugs` writes nothing and answers the proposals as `reported` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

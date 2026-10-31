@@ -15,3 +15,9 @@ test("New project sits above Add a repository, under one rule", () => {
 test("with no act for it, no New project row is drawn", () => {
   expect(ids(repositoryEntries([repository()], { add: true }))).not.toContain(NEW);
 });
+
+test("a Workspace picked shows its heading selected and All not", () => {
+  const entries = repositoryEntries([repository()], { all: "All repositories", scope: null, workspaces: [{ id: "my-store", name: "my-store", repositories: [repository().root] }], workspaceScope: "my-store" });
+  expect(entries.find((one) => one.id === "workspace:my-store")).toMatchObject({ selected: true });
+  expect(entries.find((one) => one.id === "")).toMatchObject({ selected: false });
+});

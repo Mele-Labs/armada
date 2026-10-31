@@ -205,6 +205,26 @@ pub(crate) async fn withdraw_window<D: Sessions>(
     }
 }
 
+/// A session takes back a sketch it showed. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a title this
+/// session showed no sketch under, or a call that places no session. **The session is placed by the connection.**
+pub(crate) async fn withdraw_sketch<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let withdraw: ipc::WithdrawSketch = match ipc::decode_body("a sketch to withdraw", &body) {
+        Ok(withdraw) => withdraw,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().withdraw_sketch(crate::acting::asking(), withdraw.clone()).await {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::sketch_withdrawn(&record, &withdraw), served.run_id())
+        }
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session draws the person a diagram. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a scene that breaks a
 /// rule, naming each, or a call that places no session. **The session is placed by the connection**, as `show_window`'s is.
 pub(crate) async fn show_sketch<D: Sessions>(

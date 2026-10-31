@@ -27,6 +27,19 @@ pub enum LogbookKind {
     Habit,
 }
 
+/// What an entry is about, as the sorter places it: Git and PRs, Slots and worktrees, Testing and checks,
+/// Fleet and Bridge tools, Mac and shell. **No `other`**: an entry the sorter has not placed has no topic, and
+/// Bridge draws it under Other.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LogbookTopic {
+    Git,
+    Slots,
+    Testing,
+    Tools,
+    Mac,
+}
+
 /// A candidate is not handed to agents, a standing entry is, and a faded one is kept and searchable only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -79,6 +92,9 @@ pub struct LogbookEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
     pub kind: LogbookKind,
+    /// Where the sorter placed it. Absent until it has, and then Other.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic: Option<LogbookTopic>,
     /// A few words naming it, as its line in the log reads. Absent on an entry written before titles were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -159,6 +175,66 @@ pub struct TidyLogbook {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TidiedLogbook {
     pub running: bool,
+}
+
+/// The three looks Organize takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrganizeAction {
+    /// Entries that say one thing in different words, folded into one.
+    Merge,
+    /// Entries nobody has confirmed in 45 days.
+    Stale,
+    /// Entries that read as workarounds for a fault in Armada itself.
+    Bugs,
+}
+
+/// `organize_logbook`' body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganizeLogbook {
+    pub action: OrganizeAction,
+    /// A served repository's root. **Absent**: every served repository, with the habits and this Mac's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+}
+
+/// One thing Organize proposes. Nothing has changed when it is read.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganizeProposal {
+    /// Names the proposal: the entry kept for a merge, the entry for the others.
+    pub id: String,
+    /// The entries it concerns. A merge lists the entry it keeps first, then those it absorbs.
+    pub entry_ids: Vec<String>,
+    /// A merge: the kept entry as it would read. The others: the entry's own text.
+    pub text: String,
+    /// Stale: how long since it was confirmed. Bugs: the one-line fault. A merge: empty.
+    pub note: String,
+}
+
+/// `organize_logbook`' answer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganizedLogbook {
+    pub action: OrganizeAction,
+    pub proposals: Vec<OrganizeProposal>,
+    /// A repository's model call failed, so its proposals are missing. The others are here.
+    pub failed: bool,
+}
+
+/// `apply_organize_logbook`' body: the proposals to carry out, as `organize_logbook` answered them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApplyOrganizeLogbook {
+    pub action: OrganizeAction,
+    pub proposals: Vec<OrganizeProposal>,
+}
+
+/// `apply_organize_logbook`' answer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppliedOrganizeLogbook {
+    pub action: OrganizeAction,
+    /// Merge: entries folded into another. Stale: entries archived. Bugs: 0, since nothing is written.
+    pub applied: u32,
+    /// Bugs: the proposals as reported, which is the whole of reporting for now. Empty for the others.
+    pub reported: Vec<OrganizeProposal>,
 }
 
 /// `teach_logbook_entry`' body: an entry a person wrote, which stands at once.

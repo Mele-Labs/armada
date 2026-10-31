@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, DismissWait, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type {
   AnswerDocument,
   AnswerSessionAsk,
@@ -137,6 +137,7 @@ export type SessionsApi = {
   stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
   /** The person's delete on one ended watch of a Session. Fleet forgets it and answers the Job's watches after. */
   deleteWatch: (remove: DeleteWatch) => Promise<SessionActed<WatchList>>;
+  dismissWait: (dismiss: DismissWait) => Promise<SessionActed>;
   /** A failed reading's log, read whole. */
   readWatchLog: (read: ReadWatchLog) => Promise<SessionActed<WatchLog>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
@@ -201,6 +202,8 @@ export type SessionsApi = {
   setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
   /** Skips a step of the Session's workflow, or undoes the skip with `skipped` false. Fleet refuses the last, delivering step. Answers the Session's record. */
   skipSessionStep: (sessionId: string, step: number, skipped: boolean) => Promise<SessionActed>;
+  /** Moves the Session straight to a step to come, skipping the steps between. Fleet refuses a step at or before the current one. Answers the Session's record. */
+  jumpSessionStep: (sessionId: string, step: number) => Promise<SessionActed>;
   /**
    * Gives back the slots, branches, pull requests, Jobs and needs the Session holds, or hands them to
    * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
@@ -377,6 +380,7 @@ export const SESSIONS_CHANNELS = {
   settleLater: "bridge:settle-later",
   stopWatch: "bridge:stop-watch",
   deleteWatch: "bridge:delete-watch",
+  dismissWait: "bridge:dismiss-wait",
   readWatchLog: "bridge:read-watch-log",
   readSessionWait: "bridge:read-session-wait",
   changeWaiting: "bridge:change-waiting",
@@ -409,6 +413,7 @@ export const SESSIONS_CHANNELS = {
   setSessionAutoLand: "bridge:set-session-auto-land",
   setSessionWorkflow: "bridge:set-session-workflow",
   skipSessionStep: "bridge:skip-session-step",
+  jumpSessionStep: "bridge:jump-session-step",
   releaseSessionHolds: "bridge:release-session-holds",
   handToSession: "bridge:hand-to-session",
   moveSession: "bridge:move-session",

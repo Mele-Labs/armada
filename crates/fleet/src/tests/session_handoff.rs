@@ -716,3 +716,101 @@ async fn do_not_ask_again_answered_from_needs_you_after_the_question_timed_out_i
     assert!(kind(&record, "handoff_quiet").is_some(), "the owner's answer is a fact on the Job's ledger");
     assert_eq!(record.state, SessionState::Live);
 }
+
+/// How many lines the parent's process was sent that contain `text`.
+fn parent_told(rig: &Rig, parent: &SessionId, text: &str) -> usize {
+    rig.stand_in.process_of(parent.as_str()).map_or(0, |one| one.sent.lock().unwrap().iter().filter(|line| line.contains(text)).count())
+}
+
+/// Wait for `check`, naming `what` where it never comes true.
+async fn until<F: std::future::Future<Output = bool>>(what: &str, mut check: impl FnMut() -> F) {
+    for _ in 0..500 {
+        if check().await {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("{what}: not within five seconds");
+}
+
+/// The links `start_another_session` writes for `group`: `started_by` on the child, `started_to` on the parent.
+async fn linked_under(rig: &Rig, parent: &SessionId, child: &SessionId, group: &str) {
+    let now = String::from("2026-08-26T08:00:00Z");
+    let mut store = rig.fleet.store().lock().await;
+    for (holder, kind, target) in [(child, "started_by", parent), (parent, "started_to", child)] {
+        let link = KeptAttachment {
+            holder: Holder::session(holder.as_str()),
+            kind: kind.to_string(),
+            manifest_id: rig.manifest.as_str().to_string(),
+            target: target.as_str().to_string(),
+            state: Kept::Spent,
+            detail: [(String::from("group"), group.to_string())].into(),
+            since: now.clone(),
+            changed_at: now.clone(),
+        };
+        store.attach(&link, false).unwrap();
+    }
+}
+
+/// The claim of armada-3903: **a Job handed on for context takes over the original's links.** The Job
+/// that started the original is told it was handed on and to which Job, follows the successor under
+/// the same plan group, and hears the successor's merge and its end. 30 Oct 2026: a parent heard only
+/// that its child ended, started a duplicate, and watched the successor's pull request itself.
+#[tokio::test]
+async fn a_linked_job_handed_on_passes_its_link_and_the_parent_follows_the_successor() {
+    let rig = rig(None);
+    // The child asks from process 0, as every hand here does; its parent is started after it.
+    let (child, _) = rig.an_agent_that_has_spoken().await;
+    crate::linked_following::keep_the_linked(Arc::clone(&rig.fleet));
+    let parent = rig
+        .fleet
+        .start_session(StartSession {
+            manifest_id: rig.manifest.clone(),
+            title: Some("The planner".into()),
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+            held: false,
+            project_rows: Vec::new(),
+        })
+        .await
+        .expect("started")
+        .id;
+    linked_under(&rig, &parent, &child, "g1").await;
+
+    asked_and_answered(&rig, &child, HANDOFF_YES).await;
+
+    let old = rig.record(&child).await;
+    assert_eq!(old.state, SessionState::Ended);
+    let new = SessionId::carried(&kind(&old, "replaced_by").expect("a successor").target);
+    // Closing the old Job gives back the hand's mark, so the hand's last steps may still be running.
+    until("the successor names the parent", || async { kind(&rig.record(&new).await, "started_by").is_some() }).await;
+    let by = kind(&rig.record(&new).await, "started_by").cloned().unwrap();
+    assert_eq!((by.target.as_str(), by.detail.get("group").map(String::as_str)), (parent.as_str(), Some("g1")));
+    let to = kind(&rig.record(&parent).await, "started_to").cloned().expect("the parent names a child");
+    assert_eq!(
+        (to.target.as_str(), to.detail.get("group").map(String::as_str)),
+        (new.as_str(), Some("g1")),
+        "the successor is the group's newest link, which the group's row draws"
+    );
+
+    let handed = format!("was handed on to a new Job ({}) for context. Plan group: g1.", new.as_str());
+    until("told it was handed on", || async { parent_told(&rig, &parent, &handed) == 1 }).await;
+    let row_of = |rows: Vec<(String, ipc::LinkedEvent)>, id: &SessionId| rows.into_iter().filter(|(one, _)| one == id.as_str()).map(|(_, event)| event).collect::<Vec<_>>();
+    assert!(!row_of(rig.linked_rows(&parent, 1).await, &child).contains(&ipc::LinkedEvent::Done), "not told as a bare end");
+
+    let merged = [("state".to_string(), "merged".to_string())].into();
+    rig.report(&new, ipc::SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "3084".into(), detail: merged } }).await;
+    rig.report(&new, ipc::SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: "3084".into() }, state: AttachmentState::Spent }).await;
+    until("told the successor's merge", || async { parent_told(&rig, &parent, "had its pull request #3084 merged") == 1 }).await;
+
+    Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: new.clone() }).await.expect("closed");
+    let ended = format!("({}) ended.", new.as_str());
+    until("told the successor's end", || async { parent_told(&rig, &parent, &ended) == 1 }).await;
+    let events = row_of(rig.linked_rows(&parent, 3).await, &new);
+    assert!(events.contains(&ipc::LinkedEvent::Merged) && events.contains(&ipc::LinkedEvent::Done), "{events:?}");
+}

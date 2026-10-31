@@ -623,6 +623,17 @@ pub struct WithdrawWindow {
     pub session_id: Option<SessionId>,
 }
 
+/// `withdraw_sketch`: a session takes back a sketch it showed with `show_sketch`, so it leaves the
+/// person's Needs you list and its card stops asking. Showing the sketch again makes it wait again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WithdrawSketch {
+    /// The title the sketch was shown under.
+    pub title: String,
+    /// Which session withdraws it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// Who put an item on the list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

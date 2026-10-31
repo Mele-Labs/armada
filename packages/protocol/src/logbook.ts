@@ -28,12 +28,17 @@ export type LogbookEvidence = {
 /** Text the entry held before, and who replaced it: Distil on a contradiction or a trip, Tidy when it merged a near-duplicate in, or the person. */
 export type LogbookEarlier = { text: string; until: string; by: "distil" | "person" | "merged" };
 
+/** The fixed set of topics the sorter places an entry under. An entry it could not place has none, and Bridge draws it under Other. */
+export type LogbookTopic = "git" | "slots" | "testing" | "tools" | "mac" | "other";
+
 export type LogbookEntry = {
   id: string;
   section: LogbookSection;
   /** The repository's root, on a `repo` entry only. */
   repository?: string;
   kind: LogbookKind;
+  /** The topic the sorter placed it under. Absent where it could not place it. */
+  topic?: LogbookTopic;
   /** A few words naming it, as its line in the log reads. Absent on an entry written before titles were. */
   title?: string;
   /** One or two lines saying what to do. */
@@ -102,6 +107,32 @@ export type TeachLogbookEntry = {
   source?: { session_id: string; cite: string };
 };
 
+/** The three looks Organize takes: entries that say one thing, entries nobody has confirmed in 45 days, and entries that read as workarounds for a fault in Armada. */
+export type OrganizeAction = "merge" | "stale" | "bugs";
+
+/** The body of `organize_logbook` (`POST /logbook/organize`). `repository` is a served repository's root; absent covers every repository, with the habits and this Mac's. */
+export type OrganizeLogbook = { action: OrganizeAction; repository?: string };
+
+/**
+ * One thing Organize proposes; nothing has changed when it is read. `id` names it (the entry kept for a merge, the
+ * entry otherwise). `entry_ids` lists the entries it concerns, the one a merge keeps first. `text` is the kept entry as
+ * it would read for a merge, the entry's own text otherwise. `note` is how long since a stale entry was confirmed, or a
+ * bug's one-line fault, and empty for a merge.
+ */
+export type OrganizeProposal = { id: string; entry_ids: string[]; text: string; note: string };
+
+/** What `organize_logbook` answers once the look is done. `failed`: a repository's model call failed or answered wrongly, so its proposals are missing. */
+export type OrganizedLogbook = { action: OrganizeAction; proposals: OrganizeProposal[]; failed: boolean };
+
+/** The body of `apply_organize_logbook` (`POST /logbook/organize/apply`): the proposals a person kept, as `organize_logbook` answered them. */
+export type ApplyOrganizeLogbook = { action: OrganizeAction; proposals: OrganizeProposal[] };
+
+/**
+ * What `apply_organize_logbook` answers. `applied` counts entries folded (merge) or archived (stale); `bugs` writes
+ * nothing and answers the proposals back in `reported`, which is all reporting does for now.
+ */
+export type AppliedOrganizeLogbook = { action: OrganizeAction; applied: number; reported: OrganizeProposal[] };
+
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
 export type LogbookRead = { ok: true; entries: LogbookEntry[]; tidy: LogbookTidy } | { ok: false; outcome: Outcome };
 
@@ -113,6 +144,12 @@ export type LogbookForgotten = { ok: true } | { ok: false; outcome: Outcome };
 
 /** What pressing Tidy came back as: a pass is running, or the refusal. */
 export type LogbookTidied = { ok: true; running: boolean } | { ok: false; outcome: Outcome };
+
+/** Bridge's envelope over `OrganizedLogbook`: what Organize proposes, or why it could not look. */
+export type LogbookOrganized = ({ ok: true } & OrganizedLogbook) | { ok: false; outcome: Outcome };
+
+/** Bridge's envelope over `AppliedOrganizeLogbook`. */
+export type LogbookOrganizeApplied = ({ ok: true } & AppliedOrganizeLogbook) | { ok: false; outcome: Outcome };
 
 /**
  * `recall`: `GET /logbook/recall?query=&section=&manifest_id=`. The Logbook entries whose text holds the

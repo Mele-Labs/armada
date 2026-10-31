@@ -332,6 +332,7 @@ where
             self.handoff_undone(old, &new).await;
             return Err(why);
         }
+        self.parent_handed(old, &new).await;
         // Its first process reads the links, so it is told the handoff and the brief.
         let _ = self.told_by_fleet(&new, CARRY_ON, ipc::Notice::ContextHandoff).await;
         let _ = self.published_hosted(&new).await;
@@ -365,6 +366,20 @@ where
             }
         }
         Ok(())
+    }
+
+    /// The Job that started the old one follows the new one from here, under the same plan group.
+    /// **Linked only once the old Job has ended**: a hand undone before then closes the new Job, which
+    /// its parent would otherwise hear as an end.
+    async fn parent_handed(&self, old: &str, new: &str) {
+        let by = {
+            let store = self.store().lock().await;
+            store.attachments_of(&Holder::session(old)).unwrap_or_default().into_iter().find(|one| one.kind == super::agent_starting::STARTED_BY)
+        };
+        if let Some(by) = by {
+            let _ = self.started_linked(&by.target, new, &by.manifest_id, by.detail.get(super::linking::GROUP).map(String::as_str)).await;
+            let _ = self.published_hosted(&by.target).await;
+        }
     }
 
     async fn old_ended(&self, old: &str) -> Result<(), String> {
@@ -417,6 +432,7 @@ where
             let ended = self.session_and_hosting(old).await.is_ok_and(|(row, _)| row.state == store::SessionState::Ended);
             match (ended, &new) {
                 (true, Some(new)) => {
+                    self.parent_handed(old, new).await;
                     self.handoff_ended(old, None, None).await;
                     let _ = self.told_by_fleet(new, CARRY_ON, ipc::Notice::ContextHandoff).await;
                 }

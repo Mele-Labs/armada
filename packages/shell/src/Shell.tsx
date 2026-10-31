@@ -64,6 +64,10 @@ export type ShellProps = {
   workspaces?: readonly PickerWorkspace[];
   /** Opens a Workspace's page, or a new one's where `null`. Absent lists no New Workspace and draws no gear. */
   onOpenWorkspace?: (id: string | null) => void;
+  /** The Workspace the window is scoped to, if any. Its heading shows selected. */
+  workspaceScope?: string | null;
+  /** A Workspace heading was picked: the window shows its repositories. */
+  onScopeWorkspace?: (id: string) => void;
   /**
    * Opens the Manifest of whatever the picker has picked — the owner, 28 Sep
    * 2026: *"I should be able to select a manifest from the dropdown and get a
@@ -128,6 +132,8 @@ export function Shell({
   onNewProject,
   workspaces,
   onOpenWorkspace,
+  workspaceScope = null,
+  onScopeWorkspace,
   onOpenManifest,
   fleet,
   onCompose,
@@ -164,13 +170,13 @@ export function Shell({
     recent,
     ...(workspaces === undefined ? {} : { workspaces }),
     newWorkspace: onOpenWorkspace !== undefined,
+    workspaceScope,
   });
   const pick = (picked: string) => {
     if (picked === ADD) return onAddRepository?.();
     if (picked === NEW) return onNewProject?.();
     if (picked === NEW_WORKSPACE) return onOpenWorkspace?.(null);
-    // A Workspace is not picked to scope the window yet: its heading only carries the gear.
-    if (picked.startsWith(WORKSPACE)) return;
+    if (picked.startsWith(WORKSPACE)) return onScopeWorkspace?.(picked.slice(WORKSPACE.length));
     const root = rootOf(picked);
     if (root !== ALL) remember(root);
     onScope(root === ALL ? null : root);

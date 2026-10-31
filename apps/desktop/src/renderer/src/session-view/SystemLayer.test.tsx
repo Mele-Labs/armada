@@ -70,3 +70,47 @@ test("a log row opens its file in the panel by its path", async () => {
 
   expect(openInPanel).toHaveBeenCalledWith({ kind: "file", path: "/keepers/log-opens.log", from: "session", sessionId: "log-opens" });
 });
+
+test("the panel draws placeholder rows, and no readings, until the first answer arrives", async () => {
+  const host = await mount("never-answered");
+
+  expect(host.querySelector('[aria-busy="true"]')).not.toBeNull();
+  expect(host.querySelectorAll(".armada-skeleton").length).toBeGreaterThan(0);
+  expect(host.querySelector("li.sv-process")).toBeNull();
+});
+
+test("the Processes header says when the system was last read", async () => {
+  seed("read-at");
+  const host = await mount("read-at");
+
+  const label = host.querySelector('section[aria-label="Processes"] h4')?.textContent ?? "";
+  expect(label).toMatch(/read \d{1,2}:\d{2}:\d{2}/);
+  expect(host.querySelector('[aria-busy="true"]')).toBeNull();
+});
+
+test("the processes sit in one fixed box under a header that labels the chosen columns", async () => {
+  seed("columns");
+  const host = await mount("columns");
+
+  const list = host.querySelector('section[aria-label="Processes"] ul.sv-layer__rows--fixed');
+  expect(list, "one box holds every process row").not.toBeNull();
+  const head = list!.querySelector("li.sv-process--head");
+  expect(head?.textContent).toContain("Command");
+  expect(head?.textContent).toContain("Port");
+  expect(head?.textContent, "CPU is not chosen yet").not.toContain("CPU");
+  expect(head?.textContent).toContain("PID");
+});
+
+test("CPU and memory draw as a graph of readings, and disk stays a meter", async () => {
+  seed("graphs");
+  const host = await mount("graphs");
+
+  expect(host.querySelector('section[aria-label="CPU"] svg.sv-graph')).toBeNull();
+  seedSystem({ ...seed("graphs2"), cpu_percent: 40, memory_bytes: 2 * 1024 ** 3, memory_of_bytes: 8 * 1024 ** 3, disk_bytes: 1024 ** 3, disk_of_bytes: 4 * 1024 ** 3 });
+  const second = await mount("graphs2");
+
+  expect(second.querySelector('section[aria-label="CPU"] svg.sv-graph')).not.toBeNull();
+  expect(second.querySelector('section[aria-label="Memory"] svg.sv-graph')).not.toBeNull();
+  expect(second.querySelector('section[aria-label="Disk"] [role="meter"]')).not.toBeNull();
+  expect(second.querySelector('section[aria-label="CPU"] h4')?.textContent).toContain("40%");
+});

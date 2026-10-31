@@ -6,7 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, ReopenWaiting, NameSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
-import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, ReadWatchLog } from "@armada/protocol";
+import type { BeginSession, DismissFinding, ProjectRowRef, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch, DeleteWatch, DismissWait, ReadWatchLog } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, RingedNotes, TerminalMovedBack } from "../shared/api/sessions";
@@ -158,6 +158,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (!text(remove?.watch) || (remove.session_id !== undefined && !text(remove.session_id))) return unread;
     return connection()?.sessions.deleteWatch({ watch: remove.watch, ...(remove.session_id === undefined ? {} : { session_id: remove.session_id }) }) ?? unsent;
   });
+  ipc.handle(CHANNELS.dismissWait, (_event, dismiss: DismissWait) => {
+    if (!text(dismiss?.session_id) || !Number.isInteger(dismiss.pull_request) || dismiss.pull_request < 1) return unread;
+    return connection()?.sessions.dismissWait({ session_id: dismiss.session_id, pull_request: dismiss.pull_request }) ?? unsent;
+  });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
@@ -273,6 +277,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   );
   ipc.handle(CHANNELS.skipSessionStep, (_event, sessionId: string, step: number, skipped: boolean) =>
     text(sessionId) && Number.isInteger(step) && step >= 0 && typeof skipped === "boolean" ? (connection()?.sessions.skipStep(sessionId, step, skipped) ?? unsent) : unread,
+  );
+  ipc.handle(CHANNELS.jumpSessionStep, (_event, sessionId: string, step: number) =>
+    text(sessionId) && Number.isInteger(step) && step >= 0 ? (connection()?.sessions.jumpStep(sessionId, step) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
     if (!text(sessionId)) return unread;

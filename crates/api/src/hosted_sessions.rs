@@ -537,6 +537,21 @@ pub(crate) async fn skip_session_step<D: HostedSessions>(
     }
 }
 
+/// A Job moved straight to a step to come, by the person. Not on the door, so the answer is the row.
+pub(crate) async fn jump_session_step<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let jump: ipc::JumpSessionStep = match ipc::decode_body("a step to jump to", &body) {
+        Ok(jump) => jump,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().jump_session_step(jump).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A step added, moved, reworded or dropped in a Job's own copy of its workflow. 200 with the `JobCopy`,
 /// or a [`Receipt`] through the door.
 pub(crate) async fn change_session_steps<D: HostedSessions>(

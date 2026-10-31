@@ -385,7 +385,7 @@ pub use hosted_sessions::{
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
+    SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
@@ -521,7 +521,8 @@ pub use repositories::{
 pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
-    LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LockLogbookEntry, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
+    LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LogbookTopic, LockLogbookEntry, AppliedOrganizeLogbook,
+    ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook, OrganizeProposal, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
     ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
@@ -604,7 +605,7 @@ pub use document_answer::{
 };
 pub use sketch::{
     page_scene_problems, AnswerSketch, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
-    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WORDS,
+    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,
@@ -628,7 +629,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawWindow,
+    WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
 pub use terminals::{
     JobTerminal, OpenTerminal, ReadTerminal, StartTerminalRun, TerminalScreen, TerminalTyped, TypeInTerminal,
@@ -714,7 +715,7 @@ pub use studio_sketch::{
     SketchPictureDrawn, SketchPoint, SketchStroke,
 };
 pub use watches::{
-    collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
+    collapsed, read_watch_line, watch_line, DeleteWatch, DismissWait, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
     WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
     ReadWatchLog, WatchEvidence, WatchLog, WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };

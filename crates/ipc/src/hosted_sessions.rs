@@ -207,6 +207,14 @@ pub struct SkipSessionStep {
     pub skipped: bool,
 }
 
+/// `jump_session_step`: a person moved a Session straight to a step to come, skipping the steps between.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JumpSessionStep {
+    pub session_id: SessionId,
+    /// The step's index, from zero as `SessionRecord::workflow_step`.
+    pub step: u32,
+}
+
 /// `begin_session`: Start pressed on the start card. Answers the `SessionRecord`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BeginSession {

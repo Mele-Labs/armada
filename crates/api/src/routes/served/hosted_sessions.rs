@@ -126,6 +126,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/step-skip",
     },
     Route {
+        operation: "jump_session_step",
+        method: "POST",
+        path: "/sessions/step-jump",
+    },
+    Route {
         operation: "change_session_steps",
         method: "POST",
         path: "/sessions/workflow/steps",
@@ -261,6 +266,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "stop_watch",
         method: "POST",
         path: "/watches/stop",
+    },
+    Route {
+        operation: "dismiss_wait",
+        method: "POST",
+        path: "/watches/dismiss_wait",
     },
     Route {
         operation: "delete_watch",

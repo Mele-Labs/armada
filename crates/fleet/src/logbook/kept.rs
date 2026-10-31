@@ -93,6 +93,7 @@ fn entry_of(line: Line, section: LogSection, repository: &str) -> Option<LogEntr
             .map(|session_id| LogEvidence { session_id, cites: Vec::new(), how: LogHow::Confirmed, hard: false, at: line.last_confirmed })
             .collect(),
         title: line.title,
+        topic: None,
         text: line.text,
         paths: line.paths,
         first_seen: line.first_seen,

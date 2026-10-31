@@ -22,8 +22,10 @@
 //! is recorded, or until any end its `ends_on` lists holds (`awaits_reply` is `replied`); the
 //! recording step is then entered when a plan is recorded. A `walks` step is current from the plan's
 //! approval until he approves a window the Job showed, at or after that approval, and is passed over
-//! when the plan named no walk and no window was shown. The step after it is entered once it is passed,
-//! whatever fact would have entered it.
+//! when no walk is expected and its own work is done: its tasks finished where it follows the plan, else
+//! at once. The step after it is entered once it is passed, whatever fact would have entered it.
+//! **A push never passes a walk**: the delivering step is entered on a push only past every walk before
+//! it, and after his Approve only on a push made since.
 //!
 //! **A step the person skipped is passed and never entered**, so the Job moves on past it. A skipped
 //! recording step reads as a plan approved once the Job has edited, since no plan is coming.
@@ -137,6 +139,8 @@ pub(crate) struct Extra {
     pub walk_approved: bool,
     /// The person approved a window the Job showed, whenever: what a `walk_approved` end reads.
     pub any_walk_approved: bool,
+    /// The Job pushed at or after the Approve that is `walk_approved`.
+    pub pushed_since_walk: bool,
     /// The person approved a sketch the Job showed.
     pub sketch_approved: bool,
     /// The person approved the newest revision of a document the Job wrote, read off the kept page.
@@ -189,6 +193,8 @@ pub(crate) struct Facts {
     /// Approved at or after the plan's approval. [`Extra::walk_approved`].
     pub walk_approved: bool,
     pub any_walk_approved: bool,
+    /// [`Extra::pushed_since_walk`].
+    pub pushed_since_walk: bool,
     pub sketch_approved: bool,
     pub document_approved: bool,
     pub draft_approved: bool,
@@ -234,6 +240,7 @@ impl Facts {
             walk_shown: extra.walk_shown,
             walk_approved: extra.walk_approved,
             any_walk_approved: extra.any_walk_approved,
+            pushed_since_walk: extra.pushed_since_walk,
             sketch_approved: extra.sketch_approved,
             document_approved: extra.document_approved,
             draft_approved: extra.draft_approved,
@@ -267,10 +274,13 @@ impl Facts {
     }
 
     /// The walk was approved since the plan was, or nothing would be seen: the plan was approved
-    /// with no walk expected and the Job has pushed. Until it pushes, a mock may still be coming. A
-    /// walk approved before the plan was ends a step before the plan and never this one.
-    pub(crate) fn walk_passed(&self) -> bool {
-        self.walk_approved || (self.plan_approved && !self.walk_expected() && self.pushed)
+    /// with no walk expected and the step's own work is done, which for a `walk` that also follows the
+    /// plan is its tasks finished. A walk approved before the plan was ends a step before the plan and
+    /// never this one. **Not the push**: the push ends the step after, so a Job waiting to be moved
+    /// on from a walk it had nothing to show for waited for good (30 Oct 2026).
+    pub(crate) fn walk_passed(&self, walk: &RailStep) -> bool {
+        self.walk_approved
+            || (self.plan_approved && !self.walk_expected() && (!walk.follows_plan || !self.tasks_open || self.pushed))
     }
 
     /// Whether `end`, listed by the step at `at`, holds. **A lifecycle end holds when it has come, or
@@ -316,7 +326,7 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return facts.plan_approved;
     }
     if step.walks {
-        return facts.walk_passed();
+        return facts.walk_passed(step);
     }
     if step.follows_plan {
         return facts.plan_approved && !facts.tasks_open;
@@ -331,6 +341,17 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     !step.has_lifecycle_end() || facts.any_ended(at, &step.ends_on)
 }
 
+/// Whether the Job pushed toward the step at `at`. **A walk before it holds the push**: none counts
+/// while one stands, and once he approved it only a push at or after his Approve does, since one made
+/// while he walked was the walk's own (Job 355c64b4 was put on Deliver unapproved, 31 Oct 2026).
+fn pushed_past_walks(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
+    let walks: Vec<usize> = (0..at).filter(|one| steps[*one].walks && !facts.skipped.has(*one)).collect();
+    if walks.iter().any(|one| !passed(steps, *one, facts)) {
+        return false;
+    }
+    facts.pushed && (walks.is_empty() || !facts.walk_approved || facts.pushed_since_walk)
+}
+
 fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if facts.skipped.has(at) {
         return false;
@@ -343,7 +364,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         };
     }
     if step.walks {
-        return facts.plan_approved && !facts.walk_passed();
+        return facts.plan_approved && !facts.walk_passed(step);
     }
     if step.follows_plan {
         return facts.plan_approved
@@ -351,7 +372,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     if step.delivers {
         // A step that waits on a lifecycle holds the Job past the push, as a walk holds a refine step.
-        return facts.pushed
+        return pushed_past_walks(steps, at, facts)
             && steps[..at].iter().enumerate().all(|(earlier, one)| !one.has_lifecycle_end() || passed(steps, earlier, facts));
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
@@ -447,11 +468,14 @@ pub(crate) fn skipped(steps: &[RailStep], facts: &Facts) -> Vec<(usize, Skip)> {
         };
         found.extend(skip.map(|skip| (at, skip)));
     }
-    if let Some(at) = steps.iter().position(|step| step.follows_plan).filter(|_| facts.pushed && facts.tasks_open) {
+    let delivering = steps.iter().position(|step| step.delivers).unwrap_or(steps.len());
+    if let Some(at) =
+        steps.iter().position(|step| step.follows_plan).filter(|_| facts.tasks_open && pushed_past_walks(steps, delivering, facts))
+    {
         found.push((at, Skip::Tasks));
     }
-    if let Some(at) = steps.iter().position(|step| step.walks).filter(|_| {
-        facts.test_edited && facts.plan_approved && facts.walk_expected() && !facts.walk_passed()
+    if let Some(at) = steps.iter().position(|step| step.walks).filter(|at| {
+        facts.test_edited && facts.plan_approved && facts.walk_expected() && !facts.walk_passed(&steps[*at])
     }) {
         found.push((at, Skip::Walk));
     }
@@ -475,6 +499,17 @@ pub(crate) fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> Strin
             step.label
         )
     }
+}
+
+/// The one message to a Job that has run when the person moves it to a step to come, past `passed`, the
+/// steps that jump skipped. The target's own instructions are the rail's, sent as it places the Job.
+pub(crate) fn jump_told(workflow: &str, to: &RailStep, passed: &[&RailStep]) -> String {
+    let moved = format!("Fleet: the person moved this Job to the \"{}\" step of its {workflow} workflow", to.label);
+    if passed.is_empty() {
+        return format!("{moved}.");
+    }
+    let labels: Vec<String> = passed.iter().map(|step| format!("\"{}\"", step.label)).collect();
+    format!("{moved}, past {}. Do not do those steps, and do not ask about them.", labels.join(", "))
 }
 
 /// The steps the person skipped, said with a Job's first turn: a message before it would start the
@@ -527,14 +562,19 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
 /// nothing, nothing waits on the person, and what ends the step is something the Job does. Fleet never
 /// moves such a step, so a Job waiting for the move waits for good. Read from the row, never the words.
 /// **A delivering step with no pull request opened is the Job's too**: the merge that ends it is not, but
-/// nothing reaches the merge until the Job delivers.
-pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord) -> Option<(usize, rail_ends::End)> {
+/// nothing reaches the merge until the Job delivers. **So is a walk that follows the plan with nothing to
+/// show**, whose tasks are what end it; `extra` says whether a walk is expected.
+pub(crate) fn stalled(steps: &[RailStep], record: &SessionRecord, extra: Extra) -> Option<(usize, rail_ends::End)> {
     if record.standing != Some(SessionStanding::Replied) || !record.waiting_for.is_empty() {
         return None;
     }
     let at = record.workflow_step? as usize;
-    if steps.get(at)?.delivers {
+    let step = steps.get(at)?;
+    if step.delivers {
         return (!Facts::of(record, Extra::default()).pr_opened).then_some((at, rail_ends::End::Undelivered));
+    }
+    if step.walks && step.follows_plan && !Facts::of(record, extra).walk_expected() {
+        return Some((at, rail_ends::End::TasksDone));
     }
     let end = rail_ends::end_of(steps, at).filter(|end| end.by_the_job())?;
     Some((at, end))
@@ -578,6 +618,10 @@ pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Optio
     if !ends.is_empty() {
         let each: Vec<_> = ends.iter().map(|end| end.for_agent()).collect();
         said.push_str(&format!("\n\nThis step ends when {}.", each.join(", or ")));
+        // A Job with nothing to show read the walk's end as already met, and waited to be moved on.
+        if step.walks && step.follows_plan {
+            said.push_str(&format!(" Where nothing would be seen, it ends when {}.", rail_ends::End::TasksDone.for_agent()));
+        }
         // Fleet moves the Job on by itself, so the agent has nothing to do but stop.
         if ends.iter().any(rail_ends::End::by_the_world) {
             said.push_str(" End your turn now: Fleet wakes you with a message when it comes, so do not poll for it.");

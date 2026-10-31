@@ -176,6 +176,11 @@ impl PeerOf for Kernel {
     fn executable(&self, pid: u32) -> Option<String> {
         executable_of(pid)
     }
+
+    fn carries(&self, pid: u32, key: &str, value: &str) -> bool {
+        let entry = format!("{key}={value}");
+        environment_of(pid).iter().any(|one| *one == entry)
+    }
 }
 
 /// `PROC_PPID_ONLY`, from `sys/proc_info.h`. Not in `libc`.
@@ -224,6 +229,57 @@ pub(super) fn executable_of(pid: u32) -> Option<String> {
     }
     path.truncate(written as usize);
     String::from_utf8(path).ok()
+}
+
+/// The environment `pid` was started with, from `KERN_PROCARGS2`. Empty for a process that has
+/// gone, is not ours to ask about, or is a platform binary, whose environment the kernel withholds.
+fn environment_of(pid: u32) -> Vec<String> {
+    let mut name = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as c_int];
+    let mut size: libc::size_t = 0;
+    // SAFETY: a sizing call. `name` and `size` are live for it, and no buffer is handed over, so
+    // the kernel writes only how many bytes the reading takes.
+    #[allow(unsafe_code)]
+    let sized = unsafe {
+        libc::sysctl(name.as_mut_ptr(), 3, std::ptr::null_mut(), &mut size, std::ptr::null_mut(), 0)
+    };
+    if sized != 0 || size == 0 {
+        return Vec::new();
+    }
+    let mut reading = vec![0u8; size];
+    // SAFETY: the pointer is to `reading`, live for this call, and `size` is that allocation's own;
+    // the kernel writes no more than it is told and answers in `size` how many bytes it wrote.
+    #[allow(unsafe_code)]
+    let read = unsafe {
+        libc::sysctl(name.as_mut_ptr(), 3, reading.as_mut_ptr().cast::<c_void>(), &mut size, std::ptr::null_mut(), 0)
+    };
+    if read != 0 {
+        return Vec::new();
+    }
+    reading.truncate(size);
+    environment_in(&reading)
+}
+
+/// The environment in a `KERN_PROCARGS2` reading: `argc`, the executable's path, nul padding,
+/// `argc` arguments and then the environment, each ending in a nul, the environment's end an empty one.
+fn environment_in(reading: &[u8]) -> Vec<String> {
+    let Some((count, rest)) = reading.split_first_chunk::<4>() else {
+        return Vec::new();
+    };
+    let Ok(arguments) = usize::try_from(c_int::from_ne_bytes(*count)) else {
+        return Vec::new();
+    };
+    let Some(after_path) = rest.iter().position(|byte| *byte == 0).map(|end| &rest[end..]) else {
+        return Vec::new();
+    };
+    let Some(start) = after_path.iter().position(|byte| *byte != 0) else {
+        return Vec::new();
+    };
+    let mut strings = after_path[start..].split(|byte| *byte == 0);
+    strings.by_ref().take(arguments).for_each(drop);
+    strings
+        .take_while(|one| !one.is_empty())
+        .map(|one| String::from_utf8_lossy(one).into_owned())
+        .collect()
 }
 
 /// Every socket file descriptor the process holds. Empty on any failure,

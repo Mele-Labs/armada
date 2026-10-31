@@ -8,6 +8,8 @@ import { retroFixtures } from "@armada/screens/src/fixtures/retros";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 
+import { withTopics } from "./logbook-topics";
+
 const ARMADA = repository().root;
 const LEDGER: RepositorySummary = { root: "/Users/user/ledger", records_root: "/Users/user/Library/Application Support/Armada/records/ledger" };
 const { retros, lessons } = retroFixtures();
@@ -172,7 +174,7 @@ function many(): LogbookEntry[] {
 
 export const logbookLong: Scenario = {
   ...holding("logbook-long", "The Logbook after a few weeks: some 75 entries over two repositories, one with evidence from many Jobs, and the retro items on their tab", [repository(), LEDGER]),
-  logbook: [...ENTRIES, ...many()],
+  logbook: withTopics([...ENTRIES, ...many()]),
   retros,
   // As many as Fleet answers by default, 200, so the tab is drawn at the length the real one is.
   lessons: Array.from({ length: 200 }, (_, n) => {

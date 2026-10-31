@@ -1,7 +1,7 @@
 // Editing the lanes by hand: what a press on a node's toolbar, a field in its panel or a connector dragged between two nodes comes to. Each is a pure change to the
 // Workspace, so the editor can draw what it makes and the host holds it. The host saves what they change as pieces (`apps/desktop/src/renderer/src/lifecycle-editing/`).
 
-import { DEFAULT, levelsOf, nodeId, ruleAt, stateLabelAt } from "./model";
+import { DEFAULT, nodeId, ruleAt, stateLabelAt } from "./model";
 import type { AddedStep, LaneStep, LifecycleDef, Ref, Rule, RuleOverride, StateDef, StateReads, StepLayer, Waits, Workspace, WorkflowPlace } from "./model";
 import type { LifecycleRule } from "@armada/protocol";
 import { momentOf } from "./waits";
@@ -50,7 +50,7 @@ export const withNewRule = (workspace: Workspace, rule: Rule): Workspace => (wor
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /**
- * A rule's fields set at a level. At the default, or at the level that added the rule, they are the rule's own. At the Workspace or a repository each is an override of the level above, and one that says what that level
+ * A rule's fields set at a level. At the default, or at the level that added the rule, they are the rule's own. At a Workspace or a repository each is an override of the level above, and one that says what that level
  * already does is no override, so it is dropped. A moment left unnamed is the first its node has.
  */
 export function withRuleAt(workspace: Workspace, id: string, scope: string, patch: RuleFields): Workspace {
@@ -58,7 +58,7 @@ export function withRuleAt(workspace: Workspace, id: string, scope: string, patc
   if (rule === undefined) return workspace;
   // A rule added at a level is that level's own: there is no level above to differ from.
   if (scope === DEFAULT || rule.scope === scope) return withRule(workspace, id, patch);
-  const above = ruleAt(rule, levelsOf(scope)[1]!);
+  const above = ruleAt(rule, scope, workspace, true);
   const { scope: _level, ...own } = rule.overrides?.find((one) => one.scope === scope) ?? { scope };
   const next: Record<string, unknown> = { ...own };
   for (const [key, value] of Object.entries(patch)) {
@@ -80,7 +80,7 @@ export function withRuleWireAt(workspace: Workspace, id: string, scope: string, 
   if (rule === undefined) return workspace;
   if (scope === DEFAULT || rule.scope === scope) return withRule(workspace, id, { wire });
   const rest = (rule.overrides ?? []).filter((one) => one.scope !== scope);
-  const above = ruleAt(rule, levelsOf(scope)[1]!).wire;
+  const above = ruleAt(rule, scope, workspace, true).wire;
   return withRule(workspace, id, { overrides: same(unscoped(wire), unscoped(above)) ? rest : [...rest, { scope, wire }] });
 }
 
@@ -130,7 +130,7 @@ export function withStateLabelAt(workspace: Workspace, lane: string, state: stri
     // A state added at a level is that level's own.
     if (scope === DEFAULT || one.scope === scope) return { ...one, label };
     const others = (one.names ?? []).filter((each) => each.scope !== scope);
-    const names = label === stateLabelAt({ ...one, names: others }, levelsOf(scope)[1]!) ? others : [...others, { scope, label }];
+    const names = label === stateLabelAt({ ...one, names: others }, scope, workspace, true) ? others : [...others, { scope, label }];
     return { ...one, names };
   });
 }

@@ -261,11 +261,11 @@ fn the_rules_never_put_an_open_pull_requests_wait_in_waiting_for() {
 }
 
 /// A hosted session is told to dispute a Fleet notice it finds wrong through the call, not only in
-/// its reply, since the call is what starts the review.
+/// its reply, since the call is what starts the review, and to report a bug too when the notice is wrong for any job.
 #[test]
 fn the_rules_say_a_wrong_fleet_notice_is_disputed_through_the_call() {
     let fleet = rules().split("\n\n").find(|block| block.starts_with(HOSTED_ONLY)).expect("a Fleet paragraph");
-    for named in ["`dispute_fleet`", "`why`"] {
+    for named in ["`dispute_fleet`", "`why`", "`report_bug`", "any job in that state"] {
         assert!(fleet.contains(named), "{named}");
     }
 }

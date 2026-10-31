@@ -68,7 +68,7 @@ export type SessionAttachment =
    * `asked` is one put to the person to approve, `drawn` the drawing he is shown, which `answerSketch` names back, and
    * `settled` how he answered: `detail.asked`, `detail.drawn` and `detail.settled` on the wire.
    */
-  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene }; asked?: true; drawn?: string; settled?: SketchSettled; /** Each drawing Fleet kept under the title, as a file of scene JSON, oldest first. The newest is `drawing`. */ revisions?: readonly string[] }
+  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene }; asked?: true; /** Taken back, by the agent or by him: it waits on nobody. */ withdrawn?: true; drawn?: string; settled?: SketchSettled; /** Each drawing Fleet kept under the title, as a file of scene JSON, oldest first. The newest is `drawing`. */ revisions?: readonly string[] }
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string; /** The Agent call that started it, which Fleet keys the Field's drone by. */ call?: string }
   /**
@@ -249,6 +249,8 @@ export type SessionWorkActs = {
   choose: (id: string, workflow: string | null) => void;
   /** Skips a step of the workflow by its index, or undoes the skip with `skipped` false. Absent where nothing serves it, and no step offers Skip. */
   skip?: (id: string, step: number, skipped: boolean) => void;
+  /** Moves the Job to a later step of the workflow by its index, skipping the steps between. Absent where nothing serves it, and no step offers Jump here. */
+  jump?: (id: string, step: number) => void;
   /** The person changed a value the proposer picked, so its mark goes. */
   unpick: (id: string, value: "workflow" | "model" | "effort") => void;
   approve: (id: string) => void;
@@ -929,6 +931,8 @@ export type SessionsDraft = {
   confirmLater?: (id: string, later: string) => void;
   /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
   stopWatch?: (id: string, watch: string) => void;
+  /** The person's dismiss on a pull request the Session waits on (`pullRequest` is its number): Fleet stops counting it in `heldOpenBy`, and the pull request goes on as it was. */
+  dismissWait?: (id: string, pullRequest: number) => void;
   /** The person's delete on one of a Session's ended watches (`watch` is its id): Fleet forgets it and all kept of it. */
   deleteWatch?: (id: string, watch: string) => void;
   /** A failed reading's log (`log` is the path its reading carries), read whole: its text, or why it could not be read. */

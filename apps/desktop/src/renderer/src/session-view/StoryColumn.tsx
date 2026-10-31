@@ -49,6 +49,7 @@ import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
 import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WaitBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
+import { JumpHere } from "./StepJump";
 import { SkipStep, skipMenu } from "./StepSkip";
 import { SvPanel, type PanelState } from "./SvPanel";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
@@ -409,6 +410,8 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // which delivers, nor on one finished.
   const skippedSteps = new Set(work.workflow?.skipped ?? []);
   const skipOf = (i: number, skipped: boolean) => (acts?.skip === undefined ? undefined : () => acts.skip?.(id, i, !skipped));
+  // Jump here sits left of Skip on a step to come, the last included, where an empty slot holds Skip's place so the icons line up down the spine.
+  const jumpOf = (i: number) => (acts?.jump === undefined ? undefined : () => acts.jump?.(id, i));
   const skippedMark = (
     <Tooltip asChild label="Skipped">
       <span className="sv-panel__mark sv-panel__mark--skipped" role="img" aria-label="Skipped">
@@ -476,8 +479,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             </SvPanel>
           );
         }
+        const jump = jumpOf(i);
+        const nextActs = jump === undefined ? skipping?.acts : <><JumpHere onPress={jump} />{skipping?.acts ?? <span className="sv-panel__slot" aria-hidden="true" />}</>;
         return (
-          <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" acts={skipping?.acts} menu={skipping?.menu} fold={nextFold} keycap={bandKeyFor("next")}>
+          <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" acts={nextActs} menu={skipping?.menu} fold={nextFold} keycap={bandKeyFor("next")}>
             {!last && !(WALK_STEP.test(name) && walks.length === 0) ? undefined : (
               <>
                 {WALK_STEP.test(name) && walks.length === 0 ? <WalkToCome /> : null}

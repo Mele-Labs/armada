@@ -76,6 +76,11 @@ pub struct PhoneSession {
     pub context_tokens: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_window: Option<u64>,
+    /// The agent said, through `all_done`, that it has nothing left. Only while the Job is live.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub done_since: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub done_summary: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -194,6 +199,8 @@ impl PhoneSession {
             }),
             context_tokens: record.usage.context_tokens,
             context_window: record.usage.context_window,
+            done_since: record.done_since.as_ref().filter(|_| record.state == SessionState::Live).map(|at| at.as_str().to_string()),
+            done_summary: record.done_summary.clone().filter(|_| record.state == SessionState::Live && record.done_since.is_some()),
         }
     }
 }

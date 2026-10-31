@@ -325,6 +325,7 @@ checks:
       - "scripts/preview"
       - "scripts/restart"
       - "scripts/restart-build"
+      - "scripts/armada-electron"
       - "scripts/test_preview.py"
       - "armada.yml"
 

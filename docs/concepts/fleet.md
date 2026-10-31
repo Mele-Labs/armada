@@ -201,7 +201,10 @@ Where git will not answer, the last reading stands.
 
 **What each side is told.** The files that conflict, who the other is, and how to reach it.
 A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*) and reaches the other with `SendMessage`.
+**A paused Job is not one to reach**, since a message waits for the person's Resume: the notice names its branch and says to resolve the conflict on merge.
 **Told once per set of files**: a changed set is told again, a cleared one is never said.
+Each notice sent is kept by its words in the store (`clash_told`), so a restart that refills the table repeats nothing.
+Confirmed 31 Oct 2026: three restarts told one Job the same clash with a paused Job three times, each time to message it.
 
 **Main moving.** Where Fleet reads the base's head and it has moved, every standing pair is asked again, since a holder may have merged main in or the other may have landed.
 Each live holder whose files main changed since their merge base is set against main's new tip, and a conflict is told to that holder only, with the commit on main that changed the file.

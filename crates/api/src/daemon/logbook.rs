@@ -7,7 +7,8 @@ use std::future::Future;
 
 use ipc::{
     EditLogbookEntry, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookSection, LogbookState,
-    LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook,
+    LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, AppliedOrganizeLogbook, ApplyOrganizeLogbook,
+    OrganizeLogbook, OrganizedLogbook,
 };
 
 use crate::daemon::Refusal;
@@ -47,6 +48,16 @@ pub trait Logbook: Send + Sync + 'static {
     /// is; what it merged is in `get_logbook`. [`Refusal::Fault`] where the call cannot be put
     /// together on this machine.
     fn tidy_logbook(self: std::sync::Arc<Self>, tidy: TidyLogbook) -> impl Future<Output = Result<TidiedLogbook, Refusal>> + Send;
+
+    /// `organize_logbook` — propose merges, stale entries or Armada faults; writes nothing. Waits
+    /// for the model calls. [`Refusal::Fault`] where a call cannot be put together on this machine.
+    fn organize_logbook(&self, organize: OrganizeLogbook) -> impl Future<Output = Result<OrganizedLogbook, Refusal>> + Send;
+
+    /// `apply_organize_logbook` — carry out proposals as `organize_logbook` gave them.
+    fn apply_organize_logbook(
+        &self,
+        apply: ApplyOrganizeLogbook,
+    ) -> impl Future<Output = Result<AppliedOrganizeLogbook, Refusal>> + Send;
 
     /// `teach_logbook_entry` — an entry a person wrote, standing at once. [`Refusal::Unacceptable`]
     /// for a `repo` entry naming no repository, or for text that is empty or too long;
