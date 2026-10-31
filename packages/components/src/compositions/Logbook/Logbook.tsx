@@ -3,6 +3,8 @@ import {
   BookDashed,
   BookMarked,
   BookPlus,
+  Bug,
+  CalendarX,
   CircleAlert,
   Combine,
   Container,
@@ -11,6 +13,7 @@ import {
   Ruler,
   SquareChevronRight,
   TrafficCone,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { LogbookEarlier, LogbookEntry, LogbookKind, LogbookState, LogbookTopic } from "@armada/protocol";
@@ -41,6 +44,18 @@ import { ageOf } from "../../time-format";
  * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `l` and `f` edit, lock and
  * forget it, and `Esc` backs out a level. The tabs take the arrows when focused.
  */
+
+/** The three ways Organize looks through the entries. */
+export type OrganizeAction = "merge" | "stale" | "bugs";
+/** One proposal row: the entry it is about, why, and for a merge the entries folded into it. */
+export type OrganizeRow = { id: string; text: string; note: string; absorbed?: readonly string[] };
+export type OrganizeProposal = { action: OrganizeAction; rows: readonly OrganizeRow[] };
+
+const ORGANIZE: Record<OrganizeAction, { label: string; hint: string; Glyph: LucideIcon; all: string; title: string }> = {
+  merge: { label: "Merge duplicates", hint: "Folds near-duplicate entries into one", Glyph: Combine, all: "Apply all", title: "Merge duplicates" },
+  stale: { label: "Find stale entries", hint: "Entries no recent Job has confirmed or tripped", Glyph: CalendarX, all: "Archive all", title: "Stale entries" },
+  bugs: { label: "Find Armada bugs", hint: "Entries that work around a fault in Armada itself, such as a tool refusing or erroring", Glyph: Bug, all: "Report all", title: "Armada bugs" },
+};
 
 /** One panel: a repository's Logbook, Habits, or This Mac. `hint` is what its header says on hover. */
 export type LogbookPanel = { key: string; title: string; hint: string; entries: readonly LogbookEntry[] };
@@ -94,6 +109,16 @@ export type LogbookViewProps = {
   tidying?: boolean;
   /** What the last tidy came to, as a plain fact. */
   tidied?: string;
+  /** Organize: looks through the entries in one of three ways. Absent, the Tidy button is drawn instead. */
+  onOrganize?: (action: OrganizeAction) => void;
+  /** Fleet is looking, so the menu is off. */
+  organizing?: boolean;
+  /** What the last look found, drawn in place of the open entry. */
+  proposal?: OrganizeProposal;
+  /** The proposal's one act on every row left. */
+  onApplyAll?: () => void;
+  onDismissRow?: (id: string) => void;
+  onCloseProposal?: () => void;
   /** Opens the Job an evidence row came from. */
   onOpenJob?: (jobId: string) => void;
   /** What else an entry changed, drawn under its text. Absent, or absent for an entry, nothing is drawn. */
@@ -205,7 +230,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, topics, topic, onTopic, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOpenJob, also, refusal, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, topics, topic, onTopic, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOrganize, organizing, proposal, onApplyAll, onDismissRow, onCloseProposal, onOpenJob, also, refusal, now }: LogbookViewProps) {
   const list = useRef<HTMLTableElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -231,8 +256,10 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
     if (next !== undefined) onSelect(next.id);
   };
 
-  const [menu, setMenu] = useState<"state" | "topic" | undefined>(undefined);
+  const [menu, setMenu] = useState<"state" | "topic" | "organize" | undefined>(undefined);
   const topicsShown = !(shown === "retros" && fixes !== undefined) && unread !== true && topics !== undefined && topics.length > 0 && onTopic !== undefined;
+
+  const organizeShown = onOrganize !== undefined && unread !== true && !(shown === "retros" && fixes !== undefined);
 
   function pressed(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -256,6 +283,17 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
     if (event.key === "t" && !event.shiftKey && topicsShown) {
       event.preventDefault();
       setMenu("topic");
+      return;
+    }
+    if (event.key === "o" && !event.shiftKey && organizeShown) {
+      event.preventDefault();
+      setMenu("organize");
+      return;
+    }
+    if (isPressed("close", event) && proposal !== undefined && detail.current?.contains(target) === true) {
+      event.preventDefault();
+      onCloseProposal?.();
+      list.current?.focus();
       return;
     }
     const inList = list.current?.contains(target) === true;
@@ -315,7 +353,19 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
             onOpenChange={(next) => setMenu(next ? "topic" : undefined)}
           />
         ) : null}
-        {retros || unread === true || onTidy === undefined ? null : (
+        {organizeShown ? (
+          <DropdownMenu
+            align="start"
+            triggerLabel="Organize"
+            triggerTooltip="Organize (O)"
+            disabled={organizing === true}
+            entries={(Object.keys(ORGANIZE) as OrganizeAction[]).map((id): DropdownMenuEntry => ({ kind: "item", id, label: ORGANIZE[id].label, icon: ORGANIZE[id].Glyph, hint: ORGANIZE[id].hint }))}
+            onSelect={(id) => onOrganize?.(id as OrganizeAction)}
+            open={menu === "organize"}
+            onOpenChange={(next) => setMenu(next ? "organize" : undefined)}
+          />
+        ) : null}
+        {retros || unread === true || onTidy === undefined || onOrganize !== undefined ? null : (
           <Tooltip label="Tidy now">
             <Button variant="ghost" size="sm" iconOnly aria-label="Tidy now" pending={tidying === true} onClick={onTidy}>
               <Combine size={12} strokeWidth={2} aria-hidden />
@@ -412,8 +462,10 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
               ))}
             </table>
           </div>
-          <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
-            {open === undefined ? null : (
+          <section ref={detail} className="armada-logbook__detail" aria-label={proposal === undefined ? "Entry" : "Proposal"} tabIndex={-1}>
+            {proposal !== undefined ? (
+              <Proposal proposal={proposal} onApplyAll={() => onApplyAll?.()} onDismiss={(id) => onDismissRow?.(id)} onClose={() => onCloseProposal?.()} />
+            ) : open === undefined ? null : (
               <Detail
                 key={open.id}
                 entry={open}
@@ -703,6 +755,52 @@ function Stamp({ at, now }: { at: string; now: number }) {
 }
 
 /** An act on the entry, with the key that does it beside its name. */
+function Proposal({ proposal, onApplyAll, onDismiss, onClose }: { proposal: OrganizeProposal; onApplyAll: () => void; onDismiss: (id: string) => void; onClose: () => void }) {
+  const one = ORGANIZE[proposal.action];
+  return (
+    <div className="armada-logbook__card">
+      <div className="armada-logbook__band armada-logbook__head-band">
+        <span className="armada-logbook__head-kind">
+          <one.Glyph size={12} strokeWidth={2} aria-hidden />
+          {one.title}
+        </span>
+        <span className="armada-logbook__head-where">
+          <span className="armada-logbook__acts">
+            <Button variant="primary" size="sm" onClick={onApplyAll} disabled={proposal.rows.length === 0}>
+              {one.all}
+            </Button>
+            <Tooltip label="Close">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Close" onClick={onClose}>
+                <X size={12} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </span>
+        </span>
+      </div>
+      <ul className="armada-logbook__body armada-logbook__proposal" aria-label="Proposals">
+        {proposal.rows.map((row) => (
+          <li key={row.id} className="armada-logbook__proposed">
+            <div className="armada-logbook__proposed-text">
+              <span>{row.text}</span>
+              {(row.absorbed ?? []).map((text) => (
+                <span key={text} className="armada-logbook__proposed-absorbed">
+                  {text}
+                </span>
+              ))}
+              {row.note === "" ? null : <span className="armada-logbook__proposed-note">{row.note}</span>}
+            </div>
+            <Tooltip label="Dismiss">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Dismiss" onClick={() => onDismiss(row.id)}>
+                <X size={12} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Act({ label, act, tip, onPress }: { label: string; act: string; tip?: string; onPress: () => void }) {
   const key = keyFor(act);
   const button = (

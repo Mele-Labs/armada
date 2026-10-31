@@ -243,3 +243,12 @@
 .armada-logbook__fixes > .armada-lessons-page { flex: 1 1 auto; min-height: 0; padding: 0; gap: var(--space-3); }
 :root[data-look] .armada-logbook .armada-logbook__fixes > .armada-lessons-page > * { width: 100%; align-self: stretch; }
 .armada-logbook__fixes .armada-lessons-split { flex: 1 1 auto; }
+
+/* Organize's proposal, in the place of the open entry: one row per finding, a dismiss at its end. */
+.armada-logbook__proposal { margin: 0; padding: 0; list-style: none; }
+.armada-logbook__proposed { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-logbook__proposed:last-child { border-bottom: none; }
+.armada-logbook__proposed-text { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-1); min-width: 0; overflow-wrap: anywhere; }
+.armada-logbook__proposed-absorbed { color: var(--fg-muted); }
+.armada-logbook__proposed-absorbed::before { content: "+ "; color: var(--fg-subtle); }
+.armada-logbook__proposed-note { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-sm); }

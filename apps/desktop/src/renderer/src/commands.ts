@@ -9,6 +9,7 @@
 // callback rather than by reaching for state it does not own: a re-read's answer is published by
 // `onRead`.
 
+import type { OrganizeAction, OrganizeRow } from "../../shared/api/logbook";
 import type { EditManifestProposal, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import type { BuildSource, ChangeSlotPool, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
 import { useState } from "react";
@@ -125,6 +126,10 @@ export const editLogbookEntry = (id: string, text: string) => window.armada.edit
 export const lockLogbookEntry = (id: string, locked: boolean) => window.armada.lockLogbookEntry(id, locked);
 export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
 export const tidyLogbook = () => window.armada.tidyLogbook();
+/** Mock only: absent in the real window, which then draws Tidy. */
+export const organizeLogbook = (action: OrganizeAction) => window.armada.organizeLogbook?.(action) ?? Promise.resolve([]);
+export const applyOrganizeLogbook = (action: OrganizeAction, rows: OrganizeRow[]) => window.armada.applyOrganizeLogbook?.(action, rows) ?? Promise.resolve("");
+export const canOrganizeLogbook = () => window.armada.organizeLogbook !== undefined;
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
 export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);

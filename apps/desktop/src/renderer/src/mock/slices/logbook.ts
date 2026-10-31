@@ -3,7 +3,7 @@
 
 import type { LogbookEntry, LogbookTidy } from "@armada/protocol";
 
-import type { LogbookApi } from "../../../../shared/api/logbook";
+import type { LogbookApi, OrganizeAction, OrganizeRow } from "../../../../shared/api/logbook";
 import type { Slice } from "../fake-context";
 import { alsoOnTimePassing } from "../time-passes";
 
@@ -40,6 +40,38 @@ function tidied(entries: LogbookEntry[]): { entries: LogbookEntry[]; merged: num
     return { ...one, history: [...into.map((other) => ({ text: other.text, until: at, by: "merged" as const })), ...one.history] };
   });
   return { entries: next, merged: folded.size };
+}
+
+/** How long Organize looks in the mock before it has something to show. */
+const LOOK_MS = 1_500;
+const STALE_DAYS = 45;
+const FAULTS: [RegExp, string][] = [
+  [/refus/i, "A tool refuses"],
+  [/\berror|\bfails\b|\bfailed\b/i, "A tool errors"],
+  [/work ?around|instead of|rejected|blocked/i, "A workaround"],
+];
+
+const entriesIn = (entries: LogbookEntry[], ids: readonly string[]) => entries.filter((one) => ids.includes(one.id));
+
+/** What Organize finds in the mock, from the entries as they stand. */
+function found(action: OrganizeAction, entries: LogbookEntry[]): OrganizeRow[] {
+  const standing = entries.filter((one) => one.state === "standing" && !one.locked);
+  if (action === "merge") {
+    const done = tidied(entries);
+    return done.entries
+      .filter((one) => one.history.some((earlier) => earlier.by === "merged") && one.state === "standing")
+      .map((one) => ({ id: one.id, text: one.title ?? one.text, note: "", absorbed: one.history.filter((earlier) => earlier.by === "merged").map((earlier) => earlier.text) }));
+  }
+  if (action === "stale") {
+    const cutoff = Date.now() - STALE_DAYS * 86_400_000;
+    return standing
+      .filter((one) => Date.parse(one.last_confirmed) < cutoff)
+      .map((one) => ({ id: one.id, text: one.title ?? one.text, note: `Last confirmed ${Math.round((Date.now() - Date.parse(one.last_confirmed)) / 86_400_000)} days ago` }));
+  }
+  return standing.flatMap((one) => {
+    const fault = FAULTS.find(([words]) => words.test(one.text));
+    return fault === undefined ? [] : [{ id: one.id, text: one.title ?? one.text, note: fault[1] }];
+  });
 }
 
 export const logbook: Slice<LogbookApi, Record<string, never>> = {
@@ -80,6 +112,31 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
         ending = setTimeout(finish, PASS_MS);
         alsoOnTimePassing(finish);
         return { ok: true, running: true };
+      },
+      organizeLogbook: async (action) => {
+        await new Promise((done) => setTimeout(done, LOOK_MS));
+        return held === undefined ? [] : found(action, held);
+      },
+      applyOrganizeLogbook: async (action, rows) => {
+        if (held === undefined) return "";
+        const ids = rows.map((row) => row.id);
+        if (action === "merge") {
+          const absorbed = new Map(rows.map((row) => [row.id, row.absorbed ?? []]));
+          const at = new Date().toISOString();
+          const gone = new Set(held.filter((one) => ids.some((id) => (absorbed.get(id) ?? []).includes(one.text))).map((one) => one.id));
+          held = held.map((one) => {
+            if (gone.has(one.id)) return { ...one, state: "faded" as const };
+            if (!ids.includes(one.id)) return one;
+            return { ...one, history: [...(absorbed.get(one.id) ?? []).map((text) => ({ text, until: at, by: "merged" as const })), ...one.history] };
+          });
+          return `Merged ${gone.size} ${gone.size === 1 ? "entry" : "entries"}`;
+        }
+        if (action === "stale") {
+          held = held.map((one) => (ids.includes(one.id) ? { ...one, state: "faded" as const } : one));
+          return `Archived ${ids.length} ${ids.length === 1 ? "entry" : "entries"}`;
+        }
+        void entriesIn;
+        return "Reported to the Armada bug list";
       },
       forgetLogbookEntry: async (id) => {
         if (held === undefined || !held.some((one) => one.id === id)) return fleet.refused(`/logbook/${id}/forget`);

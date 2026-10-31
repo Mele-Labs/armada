@@ -5,6 +5,10 @@
 
 import type { LogbookAnswer, LogbookForgotten, LogbookRead, LogbookTidied } from "@armada/protocol";
 
+/** Organize's three looks and a finding, as the page's `OrganizeAction` and `OrganizeRow` draw them. */
+export type OrganizeAction = "merge" | "stale" | "bugs";
+export type OrganizeRow = { id: string; text: string; note: string; absorbed?: readonly string[] };
+
 export type LogbookApi = {
   /** Every section: each repository's, Habits and This Mac. Forgotten entries are never read. */
   readLogbook: () => Promise<LogbookRead>;
@@ -16,6 +20,10 @@ export type LogbookApi = {
   forgetLogbookEntry: (id: string) => Promise<LogbookForgotten>;
   /** Starts folding near-duplicate entries across every repository and answers at once; the Logbook read says when it is done. */
   tidyLogbook: () => Promise<LogbookTidied>;
+  /** Mock only: what Organize finds for an action, after a short pass. Fleet serves no such route, so the real window leaves it absent and draws Tidy. */
+  organizeLogbook?: (action: OrganizeAction) => Promise<OrganizeRow[]>;
+  /** Mock only: carries out the rows left in a proposal and says what it came to. */
+  applyOrganizeLogbook?: (action: OrganizeAction, rows: OrganizeRow[]) => Promise<string>;
 };
 
 export const LOGBOOK_CHANNELS = {
