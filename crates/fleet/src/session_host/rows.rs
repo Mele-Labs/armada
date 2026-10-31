@@ -141,6 +141,7 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                 bare_title(tag),
                 address_suffix(tag)
             ),
+            TagKind::Report => format!("reported bug \"{}\"", tag.title),
             TagKind::Branch => format!("branch {}", tag.id),
         })
         .collect();
