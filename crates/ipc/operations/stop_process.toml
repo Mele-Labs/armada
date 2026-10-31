@@ -6,7 +6,7 @@ description = "End one process the job started, by its pid or by the port it lis
 notes = """
 `POST /sessions/stop_process`, body `StopProcess`: `pid` or `port` (exactly one), and optionally `session_id`. Answered with `ProcessStopped`: the `pid` and `command` ended.
 
-**Only a process the job started is ended**: the agent's process tree, or a process running a file from a directory the job holds, which is what the System layer lists. Any other pid is refused 422 `fleet.process_not_the_jobs`, plainly, and nothing is signalled. A `port` is resolved to a pid from that listing, and a port nothing the job started listens on is refused the same way. The agent's own process and Fleet are never ended. The process is sent `TERM`, and `KILL` after two seconds if it still runs, and the call answers once it has been sent.
+**Only a process the job started is ended**: the agent's process tree, a process running a file from a directory the job holds, or one started with the job's id in its environment, which keeps it the job's after its agent was replaced. That is what the System layer lists. Any other pid is refused 422 `fleet.process_not_the_jobs`, plainly, and nothing is signalled. A `port` is resolved to a pid from that listing, and a port nothing the job started listens on is refused the same way. The agent's own process, its keeper and Fleet are never ended. The process is sent `TERM`, and `KILL` after two seconds if it still runs, and the call answers once it has been sent.
 
 **The caller is placed as `all_done` places it**: a hosted job by its connection, Bridge by `session_id`. Refused 422 `fleet.process_unnamed` where neither or both of `pid` and `port` are given, 422 where the call places no job, 409 `fleet.session_closed` for a job that has ended.
 
