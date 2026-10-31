@@ -195,6 +195,7 @@ const WITHDRAW: &str = r#"{"url":"http://localhost:5173/"}"#;
 const FILE: &str = r#"{"path":"/work/armada/notes/plan.md"}"#;
 const ASK: &str = r#"{"question":"Is this the right label?","url":"http://localhost:5173/","selector":".label"}"#;
 const DRAFT: &str = r#"{"title":" Pull request description for the label ","text":"Renames the label.","before":"WIP"}"#;
+const WITHDRAW_SKETCH: &str = r#"{"title":" Request flow "}"#;
 const WITHDRAW_DRAFT: &str = r#"{"draft":" draft:9 "}"#;
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
@@ -238,6 +239,14 @@ async fn withdraw_window_answers_the_address_it_took_back() {
     let said = through_the_door(&app, "withdraw_window", WITHDRAW).await;
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(said, r#"{"session_id":"session-1","withdrawn":"http://localhost:5173/"}"#);
+}
+
+#[tokio::test]
+async fn withdraw_sketch_answers_the_title_it_took_back() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "withdraw_sketch", WITHDRAW_SKETCH).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","withdrawn":"Request flow"}"#);
 }
 
 #[tokio::test]
@@ -400,6 +409,7 @@ async fn off_the_door_each_act_answers_the_whole_row_as_it_did() {
     for (path, body) in [
         ("/sessions/window", SHOW),
         ("/sessions/withdraw_window", WITHDRAW),
+        ("/sessions/withdraw_sketch", WITHDRAW_SKETCH),
         ("/sessions/window/ask", ASK),
         ("/sessions/draft", DRAFT),
         ("/sessions/withdraw_draft", WITHDRAW_DRAFT),
