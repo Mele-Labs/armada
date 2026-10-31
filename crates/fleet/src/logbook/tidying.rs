@@ -87,7 +87,7 @@ struct SaidGroup {
     absorb: Vec<i64>,
 }
 
-async fn ask_model(explaining: &crate::judging::Explaining, question: &str) -> Result<String, String> {
+pub(super) async fn ask_model(explaining: &crate::judging::Explaining, question: &str) -> Result<String, String> {
     let ask = Ask::put(explaining.model.clone(), question, explaining.environment.clone())
         .map_err(|_| "the call could not be put together".to_string())?;
     crate::judging::said(explaining.client.as_ref(), &ask, explaining.budget)
@@ -96,7 +96,7 @@ async fn ask_model(explaining: &crate::judging::Explaining, question: &str) -> R
 }
 
 /// Whether Tidy may touch an entry: a live one nobody locked and no person wrote.
-fn tidyable(entry: &LogEntry) -> bool {
+pub(super) fn tidyable(entry: &LogEntry) -> bool {
     entry.id.is_some() && entry.state != LogState::Faded && !entry.locked && !entry.edited_by_person
 }
 
@@ -107,7 +107,7 @@ fn touched(entry: &LogEntry) -> u64 {
     entry.first_seen.max(entry.last_confirmed).max(evidence).max(history)
 }
 
-fn question(entries: &[LogEntry]) -> Result<String, String> {
+pub(super) fn question(entries: &[LogEntry]) -> Result<String, String> {
     let of = |section: LogSection| -> Vec<Offered<'_>> {
         entries
             .iter()
@@ -147,6 +147,30 @@ pub(super) fn read(said: &str, entries: &[LogEntry]) -> Result<Vec<Group>, Strin
     Ok(groups)
 }
 
+/// Fold `absorbed` into `kept`: the kept entry takes their evidence and paths and reads `text`, and
+/// they are archived. The count is those archived; none where the text is forgotten.
+pub(super) fn fold(store: &mut store::Store, mut kept: LogEntry, mut absorbed: Vec<LogEntry>, text: &str, now: u64) -> Result<usize, String> {
+    for one in &absorbed {
+        kept.evidence.extend(one.evidence.iter().cloned());
+        kept.paths.extend(one.paths.iter().filter(|path| !kept.paths.contains(path)).cloned().collect::<Vec<_>>());
+        kept.first_seen = kept.first_seen.min(one.first_seen);
+        kept.last_confirmed = kept.last_confirmed.max(one.last_confirmed);
+        kept.last_served = kept.last_served.max(one.last_served);
+        kept.tripped += one.tripped;
+    }
+    rewrite(&mut kept, text, LogRewrite::Merged, now);
+    stand(&mut kept);
+    // Refused for a forgotten text: then nothing is archived behind it.
+    if store.save_logbook_entry(&kept).map_err(|why| why.to_string())?.is_none() {
+        return Ok(0);
+    }
+    for one in &mut absorbed {
+        one.state = LogState::Faded;
+        store.save_logbook_entry(one).map_err(|why| why.to_string())?;
+    }
+    Ok(absorbed.len())
+}
+
 /// Whether a repository is due: a week since its last tidy, and an entry changed since, with two
 /// to fold.
 pub(crate) async fn due(store: &StoreLock, key: &str, now: u64) -> Result<bool, String> {
@@ -175,33 +199,14 @@ where
     let said = ask(question(&held)?).await?;
     let mut store = store.lock().await;
     // Read again: an entry locked or edited while the model answered is no longer Tidy's.
-    let mut entries = store.logbook_of(key).map_err(|why| why.to_string())?;
+    let entries = store.logbook_of(key).map_err(|why| why.to_string())?;
     let groups = read(&said, &entries)?;
     let mut folded = 0;
     for group in groups {
-        let place = |entries: &[LogEntry], id: i64| entries.iter().position(|entry| entry.id == Some(id));
-        let absorbed: Vec<usize> = group.absorb.iter().filter_map(|id| place(&entries, *id)).collect();
-        let Some(at) = place(&entries, group.keep) else { continue };
-        let mut kept = entries[at].clone();
-        for one in absorbed.iter().map(|at| &entries[*at]) {
-            kept.evidence.extend(one.evidence.iter().cloned());
-            kept.paths.extend(one.paths.iter().filter(|path| !kept.paths.contains(path)).cloned().collect::<Vec<_>>());
-            kept.first_seen = kept.first_seen.min(one.first_seen);
-            kept.last_confirmed = kept.last_confirmed.max(one.last_confirmed);
-            kept.last_served = kept.last_served.max(one.last_served);
-            kept.tripped += one.tripped;
-        }
-        rewrite(&mut kept, &group.text, LogRewrite::Merged, now);
-        stand(&mut kept);
-        // Refused for a forgotten text: then nothing is archived behind it.
-        if store.save_logbook_entry(&kept).map_err(|why| why.to_string())?.is_none() {
-            continue;
-        }
-        for at in absorbed {
-            entries[at].state = LogState::Faded;
-            store.save_logbook_entry(&entries[at]).map_err(|why| why.to_string())?;
-            folded += 1;
-        }
+        let place = |id: i64| entries.iter().find(|entry| entry.id == Some(id)).cloned();
+        let Some(kept) = place(group.keep) else { continue };
+        let absorbed: Vec<LogEntry> = group.absorb.iter().filter_map(|id| place(*id)).collect();
+        folded += fold(&mut store, kept, absorbed, &group.text, now)?;
     }
     store.logbook_tidy_finished(key, now).map_err(|why| why.to_string())?;
     Ok(folded)

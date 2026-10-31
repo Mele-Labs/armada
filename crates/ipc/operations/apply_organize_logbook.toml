@@ -1,0 +1,12 @@
+[operations.apply_organize_logbook]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Carry out the Organize proposals a person kept: fold a merge group, archive stale entries, or report bugs"
+notes = """
+`POST /logbook/organize/apply`, body `{action, proposals}`, the proposals as `organize_logbook` answered them. Answers `{action, applied, reported}`.
+
+`merge` folds each proposal's absorbed entries into the first of its `entry_ids`: the kept entry takes their evidence and paths, its text becomes the proposal's `text` with the old one in its history as `merged`, and the absorbed entries are archived. `stale` archives each entry in `entry_ids`. `bugs` writes nothing and answers the proposals back as `reported`; nothing is posted to any forge. `applied` counts the entries folded or archived.
+
+The entries are read again first, so a proposal over an entry that is gone, locked, a person's, archived, or of another repository or section than the rest of its group is skipped and not counted; a text that cannot be kept skips its group. Skipping is quiet: compare `applied` with what was sent. A 500 `fleet.logbook_failed` where the store would not keep it.
+"""

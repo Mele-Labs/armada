@@ -2,7 +2,8 @@
 
 use ipc::{
     EditLogbookEntry, Instant, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookKind, LogbookSection,
-    LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook,
+    LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, AppliedOrganizeLogbook,
+    ApplyOrganizeLogbook, OrganizeLogbook, OrganizedLogbook,
 };
 
 use super::FakeDaemon;
@@ -14,6 +15,7 @@ fn entry(id: &str, section: LogbookSection, kind: LogbookKind, text: &str, paths
         section,
         repository: None,
         kind,
+        topic: None,
         title: None,
         text: text.to_string(),
         paths,
@@ -54,6 +56,14 @@ impl Logbook for FakeDaemon {
 
     async fn tidy_logbook(self: std::sync::Arc<Self>, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
         Ok(TidiedLogbook { running: tidy.repository.is_some() })
+    }
+
+    async fn organize_logbook(&self, organize: OrganizeLogbook) -> Result<OrganizedLogbook, Refusal> {
+        Ok(OrganizedLogbook { action: organize.action, proposals: Vec::new(), failed: false })
+    }
+
+    async fn apply_organize_logbook(&self, apply: ApplyOrganizeLogbook) -> Result<AppliedOrganizeLogbook, Refusal> {
+        Ok(AppliedOrganizeLogbook { action: apply.action, applied: 0, reported: apply.proposals })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

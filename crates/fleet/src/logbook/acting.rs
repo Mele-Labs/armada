@@ -12,11 +12,15 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
-    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, WireError,
+    LogbookReplacedBy, LogbookSection, LogbookState, LogbookTopic, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, WireError,
+    AppliedOrganizeLogbook, ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook,
 };
-use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
+use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState, LogTopic};
 
 use super::answer::MOST_CHARS;
+use super::organizing;
+use super::sorting;
+use super::tidying::ask_model;
 use super::{Logged, Source};
 use crate::clock::rfc3339_utc;
 use crate::daemon::Fleet;
@@ -79,6 +83,16 @@ fn state_of(state: LogState) -> LogbookState {
     }
 }
 
+fn topic_of(topic: LogTopic) -> LogbookTopic {
+    match topic {
+        LogTopic::Git => LogbookTopic::Git,
+        LogTopic::Slots => LogbookTopic::Slots,
+        LogTopic::Testing => LogbookTopic::Testing,
+        LogTopic::Tools => LogbookTopic::Tools,
+        LogTopic::Mac => LogbookTopic::Mac,
+    }
+}
+
 fn instant(millis: u64) -> Instant {
     Instant::carried(rfc3339_utc(i64::try_from(millis).unwrap_or(i64::MAX)))
 }
@@ -136,6 +150,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
             .then(|| root.map(str::to_string).unwrap_or_else(|| entry.repository.clone()))
             .filter(|repository| !repository.is_empty()),
         kind: kind_of(entry.kind),
+        topic: entry.topic.map(topic_of),
         title: entry.title.clone(),
         text: entry.text.clone(),
         paths: entry.paths.clone(),
@@ -368,6 +383,58 @@ where
     async fn tidy_logbook(self: Arc<Self>, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
         self.logbook_tidy_started(tidy.repository).map_err(|why| self.logbook_fault(why))?;
         Ok(TidiedLogbook { running: true })
+    }
+
+    async fn organize_logbook(&self, organize: OrganizeLogbook) -> Result<OrganizedLogbook, Refusal> {
+        let roots: Vec<String> = match &organize.repository {
+            Some(root) => vec![self.logbook_repository(root)?],
+            None => self.repositories().served().iter().map(|served| served.root().to_string()).collect(),
+        };
+        // Stale asks no model, so a machine that cannot put the call together still finds it.
+        let explaining = self.writing_retros().ok();
+        if explaining.is_none() && organize.action != OrganizeAction::Stale {
+            return Err(self.logbook_fault("the call could not be put together on this machine"));
+        }
+        let ask = |question: String| {
+            let explaining = &explaining;
+            async move {
+                match explaining {
+                    Some(explaining) => ask_model(explaining, &question).await,
+                    None => Err("the call could not be put together on this machine".to_string()),
+                }
+            }
+        };
+        let now = self.logbook_now();
+        let (mut proposals, mut failed) = (Vec::new(), false);
+        for (at, root) in roots.iter().enumerate() {
+            let (key, shared) = (key_of(root), at == 0);
+            // Topics first, so the page can group what comes back. Quiet: a failed sort changes nothing.
+            if explaining.is_some() {
+                let _ = sorting::pass(self.store(), &key, shared, &ask).await;
+            }
+            let held = self.store().lock().await.logbook_of(&key).map_err(|why| self.logbook_fault(why))?;
+            let held = organizing::in_scope(held, shared);
+            let found = match organize.action {
+                OrganizeAction::Stale => Ok(organizing::stale(&held, now)),
+                OrganizeAction::Merge => organizing::merges(&held, &ask).await,
+                OrganizeAction::Bugs => organizing::bugs(&held, &ask).await,
+            };
+            match found {
+                Ok(more) => proposals.extend(more),
+                Err(_) => failed = true,
+            }
+        }
+        Ok(OrganizedLogbook { action: organize.action, proposals, failed })
+    }
+
+    async fn apply_organize_logbook(&self, apply: ApplyOrganizeLogbook) -> Result<AppliedOrganizeLogbook, Refusal> {
+        let (applied, keys) = organizing::apply(self.store(), apply.action, apply.proposals, self.logbook_now())
+            .await
+            .map_err(|why| self.logbook_fault(why))?;
+        for key in keys {
+            self.logbook_mirrored(&key).await;
+        }
+        Ok(applied)
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

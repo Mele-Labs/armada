@@ -91,6 +91,30 @@ pub(crate) async fn tidy_logbook<D: Logbook>(State(served): State<Served<D>>, bo
     }
 }
 
+/// Look for what to organize; changes nothing.
+pub(crate) async fn organize_logbook<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let organize: ipc::OrganizeLogbook = match ipc::decode_body("what to organize", &body) {
+        Ok(organize) => organize,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().organize_logbook(organize).await {
+        Ok(organized) => answer(StatusCode::OK, &organized, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Carry out the proposals a person kept.
+pub(crate) async fn apply_organize_logbook<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let apply: ipc::ApplyOrganizeLogbook = match ipc::decode_body("the proposals to apply", &body) {
+        Ok(apply) => apply,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().apply_organize_logbook(apply).await {
+        Ok(applied) => answer(StatusCode::OK, &applied, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Teach an entry by hand; it stands at once.
 pub(crate) async fn teach_logbook_entry<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let teach: ipc::TeachLogbookEntry = match ipc::decode_body("an entry to teach", &body) {

@@ -154,6 +154,7 @@ fn learnt_into(entries: &mut Vec<LogEntry>, learnt: &Learnt, distil: &Distil<'_>
         repository: repository.to_string(),
         kind: learnt.kind,
         title: learnt.title.clone(),
+        topic: None,
         text: learnt.text.clone(),
         paths: learnt.paths.clone(),
         evidence: vec![evidence(distil, &learnt.cites, LogHow::First, learnt.hard)],
