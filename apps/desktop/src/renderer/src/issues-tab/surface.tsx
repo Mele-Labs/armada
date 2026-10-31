@@ -40,20 +40,18 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
   const start = (band: Band, ticket: TicketRead) => {
     if (dispatching === undefined) return;
     const { tag } = issueHit({ reference: ticket.reference, title: ticket.title, url: ticket.url });
-    dispatching.choose("session");
-    dispatching.openSheet(`${tag.title} `, band.root, [tag]);
+    dispatching.startDraft(`${tag.title} `, band.root, [tag]);
   };
-  // A kept report is the brief of a Job in the armada repository, in the sheet an issue's Start a Job opens.
+  // A kept report is the brief of a Job in the armada repository, started as an issue's Start a Job starts it. The tag tells Fleet
+  // which report the Job holds; the brief opens with the title, so the tag rides with the words.
   const startReport = (root: string, report: ReportedBug) => {
     if (dispatching === undefined) return;
-    dispatching.choose("session");
-    dispatching.openSheet(briefOf(report), root, []);
+    dispatching.startDraft(briefOf(report), root, [{ kind: "report", id: report.id, title: report.title }]);
   };
   const teach = (band: Band) => {
     if (dispatching === undefined || band.tracker.state !== "refused") return;
     const named = band.tracker.named === undefined ? "" : `${band.tracker.named.charAt(0).toUpperCase()}${band.tracker.named.slice(1)} `;
-    dispatching.choose("session");
-    dispatching.openSheet(`Teach Armada to read this repository's ${named}tracker as a tracker mod`, band.root);
+    dispatching.startDraft(`Teach Armada to read this repository's ${named}tracker as a tracker mod`, band.root);
   };
 
   return (

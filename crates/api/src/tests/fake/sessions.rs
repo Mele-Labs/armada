@@ -613,6 +613,7 @@ impl Sessions for FakeDaemon {
             logs: Vec::new(),
             at: ipc::Instant::carried("2026-10-29T09:00:00Z"),
             kept: None,
+            fixed: None,
         })
     }
 

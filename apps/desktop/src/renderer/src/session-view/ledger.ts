@@ -6,7 +6,7 @@
 // pages, files, commits, walks, mods, issues, pull requests, follow-ups kept, then the Jobs it started outside its plan that have finished; within a kind,
 // oldest first, as the ledger holds them.
 
-import { BadgeCheck, CalendarClock, Footprints, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Bug, CalendarClock, Footprints, type LucideIcon } from "lucide-react";
 import type { LedgerEntry } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -89,6 +89,8 @@ export function madeOf(session: Session, entries: readonly LedgerEntry[], opts: 
     const group = plan?.groups.find((one) => issueOfGroup(session, one.issue)?.prs.some((other) => other.number === pr.number) === true)?.id;
     out.push({ shape: "pr", key: `pr:${pr.number}`, bucket: "pull_request", pr, ...(group === undefined ? {} : { group }) });
   }
+  // The report the Job was started on stands beside its issues, as a row with the bug glyph.
+  for (const one of attachmentsOf(session, "report")) made("issue", row(`report:${one.id}`, Bug, "Reported bug", one.title));
   // A follow-up he marked Deferred is settled; the rest are still to come (`StoryColumn.tsx`, Open).
   for (const one of session.later ?? []) if (one.confirmed === true) made("issue", row(`later:${one.id}`, CalendarClock, "Deferred", one.text));
   for (const child of opts.jobs?.children ?? []) out.push({ shape: "job", key: `job:${child.id}`, bucket: "job", child, open: () => opts.jobs?.open(child.id) });

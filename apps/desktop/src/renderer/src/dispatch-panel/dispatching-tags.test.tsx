@@ -123,12 +123,13 @@ test("# offers the repository's open pull requests, and choosing one writes it i
   expect(send).toHaveBeenCalledWith("01SESSION", expect.objectContaining({ tags: [expect.objectContaining({ kind: "pull_request", id: "2214" })] }));
 });
 
-// The Issues tab's Start a Job: the sheet opens on the ticket's words with the ticket held as a tag, and the Job is sent it, which is
-// what Fleet claims the ticket from (`issues_named`).
+// A ticket the sheet is opened on (`openSheet`, as a palette row does): its words with the ticket held as a tag, and the Job is sent it,
+// which is what Fleet claims the ticket from (`issues_named`). The Issues tab's Start a Job no longer opens the sheet: `startDraft`
+// sends the same tag, in `dispatching-draft.test.tsx`.
 test.each([
   { reference: "#2810", id: "2810", url: "https://github.com/acme/storefront/issues/2810" },
   { reference: "ABC-41", id: "ABC-41", url: "https://acme.atlassian.net/browse/ABC-41" },
-])("an issue the Issues tab opens the sheet on is sent with the Job as a tag ($reference)", async ({ reference, id, url }) => {
+])("an issue the sheet is opened on is sent with the Job as a tag ($reference)", async ({ reference, id, url }) => {
   mount([armada]);
   await expect.poll(() => held).toBeDefined();
   const { tag } = issueHit({ reference, title: "Coupon field accepts an expired code", url });
