@@ -131,6 +131,15 @@ describe("the ledger", () => {
     expect(one).toEqual({ kind: "issue", number: "ABC-12", title: "Checkout total rounds twice", address: "", state: "open", pull_requests: [7, 31] });
   });
 
+  it("reads a report row as the reported bug the Job was started on, by its id and title", () => {
+    const [one] = attachmentsOfRecord(record("a", { attachments: [held("report", "01jreport", { title: "Preview restart drops the lease" })] }), beside());
+    expect(one).toEqual({ kind: "report", id: "01jreport", title: "Preview restart drops the lease" });
+  });
+
+  it("leaves out a report row the Job gave back, so the report reads open with no Job", () => {
+    expect(attachmentsOfRecord(record("a", { attachments: [held("report", "01jreport", { title: "T" }, "given_back")] }), beside())).toEqual([]);
+  });
+
   it("reads the issues a pull request closes, in the order the wire gives them", () => {
     const [pr] = attachmentsOfRecord(record("a", { attachments: [held("pr", "2256", { closes: "2212,2259" })] }), beside());
     expect(pr).toMatchObject({ kind: "pull_request", closes: [2212, 2259] });

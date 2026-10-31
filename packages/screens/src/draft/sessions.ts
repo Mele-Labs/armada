@@ -59,6 +59,11 @@ export type SessionAttachment =
    * Its pull requests name a forge number in `closes`; a tracker's issue names them in `pull_requests`, from its row's detail.
    */
   | { kind: "issue"; number: string; title: string; address: string; state: "open" | "closed"; pull_requests?: number[]; /** The Job claimed it with `claim_issue`: work in hand, not one it filed or was told of. */ claimed?: true }
+  /**
+   * A reported bug the Job was started on, by the report's id. Fleet keeps it while the Job stands; a Job that ends without
+   * merging gives it back, and the report reads open again. Bridge finds a report's Job by this row.
+   */
+  | { kind: "report"; id: string; title: string }
   | { kind: "studio"; id: string; title: string }
   /**
    * A sketch the agent published into the Session, or one the person shared with it.
@@ -684,7 +689,7 @@ export type ClaudeFolder = { path: string; lastAt: string; git: boolean };
  * is meant: another Session, a pull request, a branch or an issue.
  */
 export type SessionTag = {
-  kind: "session" | "pull_request" | "branch" | "issue";
+  kind: "session" | "pull_request" | "branch" | "issue" | "report";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request. */
