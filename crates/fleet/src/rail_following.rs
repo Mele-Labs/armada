@@ -86,9 +86,10 @@ where
         let Some(steps) = self.job_rail_steps(&id, manifest.as_str(), workflow).await else {
             return;
         };
-        // The walk the nudge reads is in the thread, so it is read only for a Job that wrote a test.
+        // The walk the nudges read is in the thread, so it is read only for a Job that wrote a test or
+        // pushed: without it a push while he walks reads as one past a walk nobody expected.
         let mut facts = Facts::of(&record, Default::default());
-        if facts.test_edited && steps.iter().any(|step| step.walks) {
+        if (facts.test_edited || facts.pushed) && steps.iter().any(|step| step.walks) {
             facts = Facts::of(&record, self.rail_extra(&id).await);
         }
         let skips = rail::skipped(&steps, &facts);
