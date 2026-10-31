@@ -6,10 +6,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { LogbookView, type LogbookShown } from "@armada/components";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy, LogbookTidyLast, Outcome } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy, LogbookTidyLast, LogbookTopic, Outcome } from "@armada/protocol";
 
 import { refusalWords } from "../refusal-words";
-import { groupsOf, orderOf } from "./groups";
+import { groupsOf, orderOf, topicsOf } from "./groups";
 import { forgetTidyWatch, tidyWatch, watchTidy } from "./tidy-watch";
 
 export type LogbookProps = {
@@ -48,6 +48,7 @@ type Refused = { id: string; title: string; said: string };
 
 export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, also, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
+  const [chosen, setChosen] = useState<LogbookTopic>();
   const [shown, setShown] = useState<LogbookShown>(toFixes === undefined || toFixes === 0 ? "standing" : "retros");
   // Something asked for the retro items after the page opened: their tab opens.
   useEffect(() => {
@@ -120,7 +121,10 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
   };
 
   const entries = held.state === "read" ? held.entries : [];
-  const panels = shown === "retros" ? [] : groupsOf(entries, shown);
+  const topics = shown === "retros" ? [] : topicsOf(entries, shown);
+  // A topic with no entries under this tab is no longer a filter: the page shows All.
+  const topic = chosen !== undefined && topics.includes(chosen) ? chosen : undefined;
+  const panels = shown === "retros" ? [] : groupsOf(entries, shown, topic);
   const order = orderOf(panels);
   // The first entry is open until another is picked, and again after the open one is no longer drawn.
   const open = order.some((one) => one.id === selected) ? selected : order[0]?.id;
@@ -142,6 +146,9 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
         setShown(next);
         setEditing(false);
       }}
+      topics={topics}
+      {...(topic === undefined ? {} : { topic })}
+      onTopic={setChosen}
       onTidy={startTidy}
       tidying={tidy.running}
       {...(tidy.running ? { tidied: "Tidying" } : tidied === undefined ? {} : { tidied })}

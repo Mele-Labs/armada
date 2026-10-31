@@ -28,12 +28,17 @@ export type LogbookEvidence = {
 /** Text the entry held before, and who replaced it: Distil on a contradiction or a trip, Tidy when it merged a near-duplicate in, or the person. */
 export type LogbookEarlier = { text: string; until: string; by: "distil" | "person" | "merged" };
 
+/** The fixed set of topics the sorter places an entry under. An entry it could not place has none, and Bridge draws it under Other. */
+export type LogbookTopic = "git" | "slots" | "testing" | "tools" | "mac" | "other";
+
 export type LogbookEntry = {
   id: string;
   section: LogbookSection;
   /** The repository's root, on a `repo` entry only. */
   repository?: string;
   kind: LogbookKind;
+  /** The topic the sorter placed it under. Absent where it could not place it. */
+  topic?: LogbookTopic;
   /** A few words naming it, as its line in the log reads. Absent on an entry written before titles were. */
   title?: string;
   /** One or two lines saying what to do. */

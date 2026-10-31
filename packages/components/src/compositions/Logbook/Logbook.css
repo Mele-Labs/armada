@@ -38,6 +38,7 @@
 }
 
 .armada-logbook__filters { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-3); }
+.armada-logbook__chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
 .armada-logbook__tidied { color: var(--fg-muted); font-size: var(--text-sm); }
 
 .armada-logbook__panel,
@@ -98,6 +99,21 @@
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default);
   background: var(--bg-sunken);
   color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.armada-logbook__topic th {
+  height: var(--h-row-header);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
