@@ -922,9 +922,9 @@ if $bridge_rebuilt; then
   # nothing else's — a path match, not a name pattern. Exactly one match is
   # quit by its pid; more than one, or one that will not quit, is left alone
   # and reported rather than guessed at.
-  bridge_pattern="^${root}/node_modules/.*/Electron\\.app/Contents/MacOS/Electron \\.\$"
+  bridge_pattern="^${root}/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) \\.\$"
   # With `--from`, the window already open may be either tree's.
-  [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/Electron\\.app/Contents/MacOS/Electron \\.\$"
+  [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) \\.\$"
   # **Out of launchd before any pid is quit**: a Bridge launchd holds and is
   # killed is reopened (`scripts/bridge-launch`), so it would come back old.
   if launchctl print "$bridge_service" >/dev/null 2>&1; then

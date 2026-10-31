@@ -43,6 +43,16 @@ class ArmadaElectron(unittest.TestCase):
         self.assertEqual(info["CFBundleName"], "Armada")
         self.assertEqual(info["CFBundleDisplayName"], "Armada")
 
+    def test_the_process_is_named_armada(self):
+        # The Dock and the app switcher read the executable's file name.
+        out = subprocess.run([ARMADA_ELECTRON, self.tmp], capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        binary = out.stdout.strip()
+        self.assertEqual(os.path.basename(binary), "Armada")
+        plist = os.path.join(os.path.dirname(os.path.dirname(binary)), "Info.plist")
+        with open(plist, "rb") as f:
+            self.assertEqual(plistlib.load(f)["CFBundleExecutable"], "Armada")
+
     def test_dev_runs_bridge_on_the_copy(self):
         with open(DEV) as f:
             text = f.read()

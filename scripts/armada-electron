@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 #
 # Prints the Electron binary Bridge is run with: a copy of Electron.app that is
-# named Armada.
+# named Armada, in its plist, its folder and its executable.
 #
-# **macOS draws the app menu, Dock and app switcher from `CFBundleName` in the
-# bundle it launched**, and an unpackaged `electron-vite preview` launches
-# Electron's own, so they said "Electron" (`apps/desktop/electron-builder.yml`
-# has the measurement). The copy is a clone on APFS, so it costs no disk and
+# **macOS draws the app menu, Dock and app switcher from the bundle it
+# launched**, and an unpackaged `electron-vite preview` launches Electron's own,
+# so they said "Electron" (`apps/desktop/electron-builder.yml` has the
+# measurement). **The plist is not enough**: the name the Dock and switcher
+# read is the process's, which is the executable's file name, so a copy with
+# `CFBundleName` Armada and `Contents/MacOS/Electron` still said Electron
+# (31 Oct, System Events on the running Bridge). The copy is a clone on APFS, so it costs no disk and
 # well under a second; its plist names Armada; and it is signed ad hoc, which
 # needs no Apple certificate. It sits under `<src>/node_modules/`, so
 # `scripts/restart`'s `bridge_pattern` still proves it is this repository's
@@ -30,17 +33,23 @@ real=$(cd "$src/apps/desktop/node_modules/electron/dist" 2>/dev/null && pwd -P)/
 version=$(cat "$real/../version" 2>/dev/null || echo unknown)
 dir="$src/node_modules/.cache/armada-bridge"
 stamp="$dir/.stamp"
-if [[ "$(cat "$stamp" 2>/dev/null || true)" != "$version" ]]; then
-  $dry_run && { echo "$dir/Electron.app/Contents/MacOS/Electron"; exit 0; }
+app="$dir/Armada.app"
+binary="$app/Contents/MacOS/Armada"
+# The version, and what was done to the copy, so a copy made before the rename is made again.
+made="$version-armada-executable"
+if [[ "$(cat "$stamp" 2>/dev/null || true)" != "$made" ]]; then
+  $dry_run && { echo "$binary"; exit 0; }
   rm -rf "$dir"
   mkdir -p "$dir"
-  cp -cR "$real" "$dir/Electron.app" 2>/dev/null || cp -R "$real" "$dir/Electron.app" || exit 1
-  plist="$dir/Electron.app/Contents/Info.plist"
+  cp -cR "$real" "$app" 2>/dev/null || cp -R "$real" "$app" || exit 1
+  mv "$app/Contents/MacOS/Electron" "$binary" || exit 1
+  plist="$app/Contents/Info.plist"
   pb=/usr/libexec/PlistBuddy
+  "$pb" -c "Set :CFBundleExecutable Armada" "$plist" || exit 1
   for key in CFBundleName CFBundleDisplayName; do
     "$pb" -c "Set :$key Armada" "$plist" 2>/dev/null || "$pb" -c "Add :$key string Armada" "$plist" || exit 1
   done
-  codesign --force -s - "$dir/Electron.app" >/dev/null 2>&1 || exit 1
-  echo "$version" >"$stamp"
+  codesign --force -s - "$app" >/dev/null 2>&1 || exit 1
+  echo "$made" >"$stamp"
 fi
-echo "$dir/Electron.app/Contents/MacOS/Electron"
+echo "$binary"
