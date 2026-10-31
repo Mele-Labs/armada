@@ -209,8 +209,7 @@ export function resetLayout(jobId: string): void {
   put(jobId, () => ({ ...entry, arrangement: layoutNamed(entry.layout), edited: false, version: versionOf(entry.layout) }));
 }
 
-/** The Job's layout is the one every Job takes from now on, and so is every Job that has not been given another. */
-export function setLayoutForAll(jobId: string): void {
-  const entry = ensure(jobId);
-  set({ ...state, forAll: entry.layout });
+/** The named layout is the one every Job takes from now on, and so is every Job that has not been given another. */
+export function setLayoutForAll(layout: string): void {
+  set({ ...state, forAll: layout });
 }

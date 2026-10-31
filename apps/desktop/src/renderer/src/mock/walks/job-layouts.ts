@@ -1,7 +1,7 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
-// and + adds a tab of any kind to it. The Layout control, an icon in the title bar beside the Job's views, is named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
-// Use for all Jobs makes a layout the one every Job opens on, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
-// layout as it was. The Job's acts (Auto land, Pause, Judge) are icons in the Thread's head, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Custom builds a tab of its own from a description, and ⇧⌘↵ zooms a pane and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
+// and + adds a tab of any kind to it. While a Job is open the title bar's right side holds only the Layout control, named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
+// every layout row has a pin that makes it the one every Job opens on (filled on the one that is), Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
+// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and ⇧⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
@@ -19,8 +19,12 @@ const steps: Step[] = [
   toSessions,
   { press: deckRow("Retry the slot lease"), say: "A Job opens on Default: its thread, and Done, Now and Open stacked beside it" },
   { hover: inside(role("toolbar", "Job acts"), button("Auto land")), say: "The Job's acts are icons in the Thread's head, each with its key" },
+  { look: inside(pane("Thread"), button("Context 47%")), say: "The context meter is in the Job's head" },
+  { hover: inside(role("toolbar", "Job acts"), button("Checks")), say: "Checks and Subagents are acts too" },
+  { look: layout("Default"), say: "The title bar holds only the Layout control" },
   { look: region("Merge queue", { exact: true }), say: "The merge line is a strip along the window's bottom edge" },
-  { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ zooms the pane over the Cockpit below the title bar" },
+  { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ zooms the pane over the Job's own area" },
+  { look: deckRow("Retry the slot lease"), say: "The Jobs list stays where it was" },
   { look: inside(pane("Thread"), button("Restore")), say: "The strip's Restore says it is zoomed" },
   { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ puts it back as it was" },
   { key: "Meta+d", on: thread, say: "⌘D splits the pane to the right" },
@@ -40,11 +44,12 @@ const steps: Step[] = [
   { key: "Meta+l", on: places, say: "⌘L" },
   { press: item("Triage"), say: "Triage" },
   { key: "Meta+l", on: places, say: "⌘L" },
-  { press: item("Use for all Jobs"), say: "Use for all Jobs. The pin marks the layout every Job opens on" },
+  { press: inside(item("Triage"), role("img", "Use for all Jobs")), say: "The pin on a row makes that layout the one every Job opens on" },
   { later: inside(pane(host), tab(host, { exact: true })), say: "The Job opens a page itself" },
   { look: inside(pane("localhost:5174"), tab("localhost:5174", { exact: true })), say: "It joins the pane that holds a browser" },
   { look: layout(/^Layout: Triage$/), say: "The layout is not marked edited" },
   { key: "Meta+l", on: places, say: "⌘L" },
+  { look: inside(item("Triage"), role("img", "Used for all Jobs")), say: "A filled pin marks the layout all Jobs use" },
   { press: item("Default"), say: "Default" },
   { key: "Meta+d", on: thread, say: "⌘D" },
   { press: inside(empty, button("Add tab")), say: "+" },
@@ -53,6 +58,12 @@ const steps: Step[] = [
   { press: inside(pane("Changes"), button("Add tab")), say: "+" },
   { press: item("Ledger"), say: "Ledger: everything attached to the Job, by kind" },
   { press: inside(pane("Ledger"), button("Add tab")), say: "+" },
+  { press: item("Subagents"), say: "Subagents" },
+  { press: inside(pane("Subagents"), button("Add tab")), say: "+" },
+  { press: item("Checks"), say: "Checks" },
+  { press: inside(pane("Checks"), button("Add tab")), say: "+" },
+  { press: item("Workflow"), say: "Workflow draws the Job's lanes" },
+  { press: inside(pane("Workflow"), button("Add tab")), say: "+" },
   { press: item("Custom"), say: "Custom is the last entry, under a rule" },
   { type: "Pull requests waiting on me", into: inside(pane("Custom"), role("textbox", "Custom")), say: "Describe the tab" },
   { press: inside(pane("Custom"), button("Send")), say: "Send" },

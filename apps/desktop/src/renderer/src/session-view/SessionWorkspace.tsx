@@ -169,6 +169,12 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
           return <RequestBody session={session} />;
         case "custom":
           return <CustomBody tabId={tab.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
+        case "subagents":
+          return <Layer id="subagents" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "checks":
+          return <Layer id="checks" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "workflow":
+          return <Layer id="lanes" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "system":
           return <Layer id="system" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "bays":
@@ -177,7 +183,9 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     };
     return (
       <>
-        <JobPanes jobId={id} body={(tab) => <LayerInPane.Provider value>{bodyOf(tab)}</LayerInPane.Provider>} bar={views === undefined ? null : <ViewStrip views={views} />} over={layered} />
+        <JobPanes jobId={id} body={(tab) => <LayerInPane.Provider value>{bodyOf(tab)}</LayerInPane.Provider>} over={layered} />
+        {/* The title bar holds only the Layout control while a Job is in panes. The views with a key stay drawn out of sight, so their keys still press them; Subagents and Checks are acts in the Thread head. */}
+        {views === undefined ? null : <div hidden><ViewStrip views={views.filter((one) => one.id === "artifacts" || one.id === "system" || one.id === "slot")} /></div>}
         <TerminalSync jobId={id} />
         {large}
         {reading}

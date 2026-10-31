@@ -2,7 +2,7 @@
 // of them active. Every operation here is pure: it takes an arrangement and returns the next one, so the store, the keys and the menus share one set of rules.
 // Tab, pane and split ids come from the arrangement's own counter, so two Jobs never need to agree on any.
 
-export const TAB_KINDS = ["thread", "browser", "terminal", "done", "now", "open", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request", "system", "bays", "spine", "custom"] as const;
+export const TAB_KINDS = ["thread", "browser", "terminal", "done", "now", "open", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request", "subagents", "checks", "workflow", "system", "bays", "spine", "custom"] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 
 /** `label` is what the tab reads where its kind alone would not tell two apart: a terminal's shell. `page` names the page a browser tab shows where the tab's own id does not (a page the Job opened itself). */

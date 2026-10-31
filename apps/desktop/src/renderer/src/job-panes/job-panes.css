@@ -87,6 +87,9 @@
 .job-layout { position: relative; display: inline-flex; }
 .job-layout__mark { position: absolute; top: var(--space-1); right: var(--space-1); width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-default); box-shadow: 0 0 0 var(--border-width) var(--bg-base); pointer-events: none; }
 .job-layout__pin { display: inline-flex; color: var(--fg-muted); }
+.job-layout__pin:not([data-on]) { opacity: 0; }
+.armada-dropdown-menu__item:is(:hover, :focus) .job-layout__pin:not([data-on]) { opacity: 1; }
+.job-layout__pin:not([data-on]):hover { color: var(--fg-default); }
 
 /* A Job's acts in its Thread head: icons beside the Job's name, a toolbar of ghost buttons. Lit is pressed, told by the ground and the stronger ink; an act that is off keeps its tooltip for the reason. */
 .job-acts { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
@@ -95,6 +98,8 @@
 .job-acts [aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
 .job-acts [aria-disabled="true"] { pointer-events: auto; cursor: default; color: var(--fg-subtle); }
 .job-acts[hidden] { display: none; }
+.job-acts button[data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .job-acts button[data-running] > svg { animation: none; } }
 
 /* A layer, Requests or the file tree drawn as a tab: the tab is its title, so the layer has no head of its own and fills the body. */
 .job-pane__body > .sv-layer[data-in-pane] { position: static; inset: auto; }

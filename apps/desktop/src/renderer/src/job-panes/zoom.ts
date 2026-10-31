@@ -1,7 +1,7 @@
-// Zoom: one pane of the open Job, or one Cockpit panel, covers the Cockpit's body below the title bar, the merge strip still showing. It is where the person is looking and not how the area is laid
+// Zoom: one pane of the open Job covers the Job's own area, to the right of the Jobs list; one Cockpit panel covers the Cockpit's body below the title bar. The merge strip shows either way. It is where the person is looking and not how the area is laid
 // out, so it is kept apart from the arrangement: not edited, not saved, not an undo step. A change of Job or the Layout menu ends it.
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
 
 type Zoomed = { jobId: string; paneId: string } | undefined;
 
@@ -42,11 +42,11 @@ function unfit(): void {
   for (const name of ["position", "left", "top", "width", "height", "z-index"]) was.style.removeProperty(name);
 }
 
-/** The box the zoomed thing fills, in the window's pixels, kept as the Cockpit is resized. `pad` is what to grow it by on every side. */
-export function useZoomBox(on: boolean, pad: number): { left: number; top: number; width: number; height: number } | undefined {
+/** The box the zoomed thing fills, in the window's pixels, kept as the Cockpit is resized: the element `within` holds, else the Cockpit's body. `pad` is what to grow it by on every side. */
+export function useZoomBox(on: boolean, pad: number, within?: RefObject<HTMLElement | null>): { left: number; top: number; width: number; height: number } | undefined {
   const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | undefined>(undefined);
   useEffect(() => {
-    const body = on ? bodyOf() : null;
+    const body = on ? (within?.current ?? bodyOf()) : null;
     if (body === null) return setBox(undefined);
     const measure = () => {
       const at = body.getBoundingClientRect();

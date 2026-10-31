@@ -12,6 +12,8 @@ import { resetCheckout, shopPage } from "../job-browser-page";
 import { unanswered, type Scenario } from "../moment";
 import type { SessionsStore } from "../sessions/script";
 import { sJobStory } from "./job-story";
+import { jobAt } from "../workspaces-lanes-data";
+import { throughWire } from "../workspaces-lanes-wire";
 import { seedSystem } from "../slices/session-system";
 import { disposeShells, shellApi } from "./session-shell";
 
@@ -202,6 +204,25 @@ export const sJobLayouts: Scenario = {
       // The first Job has changes from three places, so a Changes tab has a choice: its branch, two pull requests of its own, and the Job it started, which has a pull request.
       store.edit(CHANGES, (one) => ({
         ...one,
+        // The Workflow tab draws these lanes, as a Job that holds lifecycles has them.
+        lanes: throughWire(CHANGES, jobAt(2)),
+        // The context window the Job's head draws as its tank, with what fills it.
+        context: { tokens: 186_000, window: 400_000 },
+        contextBreakdown: {
+          categories: [
+            { name: "System prompt", tokens: 3_100, kind: "used" },
+            { name: "System tools", tokens: 12_400, kind: "used" },
+            { name: "Memory files", tokens: 4_600, kind: "used" },
+            { name: "Messages", tokens: 165_900, kind: "used" },
+            { name: "Free space", tokens: 134_000, kind: "free" },
+            { name: "Autocompact buffer", tokens: 80_000, kind: "buffer" },
+          ],
+          memoryFiles: [{ path: "NOTES.md", tokens: 2_100 }],
+          mcpTools: [],
+          totalTokens: 186_000,
+          maxTokens: 400_000,
+          autocompactThreshold: 320_000,
+        },
         attachments: [
           ...one.attachments,
           { kind: "branch", name: "armada/retry-lease", slot: 3 },

@@ -55,7 +55,7 @@ export function JobPanes({ jobId, body, bar, over }: { jobId: string; body: (tab
   useEffect(() => endZoom, [jobId]);
   const zoomedId = usePaneZoomed(jobId);
   const zoomed = zoomedId !== undefined && panesOf(arrangement.root).some((one) => one.id === zoomedId) ? zoomedId : undefined;
-  const box = useZoomBox(zoomed !== undefined, 0);
+  const box = useZoomBox(zoomed !== undefined, 0, area);
   usePaneKeys(jobId, openMenu);
   const slot = useJobSlot();
   useEffect(() => measured(jobId, size), [jobId, size]);

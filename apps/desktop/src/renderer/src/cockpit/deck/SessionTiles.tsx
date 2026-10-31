@@ -42,7 +42,7 @@ import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
 import { useJobBrowserTile } from "../../job-browser/JobBrowserPane";
-import { toggleLayer } from "../../session-view/layers";
+import { toggleLayer, useLayer } from "../../session-view/layers";
 import type { SessionBays } from "../../session-view/slot-trouble";
 
 /** How long a judge that found nothing is shown as done. */
@@ -57,6 +57,7 @@ export type ReportRepository = { root: string; name?: string };
  */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow, head = false }: { head?: boolean; session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
   const { slot, narrow } = useActsPlace();
+  const layer = useLayer(session.id);
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
   const browser = useJobBrowserTile(session.id);
   const flight = useRepositoryFlight(repository?.root, session.id);
@@ -309,7 +310,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return id === undefined ? offCustom(tile) : off[id];
   };
   /** What a Job in panes draws in its Thread head: every act but the two the + menu opens as tabs. */
-  const icons = drawn.filter((one) => idOf(one) !== "terminal" && idOf(one) !== "browser");
+  const acts = drawn.filter((one) => idOf(one) !== "terminal" && idOf(one) !== "browser");
+  const customAt = acts.findIndex((one) => one.builtIn === undefined);
+  const views = ["checks", "subagents"].flatMap((id) => tiles.filter((one) => one.builtIn !== undefined && one.id === id));
+  const icons = customAt < 0 ? [...acts, ...views] : [...acts.slice(0, customAt), ...views, ...acts.slice(customAt)];
   const labelOfIcon = (tile: Tile) => (idOf(tile) === "pause" && session.paused === true ? "Resume" : tile.label);
   useEffect(() => {
     if (!head) return;
@@ -416,7 +420,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const reading = id === "judge" && judging;
     const cleared = id === "judge" && clear && !reading;
     const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
-    const lit = id === "land" ? on : id === "pause" ? paused : undefined;
+    const lit = id === "land" ? on : id === "pause" ? paused : id === "checks" || id === "subagents" ? layer === id : undefined;
+    const running = (id === "checks" && checksRunning) || (id === "subagents" && subagentsRunning > 0);
     return (
       <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
         <Button
@@ -427,6 +432,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
           data-key={key}
           data-act={id === "pause" ? "pause" : undefined}
           aria-pressed={lit}
+          data-running={running || undefined}
           aria-busy={pending === tile.id || undefined}
           aria-disabled={why !== undefined || undefined}
           onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
