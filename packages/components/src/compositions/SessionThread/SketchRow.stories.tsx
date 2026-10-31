@@ -95,3 +95,20 @@ export const OpensAndApproves: Story = {
     await expect(args.onAnswer).toHaveBeenCalledWith("k1", { choice: 0 });
   },
 };
+
+/** Withdraw shows only where something takes the sketch back, and hands over the sketch's id. */
+export const Withdraws: Story = {
+  args: { ...ARGS, onWithdraw: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Withdraw" }));
+    await expect(args.onWithdraw).toHaveBeenCalledWith("k1");
+  },
+};
+
+/** With nothing to take it back, the card offers Approve and Send back only. */
+export const NoWithdrawWithoutOne: Story = {
+  args: ARGS,
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Withdraw" })).toBeNull();
+  },
+};

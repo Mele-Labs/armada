@@ -60,6 +60,12 @@ Showing the page again with `show_window` lifts the dismissal, so a withdrawn wa
 His Approve or Send back on its card settles it, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
 `answer_waiting` on it is refused: the card answers it.
 Drawing the title again lifts the dismissal, so the redrawn sketch waits again.
+**The job takes a sketch back with `withdraw_sketch`** (`title`, `session_id`) when he has moved past it.
+It writes the dismissal `dismiss_waiting` writes for `sketch:<title>` and marks the attachment `detail.withdrawn` = `"true"`, so the card shows no Approve or Send back and the item is not raised.
+His own Withdraw ends the same way.
+A sketch holds no plan, so none is lifted.
+A title the job showed no sketch under is refused.
+A new drawing of the title does not carry the mark.
 A plan's sketch raises none, since it is approved with the plan.
 A job moved into a slot keeps the same id, so its sketches and their items stay.
 **Every revision Fleet keeps of a page a job wrote under `.armada/documents/` waits until the person answers it.** One item per page, `document:<path>`, source `document`, its text the page's title and its act `message` on the job, while the newest revision's `detail.asked` is `true` and `detail.settled` is unset.
@@ -163,7 +169,7 @@ Otherwise `sent` is removed and the note stays `open`, so Bridge lists it under 
 Both close paths do this, a hosted close and a terminal job's end, and each rewrite is written through a rename and moves the note's artifact.
 That artifact's `session.changed` is Bridge's word that a note file changed: main tells the annotation layer, which reads its notes again.
 
-**An agent that calls `show_window`, `withdraw_window`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long job, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good.
+**An agent that calls `show_window`, `withdraw_window`, `withdraw_sketch`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long job, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good.
 The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`) with `fleet` beside it (Fleet's own items, `id`, `kind` and `text`, read-only to the agent and never counted as its own, so its count matches Bridge's), or `done` and `done_since`.
 It weighs the same on the first call and the thousandth.
 Bridge's routes and the mod's hook, which are not the door, are answered the row.
