@@ -247,6 +247,8 @@ type SessionThreadKinds =
    * changed it), or started (`says` is where from). A press opens it.
    */
   | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
+  /** A judge finished reading an artifact: a quiet line naming it, a press that opens it at its notes. `clean` is a reading with nothing to say. */
+  | { id: string; at: string; kind: "judged"; title: string; clean: boolean; onOpen: () => void }
   /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" | "started" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
@@ -1033,6 +1035,17 @@ function Row({
   if (row.kind === "document") return <DocumentRow row={row} keep={sessionId === undefined ? `document:${row.id}` : `document:${sessionId}:${row.id}`} {...(onOpenDocument === undefined ? {} : { onOpen: onOpenDocument })} {...(onAnswerDocument === undefined ? {} : { onAnswer: onAnswerDocument })} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "judged") {
+    return (
+      <li className="armada-session-fold">
+        <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Judged ${row.title}`} onClick={row.onOpen}>
+          <Scale size={12} strokeWidth={2} aria-hidden />
+          Judged <span className="mono">{row.title}</span>
+          <RowStamp row={row} className="armada-session-act__at" />
+        </button>
+      </li>
+    );
+  }
   if (row.kind === "divider") return <li className="armada-session-divider" role="separator" />;
   if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
@@ -1547,7 +1560,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
               <ThreadKbd act="sendBack" on={target} />
             </Button>
           )}
-          {adversarial === undefined ? null : <AdversarialReviewPress review={adversarial.review} onRun={adversarial.onRun} {...(adversarial.shortcut === undefined ? {} : { shortcut: adversarial.shortcut })} />}
+          {adversarial === undefined ? null : adversarial.press ?? <AdversarialReviewPress review={adversarial.review} onRun={adversarial.onRun} {...(adversarial.shortcut === undefined ? {} : { shortcut: adversarial.shortcut })} />}
         </div>
       )}
         </>

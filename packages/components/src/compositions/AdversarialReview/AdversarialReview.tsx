@@ -18,6 +18,8 @@ export type AdversarialReviewProps = {
   onDismiss: (id: string) => void;
   /** The key that runs it, shown in the tooltip. The host listens for it. */
   shortcut?: string;
+  /** The host's own press, drawn in place of the review's: a judge's, which asks what to verify first. */
+  press?: ReactNode;
 };
 
 const RUNNING = "Adversarial review running";
@@ -96,12 +98,13 @@ export function FindingRow({ finding, onSend, onDismiss }: { finding: Finding; o
   return (
     <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
-        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.impact === undefined ? {} : { impact: finding.impact }), ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
+        {finding.note === true ? <h4 className="armada-adversarial__heading">You should know</h4> : null}
+        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, ...(finding.expected === undefined ? {} : { expected: finding.expected }), ...(finding.found === undefined ? {} : { produced: finding.found }), ...(finding.impact === undefined ? {} : { impact: finding.impact }), ...(finding.cites === undefined ? {} : { cites: finding.cites, ...(finding.note === true ? { citesLabel: "Where" } : {}) }) }} />
       </div>
       <div className="armada-adversarial__acts" role="group" aria-label="Answers">
-        <Tooltip label="Goes to the agent as your message" shortcut={keyFor("finding_send")}>
+        <Tooltip label={finding.note === true ? "Goes to the Job as your message" : "Goes to the agent as your message"} shortcut={keyFor("finding_send")}>
           <Button size="sm" variant="secondary" onClick={onSend}>
-            Send to agent
+            {finding.note === true ? "Send to Job" : "Send to agent"}
           </Button>
         </Tooltip>
         <Tooltip label="Leaves it unsent" shortcut={keyFor("finding_dismiss")}>

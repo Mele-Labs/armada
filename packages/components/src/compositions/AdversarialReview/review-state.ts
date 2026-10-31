@@ -13,14 +13,19 @@ export type Finding = {
   id: string;
   /** What breaks, in a line. Heads the finding. */
   consequence: string;
-  expected: string;
-  found: string;
+  expected?: string;
+  found?: string;
   /** What a person using the thing sees or cannot do because of it. */
   impact?: string;
   /** What it cites, as `path:line`. */
   cites?: readonly string[];
   /** What it is about: a task id, a group id, or nothing for the plan as a whole. A host that draws the plan pins the finding there (`AnchoredFindings`). */
   about?: string;
+  /**
+   * A judge's note rather than an adversary's finding: headed `You should know`, the claim and where it is, and sent to the Job.
+   * The same row, the same acts and the same keys.
+   */
+  note?: true;
   /** Acted on: the finding folds to a line. */
   settled?: "sent" | "dismissed";
 };
