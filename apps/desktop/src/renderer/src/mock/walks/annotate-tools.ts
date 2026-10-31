@@ -35,6 +35,9 @@ const steps: Step[] = [
   { press: role("menuitem", "Fix the flaky store test"), say: "A pick sends the note to that Job" },
   { key: "Escape", on: dialog("Note"), say: "Close the note" },
   { look: inside(thread, text(/Changes he made on the page/)), say: "The changes go with his words" },
+  { key: "Meta+Alt+a", on: thread, say: "⌥⌘A turns annotating off" },
+  { context: inside(role("navigation", "Places"), role("tab", "Cockpit")), say: "The Places strip has a menu of its own, which had no Report" },
+  { look: role("menuitem", "Report"), say: "Report is in it now, as in every menu" },
 ];
 
 const tools = walk("annotate-to-session", steps);
