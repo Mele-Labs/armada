@@ -6,6 +6,9 @@
     ... | plan.py --quick --rerun failed.txt   and the Checks of the job names
                                                the merge queue last failed
 
+With `--quick`, `compile` names the Rust Checks left to the queue whose test
+code the pull request compiles all the same.
+
 A root Check is a bare name and has a static job in checks.yml. A workspace
 Check is `<dir>:<name>`: the desktop tests that read no surface run in one Linux
 job, and the other Node Checks run in a few grouped matrix jobs, each calling
@@ -56,6 +59,12 @@ EXCLUDED = {}
 # warning and the queue is where the suite runs once. Owner, 17 Oct 2026.
 QUICK = {"build", "typecheck", "bridge_build"}
 
+# Root Checks whose test code a pull request's run compiles without running it,
+# when the queue is left to run them: `cargo build` compiles no test target, so
+# a change that broke a test's code first failed in the queue, 4 of 16 failed
+# queue runs on 30 and 31 Oct 2026.
+COMPILE = {"test", "acceptance"}
+
 # Job names in checks.yml that are not their Check's key. A shard's name is its
 # Check's with ` <n>/<m>` after it.
 JOB_KEYS = {"desktop_unit": "apps/desktop/unit:desktop_test"}
@@ -103,11 +112,12 @@ def plan(keys, quick=False, rerun=frozenset()):
             grouped.append(key)
         else:
             unrun.append(key)
-    queued = []
+    queued, compile = [], []
     again = lambda key: key in rerun or (key in grouped and group_of(key) in rerun)
     if quick:
         queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK and not again(key)]
         run = [key for key in run if key not in queued]
+        compile = [key for key in queued if key in COMPILE]
     rerun = [key for key in run if again(key)] if quick else []
     include = []
     for group in GROUPS:
@@ -115,7 +125,7 @@ def plan(keys, quick=False, rerun=frozenset()):
         if keys:
             # A browser opens in every group but the node one.
             include.append({"group": group, "keys": " ".join(keys), "browsers": str(group != NODE).lower()})
-    return {"checks": run, "matrix": {"include": include}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun}
+    return {"checks": run, "matrix": {"include": include}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun, "compile": compile}
 
 
 def main():

@@ -132,6 +132,17 @@ class Planning(unittest.TestCase):
         self.assertEqual(answer["checks"], ["build"])
         self.assertEqual(answer["rerun"], [])
 
+    def test_a_quick_plan_compiles_the_rust_tests_it_leaves_to_the_queue(self):
+        answer = plan(KEYS + ["test", "acceptance"], quick=True)
+        self.assertEqual(answer["compile"], ["test", "acceptance"])
+
+    def test_a_rust_check_the_pull_request_runs_is_not_compiled_again(self):
+        answer = plan(["build", "test", "acceptance"], quick=True, rerun=rerun_keys(["test 3/4"]))
+        self.assertEqual(answer["compile"], ["acceptance"])
+
+    def test_a_whole_plan_compiles_nothing_on_its_own(self):
+        self.assertEqual(plan(KEYS + ["test"])["compile"], [])
+
     def test_a_shard_and_the_unit_job_name_their_check(self):
         self.assertEqual(rerun_keys(["test 4/4", "desktop_unit", "apps/desktop:xtask_test"]),
                          {"test", "apps/desktop/unit:desktop_test", "apps/desktop:xtask_test"})
