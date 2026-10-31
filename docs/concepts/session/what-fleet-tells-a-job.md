@@ -66,8 +66,9 @@ It names the slot and its branch, what the slot holds, and asks the Job to commi
 `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
 **A Job whose slot is far behind its base is told to merge it.** When the checkout a Job holds is 20 or more commits behind the base, Fleet sends that Job one message: `slot-4 (branch armada/x) is 684 commits behind main. Merge main into your branch before your next push.` The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from.
+Only a checkout with commits the base does not have is told, the pool's own `ahead`: a branch level with an old base has nothing stale to push, as for a Job that only starts other Jobs.
 It is sent once.
-The Job is told again only after the slot has fallen below 20 and then behind again, and a Fleet that restarts may say it once more.
+The Job is told again only after the slot has fallen below 20, or had no commits of its own, and then behind again, and a Fleet that restarts may say it once more.
 A Job's slot, a free slot, a stranded slot and a subagent's bay are not told, and the owner is not called: merging the base in is the agent's work.
 
 **A Job whose usage crosses a token rule is told once.** Context over 300k, subagents running most of the last hour, a cache hit rate under 70%, or 20 turns of reading on opus each send the Job one message with the figure and one action.
