@@ -334,24 +334,30 @@ test("on All repositories each repository's copies sit in a group of its own, an
   expect(ARMADA.getByRole("button", { name: "bug", exact: true }).elements()).toHaveLength(1);
 });
 
-test("on All repositories a copy's words save under its own repository and are kept when read again", async () => {
+test("on All repositories a copy is drawn over its own repository's lanes, and Armada's over the first's", async () => {
+  mount(workflowingOnAll());
+  await onScreen();
+  await toSystemPage("Workflows");
+  const runsIn = (name: string) => group("Runs in").getByRole("tab", { name, exact: true });
+  await expect.element(page.getByRole("region", { name: "Workflow", exact: true })).toBeVisible();
+  await expect.element(runsIn("armada")).toBeVisible();
+  await group("ledger repository").getByRole("button", { name: "bug", exact: true }).click();
+  await expect.element(runsIn("ledger")).toBeVisible();
+  expect(runsIn("armada").elements()).toHaveLength(0);
+});
+
+test("on All repositories a copy's words, edited on its lanes, save under its own repository", async () => {
   const app = mount(workflowingOnAll());
   const saved = recordSaves(app);
   await onScreen();
   await toSystemPage("Workflows");
-  const ledger = group("ledger repository");
-  await ledger.getByRole("button", { name: "bug", exact: true }).click();
+  await group("ledger repository").getByRole("button", { name: "bug", exact: true }).click();
+  await page.getByRole("button", { name: "Step: Fix", exact: true }).click();
   await expect.element(words("Fix")).toBeVisible();
   expect(wordsOf("Fix")()).toContain("Add a line to the changelog.");
   const edited = "Make the smallest change that addresses the cause. Write no tests yet.";
   await words("Fix").fill(edited);
-  await stepCard("Fix").getByRole("button", { name: "Save", exact: true }).click();
+  await userEvent.tab();
   await expect.poll(() => saved.length).toBe(1);
-  // Read again: leave the copy for Armada's, come back to ledger's.
-  await ARMADA.getByRole("button", { name: "bug", exact: true }).click();
-  await ledger.getByRole("button", { name: "bug", exact: true }).click();
-  await expect.element(words("Fix")).toBeVisible();
-  expect(wordsOf("Fix")()).toBe(edited);
-  // The first repository's copies were not touched.
-  expect(group("armada repository").getByRole("button", { name: "bug", exact: true }).elements()).toHaveLength(0);
+  expect(saved[0]!.scope).toBe("repository");
 });

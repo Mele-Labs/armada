@@ -19,6 +19,7 @@ const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
   page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
 
 /** Absolute, because a surface's project root is not this directory. */
+const ownStorage = fileURLToPath(new URL("./src/renderer/src/mock/own-storage.ts", import.meta.url));
 const guidesMet = fileURLToPath(new URL("./src/renderer/src/mock/guides-met.ts", import.meta.url));
 
 /** One browser project: Chromium on the mock Fleet, with every setting below. */
@@ -34,7 +35,7 @@ export function browserProject(name: string, include: string[]): TestProjectInli
       // Every guide already met, so a card opening on a piece nobody has
       // seen does not sit over the press a test about something else is
       // making. `mock/guides-met.ts` carries the reasoning.
-      setupFiles: [guidesMet],
+      setupFiles: [ownStorage, guidesMet],
       // **Five seconds for a poll, not vitest's one.** Every
       // `expect.poll` and `expect.element` here waits for a render, and
       // one second is the budget on a quiet machine — the merge line runs

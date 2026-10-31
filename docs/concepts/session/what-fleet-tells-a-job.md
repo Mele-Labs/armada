@@ -82,6 +82,7 @@ Fleet ties the dispute to the Job's latest message in Fleet's voice, keeps it, a
 A Job Fleet has told nothing, an ended Job and an empty `why` are refused.
 A terminal Job cannot dispute, because Fleet keeps no thread for it to tie the dispute to.
 `crates/ipc/operations/dispute_fleet.toml` has the operation.
+A notice that would be wrong for any Job in that state, not only this one, is a fault in Armada: the Job calls `report_bug` as well, and never skips a notice without one of the two calls.
 A fault in Armada itself, rather than in a notice, is `report_bug`, which a terminal Job may call: `crates/ipc/operations/report_bug.toml`.
 
 **Fleet reads the replies of a Job that did not call.** A notice that asks something is read once the wait has passed with no dispute and the Job has replied.
