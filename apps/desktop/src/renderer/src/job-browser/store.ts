@@ -94,6 +94,9 @@ export function wireJobBrowsers(api: Wired): () => void {
   };
 }
 
+/** The Job's browser as it stands now, for a caller that is not drawing it. */
+export const peekJobBrowser = (sessionId: string): JobBrowser | undefined => held[sessionId];
+
 /** The Job's browser as it stands, or nothing where the Job has none. */
 export function useJobBrowser(sessionId: string | undefined): JobBrowser | undefined {
   return useSyncExternalStore(

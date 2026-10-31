@@ -5,7 +5,8 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
@@ -61,6 +62,7 @@ import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
 import { SessionTiles } from "./SessionTiles";
+import { usePanelZoom } from "../../job-panes/zoom";
 import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
 import { forgeOf, quietSaid, ReadAgo } from "./forge";
@@ -350,8 +352,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
 }
 
 /**
- * Activity stands as tall as the merge queue and the flight controls beside it: from the queue's top to the foot's
- * bottom. It is in a side column, so the height is set on the grid and it reads it. A size he has dragged to takes over from it.
+ * Activity stands as tall as the foot beside it, the flight controls. It is in a side column, so the height is set on the grid and it reads it. A size he has dragged to takes over from it.
  */
 export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout: string) {
   useEffect(() => {
@@ -359,14 +360,9 @@ export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout
     if (root === null || typeof ResizeObserver === "undefined") return;
     const watch = new ResizeObserver(() => measure());
     const measure = () => {
-      const queue = root.querySelector<HTMLElement>(".deck-queue");
       const foot = root.querySelector<HTMLElement>(".deck-foot");
-      if (queue === null || foot === null) return;
-      // The queue is redrawn when the repository changes, so the one on screen is watched each time.
-      watch.observe(queue);
-      // The queue is under the foot, so the span is from whichever stands higher to whichever stands lower.
-      const [one, two] = [queue.getBoundingClientRect(), foot.getBoundingClientRect()];
-      const height = Math.max(one.bottom, two.bottom) - Math.min(one.top, two.top);
+      if (foot === null) return;
+      const height = foot.getBoundingClientRect().height;
       if (height > 0) root.style.setProperty("--deck-activity", `${Math.round(height)}px`);
     };
     for (const one of root.querySelectorAll(".deck-centre, .deck-foot, .deck-stage > *")) watch.observe(one);
@@ -515,6 +511,13 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
 // ---- The merge queue ----------------------------------------------------------------------------------
 
 /** The repository a Session open on the stage belongs to, by the root its line is served under. */
+/** The merge line is the window's status bar: drawn into the shell's own slot along the bottom edge, outside the padded page. Where the shell has none it stays in the deck. */
+function InStatusBar({ power, children }: { power: string | undefined; children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setSlot(document.querySelector<HTMLElement>(".armada-shell__status")), []);
+  return slot === null ? <>{children}</> : createPortal(<div className="deck deck-statusbar" data-power={power}>{children}</div>, slot);
+}
+
 function queueRootOf(sel: DeckState["sel"], ship: Ship): string | undefined {
   if (sel?.kind === "session") return ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind)?.root;
   return undefined;
@@ -812,7 +815,7 @@ const DECK_TIPS: Record<string, string> = { checks: "Checks: only what is runnin
  * The two filters and the view switch: one row of four equal tiles. **While a Session is open on the stage they are that
  * Session's** (`SessionTiles`), in the same block and under the same keys, and the four return when it closes.
  */
-function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
+function FlightControl({ ship, props, unified = false }: { ship: Ship; props: CockpitProps; unified?: boolean }) {
   const folded = useCollapse("controls");
   const file = useFlightFile();
   const [editing, setEditing] = useState(false);
@@ -842,6 +845,10 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const { expanded, toggle: toggleExpanded } = useFlightExpanded();
   /** Whether the Job's row holds more tiles than it shows; nothing while its tiles are not drawn. */
   const [overflows, setOverflows] = useState<boolean | undefined>();
+  // A Job in panes has no row of tiles: its acts are icons in the Thread tab's head, drawn by the same tiles.
+  if (unified) {
+    return session !== undefined && draft !== undefined ? <SessionTiles head session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} {...(startIn === undefined ? {} : { startIn })} /> : null;
+  }
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <Standby kind="controls" />
@@ -1105,7 +1112,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     else delete root.reveal;
     return () => void delete root.reveal;
   }, [revealing]);
-  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || (autopilotShown && panels.has("autopilot"))));
+  const footed = !unified && (panels.has("controls") || panels.has("dispatch") || (autopilotShown && panels.has("autopilot")));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
   const rowView = useRowView();
@@ -1117,6 +1124,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
   const power = usePowerOn();
+  usePanelZoom();
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
@@ -1124,7 +1132,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <AutopilotAsked control={autopilot.control} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
-      <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
+      <div ref={grid} className="deck-grid" data-bare={bare || unified || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} onReported={(id) => (issuesStore?.openReport(id), props.onGoTo?.(SURFACE.issues))} />
           {panels.has("field") && docked ? <FieldDock session={selectedJob} repositories={props.state.holds.repositories ?? []} map={selectedJob === undefined ? <MapView props={props} ship={ship} listed={listed} /> : null} /> : null}
@@ -1133,35 +1141,36 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-centre">
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
-            {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
+            {/* A Job drawn in panes holds its shell as a tab. */}
+            {onStage === undefined || unified ? null : <ShellPanel key={onStage} sessionId={onStage} />}
           </div>
           {footed ? (
             <div className="deck-foot">
               {panels.has("controls") ? <FlightControl ship={ship} props={props} /> : null}
-              {unified || !panels.has("dispatch") ? null : <DispatchDeck />}
-              {unified || !autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
+              {!panels.has("dispatch") ? null : <DispatchDeck />}
+              {!autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}
-          {/* The merge line is the bottom of the centre, under Flight control. */}
-          <MergeQueue props={props} ship={ship} />
+          {unified && panels.has("controls") ? <FlightControl ship={ship} props={props} unified /> : null}
         </div>
-        {bare ? null : (
+        {/* A Job with a story has no column: its story is tabs in its panes. */}
+        {bare || unified ? null : (
           <div className="deck-right">
             {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-            {unified ? (
-              <div className="sv-side" ref={setSideHost} />
-            ) : reading ? (
+            {reading ? (
               <>
                 {/* A Job with no story has no spine, but its views stand in the column's head, and a view opens under them. */}
                 <div className="sv-side" ref={setSideHost} />
                 <LedgerPanel host={setLedgerHost} />
               </>
             ) : panels.has("bays") ? <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} /> : null}
-            {unified || !panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
+            {!panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
           </div>
         )}
         {splits}
       </div>
+      {/* The merge line is a strip along the window's bottom edge, under the Jobs list and the Field as well as the stage. */}
+      <InStatusBar power={powering(power) ? power : undefined}><MergeQueue props={props} ship={ship} /></InStatusBar>
     </div>
     </ClashesOpenHere>
   );

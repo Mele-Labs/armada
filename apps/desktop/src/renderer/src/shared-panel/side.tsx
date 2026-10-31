@@ -1,11 +1,14 @@
 // The panel's shell for what is not a pull request: a head, a title with its facts and acts under it, and tabs, drawn as
 // the pull request panel draws them so the four read as one. The pull request keeps `PullRequestPanel`, whose head this is.
 
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Sheet, TabPanel, Tabs } from "@armada/components";
 import type { SheetBack } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
+
+/** A panel drawn in a pane of a Job: its body alone, with no sheet, head or close of its own. */
+export const InlinePanel = createContext(false);
 
 type Tab = { id: string; label: string };
 
@@ -81,7 +84,8 @@ export function SidePanel({
   /** The chosen tab's body. */
   children: ReactNode;
 }) {
-  const floor = useAtFloor();
+  const inline = useContext(InlinePanel);
+  const floor = useAtFloor() || inline;
   const body = useRef<HTMLDivElement>(null);
   const floats = left !== undefined && !floor;
   useTabKeys(
@@ -93,6 +97,41 @@ export function SidePanel({
   useEffect(() => {
     if (floats) body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
   }, [floats]);
+  const panelBody = (
+    <>
+    {crumb === undefined && beside === undefined ? (
+      <h3 className="armada-pr-panel__title">{heading}</h3>
+    ) : (
+      <div className="side-panel__head">
+        <div className="side-panel__heading">
+          {crumb === undefined ? null : <p className="side-panel__crumb">{crumb}</p>}
+          <h3 className="armada-pr-panel__title">{heading}</h3>
+        </div>
+        {beside}
+      </div>
+    )}
+    {meta === undefined ? null : <div className="armada-pr-panel__meta">{meta}</div>}
+    {acts === undefined ? null : (
+      <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
+        {acts}
+      </div>
+    )}
+    {bar === undefined ? null : <div className="side-panel__bar">{bar}</div>}
+    {tabs === undefined || tab === undefined || onTab === undefined ? (
+      <div className="armada-pr-tabs">
+        <div className="armada-pr-tabs__panel">{children}</div>
+      </div>
+    ) : (
+      <div className="armada-pr-tabs">
+        <Tabs items={[...tabs]} value={tab} onChange={onTab} />
+        <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
+          {children}
+        </TabPanel>
+      </div>
+    )}
+    </>
+  );
+  if (inline) return <div className="armada-pr-panel" ref={body}>{panelBody}</div>;
   return (
     <>
     <Sheet
@@ -111,36 +150,7 @@ export function SidePanel({
       onClose={onClose}
     >
       <div className="armada-pr-panel" ref={body}>
-        {crumb === undefined && beside === undefined ? (
-          <h3 className="armada-pr-panel__title">{heading}</h3>
-        ) : (
-          <div className="side-panel__head">
-            <div className="side-panel__heading">
-              {crumb === undefined ? null : <p className="side-panel__crumb">{crumb}</p>}
-              <h3 className="armada-pr-panel__title">{heading}</h3>
-            </div>
-            {beside}
-          </div>
-        )}
-        {meta === undefined ? null : <div className="armada-pr-panel__meta">{meta}</div>}
-        {acts === undefined ? null : (
-          <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
-            {acts}
-          </div>
-        )}
-        {bar === undefined ? null : <div className="side-panel__bar">{bar}</div>}
-        {tabs === undefined || tab === undefined || onTab === undefined ? (
-          <div className="armada-pr-tabs">
-            <div className="armada-pr-tabs__panel">{children}</div>
-          </div>
-        ) : (
-          <div className="armada-pr-tabs">
-            <Tabs items={[...tabs]} value={tab} onChange={onTab} />
-            <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
-              {children}
-            </TabPanel>
-          </div>
-        )}
+        {panelBody}
       </div>
     </Sheet>
     {floats && left !== undefined ? (

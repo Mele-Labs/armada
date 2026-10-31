@@ -392,7 +392,7 @@ function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowse
  * The pane: in the side panel, the toggle for the Job's thread; who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
  * note control; and its move. In the side panel it moves to a window; in its window it moves back to the side panel.
  */
-export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" }) {
+export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" | "pane" }) {
   const [capturing, setCapturing] = useState(false);
   const api = jobBrowserApi();
   // ⌥⌘C pressed in the page, which holds the keyboard where this pane cannot hear it.
@@ -453,11 +453,11 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
             >
               <AppWindowMac size={16} strokeWidth={2} aria-hidden />
             </IconAct>
-          ) : (
+          ) : placed === "window" ? (
             <IconAct label="Move to the side panel" onClick={() => openBrowser(sessionId)}>
               <PanelRight size={16} strokeWidth={2} aria-hidden />
             </IconAct>
-          )}
+          ) : null}
         </span>
       </header>
       {browser.page !== undefined ? (

@@ -148,6 +148,15 @@ export const closeTerminalWindow = (sessionId: string) => live?.closeWindow(sess
 /** The mock's window for a Job hearing its window asked for again, which brings it to the front. */
 export const onTerminalWindowRaised = (on: (sessionId: string) => void): (() => void) => live?.onRaised(on) ?? (() => undefined);
 
+/** The shell's half of Fleet for a scenario in another file: this window's shells, which a Job's Terminal tab and Flight control's Terminal open. */
+export function shellApi(): ShellFleet["api"] {
+  live = shellFleet();
+  return live.api;
+}
+
+/** Puts this window's shells away, with the Sessions that held them. */
+export const disposeShells = (): void => live?.dispose();
+
 const base = s256SessionRunInTerminal;
 
 export const s322SessionShell: Scenario = {

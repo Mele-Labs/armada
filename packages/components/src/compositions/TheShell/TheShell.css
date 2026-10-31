@@ -2,6 +2,9 @@
    The frame around them is screens.css's. */
 
 /* Positioned, so a folded dock's sheet covers the work and leaves the bar in view. */
+.armada-shell__status { flex: none; min-width: 0; }
+.armada-shell__status:empty { display: none; }
+
 .armada-shell__work {
   position: relative;
   flex: 1;

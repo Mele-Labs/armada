@@ -1165,3 +1165,22 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-runs-layer { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--space-6); background: var(--scrim); }
 .deck-runs-layer .armada-runs-all { position: relative; inset: auto; width: min(var(--w-dialog-wide), 100%); max-height: 100%; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); }
 .deck-combo__empty { padding: var(--space-2); color: var(--fg-subtle); font-size: var(--text-sm); }
+
+/* The merge line is the window's status bar: a child of the shell's own slot along the bottom edge (`InStatusBar` in `Deck.tsx`), outside the padded page,
+   the window's full width, 28px, with a hairline above it and no radius, side or bottom border. Its chips line up with the panels above by the page padding. */
+.deck.deck-statusbar { flex: none; width: 100%; margin: 0; gap: 0; }
+.deck-statusbar > .deck-queue.deck-panel[data-band-only] {
+  flex: none;
+  margin: 0;
+  border-width: var(--border-width) 0 0;
+  border-color: var(--border-default);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg-sunken);
+  padding-bottom: var(--space-1);
+}
+.deck-statusbar > .deck-queue .deck-queue__row { box-sizing: border-box; min-height: calc(var(--h-control-sm) + var(--space-1)); padding: 0 var(--pad-page); }
+.deck-statusbar > .deck-queue .deck-queue__stack { height: calc(var(--h-control-sm) + var(--space-1)); }
+
+/* A panel zoomed by its header's double-click covers the Cockpit's body (set in `job-panes/zoom.ts`), with its own ground. */
+.deck-panel[data-zoomed], .sv-panel[data-zoomed] { background: var(--bg-raised); }

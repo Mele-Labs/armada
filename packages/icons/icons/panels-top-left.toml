@@ -3,5 +3,5 @@
   group = "Mods"
   size = "16px"
   status = "Proposed"
-  reserved = "A mod of kind layout. Never the Overview surface, which is `layout-dashboard`."
+  reserved = "A mod of kind layout, and the Layout control of a Job's panes in the title bar. Never the Overview surface, which is `layout-dashboard`."
   notes = "Tooltip `Layout`. Proposed in the layout mods mock for the owner to walk."

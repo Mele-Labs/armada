@@ -84,7 +84,7 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
   if (session === undefined || draft === undefined) return null;
   if (session.waits !== undefined) return <WaitingPane subject={subject} session={session} wait={session.waits} sessions={sessions} draft={draft} />;
   return (
-    <section className="deck-pane" data-frame="" aria-label={`Job: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
+    <section className="deck-pane" data-frame="" data-bare={(hosts !== undefined && session.work !== undefined) || undefined} aria-label={`Job: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
       <SessionView
         session={session}
         goes={{ onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id, run) => (props.onOpenCheck === undefined ? props.onOpenSession(id) : props.onOpenCheck(id, run)), onOpenLoadout: (id, at) => props.onOpenLoadout?.(id, at) }}

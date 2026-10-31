@@ -60,16 +60,19 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
 }) {
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
+  const open = useDeck((deck) => deck.sel);
   const off = placesOff(hidden, useLayout("rail").all);
   const calls = useItems("command-central", state, picked, NO_HOSTS, NONE);
   const waiting = incomingOf(calls, held, visited).length > 0;
   const go = (surface: string) => {
     if (surface === SURFACE.overview && away) return onBack();
+    // Cockpit pressed with a Job open puts the Job away: the home view shows, and the Job's panes are kept for when it opens again.
+    if (surface === SURFACE.overview && open !== undefined) return select(undefined);
     if (away) onReplaceNext();
     // The System tab opens the page last used there.
     onGoTo(opensFor(surface, off));
   };
-  return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} hidden={hidden} />;
+  return <TabBar showing={showing} away={away} opened={open !== undefined} onGoTo={go} waiting={waiting} hidden={hidden} />;
 }
 
 /**

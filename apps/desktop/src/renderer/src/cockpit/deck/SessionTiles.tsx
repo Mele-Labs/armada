@@ -13,16 +13,18 @@
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 //
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Circle, CircleCheck, CircleDot, LoaderCircle, Play } from "lucide-react";
 import { Eclipse } from "lucide-react";
-import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
+import { Button, Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
 import { useJobReportAsked } from "../../report";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { provideJobFacts } from "../../job-facts";
+import { clearActs, publishActs, useActsPlace } from "../../job-panes/acts";
 import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
@@ -40,7 +42,7 @@ import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
 import { useJobBrowserTile } from "../../job-browser/JobBrowserPane";
-import { toggleLayer } from "../../session-view/layers";
+import { toggleLayer, useLayer } from "../../session-view/layers";
 import type { SessionBays } from "../../session-view/slot-trouble";
 
 /** How long a judge that found nothing is shown as done. */
@@ -53,7 +55,9 @@ export type ReportRepository = { root: string; name?: string };
  * `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. `onOverflow` is told whether the
  * row holds more than it shows, and nothing while something else stands in its place.
  */
-export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
+export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow, head = false }: { head?: boolean; session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
+  const { slot, narrow } = useActsPlace();
+  const layer = useLayer(session.id);
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
   const browser = useJobBrowserTile(session.id);
   const flight = useRepositoryFlight(repository?.root, session.id);
@@ -305,6 +309,17 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const id = idOf(tile);
     return id === undefined ? offCustom(tile) : off[id];
   };
+  /** What a Job in panes draws in its Thread head: every act but the two the + menu opens as tabs. */
+  const acts = drawn.filter((one) => idOf(one) !== "terminal" && idOf(one) !== "browser");
+  const customAt = acts.findIndex((one) => one.builtIn === undefined);
+  const views = ["checks", "subagents"].flatMap((id) => tiles.filter((one) => one.builtIn !== undefined && one.id === id));
+  const icons = customAt < 0 ? [...acts, ...views] : [...acts.slice(0, customAt), ...views, ...acts.slice(customAt)];
+  const labelOfIcon = (tile: Tile) => (idOf(tile) === "pause" && session.paused === true ? "Resume" : tile.label);
+  useEffect(() => {
+    if (!head) return;
+    publishActs(icons.map((tile) => ({ id: tile.id, label: labelOfIcon(tile), off: whyOf(tile), run: () => (idOf(tile) === undefined ? pressCustom(tile) : press[idOf(tile)!]()) })));
+  });
+  useEffect(() => (head ? clearActs : undefined), [head]);
   // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
   const dialog = releasing ? (
     <OverTheApp open>
@@ -325,10 +340,12 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       }}
     />
   ) : null;
+  // A Job in panes has its acts in the Thread tab's head: icons there, the ellipsis menu's entries where the head is narrow, and out of sight with no head, so their keys still press them.
+  const aside = (node: ReactNode) => (head ? <OverTheApp open>{node}</OverTheApp> : node);
   if (released !== undefined) {
-    return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
+    return aside(<HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />);
   }
-  if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
+  if (shell !== undefined) return aside(<ShellBox run={shell} onClose={closeShell} />);
   /** One tile, with every fact it carries. */
   const drawTile = (tile: Tile) => {
     const id = idOf(tile);
@@ -393,6 +410,57 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       </Tooltip>
     );
   };
+  /** One act as an icon: its glyph, the tooltip naming it and its key, lit as pressed while on, and off with its reason as the tooltip. */
+  const drawIcon = (tile: Tile) => {
+    const id = idOf(tile);
+    const paused = id === "pause" && session.paused === true;
+    const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
+    const key = flightKey(tile);
+    const why = whyOf(tile);
+    const reading = id === "judge" && judging;
+    const cleared = id === "judge" && clear && !reading;
+    const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
+    const lit = id === "land" ? on : id === "pause" ? paused : id === "checks" || id === "subagents" ? layer === id : undefined;
+    const running = (id === "checks" && checksRunning) || (id === "subagents" && subagentsRunning > 0);
+    return (
+      <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={labelOfIcon(tile)}
+          data-key={key}
+          data-act={id === "pause" ? "pause" : undefined}
+          aria-pressed={lit}
+          data-running={running || undefined}
+          aria-busy={pending === tile.id || undefined}
+          aria-disabled={why !== undefined || undefined}
+          onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
+        >
+          {reading ? (
+            <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+              <CircleDot size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+          ) : cleared ? (
+            <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
+              <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+          ) : (
+            <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+          )}
+        </Button>
+      </Tooltip>
+    );
+  };
+  if (head) {
+    const row = <>{icons.map(drawIcon)}</>;
+    return (
+      <>
+        {dialog}
+        {slot !== null && !narrow ? createPortal(row, slot) : <div hidden className="job-acts">{row}</div>}
+      </>
+    );
+  }
   return (
     <>
       {dialog}

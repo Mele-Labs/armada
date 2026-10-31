@@ -436,6 +436,7 @@ export function TitleBar({
       </div>
 
       <div ref={parts.end} className="armada-title-bar__end">
+        <div className="armada-title-bar__job" data-job-slot="" />
         {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
 
         {helm === undefined ? null : (

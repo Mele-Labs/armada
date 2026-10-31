@@ -142,6 +142,8 @@ export function TheShell({
             {dock === undefined ? null : <Dock {...dock} />}
           </div>
         </div>
+        {/* The status bar: a screen draws into it (the Cockpit's merge line), and it is no height while nothing does. */}
+        <div className="armada-shell__status" />
       </div>
     </ShortcutRevealProvider>
   );
