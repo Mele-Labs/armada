@@ -82,6 +82,7 @@ impl Pool {
         status: Option<Result<Vec<String>, String>>,
     ) -> SlotReading {
         let made = !matches!(slot.state, SlotState::Unmade | SlotState::NotACheckout);
+        let apart = made.then(|| self.apart(&slot.path, base)).flatten();
         let (held, branch, since) = match slot.state {
             SlotState::Unmade => (SlotHeld::Unmade, None, 0),
             SlotState::NotACheckout => (SlotHeld::NotACheckout, None, 0),
@@ -116,7 +117,8 @@ impl Pool {
             closed: slot.closed,
             slot: slot.number as u32,
             warm: made && self.warm(&slot.path),
-            behind: made.then(|| self.behind(&slot.path, base)).flatten(),
+            behind: apart.map(|(_, behind)| behind),
+            ahead: apart.map(|(ahead, _)| ahead),
             path: slot.path.to_string_lossy().into_owned(),
             held,
             branch,
@@ -132,14 +134,14 @@ impl Pool {
         !self.seeds.is_empty() && self.seeds.iter().all(|path| at.join(path).is_dir())
     }
 
-    fn behind(&self, at: &Path, base: &str) -> Option<u32> {
-        if let Some(answer) = git::behind_in_process(at, base) {
+    /// Commits HEAD has that the base does not, and commits the base has that HEAD does not.
+    fn apart(&self, at: &Path, base: &str) -> Option<(u32, u32)> {
+        if let Some(answer) = git::apart_in_process(at, base) {
             return answer;
         }
-        let range = format!("HEAD..{base}");
-        git::read(at, &["rev-list", "--count", &range])
-            .ok()?
-            .parse()
-            .ok()
+        let range = format!("HEAD...{base}");
+        let both = git::read(at, &["rev-list", "--left-right", "--count", &range]).ok()?;
+        let (ahead, behind) = both.split_once('\t')?;
+        Some((ahead.parse().ok()?, behind.parse().ok()?))
     }
 }

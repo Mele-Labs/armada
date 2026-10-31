@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArmadaMark } from "@armada/brand";
-import { heldOfPicked, whyNotOpenedLink } from "@armada/screens";
+import { heldOfPicked, heldOfWorkspace, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { contextOf, HelmDock, screenOf } from "@armada/helm";
@@ -96,7 +96,7 @@ import { useTellAsked } from "./tell";
 import { tellActFailures } from "./act-failed";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
-import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager"; import { WorkspacesSurface } from "./workspaces-page"; import { useWorkspaces } from "./use-workspaces";
+import { scopeToWorkspace } from "./workspace-scope"; import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager"; import { WorkspacesSurface } from "./workspaces-page"; import { useWorkspaces } from "./use-workspaces";
 import type { WorkspacesApi } from "./workspaces-fleet";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
@@ -255,6 +255,12 @@ export function App() {
   // The Workspaces the picker lists, each with the roots of the repositories in it. Fleet keeps them; the System page and the picker read the same ones.
   const workspaces = useWorkspaces(workspacesApi, repositories);
   const pickerWorkspaces = workspaces.workspaces.map((one) => ({ id: one.id, name: one.name, repositories: one.repositories.flatMap((id) => repositories.filter((repo) => repo.manifest?.id === id).map((repo) => repo.root)) }));
+  // The Workspace the window shows, if one is picked: the pages below read its repositories as they read All.
+  const [workspaceScope, setWorkspaceScope] = useState<string | null>(null);
+  const scopedWorkspace = pickerWorkspaces.find((one) => one.id === workspaceScope) ?? null;
+  const shown = scopedWorkspace === null ? repositories : repositories.filter((one) => scopedWorkspace.repositories.includes(one.root));
+  useEffect(() => scopeToWorkspace(scopedWorkspace === null ? null : shown), [scopedWorkspace?.id, shown.map((one) => one.root).join("\n")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shownState: BridgeState = scopedWorkspace === null ? state : { ...state, holds: { ...state.holds, repositories: shown } };
   const openWorkspace = (id: string | null) => {
     workspaces.pick(id === null ? { kind: "new" } : { kind: "workspace", id });
     openSystemEntry("kit:workspaces");
@@ -436,7 +442,12 @@ export function App() {
 
   /** A repository is picked the same with or without a Manifest: a Job starts in any folder, and Setup is opened from the repository, never put in front of it. `null` is All. */
   function pick(root: string | null): void {
+    setWorkspaceScope(null);
     pickRepository(root);
+  }
+  function pickWorkspace(id: string): void {
+    setWorkspaceScope(id);
+    pickRepository(null);
   }
 
   // The picked repository's Manifest, absent until it has one.
@@ -449,8 +460,8 @@ export function App() {
   const all = pickedRepository === null && repositories.length > 0;
   // Worktree Slots follow the pick too.
   const pickedHeld = useMemo(
-    () => (state.held.state === "read" ? { ...state.held, held: heldOfPicked(state.held.held, pickedRepository) } : state.held),
-    [state.held, pickedRepository],
+    () => (state.held.state === "read" ? { ...state.held, held: scopedWorkspace === null ? heldOfPicked(state.held.held, pickedRepository) : heldOfWorkspace(state.held.held, shown) } : state.held),
+    [state.held, pickedRepository, scopedWorkspace, shown],
   );
   // Where the person is, for Helm — #1075.
   const helmScreen = screenOf({
@@ -512,6 +523,8 @@ export function App() {
           onNewProject={locate.onNew}
           workspaces={pickerWorkspaces}
           onOpenWorkspace={openWorkspace}
+          workspaceScope={scopedWorkspace?.id ?? null}
+          onScopeWorkspace={pickWorkspace}
           onOpenManifest={() => goTo(SURFACE.manifest)}
           repositoryTrail={repositoryRuns.trailOf}
           onCompose={() => newSession()}
@@ -522,8 +535,8 @@ export function App() {
           helmCalling={callingHomes.has(HELM_HOME)}
           wordmark={<ArmadaMark size={20} title="Armada" />}
           // The title row's picker, on every surface.
-          repository={pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories)}
-          places={<DeckPlaces state={state} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
+          repository={scopedWorkspace !== null ? scopedWorkspace.name : pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories)}
+          places={<DeckPlaces state={shownState} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
           asking={asks.length}
           helm={
             <>
@@ -601,7 +614,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {logbooking ? (<LogbookSurface repository={state.repository} {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} repositories={repositories} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : issuing ? (<Boundary region="Issues" {...guarded}><IssuesSurface picked={pickedRepository} repositories={repositories} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : projecting ? (<Boundary region="Projects" {...guarded}><ProjectsSurface picked={pickedRepository} repositories={repositories} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : clearing ? (
+            {logbooking ? (<LogbookSurface repository={state.repository} {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : issuing ? (<Boundary region="Issues" {...guarded}><IssuesSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : projecting ? (<Boundary region="Projects" {...guarded}><ProjectsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and this is where the rest is
                  given back, one tile at a time. */
@@ -616,7 +629,7 @@ export function App() {
               </Boundary>
             ) : manifesting && all ? (
               <AskRepository
-                repositories={repositories}
+                repositories={shown}
                 title="Pick a repository to open its Manifest"
                 next="A Manifest belongs to one repository. Picking it focuses the Cockpit there."
                 onPick={pick}
@@ -677,9 +690,9 @@ export function App() {
               </Boundary>
             ) : studying ? (
               <StudiosSurfaceNow
-                state={state}
+                state={shownState}
                 live={live}
-                repositories={repositories}
+                repositories={shown}
                 manifestId={scoped?.id}
                 all={all}
                 // Nothing set up anywhere: the Manifest surface is where a
@@ -726,8 +739,8 @@ export function App() {
               <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} onKit={() => goTo(SURFACE.kit)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
               <Overview
-                state={state}
-                repositories={repositories}
+                state={shownState}
+                repositories={shown}
                 disconnected={live ? null : statement.headline}
                 power={power}
                 onCopied={setCopied}
@@ -808,7 +821,7 @@ export function App() {
           <ProjectsUndo />
           <AgentSignInAlert />
           <ImportPackage repositories={repositories} />
-          <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
+          <DeckHost state={shownState} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
           {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} at={asked.loadoutAt} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
           <DockCount state={state} />

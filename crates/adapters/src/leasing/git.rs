@@ -87,9 +87,10 @@ pub(super) fn ref_exists(at: &Path, reference: &str) -> Option<bool> {
     }
 }
 
-/// `git rev-list --count HEAD..<base>`: how far HEAD is behind. The outer `None`
-/// is libgit2 unable to say; the inner is git's own failure reading as unknown.
-pub(super) fn behind_in_process(at: &Path, base: &str) -> Option<Option<u32>> {
+/// `git rev-list --left-right --count HEAD...<base>`: how far HEAD is ahead of
+/// the base and behind it. The outer `None` is libgit2 unable to say; the inner
+/// is git's own failure reading as unknown.
+pub(super) fn apart_in_process(at: &Path, base: &str) -> Option<Option<(u32, u32)>> {
     let repo = git2::Repository::open(at).ok()?;
     let head = match repo.head().and_then(|head| head.peel_to_commit()) {
         Ok(head) => head.id(),
@@ -100,8 +101,8 @@ pub(super) fn behind_in_process(at: &Path, base: &str) -> Option<Option<u32>> {
         Err(why) if why.code() == git2::ErrorCode::NotFound => return Some(None),
         Err(_) => return None,
     };
-    let (_, behind) = repo.graph_ahead_behind(head, base).ok()?;
-    Some(u32::try_from(behind).ok())
+    let (ahead, behind) = repo.graph_ahead_behind(head, base).ok()?;
+    Some(u32::try_from(ahead).ok().zip(u32::try_from(behind).ok()))
 }
 
 /// `git rev-list --count HEAD --not --branches --remotes`: commits no branch
@@ -173,9 +174,13 @@ mod tests {
         assert_eq!(unnamed_commits_in_process(at), Some(0), "a nested branch names them");
 
         let base = "refs/remotes/origin/main";
-        let said = read(at, &["rev-list", "--count", &format!("HEAD..{base}")]).ok();
-        assert_eq!(behind_in_process(at, base), Some(said.and_then(|n| n.parse().ok())));
-        assert_eq!(behind_in_process(at, "refs/remotes/origin/nope"), Some(None));
+        let said = read(at, &["rev-list", "--left-right", "--count", &format!("HEAD...{base}")]).ok();
+        let said = said.and_then(|both| {
+            let (ahead, behind) = both.split_once('\t')?;
+            Some((ahead.parse().ok()?, behind.parse().ok()?))
+        });
+        assert_eq!(apart_in_process(at, base), Some(said));
+        assert_eq!(apart_in_process(at, "refs/remotes/origin/nope"), Some(None));
 
         assert_eq!(ref_exists(at, base), Some(true));
         assert_eq!(ref_exists(at, "refs/remotes/origin/nope"), Some(false));

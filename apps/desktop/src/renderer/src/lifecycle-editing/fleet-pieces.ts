@@ -17,12 +17,12 @@ export type Served = { manifestId: string; name: string; root: string };
 
 export type Read = { ok: true; read: PiecesRead } | { ok: false; outcome: Outcome };
 
-/** Everything Fleet keeps for a repository and the others of the Workspace that runs for it. The first Workspace that runs is the one drawn. */
+/** Everything Fleet keeps for a repository and the others of the Workspaces that run for it. A repository can be in two, and each is drawn. */
 export async function readPieces(api: PiecesApi, current: string, served: readonly Served[]): Promise<Read> {
   const where = await api.listRepositoryWorkspaces(current);
   if (!where.ok) return where;
-  const workspace = where.value.workspaces.find((one) => one.overridden_by === undefined && one.repositories.includes(current));
-  const wanted = [current, ...(workspace?.repositories ?? []).filter((one) => one !== current)];
+  const workspaces = where.value.workspaces.filter((one) => one.overridden_by === undefined && one.repositories.includes(current));
+  const wanted = [...new Set([current, ...workspaces.flatMap((one) => one.repositories)])];
   const repositories: PiecesRead["repositories"][number][] = [];
   for (const id of wanted) {
     const name = served.find((one) => one.manifestId === id)?.name;
@@ -37,7 +37,7 @@ export async function readPieces(api: PiecesApi, current: string, served: readon
     if (!lifecycles.ok || !rules.ok) continue;
     repositories.push({ id, name: name ?? id, lifecycles: lifecycles.value.lifecycles, rules: rules.value.rules });
   }
-  return { ok: true, read: { ...(workspace === undefined ? {} : { workspace }), repositories } };
+  return { ok: true, read: { workspaces, repositories } };
 }
 
 /** The Keep for every Job drafts of a repository that wait on Approve. A read that fails has none to draw. */

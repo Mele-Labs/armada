@@ -373,6 +373,7 @@ impl FakeSlots {
                         since: None,
                         warm: false,
                         behind: None,
+                        ahead: None,
                         closed: slot.closed,
                         last_session: slot.last_session.clone(),
                         work: None,

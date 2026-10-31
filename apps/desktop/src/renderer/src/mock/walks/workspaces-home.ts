@@ -19,7 +19,7 @@ export const workspacesHome = walk(
     { press: button("New Workspace", { exact: true }), say: "New Workspace" },
     { look: inside(role("form", "New Workspace", { exact: true }), role("textbox", "Name", { exact: true })), say: "An empty form" },
     { press: systemPage("Workflows"), say: "Workflows, on store-api" },
-    { look: inside(role("group", "Runs in", { exact: true }), role("tab", "All of my-store", { exact: true })), say: "One tab for my-store" },
+    { look: inside(role("group", "Runs in", { exact: true }), role("tab", "my-store", { exact: true })), say: "One tab for my-store" },
   ],
   { width: 1600, height: 1000 },
 );

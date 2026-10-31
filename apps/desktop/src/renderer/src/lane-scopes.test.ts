@@ -4,9 +4,12 @@
 import { changedAt, stepsOf } from "@armada/components/src/compositions/LaneCanvas/build";
 import { withAddedStep, withReads, withRuleAt, withStateAfter, withStateLabelAt, withStepAddedAt, withStepAfter, withoutStep, ruleBetween, withNewRule } from "@armada/components/src/compositions/LaneCanvas/edit";
 import { GEO, withToolbar } from "@armada/components/src/compositions/LaneCanvas/layout";
-import { DEFAULT, existsAt, lifecyclesFor, stateDiffers, stateLabelAt, stepsAt } from "@armada/components/src/compositions/LaneCanvas/model";
+import { DEFAULT, existsAt, lifecyclesFor, stateDiffers, stateLabelAt, stepsAt, workspaceLevel } from "@armada/components/src/compositions/LaneCanvas/model";
 import type { LifecycleDef, Workspace } from "@armada/components/src/compositions/LaneCanvas/model";
 import { expect, test } from "vitest";
+
+/** The level the Workspace `my-store` is kept at. */
+const MY_STORE = workspaceLevel("my-store");
 
 const DEFINED = [
   { id: "plan", label: "Plan" },
@@ -34,24 +37,24 @@ const workspace: Workspace = {
   workflows: { feature: { steps: { plan: { col: 0 }, build: { col: 1 }, ship: { col: 2 } }, states: { "ticket/todo": 0, "ticket/done": 2 } } },
   rules: [],
 };
-const idsAt = (from: Workspace, scope: string) => stepsAt(DEFINED, from.workflows.feature, scope, (one) => ({ id: one.id, label: one.label })).map((one) => one.id);
+const idsAt = (from: Workspace, scope: string) => stepsAt(DEFINED, from.workflows.feature, scope, from, (one) => ({ id: one.id, label: one.label })).map((one) => one.id);
 const withApiStep = () => withStepAddedAt(workspace, "feature", stepsOf(workspace, "feature", DEFINED), "build", "lint", "Lint", "store-api");
 
 test("a step added on a repository runs there and not on the tabs above or beside it", () => {
   const made = withApiStep();
   expect(idsAt(made, "store-api")).toEqual(["plan", "build", "lint", "ship"]);
   expect(idsAt(made, "store-web")).toEqual(["plan", "build", "ship"]);
-  expect(idsAt(made, "workspace")).toEqual(["plan", "build", "ship"]);
+  expect(idsAt(made, MY_STORE)).toEqual(["plan", "build", "ship"]);
   expect(idsAt(made, DEFAULT)).toEqual(["plan", "build", "ship"]);
 });
 
 test("a step added on the Workspace runs on its repositories too", () => {
-  const made = withStepAddedAt(workspace, "feature", stepsOf(workspace, "feature", DEFINED), "build", "lint", "Lint", "workspace");
+  const made = withStepAddedAt(workspace, "feature", stepsOf(workspace, "feature", DEFINED), "build", "lint", "Lint", MY_STORE);
   expect(idsAt(made, "store-api")).toContain("lint");
   expect(idsAt(made, "store-web")).toContain("lint");
   expect(idsAt(made, DEFAULT)).not.toContain("lint");
-  expect(existsAt("workspace", "store-api")).toBe(true);
-  expect(existsAt("store-api", "workspace")).toBe(false);
+  expect(existsAt(MY_STORE, "store-api", workspace)).toBe(true);
+  expect(existsAt("store-api", MY_STORE, workspace)).toBe(false);
 });
 
 test("the tab that added a step says it differs, and no other tab does", () => {
@@ -59,7 +62,7 @@ test("the tab that added a step says it differs, and no other tab does", () => {
   expect(changedAt(workspace, "feature", DEFINED, "store-api")).toBe(false);
   expect(changedAt(made, "feature", DEFINED, "store-api")).toBe(true);
   expect(changedAt(made, "feature", DEFINED, "store-web")).toBe(false);
-  expect(changedAt(made, "feature", DEFINED, "workspace")).toBe(false);
+  expect(changedAt(made, "feature", DEFINED, MY_STORE)).toBe(false);
 });
 
 test("deleting a step the tab added takes its mark away, and the definition never held it", () => {
@@ -77,11 +80,11 @@ test("a step added on a repository is named and worded on that tab alone", () =>
 
 test("a step added on the default moves the columns of one a repository added, which the default does not draw", () => {
   const api = withApiStep();
-  const drawn = stepsOf(api, "feature", stepsAt(DEFINED, api.workflows.feature, DEFAULT, (one) => ({ id: one.id, label: one.label })));
+  const drawn = stepsOf(api, "feature", stepsAt(DEFINED, api.workflows.feature, DEFAULT, api, (one) => ({ id: one.id, label: one.label })));
   const made = withStepAfter(api, "feature", drawn, "build", "review");
   // The definition is the caller's: it writes the step into the workflow, so here it is added to the list that stands for it.
   const defined = [DEFINED[0]!, DEFINED[1]!, { id: "review", label: "Review" }, DEFINED[2]!];
-  const at = (scope: string) => stepsOf(made, "feature", stepsAt(defined, made.workflows.feature, scope, (one) => ({ id: one.id, label: one.label })), scope).map((one) => `${one.id}:${one.col}`);
+  const at = (scope: string) => stepsOf(made, "feature", stepsAt(defined, made.workflows.feature, scope, made, (one) => ({ id: one.id, label: one.label })), scope).map((one) => `${one.id}:${one.col}`);
   expect(at(DEFAULT)).toEqual(["plan:0", "build:1", "review:2", "ship:4"]);
   expect(at("store-api")).toEqual(["plan:0", "build:1", "review:2", "lint:3", "ship:4"]);
 });
@@ -102,7 +105,7 @@ test("a state a repository added is named and read as that repository's own, wit
   const state = named.lifecycles[0]!.states.find((one) => one.id === id)!;
   expect(state.label).toBe("On hold");
   expect(state.names).toBeUndefined();
-  expect(stateLabelAt(state, "store-api")).toBe("On hold");
+  expect(stateLabelAt(state, "store-api", made)).toBe("On hold");
   const cleared = withReads(named, "ticket", id, { source: "Jira", scope: "store-api", values: [] });
   expect(cleared.lifecycles[0]!.states.find((one) => one.id === id)!.reads).toEqual([{ source: "Jira", scope: "store-api", values: [] }]);
 });

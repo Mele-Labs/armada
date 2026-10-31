@@ -33,7 +33,7 @@ const pieces = walk("workspaces-pieces", [
   { look: inside(LANES, button("New lifecycle Tracker", { exact: true })), say: "The new lane stands under Deploy" },
   { type: "Incident", into: inside(PANEL, role("textbox", "Name", { exact: true })), say: "Named in the field, saved as it is left" },
   { press: inside(PANEL, button("Delete", { exact: true })), say: "Delete takes its file out of your Kit" },
-  { press: tab("All of my-store"), say: "All of my-store's tab" },
+  { press: tab("my-store"), say: "my-store's tab" },
   { press: inside(LANES, button("Mark ready", { exact: true })), say: "A rule for my-store alone" },
 ], { width: 2000, height: 1200 });
 

@@ -157,6 +157,9 @@ export type WeighWatch = { session_id?: string; watch: string } & (
 /** `stop_watch`: the person's Stop, or the agent's. */
 export type StopWatch = { session_id?: string; watch: string };
 
+/** `dismiss_wait`: the cross on a pull request of the Job's own that its Waiting band lists. Fleet stops listing it as holding the Job open and touches the pull request not at all. Answers the Job's `SessionRecord`. Bridge only. */
+export type DismissWait = { session_id: string; pull_request: number };
+
 /** `read_watch_log`: the log a kept reading of `watch` carries as `log`, read whole. `GET /watches/log?watch=&log=`. Bridge only. */
 export type ReadWatchLog = { watch: string; log: string };
 

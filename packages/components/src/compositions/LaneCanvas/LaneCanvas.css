@@ -349,6 +349,23 @@
   cursor: default;
 }
 .armada-lane-item__differs[data-beside] { right: calc(var(--space-6) - var(--space-1)); }
+/* Workspaces that hold the repository set this state differently: the warning glyph on the corner, in the caution hue, beside the others when they are there. */
+.armada-lane-item__clash {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: calc(var(--space-2) * -1);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--notice-caution);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--notice-caution);
+  cursor: default;
+}
+.armada-lane-item__clash[data-beside] { right: calc(var(--space-6) * 2 - var(--space-2)); }
 
 /* What is picked is a shape: the text colour's frame on the picked ground, and the heading weight. */
 .armada-lane-item__main[data-picked] {
@@ -449,6 +466,8 @@
 .armada-lane-chip[data-needs] .armada-lane-chip__diamond polygon { stroke-dasharray: var(--space-1) var(--space-1); }
 .armada-lane-chip__mark { position: relative; flex: none; color: var(--hue); }
 .armada-lane-chip__differs { flex: none; color: var(--fg-muted); }
+/* A rule the Workspaces that hold the repository set differently: the warning glyph in the caution hue. */
+.armada-lane-chip__clash { flex: none; color: var(--notice-caution); }
 /* A rule this Job's own copy changed: the comparison's glyph in the waiting hue, as a changed state wears it. */
 .armada-lane-chip__changed { flex: none; color: var(--status-awaiting-review); }
 /* A rule waiting on the person wears the waiting hue, as a row that needs them does. */

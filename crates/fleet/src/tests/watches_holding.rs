@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions, Subscription, Watches};
 use ipc::{
-    AttachmentReport, Event, HeldOpenBy, PullRequestWait, SessionFact, SessionId, SessionRecord, SessionReport, SetWaitingFor, StartWatch, StopWatch, WaitingInput,
+    AttachmentReport, DismissWait, Event, HeldOpenBy, PullRequestWait, SessionFact, SessionId, SessionRecord, SessionReport, SetWaitingFor, StartWatch, StopWatch, WaitingInput,
     WatchStarts,
 };
 
@@ -116,8 +116,9 @@ async fn starting_and_stopping_a_watch_publish_the_row_again() {
 }
 
 async fn attach_pull_request(rig: &Rig, job: &SessionId, number: &str, detail: &[(&str, &str)]) {
-    let detail = detail.iter().map(|(key, said)| (key.to_string(), said.to_string())).collect();
-    let attached = SessionFact::Attached { attachment: AttachmentReport { kind: "pull_request".into(), target: number.into(), detail } };
+    // `created`: the mod read the address off `gh pr create`, which is how a pull request is the Job's own.
+    let detail = detail.iter().chain(&[("created", "true")]).map(|(key, said)| (key.to_string(), said.to_string())).collect();
+    let attached = SessionFact::Attached { attachment: AttachmentReport { kind: "pr".into(), target: number.into(), detail } };
     let report = SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: job.clone(), fact: attached };
     rig.fleet.report_session(report).await.expect("attached");
 }
@@ -139,4 +140,36 @@ async fn a_pull_request_whose_checks_failed_does_not_hold_the_job_open() {
     let job = an_agent_between_turns(&rig).await;
     attach_pull_request(&rig, &job, "409", &[("state", "open"), ("auto_merge", "true"), ("queued", "true"), ("checks", "failed")]).await;
     assert_eq!(held_open_by(&rig, &job).await, []);
+}
+
+#[tokio::test]
+async fn a_pull_request_dismissed_no_longer_holds_the_job_open_but_a_live_watch_on_it_still_does() {
+    let rig = rig(None);
+    let job = an_agent_between_turns(&rig).await;
+    let pending = [("state", "open"), ("auto_merge", "true"), ("checks", "pending")];
+    attach_pull_request(&rig, &job, "409", &pending).await;
+    rig.fleet.start_watch(None, watch(&job, "QA deploy")).await.expect("started");
+    let both = [named("QA deploy"), HeldOpenBy::PullRequest { number: 409, on: PullRequestWait::Checks { auto_merge: true } }];
+    assert_eq!(held_open_by(&rig, &job).await, both);
+
+    let dismissed = rig.fleet.dismiss_wait(DismissWait { session_id: job.clone(), pull_request: 409 }).await.expect("dismissed");
+    assert_eq!(dismissed.held_open_by, [named("QA deploy")], "the answer is the row as it now reads");
+    assert_eq!(held_open_by(&rig, &job).await, [named("QA deploy")], "the watch still holds it");
+
+    attach_pull_request(&rig, &job, "409", &pending).await;
+    assert_eq!(held_open_by(&rig, &job).await, [named("QA deploy")], "the mod reporting the pull request again does not undo it");
+    rig.fleet.dismiss_wait(DismissWait { session_id: job.clone(), pull_request: 409 }).await.expect("a second cross is not an error");
+}
+
+#[tokio::test]
+async fn dismissing_a_pull_request_the_job_does_not_hold_is_refused() {
+    let rig = rig(None);
+    let job = an_agent_between_turns(&rig).await;
+    attach_pull_request(&rig, &job, "409", &[("state", "open"), ("auto_merge", "true"), ("checks", "pending")]).await;
+
+    let other = rig.fleet.dismiss_wait(DismissWait { session_id: job.clone(), pull_request: 410 }).await.expect_err("not held");
+    assert_eq!((other.error().code.as_str(), other.status()), ("fleet.no_such_pull_request_held", 404));
+    let nobody = rig.fleet.dismiss_wait(DismissWait { session_id: SessionId::carried("no-such-job"), pull_request: 409 }).await.expect_err("no Job");
+    assert_eq!(nobody.error().code.as_str(), "fleet.no_such_session");
+    assert_eq!(held_open_by(&rig, &job).await.len(), 1, "the one it holds is still listed");
 }
