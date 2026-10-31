@@ -2,7 +2,6 @@
 //! readings that are absent rather than wrong. The processes are real `sleep`s; what is faked is
 //! who started them, through the same `PeerOf` seam the kernel answers.
 
-use std::os::unix::process::CommandExt;
 use std::process::{Child, Command};
 use std::sync::Arc;
 
@@ -137,10 +136,12 @@ async fn the_jobs_keeper_is_never_one_of_its_processes() {
     let rig = rig(Some(Arc::clone(&placing)));
     let id = rig.an_agent().await;
     let socket = std::path::Path::new(&rig.fleet.host().keepers_dir).join(format!("{}.sock", id.as_str()));
+    // `read` is the shell's own, so `sh` keeps the keeper's words and starts no child to outlive it.
+    // Never a negative pid to `kill(1)`: procps 4.0.4, Ubuntu's, reads `-12345` as options and
+    // signals `'0' - '1'`, -1, every process the runner's user owns, the runner too (31 Oct).
     let mut keeper = Command::new("sh")
-        // A second command, so `sh` stays and does not exec into `sleep`, which drops the keeper's words.
-        .args(["-c", "sleep 60; exit 0", "session-keep", &socket.to_string_lossy()])
-        .process_group(0)
+        .args(["-c", "read line", "session-keep", &socket.to_string_lossy()])
+        .stdin(std::process::Stdio::piped())
         .spawn()
         .expect("a stand-in keeper");
     placing.carrying(keeper.id(), "ARMADA_SESSION", id.as_str());
@@ -149,9 +150,7 @@ async fn the_jobs_keeper_is_never_one_of_its_processes() {
     let session = id.clone();
     let listed = tokio::task::spawn_blocking(move || fleet.processes_of(session.as_str(), &[])).await.unwrap();
     let (code, _) = refused(Arc::clone(&rig.fleet).process_stopped(None, stop(&id, Some(keeper.id()), None)).await);
-    // The group, so the shell's `sleep` goes with it.
-    let _ = Command::new("kill").args(["-KILL", &format!("-{}", keeper.id())]).status();
-    let _ = keeper.wait();
+    let _ = (keeper.kill(), keeper.wait());
 
     assert!(listed.is_empty(), "the keeper is not listed: {listed:?}");
     assert_eq!(code, "fleet.process_not_the_jobs");
