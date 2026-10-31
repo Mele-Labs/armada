@@ -289,11 +289,13 @@ jobs:
           name: typecheck
           cmd: pnpm typecheck
 
-  # Every workspace Check on Linux: one job per key `armada covers` named, run
-  # as `armada check <key>` in that workspace's directory. The key is the
-  # display name.
+  # Every workspace Check on Linux, in a few grouped jobs (`plan.py`, GROUPS):
+  # each runs its keys one after another as `armada check <key>` in that
+  # workspace's directory, goes on after one fails, and fails if any did. A
+  # group with no key in the plan has no entry. A failed job's name is the group,
+  # which `plan.py --rerun` turns back into the group's keys.
   workspace_check:
-    name: ${{ matrix.key || 'workspace_check' }}
+    name: ${{ matrix.group || 'workspace_check' }}
     needs: plan
     if: needs.plan.outputs.has_matrix == 'true'
     runs-on: ubuntu-latest
@@ -310,14 +312,40 @@ jobs:
       - uses: ./.github/actions/node-setup
         with:
           browsers: ${{ matrix.browsers }}
-      - uses: ./.github/actions/run-check
+      # `run-check` for each key: the same MACHINE and RESULT lines, and a
+      # summary line per key, with the tail of a failed key's log.
+      - name: Run ${{ matrix.group }}
+        shell: bash
         env:
-          KEY: ${{ matrix.key }}
-        with:
-          name: ${{ matrix.key }}
-          cmd: |
-            chmod +x bin/armada
-            PATH="$PWD/bin:$PATH" armada check "$KEY"
+          GROUP: ${{ matrix.group }}
+          KEYS: ${{ matrix.keys }}
+        run: |
+          chmod +x bin/armada
+          export PATH="$PWD/bin:$PATH"
+          WIDTH=$(getconf _NPROCESSORS_ONLN)
+          export WIDTH ARMADA_CHECK_WIDTH=$WIDTH ARMADA_SOLE_TENANT=1
+          echo "MACHINE $GROUP cores=$WIDTH $(grep MemTotal /proc/meminfo)"
+          set +e
+          failed=0
+          for key in $KEYS; do
+            echo "::group::$key"
+            start=$(date +%s)
+            armada check "$key" 2>&1 | tee check.log
+            code=${PIPESTATUS[0]}
+            secs=$(( $(date +%s) - start ))
+            echo "::endgroup::"
+            echo "RESULT $key exit=$code seconds=$secs"
+            {
+              echo "### $key: exit $code, ${secs}s in the Check step"
+              if [ "$code" != 0 ]; then
+                echo '```'
+                tail -n 40 check.log
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            [ "$code" = 0 ] || failed=1
+          done
+          exit "$failed"
 
   hooks_test:
     name: hooks_test
