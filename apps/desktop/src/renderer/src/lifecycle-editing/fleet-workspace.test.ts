@@ -55,8 +55,8 @@ describe("what Fleet keeps, read into the editor's model", () => {
     const { workspace } = await opened();
     expect(workspace.id).toBe("my-store");
     expect(workspace.repositories).toEqual([
-      { id: WEB.id, name: "store-web" },
-      { id: API.id, name: "store-api" },
+      { id: WEB.id, name: "store-web", in: ["my-store"] },
+      { id: API.id, name: "store-api", in: ["my-store"] },
     ]);
     expect(workspace.lifecycles.map((one) => one.id)).toEqual(["ticket", "pull_request", "deploy"]);
   });
