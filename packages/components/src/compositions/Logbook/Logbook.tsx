@@ -21,9 +21,9 @@ import { isPressed, pressedSlot } from "../../keymap";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
+import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
-import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
@@ -231,6 +231,9 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
     if (next !== undefined) onSelect(next.id);
   };
 
+  const [menu, setMenu] = useState<"state" | "topic" | undefined>(undefined);
+  const topicsShown = !(shown === "retros" && fixes !== undefined) && unread !== true && topics !== undefined && topics.length > 0 && onTopic !== undefined;
+
   function pressed(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const target = event.target as HTMLElement;
@@ -245,6 +248,16 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
     }
     // The retro items keep their own keys.
     if (part.current?.contains(target) === true) return;
+    if (event.key === "s" && !event.shiftKey) {
+      event.preventDefault();
+      setMenu("state");
+      return;
+    }
+    if (event.key === "t" && !event.shiftKey && topicsShown) {
+      event.preventDefault();
+      setMenu("topic");
+      return;
+    }
     const inList = list.current?.contains(target) === true;
     const slot = pressedSlot("move_focus", event);
     if (slot !== -1 && inList) {
@@ -280,7 +293,28 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
   return (
     <div className="armada-logbook" onKeyDown={pressed}>
       <div className="armada-logbook__filters">
-        <Tabs items={tabs} value={shown} onChange={(id) => onShown(id as LogbookShown)} />
+        <DropdownMenu
+          align="start"
+          triggerLabel={tabs.find((one) => one.id === shown)?.label ?? "In use"}
+          triggerAriaLabel="State"
+          triggerTooltip="State (S)"
+          entries={tabs.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, hint: one.hint, selected: one.id === shown }))}
+          onSelect={(id) => onShown(id as LogbookShown)}
+          open={menu === "state"}
+          onOpenChange={(next) => setMenu(next ? "state" : undefined)}
+        />
+        {topicsShown ? (
+          <DropdownMenu
+            align="start"
+            triggerLabel={topic === undefined ? "All topics" : topicLabel(topic)}
+            triggerAriaLabel="Topic"
+            triggerTooltip="Topic (T)"
+            entries={topicEntries(topics, topic)}
+            onSelect={(id) => onTopic?.(id === "all" ? undefined : (id as LogbookTopic))}
+            open={menu === "topic"}
+            onOpenChange={(next) => setMenu(next ? "topic" : undefined)}
+          />
+        ) : null}
         {retros || unread === true || onTidy === undefined ? null : (
           <Tooltip label="Tidy now">
             <Button variant="ghost" size="sm" iconOnly aria-label="Tidy now" pending={tidying === true} onClick={onTidy}>
@@ -294,9 +328,6 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, to
           </span>
         )}
       </div>
-      {retros || unread === true || topics === undefined || topics.length === 0 || onTopic === undefined ? null : (
-        <Chips topics={topics} topic={topic} onTopic={onTopic} />
-      )}
       {retros ? (
         <section ref={part} className="armada-logbook__fixes" aria-label="Retros" tabIndex={-1}>
           {fixes}
@@ -642,28 +673,12 @@ function Detail({
   );
 }
 
-/** All, then each topic that has entries. The arrows move between the chips, and Enter or Space presses one. */
-function Chips({ topics, topic, onTopic }: { topics: readonly LogbookTopic[]; topic: LogbookTopic | undefined; onTopic: (topic: LogbookTopic | undefined) => void }) {
-  const bar = useRef<HTMLDivElement>(null);
-  const chips: { id: LogbookTopic | undefined; label: string }[] = [{ id: undefined, label: "All" }, ...LOGBOOK_TOPICS.filter((one) => topics.includes(one.id))];
-  const step = (event: KeyboardEvent<HTMLDivElement>) => {
-    const by = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (by === 0 || event.metaKey || event.ctrlKey || event.altKey) return;
-    const all = [...(bar.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
-    const at = all.findIndex((one) => one === document.activeElement);
-    all[Math.min(all.length - 1, Math.max(0, at + by))]?.focus();
-    event.preventDefault();
-    event.stopPropagation();
-  };
-  return (
-    <div ref={bar} className="armada-logbook__chips" role="toolbar" aria-label="Topics" onKeyDown={step}>
-      {chips.map((chip) => (
-        <Button key={chip.id ?? "all"} variant={chip.id === topic ? "secondary" : "ghost"} size="sm" aria-pressed={chip.id === topic} onClick={() => onTopic(chip.id)}>
-          {chip.label}
-        </Button>
-      ))}
-    </div>
-  );
+/** All topics, then each topic that has entries, the one chosen marked. */
+function topicEntries(topics: readonly LogbookTopic[], topic: LogbookTopic | undefined): DropdownMenuEntry[] {
+  return [
+    { kind: "item", id: "all", label: "All topics", selected: topic === undefined },
+    ...LOGBOOK_TOPICS.filter((one) => topics.includes(one.id)).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, selected: one.id === topic })),
+  ];
 }
 
 /** One row of the record: its name, and its value. */
