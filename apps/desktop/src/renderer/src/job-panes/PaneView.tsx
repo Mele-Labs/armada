@@ -8,6 +8,7 @@ import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { droppable, look, peek, rearrange } from "./store";
+import { moveToWindow, whyNotWindow } from "./windows";
 import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, type Pane, type Side, type Tab, type TabKind } from "./tree";
 
 /** The words a tab reads: its own label where it has one, else its kind. */
@@ -22,10 +23,11 @@ function labelFor(jobId: string, kind: TabKind): string | undefined {
 
 const ZONES: readonly (Side | "middle")[] = ["left", "right", "top", "bottom", "middle"];
 
-/** The tab's own menu. Move to window is here and does nothing until a pane can leave the window. */
-function tabEntries(): DropdownMenuEntry[] {
+/** The tab's own menu. Move to window is there for the kinds that have a window, and says why for the rest. */
+function tabEntries(kind: TabKind): DropdownMenuEntry[] {
+  const why = whyNotWindow(kind);
   return [
-    { kind: "item", id: "window", label: "Move to window" },
+    { kind: "item", id: "window", label: "Move to window", ...(why === undefined ? {} : { disabled: true, hint: why }) },
     { kind: "item", id: "right", label: "Split right", shortcut: boundKeyFor("pane_split_right") },
     { kind: "item", id: "down", label: "Split down", shortcut: boundKeyFor("pane_split_down") },
     { kind: "separator", id: "rule" },
@@ -40,7 +42,8 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
   const choose = (id: string) => {
     look(jobId, (arrangement) => focusPane(activate(arrangement, tab.id), pane.id));
-    if (id === "right" || id === "down") splitFocused(jobId, id);
+    if (id === "window") moveToWindow(jobId, tab);
+    else if (id === "right" || id === "down") splitFocused(jobId, id);
     else if (id === "close") {
       rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
       focusIn(peek(jobId).focus);
@@ -81,7 +84,7 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
         <Glyph size={16} strokeWidth={2} aria-hidden />
         <span>{label}</span>
       </button>
-      <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries()} onSelect={choose} />
+      <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries(tab.kind)} onSelect={choose} />
     </div>
   );
 }
