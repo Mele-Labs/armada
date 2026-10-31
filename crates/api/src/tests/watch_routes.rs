@@ -80,6 +80,16 @@ async fn a_delete_answers_the_jobs_watches_after_and_a_watch_nothing_holds_is_a_
 }
 
 #[tokio::test]
+async fn a_dismissed_wait_is_a_404_where_the_job_holds_no_such_pull_request_and_a_body_with_more_is_a_400() {
+    let app = wired();
+    let (status, bytes) = call(&app, "POST", "/watches/dismiss_wait", r#"{"session_id":"job-7","pull_request":409}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(String::from_utf8_lossy(&bytes).contains("fleet.no_such_pull_request_held"));
+    let (status, _) = call(&app, "POST", "/watches/dismiss_wait", r#"{"session_id":"job-7","pull_request":409,"also":true}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn a_list_is_asked_on_the_query_string() {
     let (status, bytes) = call(&wired(), "GET", "/watches?session_id=job-7", "").await;
     assert_eq!(status, StatusCode::OK);

@@ -59,6 +59,19 @@ const watched = job("rs-watched", "Raise the upload limit", "#408 merged. The St
     { kind: "pull_request", number: 409, on: { kind: "checks", auto_merge: true } },
   ],
   attachments: [pr(409, "Raise the proxy's body limit", { state: "pending" }, { auto: true })],
+  watches: [
+    {
+      id: "rs-w-staging",
+      session_id: "rs-watched",
+      name: "Staging deploy",
+      command: ["scripts/watch/deploy-state", "9b71d03", "staging"],
+      every_seconds: 60,
+      gives_up_after_seconds: 7200,
+      state: "running",
+      live: true,
+      started_at: ago(11),
+    },
+  ],
 });
 const idle = job("rs-idle", "Design Pass Spacing", "Slot 16 is up to date with main.", 40, {});
 const replied = job("rs-replied", "Walk the gaps", "The three gaps are filed as issues.", 2, { standing: "replied" });
