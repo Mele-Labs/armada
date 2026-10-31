@@ -107,6 +107,21 @@
   text-transform: uppercase;
 }
 
+.armada-logbook__topic th {
+  height: var(--h-row-header);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-align: left;
+  text-transform: uppercase;
+}
+
 .armada-logbook__row { cursor: default; }
 .armada-logbook__row .armada-table-cell { height: var(--h-row); padding-block: var(--space-1); }
 .armada-logbook__table:focus-visible .armada-logbook__row[data-selected] { border-left-color: var(--accent); }
@@ -228,3 +243,22 @@
 .armada-logbook__fixes > .armada-lessons-page { flex: 1 1 auto; min-height: 0; padding: 0; gap: var(--space-3); }
 :root[data-look] .armada-logbook .armada-logbook__fixes > .armada-lessons-page > * { width: 100%; align-self: stretch; }
 .armada-logbook__fixes .armada-lessons-split { flex: 1 1 auto; }
+
+/* Organize's proposal, in the place of the open entry: one card per finding, its acts at the bottom right. */
+.armada-logbook__proposal-head,
+:root[data-look] .armada-logbook__band.armada-logbook__proposal-head { min-height: var(--h-row-header); padding: var(--space-4); gap: var(--space-4); }
+.armada-logbook__proposal-head .armada-logbook__head-where { gap: var(--space-4); }
+.armada-logbook__proposal-head .armada-logbook__acts { gap: var(--space-3); align-items: center; }
+.armada-logbook__proposal { margin: 0; padding: 0; list-style: none; }
+.armada-logbook__proposed { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); border-bottom: var(--border-width) solid var(--border-default); }
+.armada-logbook__proposed:last-child { border-bottom: none; }
+.armada-logbook__block { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.armada-logbook__label { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-medium); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.armada-logbook__line { display: grid; grid-template-columns: calc(var(--space-12) + var(--space-2)) minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--space-3); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); }
+.armada-logbook__line[data-muted] { color: var(--fg-muted); }
+.armada-logbook__line-kind { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-caps); }
+.armada-logbook__line-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-logbook__line:not([data-muted]) .armada-logbook__line-text { white-space: normal; overflow-wrap: anywhere; }
+.armada-logbook__line-age { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-align: right; }
+.armada-logbook__proposed-note { padding-inline-start: calc(var(--space-12) + var(--space-2) + var(--space-3)); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-logbook__proposed-acts { display: flex; justify-content: flex-end; gap: var(--space-3); }

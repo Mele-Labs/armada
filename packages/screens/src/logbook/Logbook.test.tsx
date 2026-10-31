@@ -6,7 +6,7 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookOrganizeApplied, LogbookOrganized, LogbookRead, LogbookTidy, OrganizeProposal } from "@armada/protocol";
 
 import { Logbook } from "./Logbook";
 import { forgetTidyWatch } from "./tidy-watch";
@@ -45,11 +45,18 @@ const REFUSED = {
   outcome: { ok: false as const, why: "refused" as const, error: { code: "fleet.logbook_text_refused", message: "Text over 400 characters is refused.", run_id: "r1", fields: {}, chain: [] } },
 };
 
+type Logbook_Organize = (action: "merge" | "stale" | "bugs") => Promise<LogbookOrganized>;
+type Logbook_Apply = (action: "merge" | "stale" | "bugs", proposals: OrganizeProposal[]) => Promise<LogbookOrganizeApplied>;
+
+const NONE = async (): Promise<LogbookOrganized> => ({ ok: true, action: "merge", proposals: [], failed: false });
+const NOTHING = async (): Promise<LogbookOrganizeApplied> => ({ ok: true, action: "merge", applied: 0, reported: [] });
+
 type Acts = {
   edit?: (id: string, text: string) => Promise<LogbookAnswer>;
   lock?: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   forget?: (id: string) => Promise<LogbookForgotten>;
-  tidy?: () => Promise<LogbookTidied>;
+  organize?: Logbook_Organize;
+  apply?: Logbook_Apply;
 };
 
 function opened(entries: LogbookEntry[], acts: Acts = {}) {
@@ -57,10 +64,17 @@ function opened(entries: LogbookEntry[], acts: Acts = {}) {
   const edit = vi.fn(acts.edit ?? (async (id: string, text: string): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, text, edited: true } })));
   const lock = vi.fn(acts.lock ?? (async (id: string, locked: boolean): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, locked } })));
   const forget = vi.fn(acts.forget ?? (async (): Promise<LogbookForgotten> => ({ ok: true })));
-  const tidy = vi.fn(acts.tidy ?? (async (): Promise<LogbookTidied> => ({ ok: true, running: false })));
-  mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} onTidy={tidy} />);
-  return { read, edit, lock, forget, tidy };
+  const organize = vi.fn(acts.organize ?? NONE);
+  const apply = vi.fn(acts.apply ?? NOTHING);
+  mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} onOrganize={organize} onApplyOrganize={apply} />);
+  return { read, edit, lock, forget, organize, apply };
 }
+
+/** Picks a state from the State menu. */
+const inState = async (name: string) => {
+  await page.getByRole("button", { name: "State" }).click();
+  await page.getByRole("menuitem", { name }).click();
+};
 
 const entries = () => page.getByRole("grid", { name: "Entries" });
 /** An entry's line in the log, by the words its title starts with. */
@@ -80,10 +94,10 @@ test("the tabs show the entries in one state each: In use first, then New and Ar
   opened([WIDGETS, NEW, OLD]);
   await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   expect(line(/Seen once/).elements()).toHaveLength(0);
-  await page.getByRole("tab", { name: "New" }).click();
+  await inState("New");
   await expect.element(line(/Seen once/)).toBeVisible();
   expect(line(/Run specs with bin\/rspec/).elements()).toHaveLength(0);
-  await page.getByRole("tab", { name: "Archived" }).click();
+  await inState("Archived");
   await expect.element(line(/Faded words/)).toBeVisible();
 });
 
@@ -171,29 +185,24 @@ test("a refused Forget leaves the entry and says so", async () => {
 
 test("a Logbook Fleet could not read says so in place of the panels", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: false, outcome: { ok: false, why: "not_connected" } }));
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} />);
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onApplyOrganize={NOTHING} />);
   await expect.element(page.getByText("Fleet serves no Logbook yet.")).toBeVisible();
 });
 
-const tidyButton = () => page.getByRole("button", { name: "Tidy now" });
 const status = () => page.getByRole("status");
 
 const EARLIER = { merged: 4, at: "2026-10-20T08:00:00.000Z", failed: false };
 const FINISHED = "2026-10-23T09:00:00.000Z";
 const SEVERAL = 3_000;
 
-/** A Logbook whose Tidy state and entries the test moves; the poll's timer is the only fake. */
+/** A Logbook whose Tidy state the test moves, as the weekly pass moves it; the poll's timer is the only fake. */
 function tidying(first: LogbookTidy, entries: LogbookEntry[] = [WIDGETS]) {
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
   const fleet = { tidy: first, entries };
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: fleet.entries, tidy: fleet.tidy }));
-  const onTidy = vi.fn(async (): Promise<LogbookTidied> => {
-    fleet.tidy = { ...fleet.tidy, running: true };
-    return { ok: true, running: true };
-  });
-  const open = () => mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={onTidy} />);
+  const open = () => mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onApplyOrganize={NOTHING} />);
   open();
-  return { fleet, read, onTidy, reopen: () => (unmount(), open()) };
+  return { fleet, read, reopen: () => (unmount(), open()) };
 }
 
 afterEach(() => {
@@ -201,71 +210,33 @@ afterEach(() => {
   forgetTidyWatch();
 });
 
-test("Tidy now says Tidying until the read says the pass ended, then states what it merged and reads the entries again", async () => {
-  const survivor = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
-  const { fleet, read, onTidy } = tidying({ running: false, last: EARLIER }, [WIDGETS, survivor]);
-  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
-  await expect.element(status()).not.toHaveTextContent("Merged");
-  await tidyButton().click();
-  await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
-  await expect.element(status()).toHaveTextContent("Tidying");
-  await tidyButton().click({ force: true });
-  expect(onTidy).toHaveBeenCalledTimes(1);
-  await vi.advanceTimersByTimeAsync(SEVERAL);
-  await expect.element(status()).toHaveTextContent("Tidying");
-  fleet.tidy = { running: false, last: { merged: 12, at: FINISHED, failed: false } };
-  fleet.entries = [survivor];
-  await vi.advanceTimersByTimeAsync(SEVERAL);
-  await expect.element(status()).toHaveTextContent("Merged 12 entries");
-  await expect.element(tidyButton()).not.toHaveAttribute("aria-busy");
-  expect(line(/Run specs with bin\/rspec/).elements()).toHaveLength(0);
-  const reads = read.mock.calls.length;
-  await vi.advanceTimersByTimeAsync(SEVERAL * 3);
-  expect(read).toHaveBeenCalledTimes(reads);
-});
-
 test.each([
   ["Nothing to merge", { merged: 0, at: FINISHED, failed: false }],
   ["Merged 1 entry", { merged: 1, at: FINISHED, failed: false }],
   ["Tidy failed after merging 3 entries", { merged: 3, at: FINISHED, failed: true }],
-  ["Tidy failed after merging 1 entry", { merged: 1, at: FINISHED, failed: true }],
   ["Tidy failed before merging anything", { merged: 0, at: FINISHED, failed: true }],
 ])("a finished pass reads %s", async (words, last) => {
-  const { fleet } = tidying({ running: false });
-  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
-  await tidyButton().click();
+  const { fleet } = tidying({ running: true, last: EARLIER });
+  await expect.element(status()).toHaveTextContent("Tidying");
   fleet.tidy = { running: false, last };
   await vi.advanceTimersByTimeAsync(SEVERAL);
   await expect.element(status()).toHaveTextContent(words);
 });
 
-test("a page opened while a pass runs already says Tidying, and states the result when it ends", async () => {
-  const { fleet } = tidying({ running: true, last: EARLIER });
-  await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
+test("a page opened while a pass runs says Tidying and polls until it ends", async () => {
+  const { fleet, read } = tidying({ running: true, last: EARLIER });
   await expect.element(status()).toHaveTextContent("Tidying");
+  const reads = read.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  expect(read.mock.calls.length).toBeGreaterThan(reads);
   fleet.tidy = { running: false, last: { merged: 2, at: FINISHED, failed: false } };
   await vi.advanceTimersByTimeAsync(SEVERAL);
   await expect.element(status()).toHaveTextContent("Merged 2 entries");
 });
 
-test("leaving the Logbook mid-pass and coming back to a pass still running says Tidying and polls again", async () => {
-  const { fleet, read, reopen } = tidying({ running: false, last: EARLIER });
-  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
-  await tidyButton().click();
-  reopen();
-  await expect.element(status()).toHaveTextContent("Tidying");
-  const reads = read.mock.calls.length;
-  await vi.advanceTimersByTimeAsync(SEVERAL);
-  expect(read.mock.calls.length).toBeGreaterThan(reads);
-  fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
-  await vi.advanceTimersByTimeAsync(SEVERAL);
-  await expect.element(status()).toHaveTextContent("Merged 5 entries");
-});
-
 test("a pass that ended while the page was closed is stated once when it is opened again", async () => {
-  const { fleet, reopen } = tidying({ running: false, last: EARLIER });
-  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
-  await tidyButton().click();
+  const { fleet, reopen } = tidying({ running: true, last: EARLIER });
+  await expect.element(status()).toHaveTextContent("Tidying");
   fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
   reopen();
   await expect.element(status()).toHaveTextContent("Merged 5 entries");
@@ -282,11 +253,73 @@ test("a pass that ended before the page opened is not announced", async () => {
   await expect.element(status()).toHaveTextContent("");
 });
 
-test("a refused Tidy says why in Fleet's words and leaves the list as it was", async () => {
-  const { read } = opened([WIDGETS], { tidy: async () => REFUSED });
-  await tidyButton().click();
-  await expect.element(page.getByRole("status")).toHaveTextContent("Text over 400 characters is refused.");
-  expect(read).toHaveBeenCalledTimes(1);
+const organizeMenu = () => page.getByRole("button", { name: "Organize" });
+const choose = async (name: string) => {
+  await organizeMenu().click();
+  await page.getByRole("menuitem", { name }).click();
+};
+
+const DUPLICATE = entry("10", { section: "repo", repository: "/Users/user/widgets", text: "Run the specs with bin/rspec." });
+
+test("Organize has no Tidy button, and offers its three looks", async () => {
+  opened([WIDGETS]);
+  await expect.element(organizeMenu()).toBeVisible();
+  expect(page.getByRole("button", { name: "Tidy now" }).elements()).toHaveLength(0);
+  await organizeMenu().click();
+  await expect.element(page.getByRole("menuitem", { name: "Merge duplicates" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Find stale entries" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Find Armada bugs" })).toBeVisible();
+});
+
+test("Merge duplicates asks for the merge action and shows the kept entry with the ones it replaces", async () => {
+  const { organize } = opened([WIDGETS, DUPLICATE], {
+    organize: async () => ({ ok: true, action: "merge", proposals: [{ id: "1", entry_ids: ["1", "10"], text: "Run specs with bin/rspec.", note: "" }], failed: false }),
+  });
+  await choose("Merge duplicates");
+  await expect.element(page.getByText("Keeps")).toBeVisible();
+  await expect.element(page.getByText("Replaces")).toBeVisible();
+  await expect.element(page.getByRole("list", { name: "Proposals" }).getByText("Run the specs with bin/rspec.")).toBeVisible();
+  expect(organize).toHaveBeenCalledWith("merge");
+});
+
+test("Apply sends the proposals back as Organize answered them, then reads the entries again and states the count", async () => {
+  const proposal = { id: "1", entry_ids: ["1", "10"], text: "Run specs with bin/rspec.", note: "" };
+  const { apply, read } = opened([WIDGETS, DUPLICATE], {
+    organize: async () => ({ ok: true, action: "merge", proposals: [proposal], failed: false }),
+    apply: async () => ({ ok: true, action: "merge", applied: 1, reported: [] }),
+  });
+  await choose("Merge duplicates");
+  await page.getByRole("button", { name: "Apply all" }).click();
+  await expect.element(status()).toHaveTextContent("Merged 1 entry");
+  expect(apply).toHaveBeenCalledWith("merge", [proposal]);
+  expect(read).toHaveBeenCalledTimes(2);
+});
+
+test("a failed look says Failed in the status line, beside the proposals that did arrive", async () => {
+  opened([WIDGETS], {
+    organize: async () => ({ ok: true, action: "stale", proposals: [{ id: "1", entry_ids: ["1"], text: WIDGETS.text, note: "Not confirmed in 60 days" }], failed: true }),
+  });
+  await choose("Find stale entries");
+  await expect.element(status()).toHaveTextContent("Failed");
+  await expect.element(page.getByText("Not confirmed in 60 days")).toBeVisible();
+});
+
+test("a look with nothing to propose says Nothing found", async () => {
+  opened([WIDGETS]);
+  await choose("Find stale entries");
+  await expect.element(status()).toHaveTextContent("Nothing found");
+});
+
+const GIT = entry("11", { section: "repo", repository: "/Users/user/widgets", text: "Rebase before pushing.", topic: "git" });
+
+test("entries group under their topic, and the Topic menu narrows the page to one", async () => {
+  opened([WIDGETS, GIT]);
+  await expect.element(line(/Rebase before pushing/)).toBeVisible();
+  await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
+  await page.getByRole("button", { name: "Topic" }).click();
+  await page.getByRole("menuitem", { name: "Git" }).click();
+  await expect.element(line(/Rebase before pushing/)).toBeVisible();
+  expect(line(/Run specs with bin\/rspec/).elements()).toHaveLength(0);
 });
 
 test("an earlier text Tidy merged in is marked Merged, apart from one the person or Armada replaced", async () => {
@@ -320,23 +353,23 @@ test("an entry's line reads its title, or the first clause of its rule where it 
 
 test("the retro items are a tab of their own, drawn in place of the entries", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: [WIDGETS], tidy: { running: false } }));
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} fixes={<p>The retro items</p>} />);
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onApplyOrganize={NOTHING} fixes={<p>The retro items</p>} />);
   await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   expect(page.getByText("The retro items").elements()).toHaveLength(0);
-  await page.getByRole("tab", { name: "Retros" }).click();
+  await inState("Retros");
   await expect.element(page.getByRole("region", { name: "Retros" }).getByText("The retro items")).toBeVisible();
   expect(page.getByRole("grid", { name: "Entries" }).elements()).toHaveLength(0);
-  await page.getByRole("tab", { name: "In use" }).click();
+  await inState("In use");
   await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   expect(page.getByText("The retro items").elements()).toHaveLength(0);
 });
 
 test("asked for the retro items, the Logbook opens on Retros, and turns to it again when asked while open", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: [WIDGETS], tidy: { running: false } }));
-  const at = (toFixes: number) => <Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} fixes={<p>The retro items</p>} toFixes={toFixes} />;
+  const at = (toFixes: number) => <Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onOrganize={NONE} onApplyOrganize={NOTHING} fixes={<p>The retro items</p>} toFixes={toFixes} />;
   mount(at(1));
   await expect.element(page.getByText("The retro items")).toBeVisible();
-  await page.getByRole("tab", { name: "In use" }).click();
+  await inState("In use");
   await expect.element(line(/Run specs with bin\/rspec/)).toBeVisible();
   rerender(at(2));
   await expect.element(page.getByText("The retro items")).toBeVisible();

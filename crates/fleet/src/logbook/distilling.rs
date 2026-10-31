@@ -213,6 +213,8 @@ where
             }
         }
         self.logbook_written(&root).await;
+        // This task is the distil's own, so the sort never holds up a noting.
+        self.logbook_sorted(&root, true).await;
         Ok(())
     }
 }

@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import {
   BookDashed,
   BookMarked,
   BookPlus,
+  Bug,
+  CalendarX,
   CircleAlert,
   Combine,
   Container,
@@ -11,9 +13,10 @@ import {
   Ruler,
   SquareChevronRight,
   TrafficCone,
+  X,
   type LucideIcon,
 } from "lucide-react";
-import type { LogbookEarlier, LogbookEntry, LogbookKind, LogbookState } from "@armada/protocol";
+import type { LogbookEarlier, LogbookEntry, LogbookKind, LogbookState, LogbookTopic } from "@armada/protocol";
 
 import { keyFor } from "../../actions";
 import { forgetKept, readKept } from "../../keep";
@@ -21,9 +24,9 @@ import { isPressed, pressedSlot } from "../../keymap";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
+import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
-import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
@@ -42,8 +45,36 @@ import { ageOf } from "../../time-format";
  * forget it, and `Esc` backs out a level. The tabs take the arrows when focused.
  */
 
+/** The three ways Organize looks through the entries. */
+export type OrganizeAction = "merge" | "stale" | "bugs";
+/** One proposal row: the entry it is about, why, and for a merge the entries folded into it. */
+export type OrganizeFolded = { text: string; kind: LogbookKind; confirmed: string };
+export type OrganizeRow = { id: string; text: string; kind: LogbookKind; confirmed: string; note: string; absorbed?: readonly OrganizeFolded[] };
+export type OrganizeProposal = { action: OrganizeAction; rows: readonly OrganizeRow[] };
+
+const ORGANIZE: Record<OrganizeAction, { label: string; hint: string; Glyph: LucideIcon; all: string; title: string }> = {
+  merge: { label: "Merge duplicates", hint: "Folds near-duplicate entries into one", Glyph: Combine, all: "Apply all", title: "Merge duplicates" },
+  stale: { label: "Find stale entries", hint: "Entries no recent Job has confirmed or tripped", Glyph: CalendarX, all: "Archive all", title: "Stale entries" },
+  bugs: { label: "Find Armada bugs", hint: "Entries that work around a fault in Armada itself, such as a tool refusing or erroring", Glyph: Bug, all: "Report all", title: "Armada bugs" },
+};
+
 /** One panel: a repository's Logbook, Habits, or This Mac. `hint` is what its header says on hover. */
 export type LogbookPanel = { key: string; title: string; hint: string; entries: readonly LogbookEntry[] };
+
+/** The fixed topics, in the order the chips and the groups in a panel read. */
+export const LOGBOOK_TOPICS: readonly { id: LogbookTopic; label: string }[] = [
+  { id: "git", label: "Git and PRs" },
+  { id: "slots", label: "Slots and worktrees" },
+  { id: "testing", label: "Testing and checks" },
+  { id: "tools", label: "Fleet and Bridge tools" },
+  { id: "mac", label: "Mac and shell" },
+  { id: "other", label: "Other" },
+];
+
+/** The topic an entry is drawn under: the one the sorter placed it in, or Other. */
+export const topicOf = (entry: Pick<LogbookEntry, "topic">): LogbookTopic => entry.topic ?? "other";
+
+const topicLabel = (id: LogbookTopic): string => LOGBOOK_TOPICS.find((one) => one.id === id)?.label ?? "Other";
 
 /** A tab: the entries in one state, or the retro items. */
 export type LogbookShown = LogbookState | "retros";
@@ -59,6 +90,11 @@ export type LogbookViewProps = {
   toFixes?: number;
   /** The Logbook could not be read, so only the Retros tab is drawn. */
   unread?: boolean;
+  /** The topics that have entries under this tab, drawn as chips above the list after All. Absent, no chips. */
+  topics?: readonly LogbookTopic[];
+  /** The topic chosen; absent is All. */
+  topic?: LogbookTopic;
+  onTopic?: (topic: LogbookTopic | undefined) => void;
   /** The entry open on the right. */
   selected?: string;
   onSelect: (id: string) => void;
@@ -74,6 +110,18 @@ export type LogbookViewProps = {
   tidying?: boolean;
   /** What the last tidy came to, as a plain fact. */
   tidied?: string;
+  /** Organize: looks through the entries in one of three ways. Absent, the Tidy button is drawn instead. */
+  onOrganize?: (action: OrganizeAction) => void;
+  /** Fleet is looking, so the menu is off. */
+  organizing?: boolean;
+  /** What the last look found, drawn in place of the open entry. */
+  proposal?: OrganizeProposal;
+  /** The proposal's one act on every row left. */
+  onApplyAll?: () => void;
+  /** The proposal's act on one row. */
+  onApplyRow?: (id: string) => void;
+  onDismissRow?: (id: string) => void;
+  onCloseProposal?: () => void;
   /** Opens the Job an evidence row came from. */
   onOpenJob?: (jobId: string) => void;
   /** What else an entry changed, drawn under its text. Absent, or absent for an entry, nothing is drawn. */
@@ -185,7 +233,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOpenJob, also, refusal, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, topics, topic, onTopic, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOrganize, organizing, proposal, onApplyAll, onApplyRow, onDismissRow, onCloseProposal, onOpenJob, also, refusal, now }: LogbookViewProps) {
   const list = useRef<HTMLTableElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -211,6 +259,11 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
     if (next !== undefined) onSelect(next.id);
   };
 
+  const [menu, setMenu] = useState<"state" | "topic" | "organize" | undefined>(undefined);
+  const topicsShown = !(shown === "retros" && fixes !== undefined) && unread !== true && topics !== undefined && topics.length > 0 && onTopic !== undefined;
+
+  const organizeShown = onOrganize !== undefined && unread !== true && !(shown === "retros" && fixes !== undefined);
+
   function pressed(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const target = event.target as HTMLElement;
@@ -225,6 +278,27 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
     }
     // The retro items keep their own keys.
     if (part.current?.contains(target) === true) return;
+    if (event.key === "s" && !event.shiftKey) {
+      event.preventDefault();
+      setMenu("state");
+      return;
+    }
+    if (event.key === "t" && !event.shiftKey && topicsShown) {
+      event.preventDefault();
+      setMenu("topic");
+      return;
+    }
+    if (event.key === "o" && !event.shiftKey && organizeShown) {
+      event.preventDefault();
+      setMenu("organize");
+      return;
+    }
+    if (isPressed("close", event) && proposal !== undefined && detail.current?.contains(target) === true) {
+      event.preventDefault();
+      onCloseProposal?.();
+      list.current?.focus();
+      return;
+    }
     const inList = list.current?.contains(target) === true;
     const slot = pressedSlot("move_focus", event);
     if (slot !== -1 && inList) {
@@ -260,8 +334,41 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
   return (
     <div className="armada-logbook" onKeyDown={pressed}>
       <div className="armada-logbook__filters">
-        <Tabs items={tabs} value={shown} onChange={(id) => onShown(id as LogbookShown)} />
-        {retros || unread === true || onTidy === undefined ? null : (
+        <DropdownMenu
+          align="start"
+          triggerLabel={tabs.find((one) => one.id === shown)?.label ?? "In use"}
+          triggerAriaLabel="State"
+          triggerTooltip="State (S)"
+          entries={tabs.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, hint: one.hint, selected: one.id === shown }))}
+          onSelect={(id) => onShown(id as LogbookShown)}
+          open={menu === "state"}
+          onOpenChange={(next) => setMenu(next ? "state" : undefined)}
+        />
+        {topicsShown ? (
+          <DropdownMenu
+            align="start"
+            triggerLabel={topic === undefined ? "All topics" : topicLabel(topic)}
+            triggerAriaLabel="Topic"
+            triggerTooltip="Topic (T)"
+            entries={topicEntries(topics, topic)}
+            onSelect={(id) => onTopic?.(id === "all" ? undefined : (id as LogbookTopic))}
+            open={menu === "topic"}
+            onOpenChange={(next) => setMenu(next ? "topic" : undefined)}
+          />
+        ) : null}
+        {organizeShown ? (
+          <DropdownMenu
+            align="start"
+            triggerLabel="Organize"
+            triggerTooltip="Organize (O)"
+            disabled={organizing === true}
+            entries={(Object.keys(ORGANIZE) as OrganizeAction[]).map((id): DropdownMenuEntry => ({ kind: "item", id, label: ORGANIZE[id].label, icon: ORGANIZE[id].Glyph, hint: ORGANIZE[id].hint }))}
+            onSelect={(id) => onOrganize?.(id as OrganizeAction)}
+            open={menu === "organize"}
+            onOpenChange={(next) => setMenu(next ? "organize" : undefined)}
+          />
+        ) : null}
+        {retros || unread === true || onTidy === undefined || onOrganize !== undefined ? null : (
           <Tooltip label="Tidy now">
             <Button variant="ghost" size="sm" iconOnly aria-label="Tidy now" pending={tidying === true} onClick={onTidy}>
               <Combine size={12} strokeWidth={2} aria-hidden />
@@ -317,9 +424,16 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
                       </th>
                     </Tooltip>
                   </tr>
-                  {panel.entries.map((entry) => (
+                  {panel.entries.map((entry, at) => (
+                    <Fragment key={entry.id}>
+                    {topic !== undefined || topics === undefined || (at > 0 && topicOf(panel.entries[at - 1]!) === topicOf(entry)) ? null : (
+                      <tr className="armada-logbook__topic">
+                        <th scope="rowgroup" colSpan={5}>
+                          {topicLabel(topicOf(entry))}
+                        </th>
+                      </tr>
+                    )}
                     <TableRow
-                      key={entry.id}
                       id={optionId(entry.id)}
                       aria-selected={entry.id === selected}
                       selected={entry.id === selected}
@@ -345,13 +459,16 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
                         </Tooltip>
                       </TableCell>
                     </TableRow>
+                    </Fragment>
                   ))}
                 </TableBody>
               ))}
             </table>
           </div>
-          <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
-            {open === undefined ? null : (
+          <section ref={detail} className="armada-logbook__detail" aria-label={proposal === undefined ? "Entry" : "Proposal"} tabIndex={-1}>
+            {proposal !== undefined ? (
+              <Proposal proposal={proposal} now={now} onApplyAll={() => onApplyAll?.()} onApply={(id) => onApplyRow?.(id)} onDismiss={(id) => onDismissRow?.(id)} onClose={() => onCloseProposal?.()} />
+            ) : open === undefined ? null : (
               <Detail
                 key={open.id}
                 entry={open}
@@ -503,6 +620,7 @@ function Detail({
           <TableBody>
             <Fact name="Kept in">{where}</Fact>
             <Fact name="Kind">{KIND[entry.kind].said}</Fact>
+            {entry.topic === undefined ? null : <Fact name="Topic">{topicLabel(entry.topic)}</Fact>}
             <Fact name="State">{STATE[entry.state].word}</Fact>
             <Fact name="Confirmed by" mono>
               {entry.confirmed_by === 1 ? "1 Job" : `${entry.confirmed_by} Jobs`}
@@ -610,6 +728,14 @@ function Detail({
   );
 }
 
+/** All topics, then each topic that has entries, the one chosen marked. */
+function topicEntries(topics: readonly LogbookTopic[], topic: LogbookTopic | undefined): DropdownMenuEntry[] {
+  return [
+    { kind: "item", id: "all", label: "All topics", selected: topic === undefined },
+    ...LOGBOOK_TOPICS.filter((one) => topics.includes(one.id)).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, selected: one.id === topic })),
+  ];
+}
+
 /** One row of the record: its name, and its value. */
 function Fact({ name, mono = false, children }: { name: string; mono?: boolean; children: ReactNode }) {
   return (
@@ -631,7 +757,86 @@ function Stamp({ at, now }: { at: string; now: number }) {
   );
 }
 
-/** An act on the entry, with the key that does it beside its name. */
+/** One entry as the list draws it: kind code, text on one line, last confirmed. */
+function ProposedLine({ kind, text, confirmed, muted, now }: { kind: LogbookKind; text: string; confirmed: string; muted?: boolean; now: number }) {
+  return (
+    <div className="armada-logbook__line" data-muted={muted === true ? "" : undefined}>
+      <Tooltip label={KIND[kind].said}>
+        <span className="armada-logbook__line-kind">{KIND[kind].code}</span>
+      </Tooltip>
+      <span className="armada-logbook__line-text">
+        <Words text={text} />
+      </span>
+      <span className="armada-logbook__line-age">
+        <Stamp at={confirmed} now={now} />
+      </span>
+    </div>
+  );
+}
+
+/** What Organize found, one card per finding, each with its own act and dismiss. */
+function Proposal({ proposal, now, onApplyAll, onApply, onDismiss, onClose }: { proposal: OrganizeProposal; now: number; onApplyAll: () => void; onApply: (id: string) => void; onDismiss: (id: string) => void; onClose: () => void }) {
+  const one = ORGANIZE[proposal.action];
+  const merging = proposal.action === "merge";
+  return (
+    <div className="armada-logbook__card">
+      <div className="armada-logbook__band armada-logbook__head-band armada-logbook__proposal-head">
+        <span className="armada-logbook__head-kind">
+          <one.Glyph size={12} strokeWidth={2} aria-hidden />
+          {one.title}
+        </span>
+        <span className="armada-logbook__head-where">
+          <span className="armada-logbook__acts">
+            <Button variant="primary" size="sm" onClick={onApplyAll} disabled={proposal.rows.length === 0}>
+              {one.all}
+            </Button>
+            <Tooltip label="Close">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Close" onClick={onClose}>
+                <X size={12} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </span>
+        </span>
+      </div>
+      <ul className="armada-logbook__body armada-logbook__proposal" aria-label="Proposals">
+        {proposal.rows.map((row) => (
+          <li key={row.id} className="armada-logbook__proposed">
+            {merging ? (
+              <>
+                <div className="armada-logbook__block">
+                  <span className="armada-logbook__label">Keeps</span>
+                  <ProposedLine kind={row.kind} text={row.text} confirmed={row.confirmed} now={now} />
+                </div>
+                <div className="armada-logbook__block">
+                  <span className="armada-logbook__label">Replaces</span>
+                  {(row.absorbed ?? []).map((folded) => (
+                    <ProposedLine key={folded.text} kind={folded.kind} text={folded.text} confirmed={folded.confirmed} muted now={now} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="armada-logbook__block">
+                <ProposedLine kind={row.kind} text={row.text} confirmed={row.confirmed} now={now} />
+                {row.note === "" ? null : <span className="armada-logbook__proposed-note">{row.note}</span>}
+              </div>
+            )}
+            <div className="armada-logbook__proposed-acts">
+              {merging ? (
+                <Button variant="secondary" size="sm" onClick={() => onApply(row.id)}>
+                  Apply
+                </Button>
+              ) : null}
+              <Button variant="ghost" size="sm" onClick={() => onDismiss(row.id)}>
+                Dismiss
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Act({ label, act, tip, onPress }: { label: string; act: string; tip?: string; onPress: () => void }) {
   const key = keyFor(act);
   const button = (
