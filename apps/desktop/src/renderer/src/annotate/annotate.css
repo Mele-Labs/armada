@@ -164,6 +164,114 @@
   flex-wrap: wrap;
 }
 
+/* The card's tools: a row of glyphs, the picked one's tokens under it, then what was changed. */
+.armada-annotate__tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-annotate__toolbar {
+  display: flex;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* A token row: its label in a column of its own, so Padding's steps and Gap's start in one place. */
+.armada-annotate__picker {
+  display: grid;
+  grid-template-columns: var(--space-12) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-1);
+}
+
+.armada-annotate__picker-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.armada-annotate__picker-label {
+  align-self: center;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+
+.armada-annotate__swatch {
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  padding: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--annotate-swatch);
+  cursor: pointer;
+}
+
+.armada-annotate__swatch[aria-pressed="true"] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-annotate__swatch:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* One grid down the changes, each row's cells in it, so the values, the tokens and Undo line up. */
+.armada-annotate__changes {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-annotate__change {
+  display: contents;
+}
+
+.armada-annotate__change-property {
+  color: var(--fg-muted);
+}
+
+.armada-annotate__change-values {
+  overflow-wrap: anywhere;
+}
+
+.armada-annotate__change-token {
+  color: var(--fg-subtle);
+}
+
+.armada-annotate__examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-annotate__example {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.armada-annotate__thumb {
+  display: block;
+  width: var(--space-12);
+  height: var(--space-12);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  object-fit: cover;
+}
+
 .armada-annotate__bar {
   position: fixed;
   bottom: var(--space-3);

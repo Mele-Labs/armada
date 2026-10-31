@@ -8,16 +8,18 @@ import {
   useMemo,
   useRef,
   useState,
+  type ClipboardEvent,
   type CSSProperties,
+  type DragEvent,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Button, Checkbox, JobCard, KbdChord, SearchField, SplitButton, Tabs, Textarea, Tooltip } from "@armada/components";
+import { Button, Checkbox, forgetKept, JobCard, KbdChord, SearchField, SplitButton, Tabs, Textarea, Tooltip } from "@armada/components";
 
 
 import type { BridgeApi } from "../../../shared/api";
-import { byCreation, sentAs, shotName, type Annotation, type Box, type Sent } from "../../../shared/annotations";
+import { byCreation, exampleName, sentAs, shotName, type Annotation, type Box, type Sent, type StyleChange } from "../../../shared/annotations";
 import { pngSize, ringOn } from "../../../shared/ring";
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
@@ -46,6 +48,7 @@ import { sendToSession, unsendable, type SessionTarget } from "./send";
 import { painted, withoutLayer } from "./shoot";
 import type { Sink } from "./sink";
 import { inLayer, targetOf } from "./target";
+import { asPng, Examples, imagesIn, Tools } from "./Tools";
 import "./annotate.css";
 
 /** ⌥⌘A. Free in Bridge's key map and in Electron's default menu, beside ⌥⌘I for devtools. */
@@ -68,8 +71,39 @@ export const ON_KEY = "armada.annotate.on";
 /** Pointer events the layer takes from the app while it is on, so a click annotates rather than acts. */
 const SWALLOWED = ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"] as const;
 
-/** `png` is a whole-window note's picture, taken as it was begun so it shows the state the person saw. */
-type Draft = { note: Annotation; element: Element; text: string; png?: ArrayBuffer | null };
+/**
+ * `png` is a whole-window note's picture, taken as it was begun so it shows the state the person saw. `changes` and
+ * `examples` are what he made with the card's tools, kept on the note as it is saved; an example's bytes are in `pictures`.
+ */
+type Draft = { note: Annotation; element: Element; text: string; png?: ArrayBuffer | null; changes?: StyleChange[]; examples?: string[] };
+
+/** One empty list, so a note with no changes hands the tools the same one each render. */
+const NONE: StyleChange[] = [];
+
+/** Whether the person has put anything on the draft: words, a change or a picture. A stray click does not throw it away. */
+const begun = (draft: Draft | null): boolean =>
+  draft !== null && (draft.text.trim() !== "" || (draft.changes?.length ?? 0) > 0 || (draft.examples?.length ?? 0) > 0);
+
+/** What a text box on note `id` keeps its words under. */
+const keptAs = (id: string, box: string): string => `annotate:${box}:${id}`;
+
+/** `note` with these changes, and no field for them where there are none. */
+function withChanges(note: Annotation, changes: StyleChange[]): Annotation {
+  const { changes: _was, ...rest } = note;
+  return changes.length === 0 ? rest : { ...rest, changes };
+}
+
+/** `note` with these example pictures, and no field for them where there are none. */
+function withExamples(note: Annotation, examples: string[]): Annotation {
+  const { examples: _was, ...rest } = note;
+  return examples.length === 0 ? rest : { ...rest, examples };
+}
+
+/** The number the next of note `id`'s example pictures takes, after the highest it has. */
+function nextExample(id: string, names: readonly string[]): number {
+  const prefix = `${id}-example-`;
+  return names.reduce((most, name) => Math.max(most, Number(name.slice(prefix.length, -".png".length)) || 0), 0) + 1;
+}
 
 const boxOf = (element: Element): Box => {
   const r = element.getBoundingClientRect();
@@ -143,6 +177,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   // Screens whose group is folded in the panel, by name; "" is no screen.
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   const [frames, setFrames] = useState<Record<string, Box | null>>({});
+  // Example pictures' bytes by file name: a draft's, held until it is saved, and a saved note's, read back to be shown.
+  const [pictures, setPictures] = useState<Record<string, ArrayBuffer>>({});
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  // An edit to a saved note's changes, written a beat after the last one so typing in Text is not a write a key.
+  const pendingRef = useRef<number | null>(null);
   // Which send is out: one note's id, or every open note on this screen.
   const [sending, setSending] = useState<string | null>(null);
   // Notes ticked in the panel, by id, for one act on all of them. Read through
@@ -268,7 +308,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       if (event.type !== "click") return;
       const element = targetOf(event.target);
       // A note half written is not thrown away by a stray click.
-      if (element === null || (draftRef.current !== null && draftRef.current.text.trim() !== "")) return;
+      if (element === null || begun(draftRef.current)) return;
       setOpened(null);
       setDraft({ note: capture(element, new Date()), element, text: "" });
     }
@@ -317,6 +357,23 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     return () => cancelAnimationFrame(frame);
   }, [on, notes, hovered, draft]);
 
+  // The open note's example pictures, read back from beside it once each, to be shown on its card.
+  const askedRef = useRef(new Set<string>());
+  useEffect(() => {
+    const note = notes.find((n) => n.id === opened);
+    if (note === undefined) return;
+    for (const name of note.examples ?? []) {
+      if (askedRef.current.has(name)) continue;
+      askedRef.current.add(name);
+      sink.example(note.id, name).then(
+        (png) => {
+          if (png !== null) setPictures((was) => (name in was ? was : { ...was, [name]: png }));
+        },
+        () => askedRef.current.delete(name),
+      );
+    }
+  }, [opened, notes, sink]);
+
   /**
    * A picture of the window, kept as note `id`'s, and where `on`, the element's box, is on it; null where none was taken or
    * kept. A whole-window note's `on` is null: nothing on it is ringed. A picture that fails to keep is told, and the note is
@@ -343,7 +400,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
    * and the card opened for what they say. A note half written is not thrown away for it.
    */
   async function shootWindow(): Promise<void> {
-    if (draftRef.current !== null && draftRef.current.text.trim() !== "") return;
+    if (begun(draftRef.current)) return;
     const now = new Date();
     const png = sink.via === "main" ? await shooter.capture(windowBox()).catch(() => null) : null;
     const note = captureWindow(now);
@@ -412,13 +469,19 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       // Taken here, once: a draft is always a new note, and nothing rewrites a saved note's text.
       const on = begun.scope === "window" ? null : draft.element.isConnected ? boxOf(draft.element) : draft.note.box;
       const shot = await keepShot(begun.id, on, draft.png);
+      const changes = draft.changes ?? [];
+      const examples = (draft.examples ?? []).filter((name) => pictures[name] !== undefined);
+      for (const name of examples) await sink.saveExample(begun.id, name, pictures[name]!);
       const note: Annotation = {
         ...begun,
         text: draft.text.trim(),
         ...shot,
+        ...(changes.length === 0 ? {} : { changes }),
+        ...(examples.length === 0 ? {} : { examples }),
         updatedAt: new Date().toISOString(),
       };
       await sink.save(note);
+      forgetKept(keptAs(note.id, "note"));
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
       setDraft(null);
       reportedOffRef.current = false;
@@ -431,6 +494,97 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       savingRef.current = false;
     }
   }
+
+  /**
+   * A saved note with `patch` on it, shown at once and written to its file: now, or a beat after the last edit where
+   * `soon`, so a run of edits is one write. Read from the notes as they are, so an edit made while a picture was read is kept.
+   */
+  function edit(id: string, patch: (was: Annotation) => Annotation, soon = false): void {
+    const was = notesRef.current.find((n) => n.id === id);
+    if (was === undefined) return;
+    const next: Annotation = { ...patch(was), updatedAt: new Date().toISOString() };
+    notesRef.current = notesRef.current.map((n) => (n.id === id ? next : n));
+    setNotes(notesRef.current);
+    if (pendingRef.current !== null) window.clearTimeout(pendingRef.current);
+    const write = (): void => {
+      pendingRef.current = null;
+      // Read again as it goes, so the last of a run of edits is what is written.
+      const latest = notesRef.current.find((n) => n.id === id);
+      if (latest !== undefined) sink.save(latest).catch((cause: unknown) => fail("Saving", cause));
+    };
+    if (soon) pendingRef.current = window.setTimeout(write, 400);
+    else write();
+  }
+
+  /** Changes made with the card's tools: a draft's kept on it, a saved note's written to it. */
+  function changed(into: Annotation | null, changes: StyleChange[]): void {
+    if (into === null) setDraft((was) => (was === null ? was : { ...was, changes }));
+    else edit(into.id, (was) => withChanges(was, changes), true);
+  }
+
+  /**
+   * Pictures pasted or dropped on a card, each kept as a PNG among the note's examples: a draft's held until it is saved,
+   * a saved note's written beside it at once. One that is not an image is told and left out.
+   */
+  async function addExamples(into: Annotation | null, files: readonly File[]): Promise<void> {
+    const id = into?.id ?? draftRef.current?.note.id;
+    if (id === undefined) return;
+    let names = into === null ? draftRef.current?.examples ?? [] : notesRef.current.find((n) => n.id === id)?.examples ?? [];
+    for (const file of files) {
+      const png = await asPng(file).catch(() => null);
+      if (png === null) {
+        tell(`Picture not added: ${file.name} is not an image`);
+        continue;
+      }
+      const name = exampleName(id, nextExample(id, names));
+      if (into !== null) {
+        try {
+          await sink.saveExample(id, name, png);
+        } catch (cause) {
+          fail("Saving the picture", cause);
+          continue;
+        }
+      }
+      names = [...names, name];
+      setPictures((was) => ({ ...was, [name]: png }));
+    }
+    if (into === null) setDraft((was) => (was === null || was.note.id !== id ? was : { ...was, examples: names }));
+    else edit(id, (was) => withExamples(was, names));
+  }
+
+  /** A picture taken off a note: off a draft's list, or out of a saved note's file and its directory. */
+  async function removeExample(into: Annotation | null, name: string): Promise<void> {
+    if (into === null) {
+      setDraft((was) => (was === null ? was : { ...was, examples: (was.examples ?? []).filter((one) => one !== name) }));
+      return;
+    }
+    try {
+      await sink.removeExample(into.id, name);
+    } catch (cause) {
+      fail("Removing the picture", cause);
+      return;
+    }
+    edit(into.id, (was) => withExamples(was, (was.examples ?? []).filter((one) => one !== name)));
+  }
+
+  /** What a card does with a paste or a drop: images become the note's examples, anything else goes on as it would. */
+  const takesPictures = (into: Annotation | null): Pick<CardProps, "onPaste" | "onDragOver" | "onDrop"> => ({
+    onPaste: (event) => {
+      const files = imagesIn(event.clipboardData);
+      if (files.length === 0) return;
+      event.preventDefault();
+      void addExamples(into, files);
+    },
+    onDragOver: (event) => {
+      if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+    },
+    onDrop: (event) => {
+      const files = imagesIn(event.dataTransfer);
+      if (files.length === 0) return;
+      event.preventDefault();
+      void addExamples(into, files);
+    },
+  });
 
   /** True once the file says it; a failure is told and leaves the note as it was. */
   async function setStatus(note: Annotation, status: Annotation["status"]): Promise<boolean> {
@@ -529,6 +683,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
 
   /** Puts the card away, and the layer with it where Report was all that turned it on. */
   function cancelDraft(): void {
+    if (draftRef.current !== null) forgetKept(keptAs(draftRef.current.note.id, "note"));
     setDraft(null);
     if (!reportedOffRef.current) return;
     reportedOffRef.current = false;
@@ -623,15 +778,25 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       {draft !== null && draftBox !== null && (
         <>
           <div className="armada-annotate__outline" data-held="" style={place(draftBox)} />
-          <Card box={draftBox} view={view} label="New note">
+          <Card box={draftBox} view={view} label="New note" {...takesPictures(null)}>
             <p className="armada-annotate__meta">{chain(draft.note)}</p>
             <Source note={draft.note} />
             <Textarea
               label="Note"
               autoFocus
+              keep={keptAs(draft.note.id, "note")}
               value={draft.text}
               onChange={(event) => setDraft({ ...draft, text: event.target.value })}
             />
+            {draft.note.scope !== "window" && (
+              <Tools
+                element={draft.element.isConnected ? draft.element : locate(draft.note)}
+                changes={draft.changes ?? NONE}
+                onChanges={(next) => changed(null, next)}
+                keep={keptAs(draft.note.id, "text")}
+              />
+            )}
+            <Examples pictures={(draft.examples ?? []).map((name) => ({ name, png: pictures[name] }))} onRemove={(name) => void removeExample(null, name)} />
             <div className="armada-annotate__actions">
               <Button variant="ghost" size="sm" onClick={cancelDraft}>
                 Cancel
@@ -645,10 +810,14 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       )}
 
       {openNote !== null && openBox !== null && (
-        <Card box={openBox} view={view} label="Note">
+        <Card box={openBox} view={view} label="Note" {...takesPictures(openNote)}>
           <p className="armada-annotate__meta">{chain(openNote)}</p>
           <Source note={openNote} />
           <p className="armada-annotate__text">{openNote.text}</p>
+          {openNote.scope !== "window" && (
+            <Tools element={locate(openNote)} changes={openNote.changes ?? NONE} onChanges={(next) => changed(openNote, next)} keep={keptAs(openNote.id, "text")} />
+          )}
+          <Examples pictures={(openNote.examples ?? []).map((name) => ({ name, png: pictures[name] }))} onRemove={(name) => void removeExample(openNote, name)} />
           {openNote.sent !== undefined && (
             <p className="armada-annotate__meta">
               Sent to Job {openNote.sent.title}
@@ -909,17 +1078,18 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
  * in a layout effect, so the first frame a person sees is already placed, and
  * kept current by a `ResizeObserver` for as long as the card is up.
  */
-function Card({
-  box,
-  view,
-  label,
-  children,
-}: {
+type CardProps = {
   box: Box;
   view: Viewport;
   label: string;
   children: ReactNode;
-}) {
+  /** Where a paste or a drop on the card goes: a picture becomes one of the note's examples. */
+  onPaste?: (event: ClipboardEvent<HTMLDivElement>) => void;
+  onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
+  onDrop?: (event: DragEvent<HTMLDivElement>) => void;
+};
+
+function Card({ box, view, label, children, onPaste, onDragOver, onDrop }: CardProps) {
   const node = useRef<HTMLDivElement | null>(null);
   const [self, setSelf] = useState<{ size: CardSize; metrics: Metrics } | null>(null);
 
@@ -945,6 +1115,9 @@ function Card({
       role="dialog"
       aria-label={label}
       data-side={at.side}
+      onPaste={onPaste}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       style={
         {
           "--annotate-card-x": `${at.x}px`,
