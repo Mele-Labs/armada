@@ -75,7 +75,12 @@ fn a_walk_step_is_current_from_the_plans_approval_until_a_walk_is_approved() {
     let edited = Facts { walk_shown: true, edited: true, checked: true, committed: true, ..approved_naming_a_walk() };
     assert_eq!(at(&steps, edited), Some(3), "the work is not past it until he approves");
     assert_eq!(at(&steps, Facts { walk_approved: true, ..approved_naming_a_walk() }), Some(4), "a follows_plan step is entered once it is passed");
-    assert_eq!(at(&steps, Facts { pushed: true, ..approved_naming_a_walk() }), Some(5));
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved_naming_a_walk() }), Some(3), "a push is no Approve");
+    let walked = Facts { walk_approved: true, pushed: true, tasks_open: true, ..approved_naming_a_walk() };
+    assert_eq!(at(&steps, walked), Some(4), "a push made while he walked does not skip Refine");
+    assert!(rail::skipped(&steps, &walked).is_empty(), "nor is it a push with Refine's tasks open");
+    assert_eq!(at(&steps, Facts { pushed_since_walk: true, ..walked }), Some(5), "a push after his Approve delivers");
+    assert_eq!(rail::skipped(&steps, &Facts { pushed_since_walk: true, ..walked }), [(4, Skip::Tasks)]);
 }
 
 #[test]
@@ -304,6 +309,35 @@ async fn a_window_shown_after_the_plan_is_approved_puts_the_job_on_the_walk_unti
     assert_eq!(step_of(&rig, &id).await, Some(2), "a window shown is the walk");
     rig.send(&id, &format!("Approved: {PAGE}")).await;
     assert_eq!(step_of(&rig, &id).await, Some(3), "approved: Refine");
+}
+
+async fn pushed(rig: &super::session_host::Rig, id: &SessionId) {
+    let harness = record(rig, id).await.harness;
+    rig.fleet
+        .report_session(ipc::SessionReport { harness, session_id: id.clone(), fact: ipc::SessionFact::Pushed { branch: Some("armada/reader".into()) } })
+        .await
+        .expect("kept");
+}
+
+/// Job 355c64b4, 31 Oct 2026: it pushed a fix to its walk's steps while he was walking, Fleet put it
+/// on Deliver and told it Refine's tasks were open, and he had approved nothing.
+#[tokio::test]
+async fn a_push_while_he_walks_leaves_the_job_on_the_walk_and_counts_toward_delivery_only_after_his_approve() {
+    let (rig, id) = walking_rig().await;
+    plan_approved(&rig, &id).await;
+    shown(&rig, &id).await;
+    pushed(&rig, &id).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(step_of(&rig, &id).await, Some(2), "a push is no Approve: the walk stands");
+    assert_eq!(told(&rig, "pushed while tasks were still open"), 0, "a push during the walk delivers nothing");
+
+    rig.send(&id, &format!("Approved: {PAGE}")).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(step_of(&rig, &id).await, Some(3), "approved: Refine, the push made while he walked does not skip it");
+    assert_eq!(told(&rig, "pushed while tasks were still open"), 0);
+
+    pushed(&rig, &id).await;
+    super::session_host::eventually(|| async { step_of(&rig, &id).await == Some(4) }).await;
 }
 
 #[tokio::test]
