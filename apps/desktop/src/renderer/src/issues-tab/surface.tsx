@@ -42,10 +42,11 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
     const { tag } = issueHit({ reference: ticket.reference, title: ticket.title, url: ticket.url });
     dispatching.startDraft(`${tag.title} `, band.root, [tag]);
   };
-  // A kept report is the brief of a Job in the armada repository, started as an issue's Start a Job starts it.
+  // A kept report is the brief of a Job in the armada repository, started as an issue's Start a Job starts it. The tag tells Fleet
+  // which report the Job holds; the brief opens with the title, so the tag rides with the words.
   const startReport = (root: string, report: ReportedBug) => {
     if (dispatching === undefined) return;
-    dispatching.startDraft(briefOf(report), root, []);
+    dispatching.startDraft(briefOf(report), root, [{ kind: "report", id: report.id, title: report.title }]);
   };
   const teach = (band: Band) => {
     if (dispatching === undefined || band.tracker.state !== "refused") return;

@@ -177,7 +177,7 @@
 
 /* ---- Reported bugs ------------------------------------------------------------------------------------- */
 
-/* A report is a row on the same panel: its title, a fixed column for its one mark, a fixed column for its age, and the Job it came from under. No lamp: no Job works it. */
+/* A report is a row on the same panel: its title, a fixed column for its one mark, a fixed column for its age, and the Job it came from under. The first mark is the Job that works it, or the pull request that fixed it; with neither, it is empty. */
 .issues-surface .issues-row[data-report] {
   grid-template-columns: minmax(0, 1fr) var(--space-4) var(--space-4) auto;
   grid-template-areas: "title job mark at" "from from from from";
