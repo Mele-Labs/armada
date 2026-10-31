@@ -434,10 +434,15 @@ where
 }
 
 /// What an own pull request waits on, read from its attachment's detail as Bridge reads a pull request: open,
-/// its Checks not failed, and in the queue, set to merge or on its Checks. A merged, given back or draft one waits on nothing.
+/// its Checks not failed, and in the queue, set to merge or on its Checks. A merged, given back or draft one waits on nothing,
+/// nor does one the person dismissed from the Waiting band.
 fn pull_request_wait(one: &ipc::Attachment) -> Option<ipc::HeldOpenBy> {
     let detail = |key: &str| one.detail.get(key).map(String::as_str);
-    if one.kind != "pull_request" || one.state != ipc::AttachmentState::Standing || matches!(detail("state"), Some("merged" | "draft")) {
+    if one.kind != crate::pull_requesting::PR
+        || one.state != ipc::AttachmentState::Standing
+        || matches!(detail("state"), Some("merged" | "draft"))
+        || detail(crate::pull_requesting::WAIT_DISMISSED) == Some("true")
+    {
         return None;
     }
     let number = one.target.parse().ok()?;
