@@ -14,6 +14,12 @@ export type SystemProcess = {
   command: string;
   /** The TCP port it listens on, where it does. */
   port?: number;
+  /** Its CPU, as a percentage of one core. */
+  cpu_percent?: number;
+  /** Its resident memory. */
+  memory_bytes?: number;
+  /** What it reads and writes on disk, per second. */
+  io_bytes_per_s?: number;
   state: SystemProcessState;
 };
 

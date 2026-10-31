@@ -233,6 +233,8 @@ The list's search reads *Find workflow* and takes `F`; `/` stays System's own se
 A copy Fleet left out for not fitting is reached by its file.
 
 **A workflow is drawn as its steps**, top to bottom.
+Where Fleet keeps a lifecycle, the steps stand over its lanes instead, read for the picked repository.
+On All they are read for the copy's own repository, and Armada's and Yours for the first repository listed.
 Each step shows its label, what ends it, when it is passed over, and the words the agent is told there.
 The page carries none of the gate boxes, retries or passes the old editor offered, since nothing reads them.
 
