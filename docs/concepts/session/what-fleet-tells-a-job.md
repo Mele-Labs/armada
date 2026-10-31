@@ -48,7 +48,8 @@ Each is told once for each change in what failed, so the same failure read again
 A Job that cannot take one now is offered it again a minute later.
 
 **A Job is told when what it wrote would conflict.** When Fleet finds that the files a Job wrote conflict with another Job's, or with the base after it moved, it sends that Job one message: the files, who the other is and how to reach it.
-The Job is not paused and the message is sent once per set of files.
+Where the other Job is paused, it names that Job's branch and says to resolve the conflict on merge.
+The Job is not paused and the message is sent once per set of files, a restart included.
 `docs/concepts/fleet.md`, *Write clashes*.
 Bridge marks the Job's row and puts a lamp in the corner of its Bays key, and the Bays panel names the other holder and the files, from the standing clashes Fleet lists.
 A file in that list opens as a sheet of the Job's change to it and the other holder's, each from where the two split, with the hunks that collide marked in both; Fleet reads the two patches from git when the file is pressed (`read_clash_file`, `docs/concepts/fleet.md`, *Write clashes*).
