@@ -281,7 +281,7 @@ pub use annotations::{
     AnnotationMarked, MarkAnnotationDone,
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
-pub use bug_reports::{BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
     LifecyclePieceSaved, SaveLifecyclePiece, WorkspaceToSave,

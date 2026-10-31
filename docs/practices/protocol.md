@@ -717,6 +717,25 @@ Whether he has read one is Bridge's own and is not on the wire.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `bug_reports.changed` is a new kind; a Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
 
+## A reported bug is fixed by the Job started on it: `report` on `TagKind`, and `fixed` on `BugReport`
+
+Since 31 Oct 2026. `crates/ipc/src/hosted_sessions.rs`, `crates/ipc/src/bug_reports.rs`.
+**Additive only**: one `TagKind`, one optional field on `BugReport`, one `bug_reports` migration; no operation, route or event kind.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `TagKind::Report` (`report`) on a `SessionTag` | Bridge sends, Fleet reads | `id` is the report's id and `title` its title. It rides the Job's first message, as an issue's tag does. Fleet writes the line the agent reads, `reported bug "<title>"` |
+| `Attachment` of kind `report`, target the report's id, `detail.title` | Fleet writes, Bridge reads | Held by the Job the tag was sent to. Taken only where `bug_reports` has the id, so a tag for a dropped report holds nothing. **Given back** when the Job ends, whether by `all_done`, by Bridge ending it or by discarding it, so a row that is not `given_back` is the Job a report is being worked in |
+| `BugReport.fixed` | Fleet writes, Bridge reads | `{ at, pull_request, title, url }`, absent while the report stands open: when the pull request merged, its number, title and address. Set once, by the first merge of a pull request one of the report's Jobs held; it is not taken back |
+
+**A merged pull request fixes the reports of the Jobs that held it, in any repository.** `merges_told` marks them beside `issues_merged`, which waits on a backlog and this does not.
+It reads the Jobs that **held** the pull request, standing or given back, and every `report` row each held, so a Job that ended after opening the pull request still fixes its report when the pull request merges later.
+It runs for the pull requests `Mine` owns, as `issues_merged` does: one a Job holds but another account opened fixes nothing.
+`bug_reports.changed` is published when a report was marked, and only then.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
 ## Keep on this Mac is gone: `get_kept_on_this_mac`, `set_kept_on_this_mac`
 
 Since 21 Oct 2026. `docs/concepts/kit.md`, *A private repository*; `.claude/decisions/2026-10-21-the-place-rows-are-the-choice.md`.
