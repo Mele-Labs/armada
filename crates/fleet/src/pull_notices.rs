@@ -3,8 +3,9 @@
 //!
 //! **Each notice is told once.** The key is (pull request, commit, cause, recipient) in the
 //! store, so a restart reads what was already told and a failure is told again only for a commit
-//! that fails anew, or a rerun of it that fails. **A job that hung is not a failure**: one cancelled after about the whole
-//! time a job is given is started again once, through the forge adapter, and nothing is said.
+//! that fails anew, or a rerun of it that fails. **A job that hung is not a failure**: one
+//! cancelled after about the whole time a job is given is started again once, through the forge
+//! adapter, and nothing is said.
 //!
 //! A Session is sent a message from Fleet that wakes it. A merge is a note in an old Job's log, and
 //! a failure is told to no Job. **A recipient that cannot be told now is asked again next
