@@ -84,7 +84,9 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
   const api = useJudgeApi();
   const record = useJudgeRecord(job, artifact);
   const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
+  // The Tooltip takes the button's ref for itself, so the act finds its button through a box that draws nothing.
+  const wrap = useRef<HTMLSpanElement>(null);
+  const button = () => wrap.current?.querySelector("button") ?? null;
   useEffect(() => registerOpener(job, artifact, () => setOpen(true)), [job, artifact.kind, artifact.id]);
   if (api === undefined) return null;
   const reading = record?.state === "reading";
@@ -92,13 +94,14 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
   const clean = record?.state === "done" && record.notes.length === 0;
   const close = () => {
     setOpen(false);
-    button.current?.focus();
+    button()?.focus();
   };
   const said = reading ? "Judge reading" : unread ? "Notes to read" : clean ? "Nothing missed" : "Send a judge to read it";
+  const anchor = open ? button() : null;
   return (
-    <>
+    <span ref={wrap} className="judge-act">
       <Tooltip label={said} {...(shortcut === undefined ? {} : { shortcut })} asChild>
-        <Button ref={button} variant="ghost" size="sm" iconOnly aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-busy={reading || undefined} data-judge={artifact.kind} onClick={() => setOpen(!open)}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-busy={reading || undefined} data-judge={artifact.kind} onClick={() => setOpen(!open)}>
           {reading ? (
             <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
               <CircleDot size={size} strokeWidth={2} aria-hidden="true" />
@@ -113,11 +116,11 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
           {unread ? <span className="judge-act__dot" role="img" aria-label="Notes to read" /> : null}
         </Button>
       </Tooltip>
-      {open && button.current !== null ? (
+      {anchor !== null ? (
         <JudgePopover
           job={job}
           artifact={artifact}
-          anchor={button.current}
+          anchor={anchor}
           onClose={close}
           onRun={(prompt) => {
             void api.ask({ job, artifact, prompt });
@@ -125,6 +128,6 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
           }}
         />
       ) : null}
-    </>
+    </span>
   );
 }

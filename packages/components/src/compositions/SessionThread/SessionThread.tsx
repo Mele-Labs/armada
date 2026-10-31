@@ -1041,7 +1041,7 @@ function Row({
         <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Judged ${row.title}`} onClick={row.onOpen}>
           <Scale size={12} strokeWidth={2} aria-hidden />
           Judged <span className="mono">{row.title}</span>
-          <RowStamp row={row} className="armada-session-act__at" />
+          <Stamp still at={row.at} className="armada-session-act__at" />
         </button>
       </li>
     );

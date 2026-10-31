@@ -20,6 +20,7 @@
 .judge-pop__acts { display: flex; justify-content: flex-end; }
 
 /* A mark on the glyph while its notes are unread: a small dot at the corner, in the hue the notes wear. */
+.judge-act { display: contents; }
 button[data-judge] { position: relative; }
 .judge-act__dot {
   position: absolute;
