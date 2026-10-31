@@ -145,6 +145,12 @@ export type LogbookForgotten = { ok: true } | { ok: false; outcome: Outcome };
 /** What pressing Tidy came back as: a pass is running, or the refusal. */
 export type LogbookTidied = { ok: true; running: boolean } | { ok: false; outcome: Outcome };
 
+/** Bridge's envelope over `OrganizedLogbook`: what Organize proposes, or why it could not look. */
+export type LogbookOrganized = ({ ok: true } & OrganizedLogbook) | { ok: false; outcome: Outcome };
+
+/** Bridge's envelope over `AppliedOrganizeLogbook`. */
+export type LogbookOrganizeApplied = ({ ok: true } & AppliedOrganizeLogbook) | { ok: false; outcome: Outcome };
+
 /**
  * `recall`: `GET /logbook/recall?query=&section=&manifest_id=`. The Logbook entries whose text holds the
  * words asked for, best first, at most 20. Faded and candidate entries are in it.

@@ -3,12 +3,7 @@
 //
 // Main answers each channel from Fleet's routes (`main/logbook.ts`); the mock answers them in a walk.
 
-import type { LogbookAnswer, LogbookForgotten, LogbookKind, LogbookRead, LogbookTidied } from "@armada/protocol";
-
-/** Organize's three looks and a finding, as the page's `OrganizeAction` and `OrganizeRow` draw them. */
-export type OrganizeAction = "merge" | "stale" | "bugs";
-export type OrganizeFolded = { text: string; kind: LogbookKind; confirmed: string };
-export type OrganizeRow = { id: string; text: string; kind: LogbookKind; confirmed: string; note: string; absorbed?: readonly OrganizeFolded[] };
+import type { LogbookAnswer, LogbookForgotten, LogbookOrganizeApplied, LogbookOrganized, LogbookRead, LogbookTidied, OrganizeAction, OrganizeProposal } from "@armada/protocol";
 
 export type LogbookApi = {
   /** Every section: each repository's, Habits and This Mac. Forgotten entries are never read. */
@@ -21,10 +16,10 @@ export type LogbookApi = {
   forgetLogbookEntry: (id: string) => Promise<LogbookForgotten>;
   /** Starts folding near-duplicate entries across every repository and answers at once; the Logbook read says when it is done. */
   tidyLogbook: () => Promise<LogbookTidied>;
-  /** Mock only: what Organize finds for an action, after a short pass. Fleet serves no such route, so the real window leaves it absent and draws Tidy. */
-  organizeLogbook?: (action: OrganizeAction) => Promise<OrganizeRow[]>;
-  /** Mock only: carries out the rows left in a proposal and says what it came to. */
-  applyOrganizeLogbook?: (action: OrganizeAction, rows: OrganizeRow[]) => Promise<string>;
+  /** What an action proposes across every repository; nothing changes. Merge and bugs wait on a model call. */
+  organizeLogbook: (action: OrganizeAction) => Promise<LogbookOrganized>;
+  /** Carries out the proposals a person kept, as Organize answered them. */
+  applyOrganizeLogbook: (action: OrganizeAction, proposals: OrganizeProposal[]) => Promise<LogbookOrganizeApplied>;
 };
 
 export const LOGBOOK_CHANNELS = {
@@ -33,4 +28,6 @@ export const LOGBOOK_CHANNELS = {
   lockLogbookEntry: "bridge:lock-logbook-entry",
   forgetLogbookEntry: "bridge:forget-logbook-entry",
   tidyLogbook: "bridge:tidy-logbook",
+  organizeLogbook: "bridge:organize-logbook",
+  applyOrganizeLogbook: "bridge:apply-organize-logbook",
 } as const;

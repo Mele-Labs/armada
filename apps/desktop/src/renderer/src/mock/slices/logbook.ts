@@ -1,9 +1,9 @@
 // The Logbook: the scenario's entries, as edits, pins and forgets leave them for the next read. A forgotten entry is
 // gone from every read, as the deny list keeps it out. Mock of Fleet's routes, which main reaches in `main/logbook.ts`.
 
-import type { LogbookEntry, LogbookTidy } from "@armada/protocol";
+import type { LogbookEntry, LogbookTidy, OrganizeAction, OrganizeProposal } from "@armada/protocol";
 
-import type { LogbookApi, OrganizeAction, OrganizeRow } from "../../../../shared/api/logbook";
+import type { LogbookApi } from "../../../../shared/api/logbook";
 import type { Slice } from "../fake-context";
 import { alsoOnTimePassing } from "../time-passes";
 
@@ -17,12 +17,8 @@ const alike = (a: string, b: string): boolean => {
   return shared / new Set([...x, ...y]).size >= 0.6;
 };
 
-/**
- * Tidy as the mock keeps it: standing entries of one section, repository and kind that read alike fold into the one
- * confirmed most. The folded go to Archived and the survivor holds their text under Earlier as Merged.
- */
-function tidied(entries: LogbookEntry[]): { entries: LogbookEntry[]; merged: number } {
-  const at = new Date().toISOString();
+/** Which standing entries read alike: each folded entry's id against the survivor it folds into, the one confirmed most. */
+function foldings(entries: LogbookEntry[]): Map<string, string> {
   const folded = new Map<string, string>();
   const standing = entries.filter((one) => one.state === "standing" && !one.locked).sort((a, b) => b.confirmed_by - a.confirmed_by);
   for (const survivor of standing) {
@@ -33,13 +29,24 @@ function tidied(entries: LogbookEntry[]): { entries: LogbookEntry[]; merged: num
       if (same && alike(survivor.text, other.text)) folded.set(other.id, survivor.id);
     }
   }
-  const next = entries.map((one) => {
+  return folded;
+}
+
+/** The folded go to Archived and the survivor holds their text under Earlier as Merged. */
+function folding(entries: LogbookEntry[], folded: ReadonlyMap<string, string>): LogbookEntry[] {
+  const at = new Date().toISOString();
+  return entries.map((one) => {
     if (folded.has(one.id)) return { ...one, state: "faded" as const };
     const into = entries.filter((other) => folded.get(other.id) === one.id);
     if (into.length === 0) return one;
     return { ...one, history: [...into.map((other) => ({ text: other.text, until: at, by: "merged" as const })), ...one.history] };
   });
-  return { entries: next, merged: folded.size };
+}
+
+/** Tidy as the mock keeps it. */
+function tidied(entries: LogbookEntry[]): { entries: LogbookEntry[]; merged: number } {
+  const folded = foldings(entries);
+  return { entries: folding(entries, folded), merged: folded.size };
 }
 
 /** How long Organize looks in the mock before it has something to show. */
@@ -51,36 +58,28 @@ const FAULTS: [RegExp, string][] = [
   [/work ?around|instead of|rejected|blocked/i, "A workaround"],
 ];
 
-const entriesIn = (entries: LogbookEntry[], ids: readonly string[]) => entries.filter((one) => ids.includes(one.id));
-
-/** What Organize finds in the mock, from the entries as they stand. */
-function found(action: OrganizeAction, entries: LogbookEntry[]): OrganizeRow[] {
+/** What Organize proposes in the mock, from the entries as they stand. */
+function found(action: OrganizeAction, entries: LogbookEntry[]): OrganizeProposal[] {
   const standing = entries.filter((one) => one.state === "standing" && !one.locked);
   if (action === "merge") {
-    const done = tidied(entries);
-    return done.entries
-      .filter((one) => one.history.some((earlier) => earlier.by === "merged") && one.state === "standing")
-      .map((one) => ({
-        id: one.id,
-        text: one.title ?? one.text,
-        kind: one.kind,
-        confirmed: one.last_confirmed,
-        note: "",
-        absorbed: one.history.filter((earlier) => earlier.by === "merged").map((earlier) => {
-          const was = entries.find((other) => other.text === earlier.text);
-          return { text: earlier.text, kind: was?.kind ?? one.kind, confirmed: was?.last_confirmed ?? one.last_confirmed };
-        }),
-      }));
+    const folded = foldings(entries);
+    const kept = [...new Set(folded.values())];
+    return kept.map((id) => ({
+      id,
+      entry_ids: [id, ...[...folded].filter(([, into]) => into === id).map(([gone]) => gone)],
+      text: entries.find((one) => one.id === id)?.text ?? "",
+      note: "",
+    }));
   }
   if (action === "stale") {
     const cutoff = Date.now() - STALE_DAYS * 86_400_000;
     return standing
       .filter((one) => Date.parse(one.last_confirmed) < cutoff)
-      .map((one) => ({ id: one.id, text: one.title ?? one.text, kind: one.kind, confirmed: one.last_confirmed, note: `Not confirmed in ${Math.round((Date.now() - Date.parse(one.last_confirmed)) / 86_400_000)} days. Archived on apply` }));
+      .map((one) => ({ id: one.id, entry_ids: [one.id], text: one.text, note: `Not confirmed in ${Math.round((Date.now() - Date.parse(one.last_confirmed)) / 86_400_000)} days. Archived on apply` }));
   }
   return standing.flatMap((one) => {
     const fault = FAULTS.find(([words]) => words.test(one.text));
-    return fault === undefined ? [] : [{ id: one.id, text: one.title ?? one.text, kind: one.kind, confirmed: one.last_confirmed, note: `${fault[1]}. Reported on apply` }];
+    return fault === undefined ? [] : [{ id: one.id, entry_ids: [one.id], text: one.text, note: `${fault[1]}. Reported on apply` }];
   });
 }
 
@@ -124,29 +123,23 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
         return { ok: true, running: true };
       },
       organizeLogbook: async (action) => {
+        if (held === undefined) return fleet.refused("/logbook/organize");
         await new Promise((done) => setTimeout(done, LOOK_MS));
-        return held === undefined ? [] : found(action, held);
+        return { ok: true, action, proposals: found(action, held), failed: false };
       },
-      applyOrganizeLogbook: async (action, rows) => {
-        if (held === undefined) return "";
-        const ids = rows.map((row) => row.id);
+      applyOrganizeLogbook: async (action, proposals) => {
+        if (held === undefined) return fleet.refused("/logbook/organize/apply");
         if (action === "merge") {
-          const absorbed = new Map(rows.map((row) => [row.id, (row.absorbed ?? []).map((folded) => folded.text)]));
-          const at = new Date().toISOString();
-          const gone = new Set(held.filter((one) => ids.some((id) => (absorbed.get(id) ?? []).includes(one.text))).map((one) => one.id));
-          held = held.map((one) => {
-            if (gone.has(one.id)) return { ...one, state: "faded" as const };
-            if (!ids.includes(one.id)) return one;
-            return { ...one, history: [...(absorbed.get(one.id) ?? []).map((text) => ({ text, until: at, by: "merged" as const })), ...one.history] };
-          });
-          return `Merged ${gone.size} ${gone.size === 1 ? "entry" : "entries"}`;
+          const folded = new Map(proposals.flatMap((one) => one.entry_ids.slice(1).map((gone): [string, string] => [gone, one.entry_ids[0]!])));
+          held = folding(held, folded);
+          return { ok: true, action, applied: folded.size, reported: [] };
         }
         if (action === "stale") {
+          const ids = proposals.flatMap((one) => one.entry_ids);
           held = held.map((one) => (ids.includes(one.id) ? { ...one, state: "faded" as const } : one));
-          return `Archived ${ids.length} ${ids.length === 1 ? "entry" : "entries"}`;
+          return { ok: true, action, applied: ids.length, reported: [] };
         }
-        void entriesIn;
-        return "Reported to the Armada bug list";
+        return { ok: true, action, applied: 0, reported: proposals };
       },
       forgetLogbookEntry: async (id) => {
         if (held === undefined || !held.some((one) => one.id === id)) return fleet.refused(`/logbook/${id}/forget`);

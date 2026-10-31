@@ -9,7 +9,6 @@
 // callback rather than by reaching for state it does not own: a re-read's answer is published by
 // `onRead`.
 
-import type { OrganizeAction, OrganizeRow } from "../../shared/api/logbook";
 import type { EditManifestProposal, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import type { BuildSource, ChangeSlotPool, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
 import { useState } from "react";
@@ -18,7 +17,7 @@ import type { BridgeState } from "../../shared/bridge";
 import type { ActingOnWorkflowCopy, AskingForWorkflowChange, SavingWorkflow, SuggestingWorkflowChange } from "../../shared/workflows";
 import type { EditManifest, ProposeToArmada, SaveManifestFile, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
-import type { Outcome } from "@armada/protocol";
+import type { Outcome, OrganizeAction, OrganizeProposal } from "@armada/protocol";
 import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
 import type { HelmContext } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
@@ -125,11 +124,8 @@ export const readLogbook = () => window.armada.readLogbook();
 export const editLogbookEntry = (id: string, text: string) => window.armada.editLogbookEntry(id, text);
 export const lockLogbookEntry = (id: string, locked: boolean) => window.armada.lockLogbookEntry(id, locked);
 export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
-export const tidyLogbook = () => window.armada.tidyLogbook();
-/** Mock only: absent in the real window, which then draws Tidy. */
-export const organizeLogbook = (action: OrganizeAction) => window.armada.organizeLogbook?.(action) ?? Promise.resolve([]);
-export const applyOrganizeLogbook = (action: OrganizeAction, rows: OrganizeRow[]) => window.armada.applyOrganizeLogbook?.(action, rows) ?? Promise.resolve("");
-export const canOrganizeLogbook = () => window.armada.organizeLogbook !== undefined;
+export const organizeLogbook = (action: OrganizeAction) => window.armada.organizeLogbook(action);
+export const applyOrganizeLogbook = (action: OrganizeAction, proposals: OrganizeProposal[]) => window.armada.applyOrganizeLogbook(action, proposals);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
 export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);
