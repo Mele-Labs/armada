@@ -41,6 +41,7 @@
 }
 
 .armada-thread-settings__line {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -65,10 +66,16 @@
   color: var(--fg-default);
 }
 
+/* The acts sit over the line's end, so a hidden act takes no room from the words. */
 .armada-thread-settings__acts {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-1);
   display: flex;
-  flex: none;
+  align-items: center;
   gap: var(--space-1);
+  padding-inline-start: var(--space-2);
+  background: var(--bg-hover);
   opacity: 0;
 }
 
@@ -128,6 +135,11 @@
 /* In the Aa panel the form sets the popover's width: wide enough for a line and its acts. */
 .armada-thread-settings[data-in="panel"] {
   width: calc(var(--space-12) * 7);
+}
+
+/* A form this dense is unreadable over the thread through the glass layer, so the Aa panel is solid. */
+.armada-popover__panel.armada-popover__panel:has(.armada-thread-settings[data-in="panel"]) {
+  background: var(--bg-overlay);
 }
 
 @media (prefers-reduced-motion: reduce) {
