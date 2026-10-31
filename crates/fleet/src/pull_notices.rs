@@ -3,7 +3,7 @@
 //!
 //! **Each notice is told once.** The key is (pull request, commit, cause, recipient) in the
 //! store, so a restart reads what was already told and a failure is told again only for a commit
-//! that fails anew. **A job that hung is not a failure**: one cancelled after about the whole
+//! that fails anew, or a rerun of it that fails. **A job that hung is not a failure**: one cancelled after about the whole
 //! time a job is given is started again once, through the forge adapter, and nothing is said.
 //!
 //! A Session is sent a message from Fleet that wakes it. A merge is a note in an old Job's log, and
@@ -301,6 +301,11 @@ where
             }
         }
         self.auto_land_followed(served, pull, head).await;
+        // Running again at the same commit is a rerun: its failure is news, though no commit moved.
+        if !pull.failed() {
+            let key = Cause::ChecksFailed.key();
+            let _ = self.store().lock().await.forget_pull_notices(served.root(), pull.number, key);
+        }
         let mut causes = Vec::new();
         if pull.failed() && !self.hung_started_again(served, pull, head).await {
             causes.push(Cause::ChecksFailed);
