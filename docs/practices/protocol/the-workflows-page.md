@@ -38,6 +38,7 @@ It is checked against the Checks of the repository Armada's row was listed under
 **Each copy is read and acted on under the Manifest Fleet listed it under**, the `manifest_id` on its `WorkflowSummary`, and not the pick's.
 `list_workflows` answers every repository's whichever is picked.
 With one picked Bridge keeps that repository's rows; on All it keeps Armada's and Kit's once and each repository's copies apart, and asks `list_left_out_workflows` of none.
+The lanes on All are read for the picked copy's `manifest_id`.
 
 **Delete and reset act on copies Fleet holds, or on one it left out by its file.** `WorkflowCopy.file`, Fleet's and Bridge's, is the file `list_left_out_workflows` names.
 A copy that was left out for not fitting may declare no id Fleet can read, so it is found among those left out in that place by its file and not by its id.

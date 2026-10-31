@@ -471,6 +471,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
             snippets: {
               files: snippets,
               onPaste: (pasted: string) => setSnippets((was) => [...was, snippetOf(pasted, was.length + 1)]),
+              onFiles: (picked: readonly File[]) => setSnippets((was) => [...was, ...picked]),
               onRemove: (file: File) => setSnippets((was) => was.filter((one) => one !== file)),
             },
           }
