@@ -17,7 +17,7 @@ const another = (id: string, name: string): RepositorySummary => ({
   manifest: { ...WEB!.manifest!, id, repository: name, path: `${name}/armada.yml` },
 });
 
-const REPOSITORIES = [WEB!, API!, another("01M1CNPKTV0018H2M1CXDNBK08", "store-docs"), another("01M1CNPKTV0018H2M1CXDNBK09", "store-infra"), another("01M1CNPKTV0018H2M1CXDNBK0A", "scratch"), another("01M1CNPKTV0018H2M1CXDNBK0B", "store-mobile")];
+export const REPOSITORIES = [WEB!, API!, another("01M1CNPKTV0018H2M1CXDNBK08", "store-docs"), another("01M1CNPKTV0018H2M1CXDNBK09", "store-infra"), another("01M1CNPKTV0018H2M1CXDNBK0A", "scratch"), another("01M1CNPKTV0018H2M1CXDNBK0B", "store-mobile")];
 
 export const workspacesAndAutonomy: Scenario = {
   ...workspacesLanes,

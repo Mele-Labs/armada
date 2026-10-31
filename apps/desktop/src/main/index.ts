@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, nativeImage, Notification } from "electron";
 import { randomUUID } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -74,6 +74,7 @@ import { handleHeldNotes, tellHeld } from "./held-notes-channels";
 import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
 import { makeTerminalWindow, TerminalWindows } from "./terminal-windows";
 import { JobBrowsers, makeBrowserPage, makeBrowserWindow } from "./job-browsers";
+import { SiteSettingsStore } from "./site-permission-store";
 import { handleJobBrowsers } from "./job-browser-channels";
 
 // Bridge's window, and the one connection under it.
@@ -561,9 +562,20 @@ void app.whenReady().then(() => {
   };
   terminalWindows.onChanged((sessionIds) => everyDocument(CHANNELS.terminalWindowsChanged, sessionIds));
   // Each Job's browser, which its agent drives through Fleet's held calls and the owner may take over.
+  const siteFile = join(app.getPath("userData"), "site-permissions.json");
+  const siteSettings = new SiteSettingsStore({
+    read: () => {
+      try {
+        return readFileSync(siteFile, "utf8");
+      } catch {
+        return null;
+      }
+    },
+    write: (text) => writeFileSync(siteFile, text),
+  });
   const jobBrowsers = new JobBrowsers(
     {
-      page: (sessionId, told) => makeBrowserPage(connection?.sessions.recordOf(sessionId)?.manifest_id ?? null, bridgeWindow, told),
+      page: (sessionId, told) => makeBrowserPage(connection?.sessions.recordOf(sessionId)?.manifest_id ?? null, bridgeWindow, told, siteSettings),
       window: (sessionId, told) => makeBrowserWindow(sessionId, bridgeWindow()?.getBounds() ?? null, told),
     },
     {
