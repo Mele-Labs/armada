@@ -74,7 +74,7 @@ export function MergeLinePanel({
 }
 
 /**
- * What the band's choices do for one repository: a Session is sent the work as a message; a new Session opens the Dispatch panel on
+ * What the band's choices do for one repository: a Session is sent the work as a message; a new Session is drafted and opened on
  * the brief. **The Merge line's own routes, held once so the Cockpit's card sends the same ones.** Absent where the window holds no
  * Dispatch panel, so the band offers none.
  */
@@ -86,7 +86,7 @@ export function useFixChoice(
   if (dispatching === undefined) return undefined;
   return (choice) => {
     if (choice.kind === "session") onSendToSession?.(choice.session, choice.message);
-    else (dispatching.choose("session"), dispatching.openSheet(choice.request, root));
+    else dispatching.startDraft(choice.request, root);
   };
 }
 

@@ -104,6 +104,11 @@ export type Dispatching = {
    * `projectRows` are the rows of his projects the words came from: the Job starts with them, and holds each written task.
    */
   openSheet: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[]) => void;
+  /**
+   * A brief built for him, started as the sheet's Start would and opened on its thread, where it waits in draft for his Send. The sheet is never up.
+   * Where no repository can be found for it, the sheet opens on the words so he chooses one.
+   */
+  startDraft: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[]) => void;
   /** Cards picked in several repositories: one request each, the first opened now and each next once the one before has started or been put away. The queue lives here, so it outlasts the page that filled it. */
   openSheets: (requests: readonly SheetRequest[]) => void;
   /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
@@ -220,9 +225,36 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     const kept = snippetsNow.current;
     const typedWords = wordsNow().trim() === "" && kept.length > 0 ? SNIPPET_ONLY : wordsNow().trim();
     const text = workflow === null ? typedWords : workflowBrief(typedWords, workflow);
+    begin({ text, at, tags: tagged.current, rows: rowed.current, tuning: tuningNow(), hand: handNow(), kept, sheet: true, open: true });
+  }
+
+  /** The start the sheet's Start makes, for a brief built for him: the Job is drafted and opened, and the sheet is never up. A refused start is the window's toast. */
+  function startDraft(words: string, at?: string, tags?: readonly ComposerTag[], rows?: readonly ProjectRowRef[]) {
+    if (draft === undefined) return;
+    if (!draftOf({ words, root: at, tags, rows }, true)) openSheet(words, at, tags, rows);
+  }
+  /** Whether the repository for the request was found, and the Job started in it. No repository: nothing is done, and the sheet is the way to choose one. */
+  function draftOf(one: SheetRequest, open: boolean) {
+    const root = repositories.find((repository) => repository.root === (one.root ?? picked ?? state.repository))?.root;
+    if (root === undefined) return false;
+    begin({ text: one.words.trim(), at: root, tags: one.tags ?? [], rows: one.rows ?? [], tuning: {}, hand: {}, kept: [], sheet: false, open });
+    return true;
+  }
+
+  // What is being started, so a second press on the same brief does not draft a second Job.
+  const drafting = useRef(new Set<string>());
+
+  function begin(one: { text: string; at: string; tags: readonly ComposerTag[]; rows: readonly ProjectRowRef[]; tuning: Tuning; hand: Hand; kept: readonly File[]; sheet: boolean; open: boolean }) {
+    if (draft === undefined) return;
+    const { text, at, tags, kept, tuning, hand } = one;
+    const key = `${at}\n${text}`;
+    if (!one.sheet) {
+      if (drafting.current.has(key)) return;
+      drafting.current.add(key);
+    }
     recall(at);
-    const hand = handNow();
-    setSending(true);
+    if (one.sheet) setSending(true);
+    const rows = one.rows.length === 0 ? undefined : one.rows;
     // A real reading is waited for, so a Session is not started on the defaults while the proposer is still out.
     void Promise.resolve(draft.settlesWait?.(text) ?? draft.readsWait?.(text))
       .then((read) => {
@@ -230,27 +262,27 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const waitsOn = read === undefined ? undefined : draft.get().find((one) => one.id === read.on.id && one.dead === undefined);
         // A tag that names no condition only refers to the Session: the new one starts at once and carries the tag.
         const refers = read?.plain === true && waitsOn !== undefined ? ({ kind: "session", id: read.on.id, title: read.on.title } as const) : undefined;
-        const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
-        const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
-        const rows = rowed.current.length === 0 ? undefined : rowed.current;
+        const chosen = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
+        const after = chosen === undefined ? undefined : { on: chosen.on, when: chosen.when, base: chosen.base, needs: chosen.needs, ...(chosen.part === undefined ? {} : { part: chosen.part }) };
         // A refused start is the window's toast, and never a line on the open Job's thread. The sheet keeps its words.
         const started =
           rows === undefined
             ? after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true, undefined, true)
-              : draft.start(undefined, at, text, tuningNow(), after, undefined, undefined, true)
+              ? draft.start(undefined, at, text, tuning, undefined, true, undefined, true)
+              : draft.start(undefined, at, text, tuning, after, undefined, undefined, true)
             : after === undefined
-              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows, true)
-              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows, true);
+              ? draft.start(undefined, at, text, tuning, undefined, true, rows, true)
+              : draft.start(undefined, at, text, tuning, after, undefined, rows, true);
         return Promise.resolve(started).then((id) => ({ id, after, refers }));
       })
       .then(({ id, after, refers }) => {
-        if (id === undefined) return setSending(false);
+        drafting.current.delete(key);
+        if (id === undefined) return one.sheet ? setSending(false) : undefined;
         const files = kept.map((file, number) => ({ id: `snippet-${number + 1}`, name: file.name, file }));
-        if (after === undefined || files.length > 0) draft.send(id, { text, files, sketches: [], tags: [...(refers === undefined ? [] : [refers]), ...tagged.current.filter((one) => text.includes(one.title))] });
-        clearAll();
-        openSession(id);
-      });
+        if (after === undefined || files.length > 0) draft.send(id, { text, files, sketches: [], tags: [...(refers === undefined ? [] : [refers]), ...tags.filter((tag) => text.includes(tag.title))] });
+        if (one.sheet) clearAll();
+        if (one.open) openSession(id);
+      }, () => void drafting.current.delete(key));
   }
 
   /** Saves the idea in the Cockpit's Jobs and Sessions list and lets the sheet go. Nothing is started and nothing opens. */
@@ -529,6 +561,11 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
   /** One request for each repository: the first opens now, and each next opens when the one before starts or is put away, on whatever page the window is then. */
   function openSheets(all: readonly SheetRequest[]) {
+    // Each is drafted and the first opened. Where one has no repository to start in, the sheets queue as they did.
+    if (draft !== undefined && all.length > 0 && all.every((one) => repositories.some((repository) => repository.root === (one.root ?? picked ?? state.repository)))) {
+      all.forEach((one, number) => draftOf(one, number === 0));
+      return;
+    }
     const [first, ...rest] = all;
     later.current = rest;
     if (first !== undefined) openRequest(first);
@@ -556,6 +593,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     openWorkflow,
     ...(draft?.readsWait === undefined || !kinds.includes("session") ? {} : { openAfter }),
     openSheet,
+    startDraft,
     openSheets,
     closeSheet: collapse,
     usePanel,
