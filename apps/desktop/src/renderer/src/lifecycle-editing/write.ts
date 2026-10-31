@@ -7,7 +7,7 @@
 // run (`RuleForm`, `canConnect`), and Fleet's own refusal words come back from the save.
 
 import { DEFAULT, readsAt, stateExistsAt, stateLabelAt } from "@armada/components";
-import type { LifecycleDef, Rule, Workspace } from "@armada/components";
+import type { Held, LifecycleDef, Rule, Workspace } from "@armada/components";
 import type { LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, LifecycleRule, PieceScope, RuleAct, RuleTarget, StateReadFrom } from "@armada/protocol";
 
 import { effective, inherited, levelsOfRead, lifecycleLayers, ruleLayers, scopeOf } from "./levels";
@@ -42,8 +42,8 @@ function steppedOver(next: LifecycleDef["next"], gone: readonly string[]): (read
   return out;
 }
 
-function viewOf(def: LifecycleDef, level: string): View {
-  const here = def.states.filter((one) => stateExistsAt(one, level));
+function viewOf(def: LifecycleDef, level: string, workspace: Held): View {
+  const here = def.states.filter((one) => stateExistsAt(one, level, workspace));
   const ids = new Set(here.map((one) => one.id));
   const seen = new Set<string>();
   const transitions = steppedOver(
@@ -57,7 +57,7 @@ function viewOf(def: LifecycleDef, level: string): View {
   });
   return {
     name: def.label,
-    states: here.map((one) => ({ id: one.id, label: stateLabelAt(one, level), words: def.kind === "tracker" ? (readsAt(one, def.from, level) ?? []) : undefined, end: one.end === true })),
+    states: here.map((one) => ({ id: one.id, label: stateLabelAt(one, level, workspace), words: def.kind === "tracker" ? (readsAt(one, def.from, level, workspace) ?? []) : undefined, end: one.end === true })),
     transitions,
   };
 }
@@ -77,8 +77,8 @@ const layerOf = (def: LifecycleDef, level: string, only: ReadonlySet<string>) =>
  * The piece a level runs once it is changed: the one it ran (`base`) with the states, names, words and moves the change made. **The moves are the piece's own plus the ones the change added, less the ones it
  * took away**, so a move the piece lacked is not made by an edit elsewhere.
  */
-function pieceOf(def: LifecycleDef, was: LifecycleDef | undefined, level: string, base: LifecycleDefinition | undefined): LifecycleDefinition | undefined {
-  const view = viewOf(def, level);
+function pieceOf(def: LifecycleDef, was: LifecycleDef | undefined, level: string, base: LifecycleDefinition | undefined, workspace: Held): LifecycleDefinition | undefined {
+  const view = viewOf(def, level, workspace);
   const ids = new Set(view.states.map((one) => one.id));
   const fresh = view.states.find((one) => base !== undefined && !base.states.some((each) => each.id === one.id));
   // A state of a lifecycle another source reads has no words to be read from: none is added.
@@ -122,7 +122,7 @@ function lifecycleOps(read: PiecesRead, before: Workspace, after: Workspace): Op
     const was = before.lifecycles.find((one) => one.id === next.id);
     if (was === undefined) {
       // A lifecycle added on a tab is that tab's own piece.
-      const piece = pieceOf(next, undefined, next.scope ?? DEFAULT, undefined);
+      const piece = pieceOf(next, undefined, next.scope ?? DEFAULT, undefined, after);
       if (piece !== undefined) ops.push({ op: "save", piece: { kind: "lifecycle", lifecycle: piece }, overwrite: false });
       continue;
     }
@@ -135,12 +135,12 @@ function lifecycleOps(read: PiecesRead, before: Workspace, after: Workspace): Op
       const above = level === DEFAULT ? undefined : (inherited(own, level, read).found?.level ?? DEFAULT);
       const held = own.get(level);
       // A level changed back to what the one above says has no business holding a piece.
-      if (above !== undefined && same(viewOf(next, level), viewOf(next, above))) {
+      if (above !== undefined && same(viewOf(next, level, after), viewOf(next, above, after))) {
         if (held !== undefined) ops.push(...takenAway(id, held));
         continue;
       }
       const base = held?.piece ?? effective(own, level, read)?.layer.piece ?? [...own.values()][0]!.piece;
-      const piece = pieceOf(next, was, level, base);
+      const piece = pieceOf(next, was, level, base, after);
       if (piece !== undefined) ops.push({ op: "save", piece: { kind: "lifecycle", lifecycle: piece }, overwrite: held?.kept.rank.source === "kit" });
     }
   }

@@ -143,13 +143,14 @@ export function storePieces(web: Repository, api: Repository): PiecesSeed {
 
 /**
  * The Workspaces `platform` (api and web) and `mobile` (api and ios), both Kit's, and the first repository `api` in both: Armada's Ticket, Pull request and Deploy for everywhere; a rule of the
- * person's own that starts the ticket; and **Mark ready, which the default sets, platform changes and mobile changes another way**, so api reads neither and falls back to the default's. Each Workspace
- * sets how far Armada goes for a pull request write differently: platform asks and mobile acts.
+ * person's own that starts the ticket; and **Mark ready, which fires when a ticket enters In review everywhere and differs in how far it goes alone**: the default is Off, platform Asks and mobile Acts. api is
+ * in both, so it reads neither and falls back to the default's. Each Workspace also sets how far Armada goes for a pull request write: platform asks and mobile acts.
  */
 export function mobilePieces(api: Repository, web: Repository, ios: Repository): PiecesSeed {
   const kit = "/Users/user/.armada";
-  const markReady = (more: Partial<LifecycleRule>, when: LifecycleRule["when"], autonomy: "acts" | "asks"): LifecycleRule =>
-    rule("ready", "Mark ready", when, [{ kind: "forge_write", autonomy, what: { act: "forge_mark_ready", target: { among: { kind: "held", lifecycle: "pull_request" } } } }], { autonomy, ...more });
+  const review: LifecycleRule["when"] = { kind: "enters", lifecycle: "ticket", state: "in_review" };
+  const markReady = (more: Partial<LifecycleRule>, autonomy: "acts" | "asks" | "off"): LifecycleRule =>
+    rule("ready", "Mark ready", review, [{ kind: "forge_write", autonomy, what: { act: "forge_mark_ready", target: { among: { kind: "held", lifecycle: "pull_request" } } } }], { autonomy, ...more });
   const layer = (workspace: string, forge: "acts" | "asks"): KeptAutonomy => ({
     layer: { id: "defaults", scope: { kind: "within", id: workspace }, defaults: { forge_write: forge } },
     kept: { rank: { reach: "workspace", source: "kit" }, path: `${kit}/autonomy/${workspace}.toml` },
@@ -172,15 +173,15 @@ export function mobilePieces(api: Repository, web: Repository, ios: Repository):
         kept: { rank: { reach: "everywhere", source: "kit" }, path: `${kit}/rules/progress.toml` },
       },
       {
-        rule: markReady({}, { kind: "enters", lifecycle: "ticket", state: "in_review" }, "asks"),
+        rule: markReady({}, "off"),
         kept: { rank: { reach: "everywhere", source: "kit" }, path: `${kit}/rules/ready.toml` },
       },
       {
-        rule: markReady({ name: "Mark ready when started", scope: { kind: "within", id: "platform" } }, { kind: "enters", lifecycle: "ticket", state: "in_progress" }, "asks"),
+        rule: markReady({ scope: { kind: "within", id: "platform" } }, "asks"),
         kept: { rank: { reach: "workspace", source: "kit" }, path: `${kit}/rules/ready-platform.toml` },
       },
       {
-        rule: markReady({ name: "Mark ready after review", scope: { kind: "within", id: "mobile" } }, { kind: "enters", lifecycle: "ticket", state: "in_review" }, "acts"),
+        rule: markReady({ scope: { kind: "within", id: "mobile" } }, "acts"),
         kept: { rank: { reach: "workspace", source: "kit" }, path: `${kit}/rules/ready-mobile.toml` },
       },
     ],

@@ -46,7 +46,7 @@ const rule = (workspace: Workspace, id: string) => workspace.rules.find((one) =>
 
 /** A rule's piece changed on a tab, the way the editor's form changes it, with every field drawn again from the piece as the page does. */
 const edited = (workspace: Workspace, id: string, tab: string, change: (piece: LifecycleRule) => LifecycleRule): Workspace => {
-  const now = ruleAt(rule(workspace, id), tab).wire!;
+  const now = ruleAt(rule(workspace, id), tab, workspace).wire!;
   return withDrawn(withRuleWireAt(workspace, id, tab, change(now)));
 };
 
@@ -105,16 +105,16 @@ describe("what a rule's piece is read as", () => {
   it("is a level's own piece whole where that level keeps one, and the level above's for the rest", async () => {
     const mock = fleet();
     const own = withDrawn(workspaceOf((await readPieces(mock.api, WEB.id, SERVED) as { ok: true; read: never }).read)!);
-    const piece = { ...ruleAt(rule(own, "progress"), DEFAULT).wire!, name: "Begin the ticket", scope: { kind: "within" as const, id: WEB.id } };
+    const piece = { ...ruleAt(rule(own, "progress"), DEFAULT, own).wire!, name: "Begin the ticket", scope: { kind: "within" as const, id: WEB.id } };
     await mock.api.saveLifecyclePiece({ piece: { kind: "rule", rule: piece } });
     const again = await readPieces(mock.api, WEB.id, SERVED);
     if (!again.ok) throw new Error("not read");
     const held = workspaceOf(again.read)!;
-    expect(ruleAt(rule(held, "progress"), WEB.id).label).toBe("Begin the ticket");
-    expect(ruleAt(rule(held, "progress"), WEB.id).wire).toEqual(piece);
+    expect(ruleAt(rule(held, "progress"), WEB.id, held).label).toBe("Begin the ticket");
+    expect(ruleAt(rule(held, "progress"), WEB.id, held).wire).toEqual(piece);
     // The default's tab and the Workspace's still read the default's piece.
-    expect(ruleAt(rule(held, "progress"), DEFAULT).label).toBe("Start the ticket");
-    expect(ruleAt(rule(held, "progress"), WORKSPACE).label).toBe("Start the ticket");
+    expect(ruleAt(rule(held, "progress"), DEFAULT, held).label).toBe("Start the ticket");
+    expect(ruleAt(rule(held, "progress"), WORKSPACE, held).label).toBe("Start the ticket");
   });
 
   it("leaves a state out on a tab whose own piece does not have it", async () => {

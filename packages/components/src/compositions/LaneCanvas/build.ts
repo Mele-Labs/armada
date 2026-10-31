@@ -1,8 +1,8 @@
 // The lanes of a Workspace as the editor draws them, and of a Job as its Lanes view does. Both come to the same two lists, lanes
 // and rule edges, which `LaneCanvas` places.
 
-import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, lifecyclesFor, nodeId, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
-import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, PendingKind, Rule, RuleView, Workspace } from "./model";
+import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, clashAt, differSaid, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, lifecyclesFor, nodeId, ownersOf, ruleAt, ruleDiffers, stateDiffers, stateOwners, stepDiffers } from "./model";
+import type { Clash, Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, PendingKind, Rule, RuleView, Workspace } from "./model";
 
 /** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
 const STATE_KIND: Readonly<Record<LifecycleKind, NodeKind>> = { tracker: "tracker", forge: "forge", watch: "watch", document: "document", job: "job" };
@@ -51,7 +51,7 @@ export function stepsOf(workspace: Workspace, workflow: string, steps: readonly 
     let ends = given?.ends;
     let endsOn = given?.endsOn;
     let passedOver = given?.passedOver;
-    for (const layer of layersAt(workspace.workflows[workflow], step.id, scope)) {
+    for (const layer of layersAt(workspace.workflows[workflow], step.id, scope, workspace)) {
       if (layer.label !== undefined) label = layer.label;
       if (layer.ends !== undefined) {
         ends = layer.ends;
@@ -67,7 +67,7 @@ export function stepsOf(workspace: Workspace, workflow: string, steps: readonly 
 export function rulesFor(workspace: Workspace, workflow: string, steps: readonly { id: string; label: string }[], scope: string = DEFAULT): Rule[] {
   const drawn = new Set<string>([...steps.map((step) => nodeId("workflow", step.id)), ...lifecyclesFor(workspace, workflow, scope).flatMap((lifecycle) => lifecycle.states.map((state) => nodeId(lifecycle.id, state.id)))]);
   return workspace.rules
-    .map((rule) => ruleAt(rule, scope))
+    .map((rule) => ruleAt(rule, scope, workspace))
     .filter((rule) => (rule.workflow === undefined || rule.workflow === workflow) && drawn.has(nodeId(rule.from.lane, rule.from.item)) && drawn.has(nodeId(rule.to.lane, rule.to.item)));
 }
 
@@ -101,13 +101,15 @@ export function editorLanes(input: {
   const named = (ids: readonly string[]): string[] => ids.map((id) => levelName(workspace, id));
   /** The levels a mark names: on the default's tab every one under it that differs; on a Workspace's, the repositories it holds that differ; on a repository's own tab only that one. */
   const marked = (ids: readonly string[]): string[] =>
-    named(scope === DEFAULT ? ids : isWorkspaceLevel(scope) ? ids.filter((id) => !isWorkspaceLevel(id) && levelsOf(id).includes(scope)) : ids.filter((id) => id === scope));
+    named(scope === DEFAULT ? ids : isWorkspaceLevel(scope) ? ids.filter((id) => !isWorkspaceLevel(id) && levelsOf(id, workspace).includes(scope)) : ids.filter((id) => id === scope));
+  /** The Workspaces whose pieces differ on this tab, by name: only a repository's tab sets any aside. */
+  const clashNames = (clash: Clash | undefined, own: readonly string[]): string[] => clashAt(clash, scope, workspace, own).map((id) => levelName(workspace, id));
   /** A rule is drawn where it applies: everywhere on the default's tab; on a Workspace's, where it is the default's, that Workspace's or a repository's in it; on a repository's, where the levels it reads set it. */
   const appliesHere = (rule: Rule): boolean => {
     if (scope === DEFAULT) return true;
-    const owners = [rule.scope, ...(rule.overrides ?? []).map((one) => one.scope)];
-    if (isWorkspaceLevel(scope)) return owners.some((level) => level === DEFAULT || level === scope || (!isWorkspaceLevel(level) && levelsOf(level).includes(scope)));
-    return owners.some((level) => levelsOf(scope, rule.clash).includes(level));
+    const owners = ownersOf(rule);
+    if (isWorkspaceLevel(scope)) return owners.some((level) => level === DEFAULT || level === scope || (!isWorkspaceLevel(level) && levelsOf(level, workspace).includes(scope)));
+    return owners.some((level) => levelsOf(scope, workspace, rule.clash).includes(level));
   };
   const steps = stepsOf(workspace, workflow, input.steps, scope);
   const lifecycles = lifecyclesAt(workspace, workflow, scope);
@@ -129,7 +131,8 @@ export function editorLanes(input: {
       undefined,
       lifecycle.states.map((state) => {
         const differs = marked(stateDiffers(state));
-        return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, kind: kindOfState(lifecycle), ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
+        const clash = clashNames(state.clash, stateOwners(state));
+        return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, kind: kindOfState(lifecycle), ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }), ...(clash.length === 0 ? {} : { clash: differSaid(clash) }) };
       }),
     );
     const waits = input.pending?.get(`lifecycle:${lifecycle.id}`);
@@ -137,6 +140,7 @@ export function editorLanes(input: {
   });
   const drawn = (rule: Rule, proposed: boolean): RuleView => {
     const differs = marked(ruleDiffers(rule));
+    const clash = clashNames(rule.clash, ownersOf(rule));
     const waits = input.pending?.get(`rule:${rule.id}`);
     return {
       id: rule.id,
@@ -146,13 +150,14 @@ export function editorLanes(input: {
       label: rule.label,
       autonomy: rule.autonomy,
       ...(differs.length === 0 ? {} : { differs }),
+      ...(clash.length === 0 ? {} : { clash: differSaid(clash) }),
       ...(proposed ? { proposed: true as const } : {}),
       ...(waits === undefined ? {} : { pending: waits }),
     };
   };
   return {
     lanes: [flow, ...lanes],
-    rules: [...rulesFor(workspace, workflow, input.steps, scope).filter(appliesHere).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => ruleAt(rule, scope)).filter(appliesHere).map((rule) => drawn(rule, true))],
+    rules: [...rulesFor(workspace, workflow, input.steps, scope).filter(appliesHere).map((rule) => drawn(rule, false)), ...(input.proposed ?? []).map((rule) => ruleAt(rule, scope, workspace)).filter(appliesHere).map((rule) => drawn(rule, true))],
   };
 }
 

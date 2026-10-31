@@ -58,7 +58,7 @@ export function withRuleAt(workspace: Workspace, id: string, scope: string, patc
   if (rule === undefined) return workspace;
   // A rule added at a level is that level's own: there is no level above to differ from.
   if (scope === DEFAULT || rule.scope === scope) return withRule(workspace, id, patch);
-  const above = ruleAt(rule, scope, true);
+  const above = ruleAt(rule, scope, workspace, true);
   const { scope: _level, ...own } = rule.overrides?.find((one) => one.scope === scope) ?? { scope };
   const next: Record<string, unknown> = { ...own };
   for (const [key, value] of Object.entries(patch)) {
@@ -80,7 +80,7 @@ export function withRuleWireAt(workspace: Workspace, id: string, scope: string, 
   if (rule === undefined) return workspace;
   if (scope === DEFAULT || rule.scope === scope) return withRule(workspace, id, { wire });
   const rest = (rule.overrides ?? []).filter((one) => one.scope !== scope);
-  const above = ruleAt(rule, scope, true).wire;
+  const above = ruleAt(rule, scope, workspace, true).wire;
   return withRule(workspace, id, { overrides: same(unscoped(wire), unscoped(above)) ? rest : [...rest, { scope, wire }] });
 }
 
@@ -130,7 +130,7 @@ export function withStateLabelAt(workspace: Workspace, lane: string, state: stri
     // A state added at a level is that level's own.
     if (scope === DEFAULT || one.scope === scope) return { ...one, label };
     const others = (one.names ?? []).filter((each) => each.scope !== scope);
-    const names = label === stateLabelAt({ ...one, names: others }, scope, true) ? others : [...others, { scope, label }];
+    const names = label === stateLabelAt({ ...one, names: others }, scope, workspace, true) ? others : [...others, { scope, label }];
     return { ...one, names };
   });
 }

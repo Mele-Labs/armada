@@ -5,8 +5,8 @@
 // **What the wire does not carry stays out of the model.** Where a lifecycle's states sit in columns beside the workflow's steps is laid out here (`placesOf`) and not kept;
 // a rule that fires on a Job event, or that lands on no node, is not drawn and is left as it is.
 
-import { DEFAULT, autonomyOfWire, existsAt, holding } from "@armada/components";
-import type { Kept, LifecycleDef, LifecycleKind, Ref, Rule, RuleOverride, StateDef, Workspace, WorkflowPlace } from "@armada/components";
+import { DEFAULT, autonomyOfWire, existsAt } from "@armada/components";
+import type { Held, Kept, LifecycleDef, LifecycleKind, Ref, Rule, RuleOverride, StateDef, Workspace, WorkflowPlace } from "@armada/components";
 import type { LifecycleDefinition, LifecycleRule, RuleAct } from "@armada/protocol";
 import { columnsOf } from "@armada/screens/src/session-lanes";
 
@@ -35,7 +35,7 @@ export const wordsOf = (state: LifecycleDefinition["states"][number] | undefined
 /** The levels that have a piece of their own, widest first. */
 const ownLevels = (layers: Layers<unknown>, levels: readonly string[]): string[] => levels.filter((level) => layers.has(level));
 
-function lifecycleOf(id: string, layers: Layers<LifecycleDefinition>, levels: readonly string[], read: PiecesRead): LifecycleDef {
+function lifecycleOf(id: string, layers: Layers<LifecycleDefinition>, levels: readonly string[], read: PiecesRead, held: Held): LifecycleDef {
   const clash = clashOf(layers, read);
   const own = ownLevels(layers, levels);
   const pieceAt = (level: string) => layers.get(level)?.piece;
@@ -70,7 +70,7 @@ function lifecycleOf(id: string, layers: Layers<LifecycleDefinition>, levels: re
     // Fleet runs a tab's piece whole: a tab whose piece lacks the state does not have it, whatever a level above says.
     const absent = levels.filter((level) => {
       const found = effective(layers, level, read);
-      return existsAt(at, level, clash) && found !== undefined && !found.layer.piece.states.some((one) => one.id === stateId);
+      return existsAt(at, level, held, clash) && found !== undefined && !found.layer.piece.states.some((one) => one.id === stateId);
     });
     return {
       id: stateId,
@@ -211,14 +211,12 @@ export function workspaceOf(read: PiecesRead): Workspace | undefined {
     workspaces: read.workspaces.map((each) => ({ id: each.id, name: each.name })),
     repositories: read.repositories.map((each) => ({ id: each.id, name: each.name, in: read.workspaces.filter((there) => there.repositories.includes(each.id)).map((there) => there.id) })),
   };
-  // The Workspaces that hold each repository decide what its tab reads, so they are known before a piece is read.
-  holding(named);
   const lifecycleLayered = lifecycleLayers(read);
   // A piece scoped to a repository this read did not cover has no tab to be drawn on.
   const readable = <T,>(all: ReadonlyMap<string, Layers<T>>) => [...all].filter(([, layers]) => ownLevels(layers, levels).length > 0);
   const readLifecycles = readable(lifecycleLayered);
   if (readLifecycles.length === 0) return undefined;
-  const lifecycles = readLifecycles.map(([id, layers]) => lifecycleOf(id, layers, levels, read));
+  const lifecycles = readLifecycles.map(([id, layers]) => lifecycleOf(id, layers, levels, read, named));
   const defs = namedOf(lifecycles);
   const rules = readable(ruleLayers(read)).flatMap(([id, layers]) => ruleOf(id, layers, defs, levels, read) ?? []);
   return { ...named, lifecycles, workflows: {}, rules };

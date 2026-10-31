@@ -1,5 +1,6 @@
-// The Workflows page for `api`, which is in two Workspaces: Platform (api and web) and Mobile (api and ios). The Runs in row has a tab for each, then the repositories of both. Platform and Mobile
-// each change the rule Mark ready from the default's, so api, which is in both, reads the default's and marks it. Built over `workspaces-lanes`, whose Jobs it keeps. A mock, no Fleet behind it.
+// The Workflows page for `api`, which is in two Workspaces: Platform (api and web) and Mobile (api and ios). The Runs in row has a group of tabs for the default, one for the Workspaces and one for
+// the repositories of both. Platform and Mobile each set how far the rule Mark ready goes alone differently from the default's, so api, which is in both, reads the default's and warns. Built over
+// `workspaces-lanes`, whose Jobs it keeps. A mock, no Fleet behind it.
 
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -26,7 +27,7 @@ const REPOSITORIES = [API, WEB_APP, IOS];
 export const workspaceTabs: Scenario = {
   ...workspacesLanes,
   name: "workspace-tabs",
-  says: "The Workflows page on api, which is in Platform and in Mobile: a tab for each, then api, web and ios. The two differ on Mark ready, so api reads the default's and marks it",
+  says: "The Workflows page on api, which is in Platform and in Mobile: a tab for each, then api, web and ios. The two set Mark ready differently, so api reads the default's and warns",
   state: { ...workspacesLanes.state, repository: API.root, holds: { ...workspacesLanes.state.holds, repositories: REPOSITORIES } },
   behaves: (fleet) => ({
     ...workspacesLanes.behaves!(fleet),

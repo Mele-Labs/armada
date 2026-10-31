@@ -1,5 +1,5 @@
 import { Clock, ListPlus, Plus, Split, Trash2 } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { LifecycleRule } from "@armada/protocol";
@@ -38,13 +38,12 @@ import {
 import type { RuleFields, StepFields } from "../LaneCanvas/edit";
 import { LaneCanvas } from "../LaneCanvas/LaneCanvas";
 import type { LaneEditing, LanePick } from "../LaneCanvas/LaneCanvas";
-import { DEFAULT, END_ITEM, PENDING_SAID, START_ITEM, clashAt, existsAt, holding, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, nodeId, readsAt, ruleAt, stateDiffers, stateExistsAt, stateLabelAt, stepDiffers, stepsAt, whenSaid, workspaceLevel, workspacesOf } from "../LaneCanvas/model";
+import { DEFAULT, END_ITEM, PENDING_SAID, START_ITEM, clashAt, differSaid, existsAt, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, listed, nodeId, ownersOf, readsAt, ruleAt, stateDiffers, stateExistsAt, stateLabelAt, stateOwners, stepDiffers, stepsAt, whenSaid, workspaceLevel, workspacesOf } from "../LaneCanvas/model";
 import type { Autonomy, Clash, LifecycleDef, PendingKind, Ref, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
 import { MOMENTS, endsOnOf, fireGroupsOf, momentOf, subjectsOf, waitsOf } from "../LaneCanvas/waits";
 import type { WaitSubject } from "../LaneCanvas/waits";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
-import { listed } from "./Autonomy";
 import { Field, Lines, Pair, Wrapped } from "./InspectorFields";
 import type { Choice } from "./InspectorFields";
 import { RuleForm } from "./RuleForm";
@@ -178,8 +177,6 @@ export function WorkspaceEditor({
   onSteps: (change: StepsChange) => void;
 }) {
   const workspace = editing.value;
-  // The Workspaces that hold each repository decide what a repository's tab reads.
-  holding(workspace);
   const [picked, setPicked] = useState<LanePick | undefined>();
   const [mode, setMode] = useState<Mode>("fields");
   // The tab: the default's, the Workspace's, or one repository's. The page opens on the default.
@@ -196,7 +193,7 @@ export function WorkspaceEditor({
             name: repository?.name ?? scope,
             back: (owners, clash) => {
               // One Workspace above is the one named. Where two hold the repository, the one that sets the piece; where neither does, or they clash, the default.
-              const held = levelsOf(scope, clash).filter(isWorkspaceLevel);
+              const held = levelsOf(scope, workspace, clash).filter(isWorkspaceLevel);
               const above = held.length === 1 ? held[0] : held.find((one) => owners?.includes(one));
               return above === undefined ? "Use the default" : `Use ${levelName(workspace, above)}'s`;
             },
@@ -208,7 +205,7 @@ export function WorkspaceEditor({
   const defined = workflow.steps.length > 0 ? workflow.steps : read.current;
   const place = workspace.workflows[workflow.id];
   /** The steps as they run on this tab: the definition's, and the ones added at this level or above. */
-  const steps = useMemo(() => stepsAt(defined, place, scope, (one): ManagedStep => ({ id: one.id, label: one.label, ends: "", words: one.words ?? "" })), [defined, place, scope]);
+  const steps = useMemo(() => stepsAt(defined, place, scope, workspace, (one): ManagedStep => ({ id: one.id, label: one.label, ends: "", words: one.words ?? "" })), [defined, place, scope, workspace]);
   /** The rules drawn as added: a change's, and those a draft would keep. */
   const adding = useMemo(() => (editing.drafted === undefined ? proposed : [...proposed, ...editing.drafted]), [proposed, editing.drafted]);
   const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed: adding, scope, ...(editing.pending === undefined ? {} : { pending: editing.pending }) }), [workspace, workflow.id, steps, adding, scope, editing.pending]);
@@ -231,7 +228,7 @@ export function WorkspaceEditor({
   const nameOfPick = (at: LanePick): { title: string; heading: string; crumb: string } => {
     if (at.kind === "rule") {
       const found = [...workspace.rules, ...adding].find((one) => one.id === at.id);
-      const rule = found === undefined ? undefined : ruleAt(found, scope);
+      const rule = found === undefined ? undefined : ruleAt(found, scope, workspace);
       return { title: `Rule: ${rule?.label ?? at.id}`, heading: rule?.label ?? at.id, crumb: "Rule" };
     }
     if (at.kind === "lane") {
@@ -392,12 +389,25 @@ export function WorkspaceEditor({
       const rule = [...workspace.rules, ...adding].find((one) => one.id === picked.id);
       if (rule === undefined) return null;
       const added = adding.includes(rule);
-      const wire = ruleAt(rule, scope).wire;
+      const wire = ruleAt(rule, scope, workspace).wire;
       // Where rules are pieces, a rule is its piece: pickers over what Fleet can run, each change a piece kept whole at this tab.
       if (pieces && wire !== undefined && !added) {
         const here = lifecyclesOf(workspace, scope);
+        // Workspaces that both change the rule leave the repository on the default's: each button keeps one's piece as the repository's own.
+        const aside = clashAt(rule.clash, scope, workspace, ownersOf(rule));
+        const wireOf = (at: string): LifecycleRule | undefined => (rule.scope === at ? rule.wire : rule.overrides?.find((one) => one.scope === at)?.wire);
         return (
           <div className="armada-wm-step">
+            <Differing
+              names={aside.map((one) => levelName(workspace, one))}
+              what={ruleAt(rule, scope, workspace).label}
+              repository={repository?.name ?? scope}
+              runsDefault={rule.scope === DEFAULT}
+              uses={aside.flatMap((at) => {
+                const piece = wireOf(at);
+                return piece === undefined ? [] : [{ name: levelName(workspace, at), use: () => change(withRuleWireAt(workspace, rule.id, scope, piece)) }];
+              })}
+            />
             {pendingOf(`rule:${rule.id}`) === undefined ? null : <Pending kind={pendingOf(`rule:${rule.id}`)!} />}
             <dl className="armada-wm-step__facts">
               <RuleForm
@@ -409,7 +419,6 @@ export function WorkspaceEditor({
                 lands={editing.lands ?? (() => true)}
                 onChange={(next) => change(withRuleWireAt(workspace, rule.id, scope, next))}
               />
-              <ClashedRule workspace={workspace} rule={rule} scope={scope} />
               {level === undefined || !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : <Changed name={level.name} back={level.back(ownersOf(rule), rule.clash)} onUseAbove={() => change(withoutRuleOverride(workspace, rule.id, scope))} />}
             </dl>
           </div>
@@ -455,11 +464,11 @@ export function WorkspaceEditor({
       /** A step as it reads at a level: its name, words, what ends it and what passes it over. */
       const readAt = (at: string) => {
         const laid = stepsOf(workspace, workflow.id, steps, at).find((one) => one.id === step.id) ?? { id: step.id, label: step.label, col: index };
-        const words = layersAt(place, step.id, at).reduce((now, one) => one.words ?? now, step.words);
+        const words = layersAt(place, step.id, at, workspace).reduce((now, one) => one.words ?? now, step.words);
         return { laid, label: laid.label, words, ends: waitsOf(laid, "ends", step.ends, subjects), passedOver: waitsOf(laid, "passedOver", step.passedOver, subjects), endsOn: laid.endsOn };
       };
       const here = readAt(scope);
-      const upper = level === undefined ? undefined : readAt(levelsOf(scope)[1]!);
+      const upper = level === undefined ? undefined : readAt(levelsOf(scope, workspace)[1]!);
       const above = (): StepFields => ({ ...(upper === undefined ? {} : { label: upper.label, words: upper.words, ...(upper.ends === undefined ? {} : { ends: upper.ends }), ...(upper.endsOn === undefined ? {} : { endsOn: upper.endsOn }), ...(upper.passedOver === undefined ? {} : { passedOver: upper.passedOver }) }) });
       const layer = (patch: StepFields) => change(withStepLayer(workspace, workflow.id, step.id, scope, patch, above()));
       const waits = (which: "ends" | "passedOver") => (labelledBy: string) => (
@@ -518,12 +527,17 @@ export function WorkspaceEditor({
   };
 
   // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
-  const tabs: TabsItem[] = [
-    { id: DEFAULT, label: "Default" },
-    // A repository that is in no Workspace has no level between the default and itself; one in two has a tab for each.
-    ...workspacesOf(workspace).map((one) => ({ id: workspaceLevel(one.id), label: `All of ${one.name}`, name: one.name })),
-    ...workspace.repositories.map((one) => ({ id: one.id, label: one.name, name: one.name })),
-  ].map(({ id, label, name }: { id: string; label: string; name?: string }): TabsItem => (name !== undefined && changedAt(workspace, workflow.id, defined, id) ? { id, label, icon: Split, hint: `Changed for ${name}` } : isWorkspaceLevel(id) ? { id, label, hint: `Workspace ${name ?? ""}` } : { id, label }));
+  const tab = (id: string, label: string, name: string | undefined, workspaceName?: string): TabsItem => {
+    const changed = name !== undefined && changedAt(workspace, workflow.id, defined, id);
+    const hint = workspaceName === undefined ? (changed ? `Changed for ${name}` : undefined) : changed ? `Workspace ${workspaceName}, changed` : `Workspace ${workspaceName}`;
+    return { id, label, ...(changed ? { icon: Split } : {}), ...(hint === undefined ? {} : { hint }) };
+  };
+  /** The default's tab; the Workspaces' that hold the repository the page is on; then the repositories of them. A repository in no Workspace has the first and the last alone. */
+  const groups: TabsItem[][] = [
+    [tab(DEFAULT, "Default", undefined)],
+    workspacesOf(workspace).map((one) => tab(workspaceLevel(one.id), one.name, one.name, one.name)),
+    workspace.repositories.map((one) => tab(one.id, one.name, one.name)),
+  ].filter((one) => one.length > 0);
 
   const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
   /** The rule or lifecycle the pick is of, for the acts on where it is kept. A step is the workflow's. */
@@ -546,7 +560,12 @@ export function WorkspaceEditor({
           Runs in
         </span>
         <div className="armada-wm-scope__tabs">
-          <Tabs icons items={tabs} value={scope} onChange={setScope} />
+          {groups.map((items, at) => (
+            <Fragment key={items[0]!.id}>
+              {at === 0 ? null : <span className="armada-wm-scope__rule" role="separator" aria-orientation="vertical" />}
+              <Tabs icons items={items} value={scope} onChange={setScope} />
+            </Fragment>
+          ))}
         </div>
         <p className="armada-wm-scope__says">{SAYS(scope, levelName(workspace, scope), repository?.name)}</p>
         {editing.readOnly === true ? null : (
@@ -584,8 +603,8 @@ export function WorkspaceEditor({
 /** The lifecycles as a tab has them, for the pickers of a rule: the ones that exist there, each with the states that do and the names the tab gives them. */
 const lifecyclesOf = (workspace: Workspace, scope: string): RuleFormLifecycle[] =>
   workspace.lifecycles
-    .filter((one) => existsAt(one.scope, scope))
-    .map((one) => ({ id: one.id, name: one.label, kind: one.kind, states: one.states.filter((state) => stateExistsAt(state, scope)).map((state) => ({ id: state.id, label: stateLabelAt(state, scope) })) }));
+    .filter((one) => existsAt(one.scope, scope, workspace))
+    .map((one) => ({ id: one.id, name: one.label, kind: one.kind, states: one.states.filter((state) => stateExistsAt(state, scope, workspace)).map((state) => ({ id: state.id, label: stateLabelAt(state, scope, workspace) })) }));
 
 /** The mark on a piece that waits on a pull request removing it or a draft keeping it: a glyph, with the sentence in its tooltip. */
 function Pending({ kind }: { kind: PendingKind }) {
@@ -698,26 +717,27 @@ function Differs({ name, children }: { name: string; children: ReactNode }) {
   );
 }
 
-/** The mark on a piece the Workspaces that hold the repository set differently: Fleet runs neither, so the tab reads the default's. The glyph is the autonomy rows'. */
-function Clashed({ names }: { names: readonly string[] }) {
+/**
+ * Where the Workspaces that hold the repository both change a piece, Fleet runs neither: the line says which and what the repository runs instead, and each button keeps one Workspace's as the
+ * repository's own. A state has no button, since its pieces are the lifecycle's.
+ */
+function Differing({ names, what, repository, runsDefault, uses }: { names: readonly string[]; what: string; repository: string; runsDefault: boolean; uses?: readonly { name: string; use: () => void }[] }) {
   if (names.length === 0) return null;
-  const said = `${listed(names)} differ`;
   return (
-    <dd className="armada-wm-inspector__changed">
-      <Tooltip label={said}>
-        <span className="armada-wm-auto__clash" role="img" aria-label={said}>
-          <Split size={16} strokeWidth={2} aria-hidden="true" />
-        </span>
-      </Tooltip>
-    </dd>
+    <div className="armada-wm-clash" role="group" aria-label={differSaid(names)}>
+      <p className="armada-wm-clash__says">{`${listed(names)} both change ${what}. ${repository} runs ${runsDefault ? "the Default's" : "neither"}.`}</p>
+      {uses === undefined ? null : (
+        <div className="armada-wm-clash__acts">
+          {uses.map((one) => (
+            <Button key={one.name} type="button" variant="secondary" size="sm" onClick={one.use}>
+              {`Use ${one.name}'s`}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
-
-/** The mark for a rule on the tab that is picked. */
-const ClashedRule = ({ workspace, rule, scope }: { workspace: Workspace; rule: Rule; scope: string }) => <Clashed names={clashAt(rule.clash, scope).map((one) => levelName(workspace, one))} />;
-
-/** The levels that set a rule: where it applies, and each that changes it. */
-const ownersOf = (rule: Rule): string[] => [rule.scope, ...(rule.overrides ?? []).map((one) => one.scope)];
 
 /** What a tab says of a value it changes: where it differs from the level above, named for the tab, and the way back to the one above's. */
 function Changed({ name, back, onUseAbove }: { name: string; back: string; onUseAbove: () => void }) {
@@ -760,10 +780,11 @@ function StateFacts({
   const sources = [...new Set(state.reads.map((one) => one.source))];
   return (
     <div className="armada-wm-step">
+      <Differing names={clashAt(state.clash, scope, workspace, stateOwners(state)).map((one) => levelName(workspace, one))} what={stateLabelAt(state, scope, workspace)} repository={level?.name ?? scope} runsDefault />
       <dl className="armada-wm-step__facts">
         <dt id={`${id}-name`}>Name</dt>
         <dd>
-          <Field labelledBy={`${id}-name`} value={stateLabelAt(state, scope)} onCommit={(label) => label !== "" && onLabel(label)} />
+          <Field labelledBy={`${id}-name`} value={stateLabelAt(state, scope, workspace)} onCommit={(label) => label !== "" && onLabel(label)} />
         </dd>
         {sources.length === 1 && sources[0] === lifecycle.from ? null : (
           <>
@@ -772,8 +793,8 @@ function StateFacts({
           </>
         )}
         {sources.flatMap((source, at) => {
-          const above = level === undefined ? [] : (readsAt(state, source, scope, true) ?? []);
-          const shown = readsAt(state, source, scope) ?? [];
+          const above = level === undefined ? [] : (readsAt(state, source, scope, workspace, true) ?? []);
+          const shown = readsAt(state, source, scope, workspace) ?? [];
           return [
             <dt key={`${source}:name`} id={`${id}-${at}`}>{`${source} statuses`}</dt>,
             <dd key={source}>
@@ -790,8 +811,7 @@ function StateFacts({
             </dd>,
           ];
         })}
-        <Clashed names={clashAt(state.clash, scope).map((one) => levelName(workspace, one))} />
-        {level === undefined || mine || !stateDiffers(state).includes(scope) ? null : <Changed name={level.name} back={level.back([state.scope ?? DEFAULT, ...(state.names ?? []).map((one) => one.scope), ...state.reads.map((one) => one.scope)], state.clash)} onUseAbove={onUseAbove} />}
+        {level === undefined || mine || !stateDiffers(state).includes(scope) ? null : <Changed name={level.name} back={level.back(stateOwners(state), state.clash)} onUseAbove={onUseAbove} />}
       </dl>
     </div>
   );
@@ -828,7 +848,7 @@ function RuleFacts({
 }) {
   const id = useId();
   const scope = level?.id ?? DEFAULT;
-  const here = ruleAt(rule, scope);
+  const here = ruleAt(rule, scope, workspace);
   const writing = !added;
   const kind = here.does[0]?.act ?? "agent";
   const lifecycles = lifecyclesAt(workspace, workflow, scope);
@@ -918,7 +938,6 @@ function RuleFacts({
             ))}
           </RadioGroup>
         </dd>
-        <ClashedRule workspace={workspace} rule={rule} scope={scope} />
         {level === undefined || !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : <Changed name={level.name} back={level.back(ownersOf(rule), rule.clash)} onUseAbove={onUseAbove} />}
       </dl>
     </div>
