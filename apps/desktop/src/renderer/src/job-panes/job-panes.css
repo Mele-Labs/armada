@@ -28,13 +28,16 @@
 .job-pane__tab[data-active] { background: var(--bg-raised); box-shadow: inset var(--border-width) 0 0 var(--edge), inset calc(var(--border-width) * -1) 0 0 var(--edge); }
 /* At the strip's start the pane's own border is the tab's left edge: no second line beside it. */
 .job-pane__tab[data-active]:first-child { box-shadow: inset calc(var(--border-width) * -1) 0 0 var(--edge); }
+/* Every tab has its ×, and its room is always kept, so a tab is as wide hidden as shown. It shows on the tab in front, on hover and on focus within. */
+.job-pane__close { display: inline-flex; align-items: center; margin-inline-end: var(--space-1); visibility: hidden; }
+.job-pane__tab:is([data-active], :hover, :focus-within) .job-pane__close { visibility: visible; }
 .job-pane__tab[data-dragging] { opacity: 0.5; }
 .job-pane__label {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--h-control-sm);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-1) 0 var(--space-3);
   border: 0;
   border-radius: 0;
   background: transparent;

@@ -1,6 +1,6 @@
 // One pane: a strip of its tabs with a + that adds one, over the body of the tab in front. A tab is dragged to another pane's strip to move there, or to a pane's edge to split it.
 
-import { useEffect, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
@@ -40,6 +40,13 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
   const { Glyph } = KINDS[tab.kind];
   const active = pane.active === tab.id;
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
+  /** Closed by its own ×, or a middle click: the tab does not come to the front first. */
+  const close = () => {
+    rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
+    focusIn(peek(jobId).focus);
+  };
+  // A press that starts on the × is not the start of a drag of the tab.
+  const grabbed = useRef(false);
   const choose = (id: string) => {
     look(jobId, (arrangement) => focusPane(activate(arrangement, tab.id), pane.id));
     if (id === "window") moveToWindow(jobId, tab);
@@ -55,7 +62,17 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
       data-active={active || undefined}
       data-dragging={dragging || undefined}
       draggable
+      onPointerDown={(event) => {
+        grabbed.current = (event.target as Element).closest(".job-pane__close") !== null;
+      }}
+      onMouseDown={(event) => event.button === 1 && event.preventDefault()}
+      onAuxClick={(event) => {
+        if (event.button !== 1) return;
+        event.preventDefault();
+        close();
+      }}
       onDragStart={(event: DragEvent) => {
+        if (grabbed.current) return event.preventDefault();
         event.dataTransfer.setData("text/plain", tab.id);
         event.dataTransfer.effectAllowed = "move";
         onDrag(tab.id);
@@ -84,6 +101,13 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
         <Glyph size={16} strokeWidth={2} aria-hidden />
         <span>{label}</span>
       </button>
+      <span className="job-pane__close">
+        <Tooltip label="Close">
+          <Button variant="ghost" size="sm" iconOnly aria-label={`Close ${label}`} draggable={false} onClick={close}>
+            <X size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      </span>
       <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries(tab.kind)} onSelect={choose} />
     </div>
   );
