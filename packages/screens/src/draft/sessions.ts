@@ -68,7 +68,7 @@ export type SessionAttachment =
    * `asked` is one put to the person to approve, `drawn` the drawing he is shown, which `answerSketch` names back, and
    * `settled` how he answered: `detail.asked`, `detail.drawn` and `detail.settled` on the wire.
    */
-  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene }; asked?: true; drawn?: string; settled?: SketchSettled }
+  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene }; asked?: true; drawn?: string; settled?: SketchSettled; /** Each drawing Fleet kept under the title, as a file of scene JSON, oldest first. The newest is `drawing`. */ revisions?: readonly string[] }
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string; /** The Agent call that started it, which Fleet keys the Field's drone by. */ call?: string }
   /**
@@ -172,7 +172,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean; /** When the agent last changed this task's mark, RFC 3339. A mark the agent has not touched in a long while reads its age and dims. */ changedAt?: string; /** Fleet set the state itself, and this is its proof ("commit 1a2b3c4 names it"). */ marked?: string; /** In progress, and Fleet reads the work as elsewhere: why, and since when (RFC 3339). */ stale?: { why: string; since: string } };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */ landsIn?: PlanLandsIn; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */ landsIn?: PlanLandsIn; /** The group goes to a Job of its own, started with the group. Until it is handed, Bridge draws it as that Job, not started yet. Fleet sets it from the agent's `own_job`. */ ownJob?: true; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */

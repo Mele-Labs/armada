@@ -1,7 +1,8 @@
 // The lifecycle reads and the two writes of one piece. A scenario that keeps pieces (`draft.pieces`) has them answered as Fleet answers them: those that apply to the repository asked
 // about, each with where it is kept, the one that runs and what it replaced. A save or a delete changes them for the life of the window, refused as Fleet refuses what it will not keep.
 // A scenario with none answers empty. **A Job answers what the scenario serves of it** (`workspaces-lanes-wire.ts`), the lifecycles, instances and moves a real Job's read carries, and a
-// Job that holds nothing answers three empty lists, as Fleet does. The event fires when a served Job moves.
+// Job that holds nothing answers three empty lists, as Fleet does. The event fires when a served Job moves. A scenario that names Workspaces (`draft.workspace.workspaces`) has them and their autonomy
+// layers answered and kept the same way (armada-cwj).
 
 import type { AppliedLifecycle, AppliedRule, LifecycleDefinition, PieceKept, PieceScope, WireError, WorkspaceOfRepositories } from "@armada/protocol";
 
@@ -9,6 +10,7 @@ import type { LifecyclesActed, LifecyclesApi } from "../../../../shared/api/life
 import type { PiecesSeed } from "../pieces-seed";
 import type { Slice } from "../fake-context";
 import { servedLifecycles } from "../workspaces-lanes-wire";
+import { workspacesWire } from "../workspaces-wire";
 
 const refusal = (code: string, message: string): LifecyclesActed<never> => {
   const error: WireError = { code, message, run_id: "run-mock", fields: {}, chain: [] };
@@ -31,6 +33,15 @@ const applies = (scope: PieceScope, manifestId: string, workspaces: readonly Wor
 const reachOf = (scope: PieceScope, manifestId: string): string => (scope.kind === "everywhere" ? "everywhere" : scope.id === manifestId ? "repository" : "workspace");
 
 const PLACE: Readonly<Record<string, number>> = { kit: 0, repository: 1, armada: 2 };
+const TIERS: Readonly<Record<string, number>> = { everywhere: 0, workspace: 1, repository: 2 };
+const KINDS = ["tracker_write", "forge_write", "draft", "start_job", "start_watch", "tell_agent", "run_command", "run_agent"];
+
+/** Fleet's own sentence for a Workspace that holds nothing, or is named like a repository it holds. */
+function workspaceUnfit(workspace: { id: string; repositories: readonly string[] }): string | undefined {
+  if (workspace.repositories.length === 0) return "a Workspace holds at least one repository, and this holds none";
+  const same = workspace.repositories.find((one) => one === workspace.id);
+  return same === undefined ? undefined : `its id is also the id of \`${same}\`, a repository it holds, and a scope could not say which it meant`;
+}
 
 /** What a read answers: those that apply, the one that runs for each id and scope with the ones it replaced marked as such. */
 function answered<T extends { id: string; scope: PieceScope }>(all: readonly { piece: T; kept: PieceKept }[], manifestId: string, workspaces: readonly WorkspaceOfRepositories[]): { piece: T; kept: PieceKept }[] {
@@ -56,9 +67,17 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
   state: {},
   api: (scenario) => {
     const seed: PiecesSeed = scenario.draft?.pieces ?? { workspaces: [], lifecycles: [], rules: [] };
-    const kept = { workspaces: structuredClone([...seed.workspaces]), lifecycles: structuredClone([...seed.lifecycles]), rules: structuredClone([...seed.rules]) };
+    const named = scenario.draft?.workspace?.workspaces;
+    const wired = named === undefined ? { workspaces: [], autonomy: [] } : workspacesWire(named, scenario.state?.holds?.repositories ?? []);
+    const kept = {
+      workspaces: structuredClone([...seed.workspaces, ...wired.workspaces]),
+      lifecycles: structuredClone([...seed.lifecycles]),
+      rules: structuredClone([...seed.rules]),
+      autonomy: structuredClone(wired.autonomy),
+    };
     return {
       listRepositoryWorkspaces: async (manifestId) => ({ ok: true, value: { manifest_id: manifestId, workspaces: kept.workspaces.filter((one) => one.repositories.includes(manifestId)), left_out: [] } }),
+      listWorkspaces: async () => ({ ok: true, value: { workspaces: kept.workspaces, left_out: [] } }),
       listLifecycles: async (manifestId) => ({
         ok: true,
         value: { manifest_id: manifestId, lifecycles: answered(kept.lifecycles.map((one) => ({ piece: one.lifecycle, kept: one.kept })), manifestId, kept.workspaces).map(({ piece, kept: at }): AppliedLifecycle => ({ lifecycle: piece, kept: at })), left_out: [] },
@@ -66,6 +85,17 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       listLifecycleRules: async (manifestId) => ({
         ok: true,
         value: { manifest_id: manifestId, rules: answered(kept.rules.map((one) => ({ piece: one.rule, kept: one.kept })), manifestId, kept.workspaces).map(({ piece, kept: at }): AppliedRule => ({ rule: piece, kept: at })), left_out: [] },
+      }),
+      listAutonomyDefaults: async (manifestId) => ({
+        ok: true,
+        value: {
+          manifest_id: manifestId,
+          armada: [],
+          layers: answered(kept.autonomy.map((one) => ({ piece: one.layer, kept: one.kept })), manifestId, kept.workspaces)
+            .sort((a, b) => (TIERS[a.kept.rank.reach] ?? 0) - (TIERS[b.kept.rank.reach] ?? 0))
+            .map(({ piece, kept: at }) => ({ id: piece.id, scope: piece.scope, kept: at, defaults: KINDS.flatMap((kind) => (piece.defaults[kind] === undefined ? [] : [{ kind, autonomy: piece.defaults[kind]! }])) })),
+          left_out: [],
+        },
       }),
       listKeepDrafts: async (manifestId) => ({
         ok: true,
@@ -92,15 +122,44 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
           kept.rules.splice(found >= 0 ? found : kept.rules.length, found >= 0 ? 1 : 0, { rule, kept: at(rule.id, rule.scope) });
           return done(found >= 0, rule.id, rule.scope);
         }
-        return refusal("fleet.piece_unfit", "This window keeps no Workspace or autonomy default");
+        if (piece.kind === "autonomy") {
+          const { autonomy } = piece;
+          const scope = autonomy.scope ?? ({ kind: "everywhere" } as const);
+          const found = kept.autonomy.findIndex((one) => own({ piece: one.layer, kept: one.kept }, autonomy.id, scope));
+          if (found >= 0 && overwrite !== true) return refusal("fleet.piece_exists", `${file(autonomy.id)} already declares ${autonomy.id}`);
+          kept.autonomy.splice(found >= 0 ? found : kept.autonomy.length, found >= 0 ? 1 : 0, { layer: { id: autonomy.id, scope, defaults: autonomy.defaults }, kept: at(autonomy.id, scope) });
+          return done(found >= 0, autonomy.id, scope);
+        }
+        const { workspace } = piece;
+        const bad = workspaceUnfit(workspace);
+        if (bad !== undefined) return refusal("fleet.piece_unfit", bad);
+        const found = kept.workspaces.findIndex((one) => one.source === "kit" && one.id === workspace.id);
+        if (found >= 0 && overwrite !== true) return refusal("fleet.piece_exists", `${file(workspace.id)} already declares ${workspace.id}`);
+        // Kit's file runs instead of the one a repository committed under the same id.
+        for (const one of kept.workspaces.filter((each) => each.id === workspace.id && each.source !== "kit")) one.overridden_by = "kit";
+        const hidden = kept.workspaces.find((one) => one.id === workspace.id && one.source !== "kit")?.source;
+        kept.workspaces.splice(found >= 0 ? found : kept.workspaces.length, found >= 0 ? 1 : 0, { ...workspace, source: "kit", path: file(workspace.id), ...(hidden === undefined ? {} : { hides: hidden }) });
+        return done(found >= 0, workspace.id, { kind: "everywhere" });
       },
       deleteLifecyclePiece: async ({ kind, id, scope = { kind: "everywhere" } }) => {
         const file = `${KIT}/${FOLDER[kind]}/${id}.toml`;
         const gone = <T extends { id: string; scope: PieceScope }>(all: { piece: T; kept: PieceKept }[]) => all.findIndex((one) => one.kept.rank.source === "kit" && one.piece.id === id && sameScope(one.piece.scope, scope));
-        const at = kind === "lifecycle" ? gone(kept.lifecycles.map((one) => ({ piece: one.lifecycle, kept: one.kept }))) : kind === "rule" ? gone(kept.rules.map((one) => ({ piece: one.rule, kept: one.kept }))) : -1;
+        const at =
+          kind === "lifecycle"
+            ? gone(kept.lifecycles.map((one) => ({ piece: one.lifecycle, kept: one.kept })))
+            : kind === "rule"
+              ? gone(kept.rules.map((one) => ({ piece: one.rule, kept: one.kept })))
+              : kind === "autonomy"
+                ? gone(kept.autonomy.map((one) => ({ piece: one.layer, kept: one.kept })))
+                : kept.workspaces.findIndex((one) => one.source === "kit" && one.id === id);
         if (at < 0) return refusal("fleet.piece_not_kept", `Your Kit has no ${kind} ${id}`);
         if (kind === "lifecycle") kept.lifecycles.splice(at, 1);
-        else kept.rules.splice(at, 1);
+        else if (kind === "rule") kept.rules.splice(at, 1);
+        else if (kind === "autonomy") kept.autonomy.splice(at, 1);
+        else {
+          kept.workspaces.splice(at, 1);
+          for (const one of kept.workspaces.filter((each) => each.id === id)) delete one.overridden_by;
+        }
         return { ok: true, value: { kind, id, scope, file } };
       },
       getJobLifecycles: async (sessionId) => ({ ok: true, value: servedLifecycles.get(sessionId) ?? { session_id: sessionId, lifecycles: [], instances: [], moves: [] } }),

@@ -189,6 +189,10 @@ export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
 export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export { autonomyRows } from "./compositions/WorkflowManager/Autonomy";
+export type { AutonomyKind, AutonomyLayer, AutonomyLayers } from "./compositions/WorkflowManager/Autonomy";
+export { WorkspacesPage, layerKey } from "./compositions/WorkspacesPage/WorkspacesPage";
+export type { WorkspaceRow, WorkspacesPageProps, WorkspacesPick } from "./compositions/WorkspacesPage/WorkspacesPage";
 export { autonomyOfWire } from "./compositions/WorkflowManager/RuleForm";
 export type { RuleFormLifecycle } from "./compositions/WorkflowManager/RuleForm";
 export { DraftRow } from "./compositions/SessionThread/DraftRow";
@@ -375,6 +379,8 @@ export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 
+// Which revision of a document or a sketch is shown, newest first.
+export * from "./compositions/RevisionMenu/RevisionMenu";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";

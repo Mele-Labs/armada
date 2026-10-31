@@ -1,4 +1,4 @@
-import { Activity, BellRing, Check, FolderGit2, FolderPlus, Layers, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, Check, FolderGit2, FolderPlus, Layers, MessageSquare, Plus, Search, Settings, type LucideIcon } from "lucide-react";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
@@ -219,6 +219,8 @@ export type TitleBarProps = {
     manifest?: { label: string; icon: LucideIcon; disabled?: boolean; onOpen: () => void };
     /** A repository row's trailing mark and the act → runs on it, from the entry's id and label. Absent, or `undefined` for a row, draws none. */
     trailOf?: (id: string, label: string) => { node: ReactNode; open: () => void } | undefined;
+    /** Opens a Workspace's page, from the gear on its heading row. Absent draws the heading with no gear. */
+    onOpenWorkspace?: (id: string) => void;
   };
   /** Opens the command palette. The same surface ⌘K opens; this is the other way in. */
   onSearch?: () => void;
@@ -394,7 +396,7 @@ export function TitleBar({
               triggerDetail=""
               searchLabel="Find a repository"
               panelClass="armada-title-bar__repository-list"
-              entries={listed(repositoryMenu.entries, repositoryMenu.trailOf)}
+              entries={listed(repositoryMenu.entries, repositoryMenu.trailOf, repositoryMenu.onOpenWorkspace)}
               onSelect={repositoryMenu.onSelect}
             />
             </span>
@@ -559,13 +561,16 @@ function FleetDot({ state }: { state: FleetState }) {
 }
 
 /** The shell's ids for the picker's acts and for All: `repository-entries.ts`, which this package cannot import. */
-const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = { "new-project": FolderPlus, "add-repository": Plus };
+const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = { "new-project": FolderPlus, "add-repository": Plus, "new-workspace": Plus };
+
+/** A Workspace's heading row id starts with this, and then the Workspace's id. */
+const WORKSPACE = "workspace:";
 
 /**
  * The wide picker's rows told apart: a glyph before each repository (Layers for All), a quiet tag on one that is not set
  * up in place of its heading, and the acts below the rule as verbs with their own glyphs.
  */
-function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps["repositoryMenu"]>["trailOf"]): DropdownMenuEntry[] {
+function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps["repositoryMenu"]>["trailOf"], onOpenWorkspace?: (id: string) => void): DropdownMenuEntry[] {
   let loose = false;
   return entries.flatMap((entry): DropdownMenuEntry[] => {
     if (entry.kind === "separator") loose = false;
@@ -576,6 +581,18 @@ function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps
     if (entry.kind !== "item") return [entry];
     const act = REPOSITORY_ACTS[entry.id];
     if (act !== undefined) return [{ ...entry, icon: act, act: true }];
+    // A Workspace is a heading over its repositories: it is not chosen, and its gear opens its page.
+    if (entry.id.startsWith(WORKSPACE)) {
+      const id = entry.id.slice(WORKSPACE.length);
+      const gear = (
+        <Tooltip label={`Open ${entry.label}`}>
+          <span role="button" tabIndex={-1} className="armada-title-bar__workspace-gear" aria-label={`Open ${entry.label}`}>
+            <Settings size={16} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      );
+      return [{ ...entry, icon: Layers, disabled: true, ...(onOpenWorkspace === undefined ? {} : { trail: gear, onRight: () => onOpenWorkspace(id) }) }];
+    }
     const trail = entry.id === "" ? undefined : trailOf?.(entry.id, entry.label);
     return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}), ...(trail === undefined ? {} : { trail: trail.node, onRight: trail.open }) }];
   });
