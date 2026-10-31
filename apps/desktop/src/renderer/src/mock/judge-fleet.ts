@@ -36,14 +36,14 @@ export function notesFor(request: JudgeRequest): JudgeNote[] {
       ];
     case "plan":
       return [
-        ...(asked ?? [answerTo(request.prompt, "Plan, group Move sign-in", "g1")]),
-        note("n2", "No task moves the sign-ins that exist, so everyone is signed out when the switch ships.", { where: "Plan, task Issue session tokens", about: "T2" }),
-        note("n3", "No task adds or changes a test for the token lifetime.", { where: "Plan" }),
+        ...(asked ?? [answerTo(request.prompt, "Plan, group Move sign-in to session tokens", "g1")]),
+        note("n2", "The token is checked on every request, and no task says what happens to a request that still carries the old cookie.", { where: "Plan, task Check the token on every request", about: "T2" }),
+        note("n3", "No task adds or changes a test for the token lifetime."),
       ];
     case "doc":
       return [
-        ...(asked ?? [answerTo(request.prompt, "Write-up, second paragraph", "p:1")]),
-        note("n2", `The write-up says a token lasts a day. The code sets thirty minutes.`, { where: `${TOKENS}:41`, about: "p:2" }),
+        ...(asked ?? [answerTo(request.prompt, "Write-up, third paragraph", "p:2")]),
+        note("n2", `The write-up says a token lasts a day. The code sets thirty minutes.`, { where: `${TOKENS}:41`, about: "p:1" }),
       ];
     case "page":
       return [note("n1", "The walk never shows a signed-out start, so the first sign-in after the switch is not seen.", { where: request.artifact.title })];
