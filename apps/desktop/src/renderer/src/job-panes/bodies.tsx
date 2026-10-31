@@ -16,8 +16,9 @@ import { InlinePanel } from "../shared-panel/side";
 import { openInPanel } from "../shared-panel/store";
 import { IssueRow } from "../session-view/IssuesBlock";
 import { PullRow } from "../session-view/LedgerRow";
-import { Groups, Row } from "../session-view/SessionLayers";
-import { artifactsOf, linkedJobsOf } from "../session-view/artifacts";
+import { Groups } from "../session-view/SessionLayers";
+import { artifactsOf, linkedSessionsOf } from "../session-view/artifacts";
+import { IssueJobCard } from "../issues-tab/marks";
 import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP } from "./mock-diff";
 import { jobOpens, useJobPanes } from "./store";
 import { hasKind } from "./tree";
@@ -130,11 +131,13 @@ export function IssuesBody({ session }: { session: Session }) {
 
 /** The Jobs linked to this one: the ones it started, the one that started it and the one it was forked from. */
 export function JobsBody({ session, onOpenSession }: { session: Session; onOpenSession: (id: string) => void }) {
-  const rows = linkedJobsOf(session, useSessions(), onOpenSession);
+  const jobs = linkedSessionsOf(session, useSessions());
   return (
-    <ul className="sv-layer__rows job-pane__scroll" aria-label="Jobs">
-      {rows.map((row) => (
-        <Row key={row.key} row={row} kind="session" sessionId={session.id} />
+    <ul className="job-cards job-pane__scroll" aria-label="Jobs">
+      {jobs.map((job) => (
+        <li key={job.id}>
+          <IssueJobCard session={job} onOpen={onOpenSession} />
+        </li>
       ))}
     </ul>
   );

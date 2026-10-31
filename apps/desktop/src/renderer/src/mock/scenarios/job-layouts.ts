@@ -3,7 +3,7 @@
 // as a split on the right. Over `job-story`. The walk `jobLayouts` plays it. Mock only: nothing is kept.
 
 import type { ModSummary, PullReviewLists, PullReviewRow, WorktreeSlot } from "@armada/protocol";
-import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
@@ -53,6 +53,38 @@ const WAITING: PullReviewRow[] = [
   waiting("northwind/billing-api", 377, "Round tax per line, not per order", "tax/per-line", "mei", 140, { checks: "failed" }),
   waiting("northwind/billing-api", 371, "Reject a refund larger than the charge", "refunds/cap", "ola", 410),
   waiting("northwind/design-system", 96, "Give the toast a close button", "toast/close", "sam", 700, { review: "changes_requested" }),
+];
+
+// The Jobs the first Job started, in the states a Jobs tab draws: running, needs you, merged, failed and waiting, beside the one in the story.
+const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const said = (id: string, text: string): SessionRow => ({ id, at: "13:40:00", kind: "message", from: { kind: "agent" }, text });
+const started = (id: string, title: string, more: Partial<Session>): Session => ({
+  id,
+  title,
+  manifestId: repository().manifest!.id,
+  cwd: repository().root,
+  model: "sonnet",
+  effort: "medium",
+  mode: "auto",
+  turn: { state: "idle" },
+  standing: "idle",
+  rows: [],
+  attachments: [],
+  ...more,
+});
+const LINKED: Session[] = [
+  started("lay-run", "Retry the lease when the pool is contended", { turn: { state: "working" }, standing: "working", lastTurnAt: ago(1), rows: [said("l1", "The back off is written. Running the lease tests.")] }),
+  started("lay-ask", "Name the attempt in the bay tooltip", { lastTurnAt: ago(6), asked: { command: "git push origin armada/retry-lease-tooltip" }, rows: [said("l2", "The tooltip names the attempt. Asking to push the branch.")] }),
+  started("lay-merged", "Show the retry count on the bay tile", {
+    lastTurnAt: ago(95),
+    rows: [said("l3", "Merged. The bay tile shows the count.")],
+    attachments: [{ kind: "pull_request", number: 2366, title: "Show the retry count on the bay tile", branch: "armada/retry-count", address: "https://git.example/armada/pull/2366", checks: { state: "passed" }, state: "merged", auto: false }],
+  }),
+  started("lay-failed", "Cap how long the lease backs off", { standing: "stuck", lastTurnAt: ago(40), rows: [said("l4", "The cap test fails on the second attempt and I cannot find why.")] }),
+  started("lay-waiting", "Write up the retry settings", {
+    lastTurnAt: ago(12),
+    waits: { on: { id: "lay-run", title: "Retry the lease when the pool is contended" }, when: "lands", base: "main", needs: "the retry to land", brief: "Write up the retry settings once the retry lands.", by: "you" },
+  }),
 ];
 
 let handle: { publish: (change: { mods: { mods: ModSummary[] } }) => void } | undefined;
@@ -176,13 +208,25 @@ export const sJobLayouts: Scenario = {
           { kind: "pull_request", number: 2390, title: "Retry the slot lease", branch: "armada/retry-lease", address: "https://git.example/armada/pull/2390", checks: { state: "passed" }, state: "open", auto: false },
           { kind: "pull_request", number: 2391, title: "Name the attempt in the bay tooltip", branch: "armada/retry-lease-tooltip", address: "https://git.example/armada/pull/2391", checks: { state: "pending" }, state: "draft", auto: false },
           { kind: "started_to", id: SUB },
+          ...LINKED.map((one): SessionAttachment => ({ kind: "started_to", id: one.id })),
           { kind: "artifact", form: "doc", id: "docs/design/lease-retry.md", title: "How the lease retries" },
           { kind: "artifact", form: "page", id: "http://localhost:5173/checkout", title: "The checkout page" },
           { kind: "artifact", form: "file", id: "crates/fleet/src/lease.rs", title: "lease.rs" },
         ],
       }));
+      // The Jobs it started stand beside the story's own; the merged list keeps one identity until the store changes, as a store's does.
+      let base: readonly Session[] | undefined;
+      let merged: readonly Session[] = [];
       return {
         ...store,
+        get: () => {
+          const now = store.get();
+          if (now !== base) {
+            base = now;
+            merged = [...now, ...LINKED];
+          }
+          return merged;
+        },
         terminalRuns: true as const,
         later: () => {
           store.later();

@@ -251,7 +251,7 @@ export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDra
           </Tooltip>
         )}
       </div>
-      <div className="job-pane__body" role="tabpanel" aria-label={active === undefined ? "Empty" : labelOf(active)}>
+      <div className="job-pane__body" data-kind={active?.kind} role="tabpanel" aria-label={active === undefined ? "Empty" : labelOf(active)}>
         {children}
         {dragging === undefined ? null : (
           <div className="job-pane__drops" aria-hidden="true">

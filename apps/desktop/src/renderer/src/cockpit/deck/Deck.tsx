@@ -5,7 +5,8 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
@@ -510,6 +511,13 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
 // ---- The merge queue ----------------------------------------------------------------------------------
 
 /** The repository a Session open on the stage belongs to, by the root its line is served under. */
+/** The merge line is the window's status bar: drawn into the shell's own slot along the bottom edge, outside the padded page. Where the shell has none it stays in the deck. */
+function InStatusBar({ power, children }: { power: string | undefined; children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setSlot(document.querySelector<HTMLElement>(".armada-shell__status")), []);
+  return slot === null ? <>{children}</> : createPortal(<div className="deck deck-statusbar" data-power={power}>{children}</div>, slot);
+}
+
 function queueRootOf(sel: DeckState["sel"], ship: Ship): string | undefined {
   if (sel?.kind === "session") return ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind)?.root;
   return undefined;
@@ -1162,7 +1170,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         {splits}
       </div>
       {/* The merge line is a strip along the window's bottom edge, under the Jobs list and the Field as well as the stage. */}
-      <MergeQueue props={props} ship={ship} />
+      <InStatusBar power={powering(power) ? power : undefined}><MergeQueue props={props} ship={ship} /></InStatusBar>
     </div>
     </ClashesOpenHere>
   );

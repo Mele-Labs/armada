@@ -1,7 +1,7 @@
 // The body of a Custom tab. Empty it is the composer the thread uses, where the tab is described; sent, it is the Mod Job's own thread while it builds the tab as a mod of
 // kind `tab`; built, it is that mod's view. "Edit with a Job" opens the composer again above the view.
 
-import { X } from "lucide-react";
+import { PanelTop, X } from "lucide-react";
 import { Button, SessionComposer, SessionThread, Tooltip, type SentFromComposer } from "@armada/components";
 
 import { searchFiles } from "../commands";
@@ -77,7 +77,14 @@ export function CustomBody({ tabId, manifestId, onOpenSession }: { tabId: string
   if (custom.stage === "compose") {
     return (
       <div className="job-custom" data-stage="compose">
-        <Describe tabId={tabId} manifestId={manifestId} />
+        <section className="job-custom__card" aria-label="New tab">
+          <PanelTop className="job-custom__glyph" size={32} strokeWidth={1.5} aria-hidden />
+          <h3 className="job-custom__title">New tab</h3>
+          <p className="job-custom__line">Builds a tab mod you can add to any pane</p>
+          <div className="job-custom__box">
+            <Describe tabId={tabId} manifestId={manifestId} />
+          </div>
+        </section>
       </div>
     );
   }

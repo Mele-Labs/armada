@@ -71,18 +71,11 @@ export const linkTitle = (url: string): string => {
   }
 };
 
-/** The Jobs linked to this one, as the ledger draws a linked Job: those it started, the Job that started it, and the Job it was forked from. */
-export function linkedJobsOf(session: Session, sessions: readonly Session[], open: (id: string) => void): ArtifactRow[] {
-  const row = (other: Session, said: string, sub?: string): ArtifactRow => {
-    const props = linkedPropsOf(other, open);
-    return { key: `${said}:${other.id}`, Glyph: Link, said, title: props.title, ...(sub === undefined ? {} : { sub }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
-  };
-  const named = (id: string) => sessions.find((one) => one.id === id);
-  return [
-    ...childrenOf(sessions, session).map(({ session: child, title }) => row(child, "Started by this Job", title)),
-    ...sessions.filter((one) => attachmentsOf(one, "started_to").some((to) => to.id === session.id)).map((one) => row(one, "Started this Job")),
-    ...session.attachments.flatMap((one) => (one.kind === "forked_from" && named(one.id) !== undefined ? [row(named(one.id)!, "Forked into this Job")] : [])),
-  ];
+/** The Jobs linked to this one as the Jobs themselves: those it started, the one that started it, and the one it was forked from. */
+export function linkedSessionsOf(session: Session, sessions: readonly Session[]): Session[] {
+  const forked = session.attachments.flatMap((one) => (one.kind === "forked_from" ? sessions.filter((other) => other.id === one.id) : []));
+  const starters = sessions.filter((one) => attachmentsOf(one, "started_to").some((to) => to.id === session.id));
+  return [...childrenOf(sessions, session).map((one) => one.session), ...starters, ...forked];
 }
 
 /** The other Sessions in the window, for the ones this Session started, and how to open one. */

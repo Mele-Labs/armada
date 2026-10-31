@@ -107,7 +107,13 @@
 
 /* A Custom tab: the composer where it is described, the Mod Job's thread while it builds, then the view it made. */
 .job-custom { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
-.job-custom[data-stage="compose"] { justify-content: flex-end; padding: var(--space-3); }
+.job-custom[data-stage="compose"] { align-items: center; justify-content: center; padding: var(--space-4); overflow: auto; }
+/* The card that says what an empty Custom tab is, centred in the pane: not the docked box a thread has. */
+.job-custom__card { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); box-sizing: border-box; width: min(100%, calc(var(--space-12) * 8)); padding: var(--space-6) var(--space-4) var(--space-4); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); text-align: center; }
+.job-custom__glyph { color: var(--fg-muted); }
+.job-custom__title { margin: 0; color: var(--fg-default); font-size: var(--text-base); font-weight: var(--weight-heading); }
+.job-custom__line { margin: 0; color: var(--fg-muted); font-size: var(--text-sm); }
+.job-custom__box { align-self: stretch; margin-block-start: var(--space-3); text-align: start; }
 .job-custom__edit { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); border-block-end: var(--border-width) solid var(--border-subtle); }
 .job-custom__edit > :first-child { flex: 1 1 0; min-width: 0; }
 .job-custom__thread { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: var(--space-3); overflow: auto; }
@@ -117,3 +123,8 @@
 .job-pane__working svg { animation: job-pane-spin 1s linear infinite; }
 @keyframes job-pane-spin { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .job-pane__working svg { animation: none; } }
+
+/* A list drawn as a tab keeps the room from the pane's edge the Thread's body has, set once here and not by each body; the scroller inside is what is padded, so its bar stays at the edge. */
+.job-pane__body:is([data-kind="pulls"], [data-kind="issues"], [data-kind="jobs"], [data-kind="ledger"], [data-kind="files"], [data-kind="request"], [data-kind="system"], [data-kind="bays"]) > :not(.job-pane__drops) { box-sizing: border-box; padding: var(--space-3); }
+.job-pane__body:is([data-kind="pulls"], [data-kind="issues"], [data-kind="jobs"], [data-kind="ledger"]) :is(.sv-layer__rows, .sv-rows) { gap: var(--space-2); }
+.job-cards { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; list-style: none; }
