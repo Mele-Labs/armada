@@ -15,7 +15,7 @@ repository. The owner, as admin, bypasses the ruleset.
 
 | Trigger | For | Runs |
 |---|---|---|
-| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`, and those the merge queue last failed it on |
+| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
 | `push` to `main` | Seeing a red `main` | Every Check in CI, and `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
@@ -24,6 +24,11 @@ repository. The owner, as admin, bypasses the ruleset.
 The queue's run is the one that decides, so a pull request that also ran the whole suite paid for it twice, back to back: 8 to 20 minutes on the pull request, then 6 to 16 in the queue, measured over the 60 runs before 17 Oct 2026. A branch that breaks a test is now caught in the queue and dropped from it, and Fleet tells its holder (`docs/concepts/fleet.md`, *Telling the owner of a pull request*); the other entries of its group wait one run more.
 Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
 `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
+
+**A pull request compiles the test code it leaves to the queue.** `cargo build` compiles no test target, so a change that broke a test's code passed its pull request and first failed in the queue, taking the entries behind it with it: 4 of 16 failed queue runs on 30 and 31 Oct 2026, each a compile error in a test.
+The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.
+`plan.py` names the keys in `compile`, the Rust Checks in `COMPILE` that the plan left to the queue; a Check the pull request runs itself, because the queue last failed it, is not compiled twice.
+Its cache is `test`'s, so it starts from what `main` last compiled.
 
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
@@ -104,7 +109,7 @@ change touched. Every other Check runs whole. A workspace Check runs as `armada 
 
 | Name | Passes when | Failed by |
 |---|---|---|
-| `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
+| `ci` | The plan succeeded and no Check job, `test_compile` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, a new failing foundations line |
 | `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are named by their key.
