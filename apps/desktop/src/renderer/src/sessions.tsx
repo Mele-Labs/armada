@@ -83,6 +83,9 @@ import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } fro
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch, sceneOfSketch, useSketchRevisions, withRevisionScenes, withSketchRevisions } from "./session-sketch";
+import { JudgeLooseNotes } from "./judge/notes";
+import { useJudgeApi } from "./judge/store";
+import { useJudgedRows, usePlanJudge } from "./judge/thread";
 import { documentAnswerOf, forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
 import { askToReportJob } from "./report";
 import { backgroundEntryOf } from "./session-background";
@@ -939,6 +942,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       }),
     [batched, sessions, beginChild],
   );
+  // A judge on demand: a line in the thread for each reading that finished, and the plan's notes and press.
+  const withJudged = useJudgedRows(session, withStarts);
+  const planJudge = usePlanJudge(session);
+  const judging = useJudgeApi() !== undefined;
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
@@ -1112,8 +1119,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     ];
   });
   // An adversarial review of the plan: its press on the plan card, and its findings pinned to the plan, on the card and in the plan in full.
-  const adversary = draft.work?.adversarial;
-  const adversarial = session.work?.plan === undefined || session.work.plan.approved || adversary === undefined ? undefined : (session.work.adversarial ?? { state: "idle" as const });
+  const adversary = planJudge === undefined ? draft.work?.adversarial : { run: () => planJudge.onRun(), send: (_id: string, finding: string) => planJudge.onSend(finding), dismiss: (_id: string, finding: string) => planJudge.onDismiss(finding) };
+  const adversarial = session.work?.plan === undefined || session.work.plan.approved || adversary === undefined ? undefined : (planJudge?.review ?? session.work.adversarial ?? { state: "idle" as const });
   // A pending plan is drawn only while Fleet puts it to him; held, it is not there yet, and a sheet open on it shuts.
   // A plan set aside stays in the thread as a chip, though nothing waits on him for it.
   const planDrawn = session.work?.plan !== undefined && (session.work.plan.approved || session.work.plan.setAside === true || planAsked(session));
@@ -1136,7 +1143,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     const { state, said } = stateOf(child);
     return { job: { title: jobTitle(child), state, said, ...(child.lastTurnAt === undefined ? {} : { at: child.lastTurnAt }), onOpen: () => onOpen(child.id) } };
   };
-  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), ...(one.ownJob === true ? { ownJob: true as const, ...cardIssueOf(issueOfGroup(session, one.issue)?.issue, session.manifestId), ...jobOf(one.id) } : {}), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
+  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), ...(one.ownJob === true ? { ownJob: true as const, ...cardIssueOf(issueOfGroup(session, one.issue)?.issue, session.manifestId), ...jobOf(one.id) } : {}), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review"), ...(planJudge === undefined ? {} : { press: planJudge.press }) } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined || one.onDismiss !== undefined) || question !== undefined || judges.length > 0 || notOurs.length > 0;
@@ -1307,8 +1314,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SavedOpen.Provider value={openSaved}>
           <SessionThread
             sessionId={session.id}
-            rows={withStarts}
-            {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}</> })}
+            rows={withJudged}
+            {...(!cardLead && !modEmpty && !judging ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}{judging ? <JudgeLooseNotes job={session.id} /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             {...(inlineCards.length === 0 ? {} : { inline: inlineCards })}
             onOpenRetro={openRetro}

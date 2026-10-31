@@ -15,6 +15,8 @@ import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions"
 import { useRevisionReads } from "../revision-reads";
 import { useSessionsDraft } from "../sessions-draft";
 import { documentAnswerOf } from "../session-thread-rows";
+import { JudgedPage } from "../judge/JudgedPage";
+import { JudgeNoteBlock } from "../judge/notes";
 import { DocumentPage, type DocumentFocus, type LitNote, type PageNote, type SentNote } from "./DocumentPage";
 import { diffPages } from "./document-diff";
 import { placeOf } from "./document-find";
@@ -300,6 +302,7 @@ export function DocumentLayer({ session }: { session: Session }) {
                 </aside>
               </div>
               <div ref={scroller} className="armada-doc__scroll" onScroll={onScroll}>
+                {doc === undefined ? null : <JudgeNoteBlock job={session.id} artifact={{ kind: "doc", id: doc.id }} />}
                 <DocumentPage
                   title={title}
                   revision={revision}
@@ -318,6 +321,7 @@ export function DocumentLayer({ session }: { session: Session }) {
                   onLit={setLit}
                   exporters={exporters}
                 />
+                {doc === undefined ? null : <JudgedPage page={pageRef} root={showing ? diff.root : page.root} job={session.id} artifact={{ kind: "doc", id: doc.id }} />}
               </div>
             </>
           )}

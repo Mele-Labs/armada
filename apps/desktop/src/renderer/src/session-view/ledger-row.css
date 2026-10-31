@@ -4,7 +4,7 @@
 
 .sv-ledger { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; column-gap: var(--space-1); }
 .sv-ledger + .sv-ledger { border-top: var(--border-width) solid var(--border-subtle); }
-.sv-ledger[data-acts] { grid-template-columns: minmax(0, 1fr) var(--h-control-sm); }
+.sv-ledger[data-acts] { grid-template-columns: minmax(0, 1fr) auto; }
 
 .sv-ledger__main { display: grid; grid-template-columns: var(--space-3) minmax(0, 1fr); column-gap: var(--space-2); align-items: start; box-sizing: border-box; min-width: 0; width: 100%; padding: var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-family: var(--font-sans); text-align: start; }
 button.sv-ledger__main { cursor: pointer; }
@@ -63,7 +63,7 @@ button.sv-ledger__main:focus-visible { outline: var(--focus-ring); outline-offse
 .sv-ledger__fact[data-state="draft"], .sv-ledger__fact[data-state="stopped"] { --fact: var(--status-not-started); }
 
 /* The act is centred on the row and its column stays where a row carries none. */
-.sv-ledger__act { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); }
+.sv-ledger__act { display: inline-flex; align-items: center; justify-content: flex-end; min-width: var(--h-control-sm); }
 /* A quiet word on the second line, such as the screen a note was written on. */
 .sv-ledger__said { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* A note's picture stands where an act would, wider than one. */

@@ -25,6 +25,8 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { provideJobFacts } from "../../job-facts";
 import { clearActs, publishActs, useActsPlace } from "../../job-panes/acts";
+import { JudgeAct } from "../../judge/JudgeAct";
+import { openJudge, useJudgeApi } from "../../judge/store";
 import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
@@ -109,6 +111,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   );
   const on = session.autoLand === true;
   const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
+  // A judge on demand reads any artifact, the whole Job included, and needs no plan: the tile is its press.
+  const judgeOnDemand = useJudgeApi() !== undefined;
+  if (judgeOnDemand && off.judge === "No plan to judge against") delete off.judge;
   // A window whose Fleet serves runs but no shell: a test's fake.
   if (terminal === undefined) off.terminal ??= "Fleet does not offer this";
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
@@ -139,7 +144,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     report: () => setReporting((open) => !open),
     map: () => setView("map"),
     judge: () =>
-      void run("judge", async () => {
+      judgeOnDemand
+        ? openJudge(session.id, { kind: "job", id: session.id })
+        : void run("judge", async () => {
         if (draft.work?.judge === undefined) return;
         setClear(false);
         setPressedAt(Date.now());
@@ -413,6 +420,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   /** One act as an icon: its glyph, the tooltip naming it and its key, lit as pressed while on, and off with its reason as the tooltip. */
   const drawIcon = (tile: Tile) => {
     const id = idOf(tile);
+    if (id === "judge" && judgeOnDemand) return <JudgeAct key={tile.id} job={session.id} artifact={{ kind: "job", id: session.id, title: session.title ?? "the Job" }} {...(flightKey(tile) === undefined ? {} : { shortcut: flightKey(tile)! })} />;
     const paused = id === "pause" && session.paused === true;
     const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
     const key = flightKey(tile);

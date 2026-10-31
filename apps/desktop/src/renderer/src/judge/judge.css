@@ -1,0 +1,41 @@
+/* The Judge act and its popover (`JudgeAct.tsx`). A floating layer: --bg-overlay, a hairline and a shadow, no blur, as the other popovers. */
+.judge-pop {
+  position: fixed;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: calc(var(--sidebar-default) * 1.6);
+  max-width: calc(100vw - var(--space-4) * 2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--border-default);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.judge-pop__hint { margin: 0; color: var(--fg-muted); font-size: var(--text-xs); }
+.judge-pop__acts { display: flex; justify-content: flex-end; }
+
+/* A mark on the glyph while its notes are unread: a small dot at the corner, in the hue the notes wear. */
+button[data-judge] { position: relative; }
+.judge-act__dot {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: var(--status-piloted);
+  box-shadow: 0 0 0 var(--border-width) var(--bg-base);
+}
+.judge-act__clean { color: var(--step-advanced); }
+.job-acts button[data-judge][aria-expanded="true"] { background: var(--bg-hover); color: var(--fg-default); }
+
+/* Notes drawn inside an artifact take the width of the part they sit under. */
+.judge-notes { min-width: 0; margin-block: var(--space-2); }
+
+.judge-loose { display: flex; flex-direction: column; gap: var(--space-3); margin-block-end: var(--space-3); }
+.judge-loose__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); }

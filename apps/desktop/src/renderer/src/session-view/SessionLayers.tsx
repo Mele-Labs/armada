@@ -18,6 +18,9 @@ import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
 import { SystemSections } from "./SystemLayer";
+import { artifactOfRow } from "../judge/artifacts";
+import { JudgeAct } from "../judge/JudgeAct";
+import { useJudgeApi } from "../judge/store";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { LanesBody } from "../shared-panel/lanes";
@@ -120,6 +123,10 @@ function Thumb({ sessionId, path, name }: { sessionId: string; path: string; nam
 /** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
 export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; sessionId: string }) {
   const { Glyph } = row;
+  // With a judge to ask, every row keeps its act column: the Judge where the row has something to read, the column empty where it has not.
+  const judged = useJudgeApi() !== undefined;
+  const artifact = judged ? artifactOfRow(row, kind) : undefined;
+  const judge = !judged ? undefined : artifact === undefined ? null : <JudgeAct job={sessionId} artifact={artifact} label={`Judge ${artifact.title}`} />;
   const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
     <LedgerRow
@@ -128,6 +135,7 @@ export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; 
       title={row.title}
       label={row.title}
       onOpen={row.open}
+      {...(judge === undefined ? {} : { act: judge })}
       {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
       {...(row.closed === undefined ? {} : { act: <ReopenAct name={row.title} onPress={row.closed.onReopen} /> })}
       meta={

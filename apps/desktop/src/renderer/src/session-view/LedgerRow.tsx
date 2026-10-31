@@ -8,6 +8,8 @@ import { Clock, GitMerge, GitPullRequest, GitPullRequestArrow, Link, type Lucide
 import { Button, PullRequestChecksMark, Tooltip } from "@armada/components";
 import type { PullRequestAct, Session } from "@armada/screens/src/draft/sessions";
 
+import { JudgeAct } from "../judge/JudgeAct";
+import { useJudgeApi } from "../judge/store";
 import { usePullRequestMenu } from "../pull-request-menu";
 import { checksSaid } from "../session-cards";
 import { useSessionsDraft } from "../sessions-draft";
@@ -154,6 +156,7 @@ function StackChip({ parent, onJump }: { parent: number; onJump: ((number: numbe
 /** A pull request as a row, in Landing and in the Artifacts layer alike. */
 export function PullRow({ session, pr, from, lane, rootBase, chip, onJump }: { session: Session; pr: PullRequest; /** The Job the pull request came from, where it is not the Job whose list this is. */ from?: string; lane?: { first: boolean; last: boolean }; rootBase?: string; chip?: number; onJump?: (number: number) => void }) {
   const draft = useSessionsDraft();
+  const judging = useJudgeApi() !== undefined;
   const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
   const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title, pr.address);
   const press = (act: PullRequestAct) => {
@@ -173,7 +176,7 @@ export function PullRow({ session, pr, from, lane, rootBase, chip, onJump }: { s
       onOpen={() => openPrPanel(pr)}
       on={on}
       menu={menu}
-      act={actOf(pr, pending, press)}
+      act={judging ? <>{actOf(pr, pending, press)}<JudgeAct job={session.id} artifact={{ kind: "pull_request", id: String(pr.number), title: `#${pr.number}` }} label={`Judge #${pr.number}`} /></> : actOf(pr, pending, press)}
       anchor={pr.number}
       {...(lane === undefined ? {} : { lane })}
       meta={
