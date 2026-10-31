@@ -21,7 +21,7 @@ use api::Caller;
 /// A `PeerOf` a test plants, for the cases that are about Fleet rather than
 /// about the kernel. It answers from a list of connections somebody wrote down.
 #[derive(Debug, Default)]
-pub struct Placing(Mutex<Vec<(u32, u16, u16)>>, Mutex<Vec<(u32, u32)>>);
+pub struct Placing(Mutex<Vec<(u32, u16, u16)>>, Mutex<Vec<(u32, u32)>>, Mutex<Vec<(u32, String)>>);
 
 impl Placing {
     /// Nobody holds anything. The default a fixture is assembled with — a fake
@@ -46,6 +46,14 @@ impl Placing {
             .expect("the plant is not held across a panic")
             .push((parent, child));
     }
+
+    /// `pid` was started with `key=value` in its environment.
+    pub fn carrying(&self, pid: u32, key: &str, value: &str) {
+        self.2
+            .lock()
+            .expect("the plant is not held across a panic")
+            .push((pid, format!("{key}={value}")));
+    }
 }
 
 impl PeerOf for Placing {
@@ -65,6 +73,15 @@ impl PeerOf for Placing {
             .filter(|(parent, _)| *parent == pid)
             .map(|(_, child)| *child)
             .collect()
+    }
+
+    fn carries(&self, pid: u32, key: &str, value: &str) -> bool {
+        let entry = format!("{key}={value}");
+        self.2
+            .lock()
+            .expect("the plant is not held across a panic")
+            .iter()
+            .any(|(carrier, one)| *carrier == pid && *one == entry)
     }
 }
 
