@@ -107,6 +107,32 @@ export type TeachLogbookEntry = {
   source?: { session_id: string; cite: string };
 };
 
+/** The three looks Organize takes: entries that say one thing, entries nobody has confirmed in 45 days, and entries that read as workarounds for a fault in Armada. */
+export type OrganizeAction = "merge" | "stale" | "bugs";
+
+/** The body of `organize_logbook` (`POST /logbook/organize`). `repository` is a served repository's root; absent covers every repository, with the habits and this Mac's. */
+export type OrganizeLogbook = { action: OrganizeAction; repository?: string };
+
+/**
+ * One thing Organize proposes; nothing has changed when it is read. `id` names it (the entry kept for a merge, the
+ * entry otherwise). `entry_ids` lists the entries it concerns, the one a merge keeps first. `text` is the kept entry as
+ * it would read for a merge, the entry's own text otherwise. `note` is how long since a stale entry was confirmed, or a
+ * bug's one-line fault, and empty for a merge.
+ */
+export type OrganizeProposal = { id: string; entry_ids: string[]; text: string; note: string };
+
+/** What `organize_logbook` answers once the look is done. `failed`: a repository's model call failed or answered wrongly, so its proposals are missing. */
+export type OrganizedLogbook = { action: OrganizeAction; proposals: OrganizeProposal[]; failed: boolean };
+
+/** The body of `apply_organize_logbook` (`POST /logbook/organize/apply`): the proposals a person kept, as `organize_logbook` answered them. */
+export type ApplyOrganizeLogbook = { action: OrganizeAction; proposals: OrganizeProposal[] };
+
+/**
+ * What `apply_organize_logbook` answers. `applied` counts entries folded (merge) or archived (stale); `bugs` writes
+ * nothing and answers the proposals back in `reported`, which is all reporting does for now.
+ */
+export type AppliedOrganizeLogbook = { action: OrganizeAction; applied: number; reported: OrganizeProposal[] };
+
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
 export type LogbookRead = { ok: true; entries: LogbookEntry[]; tidy: LogbookTidy } | { ok: false; outcome: Outcome };
 

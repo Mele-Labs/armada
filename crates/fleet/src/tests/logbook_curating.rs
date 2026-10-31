@@ -56,6 +56,7 @@ fn standing(id: i64, text: &str, at: u64) -> LogEntry {
         repository: KEY.to_string(),
         kind: LogKind::Gotcha,
         title: None,
+        topic: None,
         text: text.to_string(),
         paths: Vec::new(),
         evidence: ["s1", "s2"]

@@ -42,6 +42,16 @@ pub enum LogState {
     Faded,
 }
 
+/// What an entry is about, for the Logbook's groups. An entry with none is Other, which is not stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogTopic {
+    Git,
+    Slots,
+    Testing,
+    Tools,
+    Mac,
+}
+
 /// What a Session's evidence did to an entry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LogHow {
@@ -77,6 +87,7 @@ macro_rules! words {
 words!(LogSection { Repo => "repo", Machine => "machine", Habits => "habits" });
 words!(LogKind { Command => "command", Gotcha => "gotcha", Convention => "convention", Environment => "environment", Habit => "habit" });
 words!(LogState { Candidate => "candidate", Standing => "standing", Faded => "faded" });
+words!(LogTopic { Git => "git", Slots => "slots", Testing => "testing", Tools => "tools", Mac => "mac" });
 words!(LogHow { First => "first", Confirmed => "confirmed", Contradicted => "contradicted", Tripped => "tripped" });
 words!(LogRewrite { Contradicted => "contradicted", Tripped => "tripped", Person => "person", Merged => "merged" });
 
@@ -110,6 +121,8 @@ pub struct LogEntry {
     pub kind: LogKind,
     /// A few words naming it. `None` until a Distil run names it.
     pub title: Option<String>,
+    /// Where the sorter placed it. `None` until it has: shown as Other.
+    pub topic: Option<LogTopic>,
     pub text: String,
     pub paths: Vec<String>,
     pub evidence: Vec<LogEvidence>,
@@ -150,7 +163,7 @@ pub fn logbook_words(text: &str) -> String {
 }
 
 const COLUMNS: &str = "id, section, repository, kind, text, paths, first_seen, last_confirmed, last_served, \
-                       state, locked, edited_by_person, tripped, title";
+                       state, locked, edited_by_person, tripped, title, topic";
 
 fn unreadable(column: usize, word: String) -> rusqlite::Error {
     rusqlite::Error::FromSqlConversionFailure(column, rusqlite::types::Type::Text, word.into())
@@ -175,6 +188,7 @@ fn entry_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<LogEntry> {
         edited_by_person: row.get::<_, i64>(11)? != 0,
         tripped: row.get::<_, i64>(12)?.max(0) as u32,
         title: row.get(13)?,
+        topic: row.get::<_, Option<String>>(14)?.and_then(|word| LogTopic::of_text(&word)),
         history: Vec::new(),
     })
 }
@@ -272,7 +286,7 @@ impl Store {
         }
         let tx = self.conn.transaction().map_err(database(DOING))?;
         tx.execute(
-            &format!("INSERT OR REPLACE INTO logbook_entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"),
+            &format!("INSERT OR REPLACE INTO logbook_entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
             params![
                 entry.id,
                 entry.section.as_text(),
@@ -288,6 +302,7 @@ impl Store {
                 i64::from(entry.edited_by_person),
                 i64::from(entry.tripped),
                 entry.title,
+                entry.topic.map(LogTopic::as_text),
             ],
         )
         .map_err(database(DOING))?;
@@ -386,6 +401,7 @@ impl Store {
             edited_by_person: true,
             tripped: 0,
             title: None,
+            topic: None,
             history: Vec::new(),
         };
         self.save_logbook_entry(&entry)?.ok_or_else(|| WriteError::Database(fault("teaching a Logbook entry")(rusqlite::Error::QueryReturnedNoRows)))
@@ -397,6 +413,15 @@ impl Store {
             .execute("UPDATE logbook_entries SET locked = ?2 WHERE id = ?1", params![id, i64::from(locked)])
             .map(|_| ())
             .map_err(database("locking a Logbook entry"))
+    }
+
+    /// Place an entry under a topic, **only where it has none**: a sorter that answered after a
+    /// later one cannot overwrite it. `false` where nothing changed.
+    pub fn set_logbook_topic(&mut self, id: i64, topic: LogTopic) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE logbook_entries SET topic = ?2 WHERE id = ?1 AND topic IS NULL", params![id, topic.as_text()])
+            .map(|changed| changed > 0)
+            .map_err(database("placing a Logbook entry under a topic"))
     }
 
     /// Say an entry was served at `at`, which keeps it from fading.
