@@ -44,8 +44,11 @@ const rect = (inset = 0) =>
 /** The three hulls span x 306–718 and y 370–653, centred on (512, 512). Drawn at 1:1 they filled half the tile and read small in the dock. */
 const MARK_SCALE = 1.6
 
+/** The hulls are bottom-heavy at this size, so the mark sits this far above the tile centre. */
+const MARK_LIFT = 24
+
 const mark = (fill) =>
-  `<g fill="${fill}" transform="translate(512 512) scale(${MARK_SCALE}) translate(-512 -512)">` +
+  `<g fill="${fill}" transform="translate(512 ${512 - MARK_LIFT}) scale(${MARK_SCALE}) translate(-512 -512)">` +
   HULLS.map(
     ([x, y]) => `<path transform="translate(${x},${y}) scale(${HULL_SCALE})" d="${HULL}"/>`,
   ).join('') +
