@@ -32,6 +32,8 @@ pub(crate) enum Peer {
         address: String,
         title: Option<String>,
         branch: Option<String>,
+        /// Paused by the person: a message waits for his Resume, so it cannot answer.
+        paused: bool,
     },
 }
 
@@ -132,11 +134,13 @@ where
                     .into_iter()
                     .find(|one| one.kind == "branch" && one.state == AttachmentState::Standing)
                     .map(|one| one.target);
+                let paused = store.hosting(id).ok().flatten().is_some_and(|one| one.paused_at.is_some());
                 Some(Peer::Session {
                     id: id.clone(),
                     address: crate::session_host::address_of(id),
                     title: session.title,
                     branch,
+                    paused,
                 })
             }
         }

@@ -123,6 +123,8 @@ mod preferences;
 pub mod settings_file;
 /// What Fleet told a Session about one it follows, so it is told once.
 mod linked_told;
+/// Each write-clash notice Fleet sent a Job, so a restart does not send it again.
+mod clash_told;
 /// The shell each Job's agent last typed into or read.
 mod job_shells;
 /// A Session dispatched to wait on another, until its condition is met.
