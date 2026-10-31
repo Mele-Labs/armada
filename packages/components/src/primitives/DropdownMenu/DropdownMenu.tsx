@@ -1,6 +1,6 @@
 import { Check, ChevronDown, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../Button/Button";
@@ -63,6 +63,12 @@ export type DropdownMenuEntry =
     }
   | { kind: "separator"; id: string }
   | { kind: "label"; id: string; label: string };
+
+/**
+ * Acts an app adds to every context menu (one opened with `at`), after the menu's own entries, such as Mod and Report.
+ * A press on one goes to `onSelect` here, not the menu's. A menu without `at` never gets them; its ids must not collide with a menu's own.
+ */
+export const PointActs = createContext<{ entries: DropdownMenuEntry[]; onSelect: (id: string) => void } | null>(null);
 
 export type DropdownMenuProps = {
   /** Sentence case, and it names what the menu is for. */
@@ -188,7 +194,7 @@ export function DropdownMenu({
   triggerLabel,
   triggerCount,
   align = "end",
-  entries,
+  entries: given,
   defaultOpen = false,
   open: held,
   onOpenChange,
@@ -205,6 +211,9 @@ export function DropdownMenu({
   at,
   panelClass,
 }: DropdownMenuProps) {
+  const point = useContext(PointActs);
+  const extra = at !== undefined && point !== null ? point.entries : [];
+  const entries = extra.length === 0 ? given : [...given, ...(given.length === 0 ? [] : [{ kind: "separator" as const, id: "point-acts-rule" }]), ...extra];
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
   const setOpen = (next: boolean) => {
@@ -276,7 +285,8 @@ export function DropdownMenu({
   const choose = (id: string) => {
     if (panel.current?.contains(document.activeElement) === true) trigger.current?.focus();
     setOpen(false);
-    onSelect?.(id);
+    if (point !== null && extra.some((entry) => entry.id === id)) point.onSelect(id);
+    else onSelect?.(id);
   };
 
   const labelled = (
