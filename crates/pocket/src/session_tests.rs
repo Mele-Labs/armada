@@ -605,3 +605,13 @@ fn the_job_that_started_it_and_its_context_figures_are_named_and_left_out_when_a
         assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
     }
 }
+
+#[test]
+fn a_live_job_that_said_it_is_done_carries_the_claim_and_its_summary() {
+    let said = phone_row(r#","done_since":"2025-01-01T01:00:00Z","done_summary":"The pool shrinks to four.""#, "{}");
+    assert!(said.contains(r#""done_since":"2025-01-01T01:00:00Z""#), "{said}");
+    assert!(said.contains(r#""done_summary":"The pool shrinks to four.""#), "{said}");
+
+    let plain = phone_row("", "{}");
+    assert!(!plain.contains("done_since") && !plain.contains("done_summary"), "{plain}");
+}
