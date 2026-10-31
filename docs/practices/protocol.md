@@ -1302,6 +1302,19 @@ The revision is settled only once the message is sent.
 **Skew.** As for `answer_sketch`: the IDs differ and the lifeboat serves.
 **The event stream.** No new event: an answer publishes `session.changed`.
 
+## A slot's commits of its own: `ahead` on `WorktreeSlot`
+
+Since 30 Oct 2026. `crates/ipc/src/holding.rs`, `crates/adapters/src/leasing/reading.rs`.
+**One optional field on an existing type**: no route, no event kind and no enum value.
+Bridge's half is `ahead` on `WorktreeSlot` in `packages/protocol/src/holding.ts`, written by hand and read by nothing yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WorktreeSlot.ahead` (`list_worktrees`, `GET /worktrees`) | Fleet writes, Bridge reads | Commits on the slot's checkout the base does not have, counted in the same walk as `behind`. Absent where `behind` is |
+
+**Why Fleet carries it.** A Job is told to merge the base only when its slot has commits of its own, since a branch level with an old base has nothing stale to push (`crates/fleet/src/behind_bay.rs`).
+**Skew.** An older Fleet sends no `ahead`, and Bridge draws nothing from it.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

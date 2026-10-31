@@ -127,6 +127,9 @@ pub struct SlotReading {
     /// Commits on the base its checkout does not have. `None` where git could
     /// not count them, or the slot is not a checkout.
     pub behind: Option<u32>,
+    /// Commits its checkout has that the base does not. `None` where `behind`
+    /// is.
+    pub ahead: Option<u32>,
     /// A person closed it: never leased until reopened. A holder keeps it
     /// until its lease ends.
     pub closed: bool,

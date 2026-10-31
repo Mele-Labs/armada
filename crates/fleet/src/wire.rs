@@ -317,6 +317,7 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
         since: since_of(reading.since),
         warm: reading.warm,
         behind: reading.behind,
+        ahead: reading.ahead,
         closed: reading.closed,
         stranded: one.stranded.as_ref().map(|work| ipc::SlotStranded {
             uncommitted: work.uncommitted.clone(),
