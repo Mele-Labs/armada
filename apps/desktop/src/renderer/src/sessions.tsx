@@ -105,6 +105,8 @@ import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { useToolsBand, useToolsFixes } from "./tools-fixes";
 import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
+import { useThreadLookHere } from "./thread-look-here";
+import { liftOnce } from "./arrivals";
 import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -943,6 +945,19 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner, dockRunKey(session.id, "page")), dockRunKey(session.id, "page")), draft?.terminalRuns !== undefined, deck?.shell === true);
+  // The thread's look, the quick bar and Talk, where the window holds a look (`thread-look-here.tsx`).
+  const lookHere = useThreadLookHere(session);
+  // A Job dispatched while the window is open lifts off the first time its card is drawn (`arrivals.ts`).
+  useEffect(() => {
+    const card = centre.current?.closest<HTMLElement>(".armada-session-frame");
+    if (card == null || !liftOnce(`session:${session.id}`)) return;
+    card.removeAttribute("data-lifting");
+    void card.offsetWidth;
+    card.setAttribute("data-lifting", "");
+    const done = () => card.removeAttribute("data-lifting");
+    card.addEventListener("animationend", done, { once: true });
+    return () => card.removeEventListener("animationend", done);
+  }, [session.id]);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
@@ -1263,6 +1278,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       Terminal
                     </Button>
                   )}
+                  {lookHere?.head}
                   {marked}
                 </>
               ),
@@ -1336,6 +1352,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             onAnswer={() => undefined}
             onOpenSession={onOpen}
+            {...(lookHere?.thread ?? {})}
           />
           </SavedOpen.Provider>
           </RequestOpen.Provider>
@@ -1390,6 +1407,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
+              {...(lookHere?.composer ?? {})}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.
                 if (starting !== undefined) return starting.begin(sent.text);

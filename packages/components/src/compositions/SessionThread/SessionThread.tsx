@@ -834,7 +834,7 @@ function RanRow({ row }: { row: Extract<SessionThreadRow, { kind: "ran" }> }) {
         </pre>
       </details>
       {peek === "" ? null : (
-        <pre className="armada-session-fold__peek" aria-hidden>
+        <pre className="armada-session-fold__peek">
           {peek}
         </pre>
       )}

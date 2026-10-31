@@ -14,6 +14,7 @@ import { ReachFoldersSettings } from "./ReachFoldersSettings";
 import { SchemaSection } from "./SchemaSettings";
 import { SETTINGS_SECTIONS, settingsIn } from "./sections";
 import { ThemeSettings } from "./ThemeSettings";
+import { ThreadPane } from "./ThreadPane";
 import { TimeSettings } from "./TimeSettings";
 
 export type SettingsSectionsViewProps = {
@@ -56,6 +57,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     words: (title) => <ModList kind="words" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
     trackers: (title) => <ModList kind="tracker" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
     "fleet-mods": (title) => <ModList kind="fleet" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
+    thread: (title) => card(title, <ThreadPane settings={settings} onSave={onSaveSettings} />),
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
     palette: (title) => (palette === undefined ? null : card(title, <PaletteSettings {...palette} />)),

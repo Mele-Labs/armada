@@ -22,6 +22,7 @@ import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useSetting } from "../../use-setting";
+import { arrivedHere, noteArrivals } from "../../arrivals";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
@@ -235,6 +236,8 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const limit = useDeck((deck) => deck.limit);
   const ideas = useQueued();
   const sessions = useSessions();
+  // A Job that arrived while the list is drawn lifts off into it.
+  noteArrivals(sessions.map((one) => `session:${one.id}`));
   const pausedIds = new Set(sessions.filter((one) => one.paused === true).map((one) => one.id));
   const [menu, setMenu] = useState<RowMenuAt>();
   const view = useRowView();
@@ -274,7 +277,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
       </>
     );
     return (
-      <li key={one.key} className="deck-list__item" style={one.linked?.depth === undefined ? undefined : ({ "--deck-depth": one.linked.depth } as CSSProperties)} data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
+      <li key={one.key} className="deck-list__item" data-arrived={arrivedHere(one.key) || undefined} style={one.linked?.depth === undefined ? undefined : ({ "--deck-depth": one.linked.depth } as CSSProperties)} data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} {...(toolsMissing === undefined ? {} : { tools: toolsMissingSaid(toolsMissing) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-lamp={lampOf(one)} data-linked={one.linked?.depth !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.

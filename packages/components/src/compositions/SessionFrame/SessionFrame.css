@@ -389,3 +389,22 @@ button.armada-session-frame__context:focus-visible {
   font-size: var(--text-xs);
   color: var(--fg-muted);
 }
+
+/* A Job just dispatched lifts off: its card and its row rise a step and fade in, once (`arrivals.ts` in Bridge says which).
+   The one entrance on a Job, which the owner asked for; reduced motion draws it in place. */
+@keyframes armada-lift-off {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-3));
+  }
+}
+
+.armada-session-frame[data-lifting] {
+  animation: armada-lift-off calc(var(--duration-sheet) + var(--duration-base)) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-frame[data-lifting] {
+    animation: none;
+  }
+}
