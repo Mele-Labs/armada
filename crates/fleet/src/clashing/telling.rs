@@ -34,6 +34,22 @@ enum About {
 /// A Session's message: the words are Fleet's, the reach is the other side's.
 fn session_says(about: &About, paths: &[String]) -> String {
     match about {
+        // **A paused Job cannot answer**, so the clash is the branch's, settled when one merges.
+        About::Peer(Peer::Session {
+            address,
+            branch,
+            paused: true,
+            ..
+        }) => {
+            let with = match branch {
+                Some(branch) => format!("branch {branch}. Its Job {address} is paused"),
+                None => format!("Job {address}, which is paused"),
+            };
+            format!(
+                "Your changes to {} conflict with {with}, so resolve the conflict on merge.",
+                listed(paths)
+            )
+        }
         About::Peer(Peer::Session {
             address, branch, ..
         }) => {
