@@ -325,7 +325,19 @@ checks:
       - "scripts/preview"
       - "scripts/restart"
       - "scripts/restart-build"
+      - "scripts/armada-electron"
       - "scripts/test_preview.py"
+      - "armada.yml"
+
+  armada_electron_test:
+    # `scripts/armada-electron` against a fake Electron.app: the copy Bridge
+    # runs from is named Armada, and `scripts/dev` hands it over. A failure
+    # means the dock says Electron.
+    run: python3 scripts/test_armada_electron.py
+    when:
+      - "scripts/armada-electron"
+      - "scripts/dev"
+      - "scripts/test_armada_electron.py"
       - "armada.yml"
 
   sync_mod_test:
