@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 
-import { arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToGap, moveTabToPane, shortfall, type Arrangement, type Side, type TabKind } from "./tree";
+import { arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToEnd, moveTabToGap, moveTabToPane, shortfall, type Arrangement, type Side, type TabKind } from "./tree";
 
 export const DEFAULT_LAYOUT = "Default";
 
@@ -151,6 +151,13 @@ export function droppable(jobId: string, tabId: string, paneId: string, zone: Si
 export function droppableGap(jobId: string, tabId: string, splitId: string): boolean {
   const was = ensure(jobId).arrangement;
   const next = moveTabToGap(was, tabId, splitId);
+  return next !== was && allowed(jobId, was, next);
+}
+
+/** Whether a tab dragged over an outer edge of the area can be dropped there: a new pane along the whole edge that changes the layout and leaves every pane its minimum. */
+export function droppableEdge(jobId: string, tabId: string, side: Side): boolean {
+  const was = ensure(jobId).arrangement;
+  const next = moveTabToEnd(was, tabId, side);
   return next !== was && allowed(jobId, was, next);
 }
 

@@ -292,6 +292,32 @@ export function moveTabToGap(arrangement: Arrangement, tabId: string, splitId: s
   return { ...next, root: put(next.root), focus: fresh };
 }
 
+/** The panes in reading order with each split flattened into its own axis, so two layouts that read the same compare equal whatever their ids and shares. */
+function shapeOf(node: Node): string {
+  if (node.type === "pane") return `[${node.tabs.map((tab) => tab.id).join(",")}]`;
+  const parts = (one: Node): string[] => (one.type === "split" && one.dir === node.dir ? [...parts(one.a), ...parts(one.b)] : [shapeOf(one)]);
+  return `${node.dir}(${parts(node).join(" ")})`;
+}
+
+/**
+ * The tab goes to a new pane along one edge of the whole arrangement, a new root split that gives it a third. The pane it leaves closes if it was the only tab, so a lone tab can be carried to the far
+ * edge; a drop that leaves the panes as they were is nothing.
+ */
+export function moveTabToEnd(arrangement: Arrangement, tabId: string, side: Side): Arrangement {
+  const tab = tabById(arrangement, tabId);
+  if (tab === undefined) return arrangement;
+  const left = detach(arrangement, tabId);
+  // The only tab of the only pane has nowhere to go.
+  if (left.root.type === "pane" && left.root.tabs.length === 0) return arrangement;
+  const [splitId, afterSplit] = mint(left, "s");
+  const [fresh, next] = mint(afterSplit, "p");
+  const made: Pane = { type: "pane", id: fresh, tabs: [tab], active: tab.id };
+  const first = side === "left" || side === "top";
+  const dir = side === "left" || side === "right" ? "row" : "column";
+  const root: Node = { type: "split", id: splitId, dir, ratio: first ? 1 / 3 : 2 / 3, a: first ? made : left.root, b: first ? left.root : made };
+  return shapeOf(root) === shapeOf(arrangement.root) ? arrangement : { ...next, root, focus: fresh };
+}
+
 export function resizeSplit(arrangement: Arrangement, splitId: string, ratio: number): Arrangement {
   const put = (node: Node): Node => (node.type === "pane" ? node : node.id === splitId ? { ...node, ratio: clampRatio(ratio) } : { ...node, a: put(node.a), b: put(node.b) });
   return { ...arrangement, root: put(arrangement.root) };
