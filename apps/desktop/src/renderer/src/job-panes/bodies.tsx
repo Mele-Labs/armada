@@ -1,7 +1,7 @@
 // The bodies of the tabs that stand on their own. A tab that needs the Job's thread or its story is drawn by `SessionWorkspace`, which holds both.
 
 import { useEffect, useRef } from "react";
-import { Button, UnifiedDiff, PlanRevisionView, useUnchanged, type LedgerEntry, type PlanRevision, ShellPane } from "@armada/components";
+import { Button, UnifiedDiff, PlanRevisionView, useUnchanged, type LedgerEntry, type PlanRevision, ShellPanelPane } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
@@ -32,7 +32,12 @@ export function TerminalBody({ jobId }: { jobId: string }) {
     if (shells !== null && !shown) shells.want("page", jobId);
     // Once, as the tab opens: a shell put away from its own head stays away.
   }, []);
-  return pane === null ? null : <ShellPane {...pane} />;
+  // The tab names the shell and the pane places it, so the head keeps only what the shell itself can do.
+  return pane === null ? null : (
+    <ShellPanelPane phase={pane.phase} onEnd={pane.onEnd} onOpen={pane.onOpen}>
+      {pane.children}
+    </ShellPanelPane>
+  );
 }
 
 const cutSaid = (drawn: number, total: number) => `The first ${drawn.toLocaleString()} of ${total.toLocaleString()} lines.`;

@@ -33,7 +33,8 @@ export const sJobLayouts: Scenario = {
         terminalRuns: true as const,
         later: () => {
           store.later();
-          jobOpens(OPENS, "browser");
+          // The tab reads the host of the page the Job opened, on the dev server's other port; the mock's browser is the one it already has.
+          jobOpens(OPENS, "browser", "localhost:5174");
         },
         dispose: () => {
           disposeShells();

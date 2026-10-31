@@ -4,10 +4,21 @@ import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from "re
 import { ChevronDown, Plus, X } from "lucide-react";
 import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
+import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { look, peek, rearrange } from "./store";
 import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, type Pane, type Side, type Tab, type TabKind } from "./tree";
+
+/** The words a tab reads: its own label where it has one, else its kind. */
+export const labelOf = (tab: Tab): string => tab.label ?? KINDS[tab.kind].label;
+
+/** What a new tab of a kind is called: a browser by its page's host, a terminal by its shell. The kinds there is one of keep their names. The mock's shell is zsh. */
+function labelFor(jobId: string, kind: TabKind): string | undefined {
+  if (kind === "terminal") return "zsh";
+  const url = kind === "browser" ? peekJobBrowser(jobId)?.url : undefined;
+  return url === undefined || url === "" ? undefined : hostOf(url);
+}
 
 const ZONES: readonly (Side | "middle")[] = ["left", "right", "top", "bottom", "middle"];
 
@@ -23,7 +34,8 @@ function tabEntries(): DropdownMenuEntry[] {
 }
 
 function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane: Pane; tab: Tab; dragging: boolean; onDrag: (tabId: string | undefined) => void }) {
-  const { label, Glyph } = KINDS[tab.kind];
+  const label = labelOf(tab);
+  const { Glyph } = KINDS[tab.kind];
   const active = pane.active === tab.id;
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
   const choose = (id: string) => {
@@ -109,7 +121,7 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
       data-frame=""
       data-pane={pane.id}
       data-focused={focused || undefined}
-      aria-label={active === undefined ? "Empty pane" : `Pane: ${KINDS[active.kind].label}`}
+      aria-label={active === undefined ? "Empty pane" : `Pane: ${labelOf(active)}`}
       onFocusCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
       onPointerDownCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
     >
@@ -124,7 +136,7 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
           entries={addEntries(thread)}
           onSelect={(id) => {
             const kind = id as TabKind;
-            rearrange(jobId, (arrangement) => (kind === "thread" && hasKind(arrangement, "thread") ? arrangement : addTab(arrangement, pane.id, kind)));
+            rearrange(jobId, (arrangement) => (kind === "thread" && hasKind(arrangement, "thread") ? arrangement : addTab(arrangement, pane.id, kind, labelFor(jobId, kind))));
             focusIn(pane.id);
           }}
         />
@@ -136,7 +148,7 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
           </Tooltip>
         )}
       </div>
-      <div className="job-pane__body" role="tabpanel" aria-label={active === undefined ? "Empty" : KINDS[active.kind].label}>
+      <div className="job-pane__body" role="tabpanel" aria-label={active === undefined ? "Empty" : labelOf(active)}>
         {children}
         {dragging === undefined ? null : (
           <div className="job-pane__drops" aria-hidden="true">

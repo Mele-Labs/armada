@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
 
 import { look, peek, rearrange } from "./store";
-import { cycleTab, focusPane, neighbourOf, splitPane, type Toward } from "./tree";
+import { cycleTab, focusPane, neighbourOf, paneById, splitPane, type Arrangement, type Toward } from "./tree";
 
 const TOWARD: readonly Toward[] = ["left", "up", "right", "down"];
 
@@ -16,8 +16,8 @@ export function focusIn(paneId: string): void {
   });
 }
 
-export function splitFocused(jobId: string, into: "right" | "down"): void {
-  rearrange(jobId, (arrangement) => splitPane(arrangement, arrangement.focus, into));
+export function splitFocused(jobId: string, into: "right" | "down", paneId?: string): void {
+  rearrange(jobId, (arrangement) => splitPane(arrangement, paneId ?? arrangement.focus, into));
   focusIn(peek(jobId).focus);
 }
 
@@ -29,13 +29,16 @@ export function usePaneKeys(jobId: string, openLayouts: () => void): void {
         event.preventDefault();
         run();
       };
-      if (isPressed("pane_split_right", event)) return take(() => splitFocused(jobId, "right"));
-      if (isPressed("pane_split_down", event)) return take(() => splitFocused(jobId, "down"));
+      // A key pressed inside a pane is for that pane, whether or not the focus record has caught up with it.
+      const inside = event.target instanceof Element ? event.target.closest("[data-pane]")?.getAttribute("data-pane") : null;
+      const here = (now: Arrangement) => (inside != null && paneById(now, inside) !== undefined ? inside : now.focus);
+      if (isPressed("pane_split_right", event)) return take(() => splitFocused(jobId, "right", here(peek(jobId))));
+      if (isPressed("pane_split_down", event)) return take(() => splitFocused(jobId, "down", here(peek(jobId))));
       if (isPressed("layout_menu", event)) return take(openLayouts);
       const by = isPressed("next_tab", event) ? 1 : isPressed("previous_tab", event) ? -1 : 0;
       if (by !== 0) {
         return take(() => {
-          look(jobId, (arrangement) => cycleTab(arrangement, arrangement.focus, by));
+          look(jobId, (arrangement) => cycleTab(arrangement, here(arrangement), by));
           focusIn(peek(jobId).focus);
         });
       }
@@ -43,7 +46,7 @@ export function usePaneKeys(jobId: string, openLayouts: () => void): void {
       if (slot === -1) return;
       take(() => {
         const now = peek(jobId);
-        const to = neighbourOf(now, now.focus, TOWARD[slot]!);
+        const to = neighbourOf(now, here(now), TOWARD[slot]!);
         if (to === undefined) return;
         look(jobId, (arrangement) => focusPane(arrangement, to));
         focusIn(to);
