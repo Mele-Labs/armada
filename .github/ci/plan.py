@@ -35,7 +35,9 @@ MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_
 NO_BROWSER = {"typecheck", "bridge_build", "pocket_test", "store_test"}
 
 # Keys CI deliberately does not run, and why.
-EXCLUDED = {}
+EXCLUDED = {
+    "armada_electron_test": "PlistBuddy and codesign exist on macOS only; run it on the Mac that runs Bridge.",
+}
 
 # Check names a pull request's own run keeps with `--quick`: the ones that
 # compile. The merge queue runs every Check, so the pull request run is an early
