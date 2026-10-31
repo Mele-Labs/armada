@@ -201,6 +201,28 @@ async fn a_sketch_the_job_never_showed_is_not_withdrawn() {
 }
 
 #[tokio::test]
+async fn a_sketch_drawn_again_under_a_new_title_takes_the_old_one_back_so_approving_it_leaves_nothing_waiting() {
+    let rig = rig_placing(None);
+    let (id, _) = shown(&rig).await;
+    let retitled = "Request flow, settings too";
+    let show: ShowSketch = ipc::decode(
+        "a sketch to show",
+        format!(r#"{{"title":"{retitled}","session_id":"{}","scene":{}}}"#, id.as_str(), scene("Daemon")).as_bytes(),
+    )
+    .unwrap();
+    let record = rig.fleet.show_sketch(None, show).await.unwrap();
+    let newer = format!("sketch:{retitled}");
+    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [newer.as_str()], "only the newest waits");
+    assert_eq!(the_sketch(&record).detail.get("withdrawn").map(String::as_str), Some("true"), "the old title is taken back");
+
+    let drawn = record.attachments.iter().find(|one| one.target == newer).unwrap().detail["drawn"].clone();
+    let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
+    approve.sketch = newer;
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
+    assert!(record.waiting_for.is_empty(), "nothing comes back to wait on him: {:?}", record.waiting_for);
+}
+
+#[tokio::test]
 async fn the_owner_dismissing_a_sketch_marks_it_withdrawn_as_the_job_withdrawing_it_does() {
     let rig = rig_placing(None);
     let (id, _) = shown(&rig).await;

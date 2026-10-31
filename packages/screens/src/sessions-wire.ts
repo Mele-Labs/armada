@@ -301,6 +301,10 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
         });
         break;
       }
+      // The reported bug the Job was started on. A row given back is already out of `held`, so a Job that ended unmerged is no longer the report's.
+      case "report":
+        out.push({ kind: "report", id: one.target, title: detail["title"] ?? "" });
+        break;
       case "studio":
         out.push({ kind: "studio", id: one.target, title: detail["title"] ?? "Studio" });
         break;

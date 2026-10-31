@@ -71,7 +71,7 @@ const NUMBERED_ROWS = 6;
 const LOOKUP_MS = 150;
 
 /** What each kind is called, on the glyph that leads a `#` row. */
-const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
+const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue", report: "Reported bug" };
 
 /**
  * The kinds `@` offers as chips, in the order it groups them, each named for the group's label. Files

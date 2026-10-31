@@ -38,6 +38,20 @@ fn an_ask_with_attachments_and_mentions_round_trips() {
 }
 
 #[test]
+fn a_reported_bug_rides_a_message_as_a_tag_of_its_own_kind() {
+    let tag = SessionTag {
+        kind: TagKind::Report,
+        id: "01jreport".to_string(),
+        title: "Preview restart drops the lease".to_string(),
+        url: None,
+    };
+    let json = encode(&tag).expect("plain data");
+    assert!(json.contains(r#""kind":"report""#), "{json}");
+    assert!(!json.contains("url"), "{json}");
+    assert_eq!(decode::<SessionTag>("a tag", json.as_bytes()).expect("round-trips"), tag);
+}
+
+#[test]
 fn a_blank_text_with_an_attachment_decodes_and_a_words_only_ask_carries_neither_field() {
     let asked = decode::<AskHelm>(
         "a message to Helm",

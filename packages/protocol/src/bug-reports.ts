@@ -36,6 +36,17 @@ export type BugReport = {
   at: string;
   /** When the owner kept it. Absent is not kept. */
   kept?: string;
+  /** The pull request that fixed it: one the Job started on it held, merged. Absent while the report stands open. */
+  fixed?: BugFixed;
+};
+
+/** The merge that fixed a report. Set once, by the first. */
+export type BugFixed = {
+  /** When the pull request merged. */
+  at: string;
+  pull_request: number;
+  title: string;
+  url: string;
 };
 
 /** `list_bug_reports` (`GET /bug_reports`): every report on this Mac, newest first. */

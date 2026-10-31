@@ -485,7 +485,7 @@ export type SessionThreadProps = {
   look?: { showTimes?: boolean; showAgentName?: boolean; textSize?: ThreadTextSize };
 };
 
-const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
+const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue", report: "Reported bug" } as const;
 
 /**
  * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
@@ -852,7 +852,7 @@ type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "
 export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; onRetry?: (rowId: string) => void; forkable?: boolean }) {
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
-  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" || tag.kind === "report" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
   const { said, debug } = splitDebugInfo(row.text);
   const placed = placeTags(said, row.tags ?? [], openTag);
   // Notes sent from a viewer: what each is about opens it again.
@@ -1027,7 +1027,7 @@ function Row({
 }) {
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
-  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" || tag.kind === "report" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (

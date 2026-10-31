@@ -49,6 +49,19 @@ pub struct BugReport {
     /// When the owner kept it. Absent is not kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kept: Option<Instant>,
+    /// The pull request that fixed it. Absent while the report stands open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed: Option<BugFixed>,
+}
+
+/// The merge that fixed a report: a pull request one of its Jobs held. Set once, by the first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BugFixed {
+    /// When the pull request merged.
+    pub at: Instant,
+    pub pull_request: u64,
+    pub title: String,
+    pub url: String,
 }
 
 /// `list_bug_reports`, and the `bug_reports.changed` event: every report on this Mac, newest first.
