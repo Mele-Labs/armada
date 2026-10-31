@@ -1,7 +1,7 @@
-// The Layout control in the Job's header: the layout the Job is on, and a menu to take another, to update the one it is on, to save it under a name, to reset it, or to make it the layout every Job opens on.
+// The Layout control in the title bar: an icon with the layout the Job is on in its tooltip and a mark on it once rearranged, and a menu to take another, to update the one it is on, to save it under a name, to reset it, or to make it the layout every Job opens on.
 // Save as turns the menu into a name field in place: ↵ saves, Esc leaves it.
 
-import { Pin } from "lucide-react";
+import { PanelsTopLeft, Pin } from "lucide-react";
 import { DropdownMenu, Tooltip, useKept, type DropdownMenuEntry } from "@armada/components";
 
 import { nameTaken, resetLayout, saveLayoutAs, setLayoutForAll, takeLayout, updateLayout } from "./store";
@@ -71,17 +71,21 @@ export function LayoutControl({ jobId, layout, edited, layouts, forAll, open, on
     onNaming(false);
   };
 
+  const said = `Layout: ${layout}${edited ? " · edited" : ""}`;
   return (
-    <DropdownMenu
-      plain
-      align="start"
-      triggerLabel={`Layout: ${layout}${edited ? " · edited" : ""}`}
-      triggerTooltip="Layout"
-      entries={entries}
-      open={open}
-      onOpenChange={change}
-      onSelect={choose}
-      {...(naming ? { searchLabel: "Name", search: { value: name, onChange: setName, onEnter: enter } } : {})}
-    />
+    <Tooltip label={said} asChild>
+      <span className="job-layout">
+        <DropdownMenu
+          icon={PanelsTopLeft}
+          triggerLabel={said}
+          entries={entries}
+          open={open}
+          onOpenChange={change}
+          onSelect={choose}
+          {...(naming ? { searchLabel: "Name", search: { value: name, onChange: setName, onEnter: enter } } : {})}
+        />
+        {edited ? <span className="job-layout__mark" aria-hidden="true" /> : null}
+      </span>
+    </Tooltip>
   );
 }

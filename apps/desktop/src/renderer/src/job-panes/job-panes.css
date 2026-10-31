@@ -54,6 +54,11 @@
 .job-pane__body { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; isolation: isolate; overflow: hidden; }
 .job-pane__body > * { flex: 1 1 0; min-height: 0; }
 .job-pane__body > .job-pane__drops { flex: none; }
+/* Inside a pane a body is flush: the pane is the one frame, so a panel, card, terminal or column a body brings draws no radius, edge or ground of its own, and the strip and the body read as one piece. */
+.job-pane__body :is(.sv-panel, .sv-spine, .armada-session-frame, .armada-terminal, .job-browser, .sv-layer) { border: 0; border-radius: 0; box-shadow: none; }
+.job-pane__body .sv-spine { --ground: var(--bg-raised); }
+.job-pane__body :is(.armada-session-frame, .armada-terminal, .job-browser) { background: none; }
+
 .job-pane__pick { flex: none; padding: var(--space-2) var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
 .job-pane__scroll { overflow: auto; padding: var(--space-3); }
 .job-pane__list { margin: 0; list-style: none; }
@@ -75,4 +80,6 @@
 .job-pane__preview[data-zone="bottom"] { inset: 50% 0 0 0; }
 .job-pane__preview[data-zone="middle"] { inset: 0; }
 
+.job-layout { position: relative; display: inline-flex; }
+.job-layout__mark { position: absolute; top: var(--space-1); right: var(--space-1); width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-default); box-shadow: 0 0 0 var(--border-width) var(--bg-base); pointer-events: none; }
 .job-layout__pin { display: inline-flex; color: var(--fg-muted); }

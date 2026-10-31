@@ -1,5 +1,5 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
-// and + adds a tab of any kind to it. The Layout control, in the title bar beside the Job's views, reads "Default · edited" once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
+// and + adds a tab of any kind to it. The Layout control, an icon in the title bar beside the Job's views, is named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
 // Use for all Jobs makes a layout the one every Job opens on, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
 // layout as it was. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
@@ -24,7 +24,7 @@ const steps: Step[] = [
   { key: "Meta+Alt+d", on: thread, say: "⌘⌥D splits the thread downward" },
   { press: inside(empty, button("Add tab")), say: "+" },
   { press: item("Terminal"), say: "Terminal, named by its shell" },
-  { look: layout("Default · edited"), say: "The control, in the title bar, says this Job is rearranged" },
+  { look: layout("Default · edited"), say: "The Layout icon in the title bar is marked: this Job is rearranged" },
   { key: "Meta+z", on: thread, say: "⌘Z takes back the last change: the terminal's pane goes" },
   { key: "Meta+Shift+z", on: thread, say: "⇧⌘Z puts it back" },
   { key: "Meta+l", on: places, say: "⌘L opens the Layout menu" },
