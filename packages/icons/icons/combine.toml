@@ -3,5 +3,5 @@
   group = "Logbook"
   size = "12px"
   status = "Proposed"
-  reserved = "Tidy now on the Logbook page, which folds near-duplicate entries into one. Never a merge of branches or pull requests, which are `merge` and `git-merge`, and never a Cluster, which is `group`."
+  reserved = "Merge duplicates in the Logbook's Organize menu (Tidy now before 30 Oct 2026), which folds near-duplicate entries into one. Never a merge of branches or pull requests, which are `merge` and `git-merge`, and never a Cluster, which is `group`."
   notes = "Proposed 23 Oct 2026 for the walk `logbook-tidy`. Tooltip `Tidy now`. `merge` is reserved to the Merge line and `git-merge` to a merged pull request. `group` is refused for its own use, where nothing is consumed; Tidy archives what it folds in, which two squares joining says. `fold-vertical` is Compact on a Session. `eraser` is Clear on a worktree slot."

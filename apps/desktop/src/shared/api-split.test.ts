@@ -477,6 +477,7 @@ type OldBridgeApi = {
     setSessionAutoLand: (sessionId: string, on: boolean) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
     skipSessionStep: (sessionId: string, step: number, skipped: boolean) => Promise<SessionActed>;
+    jumpSessionStep: (sessionId: string, step: number) => Promise<SessionActed>;
     releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
     moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
@@ -812,6 +813,7 @@ const OLD_CHANNELS = {
     setSessionAutoLand: "bridge:set-session-auto-land",
     setSessionWorkflow: "bridge:set-session-workflow",
     skipSessionStep: "bridge:skip-session-step",
+    jumpSessionStep: "bridge:jump-session-step",
     releaseSessionHolds: "bridge:release-session-holds",
     handToSession: "bridge:hand-to-session",
     moveSession: "bridge:move-session",

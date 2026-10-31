@@ -550,6 +550,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::skip_session_step::<D>),
         )
         .route(
+            "/sessions/step-jump",
+            post(crate::hosted_sessions::jump_session_step::<D>),
+        )
+        .route(
             "/sessions/workflow/steps",
             post(crate::hosted_sessions::change_session_steps::<D>),
         )
@@ -786,6 +790,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/logbook/entries/:entry_id/lock", post(crate::logbook::lock_logbook_entry::<D>))
         .route("/logbook/entries/:entry_id/forget", post(crate::logbook::forget_logbook_entry::<D>))
         .route("/logbook/tidy", post(crate::logbook::tidy_logbook::<D>))
+        .route("/logbook/organize", post(crate::logbook::organize_logbook::<D>))
+        .route("/logbook/organize/apply", post(crate::logbook::apply_organize_logbook::<D>))
         .route("/teachings", post(crate::teaching::save_teaching::<D>))
         .route("/teachings/read", post(crate::teaching::read_teaching::<D>))
         .route("/teachings/words", get(crate::teaching::list_word_rules::<D>))

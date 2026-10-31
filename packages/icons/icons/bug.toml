@@ -3,7 +3,7 @@
   group = "Flight control"
   size = "16px"
   status = "Proposed"
-  reserved = "The Session flight control Report issue, which hands a report about a Session to a new Session. Never an error state, a failed Job or a Check that failed."
+  reserved = "The Session flight control Report issue, and Find Armada bugs in the Logbook's Organize menu, which hands a report about a Session to a new Session. Never an error state, a failed Job or a Check that failed."
   notes = "Proposed 15 Oct 2026 with the Session flight controls. `file_report` is keyed by a Job's id, so a report about a Session starts a new Session instead (`docs/concepts/cockpit.md`). `flag` is reserved to a stopped step and `triangle-alert` to Doctor. Drawn off only where the repository is not known, tooltip `The repository is not known`."
 
 [[icons.bug.usage]]

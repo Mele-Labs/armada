@@ -6,7 +6,7 @@ description = "What a job costs the machine: its processes, their CPU and memory
 notes = """
 `GET /sessions/system?session_id=`, for the System layer of a job. Answers `SessionSystem`: `session_id`, `processes`, `cpu_percent`, `memory_bytes`, `memory_of_bytes`, `disk_bytes`, `disk_of_bytes`, `worktrees` and `logs`. Refused where Fleet hosts no such job.
 
-**A `process` is one the job started** and that still runs: the agent's process tree, and whatever runs a file from a directory the job holds. The agent itself and Fleet are left out. Each has `pid`, `command`, `port` where it listens on a TCP port, and `state`, which Fleet always answers `running`: it lists what runs, and a process stopped is gone from the next reading. Bridge keeps one it has just stopped as `stopped` until then.
+**A `process` is one the job started** and that still runs: the agent's process tree, whatever runs a file from a directory the job holds, and whatever was started with the job's id in its environment. The agent itself, its keeper and Fleet are left out. Each has `pid`, `command`, `port` where it listens on a TCP port, and `state`, which Fleet always answers `running`: it lists what runs, and a process stopped is gone from the next reading. Bridge keeps one it has just stopped as `stopped` until then.
 
 **Figures are read when asked and absent where the reading failed**, never zero. `cpu_percent` and `memory_bytes` are the listed processes' together (resident memory), so both are absent for a job with none. `disk_bytes` is what `du` finds in the job's slot, or its repository's root before it has leased one. `memory_of_bytes` and `disk_of_bytes` are the machine's memory and the volume's size, to set the readings against.
 

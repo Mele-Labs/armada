@@ -13,6 +13,7 @@ fn entry(text: &str) -> LogEntry {
         repository: KEY.to_string(),
         kind: LogKind::Gotcha,
         title: None,
+        topic: None,
         text: text.to_string(),
         paths: vec!["crates/**".to_string()],
         evidence: vec![LogEvidence {

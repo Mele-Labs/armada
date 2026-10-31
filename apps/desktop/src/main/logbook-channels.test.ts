@@ -21,6 +21,8 @@ const logbook = {
   edit: async (id: string, text: string) => (called.push(`edit ${id} ${text}`), { ok: true }),
   lock: async (id: string, locked: boolean) => (called.push(`lock ${id} ${locked}`), { ok: true }),
   forget: async (id: string) => (called.push(`forget ${id}`), { ok: true }),
+  organize: async (action: string) => (called.push(`organize ${action}`), { ok: true }),
+  applyOrganize: async (action: string, proposals: unknown[]) => (called.push(`apply ${action} ${proposals.length}`), { ok: true }),
   tidy: async () => (called.push("tidy"), { ok: true, merged: 3 }),
 };
 const connected = { logbook } as unknown as FleetConnection;
@@ -45,6 +47,18 @@ describe("the Logbook channels", () => {
     expect(await handlers.get(CHANNELS.lockLogbookEntry)?.({}, "w1", "yes")).toEqual(unread);
     expect(await handlers.get(CHANNELS.forgetLogbookEntry)?.({}, undefined)).toEqual(unread);
     expect(called).toEqual([]);
+  });
+
+  it("pass Organize and its apply to the host, and refuse an unknown action or a malformed proposal", async () => {
+    called.length = 0;
+    const handlers = channels(connected);
+    const one = { id: "a", entry_ids: ["a"], text: "T.", note: "" };
+    await handlers.get(CHANNELS.organizeLogbook)?.({}, "bugs");
+    await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [one]);
+    const unread = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await handlers.get(CHANNELS.organizeLogbook)?.({}, "tidy")).toEqual(unread);
+    expect(await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [{ id: "a" }])).toEqual(unread);
+    expect(called).toEqual(["organize bugs", "apply stale 1"]);
   });
 
   it("say Fleet is not connected when there is no connection", async () => {

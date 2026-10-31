@@ -1,0 +1,7 @@
+[icons.calendar-x]
+  means = "A calendar page with a cross: a date that has passed without anything confirming it"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Find stale entries in the Logbook's Organize menu, which lists entries no recent Job has confirmed or tripped. Never a Job's schedule, and never a test map edge, which is `clock-alert`."
+  notes = "Proposed 30 Oct 2026 for the walk `logbook-organize`. Tooltip `Find stale entries`. `hourglass` is banned and `history` is reserved to Replay."

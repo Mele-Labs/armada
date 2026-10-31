@@ -202,6 +202,8 @@ export type SessionsApi = {
   setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
   /** Skips a step of the Session's workflow, or undoes the skip with `skipped` false. Fleet refuses the last, delivering step. Answers the Session's record. */
   skipSessionStep: (sessionId: string, step: number, skipped: boolean) => Promise<SessionActed>;
+  /** Moves the Session straight to a step to come, skipping the steps between. Fleet refuses a step at or before the current one. Answers the Session's record. */
+  jumpSessionStep: (sessionId: string, step: number) => Promise<SessionActed>;
   /**
    * Gives back the slots, branches, pull requests, Jobs and needs the Session holds, or hands them to
    * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
@@ -411,6 +413,7 @@ export const SESSIONS_CHANNELS = {
   setSessionAutoLand: "bridge:set-session-auto-land",
   setSessionWorkflow: "bridge:set-session-workflow",
   skipSessionStep: "bridge:skip-session-step",
+  jumpSessionStep: "bridge:jump-session-step",
   releaseSessionHolds: "bridge:release-session-holds",
   handToSession: "bridge:hand-to-session",
   moveSession: "bridge:move-session",

@@ -1346,3 +1346,18 @@ Naming these rather than deciding them, per this document's brief:
 - **[lifeboat-router]** Whether the lifeboat's four routes live inside the
   same `axum` `Router` as the main protocol or a separate one. Either can satisfy "no shared
   dependency with the versioned protocol"; which one hasn't been decided.
+
+## Organize the Logbook, and an entry's topic: `organize_logbook`, `apply_organize_logbook`, `topic` on `LogbookEntry`
+
+Since 30 Oct 2026. `crates/ipc/operations/organize_logbook.toml`, `crates/ipc/operations/apply_organize_logbook.toml`, `crates/fleet/src/logbook/organizing.rs`, `crates/fleet/src/logbook/sorting.rs`.
+**Additive only**: two operations and routes, one optional field and new types. `tidy_logbook` stays.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`. Bridge's half is written by hand in `packages/protocol/src/logbook.ts`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `LogbookEntry.topic` | Fleet writes | `git`, `slots`, `testing`, `tools` or `mac`; absent until the sorter places the entry, and then Other |
+| `organize_logbook` (`POST /logbook/organize`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `OrganizeLogbook` `{ action, repository? }`, `action` one of `merge`, `stale`, `bugs`; answers `OrganizedLogbook` `{ action, proposals, failed }`. Writes nothing. Waits for the model calls of `merge` and `bugs` |
+| `OrganizeProposal` | Fleet writes | `{ id, entry_ids, text, note }`: a merge lists the kept entry first in `entry_ids` and carries the text it would read; `stale` and `bugs` name one entry, `note` saying how long or the fault |
+| `apply_organize_logbook` (`POST /logbook/organize/apply`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ApplyOrganizeLogbook` `{ action, proposals }`; answers `AppliedOrganizeLogbook` `{ action, applied, reported }`. `bugs` writes nothing and answers the proposals as `reported` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

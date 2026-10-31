@@ -495,6 +495,10 @@ where
         self.step_skipped(skip).await
     }
 
+    async fn jump_session_step(self: Arc<Self>, jump: ipc::JumpSessionStep) -> Result<SessionRecord, Refusal> {
+        self.step_jumped(jump).await
+    }
+
     async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
         self.steps_changed(change).await
     }

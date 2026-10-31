@@ -477,6 +477,17 @@ pub(crate) fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> Strin
     }
 }
 
+/// The one message to a Job that has run when the person moves it to a step to come, past `passed`, the
+/// steps that jump skipped. The target's own instructions are the rail's, sent as it places the Job.
+pub(crate) fn jump_told(workflow: &str, to: &RailStep, passed: &[&RailStep]) -> String {
+    let moved = format!("Fleet: the person moved this Job to the \"{}\" step of its {workflow} workflow", to.label);
+    if passed.is_empty() {
+        return format!("{moved}.");
+    }
+    let labels: Vec<String> = passed.iter().map(|step| format!("\"{}\"", step.label)).collect();
+    format!("{moved}, past {}. Do not do those steps, and do not ask about them.", labels.join(", "))
+}
+
 /// The steps the person skipped, said with a Job's first turn: a message before it would start the
 /// Job ahead of the turn it waits for. `None` where none is.
 pub(crate) fn skips_said(workflow: &str, steps: &[RailStep], skipped: &[u32]) -> Option<String> {

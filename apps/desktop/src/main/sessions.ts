@@ -24,6 +24,7 @@ import type {
   SessionHeld,
   SetNoticeMute,
   SkipSessionStep,
+  JumpSessionStep,
   SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
@@ -977,6 +978,12 @@ export class SessionsHost {
   async skipStep(sessionId: string, step: number, skipped: boolean): Promise<SessionActed> {
     const body: SkipSessionStep = { session_id: sessionId, step, skipped };
     return await this.act("POST", "/sessions/step-skip", body);
+  }
+
+  /** The Session moved straight to a step to come. Fleet skips the steps between and tells the agent once; the record it answers is folded in. */
+  async jumpStep(sessionId: string, step: number): Promise<SessionActed> {
+    const body: JumpSessionStep = { session_id: sessionId, step };
+    return await this.act("POST", "/sessions/step-jump", body);
   }
 
   /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */

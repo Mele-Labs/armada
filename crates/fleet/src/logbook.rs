@@ -13,8 +13,10 @@ pub(crate) mod curating;
 mod distilling;
 mod kept;
 pub(crate) mod noting;
+pub(crate) mod organizing;
 pub(crate) mod recalling;
 pub(crate) mod serving;
+pub(crate) mod sorting;
 pub(crate) mod tidying;
 
 use std::collections::{BTreeMap, VecDeque};

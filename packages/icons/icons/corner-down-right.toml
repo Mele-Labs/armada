@@ -1,0 +1,6 @@
+[icons.corner-down-right]
+  means = "Jump here: move a Job straight to a step still to come"
+  group = "Action"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 31 Oct 2026 for the walk `jumpToStep`, which the owner approved. It sits in a step's band beside Skip, on each step still to come, and Fleet skips the steps between (`jump_session_step`). The arrow turns down into the step it lands on. Refused: `skip-forward`, which is Skip, one step passed over; `corner-up-right`, which is a redirect into a live Drone. Tooltip `Jump here`."

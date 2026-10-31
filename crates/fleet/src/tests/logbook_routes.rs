@@ -19,6 +19,7 @@ fn learnt(section: LogSection, key: &str, text: &str, state: LogState) -> LogEnt
         repository: if section == LogSection::Repo { key.to_string() } else { String::new() },
         kind: LogKind::Gotcha,
         title: None,
+        topic: None,
         text: text.to_string(),
         paths: vec!["crates/api".to_string()],
         evidence: vec![

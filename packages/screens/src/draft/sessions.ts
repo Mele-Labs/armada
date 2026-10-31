@@ -249,6 +249,8 @@ export type SessionWorkActs = {
   choose: (id: string, workflow: string | null) => void;
   /** Skips a step of the workflow by its index, or undoes the skip with `skipped` false. Absent where nothing serves it, and no step offers Skip. */
   skip?: (id: string, step: number, skipped: boolean) => void;
+  /** Moves the Job to a later step of the workflow by its index, skipping the steps between. Absent where nothing serves it, and no step offers Jump here. */
+  jump?: (id: string, step: number) => void;
   /** The person changed a value the proposer picked, so its mark goes. */
   unpick: (id: string, value: "workflow" | "model" | "effort") => void;
   approve: (id: string) => void;

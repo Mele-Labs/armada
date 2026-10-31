@@ -20,6 +20,7 @@ fn entry(text: &str, session: &str) -> LogEntry {
         repository: KEY.to_string(),
         kind: LogKind::Command,
         title: None,
+        topic: None,
         text: text.to_string(),
         paths: Vec::new(),
         evidence: vec![LogEvidence { session_id: session.to_string(), cites: vec![format!("ran:{session}")], how: LogHow::First, hard: false, at: 10 }],

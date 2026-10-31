@@ -33,6 +33,7 @@ impl Logged {
                 repository: String::new(),
                 kind,
                 title: None,
+                topic: None,
                 text,
                 paths: Vec::new(),
                 evidence: Vec::new(),

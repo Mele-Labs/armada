@@ -1,0 +1,12 @@
+[operations.organize_logbook]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Organize the Logbook: propose merges, stale entries to archive, or entries that read as workarounds for an Armada fault. Changes nothing"
+notes = """
+`POST /logbook/organize`, body `{action, repository?}`, `action` one of `merge`, `stale` or `bugs`. Answers `{action, proposals, failed}` once the look is done, and **writes nothing**: each proposal is `{id, entry_ids, text, note}`, and carrying it out is `apply_organize_logbook`.
+
+`merge` asks the model once per repository which entries say one thing. A proposal's `entry_ids` lists the entry it keeps first and those it absorbs after, `text` is the kept entry as it would read, and `note` is empty. A locked entry, a person's text and an archived entry are never offered. `stale` is deterministic and asks no model: an entry that is standing, unlocked and not confirmed in 45 days, and not tripped in that time; `text` is its own and `note` says how long. `bugs` asks the model once per repository which entries read as workarounds for a fault in Armada itself, such as a tool refusing or erroring; `note` is the one-line fault.
+
+`repository` is a served repository's root; absent covers every served repository, with the habits and this Mac's. A model call that fails or answers wrongly in one repository leaves out that repository's proposals and sets `failed`; the others are here. A 500 `fleet.logbook_failed` where the call cannot be put together on this machine.
+"""
