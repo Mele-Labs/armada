@@ -2,13 +2,15 @@
 // already, QA split and Review, beside Default. Each time the walk lets time pass, the second Job opens a browser page itself, which joins the pane that holds a browser, or opens
 // as a split on the right. Over `job-story`. The walk `jobLayouts` plays it. Mock only: nothing is kept.
 
-import type { WorktreeSlot } from "@armada/protocol";
+import type { ModSummary, PullReviewLists, PullReviewRow, WorktreeSlot } from "@armada/protocol";
+import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
 import { jobOpens } from "../../job-panes/store";
 import { resetCheckout, shopPage } from "../job-browser-page";
-import type { Scenario } from "../moment";
+import { unanswered, type Scenario } from "../moment";
+import type { SessionsStore } from "../sessions/script";
 import { sJobStory } from "./job-story";
 import { seedSystem } from "../slices/session-system";
 import { disposeShells, shellApi } from "./session-shell";
@@ -24,6 +26,71 @@ const KB = 1024;
 const GB = KB * KB * KB;
 const SHOP = ["http://localhost:5173/cart", "http://localhost:5173/checkout"];
 
+// ---- The Custom tab's Mod Job ---------------------------------------------------------------------------------------------------------------------------
+// A description sent from a Custom tab starts a Mod Job. It reads and writes for a few seconds (or until the walk lets time pass), then Fleet's mod list holds the tab it
+// wrote, `review-queue`, a mod of kind `tab`, and the tab draws the view. The pull requests waiting on him are what `getReviewLists` answers, across three repositories.
+
+const MOD_NAME = "review-queue";
+const MOD_DIR = "~/Library/Application Support/Armada/mods/review-queue";
+const waiting = (repository: string, number: number, title: string, branch: string, author: string, minutes: number, more: Partial<PullReviewRow> = {}): PullReviewRow => ({
+  manifest_id: repository.split("/")[1]!,
+  repository,
+  number,
+  title,
+  branch,
+  address: `https://git.example/${repository}/pull/${number}`,
+  draft: false,
+  checks: "passed",
+  review: "required",
+  head: `${number}`.padStart(7, "a"),
+  author,
+  updated_at: new Date(Date.now() - minutes * 60_000).toISOString(),
+  ...more,
+});
+const WAITING: PullReviewRow[] = [
+  waiting("northwind/storefront", 812, "Hold the cart total while a coupon applies", "cart/coupon-total", "dana", 22),
+  waiting("northwind/storefront", 809, "Retry the address lookup once on a timeout", "checkout/address-retry", "ravi", 95, { checks: "running" }),
+  waiting("northwind/billing-api", 377, "Round tax per line, not per order", "tax/per-line", "mei", 140, { checks: "failed" }),
+  waiting("northwind/billing-api", 371, "Reject a refund larger than the charge", "refunds/cap", "ola", 410),
+  waiting("northwind/design-system", 96, "Give the toast a close button", "toast/close", "sam", 700, { review: "changes_requested" }),
+];
+
+let handle: { publish: (change: { mods: { mods: ModSummary[] } }) => void } | undefined;
+let modStore: SessionsStore | undefined;
+let mods: ModSummary[] = [];
+const turns = new Map<string, () => void>();
+const timers = new Set<number>();
+let rowSeq = 0;
+
+/** The Mod Job's turn: rows as it reads and writes, then the mod in Fleet's list. Idempotent, so a walk's time passing may end it early. */
+function modTurn(store: SessionsStore, id: string, said: string): void {
+  const now = () => new Date().toISOString();
+  const row = (kind: "tool" | "agent", text: string): SessionRow => (kind === "tool" ? { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "tool", text } : { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "message", from: { kind: "agent" }, text });
+  const steps: [number, () => void][] = [
+    [700, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", "Read packages/protocol/src/pull-reviews.ts")] }))],
+    [1500, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", "Read apps/desktop/src/renderer/src/pr-review/marks.tsx")] }))],
+    [2300, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/mod.toml`)] }))],
+    [3100, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/tab.tsx`)] }))],
+  ];
+  const finish = () => {
+    if (!turns.delete(id)) return;
+    timers.forEach((one) => window.clearTimeout(one));
+    timers.clear();
+    store.edit(id, (one) => ({
+      ...one,
+      rows: [...one.rows, row("agent", "Review queue is saved and on.")],
+      turn: { state: "idle" },
+      lastTurnAt: now(),
+    }));
+    const row_: ModSummary = { name: MOD_NAME, kind: "tab", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
+    mods = [...mods.filter((one) => one.name !== MOD_NAME), row_];
+    handle?.publish({ mods: { mods } });
+  };
+  turns.set(id, finish);
+  for (const [at, run] of steps) timers.add(window.setTimeout(run, at));
+  timers.add(window.setTimeout(finish, 4000));
+}
+
 export const sJobLayouts: Scenario = {
   ...sJobStory,
   name: "job-layouts",
@@ -31,7 +98,38 @@ export const sJobLayouts: Scenario = {
   behaves: (fleet) => {
     resetCheckout();
     for (const id of JOBS) seedJobBrowser(id, { visited: [...SHOP], page: shopPage });
-    return { ...sJobStory.behaves?.(fleet), ...shellApi() };
+    handle = fleet;
+    mods = [];
+    return {
+      ...sJobStory.behaves?.(fleet),
+      ...shellApi(),
+      // What Fleet does for a Custom tab's description: starts a Job marked `mod`, tells it the words, and lets it build.
+      startModSession: async (start) => {
+        const store = modStore;
+        const id = store === undefined ? undefined : await store.start();
+        if (store === undefined || id === undefined) return { ok: false, outcome: unanswered("/mods/session") };
+        const title = start.title ?? "Mod";
+        const said = start.said ?? "";
+        store.edit(id, (one) => ({
+          ...one,
+          title,
+          mod: true as const,
+          rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: said }],
+          turn: { state: "working" },
+        } satisfies Session));
+        modTurn(store, id, said);
+        return { ok: true, value: { session_id: id, title } };
+      },
+      setModEnabled: async (name, enabled) => {
+        mods = mods.map((one) => (one.name === name ? { ...one, enabled } : one));
+        handle?.publish({ mods: { mods } });
+        return { ok: true };
+      },
+      getReviewLists: async () => {
+        const value: PullReviewLists = { me: "you", fetched_at: new Date().toISOString(), requested: WAITING, team: [], assigned: [], mine: [] };
+        return { ok: true, value };
+      },
+    };
   },
   // The bay the first Job holds, so its Bays and System tabs have something to draw.
   held: {
@@ -68,6 +166,7 @@ export const sJobLayouts: Scenario = {
         logs: [{ name: "session.log", path: `/mock/keepers/${CHANGES}.log`, bytes: 96 * KB }],
       });
       const store = sJobStory.draft!.sessions!(board, more);
+      modStore = store;
       // The first Job has changes from three places, so a Changes tab has a choice: its branch, two pull requests of its own, and the Job it started, which has a pull request.
       store.edit(CHANGES, (one) => ({
         ...one,
@@ -87,10 +186,14 @@ export const sJobLayouts: Scenario = {
         terminalRuns: true as const,
         later: () => {
           store.later();
+          for (const finish of [...turns.values()]) finish();
           // The tab reads the host of the page the Job opened, on the dev server's other port; the mock's browser is the one it already has.
           jobOpens(OPENS, "browser", "localhost:5174");
         },
         dispose: () => {
+          timers.forEach((one) => window.clearTimeout(one));
+          timers.clear();
+          turns.clear();
           disposeShells();
           store.dispose();
         },

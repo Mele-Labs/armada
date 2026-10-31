@@ -22,6 +22,7 @@ import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
 import { BrowserBody, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { CustomBody } from "../job-panes/custom-body";
 import { JobPanes } from "../job-panes/JobPanes";
 import type { Tab } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
@@ -166,6 +167,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
           return <FilesBody session={session} />;
         case "request":
           return <RequestBody session={session} />;
+        case "custom":
+          return <CustomBody tabId={tab.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
         case "system":
           return <Layer id="system" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "bays":

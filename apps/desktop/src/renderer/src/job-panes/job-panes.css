@@ -104,3 +104,16 @@
 .job-tree__row { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--h-control-sm); padding-inline-end: var(--space-3); border: 0; background: transparent; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-align: start; cursor: pointer; }
 .job-tree__row:hover { background: var(--bg-hover); color: var(--fg-default); }
 .job-tree__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+/* A Custom tab: the composer where it is described, the Mod Job's thread while it builds, then the view it made. */
+.job-custom { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+.job-custom[data-stage="compose"] { justify-content: flex-end; padding: var(--space-3); }
+.job-custom__edit { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); border-block-end: var(--border-width) solid var(--border-subtle); }
+.job-custom__edit > :first-child { flex: 1 1 0; min-width: 0; }
+.job-custom__thread { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: var(--space-3); overflow: auto; }
+.job-custom > .job-pane__scroll { flex: 1 1 0; min-height: 0; }
+/* The tab's glyph while its Mod Job builds it: the open ring turning, still under reduced motion. */
+.job-pane__working { display: inline-flex; }
+.job-pane__working svg { animation: job-pane-spin 1s linear infinite; }
+@keyframes job-pane-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .job-pane__working svg { animation: none; } }

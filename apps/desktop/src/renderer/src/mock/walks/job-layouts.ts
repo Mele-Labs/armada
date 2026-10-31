@@ -1,7 +1,7 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
 // and + adds a tab of any kind to it. The Layout control, an icon in the title bar beside the Job's views, is named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
 // Use for all Jobs makes a layout the one every Job opens on, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
-// layout as it was. The Job's acts (Auto land, Pause, Judge) are icons in the Thread's head, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, and ⇧⌘↵ zooms a pane and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
+// layout as it was. The Job's acts (Auto land, Pause, Judge) are icons in the Thread's head, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Custom builds a tab of its own from a description, and ⇧⌘↵ zooms a pane and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
@@ -52,6 +52,16 @@ const steps: Step[] = [
   { type: "pr:2391", into: role("combobox", "Changes from"), say: "The picker lists the branch, the Job's pull requests and the Job it started. A pull request" },
   { press: inside(pane("Changes"), button("Add tab")), say: "+" },
   { press: item("Ledger"), say: "Ledger: everything attached to the Job, by kind" },
+  { press: inside(pane("Ledger"), button("Add tab")), say: "+" },
+  { press: item("Custom"), say: "Custom is the last entry, under a rule" },
+  { type: "Pull requests waiting on me", into: inside(pane("Custom"), role("textbox", "Custom")), say: "Describe the tab" },
+  { press: inside(pane("Custom"), button("Send")), say: "Send" },
+  { look: inside(pane("Custom"), role("img", /^Mod Pull requests/)), say: "A Mod Job is building it: its thread shows, and its glyph turns" },
+  { later: inside(pane("Review queue"), tab("Review queue", { exact: true })), say: "The Job finishes, and the tab takes the mod's name" },
+  { look: inside(pane("Review queue"), button(/^Pull request #812/)), say: "Pull requests waiting on him, across repositories" },
+  { press: inside(pane("Review queue"), button("Add tab")), say: "+" },
+  { look: item("Review queue"), say: "The tab is in the menu by name, above Custom" },
+  { key: "Escape", on: item("Review queue"), say: "Esc" },
   { key: "Meta+l", on: places, say: "⌘L" },
   { look: item("Update Default"), say: "Update Default overwrites Default for every Job on it" },
 ];

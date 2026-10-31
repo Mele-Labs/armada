@@ -1,19 +1,24 @@
 // One pane: a strip of its tabs with a + that adds one, over the body of the tab in front. A tab is dragged to another pane's strip to move there, or to a pane's edge to split it.
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Minimize2, Plus, X } from "lucide-react";
-import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
+import { LoaderCircle, Minimize2, Plus, X } from "lucide-react";
+import { Button, DropdownMenu, Tooltip, boundKeyFor, seedDraft, type DropdownMenuEntry } from "@armada/components";
 
 import { hostOf, peekJobBrowser } from "../job-browser/store";
+import { useModList } from "../mod-list";
+import { useSessions } from "../sessions-draft";
+import { changeWords } from "../shared-panel/mod";
+import { customLabel, seedBuilt, setEditing, tabTitle, useCustom, useCustomTick } from "./custom";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { droppable, look, peek, rearrange } from "./store";
 import { moveToWindow, whyNotWindow } from "./windows";
 import { toggleZoom } from "./zoom";
-import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, type Pane, type Side, type Tab, type TabKind } from "./tree";
+import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, panesOf, type Pane, type Side, type Tab, type TabKind } from "./tree";
 
 /** The words a tab reads: its own label where it has one, else its kind. */
-export const labelOf = (tab: Tab): string => tab.label ?? KINDS[tab.kind].label;
+/** A Custom tab reads the name of the mod it built, once it has one. */
+export const labelOf = (tab: Tab): string => (tab.kind === "custom" ? customLabel(tab.id) : undefined) ?? tab.label ?? KINDS[tab.kind].label;
 
 /** What a new tab of a kind is called: a browser by its page's host, a terminal by its shell. The kinds there is one of keep their names. The mock's shell is zsh. */
 function labelFor(jobId: string, kind: TabKind): string | undefined {
@@ -25,13 +30,14 @@ function labelFor(jobId: string, kind: TabKind): string | undefined {
 const ZONES: readonly (Side | "middle")[] = ["left", "right", "top", "bottom", "middle"];
 
 /** The tab's own menu. Move to window is there for the kinds that have a window, and says why for the rest. */
-function tabEntries(kind: TabKind, zoomed: boolean): DropdownMenuEntry[] {
+function tabEntries(kind: TabKind, zoomed: boolean, editable: boolean): DropdownMenuEntry[] {
   const why = whyNotWindow(kind);
   return [
     { kind: "item", id: "window", label: "Move to window", ...(why === undefined ? {} : { disabled: true, hint: why }) },
     { kind: "item", id: "zoom", label: zoomed ? "Restore" : "Zoom", shortcut: boundKeyFor("pane_zoom") },
     { kind: "item", id: "right", label: "Split right", shortcut: boundKeyFor("pane_split_right") },
     { kind: "item", id: "down", label: "Split down", shortcut: boundKeyFor("pane_split_down") },
+    ...(editable ? [{ kind: "item", id: "edit", label: "Edit with a Job" } as const] : []),
     { kind: "separator", id: "rule" },
     { kind: "item", id: "close", label: "Close", danger: true },
   ];
@@ -41,6 +47,9 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
   const label = labelOf(tab);
   const { Glyph } = KINDS[tab.kind];
   const active = pane.active === tab.id;
+  const custom = useCustom(tab.id, tab.kind === "custom");
+  const building = tab.kind === "custom" && custom.stage === "building";
+  const modJob = useSessions().find((one) => one.id === custom.job);
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
   /** Closed by its own ×, or a middle click: the tab does not come to the front first. */
   const close = () => {
@@ -53,6 +62,10 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
     look(jobId, (arrangement) => focusPane(activate(arrangement, tab.id), pane.id));
     if (id === "window") moveToWindow(jobId, tab);
     else if (id === "zoom") toggleZoom(jobId, pane.id);
+    else if (id === "edit") {
+      seedDraft(`custom:${tab.id}`, changeWords(label, "tab"));
+      setEditing(tab.id, true);
+    }
     else if (id === "right" || id === "down") splitFocused(jobId, id);
     else if (id === "close") {
       rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
@@ -101,7 +114,15 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
           setPoint({ x: box.left, y: box.bottom });
         }}
       >
-        <Glyph size={16} strokeWidth={2} aria-hidden />
+        {building ? (
+          <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
+            <span className="job-pane__working" role="img" aria-label={modJob?.title ?? "Mod Job"}>
+              <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : (
+          <Glyph size={16} strokeWidth={2} aria-hidden />
+        )}
         <span>{label}</span>
       </button>
       <span className="job-pane__close">
@@ -111,18 +132,24 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
           </Button>
         </Tooltip>
       </span>
-      <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries(tab.kind, zoomed)} onSelect={choose} />
+      <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries(tab.kind, zoomed, tab.kind === "custom" && custom.stage === "built")} onSelect={choose} />
     </div>
   );
 }
 
 /** The kinds the + offers. A Job has one thread, so it is offered only when none is open. */
-function addEntries(thread: boolean): DropdownMenuEntry[] {
-  return TAB_KINDS.filter((kind) => kind !== "thread" || !thread).map((kind): DropdownMenuEntry => ({ kind: "item", id: kind, label: KINDS[kind].label, icon: KINDS[kind].Glyph }));
+function addEntries(thread: boolean, built: readonly string[]): DropdownMenuEntry[] {
+  const kinds = TAB_KINDS.filter((kind) => kind !== "custom" && (kind !== "thread" || !thread)).map((kind): DropdownMenuEntry => ({ kind: "item", id: kind, label: KINDS[kind].label, icon: KINDS[kind].Glyph }));
+  // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
+  const { Glyph } = KINDS.custom;
+  return [...kinds, { kind: "separator", id: "custom-rule" }, ...built.map((name): DropdownMenuEntry => ({ kind: "item", id: `mod:${name}`, label: tabTitle(name), icon: Glyph })), { kind: "item", id: "custom", label: KINDS.custom.label, icon: Glyph }];
 }
 
 export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; zoomed: boolean; thread: boolean; dragging: string | undefined; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
+  // A Custom tab turning over changes the words and glyph of its tab.
+  useCustomTick();
+  const built = useModList().filter((one) => one.kind === "tab" && one.valid && one.enabled).map((one) => one.name);
   // The pane under the pointer while a tab is dragged, lit as a whole.
   const [hot, setHot] = useState(false);
   useEffect(() => {
@@ -198,10 +225,14 @@ export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDra
           triggerLabel="Add tab"
           icon={Plus}
           portal
-          entries={addEntries(thread)}
+          entries={addEntries(thread, built)}
           onSelect={(id) => {
-            const kind = id as TabKind;
-            rearrange(jobId, (arrangement) => (kind === "thread" && hasKind(arrangement, "thread") ? arrangement : addTab(arrangement, pane.id, kind, labelFor(jobId, kind))));
+            const mod = id.startsWith("mod:") ? id.slice("mod:".length) : undefined;
+            const kind = (mod === undefined ? id : "custom") as TabKind;
+            rearrange(jobId, (arrangement) => (kind === "thread" && hasKind(arrangement, "thread") ? arrangement : addTab(arrangement, pane.id, kind, mod === undefined ? labelFor(jobId, kind) : tabTitle(mod))));
+            // The tab is the pane's front tab now; a built mod's is drawn as built.
+            const front = panesOf(peek(jobId).root).find((one) => one.id === pane.id)?.active;
+            if (mod !== undefined && front !== undefined) seedBuilt(front, mod);
             focusIn(pane.id);
           }}
         />
