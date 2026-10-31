@@ -98,20 +98,20 @@ test("a report dropped elsewhere leaves the band on bug_reports.changed, with no
   expect(reread).not.toHaveBeenCalled();
 });
 
-test("Start a Job opens the sheet in armada with the report as the brief", async () => {
+test("Start a Job drafts the Job in armada and opens it holding the report as the brief, with no sheet", async () => {
   await open();
   await userEvent.click(row(WATCH));
   await userEvent.click(reader().getByRole("button", { name: "Keep", exact: true }));
   await userEvent.click(reader().getByRole("button", { name: "Start a Job", exact: true }));
 
-  const request = page.getByRole("textbox", { name: "Request" });
-  await expect.element(request).toBeVisible();
-  const text = () => (request.element() as HTMLTextAreaElement).value;
-  await expect.poll(text).toContain("A watch stayed live after its pull request merged");
-  expect(text()).toContain("Steps\n1. Start a watch on a deploy with start_watch.");
-  expect(text()).toContain("Errors\nfleet.watch_live: a live watch holds this Job open");
-  expect(text()).toContain("Logs\n");
-  await expect.element(page.getByRole("radio", { name: "Repository armada" })).toBeChecked();
+  const job = page.getByRole("region", { name: /^Job: / });
+  await expect.element(job).toBeVisible();
+  await expect.element(job).toHaveTextContent("A watch stayed live after its pull request merged");
+  await expect.element(job).toHaveTextContent("Steps");
+  await expect.element(job).toHaveTextContent("Start a watch on a deploy with start_watch.");
+  await expect.element(job).toHaveTextContent("fleet.watch_live: a live watch holds this Job open");
+  expect(page.getByRole("region", { name: "Dispatch", exact: true }).query()).toBeNull();
+  expect(page.getByRole("textbox", { name: "Request" }).query()).toBeNull();
 });
 
 test("K keeps the report in the reader, and does nothing on a report already kept", async () => {
