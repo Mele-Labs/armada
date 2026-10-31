@@ -54,6 +54,12 @@ Every process of it has a replace note in its system prompt, ending in the hando
 The old Job's thread stays reachable behind the new one through `replaces` and `replaced_by`.
 A card with no brief still hands on, with the handoff alone.
 
+**A Job another Job started passes its link on.** Once the old Job has ended, the new one gets `started_by` naming the same parent and the parent gets `started_to` naming the new one, each with the old link's `detail.group`.
+The parent is told the old Job was handed on and to which Job, in place of hearing that it ended, and follows the new Job's merges and its end from then on (*Linked Jobs*).
+The link waits for the end because a hand undone before then closes the new Job, which the parent would hear as an end.
+A Fleet that stopped after the old Job ended writes the link at its next start.
+Seen 30 Oct 2026: a parent told only that its child ended started a duplicate, and watched the successor's pull request itself (armada-3903).
+
 **A failure leaves one live Job, the old one as it was.** If the new Job does not start, the old Job is untouched.
 If a step fails after the new Job is up, the ledger is handed back to the old Job, the links are given back and the new Job is closed, so two Jobs are never live.
 Either way a standing `handoff_failed` row is written to the old Job's ledger with `detail.reason`, a bare fact in lowercase, and `detail.brief`.
