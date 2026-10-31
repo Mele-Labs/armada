@@ -381,8 +381,10 @@ pub struct HeldInstance {
     /// What it came from, in the order the links were made. A link may name an instance the Job does
     /// not hold, as the Job that started this one.
     pub links: Vec<InstanceLink>,
-    /// When ending the Job ended it, standing where it was. Absent while it is live, and for one that
-    /// reached an end state of its own.
+    /// When ending the Job ended it, standing where it was, or handing it away did. Absent while it is
+    /// live, and for one that reached an end state of its own. **A ticket handed to the Job started for
+    /// its plan group ends this way, and no field says so**: it is the ended ticket that a `job` instance
+    /// of the Job lists among its `links`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<Instant>,
 }

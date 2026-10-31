@@ -59,5 +59,14 @@ export type KeepJobPiece = { session_id: string; kind: string; id: string };
 /** What `keep_job_piece` kept: a proposal on the owner's Needs-you list, and nothing written. `replaces` is whether Kit holds a file for the piece already. */
 export type JobPieceProposed = { change: number; kind: string; id: string; scope: PieceScope; replaces: boolean };
 
+/** One rule or lifecycle a Job kept for every Job that still waits on the owner's Approve: `text` is the piece's file as Approve would save it. */
+export type KeepDraft = { kind: "rule" | "lifecycle"; id: string; text: string };
+
+/** `list_keep_drafts` (`GET /lifecycles/keep_drafts?manifest_id=`): the open drafts of one repository, one per piece, oldest first. */
+export type KeepDrafts = { manifest_id: string; drafts: KeepDraft[] };
+
+/** `keep_drafts.changed`: a draft of a rule or lifecycle was begun, approved or dismissed in a repository. It carries no draft: read `list_keep_drafts` again. */
+export type KeepDraftsChanged = { manifest_id: string };
+
 /** `keep_job_workflow` (`POST /sessions/copy/keep`): the Job's copy of its workflow proposed for every Job. `source` is `repository` or `kit`. Answers a `WorkflowChange`. */
 export type KeepJobWorkflow = { session_id: string; source?: string };

@@ -317,7 +317,7 @@ pub use commanding::{
 pub use configured::ManifestConfig;
 pub use job_copy::{
     ChangeJobCopy, ChangeSessionSteps, ChangedBy, CopyPieceKind, JobCopy, JobCopyChange, JobCopyPiece, JobCopyStep, JobPieceProposed,
-    KeepJobPiece, KeepJobWorkflow, ProposeWorkflowChange, StepChange,
+    KeepDraft, KeepDrafts, KeepDraftsChanged, KeepJobPiece, KeepJobWorkflow, ProposeWorkflowChange, StepChange,
 };
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
@@ -618,7 +618,7 @@ pub use session_summary::{
     HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState,
 };
 pub use sessions::{
-    AnswerWaiting, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
+    AnswerWaiting, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,

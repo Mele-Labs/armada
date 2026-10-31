@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, PieceScope, SessionId, WorkflowId};
+use crate::{Instant, ManifestId, PieceScope, SessionId, WorkflowId};
 
 /// Who made a change to a Job's copy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -182,6 +182,30 @@ pub struct JobPieceProposed {
     pub scope: PieceScope,
     /// Kit already holds a file for this kind, id and scope, and Approve replaces it.
     pub replaces: bool,
+}
+
+/// One rule or lifecycle a Job kept for every Job that still waits on the owner's Approve.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeepDraft {
+    pub kind: CopyPieceKind,
+    /// The id the piece declares.
+    pub id: String,
+    /// The piece's file as Approve would save it.
+    pub text: String,
+}
+
+/// `list_keep_drafts`' answer: the open drafts of one repository, one per piece, oldest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeepDrafts {
+    pub manifest_id: ManifestId,
+    pub drafts: Vec<KeepDraft>,
+}
+
+/// `keep_drafts.changed`: a draft of a rule or lifecycle was begun, approved or dismissed in this repository.
+/// It carries no draft, so a client reads `list_keep_drafts` again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeepDraftsChanged {
+    pub manifest_id: ManifestId,
 }
 
 /// `propose_workflow_change`: a Job proposes new text for a workflow, for the owner to approve.

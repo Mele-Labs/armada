@@ -327,6 +327,7 @@
 @import "./compositions/WorkflowManager/WorkflowManager.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/RegisteredOwner/RegisteredOwner.css";
+@import "./compositions/RevisionMenu/RevisionMenu.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/RunningChecks/RunningChecks.css";
 @import "./compositions/SessionThread/SessionThread.css";

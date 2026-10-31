@@ -47,6 +47,8 @@ export type Beside = {
   watches?: readonly WatchSummary[];
   /** What the Job holds: its tickets, pull requests, deploys and the Jobs it started, from `get_job_lifecycles` and `job_lifecycles.changed`. Absent is none read, which draws no lanes. */
   lifecycles?: JobLifecycles;
+  /** What the Jobs this one started hold, by the key of the instance it holds for each: where a ticket handed to one is read. Only those whose lifecycles are read are here. */
+  started?: ReadonlyMap<string, StartedRead>;
   /** The rules that apply to the Job's repository, which the acts its rules planned are drawn on. */
   lifecycleRules?: readonly AppliedRule[];
   /** Picks of the proposer the person has changed here, which the record has not yet said. */
@@ -58,6 +60,20 @@ export type Beside = {
   /** Moves when something `picture` answers has changed without its identity doing so. */
   epoch?: number;
 };
+
+/** A Job this one started, as far as it is read: what it holds, and its record, whose ledger holds the issues it was handed. */
+export type StartedRead = { held: JobLifecycles; record: Pick<SessionRecord, "attachments"> | undefined };
+
+/** The title of each issue a Job and the Jobs it started hold, by key, the started Jobs' over its own. A row with no title yet is no title, and the ticket is drawn by its key. */
+function issueTitles(own: readonly SessionAttachment[], started: Beside["started"], beside: Beside): ReadonlyMap<string, string> {
+  const titles = new Map<string, string>();
+  const take = (attachments: readonly SessionAttachment[]) => {
+    for (const one of attachments) if (one.kind === "issue" && one.title !== "") titles.set(one.number, one.title);
+  };
+  take(own);
+  for (const one of started?.values() ?? []) take(one.record === undefined ? [] : attachmentsOfRecord(one.record, beside));
+  return titles;
+}
 
 const NO_WORKFLOWS: readonly WorkflowSummary[] = [];
 const NO_PICKS: ReadonlySet<ProposedField> = new Set();
@@ -125,6 +141,7 @@ function earlierOf(text: string | undefined): Record<string, unknown> | undefine
  * `detail`, and `against` the sketch it is read as a change to: a JSON string of `{ title, scene }`, the scene
  * itself JSON text again, so it is decoded in two steps (`detail` holds strings only). **A scene
  * that does not parse keeps its row and draws an empty frame**, so what the agent drew is still on the ledger.
+ * `revisions` is each drawing kept under the title, as documents keep theirs (`revisionsOfDetail`).
  */
 function sketchOf(one: Attachment): SessionAttachment {
   const detail: Record<string, string | undefined> = one.detail ?? {};
@@ -132,6 +149,7 @@ function sketchOf(one: Attachment): SessionAttachment {
   const earlier = earlierOf(detail["against"]);
   const earlierTitle = earlier !== undefined && typeof earlier["title"] === "string" ? earlier["title"] : undefined;
   const earlierScene = earlier === undefined ? undefined : sceneOfWire(earlier["scene"]);
+  const revisions = revisionsOfDetail(detail["revisions"]);
   return {
     kind: "sketch",
     id: one.target,
@@ -142,6 +160,7 @@ function sketchOf(one: Attachment): SessionAttachment {
     ...(detail["asked"] === "true" ? { asked: true as const } : {}),
     ...(detail["drawn"] === undefined || detail["drawn"] === "" ? {} : { drawn: detail["drawn"] }),
     ...settledOf(detail),
+    ...(revisions.length === 0 ? {} : { revisions }),
   };
 }
 
@@ -660,6 +679,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
       ? undefined
       : lanesOfJob({
           held: beside.lifecycles,
+          ...(beside.started === undefined ? {} : { started: new Map([...beside.started].map(([id, one]) => [id, one.held] as const)), titles: issueTitles(attachments, beside.started, beside) }),
           working: hosted?.turn.state === "working",
           ...(record.workflow_waiting_on === undefined ? {} : { waiting: record.workflow_waiting_on }),
           ...(beside.lifecycleRules === undefined ? {} : { rules: beside.lifecycleRules }),
@@ -724,7 +744,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }), ...(hosted.start.queued === true ? { queued: true } : {}) } }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
     ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at, ...(one.confirmed === true ? { confirmed: true } : {}) })) }),
-    ...(ended || record.held_open_by === undefined ? {} : { heldOpenBy: record.held_open_by }),
+    ...(ended || (record.held_open_by?.length ?? 0) === 0 ? {} : { heldOpenBy: record.held_open_by }),
     ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
     ...(work === undefined ? {} : { work }),
@@ -843,5 +863,8 @@ export class SessionMemo {
   }
 }
 
+/** Whether two readings of what the started Jobs hold are the same Jobs read the same times: `beside` builds a map each time, and a Job is drawn again only when one of these changed. */
+const sameStarted = (a: Beside["started"], b: Beside["started"]): boolean => a === b || (a !== undefined && b !== undefined && a.size === b.size && [...a].every(([id, one]) => b.get(id)?.held === one.held && b.get(id)?.record === one.record));
+
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;

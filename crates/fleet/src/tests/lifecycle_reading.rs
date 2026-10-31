@@ -145,6 +145,7 @@ fn kept(lifecycle: &str, key: &str, links: &[(&str, &str)], seen: Option<(&str, 
         watch_id: String::new(),
         taken_on_at: "t0".into(),
         ended_at: String::new(),
+        handed_to: String::new(),
     }
 }
 

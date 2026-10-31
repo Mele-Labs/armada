@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -180,7 +180,7 @@ const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0
 
 /**
  * **Filter**, at the right of the list's band: a glyph that opens a small menu. A search field heads it with the caret in
- * it, and under it are the four scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
+ * it, and under it are the five scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
  * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the glyph is lit and its tooltip says so.
  * ↑ from the first row opens it.
  */
@@ -206,7 +206,7 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
           search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
           open={open}
           onOpenChange={setSearching}
-          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope }))}
+          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope, ...(id === "paused" ? { icon: Pause } : {}) }))}
           onSelect={(id) => setScope(id as Scope)}
         />
       </Tooltip>
@@ -214,8 +214,9 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   );
 }
 
-/** What a linked Session's link glyph is called: the plan group it was handed, where it was. */
-const linkedSaid = (linked: { group?: string }) => (linked.group === undefined ? "Linked Job" : `Linked Job, handed from ${linked.group}`);
+/** What a linked Session's link glyph is called: the Job that started it where that one is in another repository, and the plan group it was handed, where it was. */
+const linkedSaid = (linked: { group?: string; from?: { title: string; repo: string } }) =>
+  `Linked Job${linked.from === undefined ? "" : `, started by ${linked.from.title} in ${linked.from.repo}`}${linked.group === undefined ? "" : `, handed from ${linked.group}`}`;
 
 /** What each thing a Session waits on is called, by the item's source. */
 const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", delivery: "Delivery", walk: "Walk", done: "Done", task_done: "Done?", draft: "Draft", sketch: "Sketch", document: "Document" };
@@ -275,7 +276,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     return (
       <li key={one.key} className="deck-list__item" style={one.linked?.depth === undefined ? undefined : ({ "--deck-depth": one.linked.depth } as CSSProperties)} data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} {...(toolsMissing === undefined ? {} : { tools: toolsMissingSaid(toolsMissing) })} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-lamp={lampOf(one)} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-lamp={lampOf(one)} data-linked={one.linked?.depth !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-paused={pausedIds.has(one.id) || undefined} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
           if (event.key === "h" && one.earlier !== undefined && !event.metaKey && !event.ctrlKey && !event.altKey) return (event.preventDefault(), onEarlier(one.earlier));
           if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;

@@ -80,17 +80,19 @@ pub struct Lifecycles {
 }
 
 impl Lifecycles {
-    /// What applies to `repository`: the four Armada carries and every file in `written` whose
-    /// scope names it, merged by id. `workspaces` says which Workspaces hold the repository.
+    /// What applies to `repository`: `built_in`, the four Armada carries as the repository's tracker
+    /// has them read, and every file in `written` whose scope names it, merged by id. `workspaces`
+    /// says which Workspaces hold the repository.
     pub fn applying_to(
         repository: &ManifestId,
         workspaces: &Workspaces,
+        built_in: Vec<Lifecycle>,
         written: impl IntoIterator<Item = Written>,
     ) -> Lifecycles {
         let (resolved, left_out) = resolve(
             repository,
             workspaces,
-            Lifecycle::built_in(),
+            built_in,
             written,
             |path, text| parse(path, text).map_err(|why| why.to_string()),
         );

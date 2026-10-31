@@ -10,6 +10,8 @@ import type {
   JobCopy,
   JobLifecycles,
   JobPieceProposed,
+  KeepDraft,
+  KeepDrafts,
   KeepJobPiece,
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
@@ -24,6 +26,8 @@ import type {
 
 /** What a read came to: what Fleet answered with, or the refusal to word. */
 export type LifecyclesActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+
+export type { KeepDraft, KeepDrafts };
 
 export type LifecyclesApi = {
   /** The Workspaces (sets of repositories) that hold one repository, and the files Fleet set aside. `GET /workspaces`. */
@@ -40,6 +44,10 @@ export type LifecyclesApi = {
   saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
   /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
   deleteLifecyclePiece: (body: DeleteLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceDeleted>>;
+  /** The Keep for every Job drafts of one repository that wait on the owner's Approve, one per piece, oldest first. `GET /lifecycles/keep_drafts`. */
+  listKeepDrafts: (manifestId: string) => Promise<LifecyclesActed<KeepDrafts>>;
+  /** `keep_drafts.changed`: a draft of a rule or lifecycle was begun, approved or dismissed in one repository. It names the repository and no draft, so read `listKeepDrafts` again. */
+  onKeepDraftsChanged: (onChanged: (manifestId: string) => void) => () => void;
   /** What one Job holds and where it stands, with its moves oldest first. A Job that holds nothing answers three empty lists. */
   getJobLifecycles: (sessionId: string) => Promise<LifecyclesActed<JobLifecycles>>;
   /** `job_lifecycles.changed`: one Job's lifecycles, whole, after an instance was taken on or moved. */
@@ -62,6 +70,7 @@ export const LIFECYCLES_CHANNELS = {
   listLifecycles: "bridge:list-lifecycles",
   listLifecycleRules: "bridge:list-lifecycle-rules",
   listAutonomyDefaults: "bridge:list-autonomy-defaults",
+  listKeepDrafts: "bridge:list-keep-drafts",
   saveLifecyclePiece: "bridge:save-lifecycle-piece",
   deleteLifecyclePiece: "bridge:delete-lifecycle-piece",
   getJobLifecycles: "bridge:get-job-lifecycles",
@@ -72,4 +81,6 @@ export const LIFECYCLES_CHANNELS = {
   keepJobPiece: "bridge:keep-job-piece",
   /** Main to every window, not a request. */
   jobLifecyclesChanged: "bridge:job-lifecycles-changed",
+  /** Main to every window, not a request. Carries the repository's id. */
+  keepDraftsChanged: "bridge:keep-drafts-changed",
 } as const;

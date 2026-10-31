@@ -123,6 +123,17 @@ describe("reading a Job's document", () => {
     expect(namesFile(held, "/etc/passwd")).toBe(false);
   });
 
+  it("names each redraw a sketch row lists and nothing else", () => {
+    const drawn = {
+      id: "S5",
+      attachments: [{ kind: "artifact", target: "sketch:Flow", state: "standing", detail: { form: "sketch", title: "Flow", revisions: JSON.stringify(["/store/sketches/S5/flow/r1.json", "/store/sketches/S5/flow/r2.json"]) } }],
+    } as unknown as SessionRecord;
+    expect(namesFile(drawn, "/store/sketches/S5/flow/r1.json")).toBe(true);
+    expect(namesFile(drawn, "/store/sketches/S5/flow/r2.json")).toBe(true);
+    expect(namesFile(drawn, "/store/sketches/S5/flow/r3.json")).toBe(false);
+    expect(namesFile(drawn, "sketch:Flow")).toBe(false);
+  });
+
   it("does not take a revision path from a row that is not a document", () => {
     const other = { id: "S4", attachments: [{ kind: "artifact", target: "/x", state: "standing", detail: { form: "page", revisions: JSON.stringify(["/store/r1.html"]) } }] } as unknown as SessionRecord;
     expect(namesFile(other, "/store/r1.html")).toBe(false);

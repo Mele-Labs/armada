@@ -197,3 +197,37 @@ fn what_leaves_a_state_and_comes_back_is_two_occurrences_and_two_keys_never_alik
     let b = seen(Standing::Unmapped("a:1:b".into()), Standing::Unmapped("c".into()), "t");
     assert_ne!(a.to_string(), b.to_string());
 }
+
+#[test]
+fn a_rule_over_held_tickets_leaves_the_one_the_job_handed_on_and_the_job_link_still_finds_it() {
+    let (ticket, job) = (tickets(), Lifecycle::job());
+    let ticket_in_to_do = |key: &str, handed: bool| {
+        let one = LifecycleInstance::taken_on(at(&ticket, key));
+        let mut one = if handed { one.handed_on() } else { one };
+        one.observe(&ticket, &Observed::Tracker("To Do")).expect("its own");
+        one
+    };
+    // The parent gave ARM-41 to the Job it started and kept ARM-42; the child holds ARM-41.
+    let mut parent = HeldInstances::new();
+    parent.take_on(ticket_in_to_do("ARM-41", true)).expect("held");
+    parent.take_on(ticket_in_to_do("ARM-42", false)).expect("held");
+    parent.take_on(LifecycleInstance::taken_on(at(&job, "child")).linked_to(at(&ticket, "ARM-41"))).expect("held");
+    let mut child = HeldInstances::new();
+    child.take_on(ticket_in_to_do("ARM-41", false)).expect("held");
+    let (defaults, started) = (AutonomyDefaults::new(), Occurrence::step_started(step("plan"), "t1"));
+
+    let planned = plan(&the_move_rule(), &defaults, &started, &parent, &mut RanOnce::new());
+    assert_eq!(on_keys(&planned), ["ARM-42"], "the parent's rule moves the ticket it kept and not the one it gave away");
+    let planned = plan(&the_move_rule(), &defaults, &started, &child, &mut RanOnce::new());
+    assert_eq!(on_keys(&planned), ["ARM-41"], "the Job it went to moves it");
+
+    let mut only_handed = HeldInstances::new();
+    only_handed.take_on(ticket_in_to_do("ARM-41", true)).expect("held");
+    assert!(plan(&the_move_rule(), &defaults, &started, &only_handed, &mut RanOnce::new()).is_empty(), "nothing left to hold is nothing to move");
+
+    let mut follows = parts("tell_when_the_child_lands", When::Enters { lifecycle: lifecycle_id("job"), state: state("landed") }, vec![Act::Wake]);
+    follows.conditions = vec![Condition::Instances { among: Among::LinkedFrom(lifecycle_id("ticket")), quantity: Quantity::Any, in_state: state("todo") }];
+    let landed = Occurrence::entered(at(&job, "child"), moved_into("landed"), "t2");
+    let planned = plan(&[rule(follows)], &defaults, &landed, &parent, &mut RanOnce::new());
+    assert_eq!(planned.len(), 1, "a rule that follows the Job link still finds the ticket it handed on");
+}

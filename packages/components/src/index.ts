@@ -108,6 +108,7 @@ export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/HandoffMark/HandoffMark";
 export * from "./compositions/NeedsYouPanel/HandoffBand";
 export * from "./compositions/NeedsYouPanel/ToolsBand";
+export * from "./compositions/NeedsYouPanel/WaitingBand";
 export * from "./compositions/PathChip/PathChip";
 
 // One row of the run — the step, its mark, its elapsed figure, and the short
@@ -378,6 +379,8 @@ export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 
+// Which revision of a document or a sketch is shown, newest first.
+export * from "./compositions/RevisionMenu/RevisionMenu";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";

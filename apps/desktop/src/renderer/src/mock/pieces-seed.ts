@@ -4,6 +4,7 @@
 import type { AppliedLifecycle, AppliedRule, LifecycleDefinition, LifecycleRule, WorkspaceOfRepositories } from "@armada/protocol";
 
 import type { KeptAutonomy } from "./workspaces-wire";
+import type { KeepDraft } from "../../../shared/api/lifecycles";
 
 /** Every piece the mock Fleet keeps, each with where it is kept. A read answers those that apply to the repository asked about. */
 export type PiecesSeed = {
@@ -12,6 +13,8 @@ export type PiecesSeed = {
   rules: readonly AppliedRule[];
   /** The autonomy layers kept beside them, for a scenario that names none through `draft.workspace`. */
   autonomy?: readonly KeptAutonomy[];
+  /** The Keep for every Job drafts waiting on Approve, each for the repository it was proposed in. */
+  keeps?: readonly (KeepDraft & { manifestId: string })[];
 };
 
 /** A repository of the seed: the id its pieces are read under and the root its folder is in. */

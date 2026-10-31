@@ -14,7 +14,7 @@ import {
   type NodeProps,
   type Viewport,
 } from "@xyflow/react";
-import { Ban, Check, CircleDot, Clock, Drone, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Trash2, UserCheck, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleHelp, Clock, Drone, Eye, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Ticket, Trash2, UserCheck, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -35,7 +35,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import { GRAPH_CANVAS_SIDES, GraphCanvas } from "../GraphCanvas/GraphCanvas";
 import { GEO, HOME, MIN_ZOOM, isArrow, nearest, panTo, place, placeChips, withToolbar, type Placement, type Rect } from "./layout";
-import { REMOVAL_WAITS } from "./model";
+import { PENDING_SAID } from "./model";
 import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
 
 /**
@@ -49,12 +49,14 @@ import type { LaneNodeView, LaneView, NodeKind, RuleView } from "./model";
  *
  * **Drawn at the scale it is read**, one canvas unit a pixel, so a node's name is the kit's body size and never fitted down to a frame: the lanes
  * fill its height and the person pans across. A rule's chip sits in the gutter between lanes, where no node is (`layout.ts`). **The canvas follows**: when the lanes change it pans
- * to what changed, with the earliest of it at the left; as it opens it shows where the Job stands; and it pans to a rule that is picked and to any node or chip that takes focus
+ * to what changed, with the earliest of it at the left; as it opens it shows where the Job stands, from the earliest state it holds where they are too wide for the frame; and it pans to a rule that is picked and to any node or chip that takes focus
  * by key or hover. The lane heads stand over the left of the frame, so a pan never takes a lane's name away. The zoom is the person's and nothing here changes it.
  *
  * **Every node is the shape of what it is** (`NodeKind`): a step a rounded box, a state the tracker or the forge reads a pill, a wait or a watch a hexagon, a Job another Job started a card with the drone glyph, and
  * where the workflow starts and ends small circles; a rule's chip leads with a diamond. Each kind has its own faint tint from `kinds.css`, which is never a status: what a node stands in is its frame and its mark.
- * A wait is reached by a dashed edge, a transition by a solid one.
+ * A wait is reached by a dashed edge, a transition by a solid one. **A Job that was started for a ticket holds it**, so its card, at the state the Job stands in, leads the ticket's key with the ticket
+ * glyph and ends it with a glyph for the state the ticket stands in (`TICKET_STATE`); the ticket's title, its state's name and who holds it are in the card's tooltip. The Job that started it has no lane for that ticket. **A lane's head says what the lane is** under its title, in its lifecycle's own name (`Job`, `Ticket`);
+ * the head of a Job's lane, where that Job has lanes of its own to open, opens them on a double-click or Enter (`onOpen`).
  *
  * **Edited by hand where `editing` is given.** What is picked shows a toolbar over it: Edit, Tell an agent, Add after and Delete; a hovered node shows connectors, and one dragged
  * to another node is `onConnect`. Edit takes the person to the picked thing's fields in the side panel, which are live; the first change on Armada's workflow makes the person's own copy, and nothing here says so.
@@ -98,6 +100,8 @@ export type LaneCanvasProps = {
   coveredBy?: HTMLElement | null | undefined;
   /** Teach, on the head of a ticket's lane: a menu there (a right press, the ContextMenu key or Shift+F10) offers it. Absent, a head is not pressed. */
   onTeach?: ((lane: LaneView) => void) | undefined;
+  /** On the head of a lane marked `opens`: a double-click, or Enter with the head focused, opens the Workflow of the Job it stands for. Absent, a head opens nothing. */
+  onOpen?: ((lane: LaneView) => void) | undefined;
 };
 
 /** A tooltip is held to the element it describes, and goes with it. */
@@ -115,6 +119,7 @@ type Held = {
   keyed: () => boolean;
   editing: LaneEditing | undefined;
   teach: ((lane: LaneView) => void) | undefined;
+  open: ((lane: LaneView) => void) | undefined;
   /** The lane drawn first, whose nodes carry their toolbar underneath since the frame ends above them. */
   topLane: string | undefined;
   /** The node a connector was started from by key, which the next node pressed ends. */
@@ -134,6 +139,12 @@ type CanvasNode = Node<LaneData, "lane"> | Node<ItemData, "item">;
 type CanvasEdge = Edge<RuleData, "rule"> | Edge<MoveData, "move">;
 
 const TIP_DELAY = 400;
+
+/** The line a head that opens a Job's Workflow adds to its tooltip. */
+const OPENS_SAID = "Double-click to open its Workflow";
+
+/** The glyph of a ticket's state on a Job's card, by the tracker lifecycle's state id. A state none names, or none at all, reads as unknown. */
+const TICKET_STATE: Readonly<Record<string, LucideIcon>> = { todo: CircleDashed, in_progress: CircleDot, in_review: Eye, done: CircleCheck, closed: CircleCheck };
 
 /** What a node's mark is, in the words its tooltip reads. */
 function markOf(node: LaneNodeView): { Glyph: LucideIcon; said: string } | undefined {
@@ -215,21 +226,25 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
         const pickable = hold.editing !== undefined && lane.kind === "lifecycle";
         const picked = hold.picked?.kind === "lane" && hold.picked.id === lane.id;
         const taught = hold.teach !== undefined && lane.ticket === true;
+        const opens = hold.open !== undefined && lane.opens === true;
+        const said = [...(lane.note === undefined ? [] : [lane.note]), ...(opens ? [OPENS_SAID] : [])];
         const words = (
           <>
             <span className="armada-lane__title">{lane.title}</span>
-            <span className="armada-lane__source">{lane.ended === true ? "Ended" : lane.source}</span>
+            <span className="armada-lane__source">{lane.ended === true ? "Ended" : (lane.what ?? lane.source)}</span>
           </>
         );
         return (
           <div
             key={lane.id}
+            role="group"
+            aria-label={lane.title}
             className="armada-lane__head"
             data-kind={lane.kind}
             data-picked={picked || undefined}
             data-ended={lane.ended || undefined}
             style={{ top: ty + band.y * zoom, height: band.h * zoom, width: GEO.head }}
-            onMouseEnter={(event) => lane.note !== undefined && hold.tip([lane.title, lane.note], event.currentTarget)}
+            onMouseEnter={(event) => said.length > 0 && hold.tip([lane.title, ...said], event.currentTarget)}
             onMouseLeave={() => hold.tip(undefined)}
           >
             {pickable ? (
@@ -240,13 +255,27 @@ function Heads({ lanes, placement }: { lanes: readonly LaneView[]; placement: Pl
               <Taught lane={lane} onTeach={hold.teach!}>
                 {words}
               </Taught>
+            ) : opens ? (
+              // A press with a pointer is the double-click; Enter on the focused head is the one click with no pointer behind it.
+              <button
+                type="button"
+                className="armada-lane__pick nodrag nopan"
+                data-lane={lane.id}
+                aria-label={`Open Workflow: ${lane.title}`}
+                onClick={(event) => event.detail === 0 && hold.open!(lane)}
+                onDoubleClick={() => hold.open!(lane)}
+                onFocus={(event) => event.currentTarget.matches(":focus-visible") && hold.tip([lane.title, ...said], event.currentTarget, true)}
+                onBlur={() => hold.tip(undefined)}
+              >
+                {words}
+              </button>
             ) : (
               words
             )}
-            {lane.pending === true ? (
+            {lane.pending !== undefined ? (
               <span className="armada-lane__pending">
-                <Tooltip label={REMOVAL_WAITS}>
-                  <span role="img" aria-label={REMOVAL_WAITS}>
+                <Tooltip label={PENDING_SAID[lane.pending]}>
+                  <span role="img" aria-label={PENDING_SAID[lane.pending]}>
                     <Clock size={14} strokeWidth={2} aria-hidden="true" />
                   </span>
                 </Tooltip>
@@ -309,14 +338,16 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
   const picked = hold.picked?.kind === "node" && hold.picked.id === node.id;
   const mark = markOf(node);
   const shape = SHAPE[node.kind];
+  const State = node.ticket === undefined ? undefined : (TICKET_STATE[node.ticket.stateId] ?? CircleHelp);
   const connectable = hold.editing !== undefined && shape !== "dot";
   const dropping = useConnection((one) => one.inProgress && one.fromNode.id !== node.id);
-  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ended === true ? ", ended" : ""}`;
+  const name = `${lane.kind === "workflow" ? "Step" : lane.title}: ${node.label}${node.who === undefined ? "" : `, assigned to ${node.who}`}${node.ticket === undefined ? "" : `, ticket ${node.ticket.label}${node.ticket.state === "" ? "" : `, ${node.ticket.state}`}`}${node.ended === true ? ", ended" : ""}`;
   const lines = [
     node.label,
     ...(node.waiting ?? (mark === undefined ? [] : [mark.said])),
     ...(node.facts ?? []),
     ...(node.who === undefined ? [] : [`Assigned to ${node.who}`]),
+    ...(node.ticket === undefined ? [] : [node.ticket.title === undefined ? `Ticket ${node.ticket.label}` : `Ticket ${node.ticket.label}: ${node.ticket.title}`, ...(node.ticket.state === "" ? [] : [`Ticket state: ${node.ticket.state}`]), `Held by ${lane.title}`]),
     ...(node.differs === undefined ? [] : [differsSaid(node.differs)]),
     ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub]),
   ];
@@ -402,6 +433,13 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
             <span>{node.who}</span>
           </span>
         )}
+        {node.ticket === undefined || State === undefined ? null : (
+          <span className="armada-lane-item__ticket" aria-hidden="true">
+            <Ticket size={14} strokeWidth={2} />
+            <span>{node.ticket.label}</span>
+            <State size={14} strokeWidth={2} />
+          </span>
+        )}
         {shape !== "card" || mark === undefined ? null : (
           <span className="armada-lane-item__status" aria-hidden="true">
             <mark.Glyph size={14} strokeWidth={2} />
@@ -441,7 +479,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
 
 /** The mark on a rule's chip: how it ended on a Job, or how much it may do alone in the editor. Acts alone carries none. */
 function chipMark(rule: RuleView): { Glyph: LucideIcon; said: string } | undefined {
-  if (rule.pending === true) return { Glyph: Clock, said: REMOVAL_WAITS };
+  if (rule.pending !== undefined) return { Glyph: Clock, said: PENDING_SAID[rule.pending] };
   if (rule.proposed === true) return { Glyph: ListPlus, said: "Proposed" };
   if (rule.needs !== undefined) return { Glyph: MessageCircleQuestion, said: "Waiting on you" };
   if (rule.status === "acted") return { Glyph: Check, said: "Acted" };
@@ -596,8 +634,8 @@ function TipView({ tip, within }: { tip: Tip; within: HTMLElement | null }) {
   );
 }
 
-/** A pan asked for: the rectangles to bring into view, and whether they are what changed. */
-type Pan = { n: number; rects: readonly Rect[]; follow: boolean; down?: true };
+/** A pan asked for: the rectangles to bring into view, and whether they are what changed. `earliest` is the opening one, which keeps the earliest of a set too wide for the frame. */
+type Pan = { n: number; rects: readonly Rect[]; follow: boolean; down?: true; earliest?: true };
 
 /**
  * Pans the canvas as asked, at the zoom the person has. It waits for the frame's size, so a request made as the canvas opens is kept until it can be met.
@@ -620,7 +658,7 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
     done.current = pan.n;
     const was = again ? ran.current!.was : flow.getViewport();
     ran.current = { was, height };
-    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow, pan.down === true) ?? (again ? was : undefined);
+    const next = panTo(pan.rects, was, { width: Math.max(1, width - covered), height }, content, pan.follow, pan.down === true, pan.earliest === true) ?? (again ? was : undefined);
     if (next === undefined) return;
     if (open && home.current === undefined) home.current = was;
     left.current = next;
@@ -644,10 +682,10 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
 }
 
 /** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
-const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.changed, node.differs, node.sub].map(String).join("|");
+const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.ticket?.label, node.ticket?.stateId, node.ticket?.state, node.changed, node.differs, node.sub].map(String).join("|");
 const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs].map(String).join("|");
 
-export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy, onTeach }: LaneCanvasProps) {
+export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy, onTeach, onOpen }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();
   const [connecting, setConnecting] = useState<string | undefined>();
   const [tip, setTip] = useState<Tip | undefined>();
@@ -682,8 +720,8 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
   const asked = useRef(0);
   const geometry = useRef({ placement, chips, toolbar: editing !== undefined, top: lanes[0]?.id });
   geometry.current = { placement, chips, toolbar: editing !== undefined, top: lanes[0]?.id };
-  /** `toolbar` names the ones that stand under a toolbar, which is brought into view with them. */
-  const reveal = useCallback((ids: readonly string[], follow = false, toolbar: readonly string[] = []) => {
+  /** `toolbar` names the ones that stand under a toolbar, which is brought into view with them. `earliest` is for the canvas opening: a set too wide for the frame is shown from its earliest, so a lane holding an early state is not left empty by one that stands further on. */
+  const reveal = useCallback((ids: readonly string[], follow = false, toolbar: readonly string[] = [], earliest = false) => {
     const { placement: laid, chips: placed, toolbar: editable, top } = geometry.current;
     const rects: Rect[] = [];
     for (const id of ids) {
@@ -698,7 +736,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
     }
     if (rects.length === 0) return;
     asked.current += 1;
-    setPan({ n: asked.current, rects, follow });
+    setPan({ n: asked.current, rects, follow, ...(earliest ? { earliest: true as const } : {}) });
   }, []);
 
   // When the lanes change, what changed is brought into view with the earliest of it at the left, and as they open, where the Job stands: the states it is in, what waits, what was
@@ -732,7 +770,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       ...lanes.flatMap((lane) => lane.nodes.filter((node) => node.changed !== undefined).map((node) => node.id)),
       ...rules.filter((rule) => rule.changed !== undefined).flatMap((rule) => [rule.id, rule.from, rule.to]),
     ]);
-    if (ids.size > 0) reveal([...ids], before === undefined || [...ids].some((id) => !copied.has(id)));
+    if (ids.size > 0) reveal([...ids], before === undefined || [...ids].some((id) => !copied.has(id)), [], before === undefined);
   }, [lanes, rules, reveal]);
 
   /** A lane that stands below or above the frame is brought into it, with the canvas left where it is across. */
@@ -799,6 +837,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       keyed: () => performance.now() - keyedAt.current < 300,
       editing,
       teach: onTeach,
+      open: onOpen,
       topLane: lanes[0]?.id,
       connecting,
       connect: (to) => {
@@ -807,7 +846,7 @@ export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, cover
       },
       reveal,
     }),
-    [here, picked, onPick, reveal, editing, onTeach, connecting, lanes],
+    [here, picked, onPick, reveal, editing, onTeach, onOpen, connecting, lanes],
   );
 
   // A connector dragged from one node's handle to another's.

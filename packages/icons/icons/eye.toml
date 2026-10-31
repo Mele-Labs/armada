@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Review. Nothing else may use it."
   notes = "One glyph, two places, by design. Badge at 12px, navigation at 16px."
+
+[[icons.eye.usage]]
+  means = "A ticket that is in review, on the card of the Job started for it"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`, the owner's answer of a glyph for each state. It ends the ticket's line on the card of a Job that was started for it, after the key, at 14px stroke 2 as the `ticket` glyph is, and the tooltip names the state in words: `Ticket state: In review`."

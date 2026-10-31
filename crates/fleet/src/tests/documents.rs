@@ -63,15 +63,15 @@ fn a_sketch_that_draws_tells_nothing_and_one_that_does_not_is_named_with_the_val
 fn two_identical_writes_keep_one_revision_and_a_changed_write_adds_the_next() {
     let home = TempDir::new();
     let folder = home.path().join("kept");
-    assert_eq!(keep(&folder, b"one").unwrap().map(|kept| kept.len()), Some(1));
-    assert_eq!(keep(&folder, b"one").unwrap(), None);
-    let kept = keep(&folder, b"two").unwrap().expect("changed");
-    assert_eq!(kept, revisions_in(&folder));
+    assert_eq!(keep(&folder, b"one", "html").unwrap().map(|kept| kept.len()), Some(1));
+    assert_eq!(keep(&folder, b"one", "html").unwrap(), None);
+    let kept = keep(&folder, b"two", "html").unwrap().expect("changed");
+    assert_eq!(kept, revisions_in(&folder, "html"));
     assert_eq!(kept.len(), 2);
     assert_eq!(std::fs::read(&kept[0]).unwrap(), b"one");
     assert_eq!(std::fs::read(&kept[1]).unwrap(), b"two");
     // Back to what the first held is still a change from the newest.
-    assert_eq!(keep(&folder, b"one").unwrap().map(|kept| kept.len()), Some(3));
+    assert_eq!(keep(&folder, b"one", "html").unwrap().map(|kept| kept.len()), Some(3));
 }
 
 async fn writes(rig: &Rig, at: usize, path: &str, call: &str, tool: &str, detail: &str) {

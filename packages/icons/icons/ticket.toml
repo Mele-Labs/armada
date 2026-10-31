@@ -26,3 +26,10 @@
   size = "16px"
   status = "Specified"
   notes = "Added 23 Oct 2026 with tracker mods in the list of every mod. The registry already draws an issue as `ticket`, so the tracker that keeps issues is a ticket too, beside `palette`, `eclipse`, `panels-top-left`, `link` and `bell` for the other kinds. Tooltip: Tracker."
+
+[[icons.ticket.usage]]
+  means = "The ticket a Job was started for, leading its key on that Job's card in the parent's lanes"
+  group = "Workspace lanes"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 30 Oct 2026 for the walk `ticket-on-job-lane`. The Job that was started for a ticket holds it, so the parent draws the ticket on that Job's lane and no lane of its own. The key follows the glyph and the ticket's state ends the line as a glyph of its own (`circle-dashed`, `circle-dot`, `eye`, `circle-check`, `circle-help`), tooltip `Ticket state: In review`, with the ticket's title and the Job that holds it. The registry already draws an issue as `ticket`."

@@ -2,7 +2,7 @@
 // and rule edges, which `LaneCanvas` places.
 
 import { CURRENT_STEP, DEFAULT, END_ITEM, START_ITEM, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, lifecyclesFor, nodeId, ruleAt, ruleDiffers, stateDiffers, stepDiffers } from "./model";
-import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, Rule, RuleView, Workspace } from "./model";
+import type { Instance, JobLanes, LaneNodeView, LaneStep, LaneView, Lifecycle, LifecycleKind, NodeKind, PendingKind, Rule, RuleView, Workspace } from "./model";
 
 /** The node a state of a lifecycle is drawn as, by what reads the lifecycle. */
 const STATE_KIND: Readonly<Record<LifecycleKind, NodeKind>> = { tracker: "tracker", forge: "forge", watch: "watch", document: "document", job: "job" };
@@ -93,8 +93,8 @@ export function editorLanes(input: {
   proposed?: readonly Rule[];
   /** `default`, `workspace`, or the id of one repository: the lanes as the workflow runs there, with that level's names, words and autonomy, and the marks for what differs from it down. */
   scope?: string;
-  /** The rules and lifecycles a pull request is removing from their repository, as `rule:<id>` and `lifecycle:<id>`. */
-  pending?: ReadonlySet<string>;
+  /** The rules and lifecycles that wait on a pull request removing them or on a draft keeping them, as `rule:<id>` and `lifecycle:<id>`, with which wait each is. */
+  pending?: ReadonlyMap<string, PendingKind>;
 }): { lanes: LaneView[]; rules: RuleView[] } {
   const { workspace, workflow } = input;
   const scope = input.scope ?? DEFAULT;
@@ -132,10 +132,12 @@ export function editorLanes(input: {
         return { id: nodeId(lifecycle.id, state.id), label: state.label, col: state.col, role: "state" as const, kind: kindOfState(lifecycle), ...(state.end === true ? { end: true as const } : {}), ...(differs.length === 0 ? {} : { differs }) };
       }),
     );
-    return input.pending?.has(`lifecycle:${lifecycle.id}`) === true ? { ...lane, pending: true as const } : lane;
+    const waits = input.pending?.get(`lifecycle:${lifecycle.id}`);
+    return waits === undefined ? lane : { ...lane, pending: waits };
   });
   const drawn = (rule: Rule, proposed: boolean): RuleView => {
     const differs = marked(ruleDiffers(rule));
+    const waits = input.pending?.get(`rule:${rule.id}`);
     return {
       id: rule.id,
       rule: rule.id,
@@ -145,7 +147,7 @@ export function editorLanes(input: {
       autonomy: rule.autonomy,
       ...(differs.length === 0 ? {} : { differs }),
       ...(proposed ? { proposed: true as const } : {}),
-      ...(input.pending?.has(`rule:${rule.id}`) === true ? { pending: true as const } : {}),
+      ...(waits === undefined ? {} : { pending: waits }),
     };
   };
   return {
@@ -220,13 +222,14 @@ export function jobLanes(job: JobLanes, standing: JobStanding): { lanes: LaneVie
             ...(state.id !== instance.state && instance.visited.includes(state.id) ? { passed: true as const } : {}),
             ...(state.end === true ? { end: true as const } : {}),
             ...(state.id === instance.state && instance.assignee !== undefined ? { who: instance.assignee } : {}),
+            ...(state.id === instance.state && instance.ticket !== undefined ? { ticket: instance.ticket } : {}),
             ...(says === undefined ? {} : { facts: [says] }),
             ...(changed === undefined ? {} : { changed }),
           };
         }),
       );
       const changed = job.changes.find((one) => one.lane === instance.lifecycle && one.item === "")?.text;
-      return [{ ...lane, ...(instance.ended === true ? { ended: true as const } : {}), ...(changed === undefined ? {} : { changed }) }];
+      return [{ ...lane, what: lifecycle.label, ...(instance.ended === true ? { ended: true as const } : {}), ...(changed === undefined ? {} : { changed }) }];
     }),
   ];
   const stepAt = (id: string) => copy.steps.findIndex((one) => one.id === id);

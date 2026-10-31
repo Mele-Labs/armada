@@ -85,6 +85,10 @@ pub struct PlanGroupInput {
     /// pull request share a label. Absent is `PR 1`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lands_in: Option<String>,
+    /// The group goes to a Job of its own: the caller starts it with `start_another_job` naming the
+    /// group. Absent is false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub own_job: bool,
     pub tasks: Vec<PlanTaskInput>,
 }
 
@@ -235,7 +239,7 @@ impl RecordPlan {
             if lands_in.as_deref().is_some_and(|one| one.chars().count() > MOST_LANDS_IN_CHARS) {
                 problems.push(format!("{place} `lands_in` is longer than {MOST_LANDS_IN_CHARS} characters"));
             }
-            groups.push(PlanGroupInput { id, title, agent, paths, issue, gives, lands_in, tasks });
+            groups.push(PlanGroupInput { id, title, agent, paths, issue, gives, lands_in, own_job: group.own_job, tasks });
         }
         if total > MOST_TASKS {
             problems.push(format!("{total} tasks, and a plan holds at most {MOST_TASKS}"));
@@ -331,7 +335,8 @@ pub struct SessionPlanGroup {
     pub paths: Vec<String>,
     pub tasks: Vec<SessionPlanTask>,
     /// The issue the group works, as the ledger's `issue` row names it: digits or a tracker's key.
-    /// Absent where it names none.
+    /// Absent where it names none. **Fleet fills it** where the agent sent none and the group's title or
+    /// tasks write exactly one ticket the Job holds, and never over one the agent sent.
     #[serde(
         default,
         deserialize_with = "crate::issue_reference::number_or_text",
@@ -345,6 +350,9 @@ pub struct SessionPlanGroup {
     /// to that label. Always present; the label is `PR 1` where the agent named none.
     #[serde(default)]
     pub lands_in: PlanLandsIn,
+    /// The group goes to a Job of its own, as the agent wrote it. Absent is false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub own_job: bool,
 }
 
 /// Where a group lands. Every group that shares a label reads the same `pull_request`.

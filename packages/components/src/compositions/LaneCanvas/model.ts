@@ -326,6 +326,15 @@ export type NodeKind = "step" | "wait" | "tracker" | "forge" | "document" | "wat
 /** What the mark on a piece says while the pull request that removes it from the repository is open. */
 export const REMOVAL_WAITS = "Removed from the repository when its pull request merges";
 
+/** What the mark says while the draft that keeps the piece for every Job waits on the owner's Approve. */
+export const KEEP_WAITS = "Kept for every Job once its draft is approved";
+
+/** What a piece's clock waits on: a pull request that removes it, or the owner's Approve of a draft that keeps it. */
+export type PendingKind = "removal" | "keep";
+
+/** The sentence of each wait, which is its mark's tooltip. */
+export const PENDING_SAID: Readonly<Record<PendingKind, string>> = { removal: REMOVAL_WAITS, keep: KEEP_WAITS };
+
 /** Where the workflow starts and ends, drawn as small circles at the ends of its lane: not steps, so nothing picks them. */
 export const START_ITEM = "$start";
 export const END_ITEM = "$end";
@@ -352,6 +361,8 @@ export type LaneNodeView = {
   ended?: boolean;
   /** Who the instance in this state is assigned to, drawn on the node. */
   who?: string;
+  /** The ticket the Job on this lane was started for and now holds, drawn on the node the Job stands at, as `who` is. */
+  ticket?: CarriedTicket;
   /** What is known of the instance at this state, one line each in the node's tooltip: the reviewers on a pull request. */
   facts?: readonly string[];
   /** The Job's own copy changed here, and how. */
@@ -366,10 +377,14 @@ export type LaneView = {
   title: string;
   /** Under the title, quiet: where its states are read from. */
   source: string;
+  /** What kind of thing the lane is, in its lifecycle's own name, drawn under the title in place of `source` where the title is not that name: a Job's lane is titled for the Job, so it reads `Job`. */
+  what?: string;
   /** The tooltip of the title: a ticket's own title. */
   note?: string;
   /** The tracker's lifecycle: this lane is a ticket. */
   ticket?: true;
+  /** Its head opens the Workflow of the Job the lane stands for (`onOpen`): set by the caller, which knows whether that Job has lanes to open. */
+  opens?: true;
   /** Ending the Job ended this instance. */
   ended?: boolean;
   /** The Job's own copy of this lane's lifecycle changed, and how. */
@@ -377,8 +392,8 @@ export type LaneView = {
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
   moves: readonly (readonly [string, string])[];
-  /** The repository's file that defines it is being removed by a pull request that has not merged. */
-  pending?: true;
+  /** The repository's file that defines it is being removed by a pull request that has not merged, or a draft that keeps it for every Job waits on Approve. */
+  pending?: PendingKind;
 };
 
 export type RuleView = {
@@ -401,8 +416,8 @@ export type RuleView = {
   proposed?: true;
   /** The Job's own copy changed this rule, and how. */
   changed?: string;
-  /** The repository's file that defines it is being removed by a pull request that has not merged. */
-  pending?: true;
+  /** The repository's file that defines it is being removed by a pull request that has not merged, or a draft that keeps it for every Job waits on Approve. */
+  pending?: PendingKind;
   /** The same rule's second edge: drawn with its mark and no words. */
   quiet?: true;
   /** What the rule did, a line for each act, as the chip's tooltip says it: `Assigned to you, moved to In progress`. Absent reads the status. */
@@ -410,6 +425,12 @@ export type RuleView = {
 };
 
 // ---- A Job's lanes -------------------------------------------------------------------------------------------------------
+
+/**
+ * A ticket a started Job holds for the Job that started it: its key, its title where the source gave one, the name of the state it stands in as the lifecycle names it, and that
+ * state's id. **Both are `""` where it stands in none**: it is not read yet, or the source said a status no state lists, which `state` then keeps as it was said.
+ */
+export type CarriedTicket = { label: string; title?: string; state: string; stateId: string };
 
 /** One thing a Job holds: a ticket, its pull request, a deploy. */
 export type Instance = {
@@ -420,6 +441,8 @@ export type Instance = {
   label: string;
   /** A ticket's own title. */
   title?: string;
+  /** For a Job this one started: the ticket it was started for. That Job holds the ticket and its rules move it, so this Job has no lane for it and reads it from there. */
+  ticket?: CarriedTicket;
   /** `""` where it stands in no state: not read yet, or a status its lifecycle lists none for. */
   state: string;
   /** The word its source used, for a status no state lists. It is in flight until the lifecycle maps it. */

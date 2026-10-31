@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
-import { sessionGlyphOf } from "@armada/components";
+import { bucketOf, sessionGlyphOf, type JobBucket } from "@armada/components";
 import type { HubPullRequest, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
@@ -31,7 +31,8 @@ export const PHASES: readonly Phase[] = ["needs", "working", "held", "done"];
 /** Gray is calm. `ask` is waiting on him; `bad` is broken. Colour and motion are only for those two. */
 export type Tone = "calm" | "ask" | "bad";
 
-export type Mark = { Glyph: LucideIcon; said: string; tone: Tone };
+/** `bucket` is the hue a Session's glyph wears, one of the five a row reads at a glance; a pull request's mark has none. */
+export type Mark = { Glyph: LucideIcon; said: string; tone: Tone; bucket?: JobBucket };
 
 /** A pull request, a phase of whoever owns it. */
 export type Pr = {
@@ -91,8 +92,8 @@ export type Subject = {
   older?: true;
   /** When it last took a turn, in ms: the order a past list reads in, and the age the row draws. */
   at?: number;
-  /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent, `depth` steps in, with the line of each level in `rails` running on past it. */
-  linked?: { parent: string; group?: string; depth?: number; rails?: readonly number[] };
+  /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent, `depth` steps in, with the line of each level in `rails` running on past it, or, where the parent is listed in another repository's group, on its own with that parent's title and repository in `from`. */
+  linked?: { parent: string; group?: string; depth?: number; rails?: readonly number[]; from?: { title: string; repo: string } };
   /** The Job this one took the place of, by id: the row offers it, and the order gives this one that Job's place. */
   earlier?: string;
   /** A Job another took the place of: it is no row of any list, and opens only from that Job's row. */
@@ -145,9 +146,10 @@ const one = (text: string) => text.split("\n")[0]!.trim();
 function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
   // A paused Job is calm and reads Paused: nothing is asked of him.
-  if (state === "paused") return { Glyph: sessionGlyphOf(state), said, tone: "calm" };
-  const tone: Tone = state === "waiting" || state === "done" || state === "draft" || state === "unstarted" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
-  return { Glyph: sessionGlyphOf(state), said, tone };
+  const bucket = bucketOf(state);
+  if (state === "paused") return { Glyph: sessionGlyphOf(state), said, tone: "calm", bucket };
+  // Stuck, and idle on red Checks, need him as a question does: amber, never a red of their own.
+  return { Glyph: sessionGlyphOf(state), said, tone: bucket === "needs" ? "ask" : "calm", bucket };
 }
 
 /** The row's line under the title is the last of these: the account's now line while a turn runs, else what it last said. */
@@ -377,8 +379,10 @@ export function shipOf(input: Inputs): Ship {
   );
   const raised = [...calls];
   for (const subject of subjects) {
-    if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;
+    if (subject.kind === "pr" || subject.call !== undefined) continue;
     const session = subject.kind === "session" ? sessions.find((one) => one.id === subject.id) : undefined;
+    // A draft's row is quiet, but its start card still asks him to press Start.
+    if (subject.phase !== "needs" && session?.start === undefined) continue;
     const at = session?.lastTurnAt;
     // What the Session waits on keeps the label its own call had before he looked, so the call returns as it was.
     const waits = session === undefined ? undefined : waitingOf(session).sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];

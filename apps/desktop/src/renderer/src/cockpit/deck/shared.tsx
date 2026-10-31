@@ -11,7 +11,7 @@ export function MarkGlyph({ mark, size = 16 }: { mark: Mark; size?: 12 | 16 | 20
   const { Glyph } = mark;
   return (
     <Tooltip label={mark.said}>
-      <span className="deck-mark" data-tone={mark.tone} role="img" aria-label={mark.said}>
+      <span className="deck-mark" data-tone={mark.tone} data-bucket={mark.bucket} role="img" aria-label={mark.said}>
         <Glyph size={size} strokeWidth={2} aria-hidden="true" />
       </span>
     </Tooltip>
